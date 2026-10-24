@@ -1,6 +1,6 @@
-# internaltools
+# paperweight
 
-Internal business tools for a small Indian company: purchase orders, goods receipts (GRN), expense claims and, later, delivery challans, projects and invoices. It is one Go binary on SQLite, built module by module on a shared core (users and rights, numbering, document lifecycle, approvals, attachments and printing, masters, and number/GST rules). Accounting stays in Zoho Books.
+Keeps the paperwork from blowing away. Internal business tools for a small Indian company: purchase orders, goods receipts (GRN), expense claims and, later, delivery challans, projects and invoices. It is one Go binary on SQLite, built module by module on a shared core (users and rights, numbering, document lifecycle, approvals, attachments and printing, masters, and number/GST rules). Accounting stays in Zoho Books.
 
 **Status:** specification and plans only. No code has been written yet.
 
