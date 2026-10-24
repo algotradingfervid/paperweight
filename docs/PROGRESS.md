@@ -26,5 +26,5 @@ Work-package done rule: spec §9 rule 3 (CD-40). Check with `go run ./scripts/ch
 
 - Product owner reviews the specs and plans and chooses an execution method (subagent-driven recommended).
 - Local Go is 1.25.5; the spec needs 1.27.3 (`go` downloads it through the toolchain directive).
-- The repository is not yet a git repository; WP0 Task 1 runs `git init`.
+- Git repository: https://github.com/algotradingfervid/paperweight (public). WP0 Task 1 skips `git init`.
 - The Common Core Blueprint artifact (https://claude.ai/artifact/2LtWD6ytFvrZJYvW2786y7) still recommends Frappe; the decided stack is Go + templ + htmx + SQLite.
