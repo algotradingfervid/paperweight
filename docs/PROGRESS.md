@@ -207,6 +207,15 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-APR | CD-157 test changes, engine default, CD-162, CD-168 | High | crew-implementer, crew-reviewer | 17:58 | 18:27 | 1 | engine default green after AD-4/AD-1 changes | a65b452..44b9884 |
 | Merges | APR complete a53b971; `make ci` green. NUM, NAM, APR, DOC, FILE complete | — | director | | 21:05 | — | — | — |
 | Budgets | AD-3 finished: head 2, AD-1 5, AD-2 3, AD-5 12, 3 held in reserve for whoever asks | — | director | | 21:05 | — | — | — |
+| WP1-AUTH | CD-153 import rule; rebase on main a6e6a43; make ci green, checkids 92/92 | — | crew-implementer (haiku), crew-verifier | | 17:42 | 1 | — | 2a125db |
+| WP1-AUTH | 16 P2 sign-in, password, sessions | High | crew-test-writer, crew-implementer, crew-reviewer | 17:40 | 17:50 | 1 | 0/2/3 (session start-time test too weak; no non-admin unlock control; RevokeOthers on store; unlock audit only when locked; AUTH-038 plan times differ from case) | 43084c3 tests, ba09712, 13f89c5 |
+| WP1-AUTH | 18 P2 scope, fuzz, denials | High | crew-test-writer, crew-implementer, crew-reviewer | 17:40 | 17:54 | 1 | 0/1/4 (AllowedRights test ignored rec → per-record cases; refused report caller; RestrictionLabels skips unknown codes; TEST-DISPUTE AUTH-104 version, ruled) | 264e52d tests, b519216 ruling, a9e07d4, a02575f |
+| WP1-AUTH | CD-156 ids never reused | High | crew-implementer, crew-reviewer | | | 1 | 0/0/0 | 2faefcc (merged 5aecfe2) |
+| WP1-AUTH | CD-157 C authfake denial text | High | crew-implementer, crew-reviewer | | | 1 | 0/0/2 | b843525 (merged 7e2bf9b) |
+| WP1-AUTH | 21 Styled sign-in, password, session views | Standard | crew-implementer, crew-reviewer | 17:50 | 18:09 | 1 | 0/1/4 (End all other sessions → CD-159; ErrorSummary role=alert wrapper dropped (CD-159 UI); must-differ rule; ps-6; Unknown device) | 3b05436 (rebased) |
+| WP1-AUTH | 17 P2 users, roles, matrix | High | crew-test-writer, crew-implementer, crew-reviewer | 17:45 | 18:23 | 2 | 0/5/9 (CD-158: id-in-write, role versions, Config.Seed, no role resurrection; missing tests added; TEST-DISPUTE matrix tests post version; rename keeps no defaults on reset, by design) | e0bed74 |
+| WP1-AUTH | 19 P2 Who can view | Standard | crew-test-writer, crew-implementer, crew-reviewer | 18:00 | 18:33 | 1 | 0/1/4 (authweb imported internal/ui → moved to screens + import test; shared restrictionLabels; unknown right 400; RightLabel; default doctype) | 68e4c8d |
+| Merges | AUTH P2 batch (16–19, 21) 5db427c; `make ci` green. AUTH left: Task 20 (waits for UI-M2) and CD-171 | — | director | | 21:20 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
@@ -250,6 +259,7 @@ Nothing in flight; every worktree is clean. Next step per WP:
 - WP3 (from FILE): mount files/web under a prefix (its NotFound says "File not found."); run `files check` when idle (in-flight uploads look like orphans); CopyAll order is untested; the `signedOut` helper is duplicated in files/web and print/web.
 - NUM follow-ups (it-num/.work/carry-over.md): IGST tolerance-message test; inter-state CGST message wording; NUM-076 tzdata check.
 - APR carry-overs: it-approval/.work/carry-over.md (read before WP3 Task 1's APR suite).
+- WP3 Task 2: run `auth.SeedDefaults` at startup before serving; set `authweb.Config.PickerURL` once AUTH Task 20 lands.
 - WP3 Task 2: set `authweb.Config.Seed` to `auth.SeedOptions{LinkedMasterRead: true}` (CD-158, CD-10).
 - DOC carry-overs: `audit` ListDeleted has no partial index on action='delete' (add in a new audit migration if the admin page slows; CD-117 sqlc list); DOC-002's explicit-0 check can't fail until a fixture field has a non-zero default; `audit_log.id` stays plain INTEGER PRIMARY KEY (its no-delete trigger prevents reuse).
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
