@@ -137,6 +137,11 @@ func (a *Auth) UsersWithRight(context.Context, string, auth.Right, *auth.RecordR
 	return nil, nil
 }
 
+// Restricted reports no restriction on any dimension (CD-174).
+func (a *Auth) Restricted(context.Context, *db.Tx, auth.Principal, string) (bool, error) {
+	return false, nil
+}
+
 // HasRole reads the roles registered with Remember.
 func (a *Auth) HasRole(_ context.Context, u auth.UserID, role string) (bool, error) {
 	a.mu.Lock()

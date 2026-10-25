@@ -49,14 +49,19 @@ type UserInfo struct {
 }
 
 // forbiddenError is the WP0 placeholder behind ErrForbidden (CD-44). AUTH may
-// replace the value but keeps doctype.HTTPError.
+// replace the value but keeps doctype.HTTPError. A non-empty msg is
+// Forbidden's custom message (CD-174).
 //
 // Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-type forbiddenError struct{}
+type forbiddenError struct{ msg string }
 
-func (*forbiddenError) Error() string {
+func (e *forbiddenError) Error() string {
+	if e.msg != "" {
+		return e.msg
+	}
 	return "You don't have permission to do this. Ask your administrator for a role that allows it."
 }
+func (*forbiddenError) Is(target error) bool              { return target == ErrForbidden }
 func (*forbiddenError) Status() int                       { return 403 }
 func (*forbiddenError) FieldErrors() []doctype.FieldError { return nil }
 
@@ -78,6 +83,7 @@ type Service interface {
 	User(ctx context.Context, tx *db.Tx, u UserID) (UserInfo, bool, error)
 	DisableUser(ctx context.Context, tx *db.Tx, u UserID, reason string) error
 	EnableUser(ctx context.Context, tx *db.Tx, u UserID) error
+	Restricted(ctx context.Context, tx *db.Tx, p Principal, dimension string) (bool, error) // any restriction on dimension? (CD-174)
 }
 
 type Directory interface { // CD-13: implemented by MST, wired by internal/app
