@@ -35,9 +35,14 @@ func SplitGST(taxable types.Money, rate types.Percent, interState bool) (cgst, s
 	return half, half, 0
 }
 
-func IsInterState(supplierState, receiverState string) bool { return false }
+// IsInterState reports whether supplier and receiver are in different GST states.
+func IsInterState(supplierState, receiverState string) bool { return supplierState != receiverState }
 
 // Totals taxes each line on its own and sums the lines into the header (Line carries InterState).
 func Totals(lines []Line, rounded bool) DocTotals { return totals(lines, rounded) }
 
-func StateName(code string) (string, bool) { return "", false }
+// StateName returns the name for a GST state code; false when the code is unknown.
+func StateName(code string) (string, bool) {
+	name, ok := stateNames[code]
+	return name, ok
+}
