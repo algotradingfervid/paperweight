@@ -21,6 +21,7 @@ type DocView struct {
 	Version        int
 	Record         auth.RecordRef
 	Header         []components.Pair
+	Display        map[string]string // header display values by field name
 	Inputs         map[string]string
 	Lines          []LineView
 	GrandTotal     string
@@ -98,7 +99,8 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 			DocType: i.DocType, ID: i.ID, CreatedBy: i.CreatedBy,
 			EmployeeID: i.EmployeeID, ProjectIDs: i.ProjectIDs, SiteIDs: i.SiteIDs,
 		},
-		Inputs: map[string]string{},
+		Display: map[string]string{},
+		Inputs:  map[string]string{},
 	}
 	for _, f := range dt.Fields {
 		if f.OnLine {
@@ -116,6 +118,7 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 			return DocView{}, err
 		}
 		v.Header = append(v.Header, components.Pair{Label: f.Label, Value: shown, Num: numeric(f)})
+		v.Display[f.Name] = shown
 		if v.Inputs[f.Name], err = inputValue(f, plain); err != nil {
 			return DocView{}, err
 		}

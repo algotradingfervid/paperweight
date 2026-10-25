@@ -186,6 +186,10 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 			d.reasonPost(w, r, dt, id, name, rp, version, pr)
 			return
 		}
+		if a == doctype.ActionSubmit && pr.Status == http.StatusUnprocessableEntity {
+			d.failingStep(w, r, dt, id, pr)
+			return
+		}
 		d.refused(w, r, dt, id, pr)
 		return
 	}
@@ -207,10 +211,10 @@ func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 	ui.Render(w, r, pr.Status, docPage(pv), docMain(pv))
 }
 
-// succeeded sends the user on (CD-80): htmx gets the document page with the
-// banners rendered and HX-Push-Url; otherwise the banners go in the flash
-// and a 303 follows. Pages Task 14 renders (the check page) and the list
-// are reached by a full load (HX-Redirect), which shows the flash.
+// succeeded sends the user on (CD-80): htmx gets the page the action leads
+// to (the document page, a check page or the list) with the banners
+// rendered and HX-Push-Url; otherwise the banners go in the flash and a 303
+// follows.
 func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, a doctype.Action, res doc.Result, display string) {
 	ctx := r.Context()
 	p := d.principal(r)
@@ -224,7 +228,19 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	case doctype.ActionDelete:
 		to, onPage = "/doc/"+dt.Name, false
 	}
-	if ui.IsHTMX(r) && onPage {
+	if ui.IsHTMX(r) && !onPage {
+		switch a {
+		case doctype.ActionDelete:
+			w.Header().Set("HX-Push-Url", to)
+			d.renderList(w, r, dt, text, res.Warnings)
+		case doctype.ActionAmend:
+			d.checkPage(w, r, dt, res.ID, text, res.Warnings)
+		default:
+			d.checkPage(w, r, dt, id, text, res.Warnings)
+		}
+		return
+	}
+	if ui.IsHTMX(r) {
 		v, err := d.View(ctx, p, dt.Name, id)
 		if err != nil {
 			problem(w, r, err)
@@ -245,11 +261,6 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	}
 	for _, msg := range res.Warnings {
 		web.Flash(ctx, "warning", msg)
-	}
-	if ui.IsHTMX(r) {
-		w.Header().Set("HX-Redirect", to)
-		w.WriteHeader(http.StatusNoContent)
-		return
 	}
 	if a == doctype.ActionApprove {
 		to += "?next=1"

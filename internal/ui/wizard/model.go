@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/a-h/templ"
+
 	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
@@ -40,7 +42,10 @@ const (
 )
 
 // Model is everything the stepper and frame show. Current is the step on
-// screen and Furthest the furthest step reached, both 0-based.
+// screen and Furthest the furthest step reached, both 0-based. Action is
+// the step form's action ("" = StepURL(Current)), and After renders after
+// the step form, inside #wizard, for content holding forms of its own
+// (forms can't nest).
 type Model struct {
 	Mode                               Mode
 	Title, DocLabel, BaseURL, ReturnTo string
@@ -50,6 +55,8 @@ type Model struct {
 	Errors                             []components.FieldErr
 	Warnings                           []string
 	Conflict, ReloadURL                string
+	Action                             string
+	After                              templ.Component
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9-]+$`)
@@ -89,6 +96,14 @@ func (m Model) Validate() error {
 
 // StepURL is step i's URL.
 func (m Model) StepURL(i int) string { return m.BaseURL + "/" + m.Steps[i].Slug }
+
+// formAction is the step form's action.
+func (m Model) formAction() string {
+	if m.Action != "" {
+		return m.Action
+	}
+	return m.StepURL(m.Current)
+}
 
 // Last reports whether the current step is the check step.
 func (m Model) Last() bool { return m.Current == len(m.Steps)-1 }

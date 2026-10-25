@@ -35,11 +35,13 @@ templ LineList(p LineListProps) {
 							@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", c.No), Href: c.RemoveURL, Variant: Ghost})
 							if c.MoveUpURL != "" {
 								@Form(FormProps{Action: c.MoveUpURL}) {
+									@versionInput(c.Version, "")
 									@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", c.No), Icon: "arrow-up", Variant: Ghost})
 								}
 							}
 							if c.MoveDownURL != "" {
 								@Form(FormProps{Action: c.MoveDownURL}) {
+									@versionInput(c.Version, "")
 									@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", c.No), Icon: "arrow-down", Variant: Ghost})
 								}
 							}
@@ -100,11 +102,13 @@ templ LineGrid(rows []LineGridRow, total string) {
 						}
 						if r.MoveUpURL != "" {
 							@Form(FormProps{Action: r.MoveUpURL}) {
+								@versionInput(r.Version, moveVersionID(r.No, "up"))
 								@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", r.No), Icon: "arrow-up", Variant: Ghost})
 							}
 						}
 						if r.MoveDownURL != "" {
 							@Form(FormProps{Action: r.MoveDownURL}) {
+								@versionInput(r.Version, moveVersionID(r.No, "down"))
 								@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", r.No), Icon: "arrow-down", Variant: Ghost})
 							}
 						}
@@ -138,4 +142,31 @@ templ LineGridRowForm(r LineGridRow) {
 		}
 		<span class="num linegrid-amount"><span class="visually-hidden">Amount</span>{ r.Amount }</span>
 	</form>
+}
+
+// versionInput is a move form's hidden version, when there is one; id
+// lets LineGridVersions replace it.
+templ versionInput(version, id string) {
+	if version != "" {
+		if id != "" {
+			<input type="hidden" id={ id } name="version" value={ version }/>
+		} else {
+			<input type="hidden" name="version" value={ version }/>
+		}
+	}
+}
+
+// LineGridVersions are out-of-band swaps giving every grid move form the
+// version a row save produced. A form's own inputs win over hx-include in
+// htmx 2.0.11 (getInputValues), so the move forms' rendered version must be
+// replaced, or a move after a row save is refused as stale (CD-94, CD-95).
+templ LineGridVersions(rows []LineGridRow, version string) {
+	for _, r := range rows {
+		if r.MoveUpURL != "" {
+			<input type="hidden" id={ moveVersionID(r.No, "up") } name="version" value={ version } hx-swap-oob="true"/>
+		}
+		if r.MoveDownURL != "" {
+			<input type="hidden" id={ moveVersionID(r.No, "down") } name="version" value={ version } hx-swap-oob="true"/>
+		}
+	}
 }

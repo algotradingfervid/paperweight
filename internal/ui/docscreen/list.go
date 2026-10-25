@@ -31,12 +31,18 @@ type listView struct {
 
 // list serves GET /doc/{doctype}.
 func (d Deps) list(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	dt, ok := doctype.Lookup(chi.URLParam(r, "doctype"))
 	if !ok {
 		problem(w, r, doctype.ErrNotFound)
 		return
 	}
+	d.renderList(w, r, dt, "", nil)
+}
+
+// renderList renders dt's list for the request's query; success and
+// warnings, when set, are an htmx action's banners (delete, CD-80).
+func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, success string, warnings []string) {
+	ctx := r.Context()
 	p := d.principal(r)
 	if err := d.Auth.Can(ctx, p, dt.Name, "read", nil); err != nil {
 		problem(w, r, err)
@@ -110,6 +116,9 @@ func (d Deps) list(w http.ResponseWriter, r *http.Request) {
 	}
 	if d.can(r, p, dt.Name, "export") {
 		v.Bar.Export = &components.Link{Label: "Export", Href: "/doc/" + dt.Name + "/export.csv"}
+	}
+	if success != "" || len(warnings) > 0 {
+		v.Opts.BannerSlot = actionBanners(success, warnings)
 	}
 	ui.Render(w, r, http.StatusOK, listPage(v), listMain(v))
 }

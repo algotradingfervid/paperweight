@@ -30,3 +30,12 @@ templ problemPage(pr Problem) {
 templ problemMain(pr Problem) {
 	@layout.Main(problemOpts(pr))
 }
+
+// actionBanners are an htmx action's success and warning banners, rendered
+// directly instead of through the flash (CD-80).
+templ actionBanners(success string, warnings []string) {
+	if success != "" {
+		@components.Banner(components.BannerProps{Kind: components.Success, Message: success})
+	}
+	@components.Warnings(warnings)
+}
