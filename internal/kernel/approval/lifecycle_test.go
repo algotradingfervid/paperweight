@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 
@@ -123,9 +122,15 @@ func TestApprovalSubmit_ValidationBeforeRules(t *testing.T) { // APR-028
 	}))
 	before := snap(t, e, d)
 	err := e.Submit(e.Priya, d)
-	// DOC prefixes the line ("Line 1: …") and owns the full text.
-	if err == nil || !strings.Contains(err.Error(), "Quantity must be more than 0.") {
-		t.Errorf("error = %v, want DOC's \"Quantity must be more than 0.\"", err)
+	// DOC owns the summary and the field error text (CD-155, CD-157).
+	if err == nil || err.Error() != "Fix the highlighted fields and save again." {
+		t.Errorf("error = %v, want DOC's \"Fix the highlighted fields and save again.\"", err)
+	}
+	var fe interface{ FieldErrors() []doctype.FieldError }
+	if !errors.As(err, &fe) || !slices.ContainsFunc(fe.FieldErrors(), func(f doctype.FieldError) bool {
+		return f.Path() == "lines[1].qty" && f.Message == "Line 1: Quantity must be more than 0."
+	}) {
+		t.Errorf("error %v: want DOC's field error on lines[1].qty \"Line 1: Quantity must be more than 0.\"", err)
 	}
 	if _, ok := e.Latest(t, d); ok {
 		t.Error("an approval request was opened for an invalid document")

@@ -123,7 +123,7 @@ func TestApprovalInbox_OnlyActionable(t *testing.T) { // APR-077
 	}
 	it := res.Rows[0]
 	if it.DocType != at.Order || it.Label != "Purchase Order" || it.DocID != 42 || it.Title != "Draft 42" ||
-		it.Party != "Shree Steel Traders" || it.Amount != at.Rs(60000) || it.SubmittedBy != e.Priya.ID ||
+		it.Party != "SHREE Shree Steel Traders" || it.Amount != at.Rs(60000) || it.SubmittedBy != e.Priya.ID ||
 		it.SubmittedByName != "Priya Shah" || !it.SubmittedAt.Equal(time.Date(2026, 10, 24, 5, 0, 0, 0, time.UTC)) || it.RequestID == 0 {
 		t.Errorf("Ravi's card = %+v", it)
 	}
@@ -270,10 +270,7 @@ func TestApprovalInbox_SkipsUnresolvableDocument(t *testing.T) { // Review Focus
 		at.MustOK(t, e.Submit(e.Priya, d))
 	}
 	// Data drift: Draft 42's document row is gone, its open request stays.
-	at.MustOK(t, e.DB.Write(t.Context(), func(tx *db.Tx) error {
-		_, err := tx.SQL().ExecContext(t.Context(), `DELETE FROM aprtest_docs WHERE doctype = ? AND id = ?`, at.Order, 42)
-		return err
-	}))
+	e.DropDocRow(t, at.Doc{Type: at.Order, ID: 42})
 	if got := e.InboxTitles(t, e.Ravi); !slices.Equal(got, []string{"Draft 43"}) {
 		t.Errorf("Ravi's inbox = %q, want [Draft 43]", got)
 	}

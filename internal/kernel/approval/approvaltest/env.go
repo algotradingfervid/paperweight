@@ -176,7 +176,7 @@ func Project(id int64) DocOpt { return func(s *docSpec) { s.project = id } }
 // ForEmployee sets the claimant (default for Claim: the creator's employee).
 func ForEmployee(code string) DocOpt { return func(s *docSpec) { s.empCode = code } }
 
-// Party sets the party name shown on inbox cards (CD-55).
+// Party sets the party by name; inbox cards show "{Code} {Name}" (CD-55, CD-68).
 func Party(name string) DocOpt { return func(s *docSpec) { s.party = name } }
 
 // InState creates the document directly in state with number (APR-055/057).
@@ -207,8 +207,24 @@ func (e *Env) NewDoc(t testing.TB, dt string, id int64, amount types.Money, crea
 	}
 	e.exec(t, `INSERT INTO aprtest_docs (doctype, id, state, number, amount, created_by, employee_id, project_id, party)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		dt, id, string(s.state), s.number, int64(amount), int64(creator.ID), emp, s.project, s.party)
+		dt, id, string(s.state), s.number, int64(amount), int64(creator.ID), emp, s.project, e.partyDisplay(s.party))
 	return Doc{Type: dt, ID: id}
+}
+
+// partyDisplay is the party as DOC shows a master, "{Code} {Name}" (CD-68):
+// the fixture party's code, or the name itself when the fixtures have none,
+// as the engine driver adds it (partyID).
+func (e *Env) partyDisplay(name string) string {
+	if name == "" {
+		return ""
+	}
+	code := name
+	for _, p := range e.F.Parties {
+		if p.Name == name {
+			code = p.Code
+		}
+	}
+	return code + " " + name
 }
 
 // SetAmount changes the document's amount (as a save would).
@@ -219,6 +235,18 @@ func (e *Env) SetAmount(t testing.TB, d Doc, m types.Money) {
 		return
 	}
 	e.exec(t, `UPDATE aprtest_docs SET amount = ? WHERE doctype = ? AND id = ?`, int64(m), d.Type, d.ID)
+}
+
+// DropDocRow deletes the document's row (and its lines) behind APR's back,
+// as data drift would, leaving its approval rows in place.
+func (e *Env) DropDocRow(t testing.TB, d Doc) {
+	t.Helper()
+	if e.eng != nil {
+		dt, _ := doctype.Lookup(d.Type)
+		e.exec(t, `DELETE FROM `+dt.Table+` WHERE id = ?`, d.ID)
+		return
+	}
+	e.exec(t, `DELETE FROM aprtest_docs WHERE doctype = ? AND id = ?`, d.Type, d.ID)
 }
 
 func (e *Env) exec(t testing.TB, q string, args ...any) {
