@@ -1,9 +1,7 @@
 package files
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -13,7 +11,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
 )
 
 // Config is what a Store needs. Audit nil means audit.Default; a DocType
@@ -71,29 +68,4 @@ func refFrom(info doctype.Info) auth.RecordRef {
 		ProjectIDs: info.ProjectIDs,
 		SiteIDs:    info.SiteIDs,
 	}
-}
-
-// Remove is not built yet (WP1-FILE Task 5).
-func (s *Store) Remove(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) error {
-	return errs.ErrNotImplemented
-}
-
-// Open is not built yet (WP1-FILE Task 5).
-func (s *Store) Open(ctx context.Context, p auth.Principal, id int64) (io.ReadCloser, Meta, error) {
-	return nil, Meta{}, errs.ErrNotImplemented
-}
-
-// List is not built yet (WP1-FILE Task 5).
-func (s *Store) List(ctx context.Context, p auth.Principal, parent auth.RecordRef) ([]Meta, error) {
-	return nil, errs.ErrNotImplemented
-}
-
-// CopyAll is not built yet (WP1-FILE Task 5).
-func (s *Store) CopyAll(ctx context.Context, tx *db.Tx, from, to auth.RecordRef) error {
-	return errs.ErrNotImplemented
-}
-
-// DeleteAll is not built yet (WP1-FILE Task 5).
-func (s *Store) DeleteAll(ctx context.Context, tx *db.Tx, parent auth.RecordRef) error {
-	return errs.ErrNotImplemented
 }

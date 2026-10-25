@@ -9,6 +9,44 @@ import (
 	"context"
 )
 
+const copyRow = `-- name: CopyRow :one
+INSERT INTO attachment (parent_doctype, parent_id, file_name, size, content_type, sha256, uploaded_by, uploaded_at)
+SELECT ?1, ?2, file_name, size, content_type, sha256, ?3, ?4
+FROM attachment WHERE attachment.id = ?5
+RETURNING id, parent_doctype, parent_id, file_name, size, content_type, sha256, uploaded_by, uploaded_at
+`
+
+type CopyRowParams struct {
+	ParentDocType string
+	ParentID      int64
+	UploadedBy    int64
+	UploadedAt    string
+	ID            int64
+}
+
+func (q *Queries) CopyRow(ctx context.Context, arg CopyRowParams) (Attachment, error) {
+	row := q.db.QueryRowContext(ctx, copyRow,
+		arg.ParentDocType,
+		arg.ParentID,
+		arg.UploadedBy,
+		arg.UploadedAt,
+		arg.ID,
+	)
+	var i Attachment
+	err := row.Scan(
+		&i.ID,
+		&i.ParentDocType,
+		&i.ParentID,
+		&i.FileName,
+		&i.Size,
+		&i.ContentType,
+		&i.Sha256,
+		&i.UploadedBy,
+		&i.UploadedAt,
+	)
+	return i, err
+}
+
 const countForParent = `-- name: CountForParent :one
 SELECT count(*) FROM attachment WHERE parent_doctype = ? AND parent_id = ?
 `
@@ -34,6 +72,29 @@ func (q *Queries) CountForSHA(ctx context.Context, sha256 string) (int64, error)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const deleteAttachment = `-- name: DeleteAttachment :exec
+DELETE FROM attachment WHERE id = ?
+`
+
+func (q *Queries) DeleteAttachment(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAttachment, id)
+	return err
+}
+
+const deleteForParent = `-- name: DeleteForParent :exec
+DELETE FROM attachment WHERE parent_doctype = ? AND parent_id = ?
+`
+
+type DeleteForParentParams struct {
+	ParentDocType string
+	ParentID      int64
+}
+
+func (q *Queries) DeleteForParent(ctx context.Context, arg DeleteForParentParams) error {
+	_, err := q.db.ExecContext(ctx, deleteForParent, arg.ParentDocType, arg.ParentID)
+	return err
 }
 
 const existsForParentSHA = `-- name: ExistsForParentSHA :one
