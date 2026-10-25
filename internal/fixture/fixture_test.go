@@ -39,7 +39,7 @@ func tableColumns(t *testing.T, d *db.DB, table string) map[string]string {
 	if err != nil {
 		t.Fatalf("table_info(%s): %v", table, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	cols := map[string]string{}
 	for rows.Next() {
 		var name, typ string
@@ -387,8 +387,8 @@ func TestFixture_ClaimAmountIsSumOfLines(t *testing.T) {
 	if claim.Label != "Expense Claim" {
 		t.Errorf("fixture.Claim Label = %q, want \"Expense Claim\"", claim.Label)
 	}
-	if claim.Series != "EXP/{FY}/{#####}" {
-		t.Errorf("fixture.Claim Series = %q, want \"EXP/{FY}/{#####}\"", claim.Series)
+	if claim.Series != "EX/{FY}/{#####}" {
+		t.Errorf("fixture.Claim Series = %q, want \"EX/{FY}/{#####}\"", claim.Series)
 	}
 	if !claim.Approvable {
 		t.Error("fixture.Claim Approvable = false, want true")
