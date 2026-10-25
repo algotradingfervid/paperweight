@@ -1,0 +1,103 @@
+package gallery
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
+)
+
+templ authSignInBody() {
+	@components.ErrorSummary([]components.FieldErr{{ID: "f-signin-email", Message: uitest.LongError}})
+	@components.Form(components.FormProps{Action: "/signin"}) {
+		<div class="stack">
+			@components.EmailInput(components.FieldProps{ID: "f-signin-email", Name: "email", Label: "Email", Value: uitest.LongEmail}, "username")
+			@components.PasswordInput(components.FieldProps{ID: "f-signin-password", Name: "password", Label: "Password"}, "current-password")
+			@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
+		</div>
+	}
+}
+
+// authRules lists the password rules before the fields.
+templ authRules() {
+	<p>Your new password:</p>
+	<ul>
+		for _, r := range passwordRules {
+			<li>{ r }</li>
+		}
+	</ul>
+}
+
+templ authSetupBody() {
+	@components.ErrorSummary([]components.FieldErr{{ID: "f-setup-password", Message: uitest.LongError}})
+	@authRules()
+	@components.Form(components.FormProps{Action: "/_gallery/auth-setup"}) {
+		<div class="stack">
+			@components.TextInput(components.FieldProps{ID: "f-setup-name", Name: "name", Label: "Your name", Value: uitest.LongName100})
+			@components.EmailInput(components.FieldProps{ID: "f-setup-email", Name: "email", Label: "Email", Value: uitest.LongEmail}, "username")
+			@components.PasswordInput(components.FieldProps{ID: "f-setup-password", Name: "password", Label: "Password", Error: uitest.LongError}, "new-password")
+			@components.Button(components.ButtonProps{Label: "Create account", Busy: "Creating account…", Variant: components.Primary})
+		</div>
+	}
+}
+
+templ authPasswordBody() {
+	@components.ErrorSummary([]components.FieldErr{{ID: "f-new-password", Message: uitest.LongError}})
+	@authRules()
+	@components.Form(components.FormProps{Action: "/_gallery/auth-password"}) {
+		<div class="stack">
+			@components.PasswordInput(components.FieldProps{ID: "f-current-password", Name: "current_password", Label: "Current password"}, "current-password")
+			@components.PasswordInput(components.FieldProps{ID: "f-new-password", Name: "new_password", Label: "New password", Error: uitest.LongError}, "new-password")
+			@components.Button(components.ButtonProps{Label: "Change password", Busy: "Changing password…", Variant: components.Primary})
+		</div>
+	}
+}
+
+templ authSessionsBody() {
+	for _, s := range authSessions {
+		@components.Card(s.device, nil) {
+			@components.SummaryList([]components.Pair{
+				{Label: "Signed in", Value: s.signedIn},
+				{Label: "Last used", Value: s.lastSeen},
+			})
+			if s.current {
+				<p>This is the session you are using now.</p>
+			} else {
+				@components.Form(components.FormProps{Action: "/_gallery/auth-sessions"}) {
+					@components.Button(components.ButtonProps{Label: "End session", Busy: "Ending session…", Name: "session", Value: s.id})
+				}
+			}
+		}
+	}
+	@components.Form(components.FormProps{Action: "/_gallery/auth-sessions"}) {
+		@components.Button(components.ButtonProps{Label: "End all other sessions", Busy: "Ending sessions…", Name: "session", Value: "others", Variant: components.Danger})
+	}
+}
+
+templ authUsersBody() {
+	@components.FilterBar(components.FilterBarProps{
+		Action: "/_gallery/auth-users", Search: uitest.LongName100, SearchLabel: "Search users",
+		Chips:     []components.Chip{{Label: "Role: Purchase manager", RemoveURL: "/_gallery/auth-users"}},
+		FilterURL: "/_gallery/auth-users", ClearURL: "/_gallery/auth-users", Count: "1,234 users",
+		New: &components.Link{Label: "New user", Href: "/_gallery/auth-users"},
+	})
+	@components.DataList(usersList())
+	@components.Pagination(components.PageInfo{Page: 1, From: 1, To: 25, Total: 1234, Noun: "users", NextURL: "/_gallery/auth-users"})
+}
+
+templ authRightsBody() {
+	@components.Form(components.FormProps{ID: "rights-form", Action: "/_gallery/auth-rights"}) {
+		for _, dt := range rightsDocTypes {
+			@components.Card(dt.label, nil) {
+				for _, r := range dt.rights {
+					@components.Segmented(components.FieldProps{ID: "f-" + dt.key + "-" + r.key, Name: dt.key + "." + r.key, Label: r.label, Hint: r.meaning, Value: r.value}, scopeOptions(dt.team))
+				}
+			}
+		}
+	}
+}
+
+templ authRightsBar() {
+	@components.ActionBar(components.ActionBarProps{
+		Primary: &components.ButtonProps{Label: "Save rights", Busy: "Saving rights…", Variant: components.Primary},
+		Form:    "rights-form",
+	})
+}
