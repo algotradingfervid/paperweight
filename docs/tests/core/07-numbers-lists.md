@@ -508,7 +508,7 @@ NUM provides the financial-year function to NAM and the formatters to FILE.
 ### NUM-084 · Due dates from payment terms
 - **Priority:** P2
 - **Level:** unit
-- **Given** bill date 15-01-2026 **When** due dates are computed **Then** "30 days after bill date" → 14-02-2026, "15 days after end of bill month" → 15-02-2026, and "1 month after end of bill month" → 28-02-2026. A due date before the bill date fails with "Due date can't be before the bill date."
+- **Given** bill date 15-01-2026 **When** due dates are computed **Then** "30 days after bill date" → 14-02-2026, "15 days after end of bill month" → 15-02-2026, and "1 month after end of bill month" → 28-02-2026; for bill date 15-02-2026, "1 month after end of bill month" → 31-03-2026 (CD-128). A due date before the bill date fails with "Due date can't be before the bill date."
 - **Go test:** `TestDate_DueDateRules`
 - **Sources:** `erpnext/erpnext/accounts/party.py:753-770` (`get_due_date_from_template`), `erpnext/erpnext/accounts/party.py:773-781` (`validate_due_date`)
 

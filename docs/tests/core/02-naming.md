@@ -400,7 +400,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GR/{FY}/{##
 ### NAM-052 · Editing a template affects only future numbers; a new prefix starts at 1
 - **Priority:** P1
 - **Level:** integration
-- **Given** `PO/26-27/00007` issued **When** admin changes the template to `PUR/{FY}/{#####}` and a PO is then approved **Then** it gets `PUR/26-27/00001`; `PO/26-27/00007` is unchanged.
+- **Given** `PO/26-27/00007` issued **When** admin changes the template to `PR/{FY}/{#####}` and a PO is then approved **Then** it gets `PR/26-27/00001`; `PO/26-27/00007` is unchanged.
 - **Go test:** `TestSettings_TemplateChangeNewPrefix`
 - **Sources:** `frappe/frappe/core/doctype/document_naming_settings/test_document_naming_settings.py:75` (`test_updates_naming_options`), `frappe/frappe/model/naming.py:90`
 
@@ -463,7 +463,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GR/{FY}/{##
 ### NAM-061 · Template and counter changes are audited
 - **Priority:** P1
 - **Level:** integration
-- **Given** admin (Anil Kapoor) at the fixture clock **When** Anil changes PO's template from `PO/{FY}/{#####}` to `PUR/{FY}/{#####}` and sets `PUR/26-27/` from 0 to 12 **Then** two append-only audit entries record user Anil Kapoor, UTC time `2026-10-24T05:00:00.000Z`, and before/after values (`template`: old → new; `last`: 0 → 12).
+- **Given** admin (Anil Kapoor) at the fixture clock **When** Anil changes PO's template from `PO/{FY}/{#####}` to `PR/{FY}/{#####}` and sets `PR/26-27/` from 0 to 12 **Then** two append-only audit entries record user Anil Kapoor, UTC time `2026-10-24T05:00:00.000Z`, and before/after values (`template`: old → new; `last`: 0 → 12).
 - **Go test:** `TestSettings_Audited`
 - **Sources:** `frappe/frappe/core/doctype/document_naming_settings/document_naming_settings.py:240` (`create_version_log_for_change`)
 

@@ -353,9 +353,14 @@ func TestTestkit_SeedMatchesFixturesDoc(t *testing.T) {
 		t.Errorf("PRJ-METRO name = %q, want %q", name, "Pune Metro Depot")
 	}
 
-	// Rights: Employee -> fixture.Claim is read, approve with scope team; scopes are own/team/all.
+	// Rights: Employee -> fixture.Claim is read, create, write, submit, print (own)
+	// and read, approve (team), like Expense Claim (CD-127); scopes are own/team/all.
 	if len(fx.Rights) == 0 {
 		t.Fatal("Fixtures.Rights is empty")
+	}
+	wantClaim := map[string][]string{
+		"own":  {"read", "create", "write", "submit", "print"},
+		"team": {"read", "approve"},
 	}
 	var claimRows int
 	for _, r := range fx.Rights {
@@ -364,13 +369,13 @@ func TestTestkit_SeedMatchesFixturesDoc(t *testing.T) {
 		}
 		if r.Role == "Employee" && r.DocType == "fixture.Claim" {
 			claimRows++
-			if !reflect.DeepEqual(r.Rights, []string{"read", "approve"}) || r.Scope != "team" {
-				t.Errorf("Employee -> fixture.Claim row = %q scope %q, want [read approve] scope team", r.Rights, r.Scope)
+			if !reflect.DeepEqual(r.Rights, wantClaim[r.Scope]) {
+				t.Errorf("Employee -> fixture.Claim row = %q scope %q, want %q", r.Rights, r.Scope, wantClaim[r.Scope])
 			}
 		}
 	}
-	if claimRows != 1 {
-		t.Errorf("Employee -> fixture.Claim rights rows = %d, want 1", claimRows)
+	if claimRows != 2 {
+		t.Errorf("Employee -> fixture.Claim rights rows = %d, want 2", claimRows)
 	}
 }
 

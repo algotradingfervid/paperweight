@@ -70,7 +70,7 @@ Test password for all fixture users: `Correct-Horse-42`.
 | Purchase User | Purchase Order / `fixture.Order` | read, create, write, submit, print, export (all); delete (own) |
 | Stores | GRN / `fixture.Receipt` | read, create, write, submit, print (all) |
 | Stores | Purchase Order / `fixture.Order` | read (all) |
-| Employee | Expense Claim | read, create, write, submit, print (own) |
+| Employee | Expense Claim / `fixture.Claim` | read, create, write, submit, print (own) |
 | Employee | Expense Claim / `fixture.Claim` | read, approve (team: claims of employees who report directly to me) |
 | Director | Purchase Order / `fixture.Order`, Expense Claim / `fixture.Claim` | read, approve, print, export (all) |
 | Masters Manager | every master | read, create, write, delete, export, import (all) |

@@ -252,6 +252,7 @@ func canonical() Fixtures {
 			{Role: "Stores", DocType: "fixture.Order", Rights: []string{"read"}, Scope: "all"},
 			{Role: "Employee", DocType: "Expense Claim", Rights: []string{"read", "create", "write", "submit", "print"}, Scope: "own"},
 			{Role: "Employee", DocType: "Expense Claim", Rights: []string{"read", "approve"}, Scope: "team"},
+			{Role: "Employee", DocType: "fixture.Claim", Rights: []string{"read", "create", "write", "submit", "print"}, Scope: "own"},
 			{Role: "Employee", DocType: "fixture.Claim", Rights: []string{"read", "approve"}, Scope: "team"},
 			{Role: "Director", DocType: "Purchase Order", Rights: []string{"read", "approve", "print", "export"}, Scope: "all"},
 			{Role: "Director", DocType: "fixture.Order", Rights: []string{"read", "approve", "print", "export"}, Scope: "all"},

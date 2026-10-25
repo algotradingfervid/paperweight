@@ -140,7 +140,7 @@ All components are templ functions in `internal/ui/components/`. Screens compose
 | `CodeInput` (GSTIN, PAN, HSN, pincode) | `autocapitalize="characters"`, `spellcheck="false"`; validates on reaching length; on a valid GSTIN shows derived state and PAN under the field | htmx (`/validate/gstin`) |
 | `Picker` (party, item, project, site, employee, PO) | ARIA 1.2 combobox; server search on code + name + GSTIN, 250 ms debounce, max 20 rows; each row shows code, name and one distinguishing line; chosen value shows as a summary with "Change"; full-height sheet on phones; respects rights scope and restrictions; preselects when exactly one value is allowed; `<select>` fallback for lists under 50 | htmx + Alpine |
 | `Radios`, `Checkboxes` | Option sets up to about 6 are radios, not dropdowns; whole row is the target | None |
-| `FileUpload` | Two buttons: "Take photo" (`accept="image/*" capture="environment"`) and "Choose file" (`accept="image/*,application/pdf" multiple`); limits stated before upload ("JPG, PNG, HEIC or PDF, up to 10 MB"); progress via `htmx:xhr:progress`; thumbnail or file chip with "Remove" | htmx + app.js |
+| `FileUpload` | Two buttons: "Take photo" (`accept="image/*" capture="environment"`) and "Choose file" (`accept="image/*,application/pdf"`, one file per upload, CD-133); limits stated before upload ("JPG, PNG, HEIC or PDF, up to 10 MB"); progress via `htmx:xhr:progress`; thumbnail or file chip with "Remove" | htmx + app.js |
 | `Stepper` (wizard progress) | §8.3 | None |
 | `ActionBar` | Sticky bottom bar on phones; inline footer on desktop; only actions the user's rights and the document state allow (spec R4) | None |
 | `StateBadge` | §5 mapping | None |
