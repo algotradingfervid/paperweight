@@ -1,0 +1,62 @@
+package print
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/vardhan/internaltools/internal/types"
+)
+
+// ExpenseDocument is the expense claim print body: letterhead, title,
+// employee and period, lines with a receipt marker, totals, words,
+// attachment names, approval line and signatory.
+templ ExpenseDocument(d ExpenseDoc) {
+	@LetterheadBlock(d.Letterhead)
+	@DocTitle("Expense Claim")
+	<p class="employee">{ "Employee: " + d.Employee }</p>
+	<p class="period">{ "Period: " + types.FormatDate(d.PeriodFrom) + " to " + types.FormatDate(d.PeriodTo) }</p>
+	<table class="lines">
+		<thead>
+			<tr><th>Sr</th><th>Date</th><th>Expense</th><th>Amount</th></tr>
+		</thead>
+		<tbody>
+			for _, l := range d.Lines {
+				<tr>
+					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="date">{ types.FormatDate(l.Date) }</td>
+					<td class="item">
+						<div class="item-name">{ l.Type }</div>
+						if l.Description != "" {
+							<div class="desc">{ l.Description }</div>
+						}
+						if l.HasReceipt {
+							<div class="receipt">Receipt: Yes</div>
+						} else {
+							<div class="receipt">Receipt: No</div>
+						}
+					</td>
+					<td class="amount">{ types.FormatINR(l.Amount) }</td>
+				</tr>
+			}
+			if len(d.Lines) == 0 {
+				<tr><td colspan="4">No items</td></tr>
+			}
+		</tbody>
+	</table>
+	<div class="totals">
+		<p class="grand-total">{ "Grand Total " + types.FormatINR(d.GrandTotal) }</p>
+		if d.HasRoundedTotal && d.RoundedTotal != d.GrandTotal {
+			<p class="rounded-total">{ "Rounded Total " + types.FormatINR(d.RoundedTotal) }</p>
+		}
+	</div>
+	if w := d.words(); w != "" {
+		<p class="words">{ w }</p>
+	}
+	if len(d.Attachments) > 0 {
+		<p class="attachments">{ "Attachments: " + strings.Join(d.Attachments, ", ") }</p>
+	}
+	if d.ApprovedBy != "" {
+		<p class="approved">{ "Approved by " + d.ApprovedBy + " on " + types.FormatIST(d.ApprovedAt) }</p>
+	}
+	@Signatory(d.Letterhead.LegalName)
+}

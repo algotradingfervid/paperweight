@@ -31,22 +31,71 @@ func css(body string) http.HandlerFunc {
 	}
 }
 
+// js serves body as a script.
+func js(body string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = w.Write([]byte(body))
+	}
+}
+
 // print renders one document's print page inside DB.Read only (FILE-062).
 // The page's watermark, badge and number come from Info alone; query
 // parameters are never read (FILE-055).
 func (h *handlers) print(w http.ResponseWriter, r *http.Request) {
+	var buf bytes.Buffer
+	ok := h.serve(w, r, func(tx *db.Tx, info doctype.Info) error {
+		ctx := print.WithLetterhead(r.Context(), h.cfg.Letterhead)
+		return h.cfg.Registry.Render(ctx, tx, &buf, info)
+	})
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "private, no-store")
+	_, _ = buf.WriteTo(w)
+}
+
+// pageCSS serves the page footer "{Display} · Page n of m" for one document,
+// with the same checks as its print page.
+func (h *handlers) pageCSS(w http.ResponseWriter, r *http.Request) {
+	var display string
+	ok := h.serve(w, r, func(_ *db.Tx, info doctype.Info) error {
+		if _, ok := h.cfg.Registry.Lookup(info.DocType); !ok {
+			return print.ErrNoTemplate
+		}
+		display = info.Display
+		return nil
+	})
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "private, no-store")
+	_, _ = w.Write([]byte(`@page { @bottom-center { content: "` + cssString.Replace(display) +
+		` · Page " counter(page) " of " counter(pages); } }`))
+}
+
+// cssString escapes text for a double-quoted CSS string.
+var cssString = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\a `, "\r", `\d `, "\f", `\c `)
+
+// serve loads the document named by the URL inside DB.Read, checks the print
+// right on it, and calls fn; on any failure it writes the error and returns false.
+func (h *handlers) serve(w http.ResponseWriter, r *http.Request, fn func(tx *db.Tx, info doctype.Info) error) bool {
 	p, ok := auth.PrincipalFrom(r.Context())
 	if !ok {
 		signedOut(w, r)
-		return
+		return false
 	}
 	dt := chi.URLParam(r, "doctype")
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
 		http.Error(w, doctype.ErrNotFound.Error(), http.StatusNotFound)
-		return
+		return false
 	}
-	var buf bytes.Buffer
 	var info doctype.Info
 	err = h.cfg.DB.Read(r.Context(), func(tx *db.Tx) error {
 		var err error
@@ -61,18 +110,13 @@ func (h *handlers) print(w http.ResponseWriter, r *http.Request) {
 		if err := h.cfg.Auth.Can(r.Context(), p, dt, "print", &ref); err != nil {
 			return err
 		}
-		ctx := print.WithLetterhead(r.Context(), h.cfg.Letterhead)
-		return h.cfg.Registry.Render(ctx, tx, &buf, info)
+		return fn(tx, info)
 	})
 	if err != nil {
 		fail(w, r, info, err)
-		return
+		return false
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", "private, no-store")
-	_, _ = buf.WriteTo(w)
+	return true
 }
 
 // fail writes err: not found (CD-54) and no template as 404, forbidden as 403

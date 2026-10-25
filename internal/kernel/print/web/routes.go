@@ -23,8 +23,9 @@ type Config struct {
 
 type handlers struct{ cfg Config }
 
-// Routes serves GET /print/{doctype}/{id}, GET /print/assets/print.css and
-// GET /print/assets/brand.css (CD-99).
+// Routes serves GET /print/{doctype}/{id}, its page footer stylesheet
+// GET /print/{doctype}/{id}/page.css, and GET /print/assets/print.css,
+// /print/assets/brand.css (CD-99) and /print/assets/print.js.
 func Routes(cfg Config) chi.Router {
 	if cfg.Registry == nil {
 		cfg.Registry = print.Default
@@ -33,6 +34,8 @@ func Routes(cfg Config) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/print/assets/print.css", css(print.CSS))
 	r.Get("/print/assets/brand.css", css(brandCSS))
+	r.Get("/print/assets/print.js", js(print.JS))
 	r.Get("/print/{doctype}/{id}", h.print)
+	r.Get("/print/{doctype}/{id}/page.css", h.pageCSS)
 	return r
 }

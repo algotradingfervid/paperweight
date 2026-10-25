@@ -10,12 +10,17 @@ templ Page(h Header, body templ.Component) {
 			<title>{ h.Title }</title>
 			<link rel="stylesheet" href="/print/assets/print.css"/>
 			<link rel="stylesheet" href="/print/assets/brand.css"/>
+			if h.PageCSS != "" {
+				<link rel="stylesheet" href={ h.PageCSS }/>
+			}
 		</head>
 		<body>
 			if h.Status.Code != "" {
 				<div class="watermark" data-status={ h.Status.Code }>{ h.Status.Label }</div>
 			}
+			<div class="toolbar"><button id="print-btn" type="button">Print / Save as PDF</button><button id="close-btn" type="button">Close</button></div>
 			@body
+			<script src="/print/assets/print.js"></script>
 		</body>
 	</html>
 }

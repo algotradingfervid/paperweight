@@ -75,3 +75,62 @@ func (d TradeDoc) words() string {
 	}
 	return w
 }
+
+// GRNDoc is the model a goods receipt print view fills for GRNDocument (FILE-067).
+type GRNDoc struct {
+	Letterhead  LetterheadInfo
+	Date        types.Date
+	Party       Party
+	PONumber    string
+	PODate      types.Date
+	ChallanNo   string
+	ChallanDate types.Date
+	Lines       []GRNLine
+}
+
+// GRNLine is one received item.
+type GRNLine struct {
+	Sr                           int
+	Item, HSN, UoM               string
+	Received, Accepted, Rejected types.Qty
+}
+
+// ExpenseDoc is the model an expense claim print view fills for
+// ExpenseDocument (FILE-068). Attachments are the attached file names.
+type ExpenseDoc struct {
+	Letterhead               LetterheadInfo
+	Employee                 string
+	PeriodFrom, PeriodTo     types.Date
+	Lines                    []ExpenseLine
+	GrandTotal, RoundedTotal types.Money
+	HasRoundedTotal          bool
+	Attachments              []string
+	ApprovedBy               string
+	ApprovedAt               time.Time
+}
+
+// ExpenseLine is one expense with its receipt marker.
+type ExpenseLine struct {
+	Sr                int
+	Date              types.Date
+	Type, Description string
+	Amount            types.Money
+	HasReceipt        bool
+}
+
+// payableTotal is the rounded total when the claim rounds, else the grand total.
+func (d ExpenseDoc) payableTotal() types.Money {
+	if d.HasRoundedTotal {
+		return d.RoundedTotal
+	}
+	return d.GrandTotal
+}
+
+// words is the payable total in words, or "" when it can't be computed.
+func (d ExpenseDoc) words() string {
+	w, err := InWordsINR(d.payableTotal())
+	if err != nil {
+		return ""
+	}
+	return w
+}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
+	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -17,7 +19,10 @@ func (r *Registry) Render(ctx context.Context, tx *db.Tx, w io.Writer, info doct
 	if !ok {
 		return fmt.Errorf("%w for DocType %s", ErrNoTemplate, info.DocType)
 	}
-	h := Header{Status: StatusFor(string(info.State)), Number: info.Display, Title: SafeTitle(info.Display)}
+	h := Header{
+		Status: StatusFor(string(info.State)), Number: info.Display, Title: SafeTitle(info.Display),
+		PageCSS: "/print/" + url.PathEscape(info.DocType) + "/" + strconv.FormatInt(info.ID, 10) + "/page.css",
+	}
 	ctx = withHeader(ctx, h)
 	body, err := view(ctx, tx, info.ID)
 	if err != nil {
