@@ -34,8 +34,6 @@ func readLast(ctx context.Context, q db.DBTX, doctype, prefix string) (int64, er
 }
 
 // nowText formats the clock's instant as a fixed-width UTC timestamp.
-//
-//nolint:unused // used by Assign from Task 6 on
 func nowText(c clock.Clock) string {
 	return c.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 }

@@ -46,6 +46,60 @@ func (q *Queries) GetSeries(ctx context.Context, doctype string) (NamingSeries, 
 	return i, err
 }
 
+const insertIssued = `-- name: InsertIssued :exec
+INSERT INTO naming_issued(doctype, doc_id, number, prefix, seq, root, amendment_no, issued_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertIssuedParams struct {
+	DocType     string
+	DocID       int64
+	Number      string
+	Prefix      string
+	Seq         int64
+	Root        string
+	AmendmentNo int64
+	IssuedAt    string
+}
+
+func (q *Queries) InsertIssued(ctx context.Context, arg InsertIssuedParams) error {
+	_, err := q.db.ExecContext(ctx, insertIssued,
+		arg.DocType,
+		arg.DocID,
+		arg.Number,
+		arg.Prefix,
+		arg.Seq,
+		arg.Root,
+		arg.AmendmentNo,
+		arg.IssuedAt,
+	)
+	return err
+}
+
+const insertSeriesIfMissing = `-- name: InsertSeriesIfMissing :exec
+INSERT INTO naming_series(doctype, label, template, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(doctype) DO NOTHING
+`
+
+type InsertSeriesIfMissingParams struct {
+	DocType   string
+	Label     string
+	Template  string
+	CreatedAt string
+	UpdatedAt string
+}
+
+func (q *Queries) InsertSeriesIfMissing(ctx context.Context, arg InsertSeriesIfMissingParams) error {
+	_, err := q.db.ExecContext(ctx, insertSeriesIfMissing,
+		arg.DocType,
+		arg.Label,
+		arg.Template,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const nextCounter = `-- name: NextCounter :one
 INSERT INTO naming_counters(doctype, prefix, last, created_at, updated_at) VALUES (?, ?, 1, ?, ?)
 ON CONFLICT(doctype, prefix) DO UPDATE SET last = last + 1, version = version + 1, updated_at = excluded.updated_at

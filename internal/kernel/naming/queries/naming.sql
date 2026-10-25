@@ -8,3 +8,11 @@ RETURNING last;
 
 -- name: GetCounterLast :one
 SELECT last FROM naming_counters WHERE doctype = ? AND prefix = ?;
+
+-- name: InsertSeriesIfMissing :exec
+INSERT INTO naming_series(doctype, label, template, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(doctype) DO NOTHING;
+
+-- name: InsertIssued :exec
+INSERT INTO naming_issued(doctype, doc_id, number, prefix, seq, root, amendment_no, issued_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
