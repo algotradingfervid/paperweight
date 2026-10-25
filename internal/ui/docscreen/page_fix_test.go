@@ -1,9 +1,11 @@
 package docscreen_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -66,35 +68,144 @@ func TestActions_MoreActionsPostsCarryVersion(t *testing.T) {
 	}
 }
 
-// A direct action without a usable version is a bad request: it never
-// reaches DOC with version 0 (CD-94).
+// badFormText is CD-146's wording for a POST without a usable version
+// (CD-148 applies it beyond AUTH).
+const badFormText = "The form could not be read. Reload the page and try again."
+
+// A direct action, a reason page POST or the delete confirm POST without a
+// usable version is a bad request with CD-146's wording: it never reaches
+// DOC with version 0 (CD-94).
 func TestDocAction_MissingOrBadVersionIs400(t *testing.T) {
-	results := map[string]doc.Result{
-		"withdraw": {ID: 42, State: doctype.StateDraft, Version: 4},
-		"submit":   {ID: 42, State: doctype.StatePending, Version: 4},
-		"approve":  {ID: 42, State: doctype.StateApproved, Number: "SO/26-27/00001", Version: 4},
+	cases := []struct {
+		action string
+		state  doctype.State
+		reason string
+		result doc.Result
+	}{
+		{"withdraw", doctype.StatePending, "", doc.Result{ID: 42, State: doctype.StateDraft, Version: 4}},
+		{"submit", doctype.StatePending, "", doc.Result{ID: 42, State: doctype.StatePending, Version: 4}},
+		{"approve", doctype.StatePending, "", doc.Result{ID: 42, State: doctype.StateApproved, Number: "SO/26-27/00001", Version: 4}},
+		{"cancel", doctype.StateApproved, "Supplier closed", doc.Result{ID: 42, State: doctype.StateCancelled, Version: 4}},
+		{"delete", doctype.StateDraft, "", doc.Result{ID: 42}},
 	}
-	for _, action := range []string{"withdraw", "submit", "approve"} {
+	for _, a := range cases {
 		for _, c := range []struct {
-			name string
-			form url.Values
+			name    string
+			version []string
 		}{
-			{"missing", url.Values{"csrf_token": {csrfToken}}},
-			{"abc", url.Values{"csrf_token": {csrfToken}, "version": {"abc"}}},
+			{"missing", nil},
+			{"abc", []string{"abc"}},
 		} {
-			t.Run(action+"/"+c.name, func(t *testing.T) {
+			t.Run(a.action+"/"+c.name, func(t *testing.T) {
 				e := newDocEnv(t, allRights...)
-				e.seed(doctype.StatePending)
-				e.docs.SetResult(docscreentest.Sample, 42, doctype.Action(action), results[action], nil)
-				rec := e.do(t, http.MethodPost, doc42+"/"+action, c.form)
+				e.seed(a.state)
+				e.docs.SetResult(docscreentest.Sample, 42, doctype.Action(a.action), a.result, nil)
+				form := url.Values{"csrf_token": {csrfToken}}
+				if c.version != nil {
+					form["version"] = c.version
+				}
+				if a.reason != "" {
+					form.Set("reason", a.reason)
+				}
+				rec := e.do(t, http.MethodPost, doc42+"/"+a.action, form)
 				if rec.Code != http.StatusBadRequest {
 					t.Errorf("status = %d, want 400", rec.Code)
 				}
 				if calls := e.docs.Calls(); len(calls) != 0 {
 					t.Errorf("engine called: %+v", calls)
 				}
+				page, err := goquery.NewDocumentFromReader(strings.NewReader(rec.Body.String()))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := norm(page.Text()); !strings.Contains(got, badFormText) {
+					t.Errorf("body text = %.300q, want it to contain %q", got, badFormText)
+				}
 			})
 		}
+	}
+}
+
+// After an approve the "Next request" link sits under the success banner
+// (plan Task 13): nothing shows between the banner and the link, and the
+// link comes before the state badge.
+func TestDocPage_NextRequestUnderBanner(t *testing.T) {
+	const want = "Approved. SO/26-27/00001 has been numbered."
+	e := newDocEnv(t, allRights...)
+	e.seed(doctype.StatePending)
+	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionApprove,
+		doc.Result{ID: 42, State: doctype.StateApproved, Number: "SO/26-27/00001", Version: 4}, nil)
+	rec := e.post(t, doc42+"/approve", nil)
+	if got := location(t, rec); got != doc42 {
+		t.Fatalf("303 to %q, want %q", got, doc42)
+	}
+	loc := rec.Header().Get("Location")
+	if !strings.Contains(loc, "next=1") {
+		t.Fatalf("Location %q lacks next=1", loc)
+	}
+	e.docs.SetInfo(sampleInfo(42, doctype.StateApproved))
+
+	res := e.get(t, loc)
+	if res.Code != http.StatusOK {
+		t.Fatalf("GET %s = %d, body %.300s", loc, res.Code, res.Body)
+	}
+	main := uitest.Doc(t, res).Find("main#main")
+	var banner *goquery.Selection
+	main.Find(".banner--success").Each(func(_ int, b *goquery.Selection) {
+		if b.ParentsFiltered("template").Length() == 0 && strings.Contains(norm(b.Text()), want) {
+			banner = b
+		}
+	})
+	if banner == nil {
+		t.Fatalf("no success banner %q in main#main", want)
+	}
+	link := main.Find(`a[href="` + inboxURL + `"]`).FilterFunction(func(_ int, s *goquery.Selection) bool {
+		return norm(s.Text()) == "Next request"
+	})
+	if link.Length() != 1 {
+		t.Fatalf("found %d \"Next request\" links in main#main, want 1", link.Length())
+	}
+	badge := main.Find(".badge").First()
+	if badge.Length() == 0 {
+		t.Fatal("no state badge in main#main")
+	}
+
+	// main#main's text in document order: the link's text follows the
+	// banner's with nothing between.
+	if full, b := norm(main.Text()), norm(banner.Text()); !strings.Contains(full, b+" Next request") {
+		i := strings.Index(full, b) + len(b)
+		j := strings.Index(full, "Next request")
+		gap := "?"
+		if i <= j {
+			gap = full[i:j]
+		}
+		t.Errorf("text between the success banner and \"Next request\" = %q, want none (the link sits straight under the banner)", strings.TrimSpace(gap))
+	}
+	all := main.Find("*")
+	if li, gi := all.IndexOfSelection(link), all.IndexOfSelection(badge); gi < li {
+		t.Errorf("the state badge (element %d) comes before \"Next request\" (element %d); the link must come first", gi, li)
+	}
+}
+
+// The sample DocType has no roll-ups, so its document has no taxable total
+// and the page shows no "Taxable total" row.
+func TestDocView_NoTaxableTotalFromRollUps(t *testing.T) {
+	e := newDocEnv(t, allRights...)
+	e.seed(doctype.StateApproved)
+	v, err := e.d.View(context.Background(), priya, docscreentest.Sample, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Checked by reflection so the test survives the field's removal.
+	if f := reflect.ValueOf(v).FieldByName("TaxableTotal"); f.IsValid() && !f.IsZero() {
+		t.Errorf("DocView.TaxableTotal = %v, want none: the sample has no roll-ups", f.Interface())
+	}
+	res := e.get(t, doc42)
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %.300s", res.Code, res.Body)
+	}
+	if got := norm(uitest.Doc(t, res).Find("main#main").Text()); strings.Contains(got, "Taxable total") {
+		t.Errorf("the document page shows a \"Taxable total\" row; the sample has no roll-ups")
 	}
 }
 
