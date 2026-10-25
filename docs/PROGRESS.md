@@ -52,6 +52,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-APR | 1 Schema and queries | High | crew-test-writer | 15:24 | | | | |
 | WP1-UI | 1 Foundation | Light | crew-implementer | 15:24 | | | | |
 | WP1-AUTH | 4 authtest World | High | crew-test-writer, crew-implementer | | 16:12 | 1 | minors fixed | 330aff7 tests, 6de2f30 |
+| WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
 
 ## Wave 1 carry-overs (put in the named task's brief)
 
