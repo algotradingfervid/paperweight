@@ -2,8 +2,7 @@
 // auth and directory fakes seeded from the canonical fixtures (CD-56), a
 // doctype.InfoSource over stand-in document rows, and a reference driver that
 // runs the §5 DOC ↔ APR call protocol (CD-23) in the CD-52 check order inside
-// one db.Write per action. The engine driver (engine.go, APR_DRIVER=engine or
-// unset) runs the real doc.Engine over internal/fixture's DocTypes instead.
+// one db.Write per action. The engine driver (engine.go, APR_DRIVER=engine) runs the real doc.Engine over internal/fixture's DocTypes instead.
 package approvaltest
 
 import (
@@ -59,7 +58,8 @@ type Env struct {
 
 // New builds the harness: testkit DB and seed, shared fakes, approval.New,
 // harness tables and the seed rules R1, R2, E1. APR_DRIVER picks the driver:
-// engine (default, the real doc.Engine) or ref (the reference driver).
+// engine (the real doc.Engine) or ref (the reference driver, the default
+// until the CD-157 DOC and AUTH changes land).
 func New(t testing.TB) *Env {
 	t.Helper()
 	d := testkit.NewDB(t)

@@ -144,7 +144,9 @@ func (e *Env) engineSave(p auth.Principal, d Doc, changes map[string]string) err
 	return e.do(p, d, doctype.ActionSave, doc.ActionInput{Values: rec.Values, Lines: rec.Lines}, nil)
 }
 
-// engineOffered is every action DOC would accept from p on the document,
+// engineOffered is every action that DOC's rights check, CheckApprover and
+// guard table allow p on the document (checks after DOC's version check, such
+// as amend's limit, are not probed),
 // asked of the engine itself (CD-142): each action is posted with a version
 // that can never match, so DOC runs its rights check, CheckApprover and its
 // guard table, then refuses as stale before writing anything. A stale
