@@ -70,3 +70,136 @@ type ApprovalRule struct {
 	UpdatedAt         string
 	UpdatedBy         int64
 }
+
+type Attachment struct {
+	ID            int64
+	ParentDoctype string
+	ParentID      int64
+	FileName      string
+	Size          int64
+	ContentType   string
+	Sha256        string
+	UploadedBy    int64
+	UploadedAt    string
+}
+
+type AuthLog struct {
+	ID        int64
+	At        string
+	Event     string
+	UserID    interface{}
+	EmailHash interface{}
+	Ip        string
+	UserAgent string
+}
+
+type AuthMetum struct {
+	ID          int64
+	PermVersion int64
+}
+
+type LoginAttempt struct {
+	Key            string
+	Count          int64
+	FirstFailureAt string
+	ExpiresAt      string
+}
+
+type NamingCounter struct {
+	ID        int64
+	DocType   string
+	Prefix    string
+	Last      int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type NamingIssued struct {
+	ID          int64
+	DocType     string
+	DocID       int64
+	Number      string
+	Prefix      string
+	Seq         int64
+	Root        string
+	AmendmentNo int64
+	IssuedAt    string
+}
+
+type NamingSeries struct {
+	ID        int64
+	DocType   string
+	Label     string
+	Template  string
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type Role struct {
+	ID        int64
+	Name      string
+	NameKey   string
+	IsAdmin   int64
+	Version   int64
+	CreatedAt string
+	CreatedBy interface{}
+	UpdatedAt string
+	UpdatedBy interface{}
+}
+
+type RoleDoctype struct {
+	RoleID     int64
+	DocType    string
+	Customised int64
+}
+
+type RoleRight struct {
+	RoleID    int64
+	DocType   string
+	RightName string
+	Scope     string
+}
+
+type Session struct {
+	ID         int64
+	TokenHash  string
+	UserID     interface{}
+	Data       []byte
+	CreatedAt  string
+	LastSeenAt string
+	Ip         string
+	UserAgent  string
+}
+
+type User struct {
+	ID                 int64
+	Email              string
+	Name               string
+	Mobile             string
+	PasswordHash       interface{}
+	MustChangePassword int64
+	Enabled            int64
+	LastLoginAt        interface{}
+	Version            int64
+	CreatedAt          string
+	CreatedBy          interface{}
+	UpdatedAt          string
+	UpdatedBy          interface{}
+}
+
+type UserRestriction struct {
+	UserID    int64
+	Dimension string
+	ValueID   int64
+}
+
+type UserRole struct {
+	UserID int64
+	RoleID int64
+}
