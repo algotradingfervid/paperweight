@@ -29,7 +29,7 @@ func TestList_ChildLineFilterSameRow(t *testing.T) { // NUM-124
 	listtest.InsertPOLine(t, d, po2, angle, 50000)
 	item := filter("line.item", list.OpEq, strconv.FormatInt(angle, 10))
 
-	got, total := listtest.Run(t, d, listtest.PO(), query(item, filter("line.qty", list.OpGe, "10")), noScope)
+	got, total := listtest.Run(t, d, listtest.PO(), query(item, filter("line.line_qty", list.OpGe, "10")), noScope)
 	if !slices.Equal(got, []int64{po2}) || total != 1 {
 		t.Errorf("item and qty >= 10: ids %v, total %d, want [%d], total 1", got, total, po2)
 	}
@@ -47,7 +47,7 @@ func TestList_ChildLineFilterSameRow(t *testing.T) { // NUM-124
 	sameIDs(t, "line filter with scope", got, po2)
 
 	// One EXISTS, every column qualified by table name, values bound.
-	q, args, err := list.Build(listtest.PO(), query(item, filter("line.qty", list.OpGe, "10")), noScope)
+	q, args, err := list.Build(listtest.PO(), query(item, filter("line.line_qty", list.OpGe, "10")), noScope)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,12 +77,12 @@ func TestList_LineFilterOnlyOnLineFields(t *testing.T) { // NUM-124 review (supp
 	dt := *listtest.PO()
 	dt.Fields = slices.Clone(dt.Fields)
 	for i := range dt.Fields {
-		if dt.Fields[i].OnLine && dt.Fields[i].Name == "qty" {
+		if dt.Fields[i].OnLine && dt.Fields[i].Name == "line_qty" {
 			dt.Fields[i].Filterable = false
 		}
 	}
-	wantQueryError(t, &dt, query(filter("line.qty", list.OpEq, "1")), "You can't filter Purchase Orders by 'line.qty'.")
-	wantQueryError(t, listtest.PO(), query(filter("line.qty", list.OpContains, "1")),
+	wantQueryError(t, &dt, query(filter("line.line_qty", list.OpEq, "1")), "You can't filter Purchase Orders by 'line.line_qty'.")
+	wantQueryError(t, listtest.PO(), query(filter("line.line_qty", list.OpContains, "1")),
 		"'contains' can't be used on Qty. Use =, <, >, between.")
 	wantQueryError(t, listtest.PO(), query(filter("line.item", list.OpEq, "MS-ANGLE-50")), "Choose a value for Item.")
 }

@@ -47,14 +47,18 @@ func createTable(dt doctype.DocType) string {
 }
 
 // createLinesTable makes dt's lines table: id, parent_id (CD-16) and one
-// column per OnLine field.
+// column per OnLine field, named by its Column (else its Name).
 func createLinesTable(dt doctype.DocType) string {
 	cols := []string{"id INTEGER PRIMARY KEY", "parent_id INTEGER NOT NULL"}
 	for _, f := range dt.Fields {
 		if !f.OnLine {
 			continue
 		}
-		cols = append(cols, f.Name+" "+sqlType(f.Type))
+		c := f.Column
+		if c == "" {
+			c = f.Name
+		}
+		cols = append(cols, c+" "+sqlType(f.Type))
 	}
 	return "CREATE TABLE " + dt.LinesTable + " (" + strings.Join(cols, ", ") + ")"
 }

@@ -52,6 +52,7 @@ func docTypes() []doctype.DocType {
 	prio := func(fd doctype.Field, p int) doctype.Field { fd.ListPriority = p; return fd }
 	link := func(fd doctype.Field, target string) doctype.Field { fd.Link = target; return fd }
 	onLine := func(fd doctype.Field) doctype.Field { fd.OnLine = true; return fd }
+	column := func(fd doctype.Field, c string) doctype.Field { fd.Column = c; return fd }
 	nameAsc := []doctype.SortKey{{Field: "name"}}
 	dateDesc := []doctype.SortKey{{Field: "date", Desc: true}}
 
@@ -77,7 +78,7 @@ func docTypes() []doctype.DocType {
 				f("remarks", "Remarks", doctype.Text),
 				f("created_at", "Created", doctype.Timestamp),
 				onLine(link(f("item", "Item", doctype.Link), NameItem)),
-				onLine(f("qty", "Qty", doctype.Qty)),
+				onLine(column(f("line_qty", "Qty", doctype.Qty), "qty")),
 			),
 			SearchFields: []string{"number", "party_name"},
 			DefaultSort:  dateDesc,
