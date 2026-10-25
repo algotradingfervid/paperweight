@@ -7,6 +7,7 @@ package dbq
 
 import (
 	"context"
+	"database/sql"
 )
 
 const countIssuedForDoc = `-- name: CountIssuedForDoc :one
@@ -60,6 +61,23 @@ func (q *Queries) GetSeries(ctx context.Context, doctype string) (NamingSeries, 
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const highestIssued = `-- name: HighestIssued :one
+SELECT CAST(COALESCE(MAX(seq), 0) AS INTEGER) FROM naming_issued
+WHERE doctype = ? AND prefix = ? AND amendment_no = 0
+`
+
+type HighestIssuedParams struct {
+	DocType string
+	Prefix  string
+}
+
+func (q *Queries) HighestIssued(ctx context.Context, arg HighestIssuedParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, highestIssued, arg.DocType, arg.Prefix)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const insertIssued = `-- name: InsertIssued :exec
@@ -116,6 +134,80 @@ func (q *Queries) InsertSeriesIfMissing(ctx context.Context, arg InsertSeriesIfM
 	return err
 }
 
+const listCounters = `-- name: ListCounters :many
+SELECT id, doctype, prefix, "last", version, created_at, created_by, updated_at, updated_by FROM naming_counters ORDER BY doctype, prefix
+`
+
+func (q *Queries) ListCounters(ctx context.Context) ([]NamingCounter, error) {
+	rows, err := q.db.QueryContext(ctx, listCounters)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NamingCounter
+	for rows.Next() {
+		var i NamingCounter
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocType,
+			&i.Prefix,
+			&i.Last,
+			&i.Version,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSeries = `-- name: ListSeries :many
+SELECT id, doctype, label, template, version, created_at, created_by, updated_at, updated_by FROM naming_series ORDER BY label
+`
+
+func (q *Queries) ListSeries(ctx context.Context) ([]NamingSeries, error) {
+	rows, err := q.db.QueryContext(ctx, listSeries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NamingSeries
+	for rows.Next() {
+		var i NamingSeries
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocType,
+			&i.Label,
+			&i.Template,
+			&i.Version,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const nextCounter = `-- name: NextCounter :one
 INSERT INTO naming_counters(doctype, prefix, last, created_at, updated_at) VALUES (?, ?, 1, ?, ?)
 ON CONFLICT(doctype, prefix) DO UPDATE SET last = last + 1, version = version + 1, updated_at = excluded.updated_at
@@ -139,4 +231,58 @@ func (q *Queries) NextCounter(ctx context.Context, arg NextCounterParams) (int64
 	var last int64
 	err := row.Scan(&last)
 	return last, err
+}
+
+const setCounterLast = `-- name: SetCounterLast :one
+INSERT INTO naming_counters(doctype, prefix, last, created_at, created_by, updated_at, updated_by)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(doctype, prefix) DO UPDATE SET last = excluded.last, version = version + 1,
+    updated_at = excluded.updated_at, updated_by = excluded.updated_by
+RETURNING id
+`
+
+type SetCounterLastParams struct {
+	DocType   string
+	Prefix    string
+	Last      int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+func (q *Queries) SetCounterLast(ctx context.Context, arg SetCounterLastParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, setCounterLast,
+		arg.DocType,
+		arg.Prefix,
+		arg.Last,
+		arg.CreatedAt,
+		arg.CreatedBy,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const updateSeriesTemplate = `-- name: UpdateSeriesTemplate :exec
+UPDATE naming_series SET template = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ?
+`
+
+type UpdateSeriesTemplateParams struct {
+	Template  string
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+	ID        int64
+}
+
+func (q *Queries) UpdateSeriesTemplate(ctx context.Context, arg UpdateSeriesTemplateParams) error {
+	_, err := q.db.ExecContext(ctx, updateSeriesTemplate,
+		arg.Template,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+		arg.ID,
+	)
+	return err
 }

@@ -44,16 +44,6 @@ func (n *Namer) ValidateTemplate(tpl string) error {
 	return err
 }
 
-func (n *Namer) List(ctx context.Context) ([]SeriesInfo, error) { return nil, errs.ErrNotImplemented }
-
-func (n *Namer) SetTemplate(ctx context.Context, p auth.Principal, doctype, tpl string) error {
-	return errs.ErrNotImplemented
-}
-
-func (n *Namer) SetCounter(ctx context.Context, p auth.Principal, doctype, prefix string, last int64) error {
-	return errs.ErrNotImplemented
-}
-
 func (n *Namer) PreviewTemplate(ctx context.Context, tpl string, d types.Date) (string, error) {
 	return "", errs.ErrNotImplemented
 }

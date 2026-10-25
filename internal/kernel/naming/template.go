@@ -139,8 +139,6 @@ func parseTemplate(s string) (template, error) {
 }
 
 // staticPrefix is the source text before the number part, e.g. "PO/{FY}/".
-//
-//nolint:unused // used by series and admin checks from Task 6 on
 func (t template) staticPrefix() string {
 	var b strings.Builder
 	for _, p := range t.parts {
