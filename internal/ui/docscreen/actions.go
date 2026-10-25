@@ -45,12 +45,6 @@ func Rights(ctx context.Context, a auth.Service, p auth.Principal, name string, 
 	return m
 }
 
-// Actions is the action bar and "More actions" list for v's state and the
-// user's rights (spec R4, DOC-094, design-system §8.4, §8.5).
-func Actions(v DocView, printable bool, r map[auth.Right]bool) (bar components.ActionBarProps, more []components.MoreAction) {
-	return actionsWith(v, printable, r, defaultPrintURL(v.Info.DocType, v.Info.ID))
-}
-
 // defaultPrintURL is Print's URL when Deps.PrintURL is nil.
 func defaultPrintURL(name string, id int64) string {
 	return "/print/" + name + "/" + strconv.FormatInt(id, 10)
@@ -63,9 +57,13 @@ func (d Deps) printURL(name string, id int64) string {
 	return defaultPrintURL(name, id)
 }
 
-func actionsWith(v DocView, printable bool, r map[auth.Right]bool, printHref string) (bar components.ActionBarProps, more []components.MoreAction) {
+// Actions is the action bar and "More actions" list for v's state and the
+// user's rights (spec R4, DOC-094, design-system §8.4, §8.5). Print goes to
+// v.PrintURL, which View sets from Deps.PrintURL, or else to the default.
+// A POST item carries v's version (CD-94).
+func Actions(v DocView, printable bool, r map[auth.Right]bool) (bar components.ActionBarProps, more []components.MoreAction) {
 	base := docURL(v.Info.DocType, v.Info.ID)
-	for _, b := range buttons(v, printable, r, printHref) {
+	for _, b := range buttons(v, printable, r) {
 		switch b.Place {
 		case BarPrimary, BarSecondary:
 			bp := &components.ButtonProps{Label: b.Label, Href: b.Href, Variant: components.Secondary}
@@ -85,6 +83,7 @@ func actionsWith(v DocView, printable bool, r map[auth.Right]bool, printHref str
 			m := components.MoreAction{Label: b.Label, Href: b.Href, Danger: b.Danger, NewTab: b.Action == actionPrint}
 			if b.Href == "" {
 				m.Href, m.Post = base+"/"+string(b.Action), true
+				m.Hidden = []components.Param{{Name: "version", Value: strconv.Itoa(v.Version)}}
 			}
 			more = append(more, m)
 		}
@@ -99,7 +98,7 @@ func actionsWith(v DocView, printable bool, r map[auth.Right]bool, printHref str
 func actionFormID(a doctype.Action) string { return "act-" + string(a) }
 
 // buttons lists the allowed actions in display order.
-func buttons(v DocView, printable bool, r map[auth.Right]bool, printHref string) []ActionButton {
+func buttons(v DocView, printable bool, r map[auth.Right]bool) []ActionButton {
 	base := docURL(v.Info.DocType, v.Info.ID)
 	var out []ActionButton
 	add := func(b ActionButton) { out = append(out, b) }
@@ -147,7 +146,11 @@ func buttons(v DocView, printable bool, r map[auth.Right]bool, printHref string)
 		}
 	}
 	if r["print"] && printable {
-		add(ActionButton{Action: actionPrint, Label: "Print", Place: More, Href: printHref})
+		href := v.PrintURL
+		if href == "" {
+			href = defaultPrintURL(v.Info.DocType, v.Info.ID)
+		}
+		add(ActionButton{Action: actionPrint, Label: "Print", Place: More, Href: href})
 	}
 	return out
 }

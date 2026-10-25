@@ -35,56 +35,65 @@ templ docBanners(pv pageView) {
 	}
 }
 
-// docBody follows the phone order of design-system §8.4. Every value is
-// read-only.
+// docBody follows the phone order of design-system §8.4; from 80rem the
+// state, attachments and approval history sit in a side panel. Every value
+// is read-only.
 templ docBody(pv pageView) {
-	if pv.Next != "" {
-		<p><a href={ templ.SafeURL(pv.Next) }>Next request</a></p>
-	}
-	<div class="stack">
-		@components.StateBadge(pv.V.Info.State)
-		if pv.V.Info.Party != "" {
-			<p>{ pv.V.Info.Party }</p>
-		}
-	</div>
-	if pv.V.GrandTotal != "" {
-		<div>
-			<p class="num text-2xl font-semibold">{ pv.V.GrandTotal }</p>
-			if pv.V.InWords != "" {
-				@components.AmountInWords(pv.V.InWords)
+	<div class="doc-layout">
+		<div class="doc-main">
+			if pv.Next != "" {
+				<p><a href={ templ.SafeURL(pv.Next) }>Next request</a></p>
+			}
+			if pv.V.Info.Party != "" {
+				<p>{ pv.V.Info.Party }</p>
+			}
+			if pv.V.GrandTotal != "" {
+				<div>
+					<p class="num text-2xl font-semibold">{ pv.V.GrandTotal }</p>
+					if pv.V.InWords != "" {
+						@components.AmountInWords(pv.V.InWords)
+					}
+				</div>
+			}
+			if s := waitingLine(pv); s != "" {
+				<p>{ s }</p>
+			}
+			if pv.V.Origin.AmendedFrom != "" {
+				<p><a href={ templ.SafeURL(docURL(pv.DT.Name, pv.V.Origin.AmendedFromID)) }>{ "Amended from " + pv.V.Origin.AmendedFrom }</a></p>
+			}
+			@components.Warnings(pv.V.Warnings)
+			@components.Card("Details", nil) {
+				@components.SummaryList(pv.V.Header)
+			}
+			if len(pv.V.Lines) > 0 {
+				@components.Card("Lines", nil) {
+					@components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines), TaxableTotal: pv.V.TaxableTotal})
+				}
+			}
+			if len(pv.V.History) > 0 {
+				<div class="doc-audit">
+					@components.Disclosure("History", false) {
+						@History(pv.V.History)
+					}
+				</div>
 			}
 		</div>
-	}
-	if s := waitingLine(pv); s != "" {
-		<p>{ s }</p>
-	}
-	if pv.V.Origin.AmendedFrom != "" {
-		<p><a href={ templ.SafeURL(docURL(pv.DT.Name, pv.V.Origin.AmendedFromID)) }>{ "Amended from " + pv.V.Origin.AmendedFrom }</a></p>
-	}
-	@components.Warnings(pv.V.Warnings)
-	@components.Card("Details", nil) {
-		@components.SummaryList(pv.V.Header)
-	}
-	if len(pv.V.Lines) > 0 {
-		@components.Card("Lines", nil) {
-			@components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines)})
-		}
-	}
-	if len(pv.V.Attachments) > 0 {
-		@components.Card("Attachments", nil) {
-			@components.Attachments(pv.V.Attachments)
-		}
-	}
-	if len(pv.V.Approval.History) > 0 {
-		@components.Disclosure("Approval history", false) {
-			@History(pv.V.Approval.History)
-		}
-	}
-	if len(pv.V.History) > 0 {
-		@components.Disclosure("History", false) {
-			@History(pv.V.History)
-		}
-	}
+		<div class="doc-side">
+			<div class="doc-state">
+				@components.StateBadge(pv.V.Info.State)
+			</div>
+			if len(pv.V.Attachments) > 0 {
+				@components.Card("Attachments", nil) {
+					@components.Attachments(pv.V.Attachments)
+				}
+			}
+			if len(pv.V.Approval.History) > 0 {
+				@components.Disclosure("Approval history", false) {
+					@History(pv.V.Approval.History)
+				}
+			}
+		</div>
+	</div>
 }
 
 // docBar is "More actions", the action bar and the hidden forms the bar's

@@ -59,10 +59,12 @@ templ LineList(p LineListProps) {
 				}
 			</div>
 		}
-		<p class="lines-total">
-			<span>Taxable total</span>
-			<span class="num">{ p.TaxableTotal }</span>
-		</p>
+		if p.TaxableTotal != "" {
+			<p class="lines-total">
+				<span>Taxable total</span>
+				<span class="num">{ p.TaxableTotal }</span>
+			</p>
+		}
 		if p.Editable {
 			@Button(ButtonProps{Label: "Add an item", Href: p.AddURL, Icon: "plus", Variant: Secondary, Attrs: templ.Attributes{"data-add-line": true}})
 		}

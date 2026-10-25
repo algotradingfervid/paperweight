@@ -114,6 +114,7 @@ func reasonViewOf(dt *doctype.DocType, v DocView, name string, rp reasonPage, ve
 		rv.Errors = []components.FieldErr{{ID: rv.Field.ID, Message: rv.Field.Error}}
 	} else {
 		rv.Danger = pr.Message
+		rv.Errors = fieldErrs(pr.Fields)
 	}
 	rv.Opts.Error = rv.Danger != "" || len(rv.Errors) > 0
 	return rv

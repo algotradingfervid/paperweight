@@ -50,6 +50,9 @@ templ MoreActions(items []MoreAction) {
 						if it.Post {
 							<form method="post" action={ templ.SafeURL(it.Href) }>
 								<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
+								for _, h := range it.Hidden {
+									<input type="hidden" name={ h.Name } value={ h.Value }/>
+								}
 								@Button(ButtonProps{Label: it.Label, Busy: it.Label + "…", Variant: moreVariant(it.Danger)})
 							</form>
 						} else if it.NewTab {

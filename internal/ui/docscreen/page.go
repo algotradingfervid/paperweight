@@ -25,6 +25,9 @@ var directActions = map[string]doctype.Action{
 	"amend":    doctype.ActionAmend,
 }
 
+// badVersionText answers a POST without a usable version.
+const badVersionText = "This page is out of date. Reload it and try again."
+
 // pageView is everything the document page renders.
 type pageView struct {
 	DT      *doctype.DocType
@@ -82,9 +85,9 @@ func (d Deps) page(w http.ResponseWriter, r *http.Request) {
 func (d Deps) pageViewOf(ctx context.Context, p auth.Principal, dt *doctype.DocType, v DocView) pageView {
 	rights := Rights(ctx, d.Auth, p, dt.Name, &v.Record)
 	pv := pageView{DT: dt, V: v}
-	pv.Bar, pv.More = actionsWith(v, dt.Printable, rights, d.printURL(dt.Name, v.Info.ID))
+	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
 	if pv.Bar.Note == "" {
-		for _, b := range buttons(v, dt.Printable, rights, "") {
+		for _, b := range buttons(v, dt.Printable, rights) {
 			if b.Place != More && b.Href == "" {
 				pv.Forms = append(pv.Forms, actionForm{ID: actionFormID(b.Action), Action: docURL(dt.Name, v.Info.ID) + "/" + string(b.Action), Version: v.Version})
 			}
@@ -111,7 +114,8 @@ func (d Deps) actionGet(w http.ResponseWriter, r *http.Request) {
 
 // actionPost serves POST /doc/{doctype}/{id}/{action}. DOC checks the right
 // of every action (CD-52), so the handler adds none; the posted version is
-// passed as is (CD-94).
+// passed as is (CD-94), and a missing or non-numeric one is a 400 before
+// DOC is called.
 func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "action")
 	a, direct := directActions[name]
@@ -126,7 +130,11 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	p := d.principal(r)
-	version, _ := strconv.Atoi(r.PostFormValue("version"))
+	version, err := strconv.Atoi(r.PostFormValue("version"))
+	if err != nil {
+		web.Error(w, r, http.StatusBadRequest, badVersionText)
+		return
+	}
 	in := doc.ActionInput{Version: version}
 	if confirm {
 		a = rp.action

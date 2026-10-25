@@ -66,6 +66,7 @@ type ActionBarProps struct {
 type MoreAction struct {
 	Label, Href          string
 	Post, Danger, NewTab bool
+	Hidden               []Param // a POST form's hidden inputs
 }
 
 // Pair is one label and value in a summary.
