@@ -26,7 +26,7 @@ func TestTemplate_DefaultsRender(t *testing.T) {
 	for tpl, want := range map[string]string{
 		"PO/{FY}/{#####}":  "PO/26-27/00001",
 		"GR/{FY}/{#####}": "GR/26-27/00001",
-		"EXP/{FY}/{#####}": "EXP/26-27/00001",
+		"EX/{FY}/{#####}": "EX/26-27/00001",
 	} {
 		got := mustParse(t, tpl).render(day(2026, 4, 1), 1)
 		if got != want {
@@ -111,7 +111,7 @@ func genTemplate(raw []byte) string {
 // encodeTemplate is the inverse of genTemplate, for seeds. pieces are
 // literal strings or the tokens in fuzzTokens; digits is 3..6.
 func encodeTemplate(digits int, pieces ...string) []byte {
-	raw := []byte{byte(digits - 3)}
+	raw := []byte{byte(digits - 3)} //nolint:gosec // G115: digits is 3..6
 	for _, p := range pieces {
 		tok := -1
 		for i, ft := range fuzzTokens {
@@ -124,7 +124,7 @@ func encodeTemplate(digits int, pieces ...string) []byte {
 			continue
 		}
 		for i := 0; i < len(p); i++ {
-			raw = append(raw, byte(strings.IndexByte(litChars, p[i])))
+			raw = append(raw, byte(strings.IndexByte(litChars, p[i]))) //nolint:gosec // G115: index into a short literal table
 		}
 	}
 	return raw
