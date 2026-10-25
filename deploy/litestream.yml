@@ -1,0 +1,14 @@
+# Litestream v0.5.17. Install as /etc/litestream.yml (its default path).
+# Values in ${...} come from the environment (Litestream expands them unless
+# run with -no-expand-env); put them in /etc/paperweight/litestream.env, never
+# in this file. See docs/operations.md.
+dbs:
+  - path: /var/lib/paperweight/app.db
+    replica:
+      type: s3
+      bucket: ${LITESTREAM_BUCKET}
+      path: paperweight/app.db
+      endpoint: ${LITESTREAM_ENDPOINT}
+      region: ${LITESTREAM_REGION}
+      access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+      secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
