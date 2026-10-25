@@ -2,8 +2,10 @@ package mstkit_test
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -36,7 +38,10 @@ func thingFields() []doctype.Field {
 	}
 }
 
-func TestKit_RegisterMasterShape(t *testing.T) {
+// registerKitThing registers kit.Thing once, with the DefaultSort the
+// masters used to declare ({name, id}, which the kernel list refuses) and a
+// disabled field that isn't Filterable (MST 1d).
+func registerKitThing() {
 	registerThing.Do(func() {
 		mstkit.RegisterMaster(doctype.DocType{
 			Name:        "kit.Thing",
@@ -44,9 +49,14 @@ func TestKit_RegisterMasterShape(t *testing.T) {
 			PluralLabel: "Things",
 			Table:       "kit_thing",
 			Submittable: true, // RegisterMaster forces false (M1)
+			DefaultSort: []doctype.SortKey{{Field: "name"}, {Field: "id"}},
 			Fields:      thingFields(),
 		}, thingMaster)
 	})
+}
+
+func TestKit_RegisterMasterShape(t *testing.T) {
+	registerKitThing()
 	dt, ok := doctype.Lookup("kit.Thing")
 	if !ok {
 		t.Fatal(`doctype.Lookup("kit.Thing") not found after RegisterMaster`)
@@ -66,8 +76,11 @@ func TestKit_RegisterMasterShape(t *testing.T) {
 	if want := mstkit.DefaultRights("kit.Thing"); !reflect.DeepEqual(dt.DefaultRights, want) {
 		t.Errorf("DefaultRights = %v; want DefaultRights(kit.Thing) = %v", dt.DefaultRights, want)
 	}
-	// CD-42 field extras are kept as given.
-	if want := thingFields(); !reflect.DeepEqual(dt.Fields, want) {
+	// CD-42 field extras are kept as given; only disabled becomes
+	// Filterable (MST 1d).
+	want := thingFields()
+	want[3].Filterable = true
+	if !reflect.DeepEqual(dt.Fields, want) {
 		t.Errorf("Fields = %+v; want %+v", dt.Fields, want)
 	}
 
@@ -78,6 +91,66 @@ func TestKit_RegisterMasterShape(t *testing.T) {
 		t.Errorf(`DefaultRights("Expense Type")["Employee"]["read"] = %q; want "all"`, got)
 	}
 	checkDefaultRightsTable(t)
+}
+
+// TestKit_RegisterMasterListDefaults has no case ID (MST 1d): RegisterMaster
+// sets the list defaults the kernel list accepts. DefaultSort is exactly
+// [{name}] (the list appends id asc as the tie-breaker; "id" isn't a field),
+// and the disabled field is Filterable, so list.DefaultFilters' disabled = 0
+// is accepted.
+func TestKit_RegisterMasterListDefaults(t *testing.T) {
+	registerKitThing()
+	dt, ok := doctype.Lookup("kit.Thing")
+	if !ok {
+		t.Fatal(`doctype.Lookup("kit.Thing") not found after RegisterMaster`)
+	}
+	if want := []doctype.SortKey{{Field: "name"}}; !reflect.DeepEqual(dt.DefaultSort, want) {
+		t.Errorf("DefaultSort = %+v; want %+v", dt.DefaultSort, want)
+	}
+	found := false
+	for _, f := range dt.Fields {
+		if f.Name != "disabled" {
+			continue
+		}
+		found = true
+		if !f.Filterable {
+			t.Errorf("disabled field Filterable = false; want true")
+		}
+	}
+	if !found {
+		t.Errorf("Fields = %+v; want a disabled field", dt.Fields)
+	}
+}
+
+// noDisabledSeq makes each registration's name unique, so a panic can only
+// come from the missing disabled field, not a duplicate (-count > 1).
+var noDisabledSeq atomic.Int64
+
+// TestKit_RegisterMasterNeedsDisabled has no case ID (MST 1d): a master
+// with no disabled field is a programming error and RegisterMaster panics.
+func TestKit_RegisterMasterNeedsDisabled(t *testing.T) {
+	name := fmt.Sprintf("kit.NoDisabled%d", noDisabledSeq.Add(1))
+	panicked := func() (p bool) {
+		defer func() {
+			if recover() != nil {
+				p = true
+			}
+		}()
+		mstkit.RegisterMaster(doctype.DocType{
+			Name:        name,
+			Label:       "No Disabled",
+			PluralLabel: "No Disabled Things",
+			Table:       "kit_no_disabled",
+			Fields: []doctype.Field{
+				{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true},
+				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+			},
+		}, thingMaster)
+		return false
+	}()
+	if !panicked {
+		t.Errorf("RegisterMaster(%s with no disabled field) did not panic; want a panic", name)
+	}
 }
 
 // checkDefaultRightsTable checks the whole M1 table (CD-10): Masters

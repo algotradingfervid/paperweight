@@ -47,6 +47,7 @@ func TestKit_AuditWritesThroughRealStore(t *testing.T) {
 			Fields: []doctype.Field{
 				{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true},
 				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+				{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check},
 			},
 		}, mstkit.StandardLookup(audited))
 	})

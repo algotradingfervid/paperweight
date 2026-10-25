@@ -244,6 +244,7 @@ func TestKit_AuditSkipsCreateWhenImporting(t *testing.T) {
 				Fields: []doctype.Field{
 					{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true},
 					{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true},
+					{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check},
 				},
 			}, mstkit.StandardLookup(imported))
 			csvio.RegisterImporter(imported.DocType, importedRow)
