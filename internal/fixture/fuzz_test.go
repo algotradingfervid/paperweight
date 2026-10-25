@@ -18,7 +18,7 @@ import (
 
 // Fuzz model (plan "Task 14: Lifecycle table and fuzz invariants").
 const (
-	fzMaxOrders   = 2  // orders created by createOrder (amendments not counted)
+	fzMaxOrders   = 2  // live orders created by createOrder (amendments not counted)
 	fzMaxReceipts = 6  // receipts in the run, amendments included
 	fzMaxSteps    = 64 // steps read from one input; the rest is ignored
 	fzReason      = "fuzz reason"
@@ -62,6 +62,7 @@ type fzDoc struct {
 	id      int64
 	deleted bool
 	snap    *doc.Doc // the document as it left draft, nil while in draft
+	lines   []int64  // a created order's line ids in m.orderLines
 }
 
 // fzModel is the fuzz run's expected state.
@@ -142,9 +143,11 @@ func (m *fzModel) step(step int, b0, b1, b2 byte) {
 		if err == nil {
 			m.orders++
 			m.add(fixture.Order, res.ID)
+			d := m.docs[len(m.docs)-1]
 			for _, l := range h.Load(t, fixture.Order, res.ID).Lines {
-				m.orderLines = append(m.orderLines, l.ID)
+				d.lines = append(d.lines, l.ID)
 			}
+			m.orderLines = append(m.orderLines, d.lines...)
 		}
 	case "createReceipt":
 		if m.receipts >= fzMaxReceipts || len(m.orderLines) == 0 {
@@ -194,6 +197,11 @@ func (m *fzModel) step(step int, b0, b1, b2 byte) {
 			switch action {
 			case doc.ActionDelete:
 				target.deleted = true
+				// A deleted order's line ids may be reused by the next order.
+				if target.lines != nil {
+					m.orderLines = slices.DeleteFunc(m.orderLines, func(id int64) bool { return slices.Contains(target.lines, id) })
+					m.orders--
+				}
 			case doc.ActionAmend:
 				m.add(target.dt, res.ID)
 				if target.dt == fixture.Receipt {
