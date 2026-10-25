@@ -50,6 +50,8 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Fixture ids follow name order, so sort-by-link-name tests insert rows out of name order.
 - A `\ufeff` escape written through the Write/Bash tools becomes a real BOM byte (Go refuses it): use a named constant, as for NBSP. In AD sessions finished crew workers can't be resumed ("No transcript found"): fix loops dispatch a fresh worker with the findings and exact scope.
 - scs saves the session at the first `Write`/`WriteHeader`: anything put into the session (CSRF token, flash, uid) must happen before the response starts, or it is silently lost (two AUTH Task 10 review rounds).
+- The shell is zsh: an unquoted `$VAR` holding a list is never word-split (`for f in $FILES` runs once with the whole list). Read lists line by line: `while IFS= read -r f; do …; done < <(git diff --name-only --diff-filter=U)`. ugrep's `-Z` isn't NUL-separated either. This broke the director twice.
+- Rebase conflicts in generated files (`**/dbq/`, `*_templ.go`, `internal/ui/static/*`, `assets_gen.go`): take either side with the loop above (`git checkout --ours -- "$f" && git add -- "$f"`, then `GIT_EDITOR=true git rebase --continue`), stop on any other file, then `make generate`, commit, `make ci`.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
