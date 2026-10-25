@@ -1,0 +1,41 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// Attachments lists stored files: images as lazy thumbnails, HEIC as a
+// download link (browsers can't show it), others as a file chip. Each item
+// shows who uploaded it and when, and "Remove" when RemoveURL is set.
+templ Attachments(items []Attachment) {
+	<ul class="attachments">
+		for _, a := range items {
+			<li>
+				switch a.Kind {
+					case "image":
+						<a class="attachments__thumb" href={ templ.URL(a.URL) }>
+							<img loading="lazy" alt={ a.Name } src={ a.URL }/>
+						</a>
+					case "heic":
+						<a class="attachments__chip" href={ templ.URL(a.URL) } download>
+							@icons.Icon("file")
+							<span>HEIC image, opens as download</span>
+						</a>
+					default:
+						<a class="attachments__chip" href={ templ.URL(a.URL) }>
+							@icons.Icon("file-text")
+							<span>{ a.Name }</span>
+						</a>
+				}
+				if a.Kind == "image" || a.Kind == "heic" {
+					<p class="attachments__name">{ a.Name }</p>
+				}
+				<p class="attachments__meta">{ a.Size }</p>
+				<p class="attachments__meta">{ a.UploadedBy + " · " + a.UploadedAt }</p>
+				if a.RemoveURL != "" {
+					@Form(FormProps{Action: a.RemoveURL}) {
+						@Button(ButtonProps{Label: "Remove", AriaLabel: "Remove " + a.Name, Busy: "Removing…", Variant: Secondary})
+					}
+				}
+			</li>
+		}
+	</ul>
+}

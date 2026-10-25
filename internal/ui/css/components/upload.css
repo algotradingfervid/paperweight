@@ -1,0 +1,62 @@
+/* upload.css: our parts of FileUpload and Attachments over daisyUI btn and progress (design-system §7, §7.1). */
+@utility upload {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  max-inline-size: var(--form-max);
+  & .upload__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  & .upload__form { margin: 0; }
+  /* The file input is visually hidden inside its label; the label shows its focus. */
+  & .upload__button:has(:focus-visible) {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+  & .upload__progress { inline-size: 100%; }
+}
+
+@utility attachments {
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  & > li {
+    display: grid;
+    gap: var(--space-1);
+    min-inline-size: 0;
+    justify-items: start;
+  }
+  & p { margin: 0; max-inline-size: 100%; overflow-wrap: anywhere; }
+  & .attachments__thumb {
+    display: block;
+    inline-size: 100%;
+    max-inline-size: min(100%, 10rem);
+    aspect-ratio: 1;
+    border: var(--border-w) solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    & img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+  }
+  & .attachments__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    max-inline-size: 100%;
+    min-block-size: var(--target-min);
+    padding-inline: var(--space-3);
+    background: var(--color-sunken);
+    border: var(--border-w) solid var(--color-border);
+    border-radius: var(--radius-pill);
+    color: var(--color-text);
+    overflow-wrap: anywhere;
+    & .icon { flex: none; inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+    & span { min-inline-size: 0; }
+  }
+  & .attachments__name { font-weight: var(--weight-medium); }
+  & .attachments__meta { font-size: var(--text-sm); color: var(--color-text-secondary); }
+}
