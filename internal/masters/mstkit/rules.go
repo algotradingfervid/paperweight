@@ -1,0 +1,91 @@
+package mstkit
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"regexp"
+	"strings"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/platform/db"
+)
+
+// Kind names one master: its DocType, the label used in messages, its table,
+// and whether it has a code column.
+type Kind struct {
+	DocType, Label, Table string
+	HasCode               bool
+}
+
+// Saved is what a Create or Update returns.
+type Saved struct {
+	ID       int64
+	Version  int
+	Warnings []string
+}
+
+// codePattern is checked on the upper-cased code, so "Ä" still fails (MST-004).
+var codePattern = regexp.MustCompile(`^[A-Z0-9][A-Z0-9._/-]{0,19}$`)
+
+const (
+	msgCodeRequired    = "Code is required. Enter a short code such as SHREE."
+	msgCodeFormat      = "Code can use letters, digits and . _ / - only, must start with a letter or digit, and be at most 20 characters."
+	msgNameRequired    = "Name is required."
+	msgCodeChange      = "Only a Masters Manager can change a code."
+	roleMastersManager = "Masters Manager"
+)
+
+// NormalizeCode trims and upper-cases raw and checks its format (MST-001,
+// MST-002, MST-004).
+func NormalizeCode(raw string) (string, error) {
+	code := strings.ToUpper(strings.TrimSpace(raw))
+	if code == "" {
+		return "", fieldError("code", msgCodeRequired)
+	}
+	if !codePattern.MatchString(code) {
+		return "", fieldError("code", msgCodeFormat)
+	}
+	return code, nil
+}
+
+// NormalizeName trims raw; a blank name is an error (MST-017).
+func NormalizeName(raw string) (string, error) {
+	name := strings.TrimSpace(raw)
+	if name == "" {
+		return "", fieldError("name", msgNameRequired)
+	}
+	return name, nil
+}
+
+// CheckCodeFree fails when another row of k (not exceptID) already has code.
+// It reads inside tx (CD-94).
+func CheckCodeFree(ctx context.Context, tx *db.Tx, k Kind, code string, exceptID int64) error {
+	var holder string
+	err := tx.SQL().QueryRowContext(ctx,
+		"SELECT name FROM "+k.Table+" WHERE code = ? AND id <> ?", //nolint:gosec // G202: Table/FKColumn come from each master's package-level Kind, never from a request
+		code, exceptID).Scan(&holder)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fieldError("code", "Code "+code+" is already used by "+k.Label+" "+holder+". Choose another code.")
+}
+
+// CheckCodeChange allows a code change only for a Masters Manager; an
+// unchanged code (in any case) is always allowed.
+func (e Env) CheckCodeChange(ctx context.Context, p auth.Principal, oldCode, newCode string) error {
+	if strings.EqualFold(strings.TrimSpace(oldCode), strings.TrimSpace(newCode)) {
+		return nil
+	}
+	ok, err := e.Auth.HasRole(ctx, p.ID, roleMastersManager)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fieldError("code", msgCodeChange)
+	}
+	return nil
+}

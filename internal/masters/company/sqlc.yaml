@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema:
+      - ../../../migrations/01000_gst_state.sql
+      - ../../../migrations/01050_company_branch.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq

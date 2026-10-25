@@ -1,0 +1,267 @@
+package mstkit_test
+
+import (
+	"context"
+	"fmt"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"testing"
+
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	"github.com/vardhan/internaltools/internal/platform/db"
+)
+
+// LookupFunc implements doctype.MasterLookup.
+var _ doctype.MasterLookup = mstkit.LookupFunc(nil)
+
+// thingLookup is a comparable MasterLookup, so the test can check
+// RegisterMaster stores the one it was given.
+type thingLookup struct{}
+
+func (*thingLookup) Lookup(context.Context, *db.Tx, int64) (doctype.MasterInfo, bool, error) {
+	return doctype.MasterInfo{}, false, nil
+}
+
+var (
+	thingMaster   = &thingLookup{}
+	registerThing sync.Once // doctype.Register panics on a duplicate (-count > 1)
+)
+
+func thingFields() []doctype.Field {
+	return []doctype.Field{
+		{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, ListPriority: 4, MaxLen: 20},
+		{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1},
+		{Name: "kind", Label: "Kind", Column: "kind", Type: doctype.Select, ListPriority: 5, Options: []string{"Goods", "Service"}, Step: "details"},
+		{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, ListPriority: 3},
+	}
+}
+
+// registerKitThing registers kit.Thing once, with the DefaultSort the
+// masters used to declare ({name, id}, which the kernel list refuses) and a
+// disabled field that isn't Filterable (MST 1d).
+func registerKitThing() {
+	registerThing.Do(func() {
+		mstkit.RegisterMaster(doctype.DocType{
+			Name:        "kit.Thing",
+			Label:       "Thing",
+			PluralLabel: "Things",
+			Table:       "kit_thing",
+			Submittable: true, // RegisterMaster forces false (M1)
+			DefaultSort: []doctype.SortKey{{Field: "name"}, {Field: "id"}},
+			Fields:      thingFields(),
+		}, thingMaster)
+	})
+}
+
+func TestKit_RegisterMasterShape(t *testing.T) {
+	registerKitThing()
+	dt, ok := doctype.Lookup("kit.Thing")
+	if !ok {
+		t.Fatal(`doctype.Lookup("kit.Thing") not found after RegisterMaster`)
+	}
+	if dt.Submittable {
+		t.Error("Submittable = true; want false")
+	}
+	if dt.Hooks != nil {
+		t.Errorf("Hooks = %v; want nil", dt.Hooks)
+	}
+	if dt.Master == nil {
+		t.Fatal("Master = nil; want the lookup")
+	}
+	if got, ok := dt.Master.(*thingLookup); !ok || got != thingMaster {
+		t.Errorf("Master = %#v; want the lookup passed to RegisterMaster", dt.Master)
+	}
+	if want := mstkit.DefaultRights("kit.Thing"); !reflect.DeepEqual(dt.DefaultRights, want) {
+		t.Errorf("DefaultRights = %v; want DefaultRights(kit.Thing) = %v", dt.DefaultRights, want)
+	}
+	// CD-42 field extras are kept as given; only disabled becomes
+	// Filterable (MST 1d).
+	want := thingFields()
+	want[3].Filterable = true
+	if !reflect.DeepEqual(dt.Fields, want) {
+		t.Errorf("Fields = %+v; want %+v", dt.Fields, want)
+	}
+
+	if got := mstkit.DefaultRights("Party")["Purchase User"]["read"]; got != "all" {
+		t.Errorf(`DefaultRights("Party")["Purchase User"]["read"] = %q; want "all"`, got)
+	}
+	if got := mstkit.DefaultRights("Expense Type")["Employee"]["read"]; got != "all" {
+		t.Errorf(`DefaultRights("Expense Type")["Employee"]["read"] = %q; want "all"`, got)
+	}
+	checkDefaultRightsTable(t)
+}
+
+// TestKit_RegisterMasterListDefaults has no case ID (MST 1d): RegisterMaster
+// sets the list defaults the kernel list accepts. DefaultSort is exactly
+// [{name}] (the list appends id asc as the tie-breaker; "id" isn't a field),
+// and the disabled field is Filterable, so list.DefaultFilters' disabled = 0
+// is accepted.
+func TestKit_RegisterMasterListDefaults(t *testing.T) {
+	registerKitThing()
+	dt, ok := doctype.Lookup("kit.Thing")
+	if !ok {
+		t.Fatal(`doctype.Lookup("kit.Thing") not found after RegisterMaster`)
+	}
+	if want := []doctype.SortKey{{Field: "name"}}; !reflect.DeepEqual(dt.DefaultSort, want) {
+		t.Errorf("DefaultSort = %+v; want %+v", dt.DefaultSort, want)
+	}
+	found := false
+	for _, f := range dt.Fields {
+		if f.Name != "disabled" {
+			continue
+		}
+		found = true
+		if !f.Filterable {
+			t.Errorf("disabled field Filterable = false; want true")
+		}
+	}
+	if !found {
+		t.Errorf("Fields = %+v; want a disabled field", dt.Fields)
+	}
+}
+
+// declaredSortSeq makes each registration's name unique (-count > 1).
+var declaredSortSeq atomic.Int64
+
+// TestKit_RegisterMasterKeepsDeclaredSort has no case ID (MST 1d review,
+// CD-167 "DefaultSort only on declared fields"): RegisterMaster keeps the
+// master's declared DefaultSort minus keys that aren't declared fields (such
+// as "id"); only when nothing is left and a name field exists does it use
+// [{name}]. Masters without a name field (Address, Contact) keep their own.
+func TestKit_RegisterMasterKeepsDeclaredSort(t *testing.T) {
+	disabled := doctype.Field{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check}
+	cases := []struct {
+		label  string
+		fields []doctype.Field
+		sort   []doctype.SortKey
+		want   []doctype.SortKey
+	}{
+		{
+			label: "no name field, declared {title},{id}",
+			fields: []doctype.Field{
+				{Name: "title", Label: "Title", Column: "title", Type: doctype.Text, Required: true},
+				{Name: "city", Label: "City", Column: "city", Type: doctype.Text},
+				disabled,
+			},
+			sort: []doctype.SortKey{{Field: "title"}, {Field: "id"}},
+			want: []doctype.SortKey{{Field: "title"}},
+		},
+		{
+			label: "name field, declared {code},{id}",
+			fields: []doctype.Field{
+				{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true},
+				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+				disabled,
+			},
+			sort: []doctype.SortKey{{Field: "code"}, {Field: "id"}},
+			want: []doctype.SortKey{{Field: "code"}},
+		},
+		{
+			label: "name field, nothing declared",
+			fields: []doctype.Field{
+				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+				disabled,
+			},
+			sort: nil,
+			want: []doctype.SortKey{{Field: "name"}},
+		},
+	}
+	for _, c := range cases {
+		name := fmt.Sprintf("kit.DeclaredSort%d", declaredSortSeq.Add(1))
+		mstkit.RegisterMaster(doctype.DocType{
+			Name:        name,
+			Label:       "Declared Sort",
+			PluralLabel: "Declared Sorts",
+			Table:       "kit_declared_sort",
+			DefaultSort: c.sort,
+			Fields:      c.fields,
+		}, thingMaster)
+		dt, ok := doctype.Lookup(name)
+		if !ok {
+			t.Errorf("%s: doctype.Lookup(%q) not found after RegisterMaster", c.label, name)
+			continue
+		}
+		if !reflect.DeepEqual(dt.DefaultSort, c.want) {
+			t.Errorf("%s: DefaultSort = %+v; want %+v", c.label, dt.DefaultSort, c.want)
+		}
+	}
+}
+
+// noDisabledSeq makes each registration's name unique, so a panic can only
+// come from the missing disabled field, not a duplicate (-count > 1).
+var noDisabledSeq atomic.Int64
+
+// TestKit_RegisterMasterNeedsDisabled has no case ID (MST 1d): a master
+// with no disabled field is a programming error and RegisterMaster panics.
+func TestKit_RegisterMasterNeedsDisabled(t *testing.T) {
+	name := fmt.Sprintf("kit.NoDisabled%d", noDisabledSeq.Add(1))
+	panicked := func() (p bool) {
+		defer func() {
+			if recover() != nil {
+				p = true
+			}
+		}()
+		mstkit.RegisterMaster(doctype.DocType{
+			Name:        name,
+			Label:       "No Disabled",
+			PluralLabel: "No Disabled Things",
+			Table:       "kit_no_disabled",
+			Fields: []doctype.Field{
+				{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true},
+				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+			},
+		}, thingMaster)
+		return false
+	}()
+	if !panicked {
+		t.Errorf("RegisterMaster(%s with no disabled field) did not panic; want a panic", name)
+	}
+}
+
+// checkDefaultRightsTable checks the whole M1 table (CD-10): Masters
+// Manager rights, read for the roles whose documents link to the master,
+// every scope "all", and no Administrator rows.
+func checkDefaultRightsTable(t *testing.T) {
+	t.Helper()
+	all := func(rights ...string) map[string]string {
+		m := make(map[string]string, len(rights))
+		for _, r := range rights {
+			m[r] = "all"
+		}
+		return m
+	}
+	full := []string{"read", "create", "write", "delete", "export", "import"}
+	readers := func(mm []string, roles ...string) map[string]map[string]string {
+		m := map[string]map[string]string{"Masters Manager": all(mm...)}
+		for _, r := range roles {
+			m[r] = all("read")
+		}
+		return m
+	}
+	want := map[string]map[string]map[string]string{
+		"Company":       readers([]string{"read", "write", "export"}, "Purchase User", "Stores", "Employee"),
+		"Branch":        readers([]string{"read", "create", "write", "delete", "export"}, "Purchase User", "Stores", "Employee"),
+		"Party":         readers(full, "Purchase User", "Stores"),
+		"Address":       readers(full, "Purchase User", "Stores"),
+		"Contact":       readers(full, "Purchase User", "Stores"),
+		"Payment Terms": readers([]string{"read", "create", "write", "delete", "export"}, "Purchase User", "Stores"),
+		"Item":          readers(full, "Purchase User", "Stores"),
+		"UoM":           readers(full, "Purchase User", "Stores"),
+		"Tax Code":      readers(full, "Purchase User", "Stores", "Employee"),
+		"Project":       readers(full, "Purchase User", "Stores", "Employee"),
+		"Site":          readers(full, "Purchase User", "Stores", "Employee"),
+		"Employee":      readers(full, "Employee"),
+		"Expense Type":  readers(full, "Employee"),
+	}
+	for dt, w := range want {
+		got := mstkit.DefaultRights(dt)
+		if _, ok := got["Administrator"]; ok {
+			t.Errorf("DefaultRights(%q) has an Administrator key", dt)
+		}
+		if !reflect.DeepEqual(got, w) {
+			t.Errorf("DefaultRights(%q) = %v; want %v", dt, got, w)
+		}
+	}
+}

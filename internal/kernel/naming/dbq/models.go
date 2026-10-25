@@ -116,6 +116,79 @@ type AuthMetum struct {
 	Seeded      int64
 }
 
+type Branch struct {
+	ID           int64
+	Code         string
+	Name         string
+	StateCode    string
+	Gstin        string
+	IsHeadOffice int64
+	Disabled     int64
+	Version      int64
+	CreatedAt    string
+	CreatedBy    sql.NullInt64
+	UpdatedAt    string
+	UpdatedBy    sql.NullInt64
+}
+
+type Company struct {
+	ID        int64
+	Name      string
+	Pan       string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type ExpenseType struct {
+	ID               int64
+	Code             string
+	Name             string
+	DefaultHsnSac    string
+	DefaultTaxCodeID sql.NullInt64
+	Disabled         int64
+	Version          int64
+	CreatedAt        string
+	CreatedBy        sql.NullInt64
+	UpdatedAt        string
+	UpdatedBy        sql.NullInt64
+}
+
+type GstState struct {
+	Code string
+	Name string
+}
+
+type Item struct {
+	ID               int64
+	Code             string
+	Name             string
+	ItemType         string
+	HsnSac           string
+	StockUomID       int64
+	PurchaseUomID    int64
+	DefaultTaxCodeID sql.NullInt64
+	IsStock          int64
+	StandardRate     int64
+	Disabled         int64
+	Version          int64
+	CreatedAt        string
+	CreatedBy        sql.NullInt64
+	UpdatedAt        string
+	UpdatedBy        sql.NullInt64
+}
+
+type ItemUom struct {
+	ID       int64
+	ParentID int64
+	LineNo   int64
+	UomID    int64
+	Factor   int64
+}
+
 type LoginAttempt struct {
 	Key            string
 	Count          int64
@@ -159,6 +232,43 @@ type NamingSeries struct {
 	UpdatedBy sql.NullInt64
 }
 
+type Party struct {
+	ID                    int64
+	Code                  string
+	Name                  string
+	IsVendor              int64
+	IsCustomer            int64
+	Pan                   string
+	GstCategory           string
+	DefaultPaymentTermsID sql.NullInt64
+	Disabled              int64
+	Version               int64
+	CreatedAt             string
+	CreatedBy             sql.NullInt64
+	UpdatedAt             string
+	UpdatedBy             sql.NullInt64
+}
+
+type PaymentTerm struct {
+	ID        int64
+	Code      string
+	Name      string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type PaymentTermsRow struct {
+	ID       int64
+	ParentID int64
+	LineNo   int64
+	Portion  int64
+	Days     int64
+}
+
 type Role struct {
 	ID        int64
 	Name      string
@@ -193,6 +303,34 @@ type Session struct {
 	LastSeenAt string
 	Ip         string
 	UserAgent  string
+}
+
+type TaxCode struct {
+	ID        int64
+	Code      string
+	Name      string
+	Treatment string
+	Rate      int64
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type Uom struct {
+	ID          int64
+	Code        string
+	Name        string
+	Uqc         string
+	WholeNumber int64
+	Disabled    int64
+	Version     int64
+	CreatedAt   string
+	CreatedBy   sql.NullInt64
+	UpdatedAt   string
+	UpdatedBy   sql.NullInt64
 }
 
 type User struct {
