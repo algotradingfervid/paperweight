@@ -200,6 +200,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-DOC | Fixture harness template-DB speedup | Standard | crew-implementer opus | 17:55 | 17:58 | — | dropped: baseline already 6.6 s doc tests, ~85 fuzz execs/s; needs testkit change | — |
 | Merges | DOC done (Tasks 1–17) 6d505af; `make ci` green | — | director | | 20:45 | — | — | — |
 | Budgets | AD-4 finished (DOC, FILE): its 4 slots go to AD-5 (masters, now the longest chain): head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 0, AD-5 8 | — | director | | 20:45 | — | — | — |
+| Merges | NAM CD-164 follow-ups (merge above); `make ci` green | — | director | | 20:55 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
