@@ -115,6 +115,38 @@ type AuthMetum struct {
 	PermVersion int64
 }
 
+type Branch struct {
+	ID           int64
+	Code         string
+	Name         string
+	StateCode    string
+	Gstin        string
+	IsHeadOffice int64
+	Disabled     int64
+	Version      int64
+	CreatedAt    string
+	CreatedBy    sql.NullInt64
+	UpdatedAt    string
+	UpdatedBy    sql.NullInt64
+}
+
+type Company struct {
+	ID        int64
+	Name      string
+	Pan       string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type GstState struct {
+	Code string
+	Name string
+}
+
 type LoginAttempt struct {
 	Key            string
 	Count          int64
