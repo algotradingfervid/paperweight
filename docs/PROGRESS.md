@@ -137,6 +137,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-FILE | FILE-P rebase fixes | — | crew-verifier haiku, crew-implementer haiku | 17:10 | 17:17 | — | UI lint daisy-outside-ui: badge → doc_badge | b462e5a, ae36419 |
 | WP1-FILE | 16 P2 print cases (lane) | Standard | crew-implementer opus | 17:18 | | | | |
 | Merges | FILE-P (FILE 5–14) 3d66864; `make ci` green | — | director | | 18:05 | — | — | — |
+| WP1-NUM | 15 list and csvio P2 | Standard | crew-implementer, crew-reviewer | 17:07 | 17:17 | 1 | 0/1/4 (error-rows header escaping fixed) | 9da0907 |
+| Merges | NUM done (Tasks 1–15) 765248f; `make ci` green | — | director | | 18:15 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
@@ -178,6 +180,7 @@ Nothing in flight; every worktree is clean. Next step per WP:
 - AUTH Task 12 (account/password handlers): a corrupt stored hash returns plain `errBadHash` (500), not an HTTPError; map it there.
 - AUTH Task 11: `go mod tidy` drops `golang.org/x/term` until `auth/cli` imports it; keep the hand-restored lines. Consider a `go mod tidy -diff` check in `make ci` after that.
 - WP3 (from FILE): mount files/web under a prefix (its NotFound says "File not found."); run `files check` when idle (in-flight uploads look like orphans); CopyAll order is untested; the `signedOut` helper is duplicated in files/web and print/web.
+- NUM follow-ups (it-num/.work/carry-over.md): IGST tolerance-message test; inter-state CGST message wording; NUM-076 tzdata check.
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
