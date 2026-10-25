@@ -35,3 +35,7 @@ linters:
         path-except: ^internal/
       - linters: [forbidigo]
         path: _test\.go$
+      # Tests convert small, bounded ints to bytes when building inputs.
+      - linters: [gosec]
+        text: G115
+        path: _test\.go$
