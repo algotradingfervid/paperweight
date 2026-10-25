@@ -190,6 +190,26 @@ type NamingSeries struct {
 	UpdatedBy sql.NullInt64
 }
 
+type PaymentTerm struct {
+	ID        int64
+	Code      string
+	Name      string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type PaymentTermsRow struct {
+	ID       int64
+	ParentID int64
+	LineNo   int64
+	Portion  int64
+	Days     int64
+}
+
 type Role struct {
 	ID        int64
 	Name      string
