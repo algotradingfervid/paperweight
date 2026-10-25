@@ -33,7 +33,9 @@ var std = newRegistry()
 
 // Register adds dt at init. It panics on an empty Name, a duplicate, a bad
 // table or column identifier, a bad field or a master that has Hooks or is
-// submittable or approvable. References to other DocTypes are checked by Check.
+// submittable or approvable. A header field named after a convention column
+// with Column empty or equal to its Name becomes System (CD-144); any other
+// field on a convention column panics. References to other DocTypes are checked by Check.
 func Register(dt DocType) { std.Register(dt) }
 
 // Lookup returns the DocType registered under name.
@@ -53,8 +55,12 @@ func (r *registry) Register(dt DocType) {
 	}
 	dt.Fields = slices.Clone(dt.Fields)
 	for i := range dt.Fields {
-		if dt.Fields[i].Column == "" {
-			dt.Fields[i].Column = dt.Fields[i].Name
+		f := &dt.Fields[i]
+		if f.Column == "" {
+			f.Column = f.Name
+		}
+		if conventionField(*f) {
+			f.System = true // CD-144: the engine owns the column; never from input
 		}
 	}
 	if err := validate(&dt); err != nil {
@@ -111,8 +117,11 @@ func validate(dt *DocType) error {
 		if f.OnLine {
 			conv = lineConvColumns
 		}
-		if slices.Contains(conv, f.Column) {
+		if slices.Contains(conv, f.Column) && !conventionField(f) {
 			return fmt.Errorf("field %q: Column %q is a convention column", f.Name, f.Column)
+		}
+		if conventionField(f) && f.EditableAfterSubmit {
+			return fmt.Errorf("field %q: a convention column can't be EditableAfterSubmit", f.Name)
 		}
 		if other, dup := columns[f.OnLine][f.Column]; dup {
 			return fmt.Errorf("fields %q and %q share Column %q", other, f.Name, f.Column)
@@ -120,6 +129,12 @@ func validate(dt *DocType) error {
 		columns[f.OnLine][f.Column] = f.Name
 	}
 	return nil
+}
+
+// conventionField reports whether f is a header field that maps a convention
+// column onto itself, to show, sort and search it (CD-144).
+func conventionField(f Field) bool {
+	return !f.OnLine && f.Column == f.Name && slices.Contains(headerConvColumns, f.Column)
 }
 
 func validateField(f Field) error {

@@ -91,7 +91,6 @@ func TestRegistry_RejectsColumnClashes(t *testing.T) {
 	}{
 		{"same Column on the header", Field{Name: "days", Label: "Days", Type: Int, Column: "credit_days"}, []string{"days", "credit_days"}},
 		{"same Column on the lines", Field{Name: "qty2", Label: "Qty 2", Type: Qty, OnLine: true, Column: "qty"}, []string{"qty2", "qty"}},
-		{"header convention column", Field{Name: "version", Label: "Version", Type: Int}, []string{"version"}},
 		{"header convention column via Column", Field{Name: "maker", Label: "Maker", Type: Int, Column: "created_by"}, []string{"maker", "created_by"}},
 		{"line convention column", Field{Name: "parent", Label: "Parent", Type: Int, OnLine: true, Column: "parent_id"}, []string{"parent", "parent_id"}},
 		{"line id", Field{Name: "id", Label: "Id", Type: Int, OnLine: true}, []string{"id"}},
@@ -111,4 +110,9 @@ func TestRegistry_RejectsColumnClashes(t *testing.T) {
 	dt := testOrder()
 	dt.Fields = append(dt.Fields, Field{Name: "head_qty", Label: "Head qty", Type: Qty, Column: "qty"})
 	mustNotPanic(t, "same Column on header and line", func() { newRegistry().Register(dt) })
+
+	// CD-144: a header field named after a convention column maps to it itself.
+	dt = testOrder()
+	dt.Fields = append(dt.Fields, Field{Name: "version", Label: "Version", Type: Int})
+	mustNotPanic(t, "header convention column", func() { newRegistry().Register(dt) })
 }
