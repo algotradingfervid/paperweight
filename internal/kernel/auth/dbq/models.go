@@ -115,6 +115,11 @@ type AuthMetum struct {
 	PermVersion int64
 }
 
+type GstState struct {
+	Code string
+	Name string
+}
+
 type LoginAttempt struct {
 	Key            string
 	Count          int64
