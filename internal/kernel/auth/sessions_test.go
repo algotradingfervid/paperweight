@@ -89,7 +89,7 @@ func (e *sessionEnv) get(t *testing.T, path, cookie, ip string) (body, setCookie
 		t.Fatalf("NewRequest(%s): %v", path, err)
 	}
 	if cookie != "" {
-		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookie})
+		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: cookie}) //nolint:gosec // client-side request cookie
 	}
 	req.Header.Set("X-Test-IP", ip)
 	req.Header.Set("User-Agent", "agent-"+ip)
@@ -318,7 +318,7 @@ func TestSession_RevokedNotResurrectedByInFlightCommit(t *testing.T) {
 			done <- result{err: err}
 			return
 		}
-		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: raw})
+		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: raw}) //nolint:gosec // client-side request cookie
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			done <- result{err: err}
