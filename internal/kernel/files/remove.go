@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -15,10 +16,14 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-const msgRemoveLocked = "Files can't be removed after the document is submitted. Cancel and amend it to change files."
+const (
+	msgRemoveLocked = "Files can't be removed after the document is submitted. Cancel and amend it to change files."
+	msgInUse        = "This file is the receipt on line %d. Clear it there first."
+)
 
 // Remove deletes attachment id when p may write its parent and the parent is
-// draft, rejected or stateless, and audits the removal. The blob stays for GC.
+// draft, rejected or stateless and no RemoveGuard reports a line using it,
+// and audits the removal. The blob stays for GC.
 func (s *Store) Remove(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) error {
 	q := dbq.New(tx.SQL())
 	row, err := q.GetAttachment(ctx, id)
@@ -36,6 +41,15 @@ func (s *Store) Remove(ctx context.Context, tx *db.Tx, p auth.Principal, id int6
 	case doctype.StateDraft, doctype.StateRejected, "":
 	default:
 		return &Error{Kind: KindRemoveLocked, Code: http.StatusUnprocessableEntity, Message: msgRemoveLocked}
+	}
+	if guard := s.cfg.RemoveGuards[row.ParentDocType]; guard != nil {
+		line, err := guard(ctx, tx, row.ParentID, id)
+		if err != nil {
+			return err
+		}
+		if line > 0 {
+			return &Error{Kind: KindInUse, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgInUse, line)}
+		}
 	}
 	if err := q.DeleteAttachment(ctx, id); err != nil {
 		return err

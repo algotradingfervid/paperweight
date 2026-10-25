@@ -1,6 +1,7 @@
 package files
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,17 +14,23 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
+// RemoveGuard reports the line (> 0) of parentID that still uses
+// attachmentID, read in tx, or 0 when none does.
+type RemoveGuard func(ctx context.Context, tx *db.Tx, parentID, attachmentID int64) (line int, err error)
+
 // Config is what a Store needs. Audit nil means audit.Default; a DocType
-// missing from Policies gets DefaultPolicy.
+// missing from Policies gets DefaultPolicy. RemoveGuards, by parent DocType,
+// can block Remove while a line uses the attachment.
 type Config struct {
-	DataDir  string
-	DB       *db.DB
-	Auth     auth.Service
-	Info     doctype.InfoSource
-	Clock    clock.Clock
-	Audit    audit.Writer
-	Policies map[string]Policy
-	Logger   *slog.Logger
+	DataDir      string
+	DB           *db.DB
+	Auth         auth.Service
+	Info         doctype.InfoSource
+	Clock        clock.Clock
+	Audit        audit.Writer
+	Policies     map[string]Policy
+	Logger       *slog.Logger
+	RemoveGuards map[string]RemoveGuard
 }
 
 // Store keeps attachment rows in the database and their bytes under

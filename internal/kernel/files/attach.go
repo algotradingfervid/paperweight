@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -23,6 +24,11 @@ const MsgStorage = "Couldn't save the file. Try again or contact your administra
 
 // msgStorage stays for the package's internal tests.
 const msgStorage = MsgStorage
+
+const (
+	msgDuplicate = "This file is already attached to %s."
+	msgReceipt   = "The receipt on line %d belongs to another document. Attach it to this %s first."
+)
 
 // timeLayout is the fixed-width UTC text every timestamp is stored as (§4.3).
 const timeLayout = "2006-01-02T15:04:05.000Z"
@@ -73,7 +79,8 @@ func (s *Store) Attach(ctx context.Context, tx *db.Tx, p auth.Principal, parent 
 }
 
 // attachRules runs Attach's checks in order: parent exists, write right on it
-// (built from its Info), not cancelled, Check, and the per-document count.
+// (built from its Info), not cancelled, Check, not already attached to this
+// parent, and the per-document count.
 func (s *Store) attachRules(ctx context.Context, tx *db.Tx, p auth.Principal, parent auth.RecordRef, name string, f *Spooled) (Checked, error) {
 	pol := s.policy(parent.DocType)
 	info, err := s.cfg.Info.Info(ctx, tx, parent.DocType, parent.ID)
@@ -94,7 +101,15 @@ func (s *Store) attachRules(ctx context.Context, tx *db.Tx, p auth.Principal, pa
 	if err != nil {
 		return Checked{}, err
 	}
-	n, err := dbq.New(tx.SQL()).CountForParent(ctx, dbq.CountForParentParams{ParentDocType: parent.DocType, ParentID: parent.ID})
+	q := dbq.New(tx.SQL())
+	dup, err := q.ExistsForParentSHA(ctx, dbq.ExistsForParentSHAParams{ParentDocType: parent.DocType, ParentID: parent.ID, Sha256: f.SHA256()})
+	if err != nil {
+		return Checked{}, err
+	}
+	if dup {
+		return Checked{}, &Error{Kind: KindDuplicate, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgDuplicate, info.Display)}
+	}
+	n, err := q.CountForParent(ctx, dbq.CountForParentParams{ParentDocType: parent.DocType, ParentID: parent.ID})
 	if err != nil {
 		return Checked{}, err
 	}
@@ -102,6 +117,21 @@ func (s *Store) attachRules(ctx context.Context, tx *db.Tx, p auth.Principal, pa
 		return Checked{}, &Error{Kind: KindLimit, Code: http.StatusUnprocessableEntity, Message: msgLimit}
 	}
 	return c, nil
+}
+
+// CheckReceipt refuses attachmentID as line's receipt unless it is an
+// attachment of parent, read in tx (FILE-045). docLabel names the document
+// in the message ("expense"). A non-existent attachmentID gets the same
+// refusal: the form only posts ids, so a missing one is a stale or forged post.
+func (s *Store) CheckReceipt(ctx context.Context, tx *db.Tx, parent auth.RecordRef, line int, attachmentID int64, docLabel string) error {
+	row, err := dbq.New(tx.SQL()).GetAttachment(ctx, attachmentID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if err != nil || row.ParentDocType != parent.DocType || row.ParentID != parent.ID {
+		return &Error{Kind: KindReceiptMismatch, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgReceipt, line, docLabel)}
+	}
+	return nil
 }
 
 // parentErr maps doctype.ErrNotFound (which is auth.ErrNotFound, CD-54) to

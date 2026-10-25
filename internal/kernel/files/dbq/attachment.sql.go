@@ -168,6 +168,43 @@ func (q *Queries) InsertAttachment(ctx context.Context, arg InsertAttachmentPara
 	return id, err
 }
 
+const listAll = `-- name: ListAll :many
+SELECT id, parent_doctype, parent_id, file_name, size, content_type, sha256, uploaded_by, uploaded_at FROM attachment ORDER BY id
+`
+
+func (q *Queries) ListAll(ctx context.Context) ([]Attachment, error) {
+	rows, err := q.db.QueryContext(ctx, listAll)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentDocType,
+			&i.ParentID,
+			&i.FileName,
+			&i.Size,
+			&i.ContentType,
+			&i.Sha256,
+			&i.UploadedBy,
+			&i.UploadedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listForParent = `-- name: ListForParent :many
 SELECT id, parent_doctype, parent_id, file_name, size, content_type, sha256, uploaded_by, uploaded_at FROM attachment
 WHERE parent_doctype = ? AND parent_id = ?
