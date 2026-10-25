@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: ../../../migrations/00300_audit_log.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq
