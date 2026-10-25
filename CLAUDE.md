@@ -61,6 +61,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Commit tests for a package that isn't built yet in its lane, never on the WP branch: tests ahead of code break the shared hand-in and `make ci`.
 - A change to an auth check needs the same change in `authfake` and a parity row (real service vs fake, every DocType × `AllRights` + one unknown right); authfake drifted three times (CD-157, CD-162, CD-173).
 - An invariant between two records (or two masters) is checked on every write path of both sides: create, update, set-primary, enable, import. A rule on one path but missed on its siblings is the most common review finding in Wave 1. Best: one post-state check that reads the whole state after the change, inside the write tx, called last by every write, plus a property test over random write sequences (CD-180).
+- Every browser-test (chromedp) wait has a short per-step deadline: a request that never answers (e.g. a fake returning "not implemented yet") then fails one test fast, not the whole run at the 10-minute timeout.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
