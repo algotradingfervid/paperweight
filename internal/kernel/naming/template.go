@@ -3,6 +3,8 @@ package naming
 import (
 	"fmt"
 	"strings"
+
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // part is one piece of a template. Exactly one field is set: lit for literal
@@ -159,4 +161,38 @@ func (t template) maxLen() int {
 		n += len(p.lit) + tokenLen[p.tok] + p.digits
 	}
 	return n
+}
+
+// prefix renders every part before the number part from the business date d.
+func (t template) prefix(d types.Date) string {
+	var b strings.Builder
+	for _, p := range t.parts {
+		switch p.tok {
+		case "":
+			b.WriteString(p.lit)
+		case "FY":
+			b.WriteString(fiscalYear(d).Short)
+		case "YYYY":
+			fmt.Fprintf(&b, "%04d", d.Year)
+		case "YY":
+			fmt.Fprintf(&b, "%02d", d.Year%100)
+		case "MM":
+			fmt.Fprintf(&b, "%02d", int(d.Month))
+		}
+	}
+	return b.String()
+}
+
+// render is prefix(d) followed by n zero-padded to the number part's width.
+func (t template) render(d types.Date, n int64) string {
+	return t.prefix(d) + fmt.Sprintf("%0*d", t.digits, n)
+}
+
+// maxCounter is the largest number the number part can hold: 10^digits - 1.
+func (t template) maxCounter() int64 {
+	m := int64(1)
+	for range t.digits {
+		m *= 10
+	}
+	return m - 1
 }
