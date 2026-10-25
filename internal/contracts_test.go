@@ -244,8 +244,8 @@ func TestContracts_AuthFakeSeedingHelpers(t *testing.T) {
 	}
 
 	f.Hide("fixture.Order", 9)
-	if err := f.CheckLink(ctx, p, "fixture.Order", 9); !errors.Is(err, auth.ErrNotFound) {
-		t.Errorf("CheckLink on hidden record error = %v, want auth.ErrNotFound", err)
+	if err := f.CheckLink(ctx, p, "fixture.Order", 9); !errors.Is(err, auth.ErrForbidden) {
+		t.Errorf("CheckLink on hidden record error = %v, want auth.ErrForbidden", err)
 	}
 }
 
