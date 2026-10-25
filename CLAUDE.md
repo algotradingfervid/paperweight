@@ -24,6 +24,9 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 
 ## Things that will bite you
 
+**Read `docs/engineering-lessons.md` before writing a plan, a brief, tests, code or a review** (sections 1–2 are the plan and review checklists; 3–11 are the rules by area). The lines below are the ones that bite in every session.
+
+
 - Every write goes through `db.Write` (`BEGIN IMMEDIATE`); checks that depend on other rows read inside that transaction, and a save uses the `version` the page posted, never a freshly loaded one (CD-94).
 - No `style=` attributes, inline scripts, `hx-on`, trigger filters `[...]` or templ `css`/`script` blocks: the CSP and the UI lint test reject them.
 - Our component CSS must be Tailwind `@utility`, never `@layer components`: daisyUI's layers sit inside `utilities` and win over `components` (CD-98).

@@ -96,7 +96,7 @@ Every worker gets the same brief shape and nothing from the conversation:
 
 ```
 TASK: paperweight <WP> <task> | ROLE: <role> | TIER: <tier>
-Read <plan path> section "Task <n>" and follow it exactly. Also read: <spec sections>, <CD ids>, docs/superpowers/plans/2026-10-25-execution-protocol.md sections 4–6.
+Read <plan path> section "Task <n>" and follow it exactly. Also read: <spec sections>, <CD ids>, docs/superpowers/plans/2026-10-25-execution-protocol.md sections 4–6. Also read docs/engineering-lessons.md sections <areas this task touches>; reviewers also apply its section 2.
 You may change only: <paths from the task's Files list>. Read nothing else unless the task names it.
 Commands: <section 5 commands for this role>.
 Status file: .work/status/<wp>-<task>.md. Append one line per step: time, step, result.

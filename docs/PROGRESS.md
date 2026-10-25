@@ -234,6 +234,20 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | AUTH CD-173 + CD-174 cd10b67; `make ci` green | — | director | | 19:17 | — | — | — |
 | Budgets | WP3 Task 1 split across idle ADs (CD-182): head 2, AD-1 5, AD-2 3, AD-3 3, AD-4 3, AD-5 6, reserve 3 | — | director | | 19:45 | — | — | — |
 
+## RESUME HERE (paused 25 Oct 2026 ~19:55, owner's battery)
+
+On main (every merge `make ci` green): NUM, NAM, APR, DOC, FILE complete; AUTH done except Task 20 (waits for UI-M2); UI-M1; WP2 part 1 (Tasks 1–5, 8–11); WP3 early deploy files.
+
+In flight when paused (all on their own branches; uncommitted work was committed as `wip` where the head director could):
+- **Head director:** CD-178 (Required on submit, not draft saves) on `lane/doc-required` (../it-doc-required). Attempt 2's code is committed as a `wip` commit: create checks restricted Required fields before `Can`, plus a real-auth-service test. Next: resume or re-brief a reviewer to re-check the two majors from the last review, then merge with `make ci`. Note from the implementer: `authtest.NewWorld`'s SeedDefaults refuses `fixture.Item`'s default rights ("Import does not apply to Item"); raise with AD-1.
+- **AD-1 (AUTH):** WP3 Task 1 auth contract suite on `wp3/contract-auth`, plus the authfake empty-ids parity fix. Task 20 waits for UI-M2.
+- **AD-2 (UI):** Task 14 fix round on `lane/ui-14`, then Task 17 checks, then MERGE-READY UI-M2 (was ~60 min away).
+- **AD-3:** naming and approval contract suites on `wp3/contract-naming` / `wp3/contract-approval`; deleting namingfake and approvalfake (CD-184).
+- **AD-4:** files and doc contract suites (CD-182), if its session was reopened.
+- **AD-5 (WP2):** Task 6 attempt 3 (final review) on `lane/masters-parties`; Task 14 attempt 4 (CD-185) on `lane/masters-org`; `scripts/covertouched` tooling. Then the Org and Parties MERGE-READYs, Tasks 15–28.
+
+To restart: open this session as head director (director skill), read this section and `docs/engineering-lessons.md`, check each worktree (`git -C ../it-<x> status --short`, last commit), then restart each AD session with "continue". Budgets (CD-182): head 2, AD-1 5, AD-2 3, AD-3 3, AD-4 3, AD-5 6, reserve 3. After an outage, a worker that died mid-task leaves uncommitted changes; a fresh worker resumes from them with the same brief.
+
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
 Nothing in flight; every worktree is clean. Next step per WP:
