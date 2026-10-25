@@ -3,6 +3,7 @@ package components_test
 import (
 	"bytes"
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -129,7 +130,7 @@ func TestFilterBar_URLState(t *testing.T) {
 	doc := uitest.Render(t, components.FilterBar(p))
 	f := doc.Find("form")
 	for attr, want := range map[string]string{
-		"method": "get", "hx-get": "/doc/po", "hx-target": "#main", "hx-push-url": "true", "hx-trigger": "change, submit", "action": "/doc/po",
+		"method": "get", "hx-get": "/doc/po", "hx-target": "#main", "hx-swap": "outerHTML", "hx-push-url": "true", "hx-trigger": "change, submit", "action": "/doc/po",
 	} {
 		if got := f.AttrOr(attr, ""); got != want {
 			t.Errorf("form %s = %q, want %q", attr, got, want)
@@ -167,6 +168,22 @@ func TestFilterBar_URLState(t *testing.T) {
 	doc = uitest.Render(t, components.FilterBar(p))
 	if strings.Contains(text(doc.Selection), "Clear all") || doc.Find("a.chip").Length() != 0 {
 		t.Error("Clear all shown without chips")
+	}
+}
+
+func TestFilterBar_KeepsParams(t *testing.T) {
+	doc := uitest.Render(t, components.FilterBar(components.FilterBarProps{
+		Action: "/doc/po", SearchLabel: "Search purchase orders",
+		Keep: []components.Param{{Name: "f", Value: "state:=:draft"}, {Name: "f", Value: "site_id:=:3"}, {Name: "size", Value: "50"}},
+	}))
+	hidden := doc.Find(`form input[type="hidden"]`)
+	var got []string
+	hidden.Each(func(_ int, s *goquery.Selection) {
+		got = append(got, s.AttrOr("name", "")+"="+s.AttrOr("value", ""))
+	})
+	want := []string{"f=state:=:draft", "f=site_id:=:3", "size=50"}
+	if !slices.Equal(got, want) {
+		t.Errorf("hidden inputs = %q, want %q", got, want)
 	}
 }
 

@@ -33,7 +33,8 @@ type Filter struct {
 	Values    []string
 }
 
-// ListQuery is a list's state as carried in its URL (NUM-125).
+// ListQuery is a list's state as carried in its URL (NUM-125). Page and
+// Size 0 mean "not given": page 1 and the default size of 25 (NUM-117).
 type ListQuery struct {
 	Search, Sort string
 	Filters      []Filter

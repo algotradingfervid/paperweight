@@ -5,6 +5,9 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 // Chip is one active filter; RemoveURL is the same page without it.
 type Chip struct{ Label, RemoveURL string }
 
+// Param is one query parameter the bar carries through a search or sort.
+type Param struct{ Name, Value string }
+
 // FilterBarProps describes the search, sort and filter bar above a result set.
 type FilterBarProps struct {
 	Action, Search, SearchLabel, Sort string
@@ -12,11 +15,15 @@ type FilterBarProps struct {
 	Chips                             []Chip
 	FilterURL, ClearURL, Count        string
 	New, Export                       *Link
+	Keep                              []Param // hidden inputs, e.g. the active filters
 }
 
 // FilterBar is a GET form, so a filtered URL can be shared.
 templ FilterBar(p FilterBarProps) {
-	<form class="filterbar" method="get" action={ templ.SafeURL(p.Action) } hx-get={ p.Action } hx-target="#main" hx-push-url="true" hx-trigger="change, submit" role="search">
+	<form class="filterbar" method="get" action={ templ.SafeURL(p.Action) } hx-get={ p.Action } hx-target="#main" hx-swap="outerHTML" hx-push-url="true" hx-trigger="change, submit" role="search">
+		for _, k := range p.Keep {
+			<input type="hidden" name={ k.Name } value={ k.Value }/>
+		}
 		<div class="filterbar-row">
 			<div class="filterbar-search">
 				<label for="filter-q">{ p.SearchLabel }</label>

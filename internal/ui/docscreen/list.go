@@ -58,9 +58,11 @@ func (d Deps) list(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					continue
 				}
-				if vals[c.Key], err = Display(ctx, tx, d.Engine, f, lr.Values[c.Key]); err != nil {
+				s, err := Display(ctx, tx, d.Engine, f, lr.Values[c.Key])
+				if err != nil {
 					return err
 				}
+				vals[c.Key] = s
 			}
 			rows[i] = components.Row{
 				Href:   docURL(dt.Name, lr.Info.ID),
@@ -94,14 +96,17 @@ func (d Deps) list(w http.ResponseWriter, r *http.Request) {
 			ClearURL:    listURL(dt.Name, ListQuery{Search: q.Search, Sort: q.Sort, Size: q.Size}),
 			Count:       countLine(dt, res.Total),
 			New:         newLink,
+			Keep:        keep(q),
 		},
 		List: components.DataListProps{
 			Label:   dt.PluralLabel,
 			Columns: cols,
 			Rows:    rows,
-			Empty:   components.EmptyState("No "+plural+" yet.", newLink),
 		},
 		Pages: pageInfo(dt.Name, q, res.Total, plural),
+	}
+	if res.Total == 0 {
+		v.List.Empty = components.EmptyState("No "+plural+" yet.", newLink)
 	}
 	if d.can(r, p, dt.Name, "export") {
 		v.Bar.Export = &components.Link{Label: "Export", Href: "/doc/" + dt.Name + "/export.csv"}
@@ -208,6 +213,21 @@ func chips(dt *doctype.DocType, q ListQuery) []components.Chip {
 		rest.Page = 0
 		rest.Filters = slices.Concat(q.Filters[:i], q.Filters[i+1:])
 		out[i] = components.Chip{Label: label + strings.Join(f.Values, ", "), RemoveURL: listURL(dt.Name, rest)}
+	}
+	return out
+}
+
+// keep is what the filter bar carries through a search or sort: the
+// filters and size, never page, so the result starts on page 1.
+func keep(q ListQuery) []components.Param {
+	var out []components.Param
+	for _, f := range q.Filters {
+		for _, val := range f.Values {
+			out = append(out, components.Param{Name: "f", Value: f.Field + ":" + f.Op + ":" + val})
+		}
+	}
+	if q.Size > 0 {
+		out = append(out, components.Param{Name: "size", Value: strconv.Itoa(q.Size)})
 	}
 	return out
 }

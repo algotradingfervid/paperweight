@@ -2,6 +2,7 @@ package docscreen_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -30,6 +31,7 @@ type env struct {
 	docs   *docfake.Fake
 	az     *authfake.Fake
 	lister *docscreentest.Lister
+	db     *docscreentest.Reader
 	h      http.Handler
 }
 
@@ -38,13 +40,13 @@ type env struct {
 func newEnv(t *testing.T, rights ...auth.Right) *env {
 	t.Helper()
 	docscreentest.RegisterSample()
-	e := &env{docs: docfake.New(), az: authfake.New(), lister: docscreentest.NewLister()}
+	e := &env{docs: docfake.New(), az: authfake.New(), lister: docscreentest.NewLister(), db: &docscreentest.Reader{}}
 	for _, r := range rights {
 		e.az.Grant("Buyer", docscreentest.Sample, r, auth.ScopeAll)
 	}
 	e.az.AddRole(priya.ID, "Buyer")
 	d := docscreen.Deps{
-		DB:        docscreentest.Reader{},
+		DB:        e.db,
 		Engine:    e.docs,
 		Auth:      e.az,
 		Approval:  approvalfake.New(),
@@ -82,6 +84,9 @@ func TestDocList_RendersCardsAndCount(t *testing.T) {
 	rec := e.get(t, "/doc/docscreentest.Sample")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
+	}
+	if n := e.db.Calls(); n != 1 {
+		t.Errorf("Read called %d times per list GET, want 1", n)
 	}
 	doc := uitest.Doc(t, rec)
 
@@ -150,6 +155,12 @@ func TestDocList_StateRoundTripsURL(t *testing.T) {
 	if v, _ := form.Find(`select[name="sort"] option[selected]`).Attr("value"); v != "amount.desc" {
 		t.Errorf("selected sort = %q", v)
 	}
+	if form.Find(`input[type="hidden"][name="f"][value="state:=:approved"]`).Length() != 1 {
+		t.Error("form does not keep the active filter as a hidden f")
+	}
+	if form.Find(`input[type="hidden"][name="page"]`).Length() != 0 {
+		t.Error("form keeps page; a new search or sort must start on page 1")
+	}
 	chip := form.Find("a.chip")
 	if chip.Length() != 1 || !strings.Contains(chip.Text(), "State: approved") {
 		t.Fatalf("chips = %d %q", chip.Length(), chip.Text())
@@ -185,8 +196,8 @@ func TestDocList_HTMXGetsMainOnly(t *testing.T) {
 func TestDocList_ForbiddenUsesAuthMessage(t *testing.T) {
 	e := newEnv(t)
 	authErr := e.az.Can(context.Background(), priya, docscreentest.Sample, "read", nil)
-	if authErr == nil {
-		t.Fatal("Can allowed read without a grant")
+	if !errors.Is(authErr, auth.ErrForbidden) {
+		t.Fatalf("Can without a grant = %v, want auth.ErrForbidden", authErr)
 	}
 	rec := e.get(t, "/doc/docscreentest.Sample")
 	if rec.Code != http.StatusForbidden {
@@ -241,6 +252,18 @@ func TestDocList_EmptyState(t *testing.T) {
 	}
 	if href, _ := empty.Find("a").Attr("href"); href != "/doc/docscreentest.Sample/new" || strings.TrimSpace(empty.Find("a").Text()) != "New sample order" {
 		t.Errorf("empty action = %q %q", href, empty.Find("a").Text())
+	}
+}
+
+func TestDocList_PastTheEndHasNoEmptyState(t *testing.T) {
+	e := newEnv(t, "read", "create")
+	e.lister.Set(docscreentest.Sample, types.Result[docscreen.ListRow]{Total: 30})
+	doc := uitest.Doc(t, e.get(t, "/doc/docscreentest.Sample?page=5"))
+	if doc.Find(".empty-state").Length() != 0 {
+		t.Error("empty state shown on a page past the end of 30 results")
+	}
+	if !strings.Contains(doc.Text(), "No more results.") {
+		t.Error("no \"No more results.\" past the end")
 	}
 }
 

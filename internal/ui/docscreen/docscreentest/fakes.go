@@ -13,10 +13,26 @@ import (
 )
 
 // Reader is a docscreen.Reader that calls fn(nil): docfake ignores tx.
-type Reader struct{}
+// It counts its calls.
+type Reader struct {
+	mu    sync.Mutex
+	calls int
+}
 
 // Read calls fn with a nil transaction.
-func (Reader) Read(_ context.Context, fn func(tx *db.Tx) error) error { return fn(nil) }
+func (r *Reader) Read(_ context.Context, fn func(tx *db.Tx) error) error {
+	r.mu.Lock()
+	r.calls++
+	r.mu.Unlock()
+	return fn(nil)
+}
+
+// Calls returns how many times Read was called.
+func (r *Reader) Calls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.calls
+}
 
 // Lister is an in-memory docscreen.Lister that records its queries.
 type Lister struct {

@@ -105,17 +105,25 @@ func TestValues_ToPlain(t *testing.T) {
 type statusErr struct {
 	status int
 	msg    string
+	fields []doctype.FieldError
 }
 
 func (e statusErr) Error() string                     { return e.msg }
 func (e statusErr) Status() int                       { return e.status }
-func (e statusErr) FieldErrors() []doctype.FieldError { return nil }
+func (e statusErr) FieldErrors() []doctype.FieldError { return e.fields }
 
 func TestClassify_HTTPErrorAndNotFound(t *testing.T) {
-	stale := statusErr{409, "Someone else changed this document."}
+	stale := statusErr{status: 409, msg: "Someone else changed this document."}
 	p, ok := docscreen.Classify(fmt.Errorf("save: %w", stale))
 	if !ok || p.Status != 409 || p.Message != "save: "+stale.msg {
 		t.Errorf("Classify(409) = %+v, %v", p, ok)
+	}
+
+	fe := doctype.FieldError{Field: "amount", Message: "Enter an amount."}
+	invalid := statusErr{status: 422, msg: "Check the fields.", fields: []doctype.FieldError{fe}}
+	p, ok = docscreen.Classify(invalid)
+	if !ok || p.Status != 422 || !reflect.DeepEqual(p.Fields, []doctype.FieldError{fe}) {
+		t.Errorf("Classify(422) = %+v, %v, want Fields [%+v]", p, ok, fe)
 	}
 
 	p, ok = docscreen.Classify(doctype.ErrNotFound)
