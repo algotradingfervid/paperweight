@@ -4,6 +4,7 @@ package approval
 
 import (
 	"context"
+	"time"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -20,8 +21,17 @@ type Requirement struct { // CD-24
 	Requester     auth.UserID
 }
 
-// InboxItem is one row of an approver's inbox. APR fills in its fields.
-type InboxItem struct{}
+// InboxItem is one row of an approver's inbox.
+type InboxItem struct {
+	RequestID       int64
+	DocType, Label  string // Label = Info.DocLabel
+	DocID           int64
+	Title, Party    string // Title = Info.Display; Party = Info.Party (CD-55; "" when none)
+	Amount          types.Money
+	SubmittedBy     types.UserID
+	SubmittedByName string
+	SubmittedAt     time.Time
+}
 
 type Service interface {
 	Evaluate(ctx context.Context, tx *db.Tx, doctype string, id int64, amount types.Money, requester auth.Principal) (Requirement, error)
@@ -30,6 +40,8 @@ type Service interface {
 	Record(ctx context.Context, tx *db.Tx, doctype string, id int64, action doctype.Action, p auth.Principal, reason string) error
 	Inbox(ctx context.Context, p auth.Principal, page types.Page) (types.Result[InboxItem], error)
 }
+
+var _ Service = (*Approvals)(nil)
 
 // DOC ↔ APR call protocol (CD-23), all inside DOC's one db.Write:
 //   submit:   Evaluate → Open (always) → if !Needed: continue as approve WITHOUT CheckApprover, Record("approve")

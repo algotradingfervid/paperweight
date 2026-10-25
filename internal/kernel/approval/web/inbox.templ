@@ -1,0 +1,33 @@
+package web
+
+import (
+	"github.com/vardhan/internaltools/internal/kernel/approval"
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// inboxPairs are an inbox card's facts.
+func inboxPairs(it approval.InboxItem) []components.Pair {
+	pairs := []components.Pair{{Label: "Type", Value: it.Label}}
+	if it.Party != "" {
+		pairs = append(pairs, components.Pair{Label: "Party", Value: it.Party})
+	}
+	return append(pairs,
+		components.Pair{Label: "Amount", Value: types.FormatINR(it.Amount), Num: true},
+		components.Pair{Label: "Submitted by", Value: it.SubmittedByName},
+		components.Pair{Label: "Submitted on", Value: types.FormatIST(it.SubmittedAt)},
+	)
+}
+
+// inboxPage is "Waiting for my approval": one card per request, oldest first.
+templ inboxPage(rows []approval.InboxItem, docURL func(string, int64) string, pi components.PageInfo) {
+	if len(rows) == 0 {
+		@components.EmptyState("Nothing is waiting for your approval.", nil)
+	}
+	for _, it := range rows {
+		@components.Card(it.Title, &components.Link{Label: "Open", Href: docURL(it.DocType, it.DocID)}) {
+			@components.SummaryList(inboxPairs(it))
+		}
+	}
+	@components.Pagination(pi)
+}
