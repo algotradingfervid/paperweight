@@ -828,6 +828,9 @@ func importRule(pkg, imp string) (bool, string) {
 		if strings.HasSuffix(last, "test") && (underOrEqual(imp, "internal/testkit") || isFakePackage(imp)) {
 			return true, "" // a test helper inside the web tree (CD-85 helper rule)
 		}
+		if strings.HasSuffix(last, "test") && (underOrEqual(imp, "internal/kernel/files/web") || underOrEqual(imp, "internal/kernel/print/web")) {
+			return true, "" // an e2e test server mounts both area routers (CD-138)
+		}
 		return false, fmt.Sprintf("%s (a screen package) may import what %s may, plus %s, internal/ui, internal/platform/web and its own area's fake/test helpers (CD-85, CD-93)", pkg, parent, parent)
 	default:
 		_, why := baseRule(top, imp)
