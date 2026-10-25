@@ -214,3 +214,33 @@ func TestTaxCode_Seed(t *testing.T) { // MST-097
 		t.Fatalf("read seed: %v", err)
 	}
 }
+
+func TestTaxCode_TreatmentMustBeKnown(t *testing.T) {
+	const treatmentMsg = "Treatment must be Taxable, Nil-Rated, Exempted, Non-GST or Zero-Rated."
+	for _, tr := range []taxcode.Treatment{"Done", ""} {
+		for _, rate := range []string{"18", "0"} {
+			_, err := taxcode.Validate(taxcode.Input{Code: "GSTX", Name: "GST " + rate + "%", Treatment: tr, Rate: pct(t, rate)})
+			wantOneError(t, "Validate(Treatment \""+string(tr)+"\", "+rate+"%)", err, "treatment", treatmentMsg)
+		}
+	}
+
+	for _, c := range []struct {
+		treatment taxcode.Treatment
+		rate      string
+	}{
+		{taxcode.Taxable, "18"},
+		{taxcode.NilRated, "0"},
+		{taxcode.Exempted, "0"},
+		{taxcode.NonGST, "0"},
+		{taxcode.ZeroRated, "0"},
+	} {
+		out, err := taxcode.Validate(taxcode.Input{Code: "GSTX", Name: "GST " + c.rate + "%", Treatment: c.treatment, Rate: pct(t, c.rate)})
+		if err != nil {
+			t.Errorf("Validate(%s, %s%%): %v; want nil", c.treatment, c.rate, err)
+			continue
+		}
+		if out.Treatment != c.treatment {
+			t.Errorf("Validate(%s, %s%%).Treatment = %q; want %q", c.treatment, c.rate, out.Treatment, c.treatment)
+		}
+	}
+}
