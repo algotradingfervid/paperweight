@@ -45,6 +45,9 @@ func FormatCell(f doctype.Field, v any) string {
 	return fmt.Sprint(v)
 }
 
+// MaxExportRows is the most rows one export writes.
+const MaxExportRows = 50000
+
 // Exporter writes list results as CSV.
 type Exporter struct {
 	db   *db.DB
@@ -58,7 +61,8 @@ func NewExporter(d *db.DB, a auth.Service) *Exporter {
 
 // Export writes every row matching q that p may read: a BOM, a header of
 // field labels, then one CRLF-terminated line per row. It returns the
-// number of data rows. Without the export right it writes nothing.
+// number of data rows. Without the export right, or when more than
+// MaxExportRows rows match, it writes nothing.
 func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, dt *doctype.DocType, q list.Query) (int, error) {
 	if err := ex.auth.Can(ctx, p, dt.Name, "export", nil); err != nil {
 		return 0, err
@@ -71,15 +75,21 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 	if err != nil {
 		return 0, err
 	}
-	// The columns ScanRow fills: line fields live on the lines table.
-	var fields []doctype.Field
-	for _, f := range dt.Fields {
-		if !f.OnLine {
-			fields = append(fields, f)
-		}
+	countQ, countArgs, err := list.BuildCount(dt, q, scope)
+	if err != nil {
+		return 0, err
 	}
+	// The columns ScanRow fills: line fields live on the lines table.
+	fields := list.HeaderFields(dt)
 	n := 0
 	err = ex.db.Read(ctx, func(tx *db.Tx) error {
+		var total int64
+		if err := tx.SQL().QueryRowContext(ctx, countQ, countArgs...).Scan(&total); err != nil {
+			return err
+		}
+		if total > MaxExportRows {
+			return &list.QueryError{Msg: "Too many rows to export (" + types.FormatCount(total) + "). Narrow the filters to 50,000 rows or fewer."}
+		}
 		codes, err := linkCodes(ctx, tx, fields)
 		if err != nil {
 			return err
@@ -109,6 +119,8 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 			for i, f := range fields {
 				v := r.Values[f.Name]
 				if id, ok := v.(int64); ok && f.Type == doctype.Link {
+					// A missing link target exports an empty cell on purpose:
+					// the map lookup gives "".
 					v = codes[f.Name][id]
 				}
 				rec[i] = FormatCell(f, v)

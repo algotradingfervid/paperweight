@@ -21,6 +21,9 @@ func Setup(t testing.TB) *db.DB {
 	d := testkit.NewDB(t)
 	for _, dt := range docTypes() {
 		mustExec(t, d, createTable(dt))
+		if dt.LinesTable != "" {
+			mustExec(t, d, createLinesTable(dt))
+		}
 	}
 	return d
 }
@@ -28,13 +31,8 @@ func Setup(t testing.TB) *db.DB {
 func createTable(dt doctype.DocType) string {
 	cols := []string{"id INTEGER PRIMARY KEY"}
 	have := map[string]bool{}
-	for _, f := range dt.Fields {
-		typ := "INTEGER"
-		switch f.Type {
-		case doctype.Text, doctype.Select, doctype.Date, doctype.Timestamp:
-			typ = "TEXT"
-		}
-		cols = append(cols, f.Name+" "+typ)
+	for _, f := range list.HeaderFields(&dt) {
+		cols = append(cols, f.Name+" "+sqlType(f.Type))
 		have[f.Name] = true
 	}
 	if dt.Master != nil && !have["disabled"] {
@@ -46,6 +44,28 @@ func createTable(dt doctype.DocType) string {
 	}
 	cols = append(cols, "created_by INTEGER", "updated_at TEXT", "updated_by INTEGER")
 	return "CREATE TABLE " + dt.Table + " (" + strings.Join(cols, ", ") + ")"
+}
+
+// createLinesTable makes dt's lines table: id, parent_id (CD-16) and one
+// column per OnLine field.
+func createLinesTable(dt doctype.DocType) string {
+	cols := []string{"id INTEGER PRIMARY KEY", "parent_id INTEGER NOT NULL"}
+	for _, f := range dt.Fields {
+		if !f.OnLine {
+			continue
+		}
+		cols = append(cols, f.Name+" "+sqlType(f.Type))
+	}
+	return "CREATE TABLE " + dt.LinesTable + " (" + strings.Join(cols, ", ") + ")"
+}
+
+// sqlType is the column type for a field of type t (CD-34).
+func sqlType(t doctype.FieldType) string {
+	switch t {
+	case doctype.Text, doctype.Select, doctype.Date, doctype.Timestamp:
+		return "TEXT"
+	}
+	return "INTEGER"
 }
 
 func mustExec(t testing.TB, d *db.DB, q string, args ...any) {
@@ -132,6 +152,12 @@ func InsertPO(t testing.TB, d *db.DB, r PORow) int64 {
 		"grand_total": int64(r.GrandTotal), "qty": int64(r.Qty), "rate": int64(r.Rate),
 		"gst_rate": int64(r.GSTRate), "remarks": nullText(r.Remarks), "created_at": nullText(r.CreatedAt),
 	})
+}
+
+// InsertPOLine adds one numt_po_line row to PO parent and returns its id.
+func InsertPOLine(t testing.TB, d *db.DB, parent, item int64, qty types.Qty) int64 {
+	t.Helper()
+	return Insert(t, d, "numt_po_line", map[string]any{"parent_id": parent, "item": item, "qty": int64(qty)})
 }
 
 // PartyRow is one numt_party row; empty text is NULL.
