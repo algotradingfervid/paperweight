@@ -28,6 +28,9 @@ const (
 	msgFixFields        = "Fix the highlighted fields and save again."
 	msgInternal         = "doc: internal error in %s %s: %v" // doctype, action, recovered panic
 
+	// Save (Task 7). %d is the line's 1-based input position.
+	msgForeignLine = "Line %d doesn't belong to this document. Reload and try again."
+
 	// Transition guard (Task 8). The first %s is the document's display name.
 	msgUnknownAction     = "%s can't be changed that way."
 	msgNotWaiting        = "%s is not waiting for approval. It is %s."
@@ -49,4 +52,15 @@ const (
 	msgClosed            = "%s is closed and can't be changed."
 	msgCancelledLocked   = "%s is cancelled and can't be changed. Amend it to make a corrected copy."
 	msgCancelledDelete   = "Cancelled documents are kept for the record and can't be deleted."
+
+	// Approval transitions (Task 9).
+	msgReasonReject  = "Enter a reason for rejecting."
+	msgReasonTooLong = "Keep the reason under 1,000 characters."
+
+	// Close, cancel, amend (Task 10). msgAmended: the source's display name,
+	// the amendment's (CD-27).
+	msgCloseReason  = "Enter a reason for closing (at least 3 characters)."
+	msgCancelReason = "Enter a reason for cancelling (at least 3 characters)."
+	msgReasonLong   = "Keep the reason under 500 characters."
+	msgAmended      = "%s has already been amended as %s. Open that document instead."
 )

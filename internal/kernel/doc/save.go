@@ -71,10 +71,6 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	return Result{ID: id, State: StateDraft, Version: 1, Warnings: warnings}, nil
 }
 
-// msgForeignLine refuses a line id of another document; %d is the line's
-// 1-based input position.
-const msgForeignLine = "Line %d doesn't belong to this document. Reload and try again."
-
 // save saves the existing draft d (the plan's Task 7 save algorithm). The
 // pipeline has checked the write right, the state and in.Version.
 func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, in ActionInput) (Result, error) {

@@ -3,8 +3,6 @@ package doc
 import (
 	"context"
 	"fmt"
-	"strings"
-	"unicode/utf8"
 
 	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/audit"
@@ -16,11 +14,7 @@ import (
 
 // The approval transitions (Task 9).
 
-const (
-	msgReasonReject  = "Enter a reason for rejecting."
-	msgReasonTooLong = "Keep the reason under 1,000 characters."
-	maxReasonRunes   = 1000
-)
+const maxReasonRunes = 1000
 
 // revalidate checks the stored d before it leaves draft or is approved: the
 // core field checks with at least one line, the source documents, then
@@ -70,10 +64,9 @@ func (e *engine) enterApproved(ctx context.Context, tx *db.Tx, p auth.Principal,
 // when d is an amendment, otherwise the next number for its document date.
 func (e *engine) assign(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) (string, error) {
 	if d.AmendmentNo > 0 {
-		var root string
-		q := "SELECT COALESCE(number, '') FROM " + quote(dt.Table) + " WHERE id = ?"
-		if err := tx.SQL().QueryRowContext(ctx, q, d.AmendmentRootID).Scan(&root); err != nil {
-			return "", fmt.Errorf("doc: read root number of %s %d: %w", dt.Name, d.ID, err)
+		root, err := readRootNumber(ctx, tx, dt, d.AmendmentRootID)
+		if err != nil {
+			return "", err
 		}
 		return e.Naming.AssignAmendment(ctx, tx, dt.Name, d.ID, root, d.AmendmentNo)
 	}
@@ -82,6 +75,16 @@ func (e *engine) assign(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) (str
 		return "", err
 	}
 	return e.Naming.Assign(ctx, tx, dt.Name, d.ID, date)
+}
+
+// readRootNumber reads the number of the amendment root rootID ("" when it has none).
+func readRootNumber(ctx context.Context, tx *db.Tx, dt *DocType, rootID int64) (string, error) {
+	var number string
+	q := "SELECT COALESCE(number, '') FROM " + quote(dt.Table) + " WHERE id = ?"
+	if err := tx.SQL().QueryRowContext(ctx, q, rootID).Scan(&number); err != nil {
+		return "", fmt.Errorf("doc: read %s %d number: %w", dt.Name, rootID, err)
+	}
+	return number, nil
 }
 
 // setState sets d's state (and cols to args) with a guarded version bump; a
@@ -182,12 +185,9 @@ func (e *engine) approve(ctx context.Context, tx *db.Tx, p auth.Principal, dt *D
 }
 
 func (e *engine) reject(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, in ActionInput) (Result, error) {
-	reason := strings.TrimSpace(in.Reason)
-	switch n := utf8.RuneCountInString(reason); {
-	case n == 0:
-		return Result{}, &Error{Kind: KindInvalid, Message: msgReasonReject}
-	case n > maxReasonRunes:
-		return Result{}, &Error{Kind: KindInvalid, Message: msgReasonTooLong}
+	reason, rerr := reason(in.Reason, 1, maxReasonRunes, msgReasonReject, msgReasonTooLong)
+	if rerr != nil {
+		return Result{}, rerr
 	}
 	if err := e.setState(ctx, tx, p, dt, d, StateRejected, []string{quote("state_reason")}, []any{reason}); err != nil {
 		return Result{}, err

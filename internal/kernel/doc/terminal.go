@@ -18,14 +18,6 @@ import (
 
 // Close, cancel, delete and amend (Task 10).
 
-// Task 10 texts. msgAmended: the source's display name, the amendment's (CD-27).
-const (
-	msgCloseReason  = "Enter a reason for closing (at least 3 characters)."
-	msgCancelReason = "Enter a reason for cancelling (at least 3 characters)."
-	msgReasonLong   = "Keep the reason under 500 characters."
-	msgAmended      = "%s has already been amended as %s. Open that document instead."
-)
-
 // reason trims in and checks its length in characters (runes): fewer than
 // min gives short, more than max gives long.
 func reason(in string, min, max int, short, long string) (string, *Error) {
@@ -42,42 +34,18 @@ func reason(in string, min, max int, short, long string) (string, *Error) {
 	return "", &Error{Kind: KindInvalid, Message: msg, Fields: []FieldError{{Field: "reason", Message: msg}}}
 }
 
-// setState moves d to state s with reason why, bumping the version (guarded
-// by d.Version). It returns d as it is after the update.
-func (e *engine) setState(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, s State, why string) (Doc, error) {
-	now := e.Clock.Now().UTC()
-	ok, err := updateHeaderGuarded(ctx, tx, dt, d.ID, d.Version, []string{"state", "state_reason"}, []any{string(s), why}, now, p.ID)
-	if err != nil {
-		return Doc{}, err
-	}
-	if !ok {
-		return Doc{}, stale(naming.Label(d.Number, d.ID))
-	}
-	d.State, d.StateReason, d.Version, d.UpdatedBy, d.UpdatedAt = s, why, d.Version+1, p.ID, now
-	return d, nil
-}
-
-// transition appends the audit row of a state change from before to after.
-func (e *engine) transition(ctx context.Context, tx *db.Tx, p auth.Principal, a Action, before, after Doc) error {
-	return e.Audit.Append(ctx, tx, audit.Entry{
-		DocType: before.DocType, DocID: before.ID, Action: string(a), From: string(before.State), To: string(after.State),
-		Reason: after.StateReason, By: p.ID, At: after.UpdatedAt,
-	})
-}
-
 func (e *engine) close(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, in ActionInput) (Result, error) {
 	why, rerr := reason(in.Reason, 3, 500, msgCloseReason, msgReasonLong)
 	if rerr != nil {
 		return Result{}, rerr
 	}
-	after, err := e.setState(ctx, tx, p, dt, d, StateClosed, why)
-	if err != nil {
+	if err := e.setState(ctx, tx, p, dt, d, StateClosed, []string{quote("state_reason")}, []any{why}); err != nil {
 		return Result{}, err
 	}
-	if err := e.transition(ctx, tx, p, ActionClose, d, after); err != nil {
+	if err := e.transition(ctx, tx, p, d, ActionClose, StateClosed, why, nil); err != nil {
 		return Result{}, err
 	}
-	return Result{ID: d.ID, State: after.State, Number: d.Number, Version: after.Version}, nil
+	return Result{ID: d.ID, State: StateClosed, Number: d.Number, Version: d.Version + 1}, nil
 }
 
 func (e *engine) cancel(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, in ActionInput) (Result, error) {
@@ -88,20 +56,19 @@ func (e *engine) cancel(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	if blocked := e.checkBlockers(ctx, tx, dt, d, naming.Label(d.Number, d.ID)); blocked != nil {
 		return Result{}, blocked // D-DOC-05: before any write
 	}
-	after, err := e.setState(ctx, tx, p, dt, d, StateCancelled, why)
-	if err != nil {
+	if err := e.setState(ctx, tx, p, dt, d, StateCancelled, []string{quote("state_reason")}, []any{why}); err != nil {
 		return Result{}, err
 	}
 	if err := dt.Hooks.ReverseEffects(ctx, tx, d.ID); err != nil {
 		return Result{}, err
 	}
-	if err := e.recomputeRollUps(ctx, tx, p, dt, after, d.Number, string(ActionCancel)); err != nil {
+	if err := e.recomputeRollUps(ctx, tx, p, dt, d, d.Number, string(ActionCancel)); err != nil {
 		return Result{}, err
 	}
-	if err := e.transition(ctx, tx, p, ActionCancel, d, after); err != nil {
+	if err := e.transition(ctx, tx, p, d, ActionCancel, StateCancelled, why, nil); err != nil {
 		return Result{}, err
 	}
-	return Result{ID: d.ID, State: after.State, Number: d.Number, Version: after.Version}, nil
+	return Result{ID: d.ID, State: StateCancelled, Number: d.Number, Version: d.Version + 1}, nil
 }
 
 func (e *engine) delete(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, _ ActionInput) (Result, error) {
@@ -174,9 +141,9 @@ func (e *engine) amend(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Doc
 	if root == 0 {
 		root = d.ID
 	} else {
-		q := "SELECT COALESCE(number, '') FROM " + quote(dt.Table) + " WHERE id = ?"
-		if err := tx.SQL().QueryRowContext(ctx, q, root).Scan(&rootNumber); err != nil {
-			return Result{}, fmt.Errorf("doc: read %s %d number: %w", dt.Name, root, err)
+		var err error
+		if rootNumber, err = readRootNumber(ctx, tx, dt, root); err != nil {
+			return Result{}, err
 		}
 	}
 	if err := e.Numbers.CheckAmendment(rootNumber, k, dt.Label); err != nil {
@@ -216,14 +183,14 @@ func (e *engine) amend(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Doc
 	err = e.Audit.Append(ctx, tx, audit.Entry{
 		DocType: dt.Name, DocID: n.ID, Action: "create", To: string(StateDraft), By: p.ID, At: now,
 		Changes: append(createChanges(dt, n, links.links),
-			audit.Change{Field: "amended_from", Op: audit.OpSet, Before: "null", After: strconv.FormatInt(d.ID, 10)}),
+			audit.Change{Field: "amended_from", Op: audit.OpSet, After: strconv.FormatInt(d.ID, 10)}),
 	})
 	if err != nil {
 		return Result{}, err
 	}
 	err = e.Audit.Append(ctx, tx, audit.Entry{
 		DocType: dt.Name, DocID: d.ID, Action: "amended", By: p.ID, At: now,
-		Changes: []audit.Change{{Field: "amended_to", Op: audit.OpSet, Before: "null", After: strconv.FormatInt(n.ID, 10)}},
+		Changes: []audit.Change{{Field: "amended_to", Op: audit.OpSet, After: strconv.FormatInt(n.ID, 10)}},
 	})
 	if err != nil {
 		return Result{}, err
