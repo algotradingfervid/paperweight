@@ -27,7 +27,7 @@ func TestMigrations_AuthTablesAndRoles(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var r role
 			if err := rows.Scan(&r.name, &r.isAdmin); err != nil {
@@ -60,7 +60,7 @@ func TestMigrations_AuthTablesAndRoles(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var n string
 			if err := rows.Scan(&n); err != nil {
