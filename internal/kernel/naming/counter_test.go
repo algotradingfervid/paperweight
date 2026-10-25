@@ -2,6 +2,8 @@ package naming
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -27,7 +29,7 @@ func TestCounter_UpsertIncrement(t *testing.T) {
 	var got []int64
 	for i := 0; i < 2; i++ {
 		must(t, d.Write(ctx, func(tx *db.Tx) error {
-			n, err := next(ctx, tx, "fixture.Order", "PO/26-27/", ts)
+			n, err := next(ctx, tx, "fixture.Order", "PO/26-27/", 99999, ts)
 			got = append(got, n)
 			return err
 		}))
@@ -76,4 +78,77 @@ func TestCounter_UpsertIncrement(t *testing.T) {
 	if rows != 1 || last != 2 {
 		t.Errorf("naming_counters(fixture.Order, PO/26-27/): rows = %d, last = %d; want 1 row with last 2", rows, last)
 	}
+}
+
+// TestCounter_RequiresTx covers NAM-032 (CD-07): the counter increment,
+// Assign and AssignAmendment refuse a nil transaction and a db.Read one, so a
+// read can never silently upgrade to a write.
+func TestCounter_RequiresTx(t *testing.T) {
+	ctx := context.Background()
+	ts := "2026-10-24T05:00:00.000Z"
+	d := day(2026, 10, 24)
+
+	// calls runs the three entry points on tx and returns their errors by
+	// name; a panic (e.g. a nil tx dereferenced) is reported as an error.
+	calls := func(h *harness, tx *db.Tx) map[string]error {
+		run := func(f func() error) (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("panic: %v", r)
+				}
+			}()
+			return f()
+		}
+		return map[string]error{
+			"next": run(func() error {
+				_, err := next(ctx, tx, dtPO, "PO/26-27/", 99999, ts)
+				return err
+			}),
+			"Assign": run(func() error {
+				_, err := h.nm.Assign(ctx, tx, dtPO, 1, d)
+				return err
+			}),
+			"AssignAmendment": run(func() error {
+				_, err := h.nm.AssignAmendment(ctx, tx, dtPO, 2, "PO/26-27/00001", 1)
+				return err
+			}),
+		}
+	}
+	wantNoRows := func(t *testing.T, h *harness) {
+		t.Helper()
+		if n := h.count(`SELECT COUNT(*) FROM naming_counters`); n != 0 {
+			t.Errorf("naming_counters has %d rows, want 0", n)
+		}
+		if n := h.count(`SELECT COUNT(*) FROM naming_issued`); n != 0 {
+			t.Errorf("naming_issued has %d rows, want 0", n)
+		}
+	}
+
+	t.Run("nil_tx", func(t *testing.T) {
+		h := newHarness(t)
+		for name, err := range calls(h, nil) {
+			if !errors.Is(err, ErrNeedsTx) {
+				t.Errorf("%s(nil tx): err = %v, want ErrNeedsTx", name, err)
+			}
+		}
+		wantNoRows(t, h)
+	})
+
+	t.Run("read_tx", func(t *testing.T) {
+		h := newHarness(t)
+		var errs map[string]error
+		must(t, h.db.Read(ctx, func(tx *db.Tx) error {
+			if tx.Writable() {
+				t.Fatalf("db.Read tx.Writable() = true, want false")
+			}
+			errs = calls(h, tx)
+			return nil
+		}))
+		for name, err := range errs {
+			if !errors.Is(err, ErrNeedsTx) {
+				t.Errorf("%s(read tx): err = %v, want ErrNeedsTx", name, err)
+			}
+		}
+		wantNoRows(t, h)
+	})
 }

@@ -87,7 +87,7 @@ func FuzzNaming_GaplessInvariant(f *testing.F) {
 // (a duplicate number, a missing series) is a bug.
 func expectedFuzzErr(err error) bool {
 	return strings.HasPrefix(err.Error(), "harness: can't ") ||
-		errors.Is(err, sql.ErrNoRows) ||
+		(strings.HasPrefix(err.Error(), "load doc ") && errors.Is(err, sql.ErrNoRows)) ||
 		errors.Is(err, ErrAlreadyAmended) ||
 		errors.Is(err, ErrAmendmentLimit) ||
 		errors.Is(err, errEffect)
@@ -165,7 +165,7 @@ func checkInvariants(t *testing.T, h *harness) {
 			`SELECT COUNT(*) FROM naming_issued a WHERE amendment_no > 0 AND NOT EXISTS (
 				SELECT 1 FROM naming_issued r WHERE r.amendment_no = 0 AND r.number = a.root AND r.doctype = a.doctype)`)
 		checkZero(ctx, t, q, "roots whose amendment numbers are not 1..m",
-			`SELECT COUNT(*) FROM (SELECT root FROM naming_issued WHERE amendment_no > 0 GROUP BY root
+			`SELECT COUNT(*) FROM (SELECT doctype, root FROM naming_issued WHERE amendment_no > 0 GROUP BY doctype, root
 			 HAVING MIN(amendment_no) != 1 OR MAX(amendment_no) != COUNT(DISTINCT amendment_no)
 			     OR COUNT(*) != COUNT(DISTINCT amendment_no))`)
 
