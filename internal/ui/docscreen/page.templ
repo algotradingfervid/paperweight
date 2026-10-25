@@ -1,0 +1,100 @@
+package docscreen
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+templ docPage(pv pageView) {
+	@layout.Page(docOpts(pv)) {
+		@docBody(pv)
+	}
+}
+
+templ docMain(pv pageView) {
+	@layout.Main(docOpts(pv)) {
+		@docBody(pv)
+	}
+}
+
+// docBanners sit above the h1: a rejected document's reason first, then a
+// refused action's message, then an htmx action's success.
+templ docBanners(pv pageView) {
+	if pv.V.Info.State == doctype.StateRejected && pv.V.Origin.StateReason != "" {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.V.Origin.StateReason})
+	}
+	if pv.Danger != "" {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.Danger})
+	}
+	@components.ErrorSummary(pv.Errors)
+	if pv.Success != "" {
+		@components.Banner(components.BannerProps{Kind: components.Success, Message: pv.Success})
+	}
+}
+
+// docBody follows the phone order of design-system §8.4. Every value is
+// read-only.
+templ docBody(pv pageView) {
+	if pv.Next != "" {
+		<p><a href={ templ.SafeURL(pv.Next) }>Next request</a></p>
+	}
+	<div class="stack">
+		@components.StateBadge(pv.V.Info.State)
+		if pv.V.Info.Party != "" {
+			<p>{ pv.V.Info.Party }</p>
+		}
+	</div>
+	if pv.V.GrandTotal != "" {
+		<div>
+			<p class="num text-2xl font-semibold">{ pv.V.GrandTotal }</p>
+			if pv.V.InWords != "" {
+				@components.AmountInWords(pv.V.InWords)
+			}
+		</div>
+	}
+	if s := waitingLine(pv); s != "" {
+		<p>{ s }</p>
+	}
+	if pv.V.Origin.AmendedFrom != "" {
+		<p><a href={ templ.SafeURL(docURL(pv.DT.Name, pv.V.Origin.AmendedFromID)) }>{ "Amended from " + pv.V.Origin.AmendedFrom }</a></p>
+	}
+	@components.Warnings(pv.V.Warnings)
+	@components.Card("Details", nil) {
+		@components.SummaryList(pv.V.Header)
+	}
+	if len(pv.V.Lines) > 0 {
+		@components.Card("Lines", nil) {
+			@components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines)})
+		}
+	}
+	if len(pv.V.Attachments) > 0 {
+		@components.Card("Attachments", nil) {
+			@components.Attachments(pv.V.Attachments)
+		}
+	}
+	if len(pv.V.Approval.History) > 0 {
+		@components.Disclosure("Approval history", false) {
+			@History(pv.V.Approval.History)
+		}
+	}
+	if len(pv.V.History) > 0 {
+		@components.Disclosure("History", false) {
+			@History(pv.V.History)
+		}
+	}
+}
+
+// docBar is "More actions", the action bar and the hidden forms the bar's
+// buttons post through (each with the page's version, CD-94).
+templ docBar(pv pageView) {
+	@components.MoreActions(pv.More)
+	@components.ActionBar(pv.Bar)
+	for _, f := range pv.Forms {
+		@components.Form(components.FormProps{ID: f.ID, Action: f.Action, HX: true}) {
+			<input type="hidden" name="version" value={ strconv.Itoa(f.Version) }/>
+		}
+	}
+}

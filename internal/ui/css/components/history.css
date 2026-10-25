@@ -1,0 +1,11 @@
+/* history.css: approval and audit history rows, newest first, inside a Disclosure. */
+@utility history {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  & .history-row { display: grid; gap: var(--space-1); min-inline-size: 0; }
+  & .history-head { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+  & .history-changes { margin: 0; padding-inline-start: var(--space-4); overflow-wrap: anywhere; }
+}

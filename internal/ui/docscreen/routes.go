@@ -15,7 +15,7 @@ func Routes(d Deps) func(chi.Router) {
 		r.Get("/doc/{doctype}", d.list)
 		r.Get("/doc/{doctype}/new", notYet)
 		r.Post("/doc/{doctype}/new", notYet)
-		r.Get("/doc/{doctype}/{id}", notYet)
+		r.Get("/doc/{doctype}/{id}", d.page)
 		r.Get("/doc/{doctype}/{id}/edit/{step}", notYet)
 		r.Post("/doc/{doctype}/{id}/edit/{step}", notYet)
 		r.Get("/doc/{doctype}/{id}/lines/new", notYet)
@@ -27,8 +27,9 @@ func Routes(d Deps) func(chi.Router) {
 		r.Post("/doc/{doctype}/{id}/lines/{no}/move", notYet)
 		// {action} is an action (submit, withdraw, approve, revise, amend;
 		// POST) or a reason page (reject, cancel, close, delete; GET and POST).
-		r.Get("/doc/{doctype}/{id}/{action}", notYet)
-		r.Post("/doc/{doctype}/{id}/{action}", notYet)
+		// Unknown names are 404 without calling the engine.
+		r.Get("/doc/{doctype}/{id}/{action}", d.actionGet)
+		r.Post("/doc/{doctype}/{id}/{action}", d.actionPost)
 	}
 }
 
