@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<div x-data="combobox" x-on:click="open" x-text="label"></div>
+}

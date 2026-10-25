@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<div hx-vals='{"a": 1}' hx-headers='{"X-A": "b"}'></div>
+}

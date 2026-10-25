@@ -1,0 +1,5 @@
+package bad
+
+templ x() {
+	<meta name="viewport" content="width=device-width, maximum-scale=1"/>
+}

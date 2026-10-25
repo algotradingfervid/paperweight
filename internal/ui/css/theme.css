@@ -1,0 +1,36 @@
+/* theme.css: the one daisyUI theme (CD-98). Every value is a copy of a token in
+   tokens.css (docs/research/ui-library.md §3); TestTheme_MatchesTokens checks them. */
+@plugin "../vendor/daisyui/daisyui-theme.mjs" {
+  name: "paperweight";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: #FFFFFF;
+  --color-base-200: #F5F6F8;
+  --color-base-300: #EDEFF2;
+  --color-base-content: #141A23;
+  --color-primary: #1F4FD1;
+  --color-primary-content: #FFFFFF;
+  --color-secondary: #46505E;
+  --color-secondary-content: #FFFFFF;
+  --color-accent: #1F4FD1;
+  --color-accent-content: #FFFFFF;
+  --color-neutral: #46505E;
+  --color-neutral-content: #FFFFFF;
+  --color-info: #0A64A0;
+  --color-info-content: #FFFFFF;
+  --color-success: #167033;
+  --color-success-content: #FFFFFF;
+  --color-warning: #985000;
+  --color-warning-content: #FFFFFF;
+  --color-error: #B3261E;
+  --color-error-content: #FFFFFF;
+  --radius-selector: 0.25rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.275rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}

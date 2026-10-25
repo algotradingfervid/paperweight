@@ -1,0 +1,10 @@
+/* button.css: our parts of Button (design-system §7, §7.1); daisyUI's btn is the base (CD-98). */
+
+/* Every target is at least 44 x 44 px; 48 px in the phone action bar. */
+@utility tap {
+  min-block-size: var(--target-min);
+  min-inline-size: var(--target-min);
+  .actionbar & {
+    min-block-size: var(--target-primary);
+  }
+}

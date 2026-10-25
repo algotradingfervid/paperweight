@@ -1,0 +1,25 @@
+package components
+
+// Card is a titled section; change, when set, is its "Change" action.
+templ Card(title string, change *Link) {
+	<section class="card card-border">
+		<div class="card-body">
+			if title != "" || change != nil {
+				<div class="card-head">
+					if title != "" {
+						<h2 class="card-title">{ title }</h2>
+					}
+					if change != nil {
+						<a href={ templ.SafeURL(change.Href) }>
+							{ change.Label }
+							if title != "" {
+								<span class="visually-hidden">{ title }</span>
+							}
+						</a>
+					}
+				</div>
+			}
+			{ children... }
+		</div>
+	</section>
+}

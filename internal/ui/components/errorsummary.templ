@@ -1,0 +1,17 @@
+package components
+
+// ErrorSummary is the "There is a problem" box at the top of a failed step,
+// focused on render, with a link to each field. It renders nothing when errs
+// is empty.
+templ ErrorSummary(errs []FieldErr) {
+	if len(errs) > 0 {
+		<div class="alert error-summary" tabindex="-1" autofocus aria-labelledby="error-summary-title">
+			<h2 id="error-summary-title">There is a problem</h2>
+			<ul>
+				for _, e := range errs {
+					<li><a href={ templ.SafeURL("#" + e.ID) }>{ e.Message }</a></li>
+				}
+			</ul>
+		</div>
+	}
+}

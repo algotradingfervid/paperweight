@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<div class="p-2 sm:p-4"></div>
+}

@@ -1,0 +1,5 @@
+package bad
+
+templ x() {
+	<input type="number"/>
+}

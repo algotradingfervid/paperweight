@@ -1,0 +1,3 @@
+/* good: dark-mode.css */
+@media (min-width: 48rem) { .x { color: red; } }
+@container (min-width: 30rem) { .y { color: red; } }

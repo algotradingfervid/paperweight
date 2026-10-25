@@ -1,0 +1,4 @@
+/* bad: overflow-x-hidden-root */
+html, body {
+	overflow-x: hidden;
+}

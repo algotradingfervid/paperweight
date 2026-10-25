@@ -1,0 +1,29 @@
+/* banner.css: status tints over daisyUI alert (design-system §5, §7.1). Also used by toasts. */
+@utility banner {
+  align-items: start;
+  & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); flex: none; }
+  & .banner-body { display: grid; gap: var(--space-1); min-inline-size: 0; }
+  & .banner-items { margin: 0; padding-inline-start: var(--space-5); }
+  & .banner-body:has(> [data-dismiss]) { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  & .banner-body > [data-dismiss] { grid-column: 2; grid-row: 1; margin-block: calc(-1 * var(--space-2)); }
+}
+@utility banner--success {
+  background-color: var(--color-success-50);
+  border-color: var(--color-success-600);
+  color: var(--color-success-800);
+}
+@utility banner--info {
+  background-color: var(--color-info-50);
+  border-color: var(--color-info-600);
+  color: var(--color-info-800);
+}
+@utility banner--warning {
+  background-color: var(--color-warning-50);
+  border-color: var(--color-warning-600);
+  color: var(--color-warning-800);
+}
+@utility banner--danger {
+  background-color: var(--color-danger-50);
+  border-color: var(--color-danger-600);
+  color: var(--color-danger-800);
+}

@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<button hx-post="/go" hx-trigger="click">Go</button>
+}

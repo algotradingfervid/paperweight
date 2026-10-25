@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<div class="tablet-only swapped masked"></div>
+}

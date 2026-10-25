@@ -1,0 +1,4 @@
+/* bad: dark-mode */
+.x {
+	@media (prefers-color-scheme: dark) { color: red; }
+}

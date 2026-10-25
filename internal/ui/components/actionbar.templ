@@ -1,0 +1,82 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui"
+
+// inForm points button b at the form the bar sits outside of, when there is one.
+func inForm(b ButtonProps, form string) ButtonProps {
+	if form == "" || b.Href != "" {
+		return b
+	}
+	attrs := templ.Attributes{"form": form}
+	for k, v := range b.Attrs {
+		attrs[k] = v
+	}
+	b.Attrs = attrs
+	return b
+}
+
+// ActionBar holds a screen's actions: sticky on phones, inline from 48rem.
+// A note replaces the buttons; with nothing to show it renders nothing.
+templ ActionBar(p ActionBarProps) {
+	if p.Note != "" {
+		<div class="actionbar">
+			<p class="actionbar-note">{ p.Note }</p>
+		</div>
+	} else if p.Primary != nil || p.Secondary != nil {
+		<div class="actionbar">
+			if p.Secondary != nil {
+				@Button(inForm(*p.Secondary, p.Form))
+			}
+			if p.Primary != nil {
+				@Button(inForm(*p.Primary, p.Form))
+			}
+		</div>
+	}
+	if p.FinishLater && p.Note == "" {
+		<div class="actionbar-later">
+			@Button(inForm(ButtonProps{Label: "Save and finish later", Name: "nav", Value: "finish", Variant: Ghost}, p.Form))
+		</div>
+	}
+}
+
+// MoreActions lists the secondary actions; a POST action is a one-button form.
+templ MoreActions(items []MoreAction) {
+	if len(items) > 0 {
+		<section class="more-actions" aria-labelledby="more-actions-title">
+			<h2 id="more-actions-title">More actions</h2>
+			<ul class="more-actions-items">
+				for _, it := range items {
+					<li>
+						if it.Post {
+							<form method="post" action={ templ.SafeURL(it.Href) }>
+								<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
+								@Button(ButtonProps{Label: it.Label, Busy: it.Label + "…", Variant: moreVariant(it.Danger)})
+							</form>
+						} else if it.NewTab {
+							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) } target="_blank" rel="noopener">
+								{ it.Label }
+								<span class="visually-hidden">(opens in a new tab)</span>
+							</a>
+						} else {
+							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) }>{ it.Label }</a>
+						}
+					</li>
+				}
+			</ul>
+		</section>
+	}
+}
+
+func moreVariant(danger bool) Variant {
+	if danger {
+		return Danger
+	}
+	return Ghost
+}
+
+func moreClass(danger bool) string {
+	if danger {
+		return "btn btn-error"
+	}
+	return "btn btn-ghost"
+}

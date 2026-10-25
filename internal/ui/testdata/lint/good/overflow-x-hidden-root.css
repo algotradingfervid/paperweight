@@ -1,0 +1,3 @@
+/* good: overflow-x-hidden-root.css */
+html { overflow-wrap: anywhere; }
+.body-copy { overflow-x: hidden; }

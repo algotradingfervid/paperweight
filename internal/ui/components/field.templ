@@ -1,0 +1,107 @@
+package components
+
+import (
+	"strings"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// FieldProps describes one form field. ID is the input's id (see FieldID);
+// Error and Echo fill the message region, Error first.
+type FieldProps struct {
+	ID, Name, Label, Hint, Error, Value, Suffix, Echo string
+	Optional                                          bool
+	Attrs                                             templ.Attributes
+}
+
+// FieldID turns a field path into an element id: "lines[2].qty" becomes
+// "f-lines-2-qty" and "supplier_id" becomes "f-supplier_id".
+func FieldID(path string) string {
+	var b strings.Builder
+	b.WriteString("f-")
+	dash := true
+	for _, c := range path {
+		if c == '_' || c == '-' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' {
+			b.WriteRune(c)
+			dash = false
+		} else if !dash {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	return strings.TrimSuffix(b.String(), "-")
+}
+
+func describedBy(p FieldProps) string {
+	if p.Hint == "" {
+		return p.ID + "-msg"
+	}
+	return p.ID + "-hint " + p.ID + "-msg"
+}
+
+// controlAttrs are the attributes every input, select and textarea shares.
+func controlAttrs(p FieldProps, class string) templ.Attributes {
+	a := templ.Attributes{
+		"id":               p.ID,
+		"name":             p.Name,
+		"aria-describedby": describedBy(p),
+		"class":            class,
+	}
+	if p.Error != "" {
+		a["aria-invalid"] = "true"
+		a["class"] = class + " field--error"
+	}
+	for k, v := range p.Attrs {
+		a[k] = v
+	}
+	return a
+}
+
+// field is the label, hint and message region around a control.
+templ field(p FieldProps) {
+	<div class="fieldset field">
+		<label for={ p.ID } class="fieldset-legend field__label">
+			{ p.Label }
+			if p.Optional {
+				<span class="field__optional">{ " (optional)" }</span>
+			}
+		</label>
+		@fieldHint(p)
+		{ children... }
+		@fieldMsg(p.ID, p.Error, p.Echo)
+	</div>
+}
+
+// choiceGroup is field for radios and checkboxes: a fieldset with a legend.
+templ choiceGroup(p FieldProps) {
+	<fieldset class="fieldset field">
+		<legend class="fieldset-legend field__label">
+			{ p.Label }
+			if p.Optional {
+				<span class="field__optional">{ " (optional)" }</span>
+			}
+		</legend>
+		@fieldHint(p)
+		{ children... }
+		@fieldMsg(p.ID, p.Error, p.Echo)
+	</fieldset>
+}
+
+templ fieldHint(p FieldProps) {
+	if p.Hint != "" {
+		<p id={ p.ID + "-hint" } class="label field__hint">{ p.Hint }</p>
+	}
+}
+
+// fieldMsg is the message region: the error with its icon, else the echo.
+// ValidateHandler renders the same element for htmx to swap.
+templ fieldMsg(id, errText, echo string) {
+	if errText != "" {
+		<p id={ id + "-msg" } class="field__msg field__msg--error">
+			@icons.Icon("alert-circle")
+			<span>{ errText }</span>
+		</p>
+	} else {
+		<p id={ id + "-msg" } class="field__msg">{ echo }</p>
+	}
+}

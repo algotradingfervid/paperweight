@@ -1,0 +1,3 @@
+/* good: fixed-width/tokens.css */
+:root { --target-min: 2.75rem; }
+.x { width: 20rem; }

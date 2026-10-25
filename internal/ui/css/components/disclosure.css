@@ -1,0 +1,7 @@
+/* disclosure.css: details and summary over daisyUI collapse. */
+@utility disclosure {
+  border: var(--border-w) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  & > summary { min-block-size: var(--target-min); }
+}

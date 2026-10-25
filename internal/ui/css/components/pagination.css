@@ -1,0 +1,10 @@
+/* pagination.css: range text plus Previous and Next over daisyUI join and btn. */
+@utility pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  & p { margin: 0; color: var(--color-text-secondary); }
+  & .btn { min-block-size: var(--target-min); min-inline-size: var(--target-min); }
+}

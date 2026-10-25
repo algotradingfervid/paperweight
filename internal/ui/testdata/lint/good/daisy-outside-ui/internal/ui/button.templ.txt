@@ -1,0 +1,5 @@
+package ui
+
+templ x() {
+	<button class="btn btn-primary">Go</button>
+}

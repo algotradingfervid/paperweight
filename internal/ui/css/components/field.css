@@ -1,0 +1,142 @@
+/* field.css: our parts of Field, the inputs, choices and ErrorSummary (design-system §7, §7.1).
+   daisyUI's fieldset, input, select, textarea, radio, checkbox, join and alert are the base (CD-98). */
+
+/* One column; controls fill it and never exceed the form width. */
+@utility field {
+  display: grid;
+  gap: var(--space-1);
+  max-inline-size: var(--form-max);
+  & :where(.input, .select, .textarea) {
+    inline-size: 100%;
+    min-block-size: var(--control-h);
+    font-size: var(--text-base);
+  }
+}
+
+@utility field__label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+@utility field__optional {
+  font-weight: var(--weight-regular);
+  color: var(--color-text-secondary);
+}
+
+@utility field__hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  white-space: normal;
+}
+
+@utility field__msg {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  &:empty { display: none; }
+}
+
+@utility field__msg--error {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-start;
+  color: var(--color-danger-700);
+  & .icon {
+    flex: none;
+    inline-size: var(--icon-sm);
+    block-size: var(--icon-sm);
+    color: var(--color-danger-600);
+  }
+}
+
+/* The error state: a 2 px danger border on the control (the message carries the icon). */
+@utility field--error {
+  border: var(--border-w-strong) solid var(--color-danger-600);
+}
+
+/* Input plus suffix, input plus toggle, and the date buttons. */
+@utility field__control {
+  display: flex;
+  gap: var(--space-2);
+  & > .input { flex: 1 1 0; }
+}
+
+@utility field__suffix {
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-3);
+  background: var(--color-sunken);
+  border: var(--border-w) solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+@utility field__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@utility field__count {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* A whole radio or checkbox row is the target. */
+@utility field__choice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-block-size: var(--target-min);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+@utility field__choice-text {
+  display: grid;
+}
+
+/* Radios drawn as one row of equal segments; fits 320 px. */
+@utility segmented {
+  display: flex;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  & > label {
+    flex: 1 1 0;
+    min-inline-size: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--target-min);
+    padding-inline: var(--space-1);
+    text-align: center;
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+  }
+  & > label + label { border-inline-start: var(--border-w) solid var(--color-border); }
+  & > label:has(:checked) {
+    background: var(--color-primary-600);
+    color: var(--color-text-on-fill);
+  }
+  & > label:has(:focus-visible) {
+    outline: var(--focus-ring);
+    outline-offset: calc(-1 * var(--focus-ring-w));
+  }
+}
+
+@utility error-summary {
+  display: grid;
+  gap: var(--space-2);
+  background: var(--color-danger-50);
+  border: var(--border-w-strong) solid var(--color-danger-600);
+  color: var(--color-danger-800);
+  & h2 {
+    margin: 0;
+    font-size: var(--h2);
+    line-height: var(--leading-tight);
+  }
+  & ul { margin: 0; padding-inline-start: var(--space-4); }
+  & a { color: var(--color-danger-800); text-decoration: underline; }
+}

@@ -1,0 +1,4 @@
+/* bad: overflow-x */
+.x {
+	overflow-x: scroll;
+}

@@ -1,0 +1,5 @@
+package bad
+
+templ x() {
+	<div x-on:click="() => go()"></div>
+}

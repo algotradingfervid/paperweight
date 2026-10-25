@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<p>css and script are words here</p>
+}

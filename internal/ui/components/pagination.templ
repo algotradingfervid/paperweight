@@ -1,0 +1,38 @@
+package components
+
+import "strconv"
+
+// PageInfo is one page of results; the numbers are already counted.
+type PageInfo struct {
+	Page, From, To, Total int
+	Noun                  string
+	PrevURL, NextURL      string
+}
+
+func pagesLabel(noun string) string {
+	if noun == "" {
+		return "Pages"
+	}
+	return "Pages of " + noun
+}
+
+// Pagination shows the range and Previous and Next, omitted at the ends (NUM-117).
+templ Pagination(p PageInfo) {
+	if p.Total > 0 {
+		<nav class="pagination" aria-label={ pagesLabel(p.Noun) }>
+			if p.From > p.Total {
+				<p>No more results.</p>
+			} else {
+				<p class="pagination-range">{ strconv.Itoa(p.From) }–{ strconv.Itoa(p.To) } of { strconv.Itoa(p.Total) }</p>
+			}
+			<div class="join">
+				if p.Page > 1 && p.PrevURL != "" {
+					<a class="join-item btn btn-outline" href={ templ.SafeURL(p.PrevURL) } rel="prev">Previous</a>
+				}
+				if p.To < p.Total && p.NextURL != "" {
+					<a class="join-item btn btn-outline" href={ templ.SafeURL(p.NextURL) } rel="next">Next</a>
+				}
+			</div>
+		</nav>
+	}
+}

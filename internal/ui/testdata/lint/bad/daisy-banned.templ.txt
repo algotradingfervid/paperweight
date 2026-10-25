@@ -1,0 +1,5 @@
+package bad
+
+templ x() {
+	<div class="countdown"></div>
+}

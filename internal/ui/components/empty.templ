@@ -1,0 +1,11 @@
+package components
+
+// EmptyState is a message plus the one useful action.
+templ EmptyState(message string, action *Link) {
+	<div class="empty-state">
+		<p>{ message }</p>
+		if action != nil {
+			<a class="btn btn-primary" href={ templ.SafeURL(action.Href) }>{ action.Label }</a>
+		}
+	</div>
+}

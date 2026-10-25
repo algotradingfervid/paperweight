@@ -1,0 +1,24 @@
+/* filterbar.css: search, sort, filter chips and result count. */
+@utility filterbar {
+  display: grid;
+  gap: var(--space-3);
+  & .filterbar-row { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); }
+  & .filterbar-row > * { min-inline-size: 0; }
+  & .filterbar-search { display: grid; gap: var(--space-1); flex: 1 1 16rem; }
+  & .filterbar-sort { display: grid; gap: var(--space-1); }
+  & .filterbar-search .input { inline-size: 100%; }
+  & .filterbar-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+  & .filterbar-count { margin: 0; margin-inline-end: auto; color: var(--color-text-secondary); }
+}
+@utility chip {
+  block-size: auto;
+  min-block-size: var(--target-min);
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary-50);
+  border-color: var(--color-primary-600);
+  color: var(--color-primary-800);
+  text-decoration: none;
+  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); flex: none; }
+}

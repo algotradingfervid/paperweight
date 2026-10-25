@@ -1,0 +1,18 @@
+/* base.css: element defaults and the anti-overflow rules (docs/research/frontend-tech.md §6.1). */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  html { scroll-padding-block: calc(var(--header-h) + var(--space-2)) calc(var(--actionbar-h) + var(--space-2)); }
+  body { margin: 0; overflow-wrap: anywhere; }
+  body { font: var(--text-base)/var(--leading-body) var(--font-sans); background: var(--color-canvas); color: var(--color-text); }
+  :where(img, svg, video, canvas, iframe) { max-inline-size: 100%; block-size: auto; }
+  img { image-orientation: from-image; }
+  :where(input, select, textarea, button) { font: inherit; max-inline-size: 100%; min-inline-size: 0; }
+  :where(pre, code) { white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* Flex and grid children default to min-width:auto, which refuses to shrink below their content. */
+  :where(.stack, .cluster, .grid, .row, .card, .field) > * { min-inline-size: 0; }
+  :focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+  /* htmx's own indicator styles are off (includeIndicatorStyles: false, CSP). */
+  .htmx-indicator { opacity: 0; }
+  .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; transition: opacity var(--dur-base) var(--ease-standard); }
+}

@@ -1,0 +1,4 @@
+/* bad: nowrap */
+.x {
+	white-space: nowrap;
+}

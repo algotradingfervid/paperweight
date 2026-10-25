@@ -1,0 +1,14 @@
+/* good: fixed-width.css */
+.x {
+  max-width: 40rem;
+  max-inline-size: 30em;
+  inline-size: min(100%, 20rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  min-inline-size: 0;
+}
+@utility visually-hidden {
+  inline-size: 1px;
+}
+@media (min-width: 48rem) {
+  .x { inline-size: min(100%, 40rem); }
+}

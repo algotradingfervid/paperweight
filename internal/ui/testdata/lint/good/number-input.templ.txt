@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<input type="text" inputmode="decimal"/>
+}

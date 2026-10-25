@@ -1,0 +1,6 @@
+package bad
+
+templ x() {}
+css red() {
+	color: red;
+}

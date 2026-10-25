@@ -1,0 +1,177 @@
+package components
+
+import (
+	"encoding/json"
+	"strconv"
+	"unicode/utf16"
+
+	"github.com/vardhan/internaltools/internal/types"
+)
+
+// NumberKind is a number field's kind; it names its /ui/validate endpoint.
+type NumberKind string
+
+// Number kinds (CD-48).
+const (
+	Money   NumberKind = "money"
+	Qty     NumberKind = "qty"
+	Rate    NumberKind = "rate"
+	Percent NumberKind = "percent"
+)
+
+// CodeKind is a code field's kind; it names its /ui/validate endpoint.
+type CodeKind string
+
+// Code kinds; WP3 supplies their parsers.
+const (
+	GSTIN   CodeKind = "gstin"
+	PAN     CodeKind = "pan"
+	HSN     CodeKind = "hsn"
+	Pincode CodeKind = "pincode"
+)
+
+// DateProps describes a date field; Today and Yesterday are dd-mm-yyyy.
+type DateProps struct {
+	FieldProps
+	Today, Yesterday string
+}
+
+// validateAttrs make a control check itself on change at /ui/validate/{kind}.
+func validateAttrs(p FieldProps, kind string) templ.Attributes {
+	vals, _ := json.Marshal(map[string]string{"_id": p.ID, "_name": p.Name}) //nolint:errchkjson // a string map always marshals
+	return templ.Attributes{
+		"hx-post":    "/ui/validate/" + kind,
+		"hx-trigger": "change",
+		"hx-target":  "#" + p.ID + "-msg",
+		"hx-swap":    "outerHTML",
+		"hx-vals":    string(vals),
+	}
+}
+
+func counterText(n, maxLen int) string {
+	return types.FormatCount(int64(n)) + " of " + types.FormatCount(int64(maxLen)) + " characters"
+}
+
+templ TextInput(p FieldProps) {
+	@field(p) {
+		<input type="text" value={ p.Value } { controlAttrs(p, "input field__input")... }/>
+	}
+}
+
+templ EmailInput(p FieldProps, autocomplete string) {
+	@field(p) {
+		<input type="email" value={ p.Value } autocomplete={ autocomplete } spellcheck="false" { controlAttrs(p, "input field__input")... }/>
+	}
+}
+
+// PasswordInput adds a "Show password" toggle handled by password.js.
+templ PasswordInput(p FieldProps, autocomplete string) {
+	@field(p) {
+		<div class="field__control">
+			<input type="password" value={ p.Value } autocomplete={ autocomplete } spellcheck="false" { controlAttrs(p, "input field__input")... }/>
+			<button type="button" class="btn btn-ghost tap" data-toggle-password aria-controls={ p.ID }>Show password</button>
+		</div>
+	}
+}
+
+// Textarea shows a live character count kept by counter.js. Like the
+// browser's maxlength, it counts UTF-16 code units.
+templ Textarea(p FieldProps, maxLen int) {
+	@field(p) {
+		<textarea maxlength={ strconv.Itoa(maxLen) } { controlAttrs(p, "textarea field__input")... }>{ p.Value }</textarea>
+		<p class="field__count" data-counter={ p.ID }>{ counterText(len(utf16.Encode([]rune(p.Value))), maxLen) }</p>
+	}
+}
+
+// NumberInput is a text input checked by the server on change (CD-48); the
+// suffix sits outside the input.
+templ NumberInput(p FieldProps, k NumberKind, whole bool) {
+	@field(p) {
+		<div class="join field__control">
+			<input
+				type="text"
+				if whole {
+					inputmode="numeric"
+				} else {
+					inputmode="decimal"
+				}
+				autocomplete="off"
+				value={ p.Value }
+				{ validateAttrs(p, string(k))... }
+				{ controlAttrs(p, "input join-item field__input num")... }
+			/>
+			if p.Suffix != "" {
+				<span class="join-item field__suffix">{ p.Suffix }</span>
+			} else if k == Percent {
+				<span class="join-item field__suffix">%</span>
+			}
+		</div>
+	}
+}
+
+templ MoneyInput(p FieldProps) {
+	@NumberInput(p, Money, false)
+}
+
+// QtyInput shows the unit as the suffix; whole is for whole-number units.
+templ QtyInput(p FieldProps, whole bool, uom string) {
+	@NumberInput(withSuffix(p, uom), Qty, whole)
+}
+
+templ RateInput(p FieldProps) {
+	@NumberInput(p, Rate, false)
+}
+
+templ PercentInput(p FieldProps) {
+	@NumberInput(p, Percent, false)
+}
+
+func withSuffix(p FieldProps, s string) FieldProps {
+	p.Suffix = s
+	return p
+}
+
+func dateHint(p FieldProps) FieldProps {
+	if p.Hint == "" {
+		p.Hint = "For example, 27-03-2026"
+	}
+	return p
+}
+
+// DateInput is a dd-mm-yyyy text input with "Today" and "Yesterday" buttons
+// (date.js) and the weekday echo in the message region.
+templ DateInput(p DateProps) {
+	@field(dateHint(p.FieldProps)) {
+		<input
+			type="text"
+			inputmode="numeric"
+			autocomplete="off"
+			value={ p.Value }
+			{ validateAttrs(p.FieldProps, "date")... }
+			{ controlAttrs(dateHint(p.FieldProps), "input field__input")... }
+		/>
+		<div class="field__actions">
+			<button type="button" class="btn btn-outline tap" data-set-date={ p.Today } aria-controls={ p.ID }>Today</button>
+			<button type="button" class="btn btn-outline tap" data-set-date={ p.Yesterday } aria-controls={ p.ID }>Yesterday</button>
+		</div>
+	}
+}
+
+// CodeInput is a GSTIN, PAN, HSN or pincode field checked on change.
+templ CodeInput(p FieldProps, k CodeKind) {
+	@field(p) {
+		<input
+			type="text"
+			if k == GSTIN || k == PAN {
+				autocapitalize="characters"
+			} else {
+				inputmode="numeric"
+			}
+			spellcheck="false"
+			autocomplete="off"
+			value={ p.Value }
+			{ validateAttrs(p, string(k))... }
+			{ controlAttrs(p, "input field__input code")... }
+		/>
+	}
+}
