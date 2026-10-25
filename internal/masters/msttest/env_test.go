@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 
@@ -123,6 +124,95 @@ func TestMsttest_NewWiresRealKernel(t *testing.T) {
 	for _, r := range []auth.Right{auth.RightCreate, auth.RightWrite, auth.RightDelete} {
 		if err := env.Kit.Auth.Can(ctx, env.Priya, thing.DocType, r, nil); !errors.Is(err, auth.ErrForbidden) {
 			t.Errorf("Priya Can(%s, %s) = %v; want auth.ErrForbidden", thing.DocType, r, err)
+		}
+	}
+}
+
+// TestMsttest_AppliesFixtureRestrictions has no case ID (review finding):
+// msttest.New applies the canonical fixtures' user restrictions
+// (00-fixtures.md, Users table) as AUTH's own test world does, seen through
+// the real AUTH service; users the fixtures don't restrict have none.
+func TestMsttest_AppliesFixtureRestrictions(t *testing.T) {
+	env := msttest.New(t)
+	ctx := context.Background()
+	a, ok := env.Kit.Auth.(*auth.Auth)
+	if !ok {
+		t.Fatalf("Kit.Auth = %T; want the real *auth.Auth", env.Kit.Auth)
+	}
+
+	// The fixture values (codes, user ids) from testkit; the database ids of
+	// projects and sites from env's own seeded stand-in tables.
+	fx := testkit.Seed(t, testkit.NewDB(t))
+	if len(fx.Restrictions) == 0 {
+		t.Fatal("testkit fixtures have no restrictions; want Priya's and Suresh's (00-fixtures.md)")
+	}
+	ids := map[string]map[string]int64{"testkit_project": {}, "testkit_site": {}}
+	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
+		for table, m := range ids {
+			rows, err := tx.SQL().QueryContext(ctx, `SELECT code, id FROM `+table) //nolint:gosec // G202: fixed table names
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				var code string
+				var id int64
+				if err := rows.Scan(&code, &id); err != nil {
+					_ = rows.Close()
+					return err
+				}
+				m[code] = id
+			}
+			if err := rows.Close(); err != nil {
+				return err
+			}
+			if err := rows.Err(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("read stand-in ids: %v", err)
+	}
+	resolve := func(table string, codes []string) []int64 {
+		var out []int64
+		for _, c := range codes {
+			id, ok := ids[table][c]
+			if !ok {
+				t.Fatalf("%s has no code %q", table, c)
+			}
+			out = append(out, id)
+		}
+		slices.Sort(out)
+		return out
+	}
+
+	want := map[string]map[auth.Dimension][]int64{}
+	for _, r := range fx.Restrictions {
+		w := map[auth.Dimension][]int64{}
+		if len(r.ProjectCodes) > 0 {
+			w[auth.DimProject] = resolve("testkit_project", r.ProjectCodes)
+		}
+		if len(r.SiteCodes) > 0 {
+			w[auth.DimSite] = resolve("testkit_site", r.SiteCodes)
+		}
+		want[r.Email] = w
+	}
+	if _, ok := want["priya@vardhan.test"]; !ok {
+		t.Fatal("fixtures restrict no priya@vardhan.test; want project PRJ-METRO (00-fixtures.md)")
+	}
+
+	for _, u := range fx.Users {
+		got, err := a.UserRestrictions(ctx, u.ID)
+		if err != nil {
+			t.Errorf("UserRestrictions(%s) = %v", u.Email, err)
+			continue
+		}
+		w := want[u.Email]
+		if len(got) == 0 && len(w) == 0 {
+			continue
+		}
+		if !reflect.DeepEqual(got, w) {
+			t.Errorf("UserRestrictions(%s) = %v; want %v (fixture restrictions)", u.Email, got, w)
 		}
 	}
 }
