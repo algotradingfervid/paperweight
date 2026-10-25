@@ -76,6 +76,13 @@ func denied(name string, r auth.Right) error {
 	return &auth.DeniedError{Right: r, Label: label, Plural: plural}
 }
 
+// inapplicable reports whether r doesn't apply to the registered DocType
+// name, which the real service refuses before grants (CD-173).
+func inapplicable(name string, r auth.Right) bool {
+	dt, ok := doctype.Lookup(name)
+	return ok && !auth.Applies(dt, r)
+}
+
 // Seeding helpers (CD-56, CD-86).
 
 // Grant gives role the right r on doctype with scope s; doctype "*" means every DocType.
@@ -112,6 +119,7 @@ func setFlag(m map[auth.UserID]map[string]bool, u auth.UserID, role string, on b
 }
 
 // Restrict limits u to records whose projects and sites are in the lists; a nil list leaves that dimension open.
+// A non-nil empty list means "restricted to nothing", a state the real service can't hold.
 func (f *Fake) Restrict(u auth.UserID, projects, sites []int64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -218,6 +226,9 @@ func outside(ids, allowed []int64) bool {
 }
 
 func (f *Fake) Can(ctx context.Context, p auth.Principal, doctype string, r auth.Right, rec *auth.RecordRef) error {
+	if inapplicable(doctype, r) {
+		return denied(doctype, r)
+	}
 	f.mu.Lock()
 	scope, ok := f.scopeLocked(p, doctype, r)
 	hidden := rec != nil && f.hidden[record{doctype, rec.ID}]
@@ -256,6 +267,9 @@ func (f *Fake) Can(ctx context.Context, p auth.Principal, doctype string, r auth
 }
 
 func (f *Fake) Scope(ctx context.Context, p auth.Principal, doctype string, r auth.Right) (auth.Predicate, error) {
+	if inapplicable(doctype, r) {
+		return auth.Predicate{}, denied(doctype, r)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if _, ok := f.scopeLocked(p, doctype, r); !ok {
@@ -334,7 +348,11 @@ func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, i
 }
 
 // UsersWithRight returns the SetUsers list, or every user holding a granted role, sorted, without disabled users.
+// A right that doesn't apply to the DocType lists nobody, like the real service (CD-173).
 func (f *Fake) UsersWithRight(ctx context.Context, doctype string, r auth.Right, rec *auth.RecordRef) ([]auth.UserID, error) {
+	if inapplicable(doctype, r) {
+		return nil, nil
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	candidates, set := f.users[docRight{doctype, r}]

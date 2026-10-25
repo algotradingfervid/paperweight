@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -446,5 +447,116 @@ func TestAuthfake_MatchesReal(t *testing.T) {
 				t.Errorf("UsersWithRight(PO approve) lists user %d: real %v (%v), authfake %v (%v)", p.ID, r, realUsers, fk, fakeUsers)
 			}
 		})
+	}
+}
+
+// CD-173: authfake applies auth.Applies like the real service. For every
+// registered DocType × every right in AllRights plus an unknown right, the
+// fake is granted the right (it accepts any grant) and the real service is
+// granted it where it applies; Can, Scope and UsersWithRight must agree.
+func TestAuthfake_AppliesMatchesReal(t *testing.T) {
+	const unknown auth.Right = "foo"
+	rights := append(slices.Clone(auth.AllRights), unknown)
+
+	authtest.RegisterDocTypes()
+	dts := doctype.All()
+	if len(dts) == 0 {
+		t.Fatal("no DocTypes registered")
+	}
+	// The rows the CD names must be among the ones checked.
+	item, okItem := doctype.Lookup(authtest.DTItem)
+	receipt, okReceipt := doctype.Lookup(authtest.DTReceipt)
+	if !okItem || item.Submittable || !okReceipt || receipt.Approvable {
+		t.Fatalf("need %s registered as a master (not submittable) and %s registered as not approvable", authtest.DTItem, authtest.DTReceipt)
+	}
+
+	var inapplicable int
+	for _, dt := range dts {
+		t.Run(dt.Name, func(t *testing.T) {
+			for _, who := range []string{"Clerk", auth.RoleAdministrator} {
+				t.Run(who, func(t *testing.T) { appliesParity(t, dt, rights, who, &inapplicable) })
+			}
+		})
+	}
+	if inapplicable == 0 {
+		t.Error("no inapplicable DocType × right rows were checked")
+	}
+}
+
+// appliesParity runs the CD-173 comparison for one DocType as a Clerk
+// granted every right on it, or as the Administrator (the real service's
+// bypass; the fake's "*" grant of every right), whose inapplicable rights
+// must be refused as well.
+func appliesParity(t *testing.T, dt *doctype.DocType, rights []auth.Right, who string, inapplicable *int) {
+	const clerk = "clerk@vardhan.test"
+	ctx := context.Background()
+	w := authtest.NewWorld(t)
+	email := clerk
+	var u auth.UserID
+	f := authfake.New()
+	if who == auth.RoleAdministrator {
+		email = "admin@vardhan.test"
+		u = w.Users[email]
+		f.AddUser(auth.UserInfo{ID: u, Email: email, Name: "Admin", Enabled: true})
+		for _, r := range rights {
+			f.Grant(auth.RoleAdministrator, "*", r, auth.ScopeAll)
+		}
+		f.AddRole(u, auth.RoleAdministrator)
+	} else {
+		u = w.AddUser(t, clerk, "Clerk User")
+		f.AddUser(auth.UserInfo{ID: u, Email: clerk, Name: "Clerk User", Enabled: true})
+		for _, r := range rights {
+			f.Grant("Clerk", dt.Name, r, auth.ScopeAll)
+			if auth.Applies(dt, r) {
+				w.Grant(t, "Clerk", dt.Name, r, auth.ScopeAll)
+			}
+		}
+		w.AddRole(t, clerk, "Clerk")
+		f.AddRole(u, "Clerk")
+	}
+	p := w.P(t, email)
+	rec := &auth.RecordRef{DocType: dt.Name, ID: 1, CreatedBy: u}
+
+	compare := func(what string, applies bool, real, fake error) {
+		t.Helper()
+		want := "forbidden"
+		if applies {
+			want = "nil"
+		}
+		r, fk := t5Kind(real), t5Kind(fake)
+		if r != want || fk != want {
+			t.Errorf("%s: real = %s (%v), authfake = %s (%v), want both %s", what, r, real, fk, fake, want)
+			return
+		}
+		if real != nil && real.Error() != fake.Error() {
+			t.Errorf("%s: real message %q, authfake message %q, want the same", what, real.Error(), fake.Error())
+		}
+	}
+	for _, r := range rights {
+		applies := auth.Applies(dt, r)
+		if !applies {
+			*inapplicable++
+		}
+		compare(fmt.Sprintf("Can(%s, %s, nil)", dt.Name, r), applies,
+			w.Auth.Can(ctx, p, dt.Name, r, nil), f.Can(ctx, p, dt.Name, r, nil))
+		compare(fmt.Sprintf("Can(%s, %s, own record)", dt.Name, r), applies,
+			w.Auth.Can(ctx, p, dt.Name, r, rec), f.Can(ctx, p, dt.Name, r, rec))
+		_, realErr := w.Auth.Scope(ctx, p, dt.Name, r)
+		_, fakeErr := f.Scope(ctx, p, dt.Name, r)
+		compare(fmt.Sprintf("Scope(%s, %s)", dt.Name, r), applies, realErr, fakeErr)
+
+		realUsers, err := w.Auth.UsersWithRight(ctx, dt.Name, r, nil)
+		if err != nil {
+			t.Fatalf("real UsersWithRight(%s, %s): %v", dt.Name, r, err)
+		}
+		fakeUsers, err := f.UsersWithRight(ctx, dt.Name, r, nil)
+		if err != nil {
+			t.Fatalf("authfake UsersWithRight(%s, %s): %v", dt.Name, r, err)
+		}
+		inReal, inFake := slices.Contains(realUsers, u), slices.Contains(fakeUsers, u)
+		if inReal != applies || inFake != applies {
+			t.Errorf("UsersWithRight(%s, %s) lists the clerk: real %v (%v), authfake %v (%v), want both %v",
+				dt.Name, r, inReal, realUsers, inFake, fakeUsers, applies)
+		}
 	}
 }

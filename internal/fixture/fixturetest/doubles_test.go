@@ -201,3 +201,16 @@ func TestAuth_HideAndRestrict(t *testing.T) {
 		t.Errorf("probe.Calls = %q, want %q", probe.Calls, want)
 	}
 }
+
+// CD-174: the double allows everything, so no principal is restricted.
+func TestAuth_RestrictedReportsNone(t *testing.T) {
+	priya := testkit.Principal(t, "priya@vardhan.test")
+	got, err := fixturetest.NewAuth().Restricted(context.Background(), nil, priya, string(auth.DimProject))
+	if err != nil || got {
+		t.Errorf("Restricted(priya, project) = (%v, %v), want (false, nil)", got, err)
+	}
+	got, err = fixturetest.NewAuth().Restricted(context.Background(), nil, priya, "colour")
+	if want := auth.ValidDimension("colour"); got || err == nil || err.Error() != want.Error() {
+		t.Errorf("Restricted(priya, colour) = (%v, %v), want (false, %v)", got, err, want)
+	}
+}

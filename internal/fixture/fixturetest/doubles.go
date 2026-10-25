@@ -137,6 +137,12 @@ func (a *Auth) UsersWithRight(context.Context, string, auth.Right, *auth.RecordR
 	return nil, nil
 }
 
+// Restricted reports no restriction on any dimension and refuses an unknown
+// one, like the real service (CD-174).
+func (a *Auth) Restricted(_ context.Context, _ *db.Tx, _ auth.Principal, dimension string) (bool, error) {
+	return false, auth.ValidDimension(dimension)
+}
+
 // HasRole reads the roles registered with Remember.
 func (a *Auth) HasRole(_ context.Context, u auth.UserID, role string) (bool, error) {
 	a.mu.Lock()
