@@ -833,6 +833,9 @@ func importRule(pkg, imp string) (bool, string) {
 		}
 		return false, fmt.Sprintf("%s (a screen package) may import what %s may, plus %s, internal/ui, internal/platform/web and its own area's fake/test helpers (CD-85, CD-93)", pkg, parent, parent)
 	default:
+		if imp == parent { // a non-helper, non-web subpackage may import its own parent (CD-153)
+			return true, ""
+		}
 		_, why := baseRule(top, imp)
 		return false, pkg + " follows its parent's rule: " + why
 	}
@@ -906,6 +909,9 @@ func TestContracts_KernelImportsFollowTable(t *testing.T) {
 		{"authtest_imports_testkit", "internal/kernel/auth/authtest", "internal/testkit", true},
 		{"namingfake_imports_authfake", "internal/kernel/naming/namingfake", "internal/kernel/auth/authfake", true},
 		{"audit_imports_auth", "internal/kernel/audit", "internal/kernel/auth", false},
+		{"auth_cli_imports_auth", "internal/kernel/auth/cli", "internal/kernel/auth", true},
+		{"auth_cli_imports_doc", "internal/kernel/auth/cli", "internal/kernel/doc", false},
+		{"auth_cli_imports_auth_dbq", "internal/kernel/auth/cli", "internal/kernel/auth/dbq", false},
 		{"list_imports_doc", "internal/kernel/list", "internal/kernel/doc", false},
 		{"doctype_imports_auth", "internal/kernel/doctype", "internal/kernel/auth", false},
 		{"auth_imports_ui", "internal/kernel/auth", "internal/ui", false},
