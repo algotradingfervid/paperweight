@@ -46,18 +46,25 @@ type DataListProps struct {
 	Empty   templ.Component
 }
 
-// Validate checks the columns: 1 to 8, at most one PTitle, PFigure and
-// PState each, and with no PTitle column every row has a Title.
+// Validate checks the columns: 1 to 8 and at most 8 grid tracks, every
+// priority PTitle or more, at most one PTitle, PFigure and PState each, and
+// with no PTitle column every row has a Title.
 func (p DataListProps) Validate() error {
 	if len(p.Columns) < 1 || len(p.Columns) > 8 {
 		return errors.New("components.DataList: 1 to 8 columns are allowed")
 	}
 	n := map[Priority]int{}
 	for _, c := range p.Columns {
+		if c.Priority < PTitle {
+			return errors.New("components.DataList: a column priority is below 1")
+		}
 		n[c.Priority]++
 	}
 	if n[PTitle] > 1 || n[PFigure] > 1 || n[PState] > 1 {
 		return errors.New("components.DataList: at most one title, figure and state column")
+	}
+	if listLayoutOf(p.Columns).tracks() > 8 {
+		return errors.New("components.DataList: at most 8 grid tracks, counting the title track")
 	}
 	if n[PTitle] == 0 {
 		for _, r := range p.Rows {
@@ -125,6 +132,21 @@ func (l listLayout) listThird(r Row) []Column {
 		return l.meta[1:]
 	}
 	return l.meta
+}
+
+// stateSep reports whether the state badge has a separator before it, and
+// whether that separator is low priority because every value before it is.
+func (l listLayout) stateSep(r Row) (sep, low bool) {
+	third := l.listThird(r)
+	if len(third) == 0 {
+		return false, false
+	}
+	for _, c := range third {
+		if c.Priority < PLow {
+			return true, false
+		}
+	}
+	return true, true
 }
 
 // listCellClass is a value's classes, written out whole for the CSS build.

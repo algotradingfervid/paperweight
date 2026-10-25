@@ -1,6 +1,10 @@
 package components
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/a-h/templ"
+)
 
 // LineCard is one line on the phone list (design-system §8.2). A move URL
 // left empty hides that button (first line up, last line down).
@@ -10,13 +14,20 @@ type LineCard struct {
 	ChangeURL, RemoveURL, MoveUpURL, MoveDownURL string
 }
 
-// LineGridRow is one row of the desktop grid. Fields are the item picker
-// summary, Qty, UoM, Rate and Tax, with ids grid-<no>-<field>.
+// GridCell is one input cell of a grid row; Label heads its column.
+type GridCell struct {
+	Label string
+	Input templ.Component
+}
+
+// LineGridRow is one row of the desktop grid (CD-139). Cells are the item
+// picker summary, Qty, UoM, Rate and Tax, with ids grid-<no>-<field>. An
+// empty Remove or move URL hides that button.
 type LineGridRow struct {
-	No      int
-	Fields  []FieldProps
-	Amount  string
-	PostURL string
+	No                                         int
+	Cells                                      []GridCell
+	Amount                                     string
+	PostURL, RemoveURL, MoveUpURL, MoveDownURL string
 }
 
 // LineListProps describes the line cards. Total is the number of lines;

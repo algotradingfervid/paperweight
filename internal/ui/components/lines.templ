@@ -74,36 +74,55 @@ templ LineList(p LineListProps) {
 
 // LineGrid is the desktop line editor, shown from 64rem. Each row is its own
 // form that saves on change and swaps only itself; saves queue one at a
-// time on #line-editor and each sends the page's #doc-version (CD-95).
+// time on #line-editor and each sends the page's #doc-version (CD-95). The
+// row's actions sit beside its form, since forms can't nest (CD-139).
 templ LineGrid(rows []LineGridRow, total string) {
 	<div id="line-editor" class="line-editor">
 		<div class="linegrid" x-data="linegrid">
 			if len(rows) > 0 {
 				<div class="linegrid-head" aria-hidden="true">
 					<span>#</span>
-					for _, f := range rows[0].Fields {
-						<span>{ f.Label }</span>
+					for _, c := range rows[0].Cells {
+						<span>{ c.Label }</span>
 					}
 					<span class="num">Amount</span>
+					<span>Actions</span>
 				</div>
 			}
 			for _, r := range rows {
-				<form
-					id={ lineGridID(r.No) }
-					class="linegrid-row"
-					hx-post={ r.PostURL }
-					hx-trigger="change"
-					hx-target="this"
-					hx-swap="outerHTML"
-					hx-include="#doc-version"
-					hx-sync="#line-editor:queue all"
-				>
-					<span class="linegrid-no">{ strconv.Itoa(r.No) }</span>
-					for _, f := range r.Fields {
-						@TextInput(f)
-					}
-					<span class="num linegrid-amount">{ r.Amount }</span>
-				</form>
+				<div class="linegrid-row">
+					<form
+						id={ lineGridID(r.No) }
+						class="linegrid-form"
+						hx-post={ r.PostURL }
+						hx-trigger="change"
+						hx-target="this"
+						hx-swap="outerHTML"
+						hx-include="#doc-version"
+						hx-sync="#line-editor:queue all"
+					>
+						<span class="linegrid-no"><span class="visually-hidden">Line</span>{ strconv.Itoa(r.No) }</span>
+						for _, c := range r.Cells {
+							@c.Input
+						}
+						<span class="num linegrid-amount"><span class="visually-hidden">Amount</span>{ r.Amount }</span>
+					</form>
+					<div class="linegrid-actions">
+						if r.RemoveURL != "" {
+							@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", r.No), Href: r.RemoveURL, Variant: Ghost})
+						}
+						if r.MoveUpURL != "" {
+							@Form(FormProps{Action: r.MoveUpURL}) {
+								@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", r.No), Icon: "arrow-up", Variant: Ghost})
+							}
+						}
+						if r.MoveDownURL != "" {
+							@Form(FormProps{Action: r.MoveDownURL}) {
+								@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", r.No), Icon: "arrow-down", Variant: Ghost})
+							}
+						}
+					</div>
+				</div>
 			}
 			<p id="grid-total" class="linegrid-total">
 				<span>Taxable total</span>

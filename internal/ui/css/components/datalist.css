@@ -48,6 +48,7 @@
         font-size: var(--text-sm);
         background: var(--color-sunken);
         border-radius: var(--radius-md);
+        & > * { min-inline-size: 0; overflow-wrap: anywhere; }
       }
       & .datalist-link { border-radius: var(--radius-md); }
       & :is(.datalist-r1, .datalist-r2, .datalist-r3) { display: contents; }

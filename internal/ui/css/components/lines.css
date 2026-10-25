@@ -54,10 +54,18 @@
     & .linegrid { display: grid; gap: var(--space-2); }
     & :is(.linegrid-head, .linegrid-row) {
       display: grid;
-      grid-template-columns: minmax(0, 0.5fr) minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.25fr);
+      grid-template-columns: minmax(0, 0.5fr) minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 2fr);
       column-gap: var(--space-2);
       align-items: start;
       & > * { min-inline-size: 0; }
+    }
+    & .linegrid-form { display: contents; & > * { min-inline-size: 0; } }
+    & .linegrid-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      & form { display: contents; }
+      & .btn { max-inline-size: 100%; }
     }
     & .linegrid-head {
       padding: var(--space-2) 0;

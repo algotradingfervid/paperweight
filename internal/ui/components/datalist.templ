@@ -58,14 +58,14 @@ templ listCard(l listLayout, r Row) {
 	<a class="datalist-link" href={ templ.URL(r.Href) }>
 		<div class="datalist-r1">
 			if l.title != nil {
-				@listCell(*l.title, true, false) {
+				@listCell(*l.title, true, false, false) {
 					{ r.Values[l.title.Key] }
 				}
 			} else {
 				<p class="datalist-cell datalist-title">{ r.Title }</p>
 			}
 			if l.figure != nil {
-				@listCell(*l.figure, false, false) {
+				@listCell(*l.figure, false, false, false) {
 					{ r.Values[l.figure.Key] }
 				}
 			}
@@ -74,19 +74,19 @@ templ listCard(l listLayout, r Row) {
 			<p class="datalist-cell datalist-party">{ r.Party }</p>
 		} else if c := l.listSecond(r); c != nil {
 			<div class="datalist-r2">
-				@listCell(*c, false, false) {
+				@listCell(*c, false, false, false) {
 					{ r.Values[c.Key] }
 				}
 			</div>
 		}
 		<div class="datalist-r3">
 			for i, c := range l.listThird(r) {
-				@listCell(c, false, i > 0) {
+				@listCell(c, false, i > 0, false) {
 					{ r.Values[c.Key] }
 				}
 			}
-			if l.state != nil {
-				@listCell(*l.state, false, len(l.listThird(r)) > 0) {
+			if sep, low := l.stateSep(r); l.state != nil {
+				@listCell(*l.state, false, sep, low) {
 					@StateBadge(r.State)
 				}
 			}
@@ -94,8 +94,9 @@ templ listCard(l listLayout, r Row) {
 	</a>
 }
 
-// listCell is one labelled value; sep puts " · " before it on cards.
-templ listCell(c Column, title, sep bool) {
+// listCell is one labelled value; sep puts " · " before it on cards, and
+// sepLow hides that separator with the low-priority values.
+templ listCell(c Column, title, sep, sepLow bool) {
 	<dl
 		class={ listCellClass(c, title) }
 		if c.Priority >= PLow {
@@ -105,7 +106,13 @@ templ listCell(c Column, title, sep bool) {
 		<dt class="visually-hidden">{ c.Label }</dt>
 		<dd>
 			if sep {
-				<span class="datalist-sep" aria-hidden="true">{ " · " }</span>
+				<span
+					class="datalist-sep"
+					aria-hidden="true"
+					if sepLow {
+						data-priority="low"
+					}
+				>{ " · " }</span>
 			}
 			{ children... }
 		</dd>
