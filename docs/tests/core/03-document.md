@@ -763,7 +763,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-099 · fixture.Claim is an employee-based approvable document whose amount is the sum of its lines
 - **Priority:** P1
 - **Level:** integration
-- **Given** `deepak` creates a `fixture.Claim` (label "Expense Claim", series `EXP/{FY}/{#####}`) for employee EMP-007 with lines TRAVEL ₹1,250.00 and FOOD ₹480.50 **When** he submits it **Then** APR `Evaluate` gets amount ₹1,730.50 (`Hooks.Amount` = sum of line amounts, also stored in the claim's `ReadOnly` `total` field, CD-79) and requester Deepak, `Open` is called, and the claim is `pending_approval`. **When** `priya` approves it **Then** it is `approved` with number `EXP/26-27/00001`.
+- **Given** `deepak` creates a `fixture.Claim` (label "Expense Claim", series `EX/{FY}/{#####}`) for employee EMP-007 with lines TRAVEL ₹1,250.00 and FOOD ₹480.50 **When** he submits it **Then** APR `Evaluate` gets amount ₹1,730.50 (`Hooks.Amount` = sum of line amounts, also stored in the claim's `ReadOnly` `total` field, CD-79) and requester Deepak, `Open` is called, and the claim is `pending_approval`. **When** `priya` approves it **Then** it is `approved` with number `EX/26-27/00001`.
 - **Go test:** `TestDoc_Claim_SubmitAndApprove`
 - **Sources:** Contract decision CD-25 (needed by APR-020, APR-037, APR-044–051, APR-070); `00-fixtures.md` numbering and approval rules
 

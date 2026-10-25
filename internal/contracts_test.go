@@ -648,7 +648,7 @@ func TestContracts_NamingFakeSequence(t *testing.T) {
 		t.Errorf("AssignAmendment = (%q, %v), want (\"PO/26-27/00001-1\", nil)", amend, err)
 	}
 
-	if err := f.EnsureSeries(ctx, "fixture.Claim", "Expense Claim", "EXP/{FY}/{#####}"); err != nil {
+	if err := f.EnsureSeries(ctx, "fixture.Claim", "Expense Claim", "EX/{FY}/{#####}"); err != nil {
 		t.Fatalf("EnsureSeries error = %v", err)
 	}
 	series, err := f.List(ctx)
@@ -657,12 +657,12 @@ func TestContracts_NamingFakeSequence(t *testing.T) {
 	}
 	found := false
 	for _, s := range series {
-		if s.DocType == "fixture.Claim" && s.Label == "Expense Claim" && s.Template == "EXP/{FY}/{#####}" {
+		if s.DocType == "fixture.Claim" && s.Label == "Expense Claim" && s.Template == "EX/{FY}/{#####}" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("List() = %+v, want fixture.Claim / Expense Claim / EXP/{FY}/{#####}", series)
+		t.Errorf("List() = %+v, want fixture.Claim / Expense Claim / EX/{FY}/{#####}", series)
 	}
 
 	f.SetPreview("PO/{FY}/{#####}", "PO/26-27/00001")

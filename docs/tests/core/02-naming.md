@@ -26,14 +26,14 @@ Masters (`code`) are not named by NAM; they belong to MST. Line rows keep intege
 
 ## Test cases
 
-Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GR/{FY}/{#####}`, Expense `EXP/{FY}/{#####}` (see `00-fixtures.md`). "Approve" means the DOC transition into `approved` (from `pending_approval`, or straight from `draft` when no approval rule applies). Users, approval rules and the clock (2026-10-24 10:30 IST, FY 2026-27) are the fixture ones unless a case says otherwise. With the seed rules, a PO of ₹50,000.00 or more (such as the reference PO, ₹94,164.00) needs Purchase Manager approval, an Expense Claim always needs approval, and a GRN has no rule, so submitting a GRN approves it.
+Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GR/{FY}/{#####}`, Expense `EX/{FY}/{#####}` (see `00-fixtures.md`). "Approve" means the DOC transition into `approved` (from `pending_approval`, or straight from `draft` when no approval rule applies). Users, approval rules and the clock (2026-10-24 10:30 IST, FY 2026-27) are the fixture ones unless a case says otherwise. With the seed rules, a PO of ₹50,000.00 or more (such as the reference PO, ₹94,164.00) needs Purchase Manager approval, an Expense Claim always needs approval, and a GRN has no rule, so submitting a GRN approves it.
 
 ### Template validation and rendering
 
 ### NAM-001 · Default templates for v1 DocTypes are valid and render the first number
 - **Priority:** P1
 - **Level:** unit
-- **Given** the seeded templates for Purchase Order, GRN and Expense **When** each is rendered for document date 2026-04-01 with counter 1 **Then** results are `PO/26-27/00001`, `GR/26-27/00001`, `EXP/26-27/00001`; each is 14 or fewer characters.
+- **Given** the seeded templates for Purchase Order, GRN and Expense **When** each is rendered for document date 2026-04-01 with counter 1 **Then** results are `PO/26-27/00001`, `GR/26-27/00001`, `EX/26-27/00001`; each is 14 or fewer characters.
 - **Go test:** `TestTemplate_DefaultsRender`
 - **Sources:** `erpnext/erpnext/buying/doctype/purchase_order/purchase_order.json:191` (`PUR-ORD-.YYYY.-`), `erpnext/erpnext/stock/doctype/purchase_receipt/purchase_receipt.json:192`, `hrms/hrms/hr/doctype/expense_claim/expense_claim.json:77`, `odoo/addons/purchase/data/purchase_data.xml:22`
 

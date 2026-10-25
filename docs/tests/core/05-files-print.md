@@ -201,7 +201,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-025 · Reading needs read on the parent, and a record-level rule hides the file
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved expense `EXP/26-27/00001` of Ravi on project `PRJ-TECHPARK` with `receipt.jpg`, and Priya, whose restriction limits her to project `PRJ-METRO` **When** Priya requests `/files/{attachment_id}` or the expense's attachment list **Then** the download is 404 "File not found." and the list call is 404 (the expense itself is hidden). Meena (Director, read on Expense, no restriction) gets 200.
+- **Given** approved expense `EX/26-27/00001` of Ravi on project `PRJ-TECHPARK` with `receipt.jpg`, and Priya, whose restriction limits her to project `PRJ-METRO` **When** Priya requests `/files/{attachment_id}` or the expense's attachment list **Then** the download is 404 "File not found." and the list call is 404 (the expense itself is hidden). Meena (Director, read on Expense, no restriction) gets 200.
 - **Go test:** `TestAttachment_ReadFollowsParentRecordRule`
 - **Sources:** `frappe/frappe/core/doctype/file/file.py:1003` (`has_permission`), `odoo/odoo/addons/base/tests/test_ir_attachment.py:398` (`test_read_permission`), `frappe/frappe/core/doctype/file/test_file.py:2692` (`test_restricted_user_excludes_out_of_scope_file`)
 
@@ -508,7 +508,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-068 · The expense print lists the employee, lines with a receipt marker and the attachment names
 - **Priority:** P2
 - **Level:** integration (golden file)
-- **Given** approved `EXP/26-27/00001` for employee "Ravi Kulkarni (EMP-003)" with 3 lines (2 with receipts) and attachments `taxi.jpg`, `hotel.pdf` **When** rendered **Then** it shows "Expense Claim", the employee, the period, lines with "Receipt: Yes/No", the total in figures and words, and "Attachments: taxi.jpg, hotel.pdf".
+- **Given** approved `EX/26-27/00001` for employee "Ravi Kulkarni (EMP-003)" with 3 lines (2 with receipts) and attachments `taxi.jpg`, `hotel.pdf` **When** rendered **Then** it shows "Expense Claim", the employee, the period, lines with "Receipt: Yes/No", the total in figures and words, and "Attachments: taxi.jpg, hotel.pdf".
 - **Go test:** `TestPrint_ExpenseGolden`
 - **Sources:** `frappe/frappe/printing/doctype/print_format/test_print_format.py:92` (`test_image_element`)
 

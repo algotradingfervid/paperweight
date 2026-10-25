@@ -639,14 +639,14 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-085 · Own scope: the list shows only my documents
 - **Priority:** P1
 - **Level:** integration
-- **Given** Expense Claims `EXP/26-27/00001` (created by Deepak) and `EXP/26-27/00002` (created by Suresh), with the seeded Employee rights (Deepak has no direct reports, so team scope adds nothing) **When** Deepak opens `/expense/list` **Then** only `EXP/26-27/00001` is listed, the count shows "1", and the total amount sums only Deepak's claims.
+- **Given** Expense Claims `EX/26-27/00001` (created by Deepak) and `EX/26-27/00002` (created by Suresh), with the seeded Employee rights (Deepak has no direct reports, so team scope adds nothing) **When** Deepak opens `/expense/list` **Then** only `EX/26-27/00001` is listed, the count shows "1", and the total amount sums only Deepak's claims.
 - **Go test:** `TestOwnScope_ListFiltered`
 - **Sources:** `frappe/frappe/tests/test_permissions.py:651` (`test_if_owner_permission_on_get_list`), `frappe/frappe/tests/test_permissions.py:568` (an empty list rather than an error), `odoo/odoo/addons/hr_expense/security/ir.access.csv:10`
 
 ### AUTH-086 · Own scope: another person's document is "not found"
 - **Priority:** P1
 - **Level:** integration
-- **Given** Deepak (own) **When** Deepak GETs `/expense/{id of EXP/26-27/00002}`, its print and its PDF **Then** each returns 404 "This record doesn't exist or you don't have access to it."
+- **Given** Deepak (own) **When** Deepak GETs `/expense/{id of EX/26-27/00002}`, its print and its PDF **Then** each returns 404 "This record doesn't exist or you don't have access to it."
 - **Go test:** `TestOwnScope_OthersNotFound`
 - **Sources:** `frappe/frappe/tests/test_permissions.py:623` (`test_if_owner_permission_on_getdoc`)
 
@@ -660,7 +660,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-088 · Own scope includes documents for my linked Employee
 - **Priority:** P1
 - **Level:** integration
-- **Given** Employee `EMP-007 Deepak Nair` is linked to user `deepak@vardhan.test`, and `admin@vardhan.test` (Anil Kapoor) keyed in `EXP/26-27/00003` for employee `EMP-007` **When** Deepak opens `/expense/list` **Then** `EXP/26-27/00003` is listed and Deepak can open it, even though `created_by` is Anil.
+- **Given** Employee `EMP-007 Deepak Nair` is linked to user `deepak@vardhan.test`, and `admin@vardhan.test` (Anil Kapoor) keyed in `EX/26-27/00003` for employee `EMP-007` **When** Deepak opens `/expense/list` **Then** `EX/26-27/00003` is listed and Deepak can open it, even though `created_by` is Anil.
 - **Go test:** `TestOwnScope_LinkedEmployee`
 - **Sources:** `odoo/odoo/addons/hr_expense/security/ir.access.csv:10` (`employee_id.user_id = user.id`), `erpnext/erpnext/setup/doctype/employee/employee.py:222` (`update_user_permissions` links an employee to a user)
 
@@ -723,7 +723,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-097 · Restriction and own scope combine with AND
 - **Priority:** P2
 - **Level:** unit
-- **Given** Priya with Expense Claim (own, from Employee) restricted to `PRJ-METRO`, and Priya's own claim `EXP/26-27/00009` for `PRJ-TECHPARK` **When** Priya lists claims **Then** `EXP/26-27/00009` isn't shown.
+- **Given** Priya with Expense Claim (own, from Employee) restricted to `PRJ-METRO`, and Priya's own claim `EX/26-27/00009` for `PRJ-TECHPARK` **When** Priya lists claims **Then** `EX/26-27/00009` isn't shown.
 - **Go test:** `TestRestriction_AndOwnScope`
 - **Sources:** `frappe/frappe/permissions.py:271` (Frappe keeps owner rights despite a restriction; we follow Odoo's AND, see D-AUTH-13), `odoo/odoo/addons/base/models/ir_access.py:496`
 

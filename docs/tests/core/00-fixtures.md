@@ -95,8 +95,8 @@ GRN (`fixture.Receipt`) has no approval rule, so submit goes straight to approve
 |---|---|---|
 | `fixture.Order` / Purchase Order | `PO/{FY}/{#####}` | `PO/26-27/00001` |
 | `fixture.Receipt` / GRN | `GR/{FY}/{#####}` | `GR/26-27/00001` |
-| `fixture.Claim` / Expense Claim | `EXP/{FY}/{#####}` | `EXP/26-27/00001` |
-| Expense Claim | `EXP/{FY}/{#####}` | `EXP/26-27/00001` |
+| `fixture.Claim` / Expense Claim | `EX/{FY}/{#####}` | `EX/26-27/00001` |
+| Expense Claim | `EX/{FY}/{#####}` | `EX/26-27/00001` |
 
 Unnumbered documents display as `Draft 42` (their ID). Amendments: `PO/26-27/00042-1`.
 

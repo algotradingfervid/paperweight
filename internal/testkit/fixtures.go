@@ -272,8 +272,8 @@ func canonical() Fixtures {
 			{DocType: "Purchase Order", Template: "PO/{FY}/{#####}", FirstNumber: "PO/26-27/00001"},
 			{DocType: "fixture.Receipt", Template: "GR/{FY}/{#####}", FirstNumber: "GR/26-27/00001"},
 			{DocType: "GRN", Template: "GR/{FY}/{#####}", FirstNumber: "GR/26-27/00001"},
-			{DocType: "fixture.Claim", Template: "EXP/{FY}/{#####}", FirstNumber: "EXP/26-27/00001"},
-			{DocType: "Expense Claim", Template: "EXP/{FY}/{#####}", FirstNumber: "EXP/26-27/00001"},
+			{DocType: "fixture.Claim", Template: "EX/{FY}/{#####}", FirstNumber: "EX/26-27/00001"},
+			{DocType: "Expense Claim", Template: "EX/{FY}/{#####}", FirstNumber: "EX/26-27/00001"},
 		},
 		// Money in paise, Qty in thousandths, Rate in ten-thousandths of a rupee.
 		ReferencePO: FixtureReferencePO{
