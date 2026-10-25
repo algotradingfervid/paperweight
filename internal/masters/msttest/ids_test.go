@@ -285,6 +285,7 @@ var rowOverrides = map[string]map[string]any{
 	"contact_phone": {"kind": "mobile"},                                // CHECK (kind IN ('mobile', 'phone'))
 	"item":          {"item_type": "Goods"},                            // CHECK (item_type IN ('Goods', 'Service')); item_uom's parent row too
 	"tax_code":      {"treatment": "Exempted", "rate": int64(0)},       // CHECK (treatment IN (...)); CHECK ((treatment = 'Taxable') = (rate > 0))
+	"site":          {"type": "warehouse"},                             // CHECK (type IN ('warehouse', 'site'))
 }
 
 // parentRow as a rowOverrides value asks for the key of a parent row through
