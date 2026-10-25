@@ -274,7 +274,9 @@ func checkNoReuse(ctx context.Context, d *db.DB, table string) error {
 // set, even on a column with a default; one naming a column the table lacks
 // fails the test, so a stale entry can't hide.
 var rowOverrides = map[string]map[string]any{
-	"party": {"is_vendor": int64(1)}, // CHECK (is_vendor = 1 OR is_customer = 1)
+	"party":    {"is_vendor": int64(1)},                     // CHECK (is_vendor = 1 OR is_customer = 1)
+	"item":     {"item_type": "Goods"},                      // CHECK (item_type IN ('Goods', 'Service')); item_uom's parent row too
+	"tax_code": {"treatment": "Exempted", "rate": int64(0)}, // CHECK (treatment IN (...)); CHECK ((treatment = 'Taxable') = (rate > 0))
 }
 
 // insertGenericRow inserts a row giving a value to the table's rowOverrides
