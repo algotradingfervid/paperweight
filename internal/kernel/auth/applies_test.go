@@ -29,9 +29,17 @@ func TestApplies_UnknownRightFailsClosed(t *testing.T) {
 			t.Errorf("Can(admin, %s, %q) = %v, want a *DeniedError (ErrForbidden)", authtest.DTOrder, r, err)
 		}
 	}
-	var de *auth.DeniedError
-	if _, err := w.Auth.Scope(ctx, admin, authtest.DTOrder, "foo"); !errors.As(err, &de) || !errors.Is(err, auth.ErrForbidden) {
-		t.Errorf("Scope(admin, %s, foo) = %v, want a *DeniedError (ErrForbidden)", authtest.DTOrder, err)
+	for _, r := range []auth.Right{"foo", "Approve"} {
+		var de *auth.DeniedError
+		if _, err := w.Auth.Scope(ctx, admin, authtest.DTOrder, r); !errors.As(err, &de) || !errors.Is(err, auth.ErrForbidden) {
+			t.Errorf("Scope(admin, %s, %q) = %v, want a *DeniedError (ErrForbidden)", authtest.DTOrder, r, err)
+		}
+	}
+	order, _ := doctype.Lookup(authtest.DTOrder)
+	var p *auth.Problem
+	_, err := w.Auth.WhoCan(ctx, authtest.DTOrder, "foo")
+	if want := auth.NotApplicableError("foo", order.Label); !errors.As(err, &p) || *p != *want {
+		t.Errorf("WhoCan(%s, foo) = %v, want %v", authtest.DTOrder, err, want)
 	}
 	users, err := w.Auth.UsersWithRight(ctx, authtest.DTOrder, "foo", nil)
 	if err != nil || len(users) != 0 {
@@ -43,5 +51,8 @@ func TestApplies_UnknownRightFailsClosed(t *testing.T) {
 	}
 	if _, err := w.Auth.Scope(ctx, admin, authtest.DTOrder, auth.RightRead); err != nil {
 		t.Errorf("Scope(admin, %s, read) = %v, want nil", authtest.DTOrder, err)
+	}
+	if _, err := w.Auth.WhoCan(ctx, authtest.DTOrder, auth.RightApprove); err != nil {
+		t.Errorf("WhoCan(%s, approve) = %v, want nil", authtest.DTOrder, err)
 	}
 }
