@@ -352,7 +352,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-044 · User can list and end their own sessions
 - **Priority:** P2
 - **Level:** integration
-- **Given** `priya@vardhan.test` has sessions on "Chrome on Windows" and "Safari on iPhone" **When** Priya opens "My sessions" **Then** each session shows when it started and was last used in the one timestamp format (`24-10-2026 10:30` on the fixture clock, CD-33). **When** Priya clicks "Sign out all other sessions" **Then** only the current session remains, and Priya can't see or end other users' sessions (`/account/sessions/{other_id}` gives 404).
+- **Given** `priya@vardhan.test` has sessions on "Chrome on Windows" and "Safari on iPhone" **When** Priya opens "My sessions" **Then** each session shows when it started and was last used in the one timestamp format (`24-10-2026 10:30` on the fixture clock, CD-33). **When** Priya clicks "End all other sessions" **Then** only the current session remains, and Priya can't see or end other users' sessions (`/account/sessions/{other_id}` gives 404).
 - **Go test:** `TestSessions_UserRevokesOthers`
 - **Sources:** `odoo/odoo/addons/base/tests/test_res_users.py:896` (`test_revoke_all_devices`), `frappe/frappe/core/doctype/user/user.py:168` (`active_sessions`), `frappe/frappe/core/doctype/user/user.py:1701` (`clear_session`)
 
