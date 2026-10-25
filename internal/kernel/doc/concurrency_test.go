@@ -2,6 +2,7 @@ package doc_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -165,15 +166,16 @@ func TestDoc_Concurrency_NoOverfill(t *testing.T) {
 
 // DOC-073
 func TestDoc_Concurrency_CancelVsApprove(t *testing.T) {
-	// The test case: R is pending and "approve R" races "cancel O".
+	// The test case's literal scenario: R is pending and "approve R" runs
+	// alongside "cancel O". A pending R always blocks the cancel, so this
+	// checks the outcome (approve succeeds, cancel refused), not a race.
 	t.Run("approve pending receipt", func(t *testing.T) {
 		h := fixturetest.New(t)
 		ruReceiptsNeedApproval(h)
 		ccCancelVsApprove(t, h, doc.StatePending, doc.ActionApprove)
 	})
-	// A pending R already blocks the cancel, so the same race is also run on
-	// a draft R whose submit auto-approves it: there only the checks inside
-	// the write transaction keep both from succeeding.
+	// The race coverage: a draft R whose submit auto-approves it, where only
+	// the checks inside the write transaction keep both from succeeding.
 	t.Run("submit draft receipt without rule", func(t *testing.T) {
 		h := fixturetest.New(t)
 		h.Approvals.Needed = func(string, types.Money) bool { return false }
@@ -214,10 +216,20 @@ func ccCancelVsApprove(t *testing.T, h *fixturetest.H, rState doc.State, a doc.A
 			if oNow.State != doc.StateCancelled || rNow.State != rState {
 				t.Errorf("run %d: cancel won: order %q, receipt %q; want cancelled, %q", run, oNow.State, rNow.State, rState)
 			}
+			lkSourceRefused(t, actErr, fmt.Sprintf(lkMsgSourceCancelled, o.Number))
 			ruWantQty(t, h, ol[0], 0, fmt.Sprintf("run %d: cancel won", run))
 		case cancelErr != nil && actErr == nil:
 			if oNow.State != doc.StateApproved || rNow.State != doc.StateApproved {
 				t.Errorf("run %d: %s won: order %q, receipt %q; want both approved", run, a, oNow.State, rNow.State)
+			}
+			// Cancel first sees a pending R as a blocker (a draft doesn't
+			// block); after R's roll-up has bumped O's version it is stale.
+			var de *doc.Error
+			if rState == doc.StatePending && errors.As(cancelErr, &de) && de.Kind == doc.KindBlocked {
+				b := trDraft(r.ID)
+				fixturetest.ErrIs(t, cancelErr, doc.KindBlocked, fmt.Sprintf(lkMsgBlockedOne, o.Number, b, "waiting for approval", b))
+			} else {
+				fixturetest.ErrIs(t, cancelErr, doc.KindStale, fmt.Sprintf(msgStaleFmt, o.Number))
 			}
 			ruWantQty(t, h, ol[0], 4000, fmt.Sprintf("run %d: %s won", run, a))
 		default:
