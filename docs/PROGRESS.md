@@ -122,6 +122,21 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | CD-137 db test fix; make ci green (AUTH-M1) | — | crew-implementer (haiku), crew-verifier | | 17:06 | 1 | — | a8f94a1 |
 | WP1-AUTH | 10 Web core | High | crew-test-writer, crew-implementer, crew-reviewer | 16:50 | 17:10 | 2 | 0/4/9 (attempt 1: owner-field strip on parse error, client CSRF GET, guest session per request → CD-136 lazy CSRF; attempt 2: late token never saved → up-front for sessions with values + harness check; minors fixed) | bd37afa tests, 1cba802 lint, 082a7ec |
 | Merges | NUM-M2 1ddda63 (contracts_test.go stub rows: both removed); AUTH-M1 71d58e9 + dbq regenerate; `make ci` green after each | — | director | | 17:55 | — | — | — |
+| WP1-FILE | 5 Open, List, Remove, CopyAll, DeleteAll | High | crew-implementer opus ×2, crew-reviewer opus ×2 | 16:29 | 16:36 | 1 | 0/1/2 (CD-126 wording fixed; order fixed; CopyAll order untested, carry-over) | 3e33acc tests, a47287c |
+| WP1-FILE | 10 Amount in words | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus | 16:29 | 16:38 | 1 | 0/0/1 (optional, skipped) | 474e282 tests, a714c27, merge 208df79 |
+| WP1-FILE | 11 Print registry, page shell, status, watermark, title | Standard | crew-implementer opus, crew-reviewer opus, crew-implementer haiku (minors) | 16:32 | 16:38 | 1 | 0/0/2 (both fixed) | 8df07d3 |
+| WP1-FILE | 7 Upload and remove handlers | High | crew-test-writer opus, crew-implementer opus ×2, crew-reviewer opus ×2 | 16:34 | 16:47 | 1 | 0/1/3 (all fixed: 201 body read in-tx via Store.Meta) | 6da6169 tests, b32ab99 lint, 913d44c |
+| WP1-FILE | 6 Garbage collection | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus, crew-implementer haiku (minors) | 16:36 | 16:44 | 1 | 0/0/3 (2 fixed; FILE-020 race test is probabilistic, carry-over; skip path untested) | 371f511 tests, 88960cb |
+| WP1-FILE | 12 Letterhead, trade template, golden prints | Standard | crew-implementer opus, crew-reviewer opus, crew-implementer haiku (minors) | 16:38 | 16:46 | 1 | 0/0/5 (3 fixed; Amends line kept; logo source escalated CD-58 vs CD-99) | 5ef2709 |
+| WP1-FILE | 13 Print handler | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus, crew-implementer haiku (minors) | 16:47 | 16:55 | 1 | 0/0/4 (2 fixed; no-template 404 text and shared signedOut helper are carry-overs) | 87b89bd tests, 3479b79 |
+| WP1-FILE | 8 Download handler | High | crew-test-writer opus, crew-implementer opus ×2, crew-reviewer opus | 16:48 | 16:55 | 1 | 0/0/3 (Cache-Control on 416/412 fixed; size check optional, skipped; mount point note for WP3) | 272c207 tests, 3494f44 |
+| WP1-FILE | 9 Company logo policy | High | crew-test-writer opus, crew-implementer opus ×2, crew-reviewer opus | 16:55 | 17:01 | 1 | 0/0/2 (empty principal refused; missing-company test added) | 47d72ef tests, 7bc0955 |
+| WP1-FILE | 14 Helpers for WP3 e2e tests | Standard | crew-implementer opus ×2, crew-reviewer opus | 16:55 | 17:05 | 1 | 0/0/3 (all fixed) + CONTRACT-CR CD-138 (import rule) | 057a4f3 CD-138, cc5764e |
+| WP1-FILE | 15 P2 files cases (lane) | High | crew-test-writer opus, crew-implementer opus ×2, crew-reviewer opus | 17:02 | 17:17 | 1 | 0/0/4 (KindReceiptMismatch added; Check orphan grace skipped — run when idle, WP3 note) | 5d2a285 tests, 929868a (lane, not yet merged) |
+| WP1-FILE | CD-140 letterhead logo fallback | Standard | crew-implementer opus ×2, crew-reviewer opus | 17:15 | 17:18 | 1 | TEST-DISPUTE: FILE-064 logo check follows CD-140 | bc21c33 |
+| WP1-FILE | FILE-P rebase fixes | — | crew-verifier haiku, crew-implementer haiku | 17:10 | 17:17 | — | UI lint daisy-outside-ui: badge → doc_badge | b462e5a, ae36419 |
+| WP1-FILE | 16 P2 print cases (lane) | Standard | crew-implementer opus | 17:18 | | | | |
+| Merges | FILE-P (FILE 5–14) 3d66864; `make ci` green | — | director | | 18:05 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
@@ -162,6 +177,7 @@ Nothing in flight; every worktree is clean. Next step per WP:
 - UI batch review: Task 2 stores templ fixtures as `.templ.txt`; `Allow` takes the enclosing selector; the fixed-width rule skips `@media`/`@container` (plan defect).
 - AUTH Task 12 (account/password handlers): a corrupt stored hash returns plain `errBadHash` (500), not an HTTPError; map it there.
 - AUTH Task 11: `go mod tidy` drops `golang.org/x/term` until `auth/cli` imports it; keep the hand-restored lines. Consider a `go mod tidy -diff` check in `make ci` after that.
+- WP3 (from FILE): mount files/web under a prefix (its NotFound says "File not found."); run `files check` when idle (in-flight uploads look like orphans); CopyAll order is untested; the `signedOut` helper is duplicated in files/web and print/web.
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)

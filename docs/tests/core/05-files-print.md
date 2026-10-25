@@ -480,7 +480,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-064 · Optional parts are left out cleanly
 - **Priority:** P1
 - **Level:** unit
-- **Given** a company with no logo, a branch with no GSTIN, the unregistered vendor `LOCAL` Ganesh Hardware (no GSTIN) and a PO with no terms **When** it is rendered **Then** there is no `<img>` tag for the logo and no "GSTIN:" line in the letterhead, the vendor block shows "GSTIN: Unregistered", and there is no empty Terms heading.
+- **Given** a company with no logo, a branch with no GSTIN, the unregistered vendor `LOCAL` Ganesh Hardware (no GSTIN) and a PO with no terms **When** it is rendered **Then** the letterhead logo is the brand logo (`brand.DocumentLogoURL`, CD-140), there is no "GSTIN:" line in the letterhead, the vendor block shows "GSTIN: Unregistered", and there is no empty Terms heading.
 - **Go test:** `TestPrint_OptionalPartsOmitted`
 - **Sources:** `frappe/frappe/www/printview.py:674` (`has_value`), `india-compliance/india_compliance/gst_india/print_format/gst_tax_invoice/gst_tax_invoice.json:13` (`{% if company_logo != "" %}`)
 
