@@ -57,9 +57,18 @@ func (a *Approvals) Evaluate(ctx context.Context, tx *db.Tx, dt string, id int64
 		return Requirement{}, err
 	}
 	if len(users) == 0 {
-		return Requirement{}, noApprover(in.DocLabel, approverRoles(matched, nil)[0])
+		return Requirement{}, noApprover(in.DocLabel, approverRole(matched))
 	}
 	return req, nil
+}
+
+// approverRole is the role that approves under r: its role, or its fallback
+// role for a reporting-manager rule.
+func approverRole(r Rule) string {
+	if r.ApproverType == ApproverManager {
+		return r.FallbackRole
+	}
+	return r.Role
 }
 
 // manager is the claimant's direct manager's user when that user exists, can
@@ -94,11 +103,11 @@ func (a *Approvals) Open(ctx context.Context, tx *db.Tx, dt string, id int64, re
 	if req.Needed {
 		var err error
 		rule, err = q.GetRule(ctx, req.RuleID)
-		if errors.Is(err, sql.ErrNoRows) || err == nil && rule.DocType != dt {
-			return ErrNotEvaluated
-		}
-		if err != nil {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
+		}
+		if err != nil || rule.DocType != dt {
+			return ErrNotEvaluated
 		}
 	}
 	now := ts(a.clock.Now())

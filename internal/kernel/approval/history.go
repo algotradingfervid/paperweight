@@ -30,13 +30,10 @@ func (a *Approvals) History(ctx context.Context, tx *db.Tx, dt string, id int64)
 	return out, nil
 }
 
-// writeHistory appends p's action now. A non-nil r gives the row its
-// request, amount and rule; with r nil the row carries amount, if valid.
-func (a *Approvals) writeHistory(ctx context.Context, tx *db.Tx, dt string, id int64, action string, p auth.Principal, r *Request, amount sql.NullInt64, reason string, self bool) error {
-	name, err := a.userName(ctx, tx, p.ID)
-	if err != nil {
-		return err
-	}
+// writeHistory appends p's action now; name is p's display name. A non-nil r
+// gives the row its request, amount and rule; with r nil the row carries
+// amount, if valid.
+func (a *Approvals) writeHistory(ctx context.Context, tx *db.Tx, dt string, id int64, action string, p auth.Principal, name string, r *Request, amount sql.NullInt64, reason string, self bool) error {
 	h := dbq.InsertHistoryParams{
 		DocType: dt, DocID: id, Action: action, UserID: int64(p.ID), UserName: name,
 		At: ts(a.clock.Now()), Amount: amount, Reason: reason,
@@ -49,6 +46,6 @@ func (a *Approvals) writeHistory(ctx context.Context, tx *db.Tx, dt string, id i
 		h.Amount = sql.NullInt64{Int64: int64(r.Amount), Valid: true}
 		h.RuleID = sql.NullInt64{Int64: r.RuleID, Valid: true}
 	}
-	_, err = dbq.New(tx.SQL()).InsertHistory(ctx, h)
+	_, err := dbq.New(tx.SQL()).InsertHistory(ctx, h)
 	return err
 }

@@ -84,7 +84,11 @@ func (a *Approvals) Record(ctx context.Context, tx *db.Tx, dt string, id int64, 
 		if ok {
 			latest = &r
 		}
-		return a.writeHistory(ctx, tx, dt, id, HistRevised, p, latest, sql.NullInt64{}, "", false)
+		name, err := a.userName(ctx, tx, p.ID)
+		if err != nil {
+			return err
+		}
+		return a.writeHistory(ctx, tx, dt, id, HistRevised, p, name, latest, sql.NullInt64{}, "", false)
 	case doctype.ActionWithdraw:
 		r, ok, err := a.openRequest(ctx, tx, dt, id)
 		if err != nil {
@@ -110,13 +114,17 @@ func (a *Approvals) decide(ctx context.Context, tx *db.Tx, dt string, id int64, 
 			return a.notPendingFor(ctx, tx, dt, id)
 		}
 		last, err := dbq.New(tx.SQL()).LastHistory(ctx, dbq.LastHistoryParams{DocType: dt, DocID: id})
-		if errors.Is(err, sql.ErrNoRows) || err == nil && (last.Action != HistSubmitted || last.RuleID.Valid) {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if err != nil || last.Action != HistSubmitted || last.RuleID.Valid {
 			return a.notPendingFor(ctx, tx, dt, id)
 		}
+		name, err := a.userName(ctx, tx, p.ID)
 		if err != nil {
 			return err
 		}
-		return a.writeHistory(ctx, tx, dt, id, HistAutoApproved, p, nil, last.Amount, reason, false)
+		return a.writeHistory(ctx, tx, dt, id, HistAutoApproved, p, name, nil, last.Amount, reason, false)
 	}
 	if err := a.CheckApprover(ctx, tx, p, dt, id); err != nil {
 		return err
@@ -143,7 +151,7 @@ func (a *Approvals) closeRequest(ctx context.Context, tx *db.Tx, dt string, id i
 	if n == 0 {
 		return a.notPendingFor(ctx, tx, dt, id)
 	}
-	return a.writeHistory(ctx, tx, dt, id, hist, p, &r, sql.NullInt64{}, reason, self)
+	return a.writeHistory(ctx, tx, dt, id, hist, p, name, &r, sql.NullInt64{}, reason, self)
 }
 
 // openRequest is the document's open request; false when none is open.

@@ -151,14 +151,9 @@ func TestApprovalEligible_LiveRoleCheck(t *testing.T) { // APR-042
 	at.MustOK(t, e.Approve(e.Kavya, d))
 
 	e2, d2 := pending42(t)
+	e2.Auth.AddRole(e2.Ravi.ID, "Stores") // Stores reads every fixture.Order, so DOC's visibility check lets him through
 	e2.RemoveRole(t, e2.Ravi.ID, "Purchase Manager")
-	// Without Purchase Manager, Ravi (Employee only) has no read right on fixture.Order, so DOC's
-	// visibility check refuses him before APR is called. APR's own answer, for a caller that
-	// reaches CheckApprover, is the not-eligible message (Task 7 step 1: ErrForbidden falls through).
-	if err := e2.Approve(e2.Ravi, d2); err == nil {
-		t.Error("Ravi's approve after losing Purchase Manager succeeded, want refused")
-	}
-	at.WantErr(t, checkApprover(t, e2, e2.Ravi, d2), approval.ErrNotEligible, "Only a user with the Purchase Manager or Director role can approve Draft 42 (₹60,000.00).")
+	at.WantErr(t, e2.Approve(e2.Ravi, d2), approval.ErrNotEligible, "Only a user with the Purchase Manager or Director role can approve Draft 42 (₹60,000.00).")
 	if e2.State(t, d2) != doctype.StatePending {
 		t.Errorf("state %s, want pending_approval", e2.State(t, d2))
 	}
@@ -269,6 +264,9 @@ func TestApprovalConcurrency_FirstActionWins(t *testing.T) { // APR-071
 	at.WantErr(t, e.Reject(e.Meena, d, "Too costly"), approval.ErrNotPending, "PO/26-27/00001 is no longer waiting for approval. It was approved by Ravi Kulkarni.")
 	if n := len(e.History(t, d)); n != 2 {
 		t.Errorf("history rows %d, want 2 (submitted, approved)", n)
+	}
+	if r, ok := e.Latest(t, d); !ok || r.Outcome != approval.OutcomeApproved || r.DecidedBy != e.Ravi.ID {
+		t.Errorf("request %v %+v, want still approved by Ravi (%d)", ok, r, e.Ravi.ID)
 	}
 	if e.State(t, d) != doctype.StateApproved || e.Number(t, d) != "PO/26-27/00001" {
 		t.Errorf("state %s number %q, want approved PO/26-27/00001 unchanged", e.State(t, d), e.Number(t, d))
