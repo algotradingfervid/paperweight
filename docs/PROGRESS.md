@@ -216,6 +216,20 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | 17 P2 users, roles, matrix | High | crew-test-writer, crew-implementer, crew-reviewer | 17:45 | 18:23 | 2 | 0/5/9 (CD-158: id-in-write, role versions, Config.Seed, no role resurrection; missing tests added; TEST-DISPUTE matrix tests post version; rename keeps no defaults on reset, by design) | e0bed74 |
 | WP1-AUTH | 19 P2 Who can view | Standard | crew-test-writer, crew-implementer, crew-reviewer | 18:00 | 18:33 | 1 | 0/1/4 (authweb imported internal/ui → moved to screens + import test; shared restrictionLabels; unknown right 400; RightLabel; default doctype) | 68e4c8d |
 | Merges | AUTH P2 batch (16–19, 21) 5db427c; `make ci` green. AUTH left: Task 20 (waits for UI-M2) and CD-171 | — | director | | 21:20 | — | — | — |
+| WP2 | 2 gstin | High | tw opus, impl opus, rev opus, minors haiku | 16:28 | 16:38 | 1 | 0/0/4 (3 fixed, 1 plan text: PAN example AAACR5055K in Task 2 Step 3 and Task 20) | 3ebb986 tests, 5db5c91, 03e4330 |
+| WP2 | 1a mstkit rules (fakes) | High | tw opus ×2, impl opus ×2, rev opus ×2 | 16:39 | 16:56 | 1 | 0/1/7 (test gap on DeleteTx child refs; all fixed, 1 optional carry-over) | 1b9c2f8, 3d233eb tests, 5896980 gofmt, 2135f23 |
+| WP2 | 2b gstin/gstcalc parity (CD-130) | High | tw opus, impl opus, rev opus | 17:46 | 17:49 | 1 | 0/0/1 (cosmetic, skipped) | d2e51ac test, 37eb910 |
+| WP2 | 1b CheckVersion, csvio flag, msttest | High | tw opus ×2, impl opus ×2, rev opus ×2 | 17:47 | 18:02 | 1 | 0/2/4 (1 major overruled per plan M1; restriction major fixed; DOC stale-text copy and References limit carried over) | b3bfa0f, e105110 tests, 638a295 |
+| WP2 | 4 payment terms | High | tw opus, impl opus ×3, rev opus ×2 | 17:56 | 18:07 | 1 | 0/1/4 (CD-161 lines columns; stale save half-applied, fixed) | 39e328f tests, fcce3b0 (lane/masters-parties) |
+| WP2 | 8 uom + conversion | High | tw opus, impl opus, rev opus | 17:57 | 18:13 | 1 | 0/0/4 (carried over) | d863e6b tests, daaf399 (lane/masters-catalogue) |
+| WP2 | 3 company + branch | High | tw opus ×2, impl opus ×2, rev opus ×2 | 17:47 | 18:17 | 1 | 0/1/5 (branch state 96/99; SetupInput → CD-165 in Task 25; audit Op bug found here → MST 1c) | e4cb88e, a22f127 tests, 202695d |
+| WP2 | 1c mstkit audit Op (CD-163) | High | tw opus, impl haiku, rev (in Task 3 review) | 18:09 | 18:12 | 1 | 0/0/0 | ebe854a test, c9e8505 |
+| WP2 | 9 tax codes | High | tw opus ×2, impl opus ×2, rev opus ×2 | 18:01 | 18:21 | 1 | 0/2/2 (unknown treatment → CD-166 fixed; per-package id test overruled) | 6f07446, 98772a2 tests, 8a9cfc3 (lane/masters-catalogue) |
+| WP2 | 5 party | High | tw opus ×2, impl opus ×2, rev opus ×2 | 18:08 | 18:27 | 1 | 0/2/4 (CD-166 category message; blank category reset; M1 Links → CD-167) | 9fd064d, 1699830 tests, 2aeb6ea (lane/masters-parties) |
+| WP2 | 11 expense types | High | tw opus, impl opus, rev opus | 18:42 | 18:32 | 1 | 0/0/3 (checkTaxCode untested → Task 16/18; shared taxcode check helper; shared dbq committed with Task 10) | 69b0f79 test, 0ca28e6 (lane/masters-catalogue) |
+| WP2 | 1d RegisterMaster list defaults (CD-167) | High | tw opus ×2 + haiku fixtures, impl opus ×2, rev opus ×2 | 18:44 | 18:34 | 1 | 0/1/2 (forced name sort broke Address/Contact; fixed) | 8a6e6a0, 404069d tests, 71819b9 |
+| WP2 | 10 item + conversions | High | tw opus ×2, impl opus ×2, rev opus ×2 | 18:20 | 18:42 | 1 | 0/1/6 (Links removed per CD-167; typed factors; reset before validate; audit codes) | 9e13a9c, 5e706c0 tests, 04390e3 (lane/masters-catalogue) |
+| WP2 | 12 project | Standard (High flow) | tw opus ×2, impl opus ×3, rev opus ×2 | 18:13 | 18:52 | 1 | 0/1/4 (RecordRef ProjectIDs; CD-172 create; CD-170 branch; party-missing block) | 32510d6, e6f7505 tests, d43fd95 (lane/masters-org) |
 | Merges | WP2 part 1 (Tasks 1–5, 8–11) e2cb5cb + dbq 5e65428; AUTH CD-171 5a793ca; `make ci` green after each | — | director | | 21:35 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
