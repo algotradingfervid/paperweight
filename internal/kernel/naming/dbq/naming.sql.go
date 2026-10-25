@@ -9,6 +9,22 @@ import (
 	"context"
 )
 
+const getCounterLast = `-- name: GetCounterLast :one
+SELECT last FROM naming_counters WHERE doctype = ? AND prefix = ?
+`
+
+type GetCounterLastParams struct {
+	DocType string
+	Prefix  string
+}
+
+func (q *Queries) GetCounterLast(ctx context.Context, arg GetCounterLastParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getCounterLast, arg.DocType, arg.Prefix)
+	var last int64
+	err := row.Scan(&last)
+	return last, err
+}
+
 const getSeries = `-- name: GetSeries :one
 SELECT id, doctype, label, template, version, created_at, created_by, updated_at, updated_by FROM naming_series WHERE doctype = ?
 `
@@ -28,4 +44,29 @@ func (q *Queries) GetSeries(ctx context.Context, doctype string) (NamingSeries, 
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const nextCounter = `-- name: NextCounter :one
+INSERT INTO naming_counters(doctype, prefix, last, created_at, updated_at) VALUES (?, ?, 1, ?, ?)
+ON CONFLICT(doctype, prefix) DO UPDATE SET last = last + 1, version = version + 1, updated_at = excluded.updated_at
+RETURNING last
+`
+
+type NextCounterParams struct {
+	DocType   string
+	Prefix    string
+	CreatedAt string
+	UpdatedAt string
+}
+
+func (q *Queries) NextCounter(ctx context.Context, arg NextCounterParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, nextCounter,
+		arg.DocType,
+		arg.Prefix,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var last int64
+	err := row.Scan(&last)
+	return last, err
 }
