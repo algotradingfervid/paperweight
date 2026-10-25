@@ -4,6 +4,10 @@
 
 package dbq
 
+import (
+	"database/sql"
+)
+
 type AppMetum struct {
 	Key   string
 	Value string
@@ -29,6 +33,42 @@ type LoginAttempt struct {
 	Count          int64
 	FirstFailureAt string
 	ExpiresAt      string
+}
+
+type NamingCounter struct {
+	ID        int64
+	Doctype   string
+	Prefix    string
+	Last      int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type NamingIssued struct {
+	ID          int64
+	Doctype     string
+	DocID       int64
+	Number      string
+	Prefix      string
+	Seq         int64
+	Root        string
+	AmendmentNo int64
+	IssuedAt    string
+}
+
+type NamingSeries struct {
+	ID        int64
+	Doctype   string
+	Label     string
+	Template  string
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
 }
 
 type Role struct {
