@@ -46,6 +46,7 @@ var fixedNow = time.Date(2026, 10, 24, 5, 0, 0, 0, time.UTC)
 // Priya Shah (00-fixtures.md): user 4, Purchase User, employee 4.
 var priya = auth.Principal{ID: 4, Name: "Priya Shah", Roles: []string{"Purchase User", "Employee"}}
 
+// forbiddenReadOrder relies on fixture not being linked into this test binary: fixture.Order is then unregistered and authfake falls back to the name as the label (CD-157).
 const forbiddenReadOrder = "You don't have permission to read fixture.Order. Ask your administrator for a role that allows it."
 
 func TestContracts_FakesSatisfyInterfaces(t *testing.T) {

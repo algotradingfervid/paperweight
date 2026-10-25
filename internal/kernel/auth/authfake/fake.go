@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"sync"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -265,7 +266,8 @@ func (f *Fake) Scope(ctx context.Context, p auth.Principal, doctype string, r au
 	return pred, nil
 }
 
-// CheckValues rejects proposed project and site ids outside p's Restrict lists.
+// CheckValues rejects proposed project and site ids outside p's Restrict lists
+// with the real service's *auth.ValueError (CD-162).
 func (f *Fake) CheckValues(ctx context.Context, p auth.Principal, name string, values map[string][]int64) error {
 	dt, ok := doctype.Lookup(name)
 	if !ok {
@@ -273,21 +275,47 @@ func (f *Fake) CheckValues(ctx context.Context, p auth.Principal, name string, v
 	}
 	f.mu.Lock()
 	limit := f.restricted[p.ID]
+	dir := f.dir
 	f.mu.Unlock()
-	check := func(fields []string, allowed []int64, what string) error {
+	check := func(fields []string, allowed []int64, d auth.Dimension) error {
 		for _, field := range fields {
 			for _, id := range values[field] {
 				if outside([]int64{id}, allowed) {
-					return fmt.Errorf("You can't use %s %d. Choose one you have access to: %w", what, id, auth.ErrForbidden)
+					return valueError(ctx, dir, d, allowed)
 				}
 			}
 		}
 		return nil
 	}
-	if err := check(dt.ProjectFields, limit.projects, "project"); err != nil {
+	if err := check(dt.ProjectFields, limit.projects, auth.DimProject); err != nil {
 		return err
 	}
-	return check(dt.SiteFields, limit.sites, "site")
+	return check(dt.SiteFields, limit.sites, auth.DimSite)
+}
+
+// valueError lists the allowed codes from dir, sorted (CD-149). Without a
+// Directory the fake has no codes, so it lists the ids as strings, sorted.
+func valueError(ctx context.Context, dir auth.Directory, d auth.Dimension, ids []int64) error {
+	var codes []string
+	if dir == nil {
+		for _, id := range ids {
+			codes = append(codes, strconv.FormatInt(id, 10))
+		}
+	} else {
+		codesFor := dir.SiteCodes
+		if d == auth.DimProject {
+			codesFor = dir.ProjectCodes
+		}
+		m, err := codesFor(ctx, nil, ids)
+		if err != nil {
+			return err
+		}
+		for _, c := range m {
+			codes = append(codes, c)
+		}
+	}
+	slices.Sort(codes)
+	return &auth.ValueError{Dim: d, Allowed: codes}
 }
 
 func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, id int64) error {
