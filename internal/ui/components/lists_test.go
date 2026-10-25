@@ -386,6 +386,8 @@ func TestLineList_MoveButtonsArePosts(t *testing.T) {
 	}
 }
 
+// gridRows builds n grid rows whose cells are real inputs with ids
+// grid-<no>-<field>. Row 1 has no move up and the last row no move down.
 func gridRows(n int) []components.LineGridRow {
 	rows := make([]components.LineGridRow, n)
 	for i := range rows {
@@ -397,13 +399,23 @@ func gridRows(n int) []components.LineGridRow {
 		}
 		rows[i] = components.LineGridRow{
 			No: no,
-			Fields: []components.FieldProps{
-				f("item", "Item", "MSA-050 MS Angle 50x50x5"), f("qty", "Qty", "1,200"), f("uom", "UoM", "kg"),
-				f("rate", "Rate", "62.50"), f("tax", "Tax", "GST 18%"),
+			Cells: []components.GridCell{
+				{Label: "Item", Input: components.TextInput(f("item", "Item", "MSA-050 MS Angle 50x50x5"))},
+				{Label: "Qty", Input: components.QtyInput(f("qty", "Qty", "1,200"), false, "kg")},
+				{Label: "UoM", Input: components.TextInput(f("uom", "UoM", "kg"))},
+				{Label: "Rate", Input: components.RateInput(f("rate", "Rate", "62.50"))},
+				{Label: "Tax", Input: components.TextInput(f("tax", "Tax", "GST 18%"))},
 			},
-			Amount:  "₹75,000.00",
-			PostURL: fmt.Sprintf("/doc/po/7/lines/%d/grid", no),
+			Amount:      "₹75,000.00",
+			PostURL:     fmt.Sprintf("/doc/po/7/lines/%d/grid", no),
+			RemoveURL:   fmt.Sprintf("/doc/po/7/lines/%d/remove", no),
+			MoveUpURL:   fmt.Sprintf("/doc/po/7/lines/%d/up", no),
+			MoveDownURL: fmt.Sprintf("/doc/po/7/lines/%d/down", no),
 		}
+	}
+	if n > 0 {
+		rows[0].MoveUpURL = ""
+		rows[n-1].MoveDownURL = ""
 	}
 	return rows
 }

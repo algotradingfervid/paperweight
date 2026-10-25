@@ -21,6 +21,19 @@ func TestComponents_EscapeUserText(t *testing.T) {
 			"EmptyState":  components.EmptyState(evil, &components.Link{Label: evil, Href: "/x"}),
 			"Toast":       components.Toast("success", evil),
 			"Pagination":  components.Pagination(components.PageInfo{Page: 1, From: 1, To: 25, Total: 312, Noun: evil}),
+			"DataList": components.DataList(components.DataListProps{
+				Label: "Purchase orders",
+				Columns: []components.Column{
+					{Key: "amount", Label: "Amount", Priority: components.PFigure, Num: true},
+					{Key: "date", Label: "Date", Priority: components.PMeta},
+					{Key: "by", Label: "Raised by", Priority: components.PLow},
+				},
+				Rows: []components.Row{{Href: "/x", Title: evil, Party: evil, Values: map[string]string{"amount": evil, "date": evil, "by": evil}}},
+			}),
+			"LineList": components.LineList(components.LineListProps{
+				Cards: []components.LineCard{{No: 1, Item: evil, Code: evil, QtyRate: "1 kg × ₹1.00", Amount: "₹1.00", Tax: "GST 18%"}},
+				Total: 1, TaxableTotal: "₹1.00",
+			}),
 		}
 		for name, c := range cases {
 			doc := uitest.Render(t, c)
@@ -35,6 +48,11 @@ func TestComponents_EscapeUserText(t *testing.T) {
 			}
 			if !strings.Contains(doc.Text(), evil) {
 				t.Errorf("%s: text %q not visible", name, evil)
+			}
+			if name == "DataList" || name == "LineList" {
+				if n := strings.Count(doc.Text(), evil); n < map[string]int{"DataList": 5, "LineList": 2}[name] {
+					t.Errorf("%s: %q shown %d times, want every user value as text", name, evil, n)
+				}
 			}
 		}
 	}
