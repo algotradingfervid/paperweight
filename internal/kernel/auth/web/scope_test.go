@@ -423,6 +423,11 @@ func TestScope_AllChannelsConsistent(t *testing.T) {
 				t.Fatalf("api: body %q, want []", got)
 			}
 		}},
+		{"api control", "/api/grn?site=PUNE-WH", http.StatusOK, func(t *testing.T, body string) {
+			if !strings.Contains(body, "GR/26-27/00001") {
+				t.Fatalf("api control: body %q, want GR/26-27/00001", body)
+			}
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := suresh.Get(tc.path)
@@ -699,13 +704,21 @@ func TestTeamScope_LeftEmployeeIgnored(t *testing.T) {
 	}
 
 	// Team membership is read on every check: no sign-out, no perm_version bump.
+	permVersion := func() int64 { return t14Int(t, w, `SELECT perm_version FROM auth_meta WHERE id = 1`) }
+	pv := permVersion()
 	w.Dir.SetActive(w.Employees["EMP-005"], false)
+	if got := permVersion(); got != pv {
+		t.Fatalf("perm_version after SetActive(EMP-005, false) = %d, want %d", got, pv)
+	}
 	t14Want404(t, "ravi GET Suresh's claim after Suresh left", ravi.Get("/expense/"+t14ID(exp43)))
 	if listed() {
 		t.Fatalf("ravi /expense/list still shows %s after Suresh left", t15Draft(exp43))
 	}
 
 	w.Dir.SetActive(w.Employees["EMP-005"], true)
+	if got := permVersion(); got != pv {
+		t.Fatalf("perm_version after SetActive(EMP-005, true) = %d, want %d", got, pv)
+	}
 	wantStatus(t, "ravi GET Suresh's claim after Suresh is active again", ravi.Get("/expense/"+t14ID(exp43)), http.StatusOK)
 	if !listed() {
 		t.Fatalf("ravi /expense/list lacks %s after Suresh is active again", t15Draft(exp43))
