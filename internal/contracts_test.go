@@ -181,7 +181,6 @@ func TestContracts_StubsReturnNotImplemented(t *testing.T) {
 	}{
 		{`gstin.ValidateGSTIN("27AAFCV2449G1Z7")`, gstin.ValidateGSTIN("27AAFCV2449G1Z7")},
 		{"gstcalc.LineAmount(1_200_000, 625_000)", lineErr},
-		{`naming.ValidateGSTDocNumber("PO/26-27/00001")`, naming.ValidateGSTDocNumber("PO/26-27/00001")},
 		{"audit.Append(ctx, nil, audit.Entry{})", audit.Append(ctx, nil, audit.Entry{})},
 	}
 	for _, c := range cases {
