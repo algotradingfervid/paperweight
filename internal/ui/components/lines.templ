@@ -82,7 +82,7 @@ templ LineList(p LineListProps) {
 // row's actions sit beside its form, since forms can't nest (CD-139).
 templ LineGrid(rows []LineGridRow, total string) {
 	<div id="line-editor" class="line-editor">
-		<div class="linegrid" x-data="linegrid">
+		<div class={ "linegrid", gridCols(rows) } x-data="linegrid">
 			if len(rows) > 0 {
 				<div class="linegrid-head" aria-hidden="true">
 					<span>#</span>
@@ -115,10 +115,12 @@ templ LineGrid(rows []LineGridRow, total string) {
 					</div>
 				</div>
 			}
-			<p id="grid-total" class="linegrid-total">
-				<span>Taxable total</span>
-				<span class="num">{ total }</span>
-			</p>
+			if total != "" {
+				<p id="grid-total" class="linegrid-total">
+					<span>Taxable total</span>
+					<span class="num">{ total }</span>
+				</p>
+			}
 		</div>
 	</div>
 }

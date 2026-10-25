@@ -85,17 +85,22 @@ func slugLabel(slug string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// firstFailingStep is the first step owning an error field; a line error
-// belongs to the Lines step. With no owner it is the check step.
+// owns reports whether step s owns error e: a line error, or DOC's error
+// on the lines as a whole (Field "lines", "Add at least one line."),
+// belongs to the Lines step; a header error to the step listing its field.
+func (s FormStep) owns(e doctype.FieldError) bool {
+	if e.Line > 0 || e.Field == "lines" {
+		return s.Lines
+	}
+	return slices.Contains(s.Fields, e.Field)
+}
+
+// firstFailingStep is the first step owning an error field. With no owner
+// it is the check step.
 func firstFailingStep(steps []FormStep, errs []doctype.FieldError) int {
 	best := len(steps) - 1
 	for _, e := range errs {
-		i := slices.IndexFunc(steps, func(s FormStep) bool {
-			if e.Line > 0 {
-				return s.Lines
-			}
-			return slices.Contains(s.Fields, e.Field)
-		})
+		i := slices.IndexFunc(steps, func(s FormStep) bool { return s.owns(e) })
 		if i >= 0 && i < best {
 			best = i
 		}
@@ -250,7 +255,8 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 
 // stepPost serves POST /doc/{doctype}/{id}/edit/{step}. It saves the step's
 // values with the posted version (CD-94) and the draft's lines as loaded,
-// since DOC's save replaces the lines. nav=back saves without validating,
+// since DOC's save replaces the lines. nav=back saves without UI
+// validation and stays on the step when DOC refuses the save (CD-178),
 // nav=finish leaves for the document page, return=check goes back to the
 // check page.
 func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
@@ -302,8 +308,6 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		case !ok:
 			web.ErrorFrom(w, r, err)
 			return
-		case nav == "back" && pr.Status == http.StatusUnprocessableEntity:
-			// Back never validates: DOC's field errors wait for later.
 		case pr.Status == http.StatusUnprocessableEntity || pr.Status == http.StatusConflict:
 			rerender(pr)
 			return
@@ -352,7 +356,7 @@ func (d Deps) advance(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 
 // failingStep answers a submit DOC refused with field errors: 422 with the
 // first failing step and its errors, and HX-Push-Url set to it
-// (design-system §8.3).
+// (design-system §8.3). htmx gets #main, the check page form's target.
 func (d Deps) failingStep(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, pr Problem) {
 	steps, err := FormSteps(dt)
 	if err != nil {
@@ -367,7 +371,7 @@ func (d Deps) failingStep(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 	i := firstFailingStep(steps, pr.Fields)
 	sv := d.stepViewOf(r, dt, steps, i, &v, nil, pr.Fields)
 	w.Header().Set("HX-Push-Url", sv.M.StepURL(i))
-	ui.Render(w, r, pr.Status, stepFull(sv), stepFrame(sv))
+	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))
 }
 
 // checkPage renders draft id's check page as #main for an htmx action that
@@ -495,7 +499,9 @@ type checkSection struct {
 func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, v DocView, sv *stepView) {
 	rights := Rights(r.Context(), d.Auth, d.principal(r), dt.Name, &v.Record)
 	bar, more := Actions(v, dt.Printable, rights)
-	sv.M.Action = docURL(dt.Name, v.Info.ID) + "/" + string(doctype.ActionSubmit)
+	// A submit leaves the wizard: its answer (the document page or the
+	// failing step) is #main.
+	sv.M.Action, sv.M.Target = docURL(dt.Name, v.Info.ID)+"/"+string(doctype.ActionSubmit), "#main"
 	sv.Bar = wizard.Bar{NoPrimary: true}
 	if bar.Primary != nil {
 		sv.Bar = wizard.Bar{Primary: bar.Primary.Label}
@@ -504,7 +510,7 @@ func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, 
 	for i, s := range steps[:len(steps)-1] {
 		sec := checkSection{Title: s.Label, ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
 		for _, p := range v.Problems {
-			if p.Line > 0 && s.Lines || p.Line == 0 && slices.Contains(s.Fields, p.Field) {
+			if s.owns(p) {
 				sec.Status = wizard.Attention
 			}
 		}

@@ -43,7 +43,9 @@ const (
 
 // Model is everything the stepper and frame show. Current is the step on
 // screen and Furthest the furthest step reached, both 0-based. Action is
-// the step form's action ("" = StepURL(Current)), and After renders after
+// the step form's action ("" = StepURL(Current)), Target its hx-target
+// ("" = "#wizard"; a form whose response leaves the wizard names #main),
+// and After renders after
 // the step form, inside #wizard, for content holding forms of its own
 // (forms can't nest).
 type Model struct {
@@ -55,7 +57,7 @@ type Model struct {
 	Errors                             []components.FieldErr
 	Warnings                           []string
 	Conflict, ReloadURL                string
-	Action                             string
+	Action, Target                     string
 	After                              templ.Component
 }
 
@@ -103,6 +105,14 @@ func (m Model) formAction() string {
 		return m.Action
 	}
 	return m.StepURL(m.Current)
+}
+
+// formTarget is the step form's hx-target.
+func (m Model) formTarget() string {
+	if m.Target != "" {
+		return m.Target
+	}
+	return "#wizard"
 }
 
 // Last reports whether the current step is the check step.

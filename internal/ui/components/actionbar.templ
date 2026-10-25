@@ -24,11 +24,13 @@ templ ActionBar(p ActionBarProps) {
 		</div>
 	} else if p.Primary != nil || p.Secondary != nil {
 		<div class="actionbar">
-			if p.Secondary != nil {
-				@Button(inForm(*p.Secondary, p.Form))
-			}
+			// The primary comes first, so Enter in a field submits it (the
+			// form's default button is its first submit in tree order).
 			if p.Primary != nil {
 				@Button(inForm(*p.Primary, p.Form))
+			}
+			if p.Secondary != nil {
+				@Button(inForm(*p.Secondary, p.Form))
 			}
 		</div>
 	}

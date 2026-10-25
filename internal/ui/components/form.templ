@@ -3,9 +3,12 @@ package components
 import "github.com/vardhan/internaltools/internal/ui"
 
 // FormProps describes a form. Method is "post" unless set to "get".
+// DisabledElt is a POST form's hx-disabled-elt (default its first submit,
+// "find button[type=submit]"); a form with buttons outside it posting it
+// through form="…" names them all.
 type FormProps struct {
-	ID, Action, Method, Target, Swap, Trigger string
-	HX, Multipart                             bool
+	ID, Action, Method, Target, Swap, Trigger, DisabledElt string
+	HX, Multipart                                          bool
 }
 
 func orDefault(s, def string) string {
@@ -48,7 +51,7 @@ templ Form(p FormProps) {
 				hx-post={ p.Action }
 				hx-target={ orDefault(p.Target, "#main") }
 				hx-swap={ orDefault(p.Swap, "outerHTML") }
-				hx-disabled-elt="find button[type=submit]"
+				hx-disabled-elt={ orDefault(p.DisabledElt, "find button[type=submit]") }
 				if p.Trigger != "" {
 					hx-trigger={ p.Trigger }
 				}

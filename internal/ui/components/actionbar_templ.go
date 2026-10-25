@@ -69,14 +69,14 @@ func ActionBar(p ActionBarProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if p.Secondary != nil {
-				templ_7745c5c3_Err = Button(inForm(*p.Secondary, p.Form)).Render(ctx, templ_7745c5c3_Buffer)
+			if p.Primary != nil {
+				templ_7745c5c3_Err = Button(inForm(*p.Primary, p.Form)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			if p.Primary != nil {
-				templ_7745c5c3_Err = Button(inForm(*p.Primary, p.Form)).Render(ctx, templ_7745c5c3_Buffer)
+			if p.Secondary != nil {
+				templ_7745c5c3_Err = Button(inForm(*p.Secondary, p.Form)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -144,7 +144,7 @@ func MoreActions(items []MoreAction) templ.Component {
 					var templ_7745c5c3_Var4 templ.SafeURL
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(it.Href))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 51, Col: 58}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 53, Col: 58}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -157,7 +157,7 @@ func MoreActions(items []MoreAction) templ.Component {
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(ui.ShellFrom(ctx).CSRF)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 52, Col: 77}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 54, Col: 77}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 					if templ_7745c5c3_Err != nil {
@@ -175,7 +175,7 @@ func MoreActions(items []MoreAction) templ.Component {
 						var templ_7745c5c3_Var6 string
 						templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(h.Name)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 54, Col: 43}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 56, Col: 43}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 						if templ_7745c5c3_Err != nil {
@@ -188,7 +188,7 @@ func MoreActions(items []MoreAction) templ.Component {
 						var templ_7745c5c3_Var7 string
 						templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(h.Value)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 54, Col: 61}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/actionbar.templ`, Line: 56, Col: 61}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 						if templ_7745c5c3_Err != nil {

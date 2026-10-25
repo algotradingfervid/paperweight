@@ -59,6 +59,11 @@
       align-items: start;
       & > * { min-inline-size: 0; }
     }
+    /* Three cells (item, quantity, rate): the numbers get the widths the
+       five-cell columns give Rate, so worst-case values show whole (CD-169). */
+    & .linegrid--3 :is(.linegrid-head, .linegrid-row) {
+      grid-template-columns: minmax(0, 0.5fr) minmax(0, 3fr) minmax(0, 1.75fr) minmax(0, 1.75fr) minmax(0, 1.5fr) minmax(0, 2fr);
+    }
     & .linegrid-form { display: contents; & > * { min-inline-size: 0; } }
     & .linegrid-actions {
       display: flex;

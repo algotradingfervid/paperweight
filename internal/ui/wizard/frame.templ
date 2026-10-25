@@ -15,9 +15,14 @@ type Bar struct {
 	NoPrimary bool
 }
 
-// formID is the step form's id; the bar's buttons sit after the form and
-// post it through their form attribute.
+// formID is the step form's id; when m.After follows the form, the bar's
+// buttons sit after it and post it through their form attribute.
 const formID = "wizard-form"
+
+// disabledElt disables, while the step form's request runs, every submit
+// in it and every bar button posting it. htmx resolves plain selectors to
+// all matches ("find" only to the first).
+const disabledElt = "#" + formID + " button[type=submit], button[form=" + formID + "]"
 
 func (b Bar) primary() string {
 	if b.Primary == "" {
@@ -31,7 +36,9 @@ func (b Bar) props(m Model) components.ActionBarProps {
 		// The check step has nothing to save, and its form posts the
 		// submit, so it has no "Save and finish later".
 		FinishLater: m.Mode == Document && !m.Last(),
-		Form:        formID,
+	}
+	if m.After != nil {
+		p.Form = formID
 	}
 	if !b.NoPrimary {
 		p.Primary = &components.ButtonProps{Label: b.primary(), Variant: components.Primary}
@@ -51,7 +58,8 @@ func titleLine(m Model) string {
 
 // Frame is one wizard step, swapped whole as #wizard: title line, stepper,
 // conflict banner, error summary, warnings, the step heading, the step
-// form around children, m.After and the action bar. In Document mode the
+// form around children and the action bar, or, with m.After, the form,
+// m.After and then the bar posting the form from outside. In Document mode the
 // form holds the page's one #doc-version (CD-95). Focus goes to the heading unless errors or a
 // conflict are shown; on a conflict without errors the banner's wrapper
 // takes focus.
@@ -73,7 +81,7 @@ templ Frame(m Model, bar Bar) {
 		} else {
 			<h1 id="step-title" tabindex="-1">{ m.Heading() }</h1>
 		}
-		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: "#wizard"}) {
+		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: m.formTarget(), DisabledElt: disabledElt}) {
 			{ children... }
 			if m.Mode == Document {
 				@DocVersion(m.Version, false)
@@ -81,11 +89,14 @@ templ Frame(m Model, bar Bar) {
 			if m.ReturnTo != "" {
 				<input type="hidden" name="return" value={ m.ReturnTo }/>
 			}
+			if m.After == nil {
+				@components.ActionBar(bar.props(m))
+			}
 		}
 		if m.After != nil {
 			@m.After
+			@components.ActionBar(bar.props(m))
 		}
-		@components.ActionBar(bar.props(m))
 	</div>
 }
 
@@ -100,9 +111,5 @@ templ DocVersion(version int, oob bool) {
 }
 
 templ conflictBanner(m Model) {
-	@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Conflict}) {
-		// A space keeps the message and the link apart in the page text.
-		{ " " }
-		<p><a href={ templ.SafeURL(m.ReloadURL) }>Reload</a></p>
-	}
+	@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Conflict, Link: &components.Link{Label: "Reload", Href: m.ReloadURL}})
 }

@@ -30,7 +30,7 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 	draft := doc(ids.Draft)
 	out := []screens.Screen{
 		{Name: name + " new", Route: "/doc/{doctype}/new", URL: base + "/new", As: sweepUser},
-		{Name: name + " details 422", Route: step, URL: draft + "/edit/" + slugDetails, As: sweepUser, Setup: submitEmpty},
+		{Name: name + " details 422", Route: step, URL: draft + "/edit/" + slugDetails, As: sweepUser, Setup: submitInvalid},
 		{Name: name + " details 409", Route: step, URL: draft + "/edit/" + slugDetails, As: sweepUser, Setup: submitStale},
 		{Name: name + " items 500", Route: step, URL: doc(ids.Lines500) + "/edit/" + slugItems + "?all=1", As: sweepUser},
 		{Name: name + " line new", Route: "/doc/{doctype}/{id}/lines/new", URL: draft + "/lines/new", As: sweepUser},
@@ -67,11 +67,14 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 	}...)
 }
 
-// submitEmpty clears step 1 and saves it, so the step shows DOC's 422.
-func submitEmpty(ctx context.Context) error {
+// submitInvalid types a value no parser accepts into step 1's number and
+// date inputs and saves it, so the step shows a 422: UI's own parse error,
+// or DOC's type error for an Int field (CD-178: a draft save no longer
+// refuses empty Required fields).
+func submitInvalid(ctx context.Context) error {
 	return browserSubmit(ctx, `(() => {
   const f = document.getElementById("wizard-form");
-  f.querySelectorAll("input[type=text], input[data-picker-value], textarea").forEach(function (e) { e.value = ""; });
+  f.querySelectorAll("input[inputmode=numeric], input[inputmode=decimal]").forEach(function (e) { e.value = "x"; });
   f.requestSubmit();
 })()`, ".error-summary")
 }

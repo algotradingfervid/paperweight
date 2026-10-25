@@ -104,6 +104,13 @@ func docDeps() docscreen.Deps {
 		docscreentest.Seed(docs, info, doc.Record{Version: 1, Values: values, Lines: lines})
 		rows = append(rows, docscreen.ListRow{Info: info, Values: values})
 	}
+	// The sweep's 409 screen saves the draft with an old version
+	// (docscreen.Screens); its 422 screen is refused by UI's own parsers
+	// before DOC is called.
+	docs.SetResult(docscreentest.Sample, galleryIDs.Draft, doctype.ActionSave, doc.Result{}, &doc.Error{
+		Kind:    doc.KindStale,
+		Message: "Someone else changed Draft 42 after you opened it. Reload it and make your changes again.",
+	})
 
 	az := authfake.New()
 	for _, r := range auth.AllRights {
