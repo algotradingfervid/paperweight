@@ -73,7 +73,7 @@ Nothing in flight; every worktree is clean. Next step per WP:
 | NUM | AD-3 | Tasks 1–5, merged to main (a9cb2f1) | Task 6 (gstcalc; removes its CD-111 stub row). |
 | NAM | AD-3 | Task 7 (2390fe7) | Task 8 (concurrent approvals, preview). |
 | APR | AD-3 | Task 1; Task 2 tests at cbe1141 | Task 2 implementer. Tests use `doctype.StatePending` (plan says `StatePendingApproval`); Anil's fixture email is `admin@vardhan.test`, not `anil@`. |
-| DOC | AD-4 | Task 5 / Task 4 (70898c8); Task 6 tests at e5de141 | Task 6 implementer: delete `fyShort`, add `doc.NumberFuncs` + `fixturetest.Numbers()/RefNumbers()` (CD-119), `fixture.go`/`receipt.go` per CD-118 (also commit them), go-cmp optional (CD-110). |
+| DOC | AD-4 | Tasks 1–5 done (Task 4 at c61129b after rebase); Task 6 tests at e5de141 | Task 6 implementer: delete `fyShort`, add `doc.NumberFuncs` + `fixturetest.Numbers()/RefNumbers()` (CD-119), `fixture.go`/`receipt.go` per CD-118 (also commit them), go-cmp optional (CD-110). |
 | FILE | AD-4 | Task 4 (68a9150); Task 5 tests at 12de7f6 | Task 5 implementer (FILE-029 then green); print track Tasks 10 ∥ 11 ready. |
 
 ## Wave 1 carry-overs (put in the named task's brief)
