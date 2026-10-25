@@ -232,6 +232,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP2 | 12 project | Standard (High flow) | tw opus ×2, impl opus ×3, rev opus ×2 | 18:13 | 18:52 | 1 | 0/1/4 (RecordRef ProjectIDs; CD-172 create; CD-170 branch; party-missing block) | 32510d6, e6f7505 tests, d43fd95 (lane/masters-org) |
 | Merges | WP2 part 1 (Tasks 1–5, 8–11) e2cb5cb + dbq 5e65428; AUTH CD-171 5a793ca; `make ci` green after each | — | director | | 18:52 | — | — | — |
 | Merges | AUTH CD-173 + CD-174 cd10b67; `make ci` green | — | director | | 19:17 | — | — | — |
+| Budgets | WP3 Task 1 split across idle ADs (CD-182): head 2, AD-1 5, AD-2 3, AD-3 3, AD-4 3, AD-5 6, reserve 3 | — | director | | 19:45 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
