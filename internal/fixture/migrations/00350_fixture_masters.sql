@@ -3,7 +3,7 @@
 
 -- +goose Up
 CREATE TABLE fixture_party (
-    id         INTEGER PRIMARY KEY,
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
     code       TEXT NOT NULL UNIQUE,
     name       TEXT NOT NULL,
     disabled   INTEGER NOT NULL DEFAULT 0,
@@ -17,7 +17,7 @@ CREATE TABLE fixture_party (
 );
 
 CREATE TABLE fixture_item (
-    id         INTEGER PRIMARY KEY,
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
     code       TEXT NOT NULL UNIQUE,
     name       TEXT NOT NULL,
     disabled   INTEGER NOT NULL DEFAULT 0,
@@ -31,7 +31,7 @@ CREATE TABLE fixture_item (
 );
 
 CREATE TABLE fixture_project (
-    id         INTEGER PRIMARY KEY,
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
     code       TEXT NOT NULL UNIQUE,
     name       TEXT NOT NULL,
     disabled   INTEGER NOT NULL DEFAULT 0,

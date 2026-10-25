@@ -3,7 +3,7 @@
 
 -- +goose Up
 CREATE TABLE fixture_claim (
-    id                INTEGER PRIMARY KEY,
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
     number            TEXT UNIQUE,
     state             TEXT NOT NULL DEFAULT 'draft' CHECK (state IN ('draft', 'pending_approval', 'approved', 'closed', 'rejected', 'cancelled')),
     state_reason      TEXT NOT NULL DEFAULT '',
@@ -23,7 +23,7 @@ CREATE TABLE fixture_claim (
 CREATE UNIQUE INDEX fixture_claim_one_amendment ON fixture_claim (amended_from_id) WHERE amended_from_id IS NOT NULL;
 
 CREATE TABLE fixture_claim_line (
-    id        INTEGER PRIMARY KEY,
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
     parent_id INTEGER NOT NULL REFERENCES fixture_claim (id) ON DELETE CASCADE,
     line_no   INTEGER NOT NULL,
     expense_type TEXT NOT NULL DEFAULT '',

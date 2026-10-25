@@ -3,7 +3,7 @@
 
 -- +goose Up
 CREATE TABLE fixture_order (
-    id                INTEGER PRIMARY KEY,
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
     number            TEXT UNIQUE,
     state             TEXT NOT NULL DEFAULT 'draft' CHECK (state IN ('draft', 'pending_approval', 'approved', 'closed', 'rejected', 'cancelled')),
     state_reason      TEXT NOT NULL DEFAULT '',
@@ -28,7 +28,7 @@ CREATE TABLE fixture_order (
 CREATE UNIQUE INDEX fixture_order_one_amendment ON fixture_order (amended_from_id) WHERE amended_from_id IS NOT NULL;
 
 CREATE TABLE fixture_order_line (
-    id        INTEGER PRIMARY KEY,
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
     parent_id INTEGER NOT NULL REFERENCES fixture_order (id) ON DELETE CASCADE,
     line_no   INTEGER NOT NULL,
     item_id      INTEGER REFERENCES fixture_item (id) ON DELETE RESTRICT,
