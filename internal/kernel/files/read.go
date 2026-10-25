@@ -23,7 +23,8 @@ const (
 	msgBlobMissing = "The file is missing from storage. Ask your administrator to restore it from backup."
 )
 
-// Open checks p's read right on the attachment's parent and opens its blob.
+// Open checks p's read right on the attachment's parent and opens its blob;
+// a parent whose policy has ReadAnySignedIn only has to exist and p be signed in.
 // The reader is an *os.File. A missing blob returns KindBlobMissing with the Meta.
 func (s *Store) Open(ctx context.Context, p auth.Principal, id int64) (io.ReadCloser, Meta, error) {
 	var row dbq.Attachment
@@ -35,6 +36,17 @@ func (s *Store) Open(ctx context.Context, p auth.Principal, id int64) (io.ReadCl
 		}
 		if err != nil {
 			return err
+		}
+		if s.policy(row.ParentDocType).ReadAnySignedIn {
+			var info doctype.Info
+			info, err = s.cfg.Info.Info(ctx, tx, row.ParentDocType, row.ParentID)
+			if err != nil {
+				return notFoundErr(err)
+			}
+			if p.ID == 0 {
+				return &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgNoRight, "read", info.DocLabel), Err: auth.ErrForbidden}
+			}
+			return nil
 		}
 		_, err = s.canOnParent(ctx, tx, p, "read", row.ParentDocType, row.ParentID)
 		return err

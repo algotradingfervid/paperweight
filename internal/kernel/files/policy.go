@@ -24,3 +24,15 @@ var DefaultPolicy = Policy{
 	MaxCount: MaxAttachments,
 	Exts:     []string{".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".xlsx", ".docx", ".csv"},
 }
+
+// LogoPolicy is the company logo: a PNG or JPEG of at most 1 MB that any
+// signed-in user may read, attachable whatever the company's state.
+var LogoPolicy = Policy{
+	MaxBytes:        1_048_576,
+	MaxCount:        MaxAttachments,
+	Exts:            []string{".png", ".jpg", ".jpeg"},
+	ReadAnySignedIn: true,
+	IgnoreState:     true,
+	TypeMessage:     "Logo must be a PNG or JPG image.",
+	SizeMessage:     "Logo must be 1 MB or smaller.",
+}
