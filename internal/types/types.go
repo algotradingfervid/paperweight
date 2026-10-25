@@ -49,11 +49,5 @@ func ParseRate(s string) (Rate, error)       { return 0, errNotImplemented }
 func ParsePercent(s string) (Percent, error) { return 0, errNotImplemented }
 func ParseDate(s string) (Date, error)       { return Date{}, errNotImplemented }
 
-func FormatMoney(m Money) string            { return "" } // "94,164.00"
-func FormatINR(m Money) string              { return "" } // "₹94,164.00"
-func FormatQty(q Qty) string                { return "" } // "1,200" (trailing zeros dropped)
-func FormatQtyUoM(q Qty, uom string) string { return "" } // "1,200 kg"
-func FormatRate(r Rate) string              { return "" } // "62.50" (2–4 decimals, CD-61)
-func FormatPercent(p Percent) string        { return "" } // "18%"
-func FormatDate(d Date) string              { return "" } // "24-10-2026"
-func FormatIST(t time.Time) string          { return "" } // "24-10-2026 10:30", the only timestamp format
+func FormatDate(d Date) string     { return "" } // "24-10-2026"
+func FormatIST(t time.Time) string { return "" } // "24-10-2026 10:30", the only timestamp format
