@@ -169,3 +169,53 @@ func byCode(t *testing.T, d *db.DB, s *party.Service, code string) (party.Party,
 	}
 	return p, ok
 }
+
+// categoryMsg is CD-166's text for a GST category outside the Options.
+const categoryMsg = "GST category must be Registered Regular, Registered Composition, Unregistered, SEZ or Overseas."
+
+func TestParty_UnknownGSTCategory(t *testing.T) { // CD-166
+	in := shree(shreePAN)
+	in.GSTCategory = "Tax Deductor"
+	_, err := party.Validate(in)
+	wantFieldError(t, err, "gst_category", categoryMsg)
+
+	// A blank category is guessed, not refused.
+	blank := shree(shreePAN)
+	blank.GSTCategory = ""
+	if _, err := party.Validate(blank); err != nil {
+		t.Errorf("Validate(blank GST category) = %v; want nil", err)
+	}
+}
+
+func TestParty_BlankCategoryKeptOnUpdate(t *testing.T) { // CD-166, M5
+	env := msttest.New(t)
+	ctx := context.Background()
+	svc := party.New(env.Kit)
+
+	in := shree(shreePAN)
+	in.GSTCategory = ""
+	saved, err := svc.Create(ctx, env.Kavya, in)
+	if err != nil {
+		t.Fatalf("Create(SHREE, blank category) = %v; want nil", err)
+	}
+	if got := get(t, env.DB, svc, saved.ID); got.GSTCategory != gstin.Unregistered {
+		t.Fatalf("after Create(blank category): GSTCategory = %q; want %q", got.GSTCategory, gstin.Unregistered)
+	}
+
+	if err := env.DB.Write(ctx, func(tx *db.Tx) error {
+		return svc.ApplyGSTINTx(ctx, tx, env.Kavya, saved.ID, shreeGSTIN)
+	}); err != nil {
+		t.Fatalf("ApplyGSTINTx(%s) = %v; want nil", shreeGSTIN, err)
+	}
+	cur := get(t, env.DB, svc, saved.ID)
+	if cur.GSTCategory != gstin.Regular {
+		t.Fatalf("after ApplyGSTINTx(%s): GSTCategory = %q; want %q", shreeGSTIN, cur.GSTCategory, gstin.Regular)
+	}
+
+	if _, err := svc.Update(ctx, env.Kavya, saved.ID, cur.Version, in); err != nil {
+		t.Fatalf("Update(blank category, version %d) = %v; want nil", cur.Version, err)
+	}
+	if got := get(t, env.DB, svc, saved.ID); got.GSTCategory != gstin.Regular {
+		t.Errorf("after Update(blank category): GSTCategory = %q; want %q", got.GSTCategory, gstin.Regular)
+	}
+}
