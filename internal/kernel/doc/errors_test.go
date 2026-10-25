@@ -95,7 +95,7 @@ func TestDoc_Errors_HTTPStatus(t *testing.T) {
 	t.Run("missing id is 404 and ErrNotFound", func(t *testing.T) {
 		h := fixturetest.New(t)
 		_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, 9999, doc.ActionSubmit, doc.ActionInput{Version: 1})
-		lkHTTP(t, err, 404, lkMsgGone)
+		_ = lkHTTP(t, err, 404, lkMsgGone)
 		if !errors.Is(err, doctype.ErrNotFound) {
 			t.Errorf("Do: errors.Is(%v, doctype.ErrNotFound) = false, want true", err)
 		}
@@ -103,7 +103,7 @@ func TestDoc_Errors_HTTPStatus(t *testing.T) {
 			_, err := h.Engine.Load(t.Context(), tx, fixture.Order, 9999)
 			return err
 		})
-		lkHTTP(t, err, 404, lkMsgGone)
+		_ = lkHTTP(t, err, 404, lkMsgGone)
 		if !errors.Is(err, doctype.ErrNotFound) {
 			t.Errorf("Load: errors.Is(%v, doctype.ErrNotFound) = false, want true", err)
 		}
@@ -130,6 +130,6 @@ func TestDoc_Errors_HTTPStatus(t *testing.T) {
 		if errors.As(err, &de) {
 			t.Errorf("err is a *doc.Error (%v), want AUTH's error passed through", de)
 		}
-		lkHTTP(t, err, 403, auth.ErrForbidden.Error())
+		_ = lkHTTP(t, err, 403, auth.ErrForbidden.Error())
 	})
 }
