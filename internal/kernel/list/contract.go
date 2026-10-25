@@ -2,9 +2,7 @@
 package list
 
 import (
-	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
-	"github.com/vardhan/internaltools/internal/platform/errs"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
@@ -26,8 +24,4 @@ type Query struct {
 	Search         string
 	Sort           []doctype.SortKey
 	Page, PageSize int
-}
-
-func Build(dt *doctype.DocType, q Query, scope auth.Predicate) (sql string, args []any, err error) {
-	return "", nil, errs.ErrNotImplemented
 }

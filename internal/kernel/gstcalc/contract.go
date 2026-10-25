@@ -2,7 +2,6 @@
 package gstcalc
 
 import (
-	"github.com/vardhan/internaltools/internal/platform/errs"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
@@ -19,14 +18,31 @@ type DocTotals struct {
 	Net, CGST, SGST, IGST, Grand, Rounded, Adjustment, Payable types.Money
 }
 
-func LineAmount(q types.Qty, r types.Rate) (types.Money, error) { return 0, errs.ErrNotImplemented }
+// LineAmount returns q × r in paise, rounded half-up; too large a result is an *types.InputError.
+func LineAmount(q types.Qty, r types.Rate) (types.Money, error) { return q.Times(r) }
 
+// SplitGST returns the tax on taxable at rate: all IGST when interState,
+// otherwise CGST = SGST = taxable × rate/2, rounded once. rate must be in
+// 0..MaxPercent; anything else is a programming error and panics.
 func SplitGST(taxable types.Money, rate types.Percent, interState bool) (cgst, sgst, igst types.Money) {
-	return 0, 0, 0
+	if rate < 0 || rate > types.MaxPercent {
+		panic("gstcalc: GST rate out of range")
+	}
+	if interState {
+		return 0, 0, tax(taxable, rate, 100_000)
+	}
+	half := tax(taxable, rate, 200_000)
+	return half, half, 0
 }
 
-func IsInterState(supplierState, receiverState string) bool { return false }
+// IsInterState reports whether supplier and receiver are in different GST states.
+func IsInterState(supplierState, receiverState string) bool { return supplierState != receiverState }
 
-func Totals(lines []Line, rounded bool) DocTotals { return DocTotals{} } // Line carries InterState
+// Totals taxes each line on its own and sums the lines into the header (Line carries InterState).
+func Totals(lines []Line, rounded bool) DocTotals { return totals(lines, rounded) }
 
-func StateName(code string) (string, bool) { return "", false }
+// StateName returns the name for a GST state code; false when the code is unknown.
+func StateName(code string) (string, bool) {
+	name, ok := stateNames[code]
+	return name, ok
+}

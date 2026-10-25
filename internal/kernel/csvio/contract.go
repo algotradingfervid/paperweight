@@ -10,5 +10,3 @@ import (
 )
 
 type RowFunc func(ctx context.Context, tx *db.Tx, p auth.Principal, row map[string]string) (id int64, errs []doctype.FieldError, err error)
-
-func RegisterImporter(doctype string, fn RowFunc) {}
