@@ -110,7 +110,7 @@ func TestAttachment_UploadJPEGToDraft(t *testing.T) {
 	}
 	if p, err := files.BlobPath(env.DataDir, sha); err != nil {
 		t.Errorf("BlobPath: %v", err)
-	} else if b, err := os.ReadFile(p); err != nil {
+	} else if b, err := os.ReadFile(p); err != nil { //nolint:gosec // G304: test reads the blob path it just computed
 		t.Errorf("blob at %s: %v", p, err)
 	} else if !bytes.Equal(b, content) {
 		t.Errorf("blob bytes differ from the upload (len %d, want %d)", len(b), len(content))
