@@ -71,11 +71,19 @@ func TestWeb_InboxListsCardsOldestFirst(t *testing.T) {
 
 func TestWeb_RuleFormRefusesNonAdmin(t *testing.T) {
 	e := at.New(t)
+	const msg = "You don't have permission to change approval rules. Ask an Administrator."
 	code, body := post(t, e, e.Ravi, "/admin/approval-rules", url.Values{
 		"doctype": {at.Order}, "from_amount": {"200000.00"}, "approver_type": {"role"}, "role": {"Director"},
 	})
-	if code != http.StatusForbidden || !strings.Contains(body, "You don't have permission to change approval rules. Ask an Administrator.") {
-		t.Errorf("status %d, body %q; want 403 with the ErrNotAdmin message", code, body)
+	if code != http.StatusForbidden {
+		t.Errorf("status %d, want 403; body %q", code, body)
+	}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("parse refusal page: %v", err)
+	}
+	if got := doc.Find(`[role="alert"]`).Text(); !strings.Contains(got, msg) {
+		t.Errorf("alert text %q does not contain the ErrNotAdmin message %q", got, msg)
 	}
 	rules, err := e.A.Rules(t.Context(), e.Anil)
 	at.MustOK(t, err)
