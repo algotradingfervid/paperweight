@@ -298,6 +298,7 @@ func (f *Fake) CheckValues(ctx context.Context, p auth.Principal, name string, v
 func valueError(ctx context.Context, dir auth.Directory, d auth.Dimension, ids []int64) error {
 	var codes []string
 	if dir == nil {
+		// The ids are sorted below as text, so "10" comes before "9".
 		for _, id := range ids {
 			codes = append(codes, strconv.FormatInt(id, 10))
 		}
