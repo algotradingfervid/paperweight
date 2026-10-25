@@ -217,7 +217,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-021 · Required line fields report the line number
 - **Priority:** P1
 - **Level:** unit
-- **Given** an order with three lines where line 2 has `item` set and `qty` empty **When** it is saved **Then** the error is `lines[2].qty: "Line 2: Quantity is required."`
+- **Given** an order with three lines where line 2 has `item` set and `qty` empty **When** it is submitted (CD-178) **Then** the error is `lines[2].qty: "Line 2: Quantity is required."`
 - **Go test:** `TestDoc_Validate_LineMandatoryRowNo`
 - **Sources:** `frappe/frappe/model/document.py:3500-3505` ("Row #{1}: Value missing for"), `frappe/frappe/tests/test_document.py:136` (`test_insert_with_child`)
 
@@ -252,7 +252,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-026 · Field errors from the module's Validate hook are returned together with the core errors
 - **Priority:** P1
 - **Level:** unit
-- **Given** a fixture `Validate` that adds `lines[1].rate: "Line 1: Rate must be more than 0."`, and the header also misses `supplier` **When** the document is saved **Then** both errors come back in one `ValidationErrors` value, keyed by field path, and nothing is written.
+- **Given** a fixture `Validate` that adds `lines[1].rate: "Line 1: Rate must be more than 0."`, and the header also misses `supplier` **When** the document is submitted (CD-178; a draft save merges the hook's error with any format error the same way) **Then** both errors come back in one `ValidationErrors` value, keyed by field path, and nothing is written.
 - **Go test:** `TestDoc_Validate_HookErrorsMerged`
 - **Sources:** Decision D-DOC-20. `frappe/frappe/tests/test_document.py:302` (`test_validate`)
 
@@ -266,7 +266,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-028 · A failed validation writes nothing
 - **Priority:** P1
 - **Level:** integration
-- **Given** a saved draft (version 2) with supplier `SHREE` **When** a save that changes supplier to `BHARAT` and blanks `order_date` fails **Then** the database still shows `SHREE`, version 2, and the same audit count.
+- **Given** a saved draft (version 2) with supplier `SHREE` **When** a save that changes supplier to `BHARAT` and sets an out-of-range value (e.g. credit days 400) fails **Then** the database still shows `SHREE`, version 2, and the same audit count.
 - **Go test:** `TestDoc_Validate_FailureWritesNothing`
 - **Sources:** `frappe/frappe/tests/test_document.py:209` (`test_mandatory`), `frappe/frappe/tests/test_db.py:549` (`test_savepoints_wrapper`)
 
@@ -371,7 +371,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-043 · Fully blank lines are dropped; a partly filled line is validated
 - **Priority:** P1
 - **Level:** unit
-- **Given** three lines: line 1 complete; line 2 with item, qty, rate and description all blank; line 3 with only description "loading charges" **When** the document is saved **Then** line 2 is dropped silently, line 3 becomes line 2, and the error is "Line 2: Item is required."
+- **Given** three lines: line 1 complete; line 2 with item, qty, rate and description all blank; line 3 with only description "loading charges" **When** the document is submitted **Then** line 2 is dropped silently, line 3 becomes line 2, and the error is "Line 2: Item is required." (a draft save drops line 2 the same way and reports no Required error, CD-178)
 - **Go test:** `TestDoc_Lines_BlankDropped`
 - **Sources:** Decision D-DOC-15. `frappe/frappe/model/document.py:3492-3536` (mandatory per row)
 
@@ -791,7 +791,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-103 · Every engine error carries its HTTP status
 - **Priority:** P1
 - **Level:** integration
-- **Given** actions that fail in each way the engine can refuse **When** the error is inspected as `doctype.HTTPError` (CD-44) **Then** a validation failure is 422 with its field errors (`FieldErrors()`, e.g. path `supplier_id`); a state refusal (DOC-005), a stale version (DOC-069) and a blocked cancel (DOC-052) are 409 with no field errors; a missing document (`Do` or `Load`) is 404 and `errors.Is(err, doctype.ErrNotFound)`; a busy database is 503 (DOC-075). A permission refusal is AUTH's own error (403), passed through unchanged, not re-wrapped by DOC. Each error's text is exactly the message the other cases state.
+- **Given** actions that fail in each way the engine can refuse **When** the error is inspected as `doctype.HTTPError` (CD-44) **Then** a validation failure is 422 with its field errors (`FieldErrors()`, e.g. path `supplier_id` on submit, CD-178); a state refusal (DOC-005), a stale version (DOC-069) and a blocked cancel (DOC-052) are 409 with no field errors; a missing document (`Do` or `Load`) is 404 and `errors.Is(err, doctype.ErrNotFound)`; a busy database is 503 (DOC-075). A permission refusal is AUTH's own error (403), passed through unchanged, not re-wrapped by DOC. Each error's text is exactly the message the other cases state.
 - **Go test:** `TestDoc_Errors_HTTPStatus`
 - **Sources:** Contract decisions CD-44, CD-54
 
