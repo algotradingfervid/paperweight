@@ -57,7 +57,7 @@ func tokenContrast(tokens map[string]string, fg, bg string) (float64, error) {
 }
 
 type contrastPair struct {
-	fg, bg        string
+	fg, bg         string
 	ratio, minimum float64
 }
 
