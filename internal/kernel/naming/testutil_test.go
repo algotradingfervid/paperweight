@@ -14,16 +14,11 @@ func day(y int, m time.Month, d int) types.Date { return types.Date{Year: y, Mon
 
 // fixedClock is a clock.Clock at a chosen instant, for the few cases that
 // need one other than testkit.Clock().
-//
-//nolint:unused // shared fixture, used by later tasks' tests
 type fixedClock time.Time
 
-//nolint:unused // shared fixture, used by later tasks' tests
 func (c fixedClock) Now() time.Time { return time.Time(c) }
 
 // newRoles returns authfake seeded with the fixture users' roles (CD-56).
-//
-//nolint:unused // shared fixture, used by later tasks' tests
 func newRoles() *authfake.Fake {
 	f := authfake.New()
 	f.AddRole(1, "Administrator")
