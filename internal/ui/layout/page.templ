@@ -1,0 +1,104 @@
+package layout
+
+import (
+	"github.com/vardhan/internaltools/internal/platform/brand"
+	"github.com/vardhan/internaltools/internal/platform/web"
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// Page is the full document: head, header, navigation, the notice regions,
+// <main id="main"> holding the children, and the side panel.
+templ Page(o PageOpts) {
+	{{ s := ui.ShellFrom(ctx) }}
+	{{ banners, alerts := split(web.TakeFlash(ctx)) }}
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content={ viewport }/>
+			<meta name="color-scheme" content="light"/>
+			<title>{ pageTitle(o, s.AppName) }</title>
+			<meta name="htmx-config" content={ htmxConfig }/>
+			<link rel="icon" href={ brand.FaviconURL }/>
+			<link rel="preload" as="font" type="font/woff2" crossorigin href={ ui.InterURL }/>
+			<link rel="stylesheet" href={ ui.CSSURL }/>
+			<script src={ web.HTMXURL } defer></script>
+			<script src={ ui.JSURL } defer></script>
+			<script src={ web.AlpineURL } defer></script>
+		</head>
+		<body hx-headers={ csrfHeaders(s.CSRF) }>
+			<a class="skip-link" href="#main">Skip to content</a>
+			@header(o, s)
+			<div class="app-body">
+				if !o.Bare {
+					<nav aria-label="Main" class="app-sidebar">
+						@navList(s)
+					</nav>
+				}
+				<div class="app-content">
+					<div id="toasts" class="toast toast-end toast-bottom toasts" role="status" aria-live="polite"></div>
+					<div id="alerts" role="alert" class="alerts">
+						for _, n := range alerts {
+							@notice(n)
+						}
+					</div>
+					<div class="app-page">
+						@mainEl(o, banners) {
+							{ children... }
+						}
+						if o.Side != nil {
+							<aside class="side-panel">
+								@o.Side
+							</aside>
+						}
+					</div>
+				</div>
+			</div>
+			if !o.Bare {
+				@navSheet(s)
+			}
+		</body>
+	</html>
+}
+
+// Main is only <main id="main">…</main>, the htmx fragment. It never shows
+// the flash (CD-80).
+templ Main(o PageOpts) {
+	@mainEl(o, nil) {
+		{ children... }
+	}
+}
+
+templ mainEl(o PageOpts, banners []web.Notice) {
+	<main id="main" class="app-main">
+		<div class={ "stack", widthClass(o) }>
+			if o.Back != nil {
+				<a class="back-link" href={ templ.SafeURL(o.Back.Href) }>
+					@icons.Icon("chevron-left")
+					{ o.Back.Label }
+				</a>
+			}
+			if o.BannerSlot != nil {
+				@o.BannerSlot
+			}
+			for _, n := range banners {
+				@notice(n)
+			}
+			if !o.NoHeading {
+				<h1 id={ headingID(o) } tabindex="-1">{ o.Title }</h1>
+			}
+			{ children... }
+			if o.BarSlot != nil {
+				@o.BarSlot
+			}
+		</div>
+	</main>
+}
+
+// notice renders a flash message as text (never markup).
+templ notice(n web.Notice) {
+	<div class={ alertClass(n.Level) }>
+		<p>{ n.Text }</p>
+	</div>
+}

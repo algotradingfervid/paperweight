@@ -1,0 +1,9 @@
+/* toast.css: the #toasts region (daisyUI toast + alert, CD-98). app.js puts
+   success and info notices here; errors and warnings go to #alerts (CD-75). */
+@utility toasts {
+  z-index: var(--z-toast);
+  inset-inline-end: calc(var(--space-4) + var(--safe-right));
+  bottom: calc(var(--space-4) + var(--safe-bottom));
+  max-inline-size: calc(100% - var(--space-8));
+  & > .alert { box-shadow: var(--shadow-2); }
+}

@@ -1,0 +1,231 @@
+/* layout.css: the app shell and the layout primitives (design-system §6), as
+   Tailwind @utility rules (CD-98). Mobile first: larger layouts only in
+   min-width queries (48rem header, 64rem sidebar, 80rem side panel). */
+
+/* ---------- Shell ---------- */
+@utility skip-link {
+  position: absolute;
+  inset-inline-start: var(--space-2);
+  inset-block-start: var(--space-2);
+  z-index: var(--z-toast);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  color: var(--color-primary-700);
+  border-radius: var(--radius-md);
+  translate: 0 -200%;
+  &:focus { translate: 0 0; }
+}
+
+@utility app-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: calc(var(--header-h) + var(--safe-top));
+  padding-block-start: var(--safe-top);
+  padding-inline: calc(var(--space-2) + var(--safe-left)) calc(var(--space-2) + var(--safe-right));
+  background: var(--color-surface);
+  border-block-end: var(--border-w) solid var(--color-border-subtle);
+}
+
+@utility menu-button {
+  @media (min-width: 64rem) { display: none; }
+}
+
+/* Brand (CD-99): the logo slot holds any logo size; the name is written next to it. */
+@utility brand {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--target-min);
+  min-inline-size: 0;
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  &.brand-bare { display: flex; }
+  @media (min-width: 48rem) { display: flex; }
+}
+
+@utility brand-logo {
+  max-inline-size: var(--logo-header-w);
+  max-block-size: var(--logo-header-h);
+  inline-size: auto;
+  block-size: auto;
+  object-fit: contain;
+}
+
+@utility brand-logo-signin {
+  max-inline-size: var(--logo-signin-w);
+  max-block-size: var(--logo-signin-h);
+}
+
+@utility header-title {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  font-weight: var(--weight-semibold);
+  @media (min-width: 48rem) { display: none; }
+}
+
+@utility header-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+@utility inbox-link {
+  position: relative;
+  min-inline-size: var(--target-min);
+  min-block-size: var(--target-min);
+}
+
+@utility user-menu {
+  position: relative;
+  & > summary { list-style: none; min-block-size: var(--target-min); }
+  & > summary::-webkit-details-marker { display: none; }
+}
+
+@utility user-name {
+  display: none;
+  max-inline-size: calc(var(--space-16) * 3);
+  @media (min-width: 48rem) { display: block; }
+}
+
+@utility user-menu-panel {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 100%;
+  z-index: var(--z-dropdown);
+  inline-size: max-content;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+}
+
+@utility app-body {
+  @media (min-width: 64rem) {
+    display: grid;
+    grid-template-columns: minmax(0, calc(var(--space-16) * 4)) minmax(0, 1fr);
+  }
+}
+
+@utility app-sidebar {
+  display: none;
+  @media (min-width: 64rem) {
+    display: block;
+    position: sticky;
+    inset-block-start: var(--header-h);
+    align-self: start;
+    max-block-size: calc(100dvh - var(--header-h));
+    overflow-y: auto;
+    padding: var(--space-2);
+    border-inline-end: var(--border-w) solid var(--color-border-subtle);
+  }
+}
+
+@utility nav-list {
+  & a { min-block-size: var(--target-min); font-size: var(--text-base); }
+}
+
+@utility nav-sheet-box {
+  inline-size: min(100%, calc(var(--space-16) * 5));
+  padding-block: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-bottom));
+  padding-inline: calc(var(--space-4) + var(--safe-left)) var(--space-4);
+}
+
+@utility app-content {
+  min-inline-size: 0;
+  padding-inline: calc(var(--gutter) + var(--safe-left)) calc(var(--gutter) + var(--safe-right));
+}
+
+@utility alerts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-4);
+  &:empty { padding-block-start: 0; }
+}
+
+/* Side panel (state, approval history, attachments, audit): under the page
+   on smaller screens, a right column from 80rem. */
+@utility app-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  @media (min-width: 80rem) {
+    &:has(> .side-panel) { grid-template-columns: minmax(0, 1fr) minmax(0, calc(var(--space-16) * 5)); }
+  }
+}
+
+@utility side-panel {
+  min-inline-size: 0;
+  padding-block: var(--space-6);
+}
+
+@utility app-main {
+  min-inline-size: 0;
+  padding-block: var(--space-6);
+  & h1 { font-size: var(--h1); line-height: var(--leading-tight); }
+  & h1:focus { outline: none; }
+}
+
+@utility content { max-inline-size: var(--content-max); }
+@utility form-width { max-inline-size: var(--form-max); }
+
+@utility back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: start;
+  min-block-size: var(--target-min);
+  color: var(--color-primary-700);
+}
+
+/* WP0's htmx 409/422 fragment: <div class="error" role="alert"> (CD-47). */
+@utility error {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-50);
+  color: var(--color-danger-800);
+  border-inline-start: var(--space-1) solid var(--color-danger-700);
+  border-radius: var(--radius-md);
+}
+
+/* ---------- Layout primitives (design-system §6) ---------- */
+/* daisyUI also ships a `.stack` (cards piled up, later children at 70% and
+   90% opacity). Ours wins over its nested layer; the opacity reset undoes the
+   rest that matters until app.css excludes daisyUI's stack. */
+@utility stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  & > * { min-inline-size: 0; opacity: 1; }
+}
+
+@utility cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  & > * { min-inline-size: 0; }
+}
+
+/* design-system §6 `.grid`, named auto-grid so Tailwind's own `grid`
+   (display: grid) keeps working for grid-cols-* layouts. */
+@utility auto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-4);
+  & > * { min-inline-size: 0; }
+}
+
+@utility sidebar-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  & > * { min-inline-size: 0; }
+  & > :first-child { flex-basis: calc(var(--space-16) * 4); flex-grow: 1; }
+  & > :last-child { flex-basis: 0; flex-grow: 999; min-inline-size: 50%; }
+}
