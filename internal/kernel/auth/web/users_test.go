@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -115,6 +116,42 @@ func t13Form(t *testing.T, w *authtest.World, email string, extra url.Values) ur
 	return f
 }
 
+var (
+	t13VersionInput = regexp.MustCompile(`<input[^>]*name="version"[^>]*>`)
+	t13ValueAttr    = regexp.MustCompile(`value="([0-9]+)"`)
+)
+
+// t13PageVersion GETs /users/{id} of email as c (an admin, or the user
+// themselves) and returns the page's hidden version input (CD-94, AD-1).
+func t13PageVersion(t *testing.T, c *webtest.Client, w *authtest.World, email string) string {
+	t.Helper()
+	r := c.Get(t13UserPath(w, email, ""))
+	wantStatus(t, "GET user page of "+email, r, http.StatusOK)
+	in := t13VersionInput.FindString(r.Body)
+	m := t13ValueAttr.FindStringSubmatch(in)
+	if m == nil {
+		t.Fatalf("GET user page of %s: no hidden version input in %q", email, r.Body)
+	}
+	return m[1]
+}
+
+// t13DBVersion reads users.version of email, for a poster that may not GET
+// the page.
+func t13DBVersion(t *testing.T, w *authtest.World, email string) string {
+	t.Helper()
+	var v int64
+	t13Read(t, w, "read version of "+email, func(ctx context.Context, q db.DBTX) error {
+		return q.QueryRowContext(ctx, `SELECT version FROM users WHERE id = ?`, int64(w.Users[email])).Scan(&v)
+	})
+	return strconv.FormatInt(v, 10)
+}
+
+// t13With returns f with version set.
+func t13With(f url.Values, version string) url.Values {
+	f.Set("version", version)
+	return f
+}
+
 func wantBody(t *testing.T, what string, r webtest.Response, want string) {
 	t.Helper()
 	if !strings.Contains(messageOf(r), want) {
@@ -137,7 +174,8 @@ func TestDisableUser_EndsSessions(t *testing.T) {
 	}
 
 	admin := signedIn(t, h, t13Admin)
-	r := admin.Post(t13UserPath(w, t10Deepak, ""), t13Form(t, w, t10Deepak, url.Values{"enabled": {"false"}}))
+	v := t13PageVersion(t, admin, w, t10Deepak)
+	r := admin.Post(t13UserPath(w, t10Deepak, ""), t13With(t13Form(t, w, t10Deepak, url.Values{"enabled": {"false"}}), v))
 	wantStatus(t, "admin disables deepak", r, http.StatusSeeOther)
 
 	if u := t13User(t, w, t10Deepak); u.Enabled != 0 {
@@ -164,7 +202,7 @@ func TestUser_SelfEditLimitedFields(t *testing.T) {
 	self := t13UserPath(w, t10Priya, "")
 
 	const mobile = "+91 98200 12345"
-	r := priya.Post(self, url.Values{"name": {"Priya Shah"}, "mobile": {mobile}})
+	r := priya.Post(self, url.Values{"name": {"Priya Shah"}, "mobile": {mobile}, "version": {t13PageVersion(t, priya, w, t10Priya)}})
 	wantStatus(t, "priya edits own mobile", r, http.StatusSeeOther)
 	before := t13User(t, w, t10Priya)
 	if before.Mobile != mobile || before.Name != "Priya Shah" {
@@ -189,7 +227,7 @@ func TestUser_SelfEditLimitedFields(t *testing.T) {
 		{"enabled", url.Values{"enabled": {"false"}}},
 		{"sites", url.Values{"sites": {strconv.FormatInt(w.Sites["PUNE-WH"], 10)}}},
 	} {
-		form := url.Values{"name": {"Priya Shah"}, "mobile": {mobile}}
+		form := url.Values{"name": {"Priya Shah"}, "mobile": {mobile}, "version": {t13PageVersion(t, priya, w, t10Priya)}}
 		for k, vs := range tc.extra {
 			form[k] = vs
 		}
@@ -209,7 +247,7 @@ func TestUser_SelfEditLimitedFields(t *testing.T) {
 	}
 
 	raviBefore := t13User(t, w, t10Ravi)
-	r = priya.Post(t13UserPath(w, t10Ravi, ""), url.Values{"name": {raviBefore.Name}, "mobile": {mobile}})
+	r = priya.Post(t13UserPath(w, t10Ravi, ""), url.Values{"name": {raviBefore.Name}, "mobile": {mobile}, "version": {t13DBVersion(t, w, t10Ravi)}})
 	wantStatus(t, "priya edits ravi's mobile", r, http.StatusForbidden)
 	if got := t13User(t, w, t10Ravi); got != raviBefore {
 		t.Fatalf("ravi after priya's edit: %+v, want unchanged %+v", got, raviBefore)
@@ -236,7 +274,7 @@ func TestRoles_OnlyAdminAssigns(t *testing.T) {
 		{"ravi adds Administrator to ravi", t10Ravi, append(append([]string(nil), raviRoles...), "Administrator")},
 		{"ravi adds Purchase Manager to priya", t10Priya, append(append([]string(nil), priyaRoles...), "Purchase Manager")},
 	} {
-		r := ravi.Post(t13UserPath(w, tc.email, "/roles"), url.Values{"roles": tc.roles})
+		r := ravi.Post(t13UserPath(w, tc.email, "/roles"), url.Values{"roles": tc.roles, "version": {t13DBVersion(t, w, tc.email)}})
 		wantStatus(t, tc.name, r, http.StatusForbidden)
 		wantBody(t, tc.name, r, t13AdminOnlyRoles)
 	}
@@ -261,7 +299,7 @@ func TestRoles_ChangeAppliesNextRequest(t *testing.T) {
 	wantStatus(t, "priya GET /po/list before", r, http.StatusOK)
 	wantBody(t, "priya GET /po/list before", r, "PO LIST")
 
-	r = admin.Post(roles, url.Values{"roles": {"Employee"}})
+	r = admin.Post(roles, url.Values{"roles": {"Employee"}, "version": {t13PageVersion(t, admin, w, t10Priya)}})
 	wantStatus(t, "admin removes Purchase User", r, http.StatusSeeOther)
 	if got := w.P(t, t10Priya).Roles; !reflect.DeepEqual(got, []string{"Employee"}) {
 		t.Fatalf("priya roles after removal = %q, want [Employee]", got)
@@ -274,7 +312,7 @@ func TestRoles_ChangeAppliesNextRequest(t *testing.T) {
 		t.Fatalf("priya GET /po/list after removal leaks PO LIST: %q", r.Body)
 	}
 
-	r = admin.Post(roles, url.Values{"roles": {"Employee", "Purchase User"}})
+	r = admin.Post(roles, url.Values{"roles": {"Employee", "Purchase User"}, "version": {t13PageVersion(t, admin, w, t10Priya)}})
 	wantStatus(t, "admin restores Purchase User", r, http.StatusSeeOther)
 	if got := w.P(t, t10Priya).Roles; !reflect.DeepEqual(got, []string{"Employee", "Purchase User"}) {
 		t.Fatalf("priya roles after restore = %q, want [Employee Purchase User]", got)
@@ -311,7 +349,7 @@ func TestRestriction_AdminOnly(t *testing.T) {
 		{"add TECH-SITE", url.Values{"dimension": {"site"}, "add": {strconv.FormatInt(w.Sites["TECH-SITE"], 10)}}},
 		{"remove PUNE-WH", url.Values{"dimension": {"site"}, "remove": {strconv.FormatInt(w.Sites["PUNE-WH"], 10)}}},
 	} {
-		r := suresh.Post(path, tc.form)
+		r := suresh.Post(path, t13With(tc.form, t13PageVersion(t, suresh, w, t13Suresh)))
 		wantStatus(t, "suresh "+tc.name, r, http.StatusForbidden)
 		wantBody(t, "suresh "+tc.name, r, t13AdminOnlyAccess)
 		if got := t13Restrictions(t, w, t13Suresh); !reflect.DeepEqual(got, before) {
