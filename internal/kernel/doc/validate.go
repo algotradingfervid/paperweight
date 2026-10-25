@@ -2,6 +2,7 @@ package doc
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -9,9 +10,20 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 const maxLines = 500
+
+// CheckFromTo refuses a to date before its from date, on fromField of the
+// header (line 0) or line L. Either date missing, or equal dates, is valid.
+// Exported for module hooks.
+func CheckFromTo(from, to *types.Date, fromLabel, toLabel, fromField string, line int) *FieldError {
+	if from == nil || to == nil || to.Compare(*from) >= 0 {
+		return nil
+	}
+	return &FieldError{Field: fromField, Line: line, Message: linePrefix(line) + fmt.Sprintf(msgToBeforeFrom, toLabel, fromLabel)}
+}
 
 // linkKey identifies a master record: the target DocType and its id.
 type linkKey struct {

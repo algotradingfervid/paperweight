@@ -20,6 +20,8 @@ const (
 	msgNoLines      = "Add at least one line."
 	msgTooManyLines = "A document can have at most 500 lines. Split it into two documents."
 	msgLineID       = "Line id" // label used when a line's "id" key can't be read
+	// CheckFromTo (Task 15): the to label, then the from label.
+	msgToBeforeFrom = "%s can't be before %s."
 
 	// Engine pipeline (Task 6). %s is the document's display name.
 	msgGone             = "This document no longer exists. It may have been deleted."
