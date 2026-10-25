@@ -10,7 +10,7 @@ const (
 )
 
 // tdsPrefix matches India Compliance's TDS pattern
-// (constants/__init__.py:1461, `^[0-9]{2}[A-Z]{4}[A-Z0-9]{1}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[D][0-9A-Z]$`)
+// (constants/__init__.py:1456, `^[0-9]{2}[A-Z]{4}[A-Z0-9]{1}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[D][0-9A-Z]$`)
 // and not NORMAL (the seventh character is a digit) or TCS.
 const tdsPrefix = "07DELA01234E1D"
 
