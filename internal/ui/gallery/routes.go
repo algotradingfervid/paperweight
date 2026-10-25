@@ -68,6 +68,12 @@ var pages = []galleryPage{
 	{"filterbar", titled("Filter bar"), static(filterbarBody())},
 	{"pagination", titled("Pagination"), static(paginationBody())},
 	{"bare", layout.PageOpts{Title: "Sign in", Bare: true, Width: layout.Form}, static(bareBody())},
+	{"auth-signin", layout.PageOpts{Title: "Sign in", Bare: true, Width: layout.Form}, static(authSignInBody())},
+	{"auth-setup", layout.PageOpts{Title: "Set up the first account", Bare: true, Width: layout.Form}, static(authSetupBody())},
+	{"auth-password", formWidth("Change password"), static(authPasswordBody())},
+	{"auth-sessions", titled("Your sessions"), static(authSessionsBody())},
+	{"auth-users", titled("Users"), static(authUsersBody())},
+	{"auth-rights", layout.PageOpts{Title: "Rights for Employee", BarSlot: authRightsBar()}, static(authRightsBody())},
 }
 
 // strictPolicy is WP0's policy without 'unsafe-inline' for styles, reporting

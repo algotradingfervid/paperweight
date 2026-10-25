@@ -2,27 +2,12 @@ package gallery
 
 import (
 	"github.com/vardhan/internaltools/internal/ui/components"
-	"github.com/vardhan/internaltools/internal/ui/layout"
 	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
-// authPages show the target shape of AUTH's views, built only from UI
-// components (CD-88). The structs below are the gallery's own samples, not
-// AUTH's page types.
-var authPages = []galleryPage{
-	{"auth-signin", layout.PageOpts{Title: "Sign in", Bare: true, Width: layout.Form}, static(authSignInBody())},
-	{"auth-setup", layout.PageOpts{Title: "Set up the first account", Bare: true, Width: layout.Form}, static(authSetupBody())},
-	{"auth-password", formWidth("Change password"), static(authPasswordBody())},
-	{"auth-sessions", titled("Your sessions"), static(authSessionsBody())},
-	{"auth-users", titled("Users"), static(authUsersBody())},
-	{"auth-rights", layout.PageOpts{Title: "Rights for Employee", BarSlot: authRightsBar()}, static(authRightsBody())},
-}
-
-// init appends the auth pages to the gallery, so index, show and Screens
-// pick them up.
-func init() {
-	pages = append(pages, authPages...)
-}
+// The auth pages (CD-88) show the target shape of AUTH's views, built only
+// from UI components. Their entries are in pages (routes.go). The structs
+// below are the gallery's own samples, not AUTH's page types.
 
 // passwordRules are the rules listed before the password fields (D-AUTH-03).
 var passwordRules = []string{

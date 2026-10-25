@@ -54,7 +54,7 @@ func authSignInBody() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.EmailInput(components.FieldProps{ID: "f-signin-email", Name: "email", Label: "Email", Value: uitest.LongEmail}, "username").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.EmailInput(components.FieldProps{ID: "f-signin-email", Name: "email", Label: "Email", Value: uitest.LongEmail, Error: uitest.LongError}, "username").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

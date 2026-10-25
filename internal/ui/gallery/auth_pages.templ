@@ -9,7 +9,7 @@ templ authSignInBody() {
 	@components.ErrorSummary([]components.FieldErr{{ID: "f-signin-email", Message: uitest.LongError}})
 	@components.Form(components.FormProps{Action: "/signin"}) {
 		<div class="stack">
-			@components.EmailInput(components.FieldProps{ID: "f-signin-email", Name: "email", Label: "Email", Value: uitest.LongEmail}, "username")
+			@components.EmailInput(components.FieldProps{ID: "f-signin-email", Name: "email", Label: "Email", Value: uitest.LongEmail, Error: uitest.LongError}, "username")
 			@components.PasswordInput(components.FieldProps{ID: "f-signin-password", Name: "password", Label: "Password"}, "current-password")
 			@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
 		</div>
