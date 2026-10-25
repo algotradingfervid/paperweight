@@ -2,7 +2,8 @@
 // auth and directory fakes seeded from the canonical fixtures (CD-56), a
 // doctype.InfoSource over stand-in document rows, and a reference driver that
 // runs the §5 DOC ↔ APR call protocol (CD-23) in the CD-52 check order inside
-// one db.Write per action.
+// one db.Write per action. The engine driver (engine.go, APR_DRIVER=engine or
+// unset) runs the real doc.Engine over internal/fixture's DocTypes instead.
 package approvaltest
 
 import (
@@ -17,7 +18,9 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/audit/auditfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/types"
@@ -50,10 +53,13 @@ type Env struct {
 
 	nextUser auth.UserID
 	t        testing.TB // the test New built this Env for; engine-only methods skip it
+	eng      doc.Engine // nil under the reference driver (engine.go)
+	namer    *naming.Namer
 }
 
 // New builds the harness: testkit DB and seed, shared fakes, approval.New,
-// harness tables and the seed rules R1, R2, E1.
+// harness tables and the seed rules R1, R2, E1. APR_DRIVER picks the driver:
+// engine (default, the real doc.Engine) or ref (the reference driver).
 func New(t testing.TB) *Env {
 	t.Helper()
 	d := testkit.NewDB(t)
@@ -79,10 +85,18 @@ func New(t testing.TB) *Env {
 		}
 		return nil
 	}))
-	e.A = approval.New(approval.Deps{
-		DB: d, Clock: e.Clock, Auth: e.Auth, Info: e.Docs, Directory: e.Dir, Audit: e.Audit,
-		Lookup: Lookup, All: DocTypes,
-	})
+	if useEngine(t) {
+		e.setupEngine(t)
+		e.Docs.engine = e.eng
+		e.A = approval.New(approval.Deps{
+			DB: d, Clock: e.Clock, Auth: e.Auth, Info: e.eng, Directory: e.Dir, Audit: e.Audit,
+		})
+	} else {
+		e.A = approval.New(approval.Deps{
+			DB: d, Clock: e.Clock, Auth: e.Auth, Info: e.Docs, Directory: e.Dir, Audit: e.Audit,
+			Lookup: Lookup, All: DocTypes,
+		})
+	}
 	e.R1 = e.AddRule(t, approval.RuleInput{DocType: Order, FromAmount: Rs(50_000), ApproverType: approval.ApproverRole, Role: "Purchase Manager"})
 	e.R2 = e.AddRule(t, approval.RuleInput{DocType: Order, FromAmount: Rs(5_00_000), ApproverType: approval.ApproverRole, Role: "Director"})
 	e.E1 = e.AddRule(t, approval.RuleInput{DocType: Claim, FromAmount: 0, ApproverType: approval.ApproverManager, FallbackRole: "Director"})
@@ -162,7 +176,7 @@ func Project(id int64) DocOpt { return func(s *docSpec) { s.project = id } }
 // ForEmployee sets the claimant (default for Claim: the creator's employee).
 func ForEmployee(code string) DocOpt { return func(s *docSpec) { s.empCode = code } }
 
-// Party sets the party name shown on inbox cards (CD-55).
+// Party sets the party by name; inbox cards show "{Code} {Name}" (CD-55, CD-68).
 func Party(name string) DocOpt { return func(s *docSpec) { s.party = name } }
 
 // InState creates the document directly in state with number (APR-055/057).
@@ -187,16 +201,52 @@ func (e *Env) NewDoc(t testing.TB, dt string, id int64, amount types.Money, crea
 	case dt == Claim:
 		emp = e.empOf(creator.ID)
 	}
+	if e.eng != nil {
+		e.newEngineDoc(t, dt, id, amount, creator, s, emp)
+		return Doc{Type: dt, ID: id}
+	}
 	e.exec(t, `INSERT INTO aprtest_docs (doctype, id, state, number, amount, created_by, employee_id, project_id, party)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		dt, id, string(s.state), s.number, int64(amount), int64(creator.ID), emp, s.project, s.party)
+		dt, id, string(s.state), s.number, int64(amount), int64(creator.ID), emp, s.project, e.partyDisplay(s.party))
 	return Doc{Type: dt, ID: id}
+}
+
+// partyDisplay is the party as DOC shows a master, "{Code} {Name}" (CD-68):
+// the fixture party's code, or the name itself when the fixtures have none,
+// as the engine driver adds it (partyID).
+func (e *Env) partyDisplay(name string) string {
+	if name == "" {
+		return ""
+	}
+	code := name
+	for _, p := range e.F.Parties {
+		if p.Name == name {
+			code = p.Code
+		}
+	}
+	return code + " " + name
 }
 
 // SetAmount changes the document's amount (as a save would).
 func (e *Env) SetAmount(t testing.TB, d Doc, m types.Money) {
 	t.Helper()
+	if e.eng != nil {
+		e.engineSetAmount(t, d, m)
+		return
+	}
 	e.exec(t, `UPDATE aprtest_docs SET amount = ? WHERE doctype = ? AND id = ?`, int64(m), d.Type, d.ID)
+}
+
+// DropDocRow deletes the document's row (and its lines) behind APR's back,
+// as data drift would, leaving its approval rows in place.
+func (e *Env) DropDocRow(t testing.TB, d Doc) {
+	t.Helper()
+	if e.eng != nil {
+		dt, _ := doctype.Lookup(d.Type)
+		e.exec(t, `DELETE FROM `+dt.Table+` WHERE id = ?`, d.ID)
+		return
+	}
+	e.exec(t, `DELETE FROM aprtest_docs WHERE doctype = ? AND id = ?`, d.Type, d.ID)
 }
 
 func (e *Env) exec(t testing.TB, q string, args ...any) {
@@ -226,6 +276,9 @@ func FailAfterRecord(err error) ActOpt { return func(a *actSpec) { a.failAfter =
 // needed, approve without CheckApprover (CD-23). Rights before the
 // from-state guard, as in DOC's pipeline.
 func (e *Env) Submit(p auth.Principal, d Doc) error {
+	if e.eng != nil {
+		return e.do(p, d, doctype.ActionSubmit, doc.ActionInput{}, nil)
+	}
 	ctx := context.Background()
 	return e.DB.Write(ctx, func(tx *db.Tx) error {
 		if err := e.can(ctx, tx, p, d, "submit"); err != nil {
@@ -259,6 +312,9 @@ func (e *Env) Approve(p auth.Principal, d Doc, opts ...ActOpt) error {
 	for _, o := range opts {
 		o(&s)
 	}
+	if e.eng != nil {
+		return e.do(p, d, doctype.ActionApprove, doc.ActionInput{Reason: s.comment}, s.failAfter)
+	}
 	ctx := context.Background()
 	return e.DB.Write(ctx, func(tx *db.Tx) error {
 		if err := e.checkDecider(ctx, tx, p, d); err != nil {
@@ -271,6 +327,9 @@ func (e *Env) Approve(p auth.Principal, d Doc, opts ...ActOpt) error {
 // Reject runs DOC's reject: visibility → CheckApprover → from-state guard →
 // Record with the reason (APR checks it).
 func (e *Env) Reject(p auth.Principal, d Doc, reason string) error {
+	if e.eng != nil {
+		return e.do(p, d, doctype.ActionReject, doc.ActionInput{Reason: reason}, nil)
+	}
 	ctx := context.Background()
 	return e.DB.Write(ctx, func(tx *db.Tx) error {
 		if err := e.checkDecider(ctx, tx, p, d); err != nil {
@@ -294,6 +353,9 @@ func (e *Env) Withdraw(p auth.Principal, d Doc) error {
 }
 
 func (e *Env) back(p auth.Principal, d Doc, from doctype.State, action doctype.Action, right auth.Right) error {
+	if e.eng != nil {
+		return e.do(p, d, action, doc.ActionInput{}, nil)
+	}
 	ctx := context.Background()
 	return e.DB.Write(ctx, func(tx *db.Tx) error {
 		if err := e.can(ctx, tx, p, d, right); err != nil {
@@ -311,9 +373,11 @@ func (e *Env) back(p auth.Principal, d Doc, from doctype.State, action doctype.A
 
 // RequireEngine skips t under the reference driver: the case needs the real
 // doc.Engine (Task 12b), so it is a WP3 entry and exit criterion (CD-40).
-// Only the reference driver exists until 12b, so it always skips.
 func (e *Env) RequireEngine(t testing.TB) {
 	t.Helper()
+	if e.eng != nil {
+		return
+	}
 	t.Skip("needs APR_DRIVER=engine (real doc.Engine); WP3 exit criterion, CD-40")
 }
 
@@ -323,25 +387,25 @@ func (e *Env) RequireEngine(t testing.TB) {
 // currently loaded version, as the page would (CD-94). Engine only.
 func (e *Env) Save(p auth.Principal, d Doc, changes map[string]string) error {
 	e.RequireEngine(e.t)
-	return nil
+	return e.engineSave(p, d, changes)
 }
 
 // SetState runs DOC's save with a "state" value (APR-076). Engine only.
 func (e *Env) SetState(p auth.Principal, d Doc, state doctype.State) error {
 	e.RequireEngine(e.t)
-	return nil
+	return e.engineSave(p, d, map[string]string{"state": string(state)})
 }
 
 // Delete runs DOC's delete. Engine only.
 func (e *Env) Delete(p auth.Principal, d Doc) error {
 	e.RequireEngine(e.t)
-	return nil
+	return e.do(p, d, doctype.ActionDelete, doc.ActionInput{}, nil)
 }
 
 // Offered is the actions DOC offers p on the document. Engine only.
 func (e *Env) Offered(p auth.Principal, d Doc) []doctype.Action {
 	e.RequireEngine(e.t)
-	return nil
+	return e.engineOffered(p, d)
 }
 
 // Version is the document's version. Engine only (the stand-in rows have none);
@@ -349,14 +413,17 @@ func (e *Env) Offered(p auth.Principal, d Doc) []doctype.Action {
 func (e *Env) Version(t testing.TB, d Doc) int64 {
 	t.Helper()
 	e.RequireEngine(t)
-	return 0
+	return e.engineVersion(t, d)
 }
 
-// Cancel runs DOC's cancel (a reference stand-in until 12b): cancel right →
+// Cancel runs DOC's cancel; the reference driver's stand-in: cancel right →
 // from-state guard (approved only) → reason trimmed, 3–500 characters →
 // cancelled, effects reversed. No APR call (CD-23). The not-approved branch
 // returns the harness guard's own text as a stand-in for DOC's message.
 func (e *Env) Cancel(p auth.Principal, d Doc, reason string) error {
+	if e.eng != nil {
+		return e.do(p, d, doctype.ActionCancel, doc.ActionInput{Reason: reason}, nil)
+	}
 	ctx := context.Background()
 	return e.DB.Write(ctx, func(tx *db.Tx) error {
 		if err := e.can(ctx, tx, p, d, "cancel"); err != nil {

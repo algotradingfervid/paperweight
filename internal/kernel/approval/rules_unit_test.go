@@ -6,6 +6,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/approval"
 	at "github.com/vardhan/internaltools/internal/kernel/approval/approvaltest"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 )
 
 func TestApprovalRule_FromAmountNotNegative(t *testing.T) { // APR-003
@@ -36,7 +37,15 @@ func TestApprovalRule_OnlyApprovableDocTypes(t *testing.T) { // APR-009
 	for _, d := range e.A.ApprovableDocTypes() {
 		labels = append(labels, d.Label)
 	}
-	if want := []string{"Expense Claim", "Goods Receipt Note", "Purchase Order"}; !slices.Equal(want, labels) {
+	// Labels from the registry (CD-157), in label order.
+	label := func(name string) string {
+		dt, ok := doctype.Lookup(name)
+		if !ok {
+			t.Fatalf("%s is not registered", name)
+		}
+		return dt.Label
+	}
+	if want := []string{label(at.Claim), label(at.Receipt), label(at.Order)}; !slices.Equal(want, labels) {
 		t.Errorf("approvable doc types = %q, want %q", labels, want)
 	}
 }

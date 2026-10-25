@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE approval_rules (
-    id                  INTEGER PRIMARY KEY,
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     doctype             TEXT    NOT NULL,
     from_amount         INTEGER NOT NULL CHECK (from_amount >= 0),
     approver_type       TEXT    NOT NULL CHECK (approver_type IN ('role', 'reporting_manager')),

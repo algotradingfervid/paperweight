@@ -29,7 +29,7 @@ func (noMasters) Lookup(ctx context.Context, tx *db.Tx, id int64) (doctype.Maste
 var docTypes = []*doctype.DocType{
 	{Name: Order, Label: "Purchase Order", Table: docsTable, Submittable: true, Approvable: true},
 	{Name: Claim, Label: "Expense Claim", Table: docsTable, Submittable: true, Approvable: true, EmployeeField: "employee_id"},
-	{Name: Receipt, Label: "Goods Receipt Note", Table: docsTable, Submittable: true, Approvable: true},
+	{Name: Receipt, Label: "Goods Receipt", Table: docsTable, Submittable: true, Approvable: true},
 	{Name: ItemMaster, Label: "Item", Master: noMasters{}},
 }
 

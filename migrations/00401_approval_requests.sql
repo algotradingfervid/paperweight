@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE approval_requests (
-    id              INTEGER PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     doctype         TEXT    NOT NULL,
     doc_id          INTEGER NOT NULL,
     rule_id         INTEGER NOT NULL REFERENCES approval_rules (id) ON DELETE RESTRICT,

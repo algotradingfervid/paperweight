@@ -43,12 +43,16 @@ var harnessTables = []string{
 // Docs is the harness's doctype.InfoSource over aprtest_docs. It reads
 // through the caller's tx, so its rows roll back and serialise with the
 // db.Write that changes them (unlike docfake, which keeps Info in memory).
-type Docs struct{}
+// Under the engine driver it is the engine's Info instead (engine.go).
+type Docs struct{ engine doctype.InfoSource }
 
 var _ doctype.InfoSource = (*Docs)(nil)
 
 // Info returns the document's facts, or doctype.ErrNotFound (CD-54).
-func (*Docs) Info(ctx context.Context, tx *db.Tx, dt string, id int64) (doctype.Info, error) {
+func (d *Docs) Info(ctx context.Context, tx *db.Tx, dt string, id int64) (doctype.Info, error) {
+	if d.engine != nil {
+		return d.engine.Info(ctx, tx, dt, id)
+	}
 	in := doctype.Info{DocType: dt, ID: id}
 	var state string
 	var project int64
