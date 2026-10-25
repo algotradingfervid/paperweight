@@ -473,7 +473,7 @@ Single-level approval only in v1; multi-level chains, email, delegation and remi
 ### APR-062 · Rejected document can't be edited until revised
 - **Priority:** P1
 - **Level:** integration
-- **Given** Draft 42 is `rejected` **When** Priya edits the quantity **Then** it fails with "Draft 42 was rejected. Click Revise to edit it."
+- **Given** Draft 42 is `rejected` **When** Priya edits the quantity **Then** it fails with DOC's guard text "Draft 42 was rejected. Revise it to move it back to draft." (CD-142)
 - **Go test:** `TestApprovalRevise_RejectedIsLocked`
 - **Sources:** F5; `frappe/frappe/workflow/doctype/workflow/workflow.py:199-203` (no submitted→draft without a transition)
 
@@ -610,7 +610,7 @@ Single-level approval only in v1; multi-level chains, email, delegation and remi
 ### APR-074 · Approver can't edit the document while approving
 - **Priority:** P1
 - **Level:** integration
-- **Given** Ravi is an eligible approver of Priya's Draft 42 **When** he tries to change a line rate before approving **Then** it is refused with the same pending-edit message; the only actions offered are Approve and Reject. There is no Edit, Save or Withdraw (the seeded Purchase Manager role has no `submit` right on Purchase Order; same as AUTH-084).
+- **Given** Ravi is an eligible approver of Priya's Draft 42 **When** he tries to change a line rate before approving **Then** it is refused with the same pending-edit message; the only actions offered are Approve and Reject. There is no Edit, Save or Withdraw (the seeded Purchase Manager role has no `submit` right on Purchase Order; same as AUTH-084). Note (CD-142): the seeded Purchase Manager also has no `write` right, and DOC checks rights before the state guard, so Ravi first gets AUTH's 403; the test asserts that, then grants `write` to check the pending-edit message.
 - **Go test:** `TestApprovalPending_ApproverCannotEdit`
 - **Sources:** `odoo/addons/hr_expense/models/hr_expense.py:1010-1019` (`You can't edit this expense`)
 
@@ -624,7 +624,7 @@ Single-level approval only in v1; multi-level chains, email, delegation and remi
 ### APR-076 · State can't be changed by writing the state field
 - **Priority:** P1
 - **Level:** unit
-- **Given** a draft PO of ₹60,000.00 **When** a save request sets `state = approved` directly (or import sets it) **Then** it fails with "State can only change through Submit, Withdraw, Approve, Reject or Revise."
+- **Given** a draft PO of ₹60,000.00 **When** a save request sets `state = approved` directly (or import sets it) **Then** the `state` input is ignored like every system field (DOC-003, CD-142): the save succeeds and the document stays `draft`.
 - **Go test:** `TestApprovalTransition_NoDirectStateWrite`
 - **Sources:** `frappe/frappe/model/workflow.py:336-355` (`Workflow State transition not allowed from {0} to {1}`), `odoo/addons/hr_expense/models/hr_expense.py:1007-1008`, `:1023-1027`
 
