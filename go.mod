@@ -11,8 +11,10 @@ tool (
 )
 
 require (
+	github.com/PuerkitoBio/goquery v1.13.0
 	github.com/a-h/templ v0.3.1070
 	github.com/alexedwards/scs/v2 v2.9.0
+	github.com/evanw/esbuild v0.28.2
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/pressly/goose/v3 v3.29.0
 	modernc.org/sqlite v1.61.0
@@ -29,6 +31,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.49.0 // indirect
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/andybalholm/brotli v1.2.6 // indirect
+	github.com/andybalholm/cascadia v1.3.4 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

@@ -1,0 +1,45 @@
+/* app.css: the only CSS entry point (CD-98, docs/research/ui-library.md §2–§3).
+   Built by cmd/buildassets with the pinned Tailwind standalone executable. */
+@import "tailwindcss" source(none);
+@source "../../ui/**/*.{templ,go}";
+@source "../../{kernel,masters,modules}/**/*.templ";
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --breakpoint-sm: 30rem;
+}
+@import "./tokens.css";
+
+@plugin "../vendor/daisyui/daisyui.mjs" {
+  themes: false;
+}
+@import "./theme.css";
+
+@import "./base.css";
+@import "./layout.css";
+@import "./utilities.css";
+@import "./fonts.css";
+
+@import "./components/button.css";
+@import "./components/field.css";
+@import "./components/badge.css";
+@import "./components/banner.css";
+@import "./components/toast.css";
+@import "./components/dialog.css";
+@import "./components/disclosure.css";
+@import "./components/card.css";
+@import "./components/summary.css";
+@import "./components/pagination.css";
+@import "./components/filterbar.css";
+@import "./components/actionbar.css";
+@import "./components/datalist.css";
+@import "./components/lines.css";
+@import "./components/picker.css";
+@import "./components/upload.css";
+@import "./components/stepper.css";
+@import "./components/history.css";
+
+/* cmd/buildassets appends brand.CSS(brand.Load()) after the build (CD-99): unlayered and last, so brand values win. */

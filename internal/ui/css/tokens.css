@@ -1,0 +1,147 @@
+/* tokens.css: the ONLY file allowed raw colours and raw lengths (lint §6.3). Light mode only.
+   Breakpoints (constants; custom properties can't be used in @media):
+     --bp-sm 30rem (480px) · --bp-md 48rem (768px) · --bp-lg 64rem (1024px) · --bp-xl 80rem (1280px)
+   Always write mobile-first: base styles, then @media (min-width: …). Prefer @container for components. */
+
+:root { color-scheme: light; }
+
+@theme static {
+
+  /* ---------- Neutrals ---------- */
+  --color-canvas:          #F5F6F8;  /* page background */
+  --color-surface:         #FFFFFF;  /* cards, inputs, sheets, dialogs */
+  --color-sunken:          #EDEFF2;  /* wells, list header row, read-only fields */
+  --color-text:            #141A23;  /* body and headings */
+  --color-text-secondary:  #46505E;  /* labels, meta */
+  --color-text-muted:      #5E6878;  /* help text, placeholders (still ≥4.5:1) */
+  --color-text-disabled:   #8A93A1;  /* disabled controls only (exempt from 1.4.3) */
+  --color-text-on-fill:    #FFFFFF;  /* text on solid primary/status fills */
+  --color-border:          #7C8696;  /* input, checkbox and radio edges: UI component, ≥3:1 */
+  --color-border-subtle:   #DCE0E6;  /* dividers and card outlines (decorative) */
+  --color-progress-track:  #D5DAE1;  /* unfilled progress/stepper track */
+  --color-overlay:         rgb(20 26 35 / 0.5); /* dialog::backdrop */
+
+  /* ---------- Primary (actions, links, focus) ---------- */
+  --color-primary-50:  #EEF3FF;  /* selected row, primary-tinted backgrounds */
+  --color-primary-600: #1F4FD1;  /* solid buttons, links, active stepper */
+  --color-primary-700: #1A3FA8;  /* hover */
+  --color-primary-800: #16348A;  /* active/pressed; text on primary-50 */
+  --color-focus:       #1F4FD1;
+
+  /* ---------- Status: 50 = tint background, 600 = icon/border, 700 = text/solid fill, 800 = text on tint ---------- */
+  --color-success-50:  #EAF7EE; --color-success-600: #1E8A42; --color-success-700: #167033; --color-success-800: #0F5326;
+  --color-warning-50:  #FFF6E5; --color-warning-600: #B86200; --color-warning-700: #985000; --color-warning-800: #7A3F00;
+  --color-danger-50:   #FDEEEC; --color-danger-600:  #D0342A; --color-danger-700:  #B3261E; --color-danger-800:  #8F1F18;
+  --color-info-50:     #EAF4FB; --color-info-600:    #0C78BF; --color-info-700:    #0A64A0; --color-info-800:    #084C79;
+
+  /* ---------- Typography ---------- */
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --text-xs:   0.8125rem; /* 13px: captions, badges only */
+  --text-sm:   0.875rem;  /* 14px: meta, table secondary */
+  --text-base: 1rem;      /* 16px: body, ALL inputs (prevents iOS zoom) */
+  --text-lg:   1.125rem;  /* 18px: card titles, h3 */
+  --text-xl:   1.25rem;   /* 20px: h2 */
+  --text-2xl:  1.5rem;    /* 24px: h1 on mobile */
+  --text-3xl:  1.875rem;  /* 30px: h1 at ≥48rem */
+  --leading-tight: 1.25;
+  --leading-snug:  1.375;
+  --leading-body:  1.5;
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;
+  --weight-bold:    700;
+  --tracking-tight: -0.011em;  /* headings */
+  --h1: var(--text-2xl);
+  --h2: var(--text-xl);
+  --h3: var(--text-lg);
+
+  /* ---------- Spacing (4px grid) ---------- */
+  --space-0: 0;
+  --space-1: 0.25rem;  /*  4 */
+  --space-2: 0.5rem;   /*  8 */
+  --space-3: 0.75rem;  /* 12 */
+  --space-4: 1rem;     /* 16 */
+  --space-5: 1.25rem;  /* 20 */
+  --space-6: 1.5rem;   /* 24 */
+  --space-8: 2rem;     /* 32 */
+  --space-10: 2.5rem;  /* 40 */
+  --space-12: 3rem;    /* 48 */
+  --space-16: 4rem;    /* 64 */
+  --gutter: var(--space-4);          /* page side padding */
+  --content-max: 72rem;              /* max content width on desktop; always via max-inline-size */
+  --form-max: 40rem;                 /* single-column form/wizard width */
+
+  /* ---------- Sizing ---------- */
+  --target-min: 2.75rem;    /* 44px minimum touch target (WCAG 2.5.8 AA asks 24px) */
+  --target-primary: 3rem;   /* 48px primary actions in the mobile action bar */
+  --control-h: 2.75rem;     /* input/select/button height */
+  --icon-sm: 1rem;
+  --icon-md: 1.25rem;
+  --icon-lg: 1.5rem;
+  --logo-header-w: 10rem;  --logo-header-h: 2rem;     /* app header logo slot (CD-99) */
+  --logo-signin-w: 15rem;  --logo-signin-h: 4rem;     /* sign-in page logo slot */
+  --header-h: 3.5rem;
+  --actionbar-h: 4.5rem;
+
+  /* ---------- Borders and radii ---------- */
+  --border-w: 1px;
+  --border-w-strong: 2px;
+  --radius-sm: 0.25rem;  /*  4: badges */
+  --radius-md: 0.5rem;   /*  8: inputs, buttons */
+  --radius-lg: 0.75rem;  /* 12: cards */
+  --radius-xl: 1rem;     /* 16: sheets, dialogs */
+  --radius-pill: 999px;
+
+  /* ---------- Elevation (light only, subtle) ---------- */
+  --shadow-1: 0 1px 2px rgb(20 26 35 / 0.06), 0 1px 1px rgb(20 26 35 / 0.04);   /* cards */
+  --shadow-2: 0 4px 12px rgb(20 26 35 / 0.08), 0 1px 3px rgb(20 26 35 / 0.06);  /* dropdowns, sticky bars */
+  --shadow-3: 0 12px 32px rgb(20 26 35 / 0.14), 0 2px 6px rgb(20 26 35 / 0.08); /* dialogs */
+  --shadow-sheet: 0 -8px 24px rgb(20 26 35 / 0.12);                              /* bottom sheet */
+
+  /* ---------- Focus ---------- */
+  --focus-ring-w: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring: var(--focus-ring-w) solid var(--color-focus);
+
+  /* ---------- Z-index (native <dialog> uses the top layer, no z-index) ---------- */
+  --z-base: 0;
+  --z-raised: 1;
+  --z-sticky: 100;     /* sticky action bar, sticky list header */
+  --z-header: 200;     /* app header */
+  --z-dropdown: 300;   /* combobox listbox (non-modal) */
+  --z-overlay: 400;    /* non-dialog overlays */
+  --z-toast: 500;
+
+  /* ---------- Motion ---------- */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter:    cubic-bezier(0, 0, 0, 1);
+  --ease-exit:     cubic-bezier(0.3, 0, 1, 1);
+
+  /* ---------- Safe areas ---------- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --gutter: var(--space-6);
+    --h1: var(--text-3xl);
+    --h2: var(--text-2xl);
+    --h3: var(--text-xl);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0.01ms; --dur-base: 0.01ms; --dur-slow: 0.01ms; }
+  html { scroll-behavior: auto; }
+}
+
+/* Applied in base.css (shown here for completeness) */
+/* :focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+   html { scroll-padding-block: calc(var(--header-h) + var(--space-2)) calc(var(--actionbar-h) + var(--space-2)); } */

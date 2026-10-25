@@ -1,0 +1,16 @@
+/* fonts.css: cmd/buildassets replaces __INTER__ and __NOTO__ with the hashed font URLs. */
+@font-face {
+  font-family: Inter;
+  src: url("__INTER__") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Devanagari";
+  src: url("__NOTO__") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A8E0-A8FF;
+}
