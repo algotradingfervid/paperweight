@@ -11,6 +11,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // seriesTemplate reads the stored template for dt. Test goroutine only.
@@ -305,4 +306,190 @@ func TestSettings_CounterRange(t *testing.T) {
 	h := newHarness(t)
 	err := h.nm.SetCounter(context.Background(), admin, dtPO, "PO/26-27/", 100000)
 	wantNamingError(t, "SetCounter(admin, PO, PO/26-27/, 100000)", err, ErrCounterRange, msg)
+}
+
+// TestSettings_InvalidEditRejected covers NAM-054: the first failing rule's
+// error is returned and nothing is saved.
+func TestSettings_InvalidEditRejected(t *testing.T) {
+	h := newHarness(t)
+	err := h.nm.SetTemplate(context.Background(), admin, dtPO, "PO {FY}/{##}")
+	wantNamingError(t, "SetTemplate(admin, PO, PO {FY}/{##})", err, ErrInvalidTemplate,
+		"Series can use only letters, digits, '-' and '/'.")
+	if got := seriesTemplate(t, h, dtPO); got != "PO/{FY}/{#####}" {
+		t.Errorf("PO template = %q, want unchanged %q", got, "PO/{FY}/{#####}")
+	}
+	if n := len(h.audit.Entries()); n != 0 {
+		t.Errorf("audit entries = %d, want 0", n)
+	}
+}
+
+// TestSettings_PresetNextFY covers NAM-059 (harness clock moved to
+// 2027-03-20).
+func TestSettings_PresetNextFY(t *testing.T) {
+	h := newHarness(t)
+	h.nm = New(h.db, fixedClock(time.Date(2027, time.March, 20, 5, 0, 0, 0, time.UTC)), h.roles, h.audit)
+	if n := h.count(`SELECT COUNT(*) FROM naming_counters WHERE doctype = ? AND prefix = ?`, dtPO, "PO/27-28/"); n != 0 {
+		t.Fatalf("PO/27-28/ counter rows before SetCounter = %d, want 0", n)
+	}
+
+	if err := h.nm.SetCounter(context.Background(), admin, dtPO, "PO/27-28/", 50); err != nil {
+		t.Fatalf("SetCounter(admin, PO, PO/27-28/, 50): %v", err)
+	}
+	if n := h.count(`SELECT COUNT(*) FROM naming_counters WHERE doctype = ? AND prefix = ?`, dtPO, "PO/27-28/"); n != 1 {
+		t.Errorf("PO/27-28/ counter rows = %d, want 1", n)
+	}
+	wantCounter(t, h, dtPO, "PO/27-28/", 50)
+
+	if got := approveNew(t, h, dtPO, day(2027, 4, 1)); got != "PO/27-28/00051" {
+		t.Errorf("PO dated 2027-04-01 = %q, want %q", got, "PO/27-28/00051")
+	}
+}
+
+// TestSettings_Preview covers NAM-062: the next three numbers joined with
+// ", " (CD-57, CD-83), and nothing written. The new-prefix template is
+// PR/{FY}/{#####} because PUR/… would render 15 characters (over the cap).
+func TestSettings_Preview(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	d := day(2026, 10, 24)
+	h.preset(dtPO, "PO/26-27/", 7)
+
+	for _, c := range []struct{ tpl, want string }{
+		{"PO/{FY}/{#####}", "PO/26-27/00008, PO/26-27/00009, PO/26-27/00010"},
+		{"PR/{FY}/{#####}", "PR/26-27/00001, PR/26-27/00002, PR/26-27/00003"},
+	} {
+		got, err := h.nm.PreviewTemplate(ctx, c.tpl, d)
+		if err != nil {
+			t.Errorf("PreviewTemplate(%q, 2026-10-24): %v", c.tpl, err)
+			continue
+		}
+		if got != c.want {
+			t.Errorf("PreviewTemplate(%q, 2026-10-24) = %q, want %q", c.tpl, got, c.want)
+		}
+	}
+	wantCounter(t, h, dtPO, "PO/26-27/", 7)
+
+	got, err := h.nm.PreviewTemplate(ctx, "PO {FY}/{##}", d)
+	wantNamingError(t, "PreviewTemplate(PO {FY}/{##}, 2026-10-24)", err, ErrInvalidTemplate,
+		"Series can use only letters, digits, '-' and '/'.")
+	if got != "" {
+		t.Errorf("PreviewTemplate(PO {FY}/{##}) = %q, want \"\" with the error", got)
+	}
+
+	if n := h.count(`SELECT COUNT(*) FROM naming_counters`); n != 1 {
+		t.Errorf("naming_counters rows = %d, want 1 (only the PO/26-27/ preset)", n)
+	}
+	wantCounter(t, h, dtPO, "PO/26-27/", 7)
+	if n := h.count(`SELECT COUNT(*) FROM naming_issued`); n != 0 {
+		t.Errorf("naming_issued rows = %d, want 0", n)
+	}
+	if n := len(h.audit.Entries()); n != 0 {
+		t.Errorf("audit entries = %d, want 0", n)
+	}
+}
+
+// TestSettings_EnsureSeriesDuplicatePrefix: EnsureSeries runs the same
+// prefix-free check as SetTemplate and inserts no series row on failure.
+func TestSettings_EnsureSeriesDuplicatePrefix(t *testing.T) {
+	h := newHarness(t)
+	err := h.nm.EnsureSeries(context.Background(), "nam.Other", "Other", "PO/{FY}/{####}")
+	wantNamingError(t, "EnsureSeries(nam.Other, Other, PO/{FY}/{####})", err, ErrDuplicatePrefix,
+		"Prefix PO/{FY}/ is already used by Purchase Order. Use a different prefix.")
+	if n := h.count(`SELECT COUNT(*) FROM naming_series WHERE doctype = ?`, "nam.Other"); n != 0 {
+		t.Errorf("naming_series rows for nam.Other = %d, want 0", n)
+	}
+	if n := h.count(`SELECT COUNT(*) FROM naming_series`); n != len(harnessSeries) {
+		t.Errorf("naming_series rows = %d, want %d", n, len(harnessSeries))
+	}
+}
+
+// TestSettings_AuditDocIDs: a template change's audit DocID is the series
+// row id; a counter change's is the counter row id.
+func TestSettings_AuditDocIDs(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	// Counter ids 1 (GR) and 2 (PO), so no counter id equals the EX series id
+	// and the PO counter id differs from the PO series id.
+	h.preset(dtGRN, "GR/26-27/", 3)
+	h.preset(dtPO, "PO/26-27/", 7)
+
+	id := func(query string, args ...any) int64 {
+		t.Helper()
+		var v int64
+		if err := h.db.Read(ctx, func(tx *db.Tx) error {
+			return tx.SQL().QueryRowContext(ctx, query, args...).Scan(&v)
+		}); err != nil {
+			t.Fatalf("%q: %v", query, err)
+		}
+		return v
+	}
+	seriesID := id(`SELECT id FROM naming_series WHERE doctype = ?`, dtEXP)
+	poSeriesID := id(`SELECT id FROM naming_series WHERE doctype = ?`, dtPO)
+	counterID := id(`SELECT id FROM naming_counters WHERE doctype = ? AND prefix = ?`, dtPO, "PO/26-27/")
+	if counterID == poSeriesID || counterID == seriesID {
+		t.Fatalf("setup: counter id %d equals a series id (PO %d, EX %d)", counterID, poSeriesID, seriesID)
+	}
+
+	if err := h.nm.SetTemplate(ctx, admin, dtEXP, "EC/{FY}/{#####}"); err != nil {
+		t.Fatalf("SetTemplate(admin, EX, EC/{FY}/{#####}): %v", err)
+	}
+	if err := h.nm.SetCounter(ctx, admin, dtPO, "PO/26-27/", 20); err != nil {
+		t.Fatalf("SetCounter(admin, PO, PO/26-27/, 20): %v", err)
+	}
+
+	got := h.audit.Entries()
+	if len(got) != 2 {
+		t.Fatalf("audit entries = %d (%#v), want 2", len(got), got)
+	}
+	if got[0].DocType != "naming.Series" || got[0].DocID != seriesID {
+		t.Errorf("entry 0 = %s/%d, want naming.Series/%d (the EX series id)", got[0].DocType, got[0].DocID, seriesID)
+	}
+	if got[1].DocType != "naming.Counter" || got[1].DocID != counterID {
+		t.Errorf("entry 1 = %s/%d, want naming.Counter/%d (the PO/26-27/ counter id)", got[1].DocType, got[1].DocID, counterID)
+	}
+}
+
+// TestSettings_ParseLastNumberTrims: the form value is trimmed before parsing.
+func TestSettings_ParseLastNumberTrims(t *testing.T) {
+	const tpl = "PO/{FY}/{#####}"
+	if got, err := ParseLastNumber(tpl, " 143 "); err != nil || got != 143 {
+		t.Errorf("ParseLastNumber(%q, %q) = %d, %v; want 143, nil", tpl, " 143 ", got, err)
+	}
+}
+
+// TestSettings_PreviewTemplateNoDate: a zero date gets the same error as
+// Preview, before the template is looked at.
+func TestSettings_PreviewTemplateNoDate(t *testing.T) {
+	h := newHarness(t)
+	got, err := h.nm.PreviewTemplate(context.Background(), "PO/{FY}/{#####}", types.Date{})
+	wantNamingError(t, "PreviewTemplate(PO/{FY}/{#####}, zero date)", err, ErrInvalidDate,
+		"A document date is needed to give it a number.")
+	if got != "" {
+		t.Errorf("PreviewTemplate(zero date) = %q, want \"\" with the error", got)
+	}
+}
+
+// TestSettings_PreviewTemplateNearMax: the preview lists only numbers the
+// series can still give, and an exhausted series gets Assign's error.
+func TestSettings_PreviewTemplateNearMax(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	d := day(2026, 10, 24)
+
+	h.preset(dtPO, "PO/26-27/", 99998)
+	got, err := h.nm.PreviewTemplate(ctx, "PO/{FY}/{#####}", d)
+	if err != nil {
+		t.Fatalf("PreviewTemplate(last 99998): %v", err)
+	}
+	if got != "PO/26-27/99999" {
+		t.Errorf("PreviewTemplate(last 99998) = %q, want %q", got, "PO/26-27/99999")
+	}
+
+	h.preset(dtGRN, "GR/26-27/", 99999)
+	got, err = h.nm.PreviewTemplate(ctx, "GR/{FY}/{#####}", d)
+	wantNamingError(t, "PreviewTemplate(last 99999)", err, ErrExhausted,
+		"Series GR/26-27/ has used all 99999 numbers. Ask an Administrator to add a digit to the series.")
+	if got != "" {
+		t.Errorf("PreviewTemplate(last 99999) = %q, want \"\" with the error", got)
+	}
 }

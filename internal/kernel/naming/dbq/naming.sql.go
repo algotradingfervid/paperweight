@@ -281,6 +281,17 @@ func (q *Queries) ListSeries(ctx context.Context) ([]NamingSeries, error) {
 	return items, nil
 }
 
+const maxCounterLastByPrefix = `-- name: MaxCounterLastByPrefix :one
+SELECT CAST(COALESCE(MAX(last), 0) AS INTEGER) FROM naming_counters WHERE prefix = ?
+`
+
+func (q *Queries) MaxCounterLastByPrefix(ctx context.Context, prefix string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, maxCounterLastByPrefix, prefix)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const nextCounter = `-- name: NextCounter :one
 INSERT INTO naming_counters(doctype, prefix, last, created_at, updated_at)
 SELECT ?1, ?2, 1, ?3, ?4

@@ -11,6 +11,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/naming/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // requireAdmin returns a forbidden *Error unless p is an Administrator. It
@@ -177,4 +178,36 @@ func (n *Namer) SetCounter(ctx context.Context, p auth.Principal, doctype, prefi
 			At: n.clk.Now().UTC(),
 		})
 	})
+}
+
+// PreviewTemplate returns the next three numbers tpl would give a document
+// dated d, joined with ", " (CD-57, CD-83), stopping at the series maximum.
+// It looks the counter up by rendered prefix alone and takes the MAX across
+// DocTypes: checkPrefixFree only checks live templates, and a retired
+// template's counter rows remain. It never writes.
+func (n *Namer) PreviewTemplate(ctx context.Context, tpl string, d types.Date) (string, error) {
+	if d == (types.Date{}) {
+		return "", &Error{Kind: ErrInvalidDate, Msg: msgNoDate}
+	}
+	t, err := parseTemplate(strings.TrimSpace(tpl))
+	if err != nil {
+		return "", err
+	}
+	var last int64
+	err = n.db.Read(ctx, func(tx *db.Tx) error {
+		var err error
+		last, err = dbq.New(tx.SQL()).MaxCounterLastByPrefix(ctx, t.prefix(d))
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	if last >= t.maxCounter() {
+		return "", &Error{Kind: ErrExhausted, Msg: fmt.Sprintf(msgExhausted, t.prefix(d), t.maxCounter())}
+	}
+	nums := make([]string, 0, 3)
+	for c := last + 1; c <= last+3 && c <= t.maxCounter(); c++ {
+		nums = append(nums, t.render(d, c))
+	}
+	return strings.Join(nums, ", "), nil
 }
