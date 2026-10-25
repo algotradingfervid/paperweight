@@ -474,6 +474,8 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
   --icon-sm: 1rem;
   --icon-md: 1.25rem;
   --icon-lg: 1.5rem;
+  --logo-header-w: 10rem;  --logo-header-h: 2rem;     /* app header logo slot (CD-99) */
+  --logo-signin-w: 15rem;  --logo-signin-h: 4rem;     /* sign-in page logo slot */
   --header-h: 3.5rem;
   --actionbar-h: 4.5rem;
 
