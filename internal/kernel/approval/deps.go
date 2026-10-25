@@ -8,8 +8,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
-	"github.com/vardhan/internaltools/internal/types"
 )
 
 // RoleDirectory tells whether a role exists and is active. Optional: AUTH
@@ -60,10 +58,4 @@ func New(d Deps) *Approvals {
 		a.all = doctype.All
 	}
 	return a
-}
-
-// Stub until its task: Inbox (Task 8).
-
-func (a *Approvals) Inbox(ctx context.Context, p auth.Principal, page types.Page) (types.Result[InboxItem], error) {
-	return types.Result[InboxItem]{}, errs.ErrNotImplemented
 }

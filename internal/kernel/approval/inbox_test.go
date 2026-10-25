@@ -2,6 +2,7 @@ package approval_test
 
 import (
 	"context"
+	"math"
 	"slices"
 	"testing"
 	"time"
@@ -158,6 +159,8 @@ func TestApprovalInbox_OnlyActionable(t *testing.T) { // APR-077
 		{types.Page{Number: 1, Size: 3}, []string{"Draft 42", "Draft 50", "Draft 43"}, 4},
 		{types.Page{Number: 2, Size: 3}, []string{"Draft 10"}, 4},
 		{types.Page{Number: 3, Size: 3}, nil, 4},
+		{types.Page{Number: math.MaxInt, Size: 25}, nil, 4},
+		{types.Page{Number: 1<<61 + 1, Size: 4}, nil, 4}, // (Number-1)*Size wraps to math.MinInt
 	} {
 		res, err := e.A.Inbox(t.Context(), e.Meena, c.page)
 		at.MustOK(t, err)
@@ -169,6 +172,14 @@ func TestApprovalInbox_OnlyActionable(t *testing.T) { // APR-077
 			t.Errorf("Meena's inbox page %+v = %q total %d, want %q total %d", c.page, got, res.Total, c.want, c.total)
 		}
 	}
+}
+
+func TestApprovalStatus_PendingClaimNamesManager(t *testing.T) {
+	e := at.New(t)
+	employeesSubmitClaims(e)
+	d := e.NewDoc(t, at.Claim, 10, at.Rs(3450), e.Deepak)
+	at.MustOK(t, e.Submit(e.Deepak, d))
+	wantStatus(t, "pending claim", docStatus(t, e, d), "Waiting for approval from Priya Shah or Director", true)
 }
 
 func TestApprovalInbox_ClosesAndReopens(t *testing.T) { // APR-080
