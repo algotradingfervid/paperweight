@@ -203,7 +203,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-019 · All missing required fields are reported together
 - **Priority:** P1
 - **Level:** unit
-- **Given** an order with `supplier` and `order_date` empty **When** it is saved **Then** the save fails with field errors `supplier: "Supplier is required."` and `order_date: "Order date is required."` in one response, and nothing is written.
+- **Given** an order with `supplier` and `order_date` empty **When** it is submitted **Then** the submit fails with field errors `supplier: "Supplier is required."` and `order_date: "Order date is required."` in one response, and nothing is written. A draft save with them empty succeeds (CD-178, like R8 for lines).
 - **Go test:** `TestDoc_Validate_MandatoryCollected`
 - **Sources:** `frappe/frappe/tests/test_document.py:209` (`test_mandatory`), `frappe/frappe/model/document.py:1802-1823` (`_validate_mandatory` collects all)
 
