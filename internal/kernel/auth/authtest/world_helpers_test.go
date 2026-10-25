@@ -119,7 +119,7 @@ func TestWorld_UsersAndRoles(t *testing.T) {
 		t.Errorf("roles after AddRole = %q, want %q", got, want)
 	}
 
-	w.RemoveRole(t, "new@vardhan.test", "Director") // lacks it: no error
+	w.RemoveRole(t, "new@vardhan.test", "Director")                                       // lacks it: no error
 	bumps(t, w, "RemoveRole", func() { w.RemoveRole(t, "new@vardhan.test", "employee") }) // role names match case-insensitively
 	if got, want := w.P(t, "new@vardhan.test").Roles, []string{"Site Reader"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("roles after RemoveRole = %q, want %q", got, want)
