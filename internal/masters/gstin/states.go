@@ -3,53 +3,37 @@ package gstin
 import (
 	"fmt"
 	"strings"
+
+	"github.com/vardhan/internaltools/internal/kernel/gstcalc"
 )
 
 // State is a GST state: its two-digit code and name.
 type State struct{ Code, Name string }
 
-// states is STATE_NUMBERS, india_compliance/gst_india/constants/__init__.py:96,
-// verbatim and in the same order. migrations/01000_gst_state.sql seeds the same rows.
-var states = []State{
-	{"35", "Andaman and Nicobar Islands"},
-	{"37", "Andhra Pradesh"},
-	{"12", "Arunachal Pradesh"},
-	{"18", "Assam"},
-	{"10", "Bihar"},
-	{"04", "Chandigarh"},
-	{"22", "Chhattisgarh"},
-	{"26", "Dadra and Nagar Haveli and Daman and Diu"},
-	{"07", "Delhi"},
-	{"30", "Goa"},
-	{"24", "Gujarat"},
-	{"06", "Haryana"},
-	{"02", "Himachal Pradesh"},
-	{"01", "Jammu and Kashmir"},
-	{"20", "Jharkhand"},
-	{"29", "Karnataka"},
-	{"32", "Kerala"},
-	{"38", "Ladakh"},
-	{"31", "Lakshadweep Islands"},
-	{"23", "Madhya Pradesh"},
-	{"27", "Maharashtra"},
-	{"14", "Manipur"},
-	{"17", "Meghalaya"},
-	{"15", "Mizoram"},
-	{"13", "Nagaland"},
-	{"21", "Odisha"},
-	{"96", "Other Countries"},
-	{"97", "Other Territory"},
-	{"34", "Puducherry"},
-	{"03", "Punjab"},
-	{"08", "Rajasthan"},
-	{"11", "Sikkim"},
-	{"33", "Tamil Nadu"},
-	{"36", "Telangana"},
-	{"16", "Tripura"},
-	{"09", "Uttar Pradesh"},
-	{"05", "Uttarakhand"},
-	{"19", "West Bengal"},
+// stateCodes is STATE_NUMBERS, india_compliance/gst_india/constants/__init__.py:96,
+// in the same order. migrations/01000_gst_state.sql seeds the same rows.
+var stateCodes = []string{
+	"35", "37", "12", "18", "10", "04", "22", "26", "07", "30", "24", "06", "02",
+	"01", "20", "29", "32", "38", "31", "23", "27", "14", "17", "15", "13", "21",
+	"96", "97", "34", "03", "08", "11", "33", "36", "16", "09", "05", "19",
 }
+
+// states takes its names from gstcalc, which owns the state table (CD-130);
+// 96 (Other Countries) is not a place of supply, so gstin adds it itself.
+var states = func() []State {
+	out := make([]State, 0, len(stateCodes))
+	for _, code := range stateCodes {
+		name, ok := gstcalc.StateName(code)
+		if code == otherCountries {
+			name, ok = "Other Countries", true
+		}
+		if !ok {
+			panic("gstin: gstcalc has no state " + code + " (CD-130)")
+		}
+		out = append(out, State{code, name})
+	}
+	return out
+}()
 
 // otherCountries is the place-of-supply code for overseas parties; it is not
 // an Indian state (INDIAN_STATES, constants/__init__.py:137).
