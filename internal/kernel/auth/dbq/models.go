@@ -113,6 +113,7 @@ type AuthLog struct {
 type AuthMetum struct {
 	ID          int64
 	PermVersion int64
+	Seeded      int64
 }
 
 type LoginAttempt struct {
