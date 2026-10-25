@@ -105,6 +105,23 @@ type NamingSeries struct {
 	UpdatedBy sql.NullInt64
 }
 
+type Party struct {
+	ID                    int64
+	Code                  string
+	Name                  string
+	IsVendor              int64
+	IsCustomer            int64
+	Pan                   string
+	GstCategory           string
+	DefaultPaymentTermsID sql.NullInt64
+	Disabled              int64
+	Version               int64
+	CreatedAt             string
+	CreatedBy             sql.NullInt64
+	UpdatedAt             string
+	UpdatedBy             sql.NullInt64
+}
+
 type PaymentTerm struct {
 	ID        int64
 	Code      string
