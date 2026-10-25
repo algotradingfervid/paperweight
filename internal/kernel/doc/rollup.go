@@ -1,6 +1,7 @@
 package doc
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -24,12 +25,13 @@ func (e *engine) recomputeRollUps(ctx context.Context, tx *db.Tx, p auth.Princip
 		dt      *DocType
 		changes []audit.Change
 	}
-	changed := map[int64]*target{} // by target header id
+	type key struct {
+		dt string
+		id int64
+	}
+	changed := map[key]*target{} // by target DocType and header id
 	for _, r := range dt.RollUps {
-		t, ok := Lookup(r.TargetDocType)
-		if !ok {
-			return fmt.Errorf("doc: roll-up of %s targets unknown DocType %q", dt.Name, r.TargetDocType)
-		}
+		t, _ := Lookup(r.TargetDocType)
 		tf, _ := t.Field(r.TargetField)
 		sf, _ := dt.Field(r.SourceField)
 		jf, _ := dt.Field(r.JoinField)
@@ -57,23 +59,26 @@ func (e *engine) recomputeRollUps(ctx context.Context, tx *db.Tx, p auth.Princip
 			if _, err := tx.SQL().ExecContext(ctx, q, after, id); err != nil {
 				return fmt.Errorf("doc: roll-up update %s %d: %w", t.LinesTable, id, err)
 			}
-			if changed[parent] == nil {
-				changed[parent] = &target{dt: t}
+			k := key{t.Name, parent}
+			if changed[k] == nil {
+				changed[k] = &target{dt: t}
 			}
-			changed[parent].changes = append(changed[parent].changes, audit.Change{
+			changed[k].changes = append(changed[k].changes, audit.Change{
 				Field: r.TargetField, LineNo: lineNo, LineID: id,
 				Before: strconv.FormatInt(before, 10), After: strconv.FormatInt(after, 10), Op: audit.OpSet,
 			})
 		}
 	}
-	parents := make([]int64, 0, len(changed))
-	for id := range changed {
-		parents = append(parents, id)
+	keys := make([]key, 0, len(changed))
+	for k := range changed {
+		keys = append(keys, k)
 	}
-	slices.Sort(parents)
+	slices.SortFunc(keys, func(a, b key) int {
+		return cmp.Or(cmp.Compare(a.dt, b.dt), cmp.Compare(a.id, b.id))
+	})
 	now := e.Clock.Now().UTC()
-	for _, id := range parents {
-		t := changed[id]
+	for _, k := range keys {
+		t, id := changed[k], k.id
 		q := "UPDATE " + quote(t.dt.Table) + " SET version = version + 1, updated_at = ?, updated_by = ? WHERE id = ?"
 		if _, err := tx.SQL().ExecContext(ctx, q, now.Format(timestampLayout), int64(p.ID), id); err != nil {
 			return fmt.Errorf("doc: roll-up update %s %d: %w", t.dt.Table, id, err)
