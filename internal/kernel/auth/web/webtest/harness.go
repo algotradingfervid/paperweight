@@ -88,8 +88,8 @@ type Harness struct {
 }
 
 type options struct {
-	tls, trustProxy bool
-	routes          []func(chi.Router, *authweb.Server)
+	tls, trustProxy, probe bool
+	routes                 []func(chi.Router, *authweb.Server)
 }
 
 // Option configures New.
@@ -132,6 +132,9 @@ func New(t testing.TB, w *authtest.World, opts ...Option) *Harness {
 	})
 	for _, fn := range o.routes {
 		fn(r, srv)
+	}
+	if o.probe {
+		mountProbe(t, r, srv, w)
 	}
 
 	login := srv.Middleware(withTokenHeader(t, sm)(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
