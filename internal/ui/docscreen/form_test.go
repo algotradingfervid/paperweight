@@ -624,8 +624,9 @@ func TestWizardForm_BackSavesWithoutValidating(t *testing.T) {
 	for _, hx := range []bool{true, false} {
 		e := newFormEnv(t, allRights...)
 		docscreentest.Seed(e.docs, draftInfo(shipType, "Shipment", 60), doc.Record{Version: 3, Values: map[string]string{"ref": "SHP-1"}})
-		invalid := statusErr{status: http.StatusUnprocessableEntity, msg: "Fix the highlighted fields and save again.", fields: []doctype.FieldError{{Field: "deliver_on", Message: "Deliver on is required."}}}
-		e.docs.SetResult(shipType, 60, doctype.ActionSave, doc.Result{}, invalid)
+		// DOC accepts the draft as typed (a draft may be incomplete); a DOC
+		// field error on Back is TestWizardForm_BackOn422StaysOnStep.
+		e.docs.SetResult(shipType, 60, doctype.ActionSave, doc.Result{ID: 60, State: doctype.StateDraft, Version: 4}, nil)
 		var hdr []string
 		if hx {
 			hdr = []string{"HX-Request", "true"}
@@ -646,7 +647,7 @@ func TestWizardForm_BackSavesWithoutValidating(t *testing.T) {
 			continue
 		}
 		if rec.Code != http.StatusOK {
-			t.Fatalf("htmx back: status = %d, want 200 (DOC's 422 is ignored); body %.300s", rec.Code, rec.Body)
+			t.Fatalf("htmx back: status = %d, want 200; body %.300s", rec.Code, rec.Body)
 		}
 		if got := pathOf(t, rec.Header().Get("HX-Push-Url")); got != ship+"/edit/details" {
 			t.Errorf("htmx back: HX-Push-Url = %q, want %s/edit/details", got, ship)
@@ -699,6 +700,9 @@ func TestSubmit_FailureGoesToFirstFailingStep(t *testing.T) {
 			{Field: "qty", Line: 2, Message: "Quantity must be more than zero."},
 			{Field: "order_date", Message: "Order date is required."},
 		}, "details", "Step 1 of 3", "Details", "Order date is required."},
+		// DOC's no-lines error is on the lines as a whole (Field "lines",
+		// Line 0); it belongs to the Items step.
+		{"no lines", []doctype.FieldError{{Field: "lines", Line: 0, Message: "Add at least one line."}}, "items", "Step 2 of 3", "Items", "Add at least one line."},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
