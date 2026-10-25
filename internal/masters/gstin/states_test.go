@@ -2,9 +2,11 @@ package gstin_test
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"testing"
 
+	"github.com/vardhan/internaltools/internal/kernel/gstcalc"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/testkit"
 )
@@ -80,5 +82,37 @@ func TestStates_MatchGSTCodes(t *testing.T) { // MST-039
 	}
 	if want := slices.SortedFunc(slices.Values(states), byCode); !slices.Equal(fromDB, want) {
 		t.Errorf("gst_state rows differ from States():\n db:     %v\n States: %v", fromDB, want)
+	}
+}
+
+// TestStates_MatchGSTCalc checks CD-130: gstcalc owns the state table, and
+// gstin's rows match it except for 96 (Other Countries), which gstin adds.
+func TestStates_MatchGSTCalc(t *testing.T) {
+	states := gstin.States()
+	inGSTIN := map[string]bool{}
+	for _, s := range states {
+		inGSTIN[s.Code] = true
+		if s.Code == "96" {
+			continue
+		}
+		name, ok := gstcalc.StateName(s.Code)
+		if !ok || name != s.Name {
+			t.Errorf("gstcalc.StateName(%s) = %q, %v; gstin has %q", s.Code, name, ok, s.Name)
+		}
+	}
+	if s, ok := gstin.StateByCode("96"); !ok || s.Name != "Other Countries" {
+		t.Errorf(`gstin.StateByCode("96") = %+v, %v; want Other Countries`, s, ok)
+	}
+	if !inGSTIN["96"] {
+		t.Error("96 is missing from gstin.States()")
+	}
+	if name, ok := gstcalc.StateName("96"); ok {
+		t.Errorf(`gstcalc.StateName("96") = %q, true; want false`, name)
+	}
+	for i := 1; i <= 99; i++ {
+		code := fmt.Sprintf("%02d", i)
+		if _, ok := gstcalc.StateName(code); ok && !inGSTIN[code] {
+			t.Errorf("gstcalc knows state %s but gstin.States() lacks it", code)
+		}
 	}
 }
