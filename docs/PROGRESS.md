@@ -216,6 +216,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | 17 P2 users, roles, matrix | High | crew-test-writer, crew-implementer, crew-reviewer | 17:45 | 18:23 | 2 | 0/5/9 (CD-158: id-in-write, role versions, Config.Seed, no role resurrection; missing tests added; TEST-DISPUTE matrix tests post version; rename keeps no defaults on reset, by design) | e0bed74 |
 | WP1-AUTH | 19 P2 Who can view | Standard | crew-test-writer, crew-implementer, crew-reviewer | 18:00 | 18:33 | 1 | 0/1/4 (authweb imported internal/ui → moved to screens + import test; shared restrictionLabels; unknown right 400; RightLabel; default doctype) | 68e4c8d |
 | Merges | AUTH P2 batch (16–19, 21) 5db427c; `make ci` green. AUTH left: Task 20 (waits for UI-M2) and CD-171 | — | director | | 21:20 | — | — | — |
+| Merges | WP2 part 1 (Tasks 1–5, 8–11) e2cb5cb + dbq 5e65428; AUTH CD-171 5a793ca; `make ci` green after each | — | director | | 21:35 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 

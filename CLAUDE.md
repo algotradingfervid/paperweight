@@ -59,6 +59,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A master whose `ProjectFields`/`SiteFields` is `{"id"}` puts its own id in the RecordRef's `ProjectIDs`/`SiteIDs`; with no ids a restricted user is refused on every record, even their own.
 - Masters never declare `Links`, and `DefaultSort` names only declared fields (Address and Contact have no `name`; CD-167).
 - Commit tests for a package that isn't built yet in its lane, never on the WP branch: tests ahead of code break the shared hand-in and `make ci`.
+- A change to an auth check needs the same change in `authfake` and a parity row (real service vs fake, every DocType × `AllRights` + one unknown right); authfake drifted three times (CD-157, CD-162, CD-173).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
