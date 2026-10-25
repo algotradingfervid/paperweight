@@ -5,6 +5,7 @@
 @source "../../{kernel,masters,modules}/**/*.templ";
 @source not "../**/*_test.go";
 @source not "../testdata";
+@source not "../icons/icons_gen.go";
 
 @theme {
   --color-*: initial;

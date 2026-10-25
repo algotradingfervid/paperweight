@@ -385,4 +385,13 @@ func TestShell_DefaultsWhenAbsent(t *testing.T) {
 	if s := ui.ShellFrom(ctx); s.CSRF != "tok" || s.AppName != "X" {
 		t.Errorf("ShellFrom after WithShell = %+v", s)
 	}
+	want := ui.Shell{AppName: "M", CSRF: "mw", Path: "/x"}
+	var seen ui.Shell
+	h := ui.ShellMiddleware(func(*http.Request) ui.Shell { return want })(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		seen = ui.ShellFrom(r.Context())
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
+	if seen.AppName != want.AppName || seen.CSRF != want.CSRF || seen.Path != want.Path {
+		t.Errorf("ShellFrom inside ShellMiddleware = %+v, want %+v", seen, want)
+	}
 }
