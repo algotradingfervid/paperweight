@@ -216,6 +216,13 @@ func TestScope_ReportTotals(t *testing.T) {
 	r = ravi.Get("/reports/po-value")
 	wantStatus(t, "ravi GET /reports/po-value", r, http.StatusOK)
 	t15WantLine(t, "ravi /reports/po-value", r.Body, "Total: 170750000")
+	// A caller without read on Purchase Order is refused, not shown a total.
+	deepak := signedIn(t, h, t10Deepak)
+	r = deepak.Get("/reports/po-value")
+	t12WantMsg(t, "deepak GET /reports/po-value", r, http.StatusForbidden, t10DenyReadPO)
+	if strings.Contains(r.Body, "Total:") {
+		t.Fatalf("deepak GET /reports/po-value: body %q shows a total", r.Body)
+	}
 }
 
 // t18Leaks are what a denial must never show (AUTH-114).

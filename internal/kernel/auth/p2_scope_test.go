@@ -22,60 +22,102 @@ func t18PendingPO(t *testing.T, w *authtest.World) *auth.RecordRef {
 	return t6aRef(t, w, authtest.DTOrder, id)
 }
 
-// AllowedRights must agree with Can for every right (AUTH's share of AUTH-084).
+// AllowedRights must agree with Can for every right and every record
+// (AUTH's share of AUTH-084).
 func TestAllowedRights_MatchesCan(t *testing.T) {
 	ctx := context.Background()
 	w := authtest.NewWorld(t)
 	ref := t18PendingPO(t, w)
+	if w.Projects["PRJ-TECHPARK"] == 0 || w.Sites["TECH-SITE"] == 0 {
+		t.Fatalf("fixture has no PRJ-TECHPARK / TECH-SITE")
+	}
+	// A PO at PRJ-TECHPARK created by Priya: outside her project restriction.
+	t5InsertPO(t, w, 7, "", w.Users["priya@vardhan.test"], w.Projects["PRJ-TECHPARK"], w.Sites["TECH-SITE"])
+	techpark := t6aRef(t, w, authtest.DTOrder, 7)
+	// A PO at PRJ-METRO created by Ravi: Priya can see it but does not own it.
+	t5InsertPO(t, w, 8, "", w.Users["ravi@vardhan.test"], w.Projects["PRJ-METRO"], w.Sites["METRO-SITE"])
+	ravis := t6aRef(t, w, authtest.DTOrder, 8)
 
-	allowed := func(email string) map[auth.Right]bool {
+	allowed := func(email, what string, rec *auth.RecordRef) map[auth.Right]bool {
 		t.Helper()
-		got, err := w.Auth.AllowedRights(ctx, w.P(t, email), authtest.DTOrder, ref)
+		got, err := w.Auth.AllowedRights(ctx, w.P(t, email), authtest.DTOrder, rec)
 		if err != nil {
-			t.Fatalf("AllowedRights(%s, PO Draft 6): %v", email, err)
+			t.Fatalf("AllowedRights(%s, %s): %v", email, what, err)
 		}
 		return got
 	}
 
-	priya := allowed("priya@vardhan.test")
+	priya := allowed("priya@vardhan.test", "PO Draft 6", ref)
 	if priya[auth.RightApprove] {
-		t.Errorf("AllowedRights(priya)[approve] = true, want false (Priya has no approve)")
+		t.Errorf("AllowedRights(priya, PO Draft 6)[approve] = true, want false (Priya has no approve)")
 	}
 	if !priya[auth.RightSubmit] {
-		t.Errorf("AllowedRights(priya)[submit] = false, want true (Withdraw needs submit)")
+		t.Errorf("AllowedRights(priya, PO Draft 6)[submit] = false, want true (Withdraw needs submit)")
+	}
+	if !priya[auth.RightDelete] {
+		t.Errorf("AllowedRights(priya, PO Draft 6)[delete] = false, want true (own scope, Priya created it)")
 	}
 
-	ravi := allowed("ravi@vardhan.test")
+	ravi := allowed("ravi@vardhan.test", "PO Draft 6", ref)
 	if !ravi[auth.RightApprove] {
-		t.Errorf("AllowedRights(ravi)[approve] = false, want true")
+		t.Errorf("AllowedRights(ravi, PO Draft 6)[approve] = false, want true")
 	}
 	for _, r := range []auth.Right{auth.RightWrite, auth.RightDelete, auth.RightSubmit} {
 		if ravi[r] {
-			t.Errorf("AllowedRights(ravi)[%s] = true, want false", r)
+			t.Errorf("AllowedRights(ravi, PO Draft 6)[%s] = true, want false", r)
 		}
 	}
 
-	var granted, refused int
-	for _, email := range []string{
-		"admin@vardhan.test", "meena@vardhan.test", "ravi@vardhan.test", "priya@vardhan.test",
-		"suresh@vardhan.test", "kavya@vardhan.test", "deepak@vardhan.test",
-	} {
-		p := w.P(t, email)
-		got := allowed(email)
-		for _, r := range auth.AllRights {
-			canErr := w.Auth.Can(ctx, p, authtest.DTOrder, r, ref)
-			if got[r] != (canErr == nil) {
-				t.Errorf("%s: AllowedRights[%s] = %v, but Can(%s) = %v", email, r, got[r], r, canErr)
-			}
-			if canErr == nil {
-				granted++
-			} else {
-				refused++
-			}
+	// (a) A record Priya can't see: every right is refused.
+	for _, r := range auth.AllRights {
+		if allowed("priya@vardhan.test", "PO 7 at PRJ-TECHPARK", techpark)[r] {
+			t.Errorf("AllowedRights(priya, PO 7 at PRJ-TECHPARK)[%s] = true, want false (outside her PRJ-METRO restriction)", r)
 		}
-		for r := range got {
-			if !slices.Contains(auth.AllRights, r) {
-				t.Errorf("%s: AllowedRights has unknown right %q", email, r)
+	}
+	// Control: the same record is visible to an unrestricted user.
+	if !allowed("ravi@vardhan.test", "PO 7 at PRJ-TECHPARK", techpark)[auth.RightRead] {
+		t.Errorf("AllowedRights(ravi, PO 7 at PRJ-TECHPARK)[read] = false, want true (Ravi is unrestricted)")
+	}
+
+	// (b) A record Priya can see but didn't create: own-scope delete is
+	// refused, all-scope submit is not.
+	onRavis := allowed("priya@vardhan.test", "PO 8 by Ravi", ravis)
+	if onRavis[auth.RightDelete] {
+		t.Errorf("AllowedRights(priya, PO 8 by Ravi)[delete] = true, want false (delete is own scope; Ravi created it)")
+	}
+	if !onRavis[auth.RightSubmit] {
+		t.Errorf("AllowedRights(priya, PO 8 by Ravi)[submit] = false, want true (submit is all scope)")
+	}
+	if !onRavis[auth.RightRead] {
+		t.Errorf("AllowedRights(priya, PO 8 by Ravi)[read] = false, want true (PRJ-METRO is in her restriction)")
+	}
+
+	var granted, refused int
+	for _, rec := range []struct {
+		what string
+		ref  *auth.RecordRef
+	}{{"PO Draft 6", ref}, {"PO 7 at PRJ-TECHPARK", techpark}, {"PO 8 by Ravi", ravis}} {
+		for _, email := range []string{
+			"admin@vardhan.test", "meena@vardhan.test", "ravi@vardhan.test", "priya@vardhan.test",
+			"suresh@vardhan.test", "kavya@vardhan.test", "deepak@vardhan.test",
+		} {
+			p := w.P(t, email)
+			got := allowed(email, rec.what, rec.ref)
+			for _, r := range auth.AllRights {
+				canErr := w.Auth.Can(ctx, p, authtest.DTOrder, r, rec.ref)
+				if got[r] != (canErr == nil) {
+					t.Errorf("%s on %s: AllowedRights[%s] = %v, but Can(%s) = %v", email, rec.what, r, got[r], r, canErr)
+				}
+				if canErr == nil {
+					granted++
+				} else {
+					refused++
+				}
+			}
+			for r := range got {
+				if !slices.Contains(auth.AllRights, r) {
+					t.Errorf("%s on %s: AllowedRights has unknown right %q", email, rec.what, r)
+				}
 			}
 		}
 	}
