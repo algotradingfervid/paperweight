@@ -1,0 +1,134 @@
+package print
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/platform/brand"
+	"github.com/vardhan/internaltools/internal/types"
+)
+
+// TradeDocument is the standard purchase-document print body: letterhead,
+// title, party, lines, totals, words, terms and signatory.
+templ TradeDocument(d TradeDoc) {
+	@LetterheadBlock(d.Letterhead)
+	@DocTitle(d.Title)
+	<p class="doc-date">{ "Date: " + types.FormatDate(d.Date) }</p>
+	if d.AmendsNumber != "" {
+		<p class="amends">{ "Amends " + d.AmendsNumber }</p>
+	}
+	@PartyBlock(d.Party)
+	@Lines(d.Lines)
+	@Totals(d)
+	@Words(d)
+	@Terms(d.Terms)
+	if d.ApprovedBy != "" {
+		<p class="approved">{ "Approved by " + d.ApprovedBy + " on " + types.FormatIST(d.ApprovedAt) }</p>
+	}
+	@Signatory(d.Letterhead.LegalName)
+}
+
+// LetterheadBlock is the company and branch heading; the logo and GSTIN
+// lines appear only when set (FILE-064).
+templ LetterheadBlock(l LetterheadInfo) {
+	<header class="letterhead">
+		if l.LogoURL != "" {
+			<img class="logo" src={ l.LogoURL } alt={ l.LegalName } width={ strconv.Itoa(brand.DocumentLogoWidth) } height={ strconv.Itoa(brand.DocumentLogoHeight) }/>
+		}
+		<h2 class="legal-name">{ l.LegalName }</h2>
+		<p class="branch">{ l.BranchName }</p>
+		for _, line := range l.Address {
+			<p class="address">{ line }</p>
+		}
+		<p class="state">{ l.StateName + " (" + l.StateCode + ")" }</p>
+		if l.GSTIN != "" {
+			<p class="gstin">{ "GSTIN: " + l.GSTIN }</p>
+		}
+	</header>
+	<hr/>
+}
+
+// PartyBlock is the vendor, customer or employee block saved on the document.
+templ PartyBlock(p Party) {
+	<section class="party">
+		<h3>{ p.Label }</h3>
+		<p class="party-name">{ p.Name }</p>
+		for _, line := range p.Address {
+			<p class="address">{ line }</p>
+		}
+		if p.GSTIN != "" {
+			<p class="gstin">{ "GSTIN: " + p.GSTIN }</p>
+		} else {
+			<p class="gstin">GSTIN: Unregistered</p>
+		}
+	</section>
+}
+
+// Lines is the lines table; its header repeats on every printed page.
+templ Lines(lines []TradeLine) {
+	<table class="lines">
+		<thead>
+			<tr><th>Sr</th><th>Item</th><th>HSN</th><th>Qty</th><th>UoM</th><th>Rate</th><th>Amount</th></tr>
+		</thead>
+		<tbody>
+			for _, l := range lines {
+				<tr>
+					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="item">
+						<div class="item-name">{ l.Item }</div>
+						if l.Description != "" {
+							<div class="desc">{ l.Description }</div>
+						}
+					</td>
+					<td class="hsn">{ l.HSN }</td>
+					<td class="qty">{ types.FormatQty(l.Qty) }</td>
+					<td class="uom">{ l.UoM }</td>
+					<td class="rate">{ "₹" + types.FormatRate(l.Rate) }</td>
+					<td class="amount">{ types.FormatINR(l.Amount) }</td>
+				</tr>
+			}
+			if len(lines) == 0 {
+				<tr><td colspan="7">No items</td></tr>
+			}
+		</tbody>
+	</table>
+}
+
+// Totals is the taxable value, one row per tax, the grand total and the
+// rounded total when rounding changed it.
+templ Totals(d TradeDoc) {
+	<div class="totals">
+		<p>{ "Taxable Value " + types.FormatINR(d.Taxable) }</p>
+		for _, t := range d.Taxes {
+			<p>{ t.Name + " " + types.FormatPercent(t.Rate) + " " + types.FormatINR(t.Amount) }</p>
+		}
+		<p class="grand-total">{ "Grand Total " + types.FormatINR(d.GrandTotal) }</p>
+		if d.showRounded() {
+			<p class="rounded-total">{ "Rounded Total " + types.FormatINR(d.RoundedTotal) }</p>
+		}
+	</div>
+}
+
+// Words is the payable total in words, left out if it can't be computed.
+templ Words(d TradeDoc) {
+	if w := d.words(); w != "" {
+		<p class="words">{ w }</p>
+	}
+}
+
+// Terms is the terms section, left out when there are none (FILE-064).
+templ Terms(terms string) {
+	if terms != "" {
+		<section class="terms">
+			<h3>Terms</h3>
+			<p>{ terms }</p>
+		</section>
+	}
+}
+
+// Signatory is the closing block, kept on one page.
+templ Signatory(legalName string) {
+	<div class="closing">
+		<p>{ "For " + legalName }</p>
+		<p class="signatory">Authorised Signatory</p>
+	</div>
+}
