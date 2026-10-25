@@ -4,8 +4,8 @@ import "github.com/vardhan/internaltools/internal/ui"
 
 // FormProps describes a form. Method is "post" unless set to "get".
 type FormProps struct {
-	ID, Action, Method, Target, Swap string
-	HX, Multipart                    bool
+	ID, Action, Method, Target, Swap, Trigger string
+	HX, Multipart                             bool
 }
 
 func orDefault(s, def string) string {
@@ -49,6 +49,9 @@ templ Form(p FormProps) {
 				hx-target={ orDefault(p.Target, "#main") }
 				hx-swap={ orDefault(p.Swap, "outerHTML") }
 				hx-disabled-elt="find button[type=submit]"
+				if p.Trigger != "" {
+					hx-trigger={ p.Trigger }
+				}
 				if p.Multipart {
 					hx-encoding="multipart/form-data"
 				}

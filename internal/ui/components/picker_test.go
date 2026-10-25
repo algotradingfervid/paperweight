@@ -95,6 +95,12 @@ func TestPicker_ChosenSummaryWithChange(t *testing.T) {
 	if !found {
 		t.Error(`no "Change" button`)
 	}
+	if doc.Find(`button.btn--secondary[type="button"][data-picker-change]`).Length() != 1 {
+		t.Error("Change is not a Secondary Button")
+	}
+	if doc.Find(`button.btn--ghost[type="button"][data-picker-close]`).Length() != 1 {
+		t.Error("Close is not a Ghost Button")
+	}
 	if got, _ := doc.Find(`input[type="hidden"][name="item_id"]`).Attr("value"); got != "7" {
 		t.Errorf("hidden value = %q, want 7", got)
 	}

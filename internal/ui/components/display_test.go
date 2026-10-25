@@ -297,7 +297,7 @@ func TestDialog_NativeWithClose(t *testing.T) {
 			t.Errorf("%s: aria-labelledby %q does not name the title", name, lb)
 		}
 		cl := d.Find(`button[data-close-dialog][aria-label="Close"]`)
-		if cl.Length() != 1 || cl.AttrOr("type", "") != "button" {
+		if cl.Length() != 1 || cl.AttrOr("type", "") != "button" || !cl.HasClass("btn--ghost") {
 			t.Errorf("%s: close button missing", name)
 		}
 	}

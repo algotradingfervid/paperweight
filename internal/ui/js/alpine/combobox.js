@@ -1,6 +1,7 @@
 // combobox.js: the Picker's ARIA 1.2 combobox (x-data="combobox"). htmx
 // fills the listbox; this moves aria-activedescendant with the arrow keys,
 // writes the chosen id and summary on Enter or click, and closes on Esc.
+// Closing after "Change" without a new choice shows the old summary again.
 // Every handler is bound in init(), so the markup holds no expressions.
 
 function combobox() {
@@ -38,6 +39,16 @@ function combobox() {
         if (!open) setActive(-1);
       }
 
+      // close shuts the list; with a value already chosen it shows that
+      // summary again instead of the search.
+      function close() {
+        setOpen(false);
+        if (value.value !== "") {
+          search.hidden = true;
+          chosen.hidden = false;
+        }
+      }
+
       function choose(o) {
         value.value = o.dataset.value;
         summary.textContent = o.dataset.label;
@@ -60,12 +71,16 @@ function combobox() {
           if (active < 0) setActive(step > 0 ? 0 : n - 1);
           else setActive((active + step + n) % n);
         } else if (e.key === "Enter") {
-          // Enter picks a row; it never submits the surrounding form.
-          e.preventDefault();
-          if (active >= 0) choose(options()[active]);
+          // Enter picks the active row of an open list; otherwise it
+          // submits the form as in any field (design-system §8.3).
+          if (input.getAttribute("aria-expanded") === "true" && active >= 0) {
+            e.preventDefault();
+            choose(options()[active]);
+          }
         } else if (e.key === "Escape") {
           e.preventDefault();
-          setOpen(false);
+          close();
+          if (search.hidden) change.focus();
         }
       });
 
@@ -80,12 +95,13 @@ function combobox() {
       });
 
       root.addEventListener("focusout", function (e) {
-        if (!search.contains(e.relatedTarget)) setOpen(false);
+        if (!search.contains(e.relatedTarget)) close();
       });
 
       root.addEventListener("click", function (e) {
         if (e.target.closest("[data-picker-close]")) {
-          setOpen(false);
+          close();
+          if (search.hidden) change.focus();
         } else if (e.target.closest("[data-picker-change]")) {
           chosen.hidden = true;
           search.hidden = false;

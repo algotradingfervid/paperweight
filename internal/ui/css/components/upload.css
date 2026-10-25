@@ -9,7 +9,6 @@
     flex-wrap: wrap;
     gap: var(--space-2);
   }
-  & .upload__form { margin: 0; }
   /* The file input is visually hidden inside its label; the label shows its focus. */
   & .upload__button:has(:focus-visible) {
     outline: var(--focus-ring);

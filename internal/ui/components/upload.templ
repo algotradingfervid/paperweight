@@ -1,9 +1,6 @@
 package components
 
-import (
-	"github.com/vardhan/internaltools/internal/ui"
-	"github.com/vardhan/internaltools/internal/ui/icons"
-)
+import "github.com/vardhan/internaltools/internal/ui/icons"
 
 // Attachment is one stored file as shown under FileUpload and on document
 // pages. Kind is "image", "heic", "pdf" or "other".
@@ -23,14 +20,13 @@ type UploadProps struct {
 // on phones) and "Choose file". Choosing a file posts it at once; upload.js
 // moves the progress bar on htmx:xhr:progress.
 templ FileUpload(p UploadProps) {
-	<div id={ p.ID } class="upload" role="group" aria-labelledby={ p.ID + "-label" }>
-		<p id={ p.ID + "-label" } class="field__label">{ p.Label }</p>
-		<p id={ p.ID + "-hint" } class="field__hint">{ orDefault(p.Hint, "JPG, PNG, HEIC or PDF, up to 10 MB") }</p>
-		@fieldMsg(p.ID, p.Error, "")
-		<div class="upload__controls">
-			@uploadForm(p, true)
-			@uploadForm(p, false)
-		</div>
+	<div id={ p.ID } class="upload">
+		@choiceGroup(FieldProps{ID: p.ID, Label: p.Label, Hint: orDefault(p.Hint, "JPG, PNG, HEIC or PDF, up to 10 MB"), Error: p.Error}) {
+			<div class="upload__controls">
+				@uploadForm(p, true)
+				@uploadForm(p, false)
+			</div>
+		}
 		<progress class="progress upload__progress" max="100" value="0" hidden></progress>
 		if len(p.Files) > 0 {
 			@Attachments(p.Files)
@@ -41,19 +37,8 @@ templ FileUpload(p UploadProps) {
 // uploadForm is one control in its own form, so the other control's empty
 // input never sends a second "file" part.
 templ uploadForm(p UploadProps, camera bool) {
-	<form
-		class="upload__form"
-		method="post"
-		action={ templ.URL(p.Action) }
-		enctype="multipart/form-data"
-		hx-post={ p.Action }
-		hx-encoding="multipart/form-data"
-		hx-trigger="change"
-		hx-target={ "#" + p.ID }
-		hx-swap="outerHTML"
-	>
-		<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
-		<label class="btn btn-outline tap upload__button">
+	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: "#" + p.ID, Trigger: "change"}) {
+		<label class={ buttonClass(Secondary) + " upload__button" }>
 			if camera {
 				@icons.Icon("camera")
 				<span>Take photo</span>
@@ -72,11 +57,10 @@ templ uploadForm(p UploadProps, camera bool) {
 					type="file"
 					name="file"
 					accept="image/*,application/pdf"
-					multiple
 					class="visually-hidden"
 					aria-describedby={ p.ID + "-hint " + p.ID + "-msg" }
 				/>
 			}
 		</label>
-	</form>
+	}
 }

@@ -15,7 +15,7 @@ templ Picker(p PickerProps) {
 			<div class="picker" x-data="combobox">
 				<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
 					<p class="picker__summary" data-picker-summary>{ text }</p>
-					<button type="button" class="btn btn-outline tap" data-picker-change>Change</button>
+					@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-picker-change": true}})
 				</div>
 				<div class="picker__search" data-picker-search hidden?={ p.Chosen != nil }>
 					<div class="picker__bar">
@@ -32,7 +32,7 @@ templ Picker(p PickerProps) {
 							hx-target={ "#" + p.ListboxID }
 							{ controlAttrs(pickerSearchField(p), "input field__input")... }
 						/>
-						<button type="button" class="btn btn-ghost tap picker__close" data-picker-close>Close</button>
+						@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})
 					</div>
 					<ul role="listbox" id={ p.ListboxID } class="list picker__list" aria-label={ p.Field.Label }></ul>
 				</div>

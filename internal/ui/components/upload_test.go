@@ -27,8 +27,11 @@ func TestFileUpload_TwoControlsAndLimits(t *testing.T) {
 	if got, _ := file.Attr("accept"); got != "image/*,application/pdf" {
 		t.Errorf("Choose file accept = %q", got)
 	}
-	if _, ok := file.Attr("multiple"); !ok {
-		t.Error("Choose file has no multiple")
+	if _, ok := file.Attr("multiple"); ok {
+		t.Error("Choose file must not take multiple files")
+	}
+	if got := strings.TrimSpace(doc.Find("fieldset > legend").Text()); got != "Receipt" {
+		t.Errorf("legend = %q", got)
 	}
 	if doc.Find(`input[capture]`).Length() != 1 {
 		t.Error("capture must be on Take photo only")
@@ -50,6 +53,12 @@ func TestFileUpload_TwoControlsAndLimits(t *testing.T) {
 		}
 		if got, _ := f.Attr("hx-encoding"); got != "multipart/form-data" {
 			t.Errorf("hx-encoding = %q", got)
+		}
+		if got, _ := f.Attr("hx-trigger"); got != "change" {
+			t.Errorf("hx-trigger = %q", got)
+		}
+		if got, _ := f.Attr("hx-target"); got != "#receipt" {
+			t.Errorf("hx-target = %q", got)
 		}
 	})
 	pr := doc.Find("progress.upload__progress")
