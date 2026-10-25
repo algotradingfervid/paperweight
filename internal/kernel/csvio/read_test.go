@@ -125,3 +125,13 @@ func TestReadSheet_TooManyRowsKeepsAtMostMaxRows(t *testing.T) {
 	_, err = ReadSheet(strings.NewReader(b.String()))
 	assertFileError(t, err, "Row 200002 has 2 values but the header has 1. Check for an unquoted comma.")
 }
+
+func TestImport_BadQuoteRow(t *testing.T) { // AD decision (no case ID)
+	// Row 2 spans two file lines, so the bad quote on file line 4 is row 3.
+	in := "Code,Name\r\nA1,\"Two\r\nlines\"\r\nA2,Bad\"quote\r\n"
+	_, err := ReadSheet(strings.NewReader(in))
+	assertFileError(t, err, `Row 3 has a quote mark (") in the wrong place. Save the file again as CSV and try once more.`)
+
+	_, err = ReadSheet(strings.NewReader("Code,Name\r\nA1,\"open\r\n"))
+	assertFileError(t, err, `Row 2 has a quote mark (") in the wrong place. Save the file again as CSV and try once more.`)
+}

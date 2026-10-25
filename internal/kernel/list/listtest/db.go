@@ -224,7 +224,7 @@ func SeedFixtures(t testing.TB, d *db.DB) IDs {
 		ids[s.Code] = Insert(t, d, "numt_site", map[string]any{"code": s.Code, "name": s.Code})
 	}
 	for _, u := range []string{"kg", "Nos", "Box", "m", "Drum", "Bag", "Hour"} {
-		ids[u] = Insert(t, d, "numt_uom", map[string]any{"code": u, "name": u})
+		ids[u] = Insert(t, d, "numt_uom", map[string]any{"code": u, "name": u, "disabled": false})
 	}
 	for _, it := range fx.Items {
 		ids[it.Code] = InsertItem(t, d, ItemRow{
