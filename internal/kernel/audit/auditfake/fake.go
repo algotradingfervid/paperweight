@@ -21,12 +21,16 @@ type Recorder struct {
 
 func New() *Recorder { return &Recorder{} }
 
-// Append records e, or returns and clears the error set with FailNext.
+// Append records e, or returns and clears the error set with FailNext. Like
+// the store, it refuses an entry audit.ValidateEntry refuses (CD-163).
 func (r *Recorder) Append(ctx context.Context, tx *db.Tx, e audit.Entry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if err := r.failNext; err != nil {
 		r.failNext = nil
+		return err
+	}
+	if err := audit.ValidateEntry(e); err != nil {
 		return err
 	}
 	r.entries = append(r.entries, copyEntry(e))
