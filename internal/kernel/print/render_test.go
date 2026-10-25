@@ -92,9 +92,14 @@ func TestPrint_PageShell(t *testing.T) {
 			t.Errorf("page missing %q in\n%s", want, html)
 		}
 	}
-	for _, bad := range []string{"<style", "<script", "style="} {
+	for _, bad := range []string{"<style", "style="} {
 		if strings.Contains(html, bad) {
 			t.Errorf("page contains %q (CSP forbids it):\n%s", bad, html)
+		}
+	}
+	for _, tag := range strings.Split(html, "<script")[1:] {
+		if end := strings.IndexByte(tag, '>'); end < 0 || !strings.Contains(tag[:end], "src=") {
+			t.Errorf("page contains an inline <script (CSP forbids it):\n%s", html)
 		}
 	}
 }

@@ -43,15 +43,23 @@ func TestRegistry_Register(t *testing.T) {
 func TestRegistry_Missing(t *testing.T) {
 	dts := []*doctype.DocType{
 		{Name: testPO, Printable: true},
+		{Name: testGRN, Printable: true},
+		{Name: testExpense, Printable: true},
 		{Name: "test.NoTemplate", Printable: true},
 		{Name: "test.Master"},
 	}
 	names := print.PrintableNames(dts)
-	if want := []string{testPO, "test.NoTemplate"}; !reflect.DeepEqual(names, want) {
+	if want := []string{testPO, testGRN, testExpense, "test.NoTemplate"}; !reflect.DeepEqual(names, want) {
 		t.Fatalf("PrintableNames = %v, want %v", names, want)
 	}
 	reg := print.NewRegistry()
 	reg.Register(testPO, emptyView)
+	reg.Register(testGRN, func(context.Context, *db.Tx, int64) (templ.Component, error) {
+		return print.GRNDocument(print.GRNDoc{}), nil
+	})
+	reg.Register(testExpense, func(context.Context, *db.Tx, int64) (templ.Component, error) {
+		return print.ExpenseDocument(print.ExpenseDoc{}), nil
+	})
 	err := reg.Missing(names)
 	if err == nil || err.Error() != "No print template for DocType test.NoTemplate." {
 		t.Fatalf("Missing = %v, want No print template for DocType test.NoTemplate.", err)

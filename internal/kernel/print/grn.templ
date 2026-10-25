@@ -1,0 +1,41 @@
+package print
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/types"
+)
+
+// GRNDocument is the goods receipt print body: letterhead, title, PO and
+// challan reference, vendor, and received, accepted and rejected quantities.
+templ GRNDocument(d GRNDoc) {
+	@LetterheadBlock(d.Letterhead)
+	@DocTitle("Goods Receipt Note")
+	<p class="doc-date">{ "Date: " + types.FormatDate(d.Date) }</p>
+	<p class="po-ref">{ "Against PO: " + d.PONumber + " dated " + types.FormatDate(d.PODate) }</p>
+	<p class="challan">{ "Vendor Challan No.: " + d.ChallanNo }</p>
+	<p class="challan">{ "Challan Date: " + types.FormatDate(d.ChallanDate) }</p>
+	@PartyBlock(d.Party)
+	<table class="lines">
+		<thead>
+			<tr><th>Sr</th><th>Item</th><th>HSN</th><th>UoM</th><th>Received</th><th>Accepted</th><th>Rejected</th></tr>
+		</thead>
+		<tbody>
+			for _, l := range d.Lines {
+				<tr>
+					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="item">{ l.Item }</td>
+					<td class="hsn">{ l.HSN }</td>
+					<td class="uom">{ l.UoM }</td>
+					<td class="qty">{ types.FormatQty(l.Received) }</td>
+					<td class="qty">{ types.FormatQty(l.Accepted) }</td>
+					<td class="qty">{ types.FormatQty(l.Rejected) }</td>
+				</tr>
+			}
+			if len(d.Lines) == 0 {
+				<tr><td colspan="7">No items</td></tr>
+			}
+		</tbody>
+	</table>
+	@Signatory(d.Letterhead.LegalName)
+}

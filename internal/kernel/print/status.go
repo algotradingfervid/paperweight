@@ -29,10 +29,12 @@ var titleReplacer = strings.NewReplacer("/", "_", `\`, "_", "%", "_", "?", "_", 
 // SafeTitle replaces each of / \ % ? # with _ so the page title can be a file name.
 func SafeTitle(s string) string { return titleReplacer.Replace(s) }
 
-// Header is what the page shell decides from database state: status, number and title.
+// Header is what the page shell decides from database state: status, number
+// and title, plus the link to the document's page.css footer.
 type Header struct {
 	Status        Status
 	Number, Title string
+	PageCSS       string
 }
 
 type headerKey struct{}

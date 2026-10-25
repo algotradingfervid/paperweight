@@ -30,3 +30,6 @@ tr { break-inside: avoid; }
 .closing { break-inside: avoid; }
 
 img { image-orientation: from-image; }
+
+.toolbar { display: flex; gap: 2mm; margin-block-end: 4mm; }
+@media print { .toolbar { display: none; } }

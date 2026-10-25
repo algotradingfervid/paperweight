@@ -25,6 +25,7 @@ const (
 	KindStorage
 	KindDuplicate
 	KindInUse
+	KindReceiptMismatch
 )
 
 const (

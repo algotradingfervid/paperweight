@@ -88,7 +88,7 @@ func TestPrint_EscapesUserContent(t *testing.T) {
 	if strings.Contains(html, "<img src=x") {
 		t.Errorf("description rendered as markup:\n%s", html)
 	}
-	if strings.Contains(html, "<script") {
+	if strings.Contains(html, "<script>alert") {
 		t.Errorf("vendor name rendered as markup:\n%s", html)
 	}
 }
