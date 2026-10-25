@@ -201,6 +201,38 @@ func TestActionBar_NoteReplacesButtons(t *testing.T) {
 	}
 }
 
+func TestActionBar_SubmitsCarryBusyAndForm(t *testing.T) {
+	doc := uitest.Render(t, components.ActionBar(components.ActionBarProps{
+		Primary: &components.ButtonProps{Label: "Save and continue", Name: "nav", Value: "next", Variant: components.Primary},
+		Form:    "wizard", FinishLater: true,
+	}))
+	for _, sel := range []string{"div.actionbar button.btn-primary", `button[name="nav"][value="finish"]`} {
+		b := doc.Find(sel)
+		if b.Length() != 1 || b.AttrOr("data-busy-label", "") == "" || b.AttrOr("form", "") != "wizard" {
+			t.Errorf("%s: n %d busy %q form %q", sel, b.Length(), b.AttrOr("data-busy-label", ""), b.AttrOr("form", ""))
+		}
+	}
+
+	doc = uitest.Render(t, components.ActionBar(components.ActionBarProps{
+		Primary: &components.ButtonProps{Label: "Save", Variant: components.Primary},
+	}))
+	b := doc.Find("div.actionbar button.btn-primary")
+	if b.AttrOr("data-busy-label", "") == "" {
+		t.Error("primary submit has no data-busy-label")
+	}
+	if _, ok := b.Attr("form"); ok {
+		t.Error("form attribute set without Form")
+	}
+
+	ctx := ui.WithShell(context.Background(), ui.Shell{CSRF: "tok-1"})
+	doc = uitest.RenderCtx(t, ctx, components.MoreActions([]components.MoreAction{
+		{Label: "Cancel order", Href: "/doc/po/1/cancel", Post: true, Danger: true},
+	}))
+	if doc.Find(`form button[type="submit"]`).AttrOr("data-busy-label", "") == "" {
+		t.Error("MoreActions POST button has no data-busy-label")
+	}
+}
+
 func TestActionBar_EmptyRendersNothing(t *testing.T) {
 	doc := uitest.Render(t, components.ActionBar(components.ActionBarProps{Form: "f"}))
 	if h, _ := doc.Find("body").Html(); strings.TrimSpace(h) != "" {

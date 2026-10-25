@@ -1,63 +1,18 @@
 package components
 
-import (
-	"github.com/vardhan/internaltools/internal/ui"
-	"github.com/vardhan/internaltools/internal/ui/icons"
-)
+import "github.com/vardhan/internaltools/internal/ui"
 
-// btnClass maps a variant to its daisyUI classes (design-system §7.1).
-func btnClass(v Variant) string {
-	switch v {
-	case Primary:
-		return "btn btn-primary"
-	case Ghost:
-		return "btn btn-ghost"
-	case Danger:
-		return "btn btn-error"
-	default:
-		return "btn btn-outline"
+// inForm points button b at the form the bar sits outside of, when there is one.
+func inForm(b ButtonProps, form string) ButtonProps {
+	if form == "" || b.Href != "" {
+		return b
 	}
-}
-
-// barButton renders a ButtonProps inside the bar; form names the form the
-// bar sits outside of.
-templ barButton(b ButtonProps, form string) {
-	if b.Href != "" {
-		<a
-			class={ btnClass(b.Variant) }
-			href={ templ.SafeURL(b.Href) }
-			if b.AriaLabel != "" {
-				aria-label={ b.AriaLabel }
-			}
-			{ b.Attrs... }
-		>
-			if b.Icon != "" {
-				@icons.Icon(b.Icon)
-			}
-			{ b.Label }
-		</a>
-	} else {
-		<button
-			type={ orDefault(b.Type, "submit") }
-			class={ btnClass(b.Variant) }
-			if b.Name != "" {
-				name={ b.Name }
-				value={ b.Value }
-			}
-			if form != "" {
-				form={ form }
-			}
-			if b.AriaLabel != "" {
-				aria-label={ b.AriaLabel }
-			}
-			{ b.Attrs... }
-		>
-			if b.Icon != "" {
-				@icons.Icon(b.Icon)
-			}
-			{ b.Label }
-		</button>
+	attrs := templ.Attributes{"form": form}
+	for k, v := range b.Attrs {
+		attrs[k] = v
 	}
+	b.Attrs = attrs
+	return b
 }
 
 // ActionBar holds a screen's actions: sticky on phones, inline from 48rem.
@@ -70,24 +25,16 @@ templ ActionBar(p ActionBarProps) {
 	} else if p.Primary != nil || p.Secondary != nil {
 		<div class="actionbar">
 			if p.Secondary != nil {
-				@barButton(*p.Secondary, p.Form)
+				@Button(inForm(*p.Secondary, p.Form))
 			}
 			if p.Primary != nil {
-				@barButton(*p.Primary, p.Form)
+				@Button(inForm(*p.Primary, p.Form))
 			}
 		</div>
 	}
 	if p.FinishLater && p.Note == "" {
 		<div class="actionbar-later">
-			<button
-				type="submit"
-				name="nav"
-				value="finish"
-				class="btn btn-ghost"
-				if p.Form != "" {
-					form={ p.Form }
-				}
-			>Save and finish later</button>
+			@Button(inForm(ButtonProps{Label: "Save and finish later", Name: "nav", Value: "finish", Variant: Ghost}, p.Form))
 		</div>
 	}
 }
@@ -103,7 +50,7 @@ templ MoreActions(items []MoreAction) {
 						if it.Post {
 							<form method="post" action={ templ.SafeURL(it.Href) }>
 								<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
-								<button type="submit" class={ moreClass(it.Danger) }>{ it.Label }</button>
+								@Button(ButtonProps{Label: it.Label, Variant: moreVariant(it.Danger)})
 							</form>
 						} else if it.NewTab {
 							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) } target="_blank" rel="noopener">
@@ -118,6 +65,13 @@ templ MoreActions(items []MoreAction) {
 			</ul>
 		</section>
 	}
+}
+
+func moreVariant(danger bool) Variant {
+	if danger {
+		return Danger
+	}
+	return Ghost
 }
 
 func moreClass(danger bool) string {
