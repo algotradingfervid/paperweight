@@ -65,14 +65,14 @@ func New() *Fake {
 	}
 }
 
-// forbidden wraps auth.ErrForbidden with the 00-fixtures.md 403 text.
-type forbidden struct{ msg string }
-
-func (e *forbidden) Error() string { return e.msg }
-func (e *forbidden) Unwrap() error { return auth.ErrForbidden }
-
-func denied(doctype string, r auth.Right) error {
-	return &forbidden{msg: fmt.Sprintf("You don't have permission to %s %s. Ask your administrator for a role that allows it.", r, doctype)}
+// denied is the real service's 403 (CD-157): the registered DocType's
+// labels, or its name when it isn't registered.
+func denied(name string, r auth.Right) error {
+	label, plural := name, name
+	if dt, ok := doctype.Lookup(name); ok {
+		label, plural = dt.Label, dt.PluralLabel
+	}
+	return &auth.DeniedError{Right: r, Label: label, Plural: plural}
 }
 
 // Seeding helpers (CD-56, CD-86).

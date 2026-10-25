@@ -176,7 +176,7 @@ func TestApprovalPending_ApproverCannotEdit(t *testing.T) { // APR-074
 	// Manager, no write right on Purchase Order) gets AUTH's 403. Write is
 	// granted next to check the pending message.
 	err := e.Save(e.Ravi, d, map[string]string{"lines.1.rate": "70.0000"})
-	wantMsg(t, err, "You don't have permission to write Purchase Order. Ask your administrator for a role that allows it.", 403)
+	wantMsg(t, err, "You don't have permission to change Purchase Order. Ask your administrator for a role that allows it.", 403)
 	if !errors.Is(err, auth.ErrForbidden) {
 		t.Errorf("error = %v, want auth.ErrForbidden", err)
 	}
