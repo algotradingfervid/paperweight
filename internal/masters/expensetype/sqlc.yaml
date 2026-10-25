@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema:
+      - ../../../migrations/01300_tax_code.sql
+      - ../../../migrations/01550_expense_type.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq
