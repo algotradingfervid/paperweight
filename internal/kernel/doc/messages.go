@@ -20,4 +20,11 @@ const (
 	msgNoLines      = "Add at least one line."
 	msgTooManyLines = "A document can have at most 500 lines. Split it into two documents."
 	msgLineID       = "Line id" // label used when a line's "id" key can't be read
+
+	// Engine pipeline (Task 6). %s is the document's display name.
+	msgGone             = "This document no longer exists. It may have been deleted."
+	msgStale            = "Someone else changed %s after you opened it. Reload it and make your changes again."
+	msgAlreadySubmitted = "%s has already been submitted."
+	msgFixFields        = "Fix the highlighted fields and save again."
+	msgInternal         = "doc: internal error in %s %s: %v" // doctype, action, recovered panic
 )

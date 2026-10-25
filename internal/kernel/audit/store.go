@@ -18,8 +18,8 @@ const (
 	OpRemove = "remove"
 )
 
-// timeLayout is the stored timestamp layout (UTC).
-const timeLayout = "2006-01-02T15:04:05.000Z"
+// TimeLayout is the stored UTC timestamp layout, shared with doc.
+const TimeLayout = "2006-01-02T15:04:05.000Z"
 
 // Store is the Writer over the append-only audit_log table.
 type Store struct{}
@@ -62,7 +62,7 @@ func (Store) Append(ctx context.Context, tx *db.Tx, e Entry) error {
 		Reason:    e.Reason,
 		Changes:   string(js),
 		UserID:    int64(e.By),
-		At:        e.At.UTC().Format(timeLayout),
+		At:        e.At.UTC().Format(TimeLayout),
 	}
 	if r := e.CausedBy; r != nil {
 		p.CauseDocType = sql.NullString{String: r.DocType, Valid: true}

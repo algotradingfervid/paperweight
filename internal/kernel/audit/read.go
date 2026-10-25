@@ -30,7 +30,7 @@ func ForDoc(ctx context.Context, tx *db.Tx, doctype string, id int64) ([]Entry, 
 				changes[i] = Change(c)
 			}
 		}
-		at, err := time.Parse(timeLayout, r.At)
+		at, err := time.Parse(TimeLayout, r.At)
 		if err != nil {
 			return nil, fmt.Errorf("audit: parse at: %w", err)
 		}

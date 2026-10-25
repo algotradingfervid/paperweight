@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
@@ -174,6 +176,9 @@ func (a *Auth) setEnabled(u auth.UserID, enabled bool) error {
 // defaultPrefix is the series prefix per fixture DocType (CD-113, CD-115).
 var defaultPrefix = map[string]string{fixture.Order: "PO", fixture.Receipt: "GR", fixture.Claim: "EX"}
 
+// maxCounter is the last number a {#####} counter can render.
+const maxCounter = 99999
+
 // Naming is a naming.Service whose counter is a count of numbered rows read in
 // the given tx, so a rolled-back number is never used up. The zero value works;
 // a nil Prefix uses PO, GR and EX.
@@ -199,30 +204,20 @@ func (n *Naming) Assign(ctx context.Context, tx *db.Tx, dtName string, _ int64, 
 	if !ok {
 		return "", fmt.Errorf("fixturetest.Naming: DocType %s is not registered", dtName)
 	}
-	series := prefix + "/" + fyShort(d) + "/"
+	series := prefix + "/" + types.FiscalYear(d).Short + "/"
 	var count int
 	if err := tx.SQL().QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM "`+dt.Table+`" WHERE number LIKE ? AND amendment_no = 0`,
 		series+"%").Scan(&count); err != nil {
 		return "", fmt.Errorf("fixturetest.Naming: count %s: %w", dt.Table, err)
 	}
+	if count >= maxCounter { // NAM's render doesn't range-check the counter
+		return "", fmt.Errorf("fixturetest.Naming: series %s is full at %05d", series, maxCounter)
+	}
 	n.mu.Lock()
 	n.Assigned++
 	n.mu.Unlock()
 	return fmt.Sprintf("%s%05d", series, count+1), nil
-}
-
-// fyShort returns types.FiscalYear(d).Short, or the April–March year
-// ("26-27") while NUM's types is still a stub returning "".
-func fyShort(d types.Date) string {
-	if s := types.FiscalYear(d).Short; s != "" {
-		return s
-	}
-	y := d.Year
-	if d.Month < time.April {
-		y--
-	}
-	return fmt.Sprintf("%02d-%02d", y%100, (y+1)%100)
 }
 
 // AssignAmendment returns root + "-" + n.
@@ -409,4 +404,43 @@ func (c *StepClock) SetTime(t time.Time) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.now = t
+}
+
+// Reference number rules (RefNumbers). DOC tests assert only the error kind
+// and field, never these texts.
+var (
+	errRefNumber     = errors.New("fixturetest: the number is assigned on approval and can't be entered or changed")
+	errRefAmendLimit = errors.New("fixturetest: a document can be amended at most 9 times")
+)
+
+var noteNumbers sync.Once
+
+// Numbers returns NAM's number rules when NAM is merged (GuardNumberField no
+// longer returns errs.ErrNotImplemented), otherwise RefNumbers with a one-line
+// note on stderr (CD-119). The fallback is removed in WP3.
+func Numbers() doc.NumberFuncs {
+	if !errors.Is(naming.GuardNumberField(nil, nil), errs.ErrNotImplemented) {
+		return doc.NumberFuncs{Guard: naming.GuardNumberField, CheckAmendment: naming.CheckAmendmentNo}
+	}
+	noteNumbers.Do(func() { fmt.Fprintln(os.Stderr, "doc: NAM not merged; using reference number rules") })
+	return RefNumbers()
+}
+
+// RefNumbers is the minimum Wave 1 behaviour of NAM's number rules: a supplied
+// number that differs from the stored one is refused, and so is amendment 10.
+func RefNumbers() doc.NumberFuncs {
+	return doc.NumberFuncs{
+		Guard: func(stored, supplied *string) error {
+			if supplied != nil && (stored == nil || *supplied != *stored) {
+				return errRefNumber
+			}
+			return nil
+		},
+		CheckAmendment: func(_ string, k int, _ string) error {
+			if k > 9 {
+				return errRefAmendLimit
+			}
+			return nil
+		},
+	}
 }

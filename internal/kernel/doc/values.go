@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
@@ -19,7 +20,7 @@ type Values map[string]any
 
 const (
 	dateLayout      = "2006-01-02"
-	timestampLayout = "2006-01-02T15:04:05.000Z"
+	timestampLayout = audit.TimeLayout
 )
 
 var errUnreadable = errors.New("doc: unreadable form value")

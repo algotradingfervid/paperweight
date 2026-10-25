@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -72,7 +73,7 @@ func (h receiptHooks) BeforeSubmit(ctx context.Context, tx *db.Tx, id int64) err
 			return err
 		}
 		if received+qty > ordered {
-			return refused(fmt.Sprintf("Line %d: receiving %s would take %s line %d to %s of %s. Reduce the quantity.",
+			return doc.Refused(fmt.Sprintf("Line %d: receiving %s would take %s line %d to %s of %s. Reduce the quantity.",
 				lineNo, plainQty(qty), naming.Label(number, orderID), orderLineNo, plainQty(received+qty), plainQty(ordered)))
 		}
 	}

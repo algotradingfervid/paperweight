@@ -8,7 +8,6 @@ package fixture
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -106,6 +105,3 @@ func plainQty(q int64) string {
 	}
 	return s
 }
-
-// refused is the module refusal BeforeSubmit returns.
-func refused(msg string) error { return errors.New(msg) }
