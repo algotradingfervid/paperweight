@@ -201,6 +201,12 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | DOC done (Tasks 1–17) 6d505af; `make ci` green | — | director | | 20:45 | — | — | — |
 | Budgets | AD-4 finished (DOC, FILE): its 4 slots go to AD-5 (masters, now the longest chain): head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 0, AD-5 8 | — | director | | 20:45 | — | — | — |
 | Merges | NAM CD-164 follow-ups (merge above); `make ci` green | — | director | | 20:55 | — | — | — |
+| WP1-APR | 12b Engine driver | High | crew-implementer, crew-reviewer | 17:48 | 18:05 | 1 | 0/0/3; 10 engine-only failures → CD-157 | e6740e0, 47fb2e8 |
+| WP1-APR | 18 DOC-coupled P2 | High | crew-test-writer, crew-reviewer | 17:48 | 18:05 | 1 | APR-064 waits on CD-157 C; claimWithState → AD-4 | d76c22e→9e29712, d7c5c95 |
+| WP1-APR | CD-156 AUTOINCREMENT ids (lane/approval-ids) | Standard | crew-implementer | 17:53 | 17:54 | 1 | test failed first; director review | 8b44c92 |
+| WP1-APR | CD-157 test changes, engine default, CD-162, CD-168 | High | crew-implementer, crew-reviewer | 17:58 | 18:27 | 1 | engine default green after AD-4/AD-1 changes | a65b452..44b9884 |
+| Merges | APR complete a53b971; `make ci` green. NUM, NAM, APR, DOC, FILE complete | — | director | | 21:05 | — | — | — |
+| Budgets | AD-3 finished: head 2, AD-1 5, AD-2 3, AD-5 12, 3 held in reserve for whoever asks | — | director | | 21:05 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
