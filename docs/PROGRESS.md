@@ -183,6 +183,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | CD-157 C authfake denial text | High | crew-implementer, crew-reviewer | | | 1 | 0/0/2 | b843525 |
 | Merges | AUTH CD-157 C 7e2bf9b; `make ci` green | — | director | | 19:55 | — | — | — |
 | Merges | UI CD-160 buffered Render 026383e; `make ci` green | — | director | | 20:05 | — | — | — |
+| WP1-NAM | 18 Numbering screen | High | crew-test-writer, crew-implementer, crew-reviewer | 17:50 | 18:10 | 2 | 0/0/7 (flash bug → CD-160; 2 minors fixed, 1 reverted) | 3004445 b49667a aadb877 aa39db2 |
+| Merges | NAM Task 18 95db286 (NAM complete); `make ci` green | — | director | | 20:15 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 

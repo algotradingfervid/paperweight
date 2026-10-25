@@ -52,6 +52,10 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - scs saves the session at the first `Write`/`WriteHeader`: anything put into the session (CSRF token, flash, uid) must happen before the response starts, or it is silently lost (two AUTH Task 10 review rounds).
 - The shell is zsh: an unquoted `$VAR` holding a list is never word-split (`for f in $FILES` runs once with the whole list). Read lists line by line: `while IFS= read -r f; do …; done < <(git diff --name-only --diff-filter=U)`. ugrep's `-Z` isn't NUL-separated either. This broke the director twice.
 - Rebase conflicts in generated files (`**/dbq/`, `*_templ.go`, `internal/ui/static/*`, `assets_gen.go`): take either side with the loop above (`git checkout --ours -- "$f" && git add -- "$f"`, then `GIT_EDITOR=true git rebase --continue`), stop on any other file, then `make generate`, commit, `make ci`.
+- Code a worker adds beyond the plan needs a test that fails when that code is deleted; reviewers check touched lines with `go test -coverprofile`.
+- A test-local copy of a registered descriptor or fake that accepts what the real one refuses is a lenient double: ask the owning WP to add the field (CD-162).
+- An htmx fragment never redraws the input the user is typing in (a response arriving mid-typing overwrites keystrokes): update only the error or preview region.
+- Every FK column fed from user input is validated in `Validate`/the Tx method first; the FK is a backstop, never the message (raw FK errors are 500s).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
