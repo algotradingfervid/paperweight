@@ -129,7 +129,7 @@ func TestApprovalReject_NotExportable(t *testing.T) { // APR-070
 	// The core stand-in for "approved, not yet exported": a list query on
 	// fixture.Claim filtered state = approved, run as Meena (Director, read all).
 	svc := &list.Service{DB: e.DB, Auth: e.Auth}
-	res, err := svc.List(t.Context(), e.Meena, claimWithState(t), list.Query{
+	res, err := svc.List(t.Context(), e.Meena, claimDocType(t), list.Query{
 		Filters: []list.Filter{{Field: "state", Op: list.OpEq, Values: []string{string(doctype.StateApproved)}}},
 		Page:    1,
 	})
@@ -143,18 +143,15 @@ func TestApprovalReject_NotExportable(t *testing.T) { // APR-070
 	}
 }
 
-// claimWithState is the registered fixture.Claim descriptor with a filterable
-// header field on its state convention column (CD-144): the registered
-// descriptor declares no state field, so list refuses a state filter on it.
-func claimWithState(t *testing.T) *doctype.DocType {
+// claimDocType is the registered fixture.Claim descriptor; its state field
+// is filterable (CD-162).
+func claimDocType(t *testing.T) *doctype.DocType {
 	t.Helper()
 	reg, ok := doctype.Lookup(at.Claim)
 	if !ok {
 		t.Fatalf("%s is not registered: the engine driver must register internal/fixture", at.Claim)
 	}
-	dt := *reg
-	dt.Fields = append(slices.Clone(reg.Fields), doctype.Field{Name: "state", Column: "state", Label: "State", Type: doctype.Select, Filterable: true, System: true})
-	return &dt
+	return reg
 }
 
 func TestApprovalHistory_InDocAudit(t *testing.T) { // APR-085

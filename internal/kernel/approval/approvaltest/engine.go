@@ -27,15 +27,13 @@ import (
 // internal/fixture's DocTypes with the real naming.Service, filesfake and
 // audit.Default. APR_DRIVER=ref selects the reference driver in env.go.
 
-// useEngine reports whether APR_DRIVER selects the engine driver.
+// useEngine reports whether APR_DRIVER selects the engine driver (the default).
 func useEngine(t testing.TB) bool {
 	t.Helper()
 	switch v := os.Getenv("APR_DRIVER"); v {
-	case "engine":
+	case "", "engine":
 		return true
-	case "", "ref":
-		// Engine becomes the default once the DOC/AUTH deviations in
-		// .work/status/apr-12b.md are settled (AD-3 escalation).
+	case "ref":
 		return false
 	default:
 		t.Fatalf("APR_DRIVER=%q: want engine or ref", v)
