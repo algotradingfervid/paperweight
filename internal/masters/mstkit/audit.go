@@ -66,7 +66,7 @@ func diff(before, after map[string]string) []audit.Change {
 		if notAudited[f] || before[f] == after[f] {
 			continue
 		}
-		out = append(out, audit.Change{Field: f, Before: before[f], After: after[f]})
+		out = append(out, audit.Change{Op: audit.OpSet, Field: f, Before: before[f], After: after[f]})
 	}
 	return out
 }
