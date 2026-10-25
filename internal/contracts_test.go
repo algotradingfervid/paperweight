@@ -31,7 +31,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/files/filesfake"
 	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
-	"github.com/vardhan/internaltools/internal/kernel/naming/namingfake"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -51,8 +50,6 @@ const forbiddenReadOrder = "You don't have permission to read fixture.Order. Ask
 func TestContracts_FakesSatisfyInterfaces(t *testing.T) {
 	var _ auth.Service = authfake.New()
 	var _ auth.Directory = authfake.NewDirectory()
-	var _ naming.Service = namingfake.New()
-	var _ naming.Admin = namingfake.New()
 	var _ audit.Writer = auditfake.New()
 	var _ *auditfake.Recorder = auditfake.New() //nolint:staticcheck // CD-86: the explicit type pins the exported name Recorder
 	var _ approval.Service = approvalfake.New()
@@ -611,72 +608,6 @@ func TestContracts_FilesFakeSpoolAttachList(t *testing.T) {
 	}
 }
 
-func TestContracts_NamingFakeSequence(t *testing.T) {
-	ctx := context.Background()
-	f := namingfake.New()
-	d := types.Date{Year: 2026, Month: time.October, Day: 24}
-
-	assign := func(dt string, id int64, want string) {
-		t.Helper()
-		got, err := f.Assign(ctx, nil, dt, id, d)
-		if err != nil || got != want {
-			t.Errorf("Assign(%s, %d) = (%q, %v), want (%q, nil)", dt, id, got, err, want)
-		}
-	}
-	assign("fixture.Order", 1, "TEST/00001")
-	assign("fixture.Order", 2, "TEST/00002")
-	assign("fixture.Receipt", 1, "TEST/00001")
-
-	for range 2 {
-		got, err := f.Preview(ctx, "fixture.Order", d)
-		if err != nil || got != "TEST/00003" {
-			t.Errorf("Preview(fixture.Order) = (%q, %v), want (\"TEST/00003\", nil)", got, err)
-		}
-	}
-	assign("fixture.Order", 3, "TEST/00003")
-
-	amend, err := f.AssignAmendment(ctx, nil, "fixture.Order", 1, "PO/26-27/00001", 1)
-	if err != nil || amend != "PO/26-27/00001-1" {
-		t.Errorf("AssignAmendment = (%q, %v), want (\"PO/26-27/00001-1\", nil)", amend, err)
-	}
-
-	if err := f.EnsureSeries(ctx, "fixture.Claim", "Expense Claim", "EX/{FY}/{#####}"); err != nil {
-		t.Fatalf("EnsureSeries error = %v", err)
-	}
-	series, err := f.List(ctx)
-	if err != nil {
-		t.Fatalf("List error = %v", err)
-	}
-	found := false
-	for _, s := range series {
-		if s.DocType == "fixture.Claim" && s.Label == "Expense Claim" && s.Template == "EX/{FY}/{#####}" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("List() = %+v, want fixture.Claim / Expense Claim / EX/{FY}/{#####}", series)
-	}
-
-	f.SetPreview("PO/{FY}/{#####}", "PO/26-27/00001")
-	if got, err := f.PreviewTemplate(ctx, "PO/{FY}/{#####}", d); err != nil || got != "PO/26-27/00001" {
-		t.Errorf("PreviewTemplate with SetPreview = (%q, %v), want (\"PO/26-27/00001\", nil)", got, err)
-	}
-	if got, err := f.PreviewTemplate(ctx, "GR/{FY}/{#####}", d); err != nil || got != "GR/{FY}/{#####}" {
-		t.Errorf("PreviewTemplate without SetPreview = (%q, %v), want the template unchanged", got, err)
-	}
-	rejected := errors.New("Unknown placeholder {X}. Use {FY}, {YYYY}, {MM} or {#####}.")
-	f.RejectTemplate("BAD/{X}", rejected)
-	if _, err := f.PreviewTemplate(ctx, "BAD/{X}", d); !errors.Is(err, rejected) {
-		t.Errorf("PreviewTemplate for rejected template error = %v, want %v", err, rejected)
-	}
-	if err := f.ValidateTemplate("BAD/{X}"); !errors.Is(err, rejected) {
-		t.Errorf("ValidateTemplate for rejected template error = %v, want %v", err, rejected)
-	}
-	if err := f.ValidateTemplate("PO/{FY}/{#####}"); err != nil {
-		t.Errorf("ValidateTemplate for an accepted template error = %v, want nil", err)
-	}
-}
-
 // registryRun makes the wp0test. names unique per run, so -count=N does not hit the duplicate panic.
 var registryRun atomic.Int64
 
@@ -912,7 +843,7 @@ func TestContracts_KernelImportsFollowTable(t *testing.T) {
 		{"approval_web_imports_ui", "internal/kernel/approval/web", "internal/ui", true},
 		{"approval_web_views_imports_ui", "internal/kernel/approval/web/views", "internal/ui", true},
 		{"authtest_imports_testkit", "internal/kernel/auth/authtest", "internal/testkit", true},
-		{"namingfake_imports_authfake", "internal/kernel/naming/namingfake", "internal/kernel/auth/authfake", true},
+		{"docfake_imports_authfake", "internal/kernel/doc/docfake", "internal/kernel/auth/authfake", true},
 		{"audit_imports_auth", "internal/kernel/audit", "internal/kernel/auth", false},
 		{"auth_cli_imports_auth", "internal/kernel/auth/cli", "internal/kernel/auth", true},
 		{"auth_cli_imports_doc", "internal/kernel/auth/cli", "internal/kernel/doc", false},

@@ -1,12 +1,13 @@
 // Package namingtest is the fake-vs-real contract suite for naming.Service
-// and naming.Admin (WP3 Task 1, CD-182). The real Namer and namingfake both
-// run it; every input the real service refuses, the fake must refuse with the
-// same sentinel and message (CD-125, CD-163, CD-173).
+// and naming.Admin (WP3 Task 1, CD-182). It runs against the real Namer only
+// (CD-184): every refusal is checked for its sentinel and message (CD-125,
+// CD-163, CD-173).
 package namingtest
 
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -80,7 +81,7 @@ var behaviours = []struct {
 	{"PreviewDoesNotConsume", previewDoesNotConsume},
 	{"AmendmentSuffixes", amendmentSuffixes},
 	{"AmendmentHyphenatedPrefix", amendmentHyphenated},
-	{"DraftLabel", draftLabel},
+	{"EnsureSeriesIdempotent", ensureSeriesIdempotent},
 	{"ValidateTemplate", validateTemplate},
 	{"Refuse/NoSeries", refuseNoSeries},
 	{"Refuse/MissingDate", refuseMissingDate},
@@ -335,20 +336,28 @@ func amendmentHyphenated(c *env) {
 	c.mustAmend(dtPO, 3, "PO-26-27-00001", 2, "PO-26-27-00001-2")
 }
 
-// NAM-022, CD-53: an unnumbered document is "Draft <id>"; a numbered one
-// shows its number.
-func draftLabel(c *env) {
+// CD-28 (02-naming.md "Interfaces"; plan Task 6): EnsureSeries runs at every
+// startup and keeps an existing series unchanged, so the admin's template and
+// the counter survive and numbering continues.
+func ensureSeriesIdempotent(c *env) {
 	c.defaults()
-	if got := naming.Label("", 42); got != "Draft 42" {
-		c.t.Errorf(`Label("", 42) = %q; want "Draft 42"`, got)
+	const prTpl = "PR/{FY}/{#####}"
+	if err := c.s.Admin.SetTemplate(c.ctx, c.s.By, dtPO, prTpl); err != nil {
+		c.t.Fatalf("SetTemplate(%q): %v", prTpl, err)
 	}
-	num, err := c.assign(dtPO, 42, fixtureDay)
+	c.mustAssign(dtPO, 1, fixtureDay, "PR/26-27/00001")
+	c.ensure(dtPO, poLabel, poTpl)
+	all, err := c.s.Admin.List(c.ctx)
 	if err != nil {
-		c.t.Fatalf("Assign: %v", err)
+		c.t.Fatalf("Admin.List: %v", err)
 	}
-	if got := naming.Label(num, 42); got != "PO/26-27/00001" {
-		c.t.Errorf("Label(%q, 42) = %q; want PO/26-27/00001", num, got)
+	for _, s := range all {
+		if s.DocType == dtPO && (s.Template != prTpl || s.Label != poLabel) {
+			c.t.Errorf("series after second EnsureSeries = %q %q; want %q %q", s.Label, s.Template, poLabel, prTpl)
+		}
 	}
+	c.wantCounter(dtPO, "PR/26-27/", 1)
+	c.mustAssign(dtPO, 2, fixtureDay, "PR/26-27/00002")
 }
 
 // NAM-009..NAM-015, NAM-017, NAM-018: template rules.
@@ -384,7 +393,7 @@ func refuseNoSeries(c *env) {
 	c.wantRefused("AssignAmendment(unknown doctype)", err, naming.ErrNoSeries, msg)
 }
 
-// NAM-004 (Review Focus 1): a number needs the document date.
+// NAM-004 (NAM Review Focus 1): a number needs the document date.
 func refuseMissingDate(c *env) {
 	c.defaults()
 	const msg = "A document date is needed to give it a number."
@@ -432,17 +441,21 @@ func refuseImmutable(c *env) {
 	c.mustAssign(dtPO, 2, fixtureDay, "PO/26-27/00002")
 }
 
-// NAM-045 (D-NAM-08): at most nine amendments.
+// NAM-045 (D-NAM-08): at most nine amendments; -9 is accepted, -10 refused.
 func refuseAmendLimit(c *env) {
 	c.defaults()
 	c.mustAssign(dtPO, 1, fixtureDay, "PO/26-27/00001")
-	_, err := c.amend(dtPO, 2, "PO/26-27/00001", 10)
+	for k := 1; k <= 9; k++ {
+		c.mustAmend(dtPO, int64(1+k), "PO/26-27/00001", k, "PO/26-27/00001-"+strconv.Itoa(k))
+	}
+	_, err := c.amend(dtPO, 20, "PO/26-27/00001", 10)
 	c.wantRefused("AssignAmendment(k=10)", err, naming.ErrAmendmentLimit,
 		"PO/26-27/00001 has been amended 9 times, which is the limit. Create a new purchase order instead.")
 }
 
-// NAM-039, NAM-047: only a number issued for this DocType can be amended,
-// and only in order (-2 needs -1).
+// NAM-039; NAM plan AssignAmendment steps 2 and 5 (2026-10-24-wp1-naming.md):
+// only a number issued for this DocType can be amended, and only in order
+// (-2 needs -1).
 func refuseUnknownRoot(c *env) {
 	c.defaults()
 	c.mustAssign(dtPO, 1, fixtureDay, "PO/26-27/00001")
