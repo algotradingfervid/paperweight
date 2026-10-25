@@ -1,0 +1,78 @@
+package components
+
+import (
+	"slices"
+	"strconv"
+)
+
+// optionID gives the first option the field's own id, so error links reach it.
+func optionID(p FieldProps, i int) string {
+	if i == 0 {
+		return p.ID
+	}
+	return p.ID + "-" + strconv.Itoa(i)
+}
+
+// choiceAttrs are controlAttrs for option i of a radio or checkbox group.
+func choiceAttrs(p FieldProps, i int, class string) templ.Attributes {
+	a := controlAttrs(p, class)
+	a["id"] = optionID(p, i)
+	return a
+}
+
+// Radios is a radio group; each whole row is the target.
+templ Radios(p FieldProps, opts []Option) {
+	@choiceGroup(p) {
+		for i, o := range opts {
+			<label class="field__choice">
+				<input type="radio" value={ o.Value } checked?={ o.Value == p.Value } { choiceAttrs(p, i, "radio")... }/>
+				@optionText(o)
+			</label>
+		}
+	}
+}
+
+// Checkboxes is a checkbox group; checked holds the ticked values.
+templ Checkboxes(p FieldProps, opts []Option, checked []string) {
+	@choiceGroup(p) {
+		for i, o := range opts {
+			<label class="field__choice">
+				<input type="checkbox" value={ o.Value } checked?={ slices.Contains(checked, o.Value) } { choiceAttrs(p, i, "checkbox")... }/>
+				@optionText(o)
+			</label>
+		}
+	}
+}
+
+// Segmented is a radio group shown as a segmented control.
+templ Segmented(p FieldProps, opts []Option) {
+	@choiceGroup(p) {
+		<div class="segmented">
+			for i, o := range opts {
+				<label>
+					<input type="radio" value={ o.Value } checked?={ o.Value == p.Value } { choiceAttrs(p, i, "visually-hidden")... }/>
+					{ o.Label }
+				</label>
+			}
+		</div>
+	}
+}
+
+templ Select(p FieldProps, opts []Option) {
+	@field(p) {
+		<select { controlAttrs(p, "select field__input")... }>
+			for _, o := range opts {
+				<option value={ o.Value } selected?={ o.Value == p.Value }>{ o.Label }</option>
+			}
+		</select>
+	}
+}
+
+templ optionText(o Option) {
+	<span class="field__choice-text">
+		{ o.Label }
+		if o.Hint != "" {
+			<span class="field__hint">{ o.Hint }</span>
+		}
+	</span>
+}
