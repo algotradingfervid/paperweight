@@ -332,7 +332,7 @@ func TestRestriction_LinkPickerFiltered(t *testing.T) {
 // AUTH-099
 func TestRestriction_SaveDisallowedValue(t *testing.T) {
 	w := authtest.NewWorld(t)
-	w.Restrict(t, t14Suresh, nil, []string{"PUNE-WH"})
+	w.Restrict(t, t14Suresh, nil, []string{"PUNE-WH", "METRO-SITE"})
 	h := t14Probe(t, w)
 	receipts := func() int64 { return t14Int(t, w, `SELECT count(*) FROM probe_receipt`) }
 	before := receipts()
@@ -340,7 +340,7 @@ func TestRestriction_SaveDisallowedValue(t *testing.T) {
 	suresh := signedIn(t, h, t14Suresh)
 	t14Want403(t, "suresh POST /grn at TECH-SITE",
 		suresh.Post("/grn", url.Values{"site_id": {t14ID(w.Sites["TECH-SITE"])}}),
-		"You can only use Site PUNE-WH. Choose one of your allowed sites.")
+		"You can only use Sites METRO-SITE, PUNE-WH. Choose one of your allowed sites.")
 	if n := receipts(); n != before {
 		t.Fatalf("probe_receipt rows after the rejected POST = %d, want %d", n, before)
 	}
