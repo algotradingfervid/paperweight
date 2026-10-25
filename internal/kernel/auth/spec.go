@@ -17,6 +17,7 @@ const (
 
 // Applies reports whether right r applies to dt at all. Masters are not
 // Submittable (CD-21), so submit, cancel, amend and approve never apply to them.
+// A right not in AllRights never applies (CD-171).
 func Applies(dt *doctype.DocType, r Right) bool {
 	switch r {
 	case RightSubmit, RightCancel, RightAmend:
@@ -26,7 +27,7 @@ func Applies(dt *doctype.DocType, r Right) bool {
 	case RightImport:
 		return dt.Importable
 	}
-	return true
+	return slices.Contains(AllRights, r)
 }
 
 // ScopeOptions lists the scopes a right on dt can have; team needs an
