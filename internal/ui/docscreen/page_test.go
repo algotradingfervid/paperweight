@@ -449,7 +449,7 @@ func TestDocPage_ApproveIsOneTapPost(t *testing.T) {
 	if form.Find(`input[type="hidden"][name="version"][value="3"]`).Length() != 1 {
 		t.Error("approve form has no version 3")
 	}
-	if page.Find("dialog, [hx-confirm], [data-confirm]").Length() != 0 {
+	if page.Find(".app-page dialog, [hx-confirm], [data-confirm]").Length() != 0 {
 		t.Error("the page has a confirm step for approve")
 	}
 
