@@ -156,6 +156,26 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | 13 User admin handlers | High | crew-test-writer, crew-implementer, crew-reviewer | 17:10 | 17:36 | 2 | 0/4/8 (plan gap → CD-143 service methods; CD-146 versioned web writes + restriction version bump + body parse before roles; flash harness gap → CD-150 web.WithSessions (prod double-save bug); no-roles form → empty list) | ce2aa68 tests, e1de3f0 ruling, 0e5f8c3 |
 | Merges | CD-151 fix d32d5b5; DOC-M1 (DOC 1–12) 58465c3 (director finished the wp/doc rebase); AUTH done (Tasks 1–15) f75c813; `make ci` green after each | — | director | | 18:55 | — | — | — |
 | Budgets | after DOC-M1: head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 4, AD-5 4 (CD-124: 3 slots to AD-5 from finished NUM and FILE) | — | director | | 18:55 | — | — | — |
+| WP1-APR | 2 Core types, errors, format, harness | High | crew-implementer, crew-reviewer | 16:28 | 16:39 | 1 | 0/2/2 (driver read leniency, missing submit/write checks; all fixed) | 4ec4115 tests, 267beeb |
+| WP1-APR | 3 Rule administration | High | crew-test-writer, crew-implementer, crew-reviewer | 16:40 | 16:47 | 1 | 0/0/5 (carried); APR-013 green after Task 6 | 311c119 tests, af0f585 |
+| WP1-APR | 4 Rule matching (lane/approval-4) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:40 | 16:44 | 1 | 0/0/2 (dedup test carried) | 7eef4dc tests, dd00b12 |
+| WP1-APR | 5 Eligibility (lane/approval-5) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:40 | 16:45 | 1 | 0/0/2 (no change); test green after Task 6 | cb1f61d tests, 3b19718 |
+| WP1-APR | 6 Evaluate and Open | High | crew-test-writer, crew-implementer, crew-reviewer | 16:48 | 16:54 | 1 | 0/0/4 (carried) | 44bde43 tests, ba87e5e |
+| WP1-APR | 7 CheckApprover and Record | High | crew-test-writer, crew-implementer, crew-reviewer | 16:54 | 17:02 | 1 | 0/0/6 (to follow-up) | afcf8f8 tests, b18a82e |
+| WP1-APR | 8 Inbox, My requests, status | High | crew-test-writer, crew-implementer, crew-reviewer | 17:02 | 17:11 | 1 | 0/1/6 (page overflow panic fixed; 2 minors fixed, rest carried) | 4d576f5 tests, def668b |
+| WP1-APR | 9 Sequence, rollback, concurrency tests (lane/approval-9) | High | crew-implementer (test-only), crew-reviewer | 17:02 | 17:12 | 1 | 0/0/5 (carried to Task 16) | eaaebd4 |
+| WP1-APR | 12a DOC-coupled tests, driver methods (lane/approval-12) | High | crew-implementer, crew-reviewer | 17:02 | 17:13 | 1 | 0/1/6 (APR-074 refusal exact; fixed); CD-142 cross-WP | e114be5 |
+| WP1-APR | 10 Withdraw (R2) + CD-127/CD-142 test follow-ups | High | crew-implementer, crew-reviewer | 17:14 | 17:17 | 1 | 0/0/1 (count via Total, to Task 16) | 7861a25, f57e6eb |
+| WP1-APR | 11 Inbox, mine, badge, rule screens | High | crew-test-writer, crew-implementer, crew-reviewer | 17:14 | 17:28 | 1 | 0/1/3 (forked error path removed; test reads page text by ruling) | 354d192, 96dcfd1 tests, 9d3de78 |
+| WP1-APR | 15 Decision P2 (lane/approval-15) | High | crew-implementer, crew-reviewer | 17:14 | 17:19 | 1 | 0/0/2 (approverRole dedupe carried) | 783bbf8 |
+| WP1-APR | 17 Fuzz invariants | High | crew-implementer (test-only), crew-reviewer | 17:18 | 17:32 | 1 | 0/0/3 (seed replay test to follow-up) | 1bf6e93 |
+| WP1-APR | 14 Rules P2 (root part; APR-004 after Task 11) | High | crew-implementer, crew-reviewer | 17:19 | 17:23 | 1 | 0/0/2 (ApproverType 500→422 bug fixed) | 87b19c4 |
+| WP1-APR | CD-147 missing-role message | High | crew-test-writer, crew-implementer (haiku) | 17:25 | 17:25 | 1 | ruling-driven | 4214c66 test, 08d1617 |
+| WP1-APR | 14 Rules P2 web part (APR-004, version 400) | High | crew-implementer, crew-reviewer (with Task 17) | 17:29 | 17:30 | 1 | mutation-proven | 75f9993 |
+| WP1-APR | 16 Stuck, inbox and history P2 (lane/approval-16) | High | crew-test-writer, crew-implementer, crew-reviewer | 17:29 | 17:39 | 1 | 0/1/3 (refusal text → CD-152, fixed) | 4c1962e, c17da31 tests, c6675ba |
+| WP1-APR | 12b Engine driver | High | crew-implementer | 17:48 | | | | |
+| WP1-APR | 18 DOC-coupled P2 (lane/approval-18) | High | crew-test-writer | 17:48 | | | | |
+| Merges | APR done (P1 71/71) 8102873; `make ci` green; 12b and 18 follow | — | director | | 19:05 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
@@ -198,6 +218,7 @@ Nothing in flight; every worktree is clean. Next step per WP:
 - AUTH Task 11: `go mod tidy` drops `golang.org/x/term` until `auth/cli` imports it; keep the hand-restored lines. Consider a `go mod tidy -diff` check in `make ci` after that.
 - WP3 (from FILE): mount files/web under a prefix (its NotFound says "File not found."); run `files check` when idle (in-flight uploads look like orphans); CopyAll order is untested; the `signedOut` helper is duplicated in files/web and print/web.
 - NUM follow-ups (it-num/.work/carry-over.md): IGST tolerance-message test; inter-state CGST message wording; NUM-076 tzdata check.
+- APR carry-overs: it-approval/.work/carry-over.md (read before WP3 Task 1's APR suite).
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
