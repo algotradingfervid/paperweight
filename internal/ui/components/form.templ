@@ -1,0 +1,61 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui"
+
+// FormProps describes a form. Method is "post" unless set to "get".
+type FormProps struct {
+	ID, Action, Method, Target, Swap string
+	HX, Multipart                    bool
+}
+
+func orDefault(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
+// Form renders a form around its children: a hidden csrf_token on POST
+// (CD-15) and, when HX, the htmx attributes with double-submit protection.
+templ Form(p FormProps) {
+	if p.Method == "get" {
+		<form
+			if p.ID != "" {
+				id={ p.ID }
+			}
+			method="get"
+			action={ templ.URL(p.Action) }
+			if p.HX {
+				hx-get={ p.Action }
+				hx-target={ orDefault(p.Target, "#main") }
+				hx-swap={ orDefault(p.Swap, "outerHTML") }
+				hx-disabled-elt="find button[type=submit]"
+			}
+		>
+			{ children... }
+		</form>
+	} else {
+		<form
+			if p.ID != "" {
+				id={ p.ID }
+			}
+			method="post"
+			action={ templ.URL(p.Action) }
+			if p.Multipart {
+				enctype="multipart/form-data"
+			}
+			if p.HX {
+				hx-post={ p.Action }
+				hx-target={ orDefault(p.Target, "#main") }
+				hx-swap={ orDefault(p.Swap, "outerHTML") }
+				hx-disabled-elt="find button[type=submit]"
+				if p.Multipart {
+					hx-encoding="multipart/form-data"
+				}
+			}
+		>
+			<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
+			{ children... }
+		</form>
+	}
+}

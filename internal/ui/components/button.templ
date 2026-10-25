@@ -1,0 +1,74 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// daisyVariant maps a Variant to its daisyUI class (design-system §7.1).
+var daisyVariant = map[Variant]string{
+	Primary:   "btn-primary",
+	Secondary: "btn-outline",
+	Ghost:     "btn-ghost",
+	Danger:    "btn-error",
+}
+
+func buttonClass(v Variant) string {
+	if v == "" {
+		return "btn tap"
+	}
+	return "btn tap " + daisyVariant[v] + " btn--" + string(v)
+}
+
+// Button renders a link styled as a button when Href is set, else a button.
+// Submit buttons carry data-busy-label for busy.js. A button with neither
+// Label nor AriaLabel panics.
+func Button(p ButtonProps) templ.Component {
+	if p.Label == "" && p.AriaLabel == "" {
+		panic("components.Button: icon-only button needs AriaLabel")
+	}
+	if p.Href != "" {
+		return buttonLink(p)
+	}
+	if p.Type == "" {
+		p.Type = "submit"
+	}
+	if p.Type == "submit" && p.Busy == "" {
+		p.Busy = "Saving…"
+	}
+	return buttonEl(p)
+}
+
+templ buttonLink(p ButtonProps) {
+	<a href={ templ.URL(p.Href) } class={ buttonClass(p.Variant) }
+		if p.AriaLabel != "" {
+			aria-label={ p.AriaLabel }
+		}
+		{ p.Attrs... }
+	>
+		@buttonBody(p)
+	</a>
+}
+
+templ buttonEl(p ButtonProps) {
+	<button type={ p.Type } class={ buttonClass(p.Variant) }
+		if p.Name != "" {
+			name={ p.Name } value={ p.Value }
+		}
+		if p.Type == "submit" {
+			data-busy-label={ p.Busy }
+		}
+		if p.AriaLabel != "" {
+			aria-label={ p.AriaLabel }
+		}
+		{ p.Attrs... }
+	>
+		@buttonBody(p)
+	</button>
+}
+
+templ buttonBody(p ButtonProps) {
+	if p.Icon != "" {
+		@icons.Icon(p.Icon)
+	}
+	if p.Label != "" {
+		<span>{ p.Label }</span>
+	}
+}
