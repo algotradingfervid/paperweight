@@ -255,8 +255,8 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 
 // stepPost serves POST /doc/{doctype}/{id}/edit/{step}. It saves the step's
 // values with the posted version (CD-94) and the draft's lines as loaded,
-// since DOC's save replaces the lines. nav=back saves without UI
-// validation and stays on the step when DOC refuses the save (CD-178),
+// since DOC's save replaces the lines. nav=back stays on the step when a
+// value can't be parsed or DOC refuses the save (CD-178),
 // nav=finish leaves for the document page, return=check goes back to the
 // check page.
 func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
@@ -292,7 +292,7 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 			return stepFull(sv)
 		})
 	}
-	if len(errs) > 0 && nav != "back" {
+	if len(errs) > 0 {
 		rerender(Problem{Status: http.StatusUnprocessableEntity, Fields: errs})
 		return
 	}
@@ -426,6 +426,13 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		}
 		m.Furthest = max(m.Furthest, i)
 	}
+	if v != nil && dt.LinesTable != "" {
+		for n, e := range errs {
+			if e.Line == 0 && e.Field == "lines" {
+				m.Errors[n].ID = linesTarget(*v)
+			}
+		}
+	}
 	if r.URL.Query().Get("return") == slugCheck || r.PostFormValue("return") == slugCheck {
 		m.ReturnTo = slugCheck
 	}
@@ -466,6 +473,16 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	return sv
 }
 
+// linesTarget is the id a whole-lines error links to, on the Items step:
+// the grid editor when the draft has lines to show in it, else the step
+// heading.
+func linesTarget(v DocView) string {
+	if len(v.Lines) > 0 {
+		return "line-editor"
+	}
+	return "step-title"
+}
+
 // headerError is the message of the header field's first error.
 func headerError(errs []doctype.FieldError, name string) string {
 	for _, e := range errs {
@@ -488,12 +505,15 @@ type checkView struct {
 type checkSection struct {
 	Title, ChangeURL string
 	Status           wizard.StepStatus
+	Problems         []string // what submit will refuse on this step (CD-178)
 	Pairs            []components.Pair
 	Lines            *components.LineListProps
 }
 
 // checkStep fills the check page (design-system §8.3): a section per step
-// marked Complete or Needs attention from v.Problems, the totals, the
+// marked Complete or Needs attention from v.Problems, and, with a lines
+// table, "Add at least one line." for a draft with none (CD-178); each
+// section lists its header and whole-lines problems. Then the totals, the
 // approval preview, and the bar's state action posting to /submit with
 // the version.
 func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, v DocView, sv *stepView) {
@@ -507,11 +527,18 @@ func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, 
 		sv.Bar = wizard.Bar{Primary: bar.Primary.Label}
 	}
 	cv := checkView{Preview: v.Approval.Preview, GrandTotal: v.GrandTotal, Words: v.InWords, More: more}
+	problems := v.Problems
+	if dt.LinesTable != "" && len(v.Lines) == 0 {
+		problems = append(slices.Clip(problems), doctype.FieldError{Field: "lines", Message: "Add at least one line."})
+	}
 	for i, s := range steps[:len(steps)-1] {
 		sec := checkSection{Title: s.Label, ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
-		for _, p := range v.Problems {
+		for _, p := range problems {
 			if s.owns(p) {
 				sec.Status = wizard.Attention
+				if p.Line == 0 {
+					sec.Problems = append(sec.Problems, p.Message)
+				}
 			}
 		}
 		if s.Lines {

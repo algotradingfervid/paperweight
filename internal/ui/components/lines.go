@@ -58,8 +58,9 @@ func moveVersionID(no int, dir string) string {
 	return "grid-" + strconv.Itoa(no) + "-move-" + dir + "-version"
 }
 
-// gridCols is the grid's column class for its cell count: three cells get
-// their own columns; any other count uses the five-cell ones.
+// gridCols is the grid's column class for its cell count. Only three-cell
+// grids have their own column layout (linegrid--3); every other count uses
+// the five-cell tracks.
 func gridCols(rows []LineGridRow) string {
 	if len(rows) > 0 && len(rows[0].Cells) == 3 {
 		return "linegrid--3"

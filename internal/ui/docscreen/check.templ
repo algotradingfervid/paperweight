@@ -14,11 +14,18 @@ templ checkBody(cv checkView) {
 	}
 	for _, s := range cv.Sections {
 		@wizard.CheckSection(s.Title, s.Status, s.ChangeURL) {
+			if len(s.Problems) > 0 {
+				<ul>
+					for _, p := range s.Problems {
+						<li>{ p }</li>
+					}
+				</ul>
+			}
 			if s.Lines != nil {
 				@components.LineList(*s.Lines)
 			} else if len(s.Pairs) > 0 {
 				@components.SummaryList(s.Pairs)
-			} else {
+			} else if len(s.Problems) == 0 {
 				<p>Nothing needed here</p>
 			}
 		}
