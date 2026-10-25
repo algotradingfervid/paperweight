@@ -3,20 +3,65 @@
   "progress": "docs/PROGRESS.md",
   "decision_log": "docs/specs/contract-changes.md",
   "ux_template": "docs/ux/TEMPLATE.md",
-  "protected": ["docs/specs/*", "docs/research/*", "docs/superpowers/plans/*", "docs/tests/*"],
+  "protected": [
+    "docs/specs/*",
+    "docs/research/*",
+    "docs/superpowers/plans/*",
+    "docs/tests/*"
+  ],
   "commands": {
     "fast_test": "go test -race ./{pkg}/...",
-    "handin": ["go test -race {dirs}", "bin/tools/golangci-lint run --new-from-rev={base} {dirs}"],
+    "handin": [
+      "go test -race {dirs}",
+      "bin/tools/golangci-lint run --new-from-rev={base} {dirs}"
+    ],
     "merge": "make ci",
     "e2e": "make e2e"
   },
   "max_parallel_agents": 15,
   "assistant_directors": {
-    "head": {"workers": 3, "does": "merges to main, decision log, owner questions, escalations"},
-    "AD-1": {"wps": ["auth"], "workers": 3},
-    "AD-2": {"wps": ["ui"], "workers": 3},
-    "AD-3": {"wps": ["num", "naming", "approval"], "workers": 3},
-    "AD-4": {"wps": ["doc", "files-print"], "workers": 3}
+    "head": {
+      "workers": 2,
+      "does": "milestone and WP merges, decision log, PROGRESS.md, escalations"
+    },
+    "AD-1": {
+      "wps": [
+        "auth"
+      ],
+      "workers": 3
+    },
+    "AD-2": {
+      "wps": [
+        "ui"
+      ],
+      "workers": 3
+    },
+    "AD-3": {
+      "wps": [
+        "num",
+        "naming",
+        "approval"
+      ],
+      "workers": 3
+    },
+    "AD-4": {
+      "wps": [
+        "doc",
+        "files-print"
+      ],
+      "workers": 3
+    },
+    "AD-5": {
+      "wps": [
+        "masters",
+        "wp3-early"
+      ],
+      "workers": 1
+    }
   },
-  "models": {"judgement": "opus", "mechanical": "haiku"}
+  "models": {
+    "judgement": "opus",
+    "mechanical": "haiku"
+  },
+  "schedule": "docs/superpowers/plans/2026-10-25-parallel-schedule.md"
 }
