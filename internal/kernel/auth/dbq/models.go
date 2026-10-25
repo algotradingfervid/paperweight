@@ -25,6 +25,23 @@ type Attachment struct {
 	UploadedAt    string
 }
 
+type AuditLog struct {
+	ID           int64
+	DocType      string
+	DocID        int64
+	Action       string
+	FromState    string
+	ToState      string
+	Reason       string
+	Changes      string
+	UserID       int64
+	At           string
+	CauseDocType sql.NullString
+	CauseDocID   sql.NullInt64
+	CauseNumber  sql.NullString
+	CauseAction  sql.NullString
+}
+
 type AuthLog struct {
 	ID        int64
 	At        string
