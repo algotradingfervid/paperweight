@@ -14,6 +14,21 @@ func TestBranch_RequiredFields(t *testing.T) { // MST-021
 	_, err := company.ValidateBranch(company.BranchInput{Code: "MUM", Name: "Mumbai Office"}, companyPAN)
 	wantFieldError(t, err, "state_code", msg)
 
+	// A state that isn't an Indian place of supply gets the same message:
+	// 96 (Other Countries, CD-130) and an unknown code 99.
+	for _, state := range []string{"96", "99"} {
+		t.Run("state "+state, func(t *testing.T) {
+			_, err := company.ValidateBranch(company.BranchInput{Code: "MUM", Name: "Mumbai Office", StateCode: state}, companyPAN)
+			wantFieldError(t, err, "state_code", msg)
+		})
+	}
+	got, err := company.ValidateBranch(company.BranchInput{Code: "MUM", Name: "Mumbai Office", StateCode: "27"}, companyPAN)
+	if err != nil {
+		t.Errorf("ValidateBranch(MUM, state 27) = %v; want nil", err)
+	} else if got.StateCode != "27" {
+		t.Errorf("ValidateBranch(MUM, state 27).StateCode = %q; want 27", got.StateCode)
+	}
+
 	// Code and name are required too (their messages are mstkit's, MST-001/017).
 	if _, err := company.ValidateBranch(company.BranchInput{Name: "Mumbai Office", StateCode: "27"}, companyPAN); err == nil {
 		t.Error("ValidateBranch(no code) = nil; want an error")
@@ -106,5 +121,31 @@ func TestBranch_LastEnabledBranch(t *testing.T) { // MST-027
 	}
 	if b.Disabled || b.Version != pune.Version {
 		t.Errorf("PUNE after refused disable: Disabled %v, Version %d; want false, %d", b.Disabled, b.Version, pune.Version)
+	}
+}
+
+// nbsp is a no-break space, as pasted from a spreadsheet or web page.
+const nbsp = "\u00a0"
+
+func TestBranch_ByCodeNormalised(t *testing.T) { // Review Focus 1: codes go through mstkit.NormalizeCode
+	u := newUnit(t)
+	ctx := context.Background()
+	saveCompany(t, u.db, u.svc, u.kavya, legalName, companyPAN)
+	pune := createBranch(t, u.db, u.svc, u.kavya, company.BranchInput{Code: "PUNE", Name: "Pune Works", StateCode: "27", GSTIN: puneGSTIN, IsHeadOffice: true})
+
+	raw := " pune" + nbsp
+	var (
+		b  company.Branch
+		ok bool
+	)
+	if err := u.db.Read(ctx, func(tx *db.Tx) error {
+		var err error
+		b, ok, err = u.svc.ByCode(ctx, tx, raw)
+		return err
+	}); err != nil {
+		t.Fatalf("ByCode(%q): %v", raw, err)
+	}
+	if !ok || b.ID != pune.ID || b.Code != "PUNE" {
+		t.Errorf("ByCode(%q) = {ID %d, Code %q}, %v; want {ID %d, Code PUNE}, true", raw, b.ID, b.Code, ok, pune.ID)
 	}
 }
