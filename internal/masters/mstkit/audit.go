@@ -6,6 +6,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/csvio"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
@@ -17,11 +18,11 @@ func Importing(ctx context.Context) context.Context {
 	return context.WithValue(ctx, importingKey{}, true)
 }
 
-// IsImporting reports whether ctx is a CSV import (M12).
-// TODO(MST Task 1b, NUM-M2): also csvio.IsImport(ctx) (CD-60)
+// IsImporting reports whether ctx is a CSV import: csvio's RowFunc context
+// (CD-60) or Importing (M12).
 func IsImporting(ctx context.Context) bool {
 	on, _ := ctx.Value(importingKey{}).(bool)
-	return on
+	return on || csvio.IsImport(ctx)
 }
 
 // notAudited are the bookkeeping columns the diff skips.

@@ -15,10 +15,6 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// TODO(MST Task 1b, DOC-M1): CheckVersion(ctx, tx, k, id, version) returning
-// DOC's stale-record error, called by SetDisabledTx and DeleteTx before they
-// write (CD-94).
-
 // Child is a table whose rows belong to a master row through FKColumn; their
 // references block the master's delete too.
 type Child struct {
@@ -27,25 +23,25 @@ type Child struct {
 }
 
 // SetDisabledTx disables or enables (k, id) and audits "disable" or "enable".
-// A row already in the requested state is left alone: no version bump, no
-// audit entry. A missing row is doctype.ErrNotFound. version is not checked
-// yet (MST Task 1b, DOC-M1).
+// A page at a stale version gets DOC's stale error (CD-94). A row already in
+// the requested state is left alone: no version bump, no audit entry. A
+// missing row is doctype.ErrNotFound.
 func (e Env) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, id int64, version int, disabled bool) error {
-	var was bool
-	err := tx.SQL().QueryRowContext(ctx,
-		"SELECT disabled FROM "+k.Table+" WHERE id = ?", id).Scan(&was) //nolint:gosec // G202: Table/FKColumn come from each master's package-level Kind, never from a request
-	if errors.Is(err, sql.ErrNoRows) {
-		return doctype.ErrNotFound
-	}
+	snap, err := snapshot(ctx, tx, k, id)
 	if err != nil {
 		return err
 	}
+	if err := CheckVersion(ctx, tx, k, id, version); err != nil {
+		return err
+	}
+	was := snap["disabled"] == "true"
 	if was == disabled {
 		return nil
 	}
-	if _, err := tx.SQL().ExecContext(ctx,
-		"UPDATE "+k.Table+" SET disabled = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ?", //nolint:gosec // G202: Table/FKColumn come from each master's package-level Kind, never from a request
-		disabled, types.TimestampOf(e.Clock.Now()).String(), p.ID, id); err != nil {
+	res, err := tx.SQL().ExecContext(ctx,
+		"UPDATE "+k.Table+" SET disabled = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?", //nolint:gosec // G202: Table/FKColumn come from each master's package-level Kind, never from a request
+		disabled, types.TimestampOf(e.Clock.Now()).String(), p.ID, id, version)
+	if err := changedOne(res, err, k, title(k, snap)); err != nil {
 		return err
 	}
 	action := "enable"
@@ -60,22 +56,20 @@ func (e Env) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, k K
 // DeleteTx deletes (k, id) unless it, or one of its children's rows, is
 // referenced; then it refuses with "Cannot delete {Label} {code}: it is used
 // in {Display}. Disable it instead." A SQLite foreign-key failure gives the
-// same refusal with "another record". A missing row is doctype.ErrNotFound.
-// version is not checked yet (MST Task 1b, DOC-M1).
+// same refusal with "another record". A page at a stale version gets DOC's
+// stale error, before any reference check (CD-94). A missing row is
+// doctype.ErrNotFound.
 func (e Env) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, id int64, version int, children ...Child) error {
 	snap, err := snapshot(ctx, tx, k, id)
 	if err != nil {
 		return err
 	}
-	title := snap["name"]
-	if k.HasCode {
-		title = snap["code"]
+	if err := CheckVersion(ctx, tx, k, id, version); err != nil {
+		return err
 	}
 	refuse := func(display string) error {
-		return &DeleteRefusedError{Message: "Cannot delete " + k.Label + " " + title + ": it is used in " + display + ". Disable it instead."}
+		return &DeleteRefusedError{Message: "Cannot delete " + k.Label + " " + title(k, snap) + ": it is used in " + display + ". Disable it instead."}
 	}
-	// TODO(MST Task 1b, DOC-M1): CheckVersion here, before the reference
-	// checks, so a stale page gets 409, not a refusal.
 	if ref, ok, err := e.firstReference(ctx, tx, k.Table, id); err != nil {
 		return err
 	} else if ok {
@@ -94,12 +88,13 @@ func (e Env) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, 
 			}
 		}
 	}
-	if _, err := tx.SQL().ExecContext(ctx, "DELETE FROM "+k.Table+" WHERE id = ?", id); err != nil { //nolint:gosec // G202: Table/FKColumn come from each master's package-level Kind, never from a request
-		// Becomes db.IsForeignKey(err) (SQLITE_CONSTRAINT_FOREIGNKEY, 787)
-		// once platform/db offers it (proposed to the director).
-		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
-			return refuse("another record")
-		}
+	res, err := tx.SQL().ExecContext(ctx, "DELETE FROM "+k.Table+" WHERE id = ? AND version = ?", id, version) //nolint:gosec // G202: Table/FKColumn come from each master's package-level Kind, never from a request
+	// Becomes db.IsForeignKey(err) (SQLITE_CONSTRAINT_FOREIGNKEY, 787)
+	// once platform/db offers it (proposed to the director).
+	if err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+		return refuse("another record")
+	}
+	if err := changedOne(res, err, k, title(k, snap)); err != nil {
 		return err
 	}
 	return e.Audit(ctx, tx, p, k, id, "delete", snap, nil)
@@ -109,7 +104,7 @@ func (e Env) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, 
 // draft. Master references (State "") don't count: they block a delete
 // (MST-014) but not a lock.
 func (e Env) UsedOutsideDrafts(ctx context.Context, tx *db.Tx, table string, id int64) (doc.Reference, bool, error) {
-	// TODO(DOC-M1): confirm the real Engine.References handles a large limit without loading every row; else ask DOC for a first-non-draft query.
+	// DOC's References applies limit as a SQL LIMIT per linking field, so this reads every reference to the row.
 	refs, err := e.References(ctx, tx, table, id, math.MaxInt32)
 	if err != nil {
 		return doc.Reference{}, false, err
@@ -128,6 +123,30 @@ func (e Env) firstReference(ctx context.Context, tx *db.Tx, table string, id int
 		return doc.Reference{}, false, err
 	}
 	return refs[0], true, nil
+}
+
+// changedOne turns a version-conditional write that changed no row into
+// DOC's stale error (CD-94).
+func changedOne(res sql.Result, err error, k Kind, title string) error {
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return staleError(k, title)
+	}
+	return nil
+}
+
+// title is the row's code (code masters) or name, as messages show it.
+func title(k Kind, snap map[string]string) string {
+	if k.HasCode {
+		return snap["code"]
+	}
+	return snap["name"]
 }
 
 // snapshot reads the row's code (code masters), name and disabled.
