@@ -97,6 +97,36 @@ func (n *Namer) SetTemplate(ctx context.Context, p auth.Principal, doctype, tpl 
 	})
 }
 
+// ParseLastNumber reads the settings form's "last number used" field for a
+// series with template tpl: a base-10 whole number from 0 to the template's
+// largest counter, else ErrCounterRange.
+func ParseLastNumber(tpl, s string) (int64, error) {
+	t, err := parseTemplate(tpl)
+	if err != nil {
+		return 0, err
+	}
+	last, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+	if err != nil {
+		return 0, counterRangeError(t)
+	}
+	if err := checkCounterRange(t, last); err != nil {
+		return 0, err
+	}
+	return last, nil
+}
+
+// checkCounterRange rejects a last number outside 0..t.maxCounter().
+func checkCounterRange(t template, last int64) error {
+	if last < 0 || last > t.maxCounter() {
+		return counterRangeError(t)
+	}
+	return nil
+}
+
+func counterRangeError(t template) error {
+	return &Error{Kind: ErrCounterRange, Msg: fmt.Sprintf(msgCounterRange, t.maxCounter()), Field: "last"}
+}
+
 // SetCounter sets the last number used for the rendered prefix of doctype's
 // series. It can't go below the highest base number already issued there.
 func (n *Namer) SetCounter(ctx context.Context, p auth.Principal, doctype, prefix string, last int64) error {
@@ -115,8 +145,8 @@ func (n *Namer) SetCounter(ctx context.Context, p auth.Principal, doctype, prefi
 		if !matchPrefix(t, prefix) {
 			return &Error{Kind: ErrPrefixMismatch, Msg: fmt.Sprintf(msgPrefixMismatch, prefix, t.src)}
 		}
-		if last < 0 || last > t.maxCounter() {
-			return &Error{Kind: ErrCounterRange, Msg: fmt.Sprintf(msgCounterRange, t.maxCounter()), Field: "last"}
+		if err := checkCounterRange(t, last); err != nil {
+			return err
 		}
 		highest, err := highestIssued(ctx, tx.SQL(), doctype, prefix)
 		if err != nil {
