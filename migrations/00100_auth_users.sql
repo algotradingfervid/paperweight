@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE users (
-    id                   INTEGER PRIMARY KEY,
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
     email                TEXT NOT NULL UNIQUE CHECK (email = lower(trim(email))),
     name                 TEXT NOT NULL,
     mobile               TEXT NOT NULL DEFAULT '',
@@ -16,7 +16,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE roles (
-    id         INTEGER PRIMARY KEY,
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
     name_key   TEXT NOT NULL UNIQUE, -- lower(name)
     is_admin   INTEGER NOT NULL DEFAULT 0,

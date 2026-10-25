@@ -1,7 +1,7 @@
 -- +goose Up
 -- Only token hashes are stored (CD-14).
 CREATE TABLE sessions (
-    id           INTEGER PRIMARY KEY,
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
     token_hash   TEXT NOT NULL UNIQUE,
     user_id      INTEGER NULL REFERENCES users (id) ON DELETE CASCADE,
     data         BLOB NOT NULL,
