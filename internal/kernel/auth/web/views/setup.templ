@@ -1,0 +1,29 @@
+package views
+
+import authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+
+func (Default) Setup(p authweb.SetupPage) templ.Component {
+	return setup(p)
+}
+
+// setup is the first-administrator form.
+templ setup(p authweb.SetupPage) {
+	@layout("Set up", p.CSRF, p.Error, p.Warnings) {
+		<form method="post" action="/setup">
+			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+			<label>
+				Email
+				<input type="email" name="email" value={ p.Email } autocomplete="username" required/>
+			</label>
+			<label>
+				Name
+				<input type="text" name="name" value={ p.Name } required/>
+			</label>
+			<label>
+				Password
+				<input type="password" name="password" autocomplete="new-password" required/>
+			</label>
+			<button type="submit">Create administrator</button>
+		</form>
+	}
+}

@@ -21,6 +21,12 @@ func init() {
 	gob.Register([]Notice{})
 }
 
+// WithSessions records sm in ctx so Flash and TakeFlash can reach it. The
+// caller must run inside sm.LoadAndSave; AUTH's middleware calls it (CD-150).
+func WithSessions(ctx context.Context, sm *scs.SessionManager) context.Context {
+	return context.WithValue(ctx, sessionsKey{}, sm)
+}
+
 func sessionsFrom(ctx context.Context) *scs.SessionManager {
 	sm, _ := ctx.Value(sessionsKey{}).(*scs.SessionManager)
 	return sm

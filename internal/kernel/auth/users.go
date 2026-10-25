@@ -37,11 +37,14 @@ type NewUser struct {
 }
 
 // UserPatch lists the fields UpdateUser changes; nil fields stay as they are.
+// Version is the user's version the page was opened at; when set, UpdateUser
+// refuses to save over a newer one (CD-94).
 type UserPatch struct {
 	Email, Name, Mobile *string
 	Enabled             *bool
 	Roles               *[]string
 	Projects, Sites     *[]int64
+	Version             *int64
 }
 
 func isAdmin(p Principal) bool { return slices.Contains(p.Roles, RoleAdministrator) }
@@ -240,6 +243,9 @@ func (a *Auth) UpdateUser(ctx context.Context, actor Principal, id UserID, p Use
 		if err != nil {
 			return err
 		}
+		if p.Version != nil && u.Version != *p.Version {
+			return UserChangedError(u.Name)
+		}
 		var changes []audit.Change
 		set := func(field, before, after string) {
 			if before != after {
@@ -354,7 +360,8 @@ func (a *Auth) UpdateUser(ctx context.Context, actor Principal, id UserID, p Use
 // DeleteUser deletes a user who has never signed in and is referenced by
 // nothing; otherwise the user should be disabled (CD-19). Only an
 // Administrator may do it, and at least one enabled Administrator must remain.
-func (a *Auth) DeleteUser(ctx context.Context, actor Principal, id UserID) error {
+// When version is set, a user changed since then is not deleted (CD-94).
+func (a *Auth) DeleteUser(ctx context.Context, actor Principal, id UserID, version *int64) error {
 	if !isAdmin(actor) {
 		return ErrAdminOnlyField
 	}
@@ -363,6 +370,9 @@ func (a *Auth) DeleteUser(ctx context.Context, actor Principal, id UserID) error
 		u, err := getUser(ctx, q, id)
 		if err != nil {
 			return err
+		}
+		if version != nil && u.Version != *version {
+			return UserChangedError(u.Name)
 		}
 		if err := checkAdminsLeft(ctx, q, id); err != nil {
 			return err
@@ -540,5 +550,20 @@ func (a *Auth) ChangeOwnPassword(ctx context.Context, u UserID, current, next, c
 			DocType: "User", DocID: int64(u), Action: "change_password",
 			By: u, At: now,
 		})
+	})
+}
+
+// DisableUserByEmail disables the user with email (as the system) and ends
+// their sessions; an unknown email is ErrNotFound.
+func (a *Auth) DisableUserByEmail(ctx context.Context, email, reason string) error {
+	return a.db.Write(ctx, func(tx *db.Tx) error {
+		id, err := dbq.New(tx.SQL()).UserIDByEmail(ctx, NormalizeEmail(email))
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		return a.DisableUser(ctx, tx, UserID(id), reason)
 	})
 }

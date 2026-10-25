@@ -255,7 +255,7 @@ func TestUser_AtLeastOneAdmin(t *testing.T) {
 	// Nisha is the only enabled Administrator: the last-admin rule refuses the
 	// delete with its own message (AUTH-054), even though Nisha has changed
 	// Anil's user record above.
-	err = w.Auth.DeleteUser(ctx, nishaP, nisha)
+	err = w.Auth.DeleteUser(ctx, nishaP, nisha, nil)
 	t7WantProblem(t, "DeleteUser(nisha)", err, auth.ErrLastAdmin)
 	unchanged("DeleteUser(nisha)")
 
@@ -277,7 +277,7 @@ func TestUser_DeleteOnlyIfUnreferenced(t *testing.T) {
 	priya := w.Users[priyaEmail]
 
 	w.Refs.Add("users", int64(priya), "authtest.Order PO/26-27/00001")
-	err := w.Auth.DeleteUser(ctx, admin, priya)
+	err := w.Auth.DeleteUser(ctx, admin, priya, nil)
 	const msg = "Priya Shah has created or changed records, so they can't be deleted. Disable them instead."
 	t7WantText(t, "DeleteUser(priya)", err, msg)
 	if got := auth.ReferencedUserError("Priya Shah").Error(); got != msg {
@@ -303,7 +303,7 @@ func TestUser_DeleteOnlyIfUnreferenced(t *testing.T) {
 		u := w.AddUser(t, r.email, r.name, "Employee")
 		t7Exec(t, w, r.setup, int64(u))
 		before := t7Snapshot(t, w)
-		err := w.Auth.DeleteUser(ctx, admin, u)
+		err := w.Auth.DeleteUser(ctx, admin, u, nil)
 		t7WantText(t, "DeleteUser("+r.email+")", err, auth.ReferencedUserError(r.name).Error())
 		if got := t7Snapshot(t, w); !reflect.DeepEqual(got, before) {
 			t.Errorf("refused DeleteUser(%s) changed the database:\n got %q\nwant %q", r.email, got, before)
@@ -312,14 +312,14 @@ func TestUser_DeleteOnlyIfUnreferenced(t *testing.T) {
 
 	signedIn := w.AddUser(t, "vikram@vardhan.test", "Vikram Sethi", "Employee")
 	t7Exec(t, w, `UPDATE users SET last_login_at = ? WHERE id = ?`, auth.FormatTime(w.Clock.Now()), int64(signedIn))
-	err = w.Auth.DeleteUser(ctx, admin, signedIn)
+	err = w.Auth.DeleteUser(ctx, admin, signedIn, nil)
 	t7WantText(t, "DeleteUser(vikram, signed in once)", err, auth.ReferencedUserError("Vikram Sethi").Error())
 	if n := t7Count(t, w, `SELECT COUNT(*) FROM users WHERE id = ?`, int64(signedIn)); n != 1 {
 		t.Errorf("Vikram's row count after refused delete = %d, want 1", n)
 	}
 
 	kiran := w.AddUser(t, t7Kiran, "Kiran Joshi", "Employee")
-	if err := w.Auth.DeleteUser(ctx, admin, kiran); err != nil {
+	if err := w.Auth.DeleteUser(ctx, admin, kiran, nil); err != nil {
 		t.Fatalf("DeleteUser(kiran) = %v, want nil", err)
 	}
 	if n := t7Count(t, w, `SELECT COUNT(*) FROM users WHERE id = ?`, int64(kiran)); n != 0 {

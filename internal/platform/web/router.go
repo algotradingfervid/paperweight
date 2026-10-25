@@ -13,8 +13,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// Options configures NewRouter. AUTH supplies Sessions (built over its own
-// store) and Auth; either may be nil, in which case that step is skipped.
+// Options configures NewRouter; Sessions and Auth may each be nil, in which
+// case that step is skipped. Leave Sessions nil when AUTH's middleware is
+// wired as Auth: AUTH loads and saves the session itself and calls
+// WithSessions, so setting both saves each session twice and every request
+// fails (CD-150). Sessions is for a router without AUTH's middleware.
 type Options struct {
 	Logger         *slog.Logger
 	Sessions       *scs.SessionManager

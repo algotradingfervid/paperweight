@@ -81,7 +81,7 @@ func securityHeaders(next http.Handler) http.Handler {
 func loadSession(sm *scs.SessionManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return sm.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionsKey{}, sm)))
+			next.ServeHTTP(w, r.WithContext(WithSessions(r.Context(), sm)))
 		}))
 	}
 }
