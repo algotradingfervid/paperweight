@@ -11,6 +11,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/kernel/print/printtest"
+	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
@@ -100,9 +101,7 @@ func TestPrint_OptionalPartsOmitted(t *testing.T) {
 	d.Party = print.Party{Label: "Vendor", Name: "Ganesh Hardware", Address: []string{"Pune, Maharashtra"}}
 	d.Terms = ""
 	html := renderTrade(t, d, false)
-	if strings.Contains(html, `class="logo"`) || strings.Contains(html, "<img") {
-		t.Errorf("logo rendered with no LogoURL:\n%s", html)
-	}
+	mustContain(t, html, `<img class="logo" src="`+brand.DocumentLogoURL)
 	if n, m := strings.Count(html, "GSTIN:"), strings.Count(html, "GSTIN: Unregistered"); n != 1 || m != 1 {
 		t.Errorf("GSTIN: occurs %d times (Unregistered %d), want only the vendor's GSTIN: Unregistered:\n%s", n, m, html)
 	}

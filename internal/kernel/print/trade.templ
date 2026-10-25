@@ -27,13 +27,12 @@ templ TradeDocument(d TradeDoc) {
 	@Signatory(d.Letterhead.LegalName)
 }
 
-// LetterheadBlock is the company and branch heading; the logo and GSTIN
-// lines appear only when set (FILE-064).
+// LetterheadBlock is the company and branch heading; the GSTIN line appears
+// only when set (FILE-064). The logo is the uploaded one, else the brand
+// logo, and print.css sizes it (CD-140).
 templ LetterheadBlock(l LetterheadInfo) {
 	<header class="letterhead">
-		if l.LogoURL != "" {
-			<img class="logo" src={ l.LogoURL } alt={ l.LegalName } width={ strconv.Itoa(brand.DocumentLogoWidth) } height={ strconv.Itoa(brand.DocumentLogoHeight) }/>
-		}
+		<img class="logo" src={ logoSrc(l) } alt={ l.LegalName }/>
 		<h2 class="legal-name">{ l.LegalName }</h2>
 		<p class="branch">{ l.BranchName }</p>
 		for _, line := range l.Address {
@@ -45,6 +44,14 @@ templ LetterheadBlock(l LetterheadInfo) {
 		}
 	</header>
 	<hr/>
+}
+
+// logoSrc is the company's uploaded logo, else the brand logo (CD-140).
+func logoSrc(l LetterheadInfo) string {
+	if l.LogoURL != "" {
+		return l.LogoURL
+	}
+	return brand.DocumentLogoURL
 }
 
 // PartyBlock is the vendor, customer or employee block saved on the document.
