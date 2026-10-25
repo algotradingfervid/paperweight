@@ -42,7 +42,7 @@ func init() {
 			{Name: "days", Label: "Days", Column: "days", Type: doctype.Int, Required: true, OnLine: true},
 		},
 		SearchFields: []string{"code", "name"},
-		DefaultSort:  []doctype.SortKey{{Field: "name"}, {Field: "id"}},
+		DefaultSort:  []doctype.SortKey{{Field: "name"}},
 	}, mstkit.StandardLookup(Kind))
 }
 

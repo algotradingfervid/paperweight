@@ -34,7 +34,7 @@ func init() {
 		PluralLabel:  "Branches",
 		Table:        "branch",
 		SearchFields: []string{"code", "name"},
-		DefaultSort:  []doctype.SortKey{{Field: "name"}, {Field: "id"}},
+		DefaultSort:  []doctype.SortKey{{Field: "name"}},
 		Fields: []doctype.Field{
 			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, ListPriority: 4, MaxLen: 20},
 			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1},

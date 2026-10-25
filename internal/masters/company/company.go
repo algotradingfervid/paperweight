@@ -35,7 +35,7 @@ func init() {
 		PluralLabel:  "Companies",
 		Table:        "company",
 		SearchFields: []string{"name"},
-		DefaultSort:  []doctype.SortKey{{Field: "name"}, {Field: "id"}},
+		DefaultSort:  []doctype.SortKey{{Field: "name"}},
 		Fields: []doctype.Field{
 			{Name: "name", Label: "Legal name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1},
 			{Name: "pan", Label: "PAN", Column: "pan", Type: doctype.Text, Required: true, MaxLen: 10},
