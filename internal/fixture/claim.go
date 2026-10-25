@@ -29,6 +29,11 @@ func claimDocType() doctype.DocType {
 			{Name: "claim_date", Label: "Claim date", Type: doctype.Date, Required: true, ListPriority: 4},
 			{Name: "total", Label: "Total", Type: doctype.Money, ReadOnly: true, ListPriority: 2}, // CD-79
 			{Name: "remarks", Label: "Remarks", Type: doctype.Text, MaxLen: 500},
+			// The state convention column, for list filters (CD-144, CD-162).
+			{Name: "state", Label: "State", Type: doctype.Select, ReadOnly: true, Filterable: true, Options: []string{
+				string(doctype.StateDraft), string(doctype.StatePending), string(doctype.StateApproved),
+				string(doctype.StateClosed), string(doctype.StateRejected), string(doctype.StateCancelled),
+			}},
 
 			{Name: "expense_type", Label: "Expense type", Type: doctype.Text, Required: true, OnLine: true, Step: "lines"},
 			{Name: "description", Label: "Description", Type: doctype.Text, OnLine: true, Step: "lines"},
