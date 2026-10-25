@@ -570,7 +570,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-075 · Item type can't change once used
 - **Priority:** P2
 - **Level:** integration
-- **Given** goods item `MS-ANGLE-50` used on approved GRN `GRN/26-27/00001` **When** changed to Service **Then** fails with "Item type can't change after the item is used. Create a new item."
+- **Given** goods item `MS-ANGLE-50` used on approved GRN `GR/26-27/00001` **When** changed to Service **Then** fails with "Item type can't change after the item is used. Create a new item."
 - **Go test:** `TestItem_TypeLocked`
 - **Sources:** `erpnext/erpnext/stock/doctype/item/test_item.py:851` (`test_maintain_stock_cannot_be_turned_on_after_an_invoice`), `:1470` (`test_update_is_stock_item`)
 
@@ -677,7 +677,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-090 · Stock UoM is locked once the item is used
 - **Priority:** P1
 - **Level:** integration
-- **Given** item `MS-ANGLE-50` used on approved GRN `GRN/26-27/00001` **When** stock UoM changes KGS → TON **Then** fails with "Stock UoM can't change after the item is used. Create a new item." **And** if only drafts use it, the change is allowed and the drafts are re-validated on next save.
+- **Given** item `MS-ANGLE-50` used on approved GRN `GR/26-27/00001` **When** stock UoM changes KGS → TON **Then** fails with "Stock UoM can't change after the item is used. Create a new item." **And** if only drafts use it, the change is allowed and the drafts are re-validated on next save.
 - **Go test:** `TestItemUoM_StockUoMLocked`
 - **Sources:** `erpnext/erpnext/stock/doctype/item/test_item.py:1256` (`test_check_stock_uom_with_bin`), `:1283` (`test_stock_uom_can_change_after_stock_is_cancelled`), `erpnext/erpnext/stock/doctype/item/item.py:1636`
 
@@ -802,7 +802,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-107 · Site branch can't change once used
 - **Priority:** P2
 - **Level:** integration
-- **Given** `PUNE-WH` used on approved GRN `GRN/26-27/00001` **When** its branch changes to BLR **Then** fails with "Branch can't change after the site is used."
+- **Given** `PUNE-WH` used on approved GRN `GR/26-27/00001` **When** its branch changes to BLR **Then** fails with "Branch can't change after the site is used."
 - **Go test:** `TestSite_BranchLocked`
 - **Sources:** `erpnext/erpnext/stock/doctype/warehouse/test_warehouse.py:147` (`test_company_cannot_change_with_stock`)
 

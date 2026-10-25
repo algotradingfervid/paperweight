@@ -844,7 +844,7 @@ Changes made on 24 October 2026 to bring the seven files in line with spec §3.1
 - NAM-004: second date uses fixture clock (R5).
 - NAM-022: user ravi, reference PO (R5).
 - NAM-023: Priya submits reference PO, Ravi approves; pending shows `Draft 42` in list, form and inbox (R1, R5).
-- NAM-024: direct-approve example is now a GRN (`GRN/26-27/00001`) because the seed Expense rule (≥ ₹0) always needs approval (R5).
+- NAM-024: direct-approve example is now a GRN (`GR/26-27/00001`) because the seed Expense rule (≥ ₹0) always needs approval (R5).
 - NAM-025: retitled "A rejected or withdrawn document stays unnumbered…"; rejected state corrected to `rejected`; revise back to draft; adds withdraw: no number, counter unchanged, next number on later approval (R1, R2, R4).
 - NAM-027: creation times on fixture date (R5).
 - NAM-031, NAM-063: GRN has no rule, so a failed submit stays `draft` (not `pending_approval`) (R5).
@@ -863,7 +863,7 @@ Changes made on 24 October 2026 to bring the seven files in line with spec §3.1
 - DOC-001: fixture user/party/item, clock 05:00:00Z, shows `Draft 42` (R1, R5).
 - DOC-004: adds pending_approval+withdraw→draft; "rejected+edit" renamed "rejected+revise" (R2, R4).
 - DOC-005: messages name `Draft 42` (draft/pending/rejected) or `PO/26-27/00001`; withdraw refusals from draft, approved (incl. stale second click), rejected, closed, cancelled; pending save/submit/cancel point to Withdraw; rejected says "Revise"; closed+amend now "is closed and can't be changed"; rejected+close and rejected+amend added (R1, R2, R4).
-- DOC-006: auto-approved receipt gets `GRN/26-27/00001` in the submit transaction, `Assign` called once (R1).
+- DOC-006: auto-approved receipt gets `GR/26-27/00001` in the submit transaction, `Assign` called once (R1).
 - DOC-007: pending has no number, `Assign` not called (R1).
 - DOC-008: order CheckApprover → Validate → BeforeSubmit → NAM Assign → ApplyEffects → roll-up (R1, §3.2).
 - DOC-009, DOC-010: "edit" → "revise"; no number while rejected or revised; fixture item/rates (R1, R4, R5).
@@ -910,7 +910,7 @@ Changes made on 24 October 2026 to bring the seven files in line with spec §3.1
 - FILE-043, FILE-044: amendment is `Draft 43` until approved as `PO/26-27/00001-1` (R1).
 - FILE-051: reference PO, Vardhan header with PUNE GSTIN, vendor SHREE `27AABCS1429B1ZU`; invalid `27AAACG1234F1Z9` removed (R5).
 - FILE-063, FILE-064: SHREE snapshot; unregistered vendor `LOCAL` (R5).
-- FILE-001, 016, 017, 018, 038, 042: drafts `Draft 42`; GRN `GRN/26-27/00001`; fixture clock (R1, R5).
+- FILE-001, 016, 017, 018, 038, 042: drafts `Draft 42`; GRN `GR/26-27/00001`; fixture clock (R1, R5).
 - FILE-024, 025, 026, 028, 029, 030, 040, 041, 056, 062, 065, 067, 068, 069: fixture users, numbers, sites, items and clock (R5).
 - FILE-080: signature takes `types.Money` (§5).
 - Sections: D-FILE-15 changed to "print right + visibility (changed by spec R3)"; D-FILE-14 adds `Draft {id}` (R1); D-FILE-16 uses `print.InWordsINR(types.Money)`; Interfaces use §5 names (`auth.Service.Can`, `files.Service.CopyAll/DeleteAll`, `print.Register`, `naming.Service.Assign`).
@@ -920,7 +920,7 @@ Changes made on 24 October 2026 to bring the seven files in line with spec §3.1
 - MST-008: title and Given say "Masters Manager role"; Ravi with Party `write` but no Masters Manager role cannot rename; Kavya can (R4, R5).
 - MST-010, MST-014: draft PO message names `Draft 42` (R1).
 - MST-011: print view needs the PO `print` right (R3).
-- MST-012, 090–093: approved/cancelled numbers in `PO/26-27/000NN` / `GRN/26-27/00001` format (R5).
+- MST-012, 090–093: approved/cancelled numbers in `PO/26-27/000NN` / `GR/26-27/00001` format (R5).
 - MST-019–MST-029: company Vardhan (PAN `AAFCV2449G`), branches `PUNE` / `BLR` with fixture GSTINs; head office is `PUNE` (was `HO`); extra branches `MUM` / `NASHIK` created in the test (R5).
 - MST-026: bad-checksum GSTIN is now `27AABCS1429B1Z5` (R5).
 - MST-031, MST-036: `24AAUPV7468F1ZW` replaced by RAJKOT `24AAACR5055K1ZD` (R5).

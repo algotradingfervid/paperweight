@@ -4,7 +4,7 @@
 DOC owns the generic engine every document type (PO, GRN, Expense, and later Delivery Challan, Sales Invoice, …) runs on: create, save, validation pipeline, child lines, the F5 state machine (submit, withdraw, approve, reject, revise, cancel, close, amend, delete), immutability after submit, linked-document checks, cross-document roll-ups ("effects"), optimistic concurrency, one-transaction-per-action atomicity, and the F6 append-only audit trail.
 It defines the **hook interface** modules implement (see "Hooks contract" below). Core tests run against fixture DocTypes compiled only into the test binary: `fixture.Order` (header + lines with `qty`, roll-up `received_qty`), `fixture.Receipt` (lines that point at `fixture.Order` lines) and `fixture.Claim` (employee-based, approvable, labelled "Expense Claim", used by APR; CD-25). They mirror PO, GRN and Expense Claim. Examples below use PO/GRN wording for readability. The DocType registry lives in `internal/kernel/doctype` (CD-02); `doc` re-exports its names.
 It relies on: **AUTH** for `auth.Service.Can(ctx, p, doctype, Right, rec)`, record rules, the restriction checks on save (`CheckValues`, `CheckLink`, CD-70) and user names (`auth.Service.User`); **NAM** for document numbers (assigned at first approval), including the amend suffix, display labels (`naming.Label`), the number-field guard and the amendment limit (CD-28); **APR** for deciding whether submit needs approval and who may approve or reject, following the §5 call protocol (CD-23); **MST** for master lookups (`not found`, `disabled`, `blocked`) through each master DocType's `MasterLookup` (CD-21); **FILE** for copying attachments on amend; **NUM** for money/qty precision, date rules and IST display.
-Document numbers follow `00-fixtures.md` (`PO/26-27/00001`, `GRN/26-27/00001`). NAM owns the format. A document gets its number only in the transaction that first enters `approved` (approve, or submit when no rule applies). Until then (draft, pending_approval, rejected) it has no number and displays as `Draft {id}`, e.g. `Draft 42` (spec R1).
+Document numbers follow `00-fixtures.md` (`PO/26-27/00001`, `GR/26-27/00001`). NAM owns the format. A document gets its number only in the transaction that first enters `approved` (approve, or submit when no rule applies). Until then (draft, pending_approval, rejected) it has no number and displays as `Draft {id}`, e.g. `Draft 42` (spec R1).
 
 ### Hooks contract (what a module implements)
 ```go
@@ -92,7 +92,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 - **Priority:** P1
 - **Level:** integration
 - **Given** one document per starting state **When** a disallowed action runs **Then** nothing changes (state, version, audit count) and the error is:
-  - approve or reject in any state except pending_approval (CD-26; same as APR-055, APR-057 and APR-071): when a person's approve, reject or withdraw produced the current state → "<name> is no longer waiting for approval. It was <approved|rejected|withdrawn> by <Name>." (e.g. "PO/26-27/00001 is no longer waiting for approval. It was approved by Ravi Kulkarni."; DOC gets the name from `auth.Service.User`); otherwise → "<name> is not waiting for approval. It is <State>." (e.g. "Draft 42 is not waiting for approval. It is Draft.", an auto-approved "GRN/26-27/00001 is not waiting for approval. It is Approved.")
+  - approve or reject in any state except pending_approval (CD-26; same as APR-055, APR-057 and APR-071): when a person's approve, reject or withdraw produced the current state → "<name> is no longer waiting for approval. It was <approved|rejected|withdrawn> by <Name>." (e.g. "PO/26-27/00001 is no longer waiting for approval. It was approved by Ravi Kulkarni."; DOC gets the name from `auth.Service.User`); otherwise → "<name> is not waiting for approval. It is <State>." (e.g. "Draft 42 is not waiting for approval. It is Draft.", an auto-approved "GR/26-27/00001 is not waiting for approval. It is Approved.")
   - draft+withdraw → "Draft 42 hasn't been submitted, so there is nothing to withdraw."
   - draft+cancel → "Only approved documents can be cancelled. Delete the draft instead."
   - draft+close, pending_approval+close, rejected+close, cancelled+close → "Only approved documents can be closed."
@@ -112,7 +112,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-006 · Submit without an approval rule goes straight to approved and applies effects once
 - **Priority:** P1
 - **Level:** integration
-- **Given** an approved order line with qty 10 and `received_qty = 0`, and a draft receipt for 4 against it, and APR returns "no rule applies" **When** the receipt is submitted **Then** receipt `state = "approved"`, it gets its number `GRN/26-27/00001` in the same transaction (NAM `Assign` called once), APR is called `Evaluate`, `Open`, then `Record(approve)` without `CheckApprover` (CD-23), order line `received_qty = 4`, and exactly one transition audit entry `draft → approved` (with `auto_approved = true`) is written on the receipt.
+- **Given** an approved order line with qty 10 and `received_qty = 0`, and a draft receipt for 4 against it, and APR returns "no rule applies" **When** the receipt is submitted **Then** receipt `state = "approved"`, it gets its number `GR/26-27/00001` in the same transaction (NAM `Assign` called once), APR is called `Evaluate`, `Open`, then `Record(approve)` without `CheckApprover` (CD-23), order line `received_qty = 4`, and exactly one transition audit entry `draft → approved` (with `auto_approved = true`) is written on the receipt.
 - **Go test:** `TestDoc_Submit_NoRule_AutoApproves`
 - **Sources:** `erpnext/erpnext/buying/doctype/purchase_order/test_purchase_order.py:94` (`test_ordered_qty`), `odoo/addons/purchase/models/purchase_order.py:708-721` (`button_confirm` → `button_approve` when allowed)
 
@@ -126,7 +126,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-008 · Approve re-validates, then applies effects
 - **Priority:** P1
 - **Level:** integration
-- **Given** the pending receipt from DOC-007 **When** an approver approves it **Then** the call order is DOC's visibility check (`read`), APR `CheckApprover` (before DOC's from-state guard; DOC runs no `Can(approve)`, CD-23, CD-52), `Validate`, `BeforeSubmit`, NAM `Assign`, `ApplyEffects`, the roll-up recompute, then APR `Record(approve)`. `state = "approved"`, the receipt is numbered `GRN/26-27/00001`, and order line `received_qty = 4`.
+- **Given** the pending receipt from DOC-007 **When** an approver approves it **Then** the call order is DOC's visibility check (`read`), APR `CheckApprover` (before DOC's from-state guard; DOC runs no `Can(approve)`, CD-23, CD-52), `Validate`, `BeforeSubmit`, NAM `Assign`, `ApplyEffects`, the roll-up recompute, then APR `Record(approve)`. `state = "approved"`, the receipt is numbered `GR/26-27/00001`, and order line `received_qty = 4`.
 - **Go test:** `TestDoc_Approve_RevalidatesThenApplies`
 - **Sources:** `odoo/addons/purchase/models/purchase_order.py:698-702` (`button_approve`), `frappe/frappe/model/document.py:2144-2174` (`run_before_save_methods` order)
 
@@ -147,7 +147,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-011 · A double submit (double-click) is refused without side effects
 - **Priority:** P1
 - **Level:** integration
-- **Given** a draft order with version 3 **When** two submit requests with version 3 arrive one after the other **Then** the first succeeds. The second gets "Draft 42 has already been submitted." No number is allocated, no second approval request is opened, and no second audit entry or effect is written. For a receipt with no rule (auto-approved by the first submit) the message names its number, "GRN/26-27/00001 has already been submitted.", and exactly one number was allocated.
+- **Given** a draft order with version 3 **When** two submit requests with version 3 arrive one after the other **Then** the first succeeds. The second gets "Draft 42 has already been submitted." No number is allocated, no second approval request is opened, and no second audit entry or effect is written. For a receipt with no rule (auto-approved by the first submit) the message names its number, "GR/26-27/00001 has already been submitted.", and exactly one number was allocated.
 - **Go test:** `TestDoc_Submit_Twice`
 - **Sources:** `odoo/addons/purchase/models/purchase_order.py:709-711` (`button_confirm` skips non-draft), `frappe/frappe/tests/test_document.py:231` (`test_conflict_validation`)
 
@@ -420,7 +420,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-050 · Roll-up fields of an approved document change only through effects
 - **Priority:** P1
 - **Level:** integration
-- **Given** an approved order line with `received_qty = 4` **When** a receipt for 3 is approved against it **Then** `received_qty = 7`, `version` goes up by 1, and the order gets an audit entry `line 1 received_qty 4 → 7` with `cause = GRN/26-27/00002 approve`. No user-facing route can set `received_qty`.
+- **Given** an approved order line with `received_qty = 4` **When** a receipt for 3 is approved against it **Then** `received_qty = 7`, `version` goes up by 1, and the order gets an audit entry `line 1 received_qty 4 → 7` with `cause = GR/26-27/00002 approve`. No user-facing route can set `received_qty`.
 - **Go test:** `TestDoc_RollUp_OnlyViaEffects`
 - **Sources:** `erpnext/erpnext/controllers/status_updater.py:633-714`, `frappe/frappe/core/doctype/version/version.py:61-75` (`updater_reference`)
 
@@ -434,7 +434,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-052 · Cancel is blocked by a later approved document, and the blocker is named
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved order PO/26-27/00001 with approved receipt GRN/26-27/00001 **When** the order is cancelled with a reason **Then** the error is "Can't cancel PO/26-27/00001 because GRN/26-27/00001 (approved) is linked to it. Cancel GRN/26-27/00001 first." and the order stays approved, unchanged.
+- **Given** approved order PO/26-27/00001 with approved receipt GR/26-27/00001 **When** the order is cancelled with a reason **Then** the error is "Can't cancel PO/26-27/00001 because GR/26-27/00001 (approved) is linked to it. Cancel GR/26-27/00001 first." and the order stays approved, unchanged.
 - **Go test:** `TestDoc_Cancel_BlockedByLaterDoc`
 - **Sources:** `frappe/frappe/model/delete_doc.py:527-542` (`raise_link_exists_exception`), `frappe/frappe/model/document.py:2335-2341` (`check_no_back_links_exist`), `erpnext/erpnext/stock/doctype/purchase_receipt/test_purchase_receipt.py:7880` (`test_cancel_blocked_by_submitted_invoice_rolls_back`), `odoo/addons/purchase/models/purchase_order.py:728-730`
 
@@ -448,7 +448,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-054 · Once the blockers are cancelled, the source can be cancelled
 - **Priority:** P1
 - **Level:** integration
-- **Given** the blocked order from DOC-052 **When** GRN/26-27/00001 is cancelled and then the order is cancelled **Then** both succeed, and the order line `received_qty = 0` before the order's own reverse runs.
+- **Given** the blocked order from DOC-052 **When** GR/26-27/00001 is cancelled and then the order is cancelled **Then** both succeed, and the order line `received_qty = 0` before the order's own reverse runs.
 - **Go test:** `TestDoc_Cancel_AfterBlockersCancelled`
 - **Sources:** `erpnext/erpnext/buying/doctype/purchase_order/test_purchase_order.py:808` (`test_purchase_order_invoice_receipt_workflow`, cancel PR, then PI, then PO)
 
@@ -602,7 +602,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-076 · A failure while applying effects rolls back everything
 - **Priority:** P1
 - **Level:** integration
-- **Given** a pending receipt with lines against order lines L1 and L2, and a fixture `ApplyEffects` that updates L1 and then returns an error **When** it is approved **Then** the receipt stays `pending_approval` (same version), L1 and L2 `received_qty` are unchanged, no audit entry is written on either document, the receipt still has no number (`Draft 42`), and the NAM counter is unchanged, so the next receipt approved still gets `GRN/26-27/00001`.
+- **Given** a pending receipt with lines against order lines L1 and L2, and a fixture `ApplyEffects` that updates L1 and then returns an error **When** it is approved **Then** the receipt stays `pending_approval` (same version), L1 and L2 `received_qty` are unchanged, no audit entry is written on either document, the receipt still has no number (`Draft 42`), and the NAM counter is unchanged, so the next receipt approved still gets `GR/26-27/00001`.
 - **Go test:** `TestDoc_Tx_ApplyEffectsFailureRollsBack`
 - **Sources:** `erpnext/erpnext/stock/doctype/purchase_receipt/test_purchase_receipt.py:7880`, `frappe/frappe/tests/test_db.py:528` (`test_savepoints`), `frappe/frappe/tests/test_linked_with.py:540` (`test_background_cancel_is_all_or_nothing`)
 
@@ -658,7 +658,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-084 · Roll-up changes on another document are recorded with their cause
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved order O, line 1 `received_qty = 0` **When** receipt GRN/26-27/00001 (qty 4) is approved by `suresh` **Then** O gets an audit row `action = "effect"`, `user = suresh`, `cause_doc = GRN/26-27/00001`, `cause_action = "approve"`, changes `[{field: "received_qty", line_no: 1, line_id: …, op: "set", before: 0, after: 4}]`.
+- **Given** approved order O, line 1 `received_qty = 0` **When** receipt GR/26-27/00001 (qty 4) is approved by `suresh` **Then** O gets an audit row `action = "effect"`, `user = suresh`, `cause_doc = GR/26-27/00001`, `cause_action = "approve"`, changes `[{field: "received_qty", line_no: 1, line_id: …, op: "set", before: 0, after: 4}]`.
 - **Go test:** `TestAudit_EffectWithCause`
 - **Sources:** `frappe/frappe/core/doctype/version/version.py:61-75` (`updater_reference`), `odoo/addons/purchase/models/purchase_order_line.py:460-462` (`_track_qty_received`)
 

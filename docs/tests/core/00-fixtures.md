@@ -94,7 +94,7 @@ GRN (`fixture.Receipt`) has no approval rule, so submit goes straight to approve
 | Document type | Template | First number in FY 2026-27 |
 |---|---|---|
 | `fixture.Order` / Purchase Order | `PO/{FY}/{#####}` | `PO/26-27/00001` |
-| `fixture.Receipt` / GRN | `GRN/{FY}/{#####}` | `GRN/26-27/00001` |
+| `fixture.Receipt` / GRN | `GR/{FY}/{#####}` | `GR/26-27/00001` |
 | `fixture.Claim` / Expense Claim | `EXP/{FY}/{#####}` | `EXP/26-27/00001` |
 | Expense Claim | `EXP/{FY}/{#####}` | `EXP/26-27/00001` |
 

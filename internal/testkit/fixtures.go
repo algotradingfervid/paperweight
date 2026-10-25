@@ -270,8 +270,8 @@ func canonical() Fixtures {
 		Numbering: []FixtureNumbering{
 			{DocType: "fixture.Order", Template: "PO/{FY}/{#####}", FirstNumber: "PO/26-27/00001"},
 			{DocType: "Purchase Order", Template: "PO/{FY}/{#####}", FirstNumber: "PO/26-27/00001"},
-			{DocType: "fixture.Receipt", Template: "GRN/{FY}/{#####}", FirstNumber: "GRN/26-27/00001"},
-			{DocType: "GRN", Template: "GRN/{FY}/{#####}", FirstNumber: "GRN/26-27/00001"},
+			{DocType: "fixture.Receipt", Template: "GR/{FY}/{#####}", FirstNumber: "GR/26-27/00001"},
+			{DocType: "GRN", Template: "GR/{FY}/{#####}", FirstNumber: "GR/26-27/00001"},
 			{DocType: "fixture.Claim", Template: "EXP/{FY}/{#####}", FirstNumber: "EXP/26-27/00001"},
 			{DocType: "Expense Claim", Template: "EXP/{FY}/{#####}", FirstNumber: "EXP/26-27/00001"},
 		},

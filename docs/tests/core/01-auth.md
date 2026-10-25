@@ -681,7 +681,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-091 · Restriction by Site: list shows only allowed sites
 - **Priority:** P1
 - **Level:** integration
-- **Given** GRNs `GRN/26-27/00001` (Site `PUNE-WH`) and `GRN/26-27/00002` (Site `TECH-SITE`), and Suresh restricted to `PUNE-WH` and `METRO-SITE` **When** Suresh opens `/grn/list` **Then** only `GRN/26-27/00001` is listed, the count is "1", and `/grn/{id of GRN/26-27/00002}` returns 404.
+- **Given** GRNs `GR/26-27/00001` (Site `PUNE-WH`) and `GR/26-27/00002` (Site `TECH-SITE`), and Suresh restricted to `PUNE-WH` and `METRO-SITE` **When** Suresh opens `/grn/list` **Then** only `GR/26-27/00001` is listed, the count is "1", and `/grn/{id of GR/26-27/00002}` returns 404.
 - **Go test:** `TestRestriction_SiteList`
 - **Sources:** `frappe/frappe/tests/test_permissions.py:184` (`test_user_permissions_in_report`), `frappe/frappe/tests/test_permissions.py:159` (`test_user_permissions_in_doc`)
 
@@ -786,7 +786,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-106 · Every channel uses the same scope: list, count, search, picker, print, export, JSON
 - **Priority:** P1
 - **Level:** integration
-- **Given** Suresh restricted to `PUNE-WH` and `METRO-SITE`, and GRNs `GRN/26-27/00001` (`PUNE-WH`) and `GRN/26-27/00002` (`TECH-SITE`) **When** the same query is made through (a) `/grn/list`, (b) the list count badge, (c) the global search for "GRN/26-27/00002", (d) the GRN picker on a stock form, (e) `/grn/{id}/print`, (f) `/grn/export.csv`, (g) `/api/grn?site=TECH-SITE` **Then** none of them returns or confirms `GRN/26-27/00002`: (a)–(d) and (f) leave it out, and (e) and (g) return 404 or an empty set. This is a table-driven test over every registered route.
+- **Given** Suresh restricted to `PUNE-WH` and `METRO-SITE`, and GRNs `GR/26-27/00001` (`PUNE-WH`) and `GR/26-27/00002` (`TECH-SITE`) **When** the same query is made through (a) `/grn/list`, (b) the list count badge, (c) the global search for "GR/26-27/00002", (d) the GRN picker on a stock form, (e) `/grn/{id}/print`, (f) `/grn/export.csv`, (g) `/api/grn?site=TECH-SITE` **Then** none of them returns or confirms `GR/26-27/00002`: (a)–(d) and (f) leave it out, and (e) and (g) return 404 or an empty set. This is a table-driven test over every registered route.
 - **Go test:** `TestScope_AllChannelsConsistent`
 - **Sources:** `frappe/frappe/model/db_query.py:155` (one query path checks read), `frappe/frappe/desk/search.py:103`, `frappe/frappe/www/printview.py:479`, `frappe/frappe/desk/reportview.py:560`
 
@@ -807,7 +807,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-109 · Attachments follow the parent document's permission
 - **Priority:** P1
 - **Level:** integration
-- **Given** a private attachment `invoice_8812.pdf` on `GRN/26-27/00002` (Site `TECH-SITE`) **When** Suresh (GRN read, restricted to `PUNE-WH` and `METRO-SITE`) GETs its download URL **Then** 404. **When** Deepak (no GRN rights) GETs it **Then** 403 "You don't have permission to read GRN. Ask your administrator for a role that allows it." **When** `admin@vardhan.test` GETs it **Then** the file is returned.
+- **Given** a private attachment `invoice_8812.pdf` on `GR/26-27/00002` (Site `TECH-SITE`) **When** Suresh (GRN read, restricted to `PUNE-WH` and `METRO-SITE`) GETs its download URL **Then** 404. **When** Deepak (no GRN rights) GETs it **Then** 403 "You don't have permission to read GRN. Ask your administrator for a role that allows it." **When** `admin@vardhan.test` GETs it **Then** the file is returned.
 - **Go test:** `TestScope_AttachmentsFollowParent`
 - **Sources:** `frappe/frappe/core/doctype/file/file.py:1003` (`has_permission` follows the attached document); detailed cases belong to FILE
 

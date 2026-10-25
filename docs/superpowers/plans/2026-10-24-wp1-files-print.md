@@ -334,7 +334,7 @@ Env: Ravi (`ravi@vardhan.test`) with `read, write` on `expense`; `exp := env.Doc
 
 - [ ] **Step 3: Write the failing tests `TestAttachment_DedupeAcrossDocuments` (FILE-016) and `TestAttachment_BytesUnchanged` (FILE-034)**
 
-FILE-016: same `PDF(50_000)` attached to `purchase_order` 12 (`Draft 12`) and `grn` 34 (`GRN/26-27/00034`, approved) → two rows with equal `SHA256`, `len(env.Blobs()) == 1`, and the single blob file's bytes equal the input (download parity is covered again in Task 6, FILE-018).
+FILE-016: same `PDF(50_000)` attached to `purchase_order` 12 (`Draft 12`) and `grn` 34 (`GR/26-27/00034`, approved) → two rows with equal `SHA256`, `len(env.Blobs()) == 1`, and the single blob file's bytes equal the input (download parity is covered again in Task 6, FILE-018).
 FILE-034: `filestest.JPEGWithEXIF(6)` (APP1 `Exif\0\0` segment with orientation 6) → blob bytes `bytes.Equal` input, and contain `"Exif\x00\x00"`.
 
 - [ ] **Step 4: Write the failing test `TestUpload_ConcurrentSameContent` (FILE-047)**
@@ -404,7 +404,7 @@ Permission uses `refFrom(info)`, never the caller's `RecordRef` fields beyond `D
 
 `TestAttachment_AddNeedsParentWrite` (FILE-024): Meena (`meena@vardhan.test`) has `read` only on `purchase_order`; doc 12 display `PO/26-27/00012` approved → `KindForbidden`, 403, `You don't have permission to add files to PO/26-27/00012.`; no row.
 
-`TestAttachment_AddAfterApproval` (FILE-040): Suresh with `read, write` on `grn`; doc 34 `approved`, display `GRN/26-27/00034`; attach `vendor-bill.pdf` → ok; the `docfake` state is still `approved` (FILE never changes document state); `env.Audit.Entries()` has one entry with `Action "attachment_added"`, `By suresh.ID`, changes `file_name=vendor-bill.pdf`, `size`, `sha256`.
+`TestAttachment_AddAfterApproval` (FILE-040): Suresh with `read, write` on `grn`; doc 34 `approved`, display `GR/26-27/00034`; attach `vendor-bill.pdf` → ok; the `docfake` state is still `approved` (FILE never changes document state); `env.Audit.Entries()` has one entry with `Action "attachment_added"`, `By suresh.ID`, changes `file_name=vendor-bill.pdf`, `size`, `sha256`.
 
 `TestAttachment_AddToCancelledBlocked` (FILE-041): `purchase_order` 12 `cancelled` → `KindCancelled`, message above.
 
@@ -837,7 +837,7 @@ Payable: Grand 1_411_280, Rounded 1_411_300, `HasRoundedTotal: true` → `Rounde
 
 - [ ] **Step 4: Write `TestPrint_AllPrintableDocTypesHaveTemplates` (FILE-066; Wave 1, CD-58)**
 
-External package `print_test`: `printtest.RegisterFixtureViews(print.Default)`; `names` = `print.PrintableNames(doctype.All())` (CD-02; WP0's registry is real, so this is whatever the test binary registered) merged with `printtest.FixtureDocTypes`, without duplicates; `print.Default.Missing(names) == nil`. For each fixture name and each state `draft pending_approval approved rejected closed cancelled` (the `doctype.State*` constants, CD-54), render through `print.Default.Render` with a `doctype.Info{DocType: name, ID: 1, State: s, Number: …, Display: …}` (`Draft 1` for unnumbered states; `PO/26-27/00001`, `GRN/26-27/00001`, `EXP/26-27/00001` otherwise) without error; compare the approved output to `fixture_order_approved.golden.html`, `fixture_receipt_approved.golden.html`, `fixture_claim_approved.golden.html`. `TestRegistry_Missing` (Task 11) pins the "No print template for DocType <name>." message. Once DOC's `internal/fixture` is on `main`, WP3 adds `_ ".../internal/fixture"` to this test so the `doctype.All()` half also sees the real fixture DocTypes (Hand-off notes).
+External package `print_test`: `printtest.RegisterFixtureViews(print.Default)`; `names` = `print.PrintableNames(doctype.All())` (CD-02; WP0's registry is real, so this is whatever the test binary registered) merged with `printtest.FixtureDocTypes`, without duplicates; `print.Default.Missing(names) == nil`. For each fixture name and each state `draft pending_approval approved rejected closed cancelled` (the `doctype.State*` constants, CD-54), render through `print.Default.Render` with a `doctype.Info{DocType: name, ID: 1, State: s, Number: …, Display: …}` (`Draft 1` for unnumbered states; `PO/26-27/00001`, `GR/26-27/00001`, `EXP/26-27/00001` otherwise) without error; compare the approved output to `fixture_order_approved.golden.html`, `fixture_receipt_approved.golden.html`, `fixture_claim_approved.golden.html`. `TestRegistry_Missing` (Task 11) pins the "No print template for DocType <name>." message. Once DOC's `internal/fixture` is on `main`, WP3 adds `_ ".../internal/fixture"` to this test so the `doctype.All()` half also sees the real fixture DocTypes (Hand-off notes).
 
 - [ ] **Step 5: Run tests to verify they fail**
 
@@ -986,7 +986,7 @@ FILE-033 and FILE-035 (`TestE2E_ExpenseAttachmentPreview`, `TestE2E_ExifOrientat
   - Toolbar in `Page`: `<div class="toolbar"><button id="print-btn" type="button">Print / Save as PDF</button><button id="close-btn" type="button">Close</button></div>`, hidden by `@media print { .toolbar { display: none; } }`; `/print/assets/print.js` binds `print-btn` → `window.print()` and `close-btn` → `window.close()` (no inline script; the CSP forbids it).
   - Footer: `GET /print/{doctype}/{id}/page.css` (same permission checks) returning `@page { @bottom-center { content: "{Info.Display} · Page " counter(page) " of " counter(pages); } }` (display value CSS-string-escaped), linked from `Page`.
 - [ ] **Step 1: Write the failing tests**
-  - `TestPrint_GRNGolden` (FILE-067): GRN `GRN/26-27/00001` against `PO/26-27/00001` dated 24-10-2026, MS Angle received 1,200.000 / accepted 1,180.000 / rejected 20.000 kg → golden `grn_approved.golden.html`; contains `Goods Receipt Note`, `Against PO: PO/26-27/00001 dated 24-10-2026`, challan no./date, headers `Received Accepted Rejected`.
+  - `TestPrint_GRNGolden` (FILE-067): GRN `GR/26-27/00001` against `PO/26-27/00001` dated 24-10-2026, MS Angle received 1,200.000 / accepted 1,180.000 / rejected 20.000 kg → golden `grn_approved.golden.html`; contains `Goods Receipt Note`, `Against PO: PO/26-27/00001 dated 24-10-2026`, challan no./date, headers `Received Accepted Rejected`.
   - `TestPrint_ExpenseGolden` (FILE-068): `EXP/26-27/00001`, employee `Ravi Kulkarni (EMP-003)`, 3 lines (2 with receipts), attachments `taxi.jpg`, `hotel.pdf` → golden; contains `Expense Claim`, `Receipt: Yes`, `Receipt: No`, total in figures and words, `Attachments: taxi.jpg, hotel.pdf`. Extend `TestRegistry_Missing`'s table with `test.GRN` and `test.Expense` (FILE-066 itself keeps the `printtest` fixture views from Task 12).
   - `TestPrint_ApprovalAndAmendLines` (FILE-069): `ApprovedBy "Ravi Kulkarni"`, `ApprovedAt 2026-10-24T05:00:00Z` → `Approved by Ravi Kulkarni on 24-10-2026 10:30` (`types.FormatIST`); approved amendment `PO/26-27/00001-1` with `AmendsNumber "PO/26-27/00001"` → `Amends PO/26-27/00001`.
   - `TestPrint_EmptyDraft` (FILE-071): no lines, totals 0, state draft → `No items`, `₹0.00`, `Rupees Zero Only`, DRAFT watermark.

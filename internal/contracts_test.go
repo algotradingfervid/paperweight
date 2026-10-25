@@ -529,7 +529,7 @@ func TestContracts_DocFakeInfoAndReferences(t *testing.T) {
 	refs := []doc.Reference{
 		{DocType: "fixture.Order", Field: "party", ID: 1, Display: "PO/26-27/00001", State: doctype.StateApproved},
 		{DocType: "fixture.Order", Field: "party", ID: 2, Display: "PO/26-27/00002", State: doctype.StateApproved},
-		{DocType: "fixture.Receipt", Field: "party", ID: 1, Display: "GRN/26-27/00001", State: doctype.StateDraft},
+		{DocType: "fixture.Receipt", Field: "party", ID: 1, Display: "GR/26-27/00001", State: doctype.StateDraft},
 	}
 	for _, r := range refs {
 		f.AddReference("parties", 5, r)
@@ -669,7 +669,7 @@ func TestContracts_NamingFakeSequence(t *testing.T) {
 	if got, err := f.PreviewTemplate(ctx, "PO/{FY}/{#####}", d); err != nil || got != "PO/26-27/00001" {
 		t.Errorf("PreviewTemplate with SetPreview = (%q, %v), want (\"PO/26-27/00001\", nil)", got, err)
 	}
-	if got, err := f.PreviewTemplate(ctx, "GRN/{FY}/{#####}", d); err != nil || got != "GRN/{FY}/{#####}" {
+	if got, err := f.PreviewTemplate(ctx, "GR/{FY}/{#####}", d); err != nil || got != "GR/{FY}/{#####}" {
 		t.Errorf("PreviewTemplate without SetPreview = (%q, %v), want the template unchanged", got, err)
 	}
 	rejected := errors.New("Unknown placeholder {X}. Use {FY}, {YYYY}, {MM} or {#####}.")

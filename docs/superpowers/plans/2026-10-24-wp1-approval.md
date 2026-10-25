@@ -405,7 +405,7 @@ func (c *Clock) Set(t time.Time)
 //   e.Dir.SetManager(employeeID, managerID).
 ```
 
-Driver behaviour (the reference driver runs the §5 call protocol, CD-23, in the CD-52 order). Harness tables, created with `CREATE TABLE IF NOT EXISTS` through `tx.SQL()` in `New`, never in `migrations/`: `aprtest_docs(doctype, id, state, number, amount, created_by, employee_id, project_id, party)`, `aprtest_effects(doctype, id, n)`, `aprtest_counters(prefix, n)`. All state, number, effect and counter changes happen inside the same `db.Write` as the APR calls, so rollbacks are real. Stand-in numbering on entering `approved`: `PO/26-27/%05d`, `GRN/26-27/%05d`, `EXP/26-27/%05d` from `aprtest_counters`.
+Driver behaviour (the reference driver runs the §5 call protocol, CD-23, in the CD-52 order). Harness tables, created with `CREATE TABLE IF NOT EXISTS` through `tx.SQL()` in `New`, never in `migrations/`: `aprtest_docs(doctype, id, state, number, amount, created_by, employee_id, project_id, party)`, `aprtest_effects(doctype, id, n)`, `aprtest_counters(prefix, n)`. All state, number, effect and counter changes happen inside the same `db.Write` as the APR calls, so rollbacks are real. Stand-in numbering on entering `approved`: `PO/26-27/%05d`, `GR/26-27/%05d`, `EXP/26-27/%05d` from `aprtest_counters`.
 
 - Approve and reject in the reference driver, as DOC does (CD-52): `Info` → `Auth.Can(p, doctype, "read", ref)`; a hidden record returns that error (`doctype.ErrNotFound`, 404) and APR is not called → `CheckApprover` → from-state guard → the rest of the protocol. The driver never calls `Can(approve)` for these two actions.
 - `Docs` implements `doctype.InfoSource` over `aprtest_docs` through the passed `tx`: `Info{DocType, DocLabel (from DocTypes()), ID, State, Number, Display (number, else "Draft {id}"), Party (CD-55), CreatedBy, EmployeeID, ProjectIDs ([project_id] when set)}`; a missing row returns `doctype.ErrNotFound` (CD-54). This is APR's one own contract double, kept on purpose instead of `docfake.SetInfo`: its rows live in the same SQLite file and are read through the caller's `tx`, so state, number and effect changes roll back with the `db.Write` (APR-053) and serialise under `BEGIN IMMEDIATE` (APR-072); `docfake` keeps `Info` in memory, outside the transaction.
@@ -1204,7 +1204,7 @@ func TestApprovalSubmit_NoRuleApprovesDirectly(t *testing.T) { // APR-015
 	d := e.NewDoc(t, at.Receipt, 43, at.Rs(120000), e.Suresh)
 	at.MustOK(t, e.Submit(e.Suresh, d))
 	h := e.History(t, d)
-	if e.State(t, d) != "approved" || e.Number(t, d) != "GRN/26-27/00001" || e.Effects(t, d) != 1 { t.Error("state/number/effects") }
+	if e.State(t, d) != "approved" || e.Number(t, d) != "GR/26-27/00001" || e.Effects(t, d) != 1 { t.Error("state/number/effects") }
 	if _, ok := e.Latest(t, d); ok { t.Error("no request expected") }
 	if len(h) != 2 || h[0].Action != approval.HistSubmitted || h[1].Action != approval.HistAutoApproved || h[1].By != e.Suresh.ID { t.Errorf("%+v", h) }
 }
@@ -1216,7 +1216,7 @@ func TestApprovalApprove_AppliesEffectsAtomically(t *testing.T) { // APR-052 (AP
 	at.MustOK(t, e.Submit(e.Suresh, d))
 	at.MustOK(t, e.Approve(e.Ravi, d))
 	h := e.History(t, d); last := h[len(h)-1]
-	if e.Number(t, d) != "GRN/26-27/00001" || e.Effects(t, d) != 1 || last.By != e.Ravi.ID || last.Amount != 12000000 { t.Errorf("%+v", last) }
+	if e.Number(t, d) != "GR/26-27/00001" || e.Effects(t, d) != 1 || last.By != e.Ravi.ID || last.Amount != 12000000 { t.Errorf("%+v", last) }
 }
 func TestApprovalApprove_RevalidatesAndRollsBack(t *testing.T) { // APR-053
 	e := at.New(t)

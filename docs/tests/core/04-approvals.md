@@ -136,7 +136,7 @@ Single-level approval only in v1; multi-level chains, email, delegation and remi
 ### APR-015 · No rule for the document type → submit goes straight to approved
 - **Priority:** P1
 - **Level:** integration
-- **Given** no rule exists for Goods Receipt Note (seed) and the GRN counter for FY 2026-27 is unused **When** Suresh submits GRN Draft 43 for ₹1,20,000.00 **Then** the state goes `draft → approved` in one step, the GRN gets number `GRN/26-27/00001` in that transaction, effects are applied, no approval request is created, and history records "submitted" and "approved (no approval needed)" by Suresh.
+- **Given** no rule exists for Goods Receipt Note (seed) and the GRN counter for FY 2026-27 is unused **When** Suresh submits GRN Draft 43 for ₹1,20,000.00 **Then** the state goes `draft → approved` in one step, the GRN gets number `GR/26-27/00001` in that transaction, effects are applied, no approval request is created, and history records "submitted" and "approved (no approval needed)" by Suresh.
 - **Go test:** `TestApprovalSubmit_NoRuleApprovesDirectly`
 - **Sources:** `erpnext/erpnext/setup/doctype/authorization_control/authorization_control.py:158-160`, `frappe/frappe/workflow/doctype/workflow/test_workflow.py:83` (`test_deleting_workflow_clears_cached_name`), `odoo/addons/purchase/models/purchase_order.py:716-718`
 
@@ -401,7 +401,7 @@ Single-level approval only in v1; multi-level chains, email, delegation and remi
 ### APR-052 · Approve applies effects in the same transaction
 - **Priority:** P1
 - **Level:** integration
-- **Given** a GRN rule from ₹0.00 → Purchase Manager added in this test, and Suresh's GRN Draft 7 (₹1,20,000.00, 50 Nos of BOLT-M12 against approved `PO/26-27/00001`) is pending **When** Ravi approves **Then** state is `approved`, the GRN gets `GRN/26-27/00001`, and the PO line's received quantity rises by 50 in the same transaction; history records approver Ravi, UTC time and amount ₹1,20,000.00.
+- **Given** a GRN rule from ₹0.00 → Purchase Manager added in this test, and Suresh's GRN Draft 7 (₹1,20,000.00, 50 Nos of BOLT-M12 against approved `PO/26-27/00001`) is pending **When** Ravi approves **Then** state is `approved`, the GRN gets `GR/26-27/00001`, and the PO line's received quantity rises by 50 in the same transaction; history records approver Ravi, UTC time and amount ₹1,20,000.00.
 - **Go test:** `TestApprovalApprove_AppliesEffectsAtomically`
 - **Sources:** `frappe/frappe/model/workflow.py:245-263` (submit on transition), `odoo/addons/hr_expense/models/hr_expense.py:1719-1730` (`_do_approve`)
 

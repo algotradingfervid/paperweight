@@ -138,7 +138,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-016 · Identical content is stored once and shared by separate attachment rows
 - **Priority:** P1
 - **Level:** integration
-- **Given** the same `bill.pdf` bytes are attached to draft PO `Draft 42` and approved `GRN/26-27/00001` **When** both uploads finish **Then** there are two `attachment` rows with the same `sha256`, exactly one file in `files/`, and both documents download identical bytes.
+- **Given** the same `bill.pdf` bytes are attached to draft PO `Draft 42` and approved `GR/26-27/00001` **When** both uploads finish **Then** there are two `attachment` rows with the same `sha256`, exactly one file in `files/`, and both documents download identical bytes.
 - **Go test:** `TestAttachment_DedupeAcrossDocuments`
 - **Sources:** `odoo/odoo/addons/base/tests/test_ir_attachment.py:75` (`test_03_no_duplication`), `frappe/frappe/core/doctype/file/test_file.py:332` (`TestSameContent.test_saved_content`)
 
@@ -152,7 +152,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-018 · Removing one row keeps a blob that another row still uses
 - **Priority:** P1
 - **Level:** integration
-- **Given** FILE-016's two rows sharing one blob **When** the attachment on draft PO `Draft 42` is removed and GC runs with a 0 grace period **Then** the blob is still on disk and `GRN/26-27/00001` still downloads it.
+- **Given** FILE-016's two rows sharing one blob **When** the attachment on draft PO `Draft 42` is removed and GC runs with a 0 grace period **Then** the blob is still on disk and `GR/26-27/00001` still downloads it.
 - **Go test:** `TestAttachment_RemoveKeepsSharedBlob`
 - **Sources:** `odoo/odoo/addons/base/tests/test_ir_attachment.py:80` (`test_04_keep_file`), `frappe/frappe/core/doctype/file/test_file.py:2364` (`test_private_remains_private_even_if_same_hash`)
 
@@ -310,7 +310,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-040 · Files can be added to a submitted document that isn't cancelled, and the add is audited
 - **Priority:** P1
 - **Level:** integration
-- **Given** `GRN/26-27/00001` in `approved` for site `PUNE-WH`, and storekeeper Suresh with write on GRN **When** he attaches `vendor-bill.pdf` **Then** it is saved. The document's fields, state and `modified_at` don't change. The audit trail gets `attachment_added` with name, size, sha256, by and at.
+- **Given** `GR/26-27/00001` in `approved` for site `PUNE-WH`, and storekeeper Suresh with write on GRN **When** he attaches `vendor-bill.pdf` **Then** it is saved. The document's fields, state and `modified_at` don't change. The audit trail gets `attachment_added` with name, size, sha256, by and at.
 - **Go test:** `TestAttachment_AddAfterApproval`
 - **Sources:** `frappe/frappe/core/doctype/file/file.py:576` (only deletion is protected), `odoo/odoo/addons/base/tests/test_ir_attachment.py:518` (`test_with_write_permissions`)
 
@@ -501,7 +501,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-067 · The GRN print shows the PO reference and received, accepted and rejected quantities
 - **Priority:** P2
 - **Level:** integration (golden file)
-- **Given** approved `GRN/26-27/00001` against `PO/26-27/00001` (vendor `SHREE`, site `PUNE-WH`), with line `MS-ANGLE-50` received 1,200.000, accepted 1,180.000, rejected 20.000 kg **When** rendered **Then** it shows the title "Goods Receipt Note", "Against PO: PO/26-27/00001 dated 24-10-2026", vendor challan no. and date, and the columns Received/Accepted/Rejected with those values.
+- **Given** approved `GR/26-27/00001` against `PO/26-27/00001` (vendor `SHREE`, site `PUNE-WH`), with line `MS-ANGLE-50` received 1,200.000, accepted 1,180.000, rejected 20.000 kg **When** rendered **Then** it shows the title "Goods Receipt Note", "Against PO: PO/26-27/00001 dated 24-10-2026", vendor challan no. and date, and the columns Received/Accepted/Rejected with those values.
 - **Go test:** `TestPrint_GRNGolden`
 - **Sources:** `india-compliance/india_compliance/gst_india/print_format/gst_tax_invoice/gst_tax_invoice.json:13` (Purchase Order Reference block)
 

@@ -26,14 +26,14 @@ Masters (`code`) are not named by NAM; they belong to MST. Line rows keep intege
 
 ## Test cases
 
-Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GRN/{FY}/{#####}`, Expense `EXP/{FY}/{#####}` (see `00-fixtures.md`). "Approve" means the DOC transition into `approved` (from `pending_approval`, or straight from `draft` when no approval rule applies). Users, approval rules and the clock (2026-10-24 10:30 IST, FY 2026-27) are the fixture ones unless a case says otherwise. With the seed rules, a PO of ₹50,000.00 or more (such as the reference PO, ₹94,164.00) needs Purchase Manager approval, an Expense Claim always needs approval, and a GRN has no rule, so submitting a GRN approves it.
+Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GR/{FY}/{#####}`, Expense `EXP/{FY}/{#####}` (see `00-fixtures.md`). "Approve" means the DOC transition into `approved` (from `pending_approval`, or straight from `draft` when no approval rule applies). Users, approval rules and the clock (2026-10-24 10:30 IST, FY 2026-27) are the fixture ones unless a case says otherwise. With the seed rules, a PO of ₹50,000.00 or more (such as the reference PO, ₹94,164.00) needs Purchase Manager approval, an Expense Claim always needs approval, and a GRN has no rule, so submitting a GRN approves it.
 
 ### Template validation and rendering
 
 ### NAM-001 · Default templates for v1 DocTypes are valid and render the first number
 - **Priority:** P1
 - **Level:** unit
-- **Given** the seeded templates for Purchase Order, GRN and Expense **When** each is rendered for document date 2026-04-01 with counter 1 **Then** results are `PO/26-27/00001`, `GRN/26-27/00001`, `EXP/26-27/00001`; each is 14 or fewer characters.
+- **Given** the seeded templates for Purchase Order, GRN and Expense **When** each is rendered for document date 2026-04-01 with counter 1 **Then** results are `PO/26-27/00001`, `GR/26-27/00001`, `EXP/26-27/00001`; each is 14 or fewer characters.
 - **Go test:** `TestTemplate_DefaultsRender`
 - **Sources:** `erpnext/erpnext/buying/doctype/purchase_order/purchase_order.json:191` (`PUR-ORD-.YYYY.-`), `erpnext/erpnext/stock/doctype/purchase_receipt/purchase_receipt.json:192`, `hrms/hrms/hr/doctype/expense_claim/expense_claim.json:77`, `odoo/addons/purchase/data/purchase_data.xml:22`
 
@@ -196,7 +196,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GRN/{FY}/{#
 ### NAM-024 · Submitting with no approval rule assigns the number straight away
 - **Priority:** P1
 - **Level:** integration
-- **Given** a draft GRN dated 2026-10-24 (GRN has no approval rule) and empty counters **When** suresh submits it **Then** state is `approved` and `number` = `GRN/26-27/00001` in the same transaction.
+- **Given** a draft GRN dated 2026-10-24 (GRN has no approval rule) and empty counters **When** suresh submits it **Then** state is `approved` and `number` = `GR/26-27/00001` in the same transaction.
 - **Go test:** `TestAssign_DirectApprove`
 - **Sources:** `tryton/modules/purchase/purchase.py:805` (`set_number`)
 
@@ -224,7 +224,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GRN/{FY}/{#
 ### NAM-028 · Each DocType has its own counter
 - **Priority:** P1
 - **Level:** integration
-- **Given** empty counters **When** a PO, then a GRN, then a PO are approved **Then** numbers are `PO/26-27/00001`, `GRN/26-27/00001`, `PO/26-27/00002`.
+- **Given** empty counters **When** a PO, then a GRN, then a PO are approved **Then** numbers are `PO/26-27/00001`, `GR/26-27/00001`, `PO/26-27/00002`.
 - **Go test:** `TestAssign_PerDocTypeCounters`
 - **Sources:** `odoo/odoo/addons/base/tests/test_ir_sequence.py:154` (`TestIrSequenceGenerate`), `frappe/frappe/core/doctype/document_naming_settings/document_naming_settings.py:57`
 
@@ -247,7 +247,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GRN/{FY}/{#
 ### NAM-031 · A failed approval rolls the counter back
 - **Priority:** P1
 - **Level:** integration
-- **Given** `GRN/26-27/` at 0 and a draft GRN whose approval effect fails (received qty 120 against PO pending qty 100) **When** suresh submits it (GRN has no approval rule, so submit is its approval) **Then** the submit fails with DOC's error, state stays `draft`, `number` NULL, counter still 0. **When** a valid GRN is then submitted **Then** it is approved as `GRN/26-27/00001`.
+- **Given** `GR/26-27/` at 0 and a draft GRN whose approval effect fails (received qty 120 against PO pending qty 100) **When** suresh submits it (GRN has no approval rule, so submit is its approval) **Then** the submit fails with DOC's error, state stays `draft`, `number` NULL, counter still 0. **When** a valid GRN is then submitted **Then** it is approved as `GR/26-27/00001`.
 - **Go test:** `TestAssign_RollbackNoGap`
 - **Sources:** `odoo/odoo/addons/base/models/ir_sequence.py:57` (`_update_nogap` in-transaction), `odoo/odoo/addons/base/models/ir_sequence.py:133` (no_gap help)
 
@@ -479,7 +479,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GRN/{FY}/{#
 ### NAM-063 · An exhausted series stops with a clear error and rolls back
 - **Priority:** P2
 - **Level:** integration
-- **Given** template `GRN/{FY}/{###}` with `GRN/26-27/` at 999 **When** suresh submits a draft GRN (no approval rule, so submit is its approval) **Then** error "Series GRN/26-27/ has used all 999 numbers. Ask an Administrator to add a digit to the series." (CD-66); the GRN stays `draft` with no number and the counter stays 999.
+- **Given** template `GR/{FY}/{###}` with `GR/26-27/` at 999 **When** suresh submits a draft GRN (no approval rule, so submit is its approval) **Then** error "Series GR/26-27/ has used all 999 numbers. Ask an Administrator to add a digit to the series." (CD-66); the GRN stays `draft` with no number and the counter stays 999.
 - **Go test:** `TestAssign_PaddingExhausted`
 - **Sources:** `frappe/frappe/model/naming.py:436` (Frappe grows past padding), `odoo/odoo/addons/base/models/ir_sequence.py:258`
 
