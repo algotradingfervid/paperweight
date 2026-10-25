@@ -29,7 +29,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/kernel/files/filesfake"
-	"github.com/vardhan/internaltools/internal/kernel/gstcalc"
 	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/kernel/naming/namingfake"
@@ -174,13 +173,11 @@ func TestContracts_ErrorsImplementHTTPError(t *testing.T) {
 
 func TestContracts_StubsReturnNotImplemented(t *testing.T) {
 	ctx := context.Background()
-	_, lineErr := gstcalc.LineAmount(1_200_000, 625_000) // 1,200.000 kg × ₹62.5000
 	cases := []struct {
 		name string
 		err  error
 	}{
 		{`gstin.ValidateGSTIN("27AAFCV2449G1Z7")`, gstin.ValidateGSTIN("27AAFCV2449G1Z7")},
-		{"gstcalc.LineAmount(1_200_000, 625_000)", lineErr},
 		{`naming.ValidateGSTDocNumber("PO/26-27/00001")`, naming.ValidateGSTDocNumber("PO/26-27/00001")},
 		{"audit.Append(ctx, nil, audit.Entry{})", audit.Append(ctx, nil, audit.Entry{})},
 	}
