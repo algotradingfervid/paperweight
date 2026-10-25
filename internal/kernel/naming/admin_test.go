@@ -493,3 +493,33 @@ func TestSettings_PreviewTemplateNearMax(t *testing.T) {
 		t.Errorf("PreviewTemplate(last 99999) = %q, want \"\" with the error", got)
 	}
 }
+
+// TestSettings_PrefixMismatchField covers CD-164 (1): the mismatch belongs
+// to the counter form's prefix field.
+func TestSettings_PrefixMismatchField(t *testing.T) {
+	h := newHarness(t)
+	err := h.nm.SetCounter(context.Background(), admin, dtPO, "PUR/26-27/", 12)
+	var he doctype.HTTPError
+	if !errors.As(err, &he) {
+		t.Fatalf("SetCounter(admin, PO, PUR/26-27/, 12) = %v, want a doctype.HTTPError", err)
+	}
+	want := []doctype.FieldError{{Field: "prefix", Message: "Prefix PUR/26-27/ doesn't match series PO/{FY}/{#####}."}}
+	if got := he.FieldErrors(); !reflect.DeepEqual(got, want) {
+		t.Errorf("FieldErrors() = %#v, want %#v", got, want)
+	}
+	if he.Status() != 422 {
+		t.Errorf("Status() = %d, want 422", he.Status())
+	}
+}
+
+// TestSettings_MsgForbiddenExported covers CD-164 (2): the refusal text is
+// exported unchanged and is what the refusal carries.
+func TestSettings_MsgForbiddenExported(t *testing.T) {
+	const want = "You don't have permission to change document numbering. Ask an Administrator."
+	if MsgForbidden != want {
+		t.Errorf("MsgForbidden = %q, want %q", MsgForbidden, want)
+	}
+	h := newHarness(t)
+	err := h.nm.SetTemplate(context.Background(), priya, dtPO, "PR/{FY}/{#####}")
+	wantNamingError(t, "SetTemplate(priya, PO, PR/{FY}/{#####})", err, auth.ErrForbidden, MsgForbidden)
+}

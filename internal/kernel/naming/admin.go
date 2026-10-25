@@ -22,7 +22,7 @@ func (n *Namer) requireAdmin(ctx context.Context, p auth.Principal) error {
 		return err
 	}
 	if !ok {
-		return &Error{Kind: auth.ErrForbidden, Msg: msgForbidden}
+		return &Error{Kind: auth.ErrForbidden, Msg: MsgForbidden}
 	}
 	return nil
 }
@@ -144,7 +144,7 @@ func (n *Namer) SetCounter(ctx context.Context, p auth.Principal, doctype, prefi
 			return err
 		}
 		if !matchPrefix(t, prefix) {
-			return &Error{Kind: ErrPrefixMismatch, Msg: fmt.Sprintf(msgPrefixMismatch, prefix, t.src)}
+			return &Error{Kind: ErrPrefixMismatch, Msg: fmt.Sprintf(msgPrefixMismatch, prefix, t.src), Field: "prefix"}
 		}
 		if err := checkCounterRange(t, last); err != nil {
 			return err

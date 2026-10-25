@@ -12,9 +12,6 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/clock"
 )
 
-// msgForbidden is naming's refusal text (CD-66), which the guard shows.
-const msgForbidden = "You don't have permission to change document numbering. Ask an Administrator."
-
 const basePath = "/settings/numbering"
 
 // Deps are what the screen needs.
@@ -32,7 +29,7 @@ type Guard func(msg string, h http.Handler) http.Handler
 func Mount(r chi.Router, d Deps, admin Guard) {
 	h := &handlers{d: d}
 	route := func(method, path string, fn http.HandlerFunc) {
-		r.Method(method, path, admin(msgForbidden, fn))
+		r.Method(method, path, admin(naming.MsgForbidden, fn))
 	}
 	route(http.MethodGet, basePath, h.list)
 	route(http.MethodGet, basePath+"/preview", h.preview)

@@ -227,7 +227,7 @@ func editPage(f editForm) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("prefix"), Name: "prefix", Label: "Prefix", Value: f.Prefix}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("prefix"), Name: "prefix", Label: "Prefix", Value: f.Prefix, Error: f.errFor("prefix")}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
