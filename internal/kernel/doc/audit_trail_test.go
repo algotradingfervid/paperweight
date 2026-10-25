@@ -91,3 +91,82 @@ func TestAudit_Create(t *testing.T) {
 		t.Errorf("add change After = %s, want it to contain \"qty\":1200000 (raw value)", add.After)
 	}
 }
+
+// DOC-081
+func TestAudit_SaveChangedFieldsOnly(t *testing.T) {
+	h := fixturetest.New(t)
+	res := h.NewOrderWith(t, h.Priya, map[string]string{"remarks": "", "credit_days": "30"},
+		fixturetest.OL{Item: "MS-ANGLE-50", Qty: "1.000"})
+	in := h.In(loadDoc(t, h, fixture.Order, res.ID))
+	in.Values["remarks"] = "Deliver to Pune site"
+	in.Values["credit_days"] = "30"
+	saveDo(t, h, h.Meena, fixture.Order, res.ID, in)
+
+	entries := h.Audit(t, fixture.Order, res.ID)
+	if len(entries) != 2 {
+		t.Fatalf("audit entries = %d, want 2 (create, save): %+v", len(entries), entries)
+	}
+	e := entries[1]
+	if e.Action != "save" {
+		t.Errorf("Action = %q, want \"save\"", e.Action)
+	}
+	if e.By != types.UserID(2) {
+		t.Errorf("By = %d, want 2 (meena)", e.By)
+	}
+	want := []audit.Change{{Field: "remarks", Before: `""`, After: `"Deliver to Pune site"`, Op: audit.OpSet}}
+	if diff := diffOf(want, e.Changes); diff != "" {
+		t.Errorf("Changes (want, got):\n%s", diff)
+	}
+}
+
+// DOC-082
+func TestAudit_LineDiff(t *testing.T) {
+	h := fixturetest.New(t)
+	res := h.NewOrder(t, h.Priya,
+		fixturetest.OL{Item: "MS-ANGLE-50", Qty: "10.000"},
+		fixturetest.OL{Item: "WIRE-18G", Qty: "5.000"},
+	)
+	d := loadDoc(t, h, fixture.Order, res.ID)
+	x, y := d.Lines[0].ID, d.Lines[1].ID
+
+	in := h.In(d)
+	in.Lines[0]["qty"] = "12.000"
+	in.Lines = []map[string]string{in.Lines[0], {"item_id": fmt.Sprint(h.M.Item["BOLT-M12"]), "qty": "3.000"}}
+	saveDo(t, h, h.Priya, fixture.Order, res.ID, in)
+
+	after := loadDoc(t, h, fixture.Order, res.ID)
+	if len(after.Lines) != 2 || after.Lines[0].ID != x {
+		t.Fatalf("lines after save = %+v, want x kept as line 1 and one new line", after.Lines)
+	}
+	nw := after.Lines[1].ID
+	if got := after.Lines[1].Values["item_id"]; got != any(h.M.Item["BOLT-M12"]) {
+		t.Errorf("line 2 item_id = %v, want BOLT-M12", got)
+	}
+
+	e := saveEntry(t, h, fixture.Order, res.ID)
+	if len(e.Changes) != 3 {
+		t.Fatalf("save changes = %+v, want 3 (qty set, remove, add)", e.Changes)
+	}
+	var set, remove, add []audit.Change
+	for _, c := range e.Changes {
+		switch c.Op {
+		case audit.OpSet:
+			set = append(set, c)
+		case audit.OpRemove:
+			remove = append(remove, c)
+		case audit.OpAdd:
+			add = append(add, c)
+		}
+	}
+	wantSet := []audit.Change{{Field: "qty", LineNo: 1, LineID: x, Before: "10000", After: "12000", Op: audit.OpSet}}
+	if diff := diffOf(wantSet, set); diff != "" {
+		t.Errorf("set changes (want, got):\n%s", diff)
+	}
+	if len(remove) != 1 || remove[0].LineNo != 2 || remove[0].LineID != y || !strings.Contains(remove[0].Before, `"qty":5000`) {
+		t.Errorf("remove changes = %+v, want one {LineNo 2, LineID %d, Op remove} whose Before contains \"qty\":5000", remove, y)
+	}
+	if len(add) != 1 || add[0].LineNo != 2 || add[0].LineID != nw ||
+		!strings.Contains(add[0].After, `"code":"BOLT-M12"`) || !strings.Contains(add[0].After, `"qty":3000`) {
+		t.Errorf("add changes = %+v, want one {LineNo 2, LineID %d, Op add} whose After contains \"code\":\"BOLT-M12\" and \"qty\":3000", add, nw)
+	}
+}

@@ -202,3 +202,46 @@ func TestDoc_Load_PlainValues(t *testing.T) {
 		}
 	}
 }
+
+// Review Focus 7
+func TestDoc_Load_RoundTripIsNoOp(t *testing.T) {
+	h := fixturetest.New(t)
+	po := h.RefPO(t)
+	count := h.AuditCount(t)
+
+	r := h.Record(t, fixture.Order, po.ID)
+	res, err := h.Do(t, t.Context(), h.Priya, fixture.Order, po.ID, doc.ActionSave,
+		doc.ActionInput{Version: r.Version, Values: r.Values, Lines: r.Lines})
+	if err != nil {
+		t.Fatalf("save of an unchanged Record: %v", err)
+	}
+	if res.Version != 1 {
+		t.Errorf("Result.Version = %d, want 1", res.Version)
+	}
+	if v := loadDoc(t, h, fixture.Order, po.ID).Version; v != 1 {
+		t.Errorf("Version = %d, want 1", v)
+	}
+	if n := h.AuditCount(t); n != count {
+		t.Errorf("AuditCount = %d, want %d (no audit row)", n, count)
+	}
+
+	r = h.Record(t, fixture.Order, po.ID)
+	r.Lines[0]["received_qty"] = "10.000"
+	res, err = h.Do(t, t.Context(), h.Priya, fixture.Order, po.ID, doc.ActionSave,
+		doc.ActionInput{Version: r.Version, Values: r.Values, Lines: r.Lines})
+	if err != nil {
+		t.Fatalf("save with received_qty 10.000: %v", err)
+	}
+	if res.Version != 1 {
+		t.Errorf("received_qty: Result.Version = %d, want 1", res.Version)
+	}
+	if v := loadDoc(t, h, fixture.Order, po.ID).Version; v != 1 {
+		t.Errorf("received_qty: Version = %d, want 1", v)
+	}
+	if n := h.AuditCount(t); n != count {
+		t.Errorf("received_qty: AuditCount = %d, want %d (no audit row)", n, count)
+	}
+	if got := h.Record(t, fixture.Order, po.ID).Lines[0]["received_qty"]; got != "0.000" {
+		t.Errorf("received_qty = %q, want \"0.000\" (read-only key ignored)", got)
+	}
+}
