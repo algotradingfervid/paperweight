@@ -13,6 +13,64 @@ type AppMetum struct {
 	Value string
 }
 
+type ApprovalHistory struct {
+	ID           int64
+	Doctype      string
+	DocID        int64
+	RequestID    sql.NullInt64
+	Action       string
+	UserID       int64
+	UserName     string
+	At           string
+	Amount       sql.NullInt64
+	RuleID       sql.NullInt64
+	Reason       string
+	SelfApproved int64
+}
+
+type ApprovalRequest struct {
+	ID            int64
+	Doctype       string
+	DocID         int64
+	RuleID        int64
+	Amount        int64
+	ApproverRoles string
+	ManagerUser   sql.NullInt64
+	ManagerName   string
+	AllowSelf     int64
+	Requester     int64
+	RequesterName string
+	Creator       int64
+	ClaimantUser  sql.NullInt64
+	SubmittedAt   string
+	Outcome       sql.NullString
+	DecidedBy     sql.NullInt64
+	DecidedByName string
+	DecidedAt     sql.NullString
+	Reason        string
+	Version       int64
+	CreatedAt     string
+	CreatedBy     int64
+	UpdatedAt     string
+	UpdatedBy     int64
+}
+
+type ApprovalRule struct {
+	ID                int64
+	Doctype           string
+	FromAmount        int64
+	ApproverType      string
+	ApproverRole      string
+	FallbackRole      string
+	AllowSelfApproval int64
+	Enabled           int64
+	Version           int64
+	CreatedAt         string
+	CreatedBy         int64
+	UpdatedAt         string
+	UpdatedBy         int64
+}
+
 type Attachment struct {
 	ID            int64
 	ParentDoctype string
@@ -55,6 +113,33 @@ type AuthLog struct {
 type AuthMetum struct {
 	ID          int64
 	PermVersion int64
+}
+
+type Branch struct {
+	ID           int64
+	Code         string
+	Name         string
+	StateCode    string
+	Gstin        string
+	IsHeadOffice int64
+	Disabled     int64
+	Version      int64
+	CreatedAt    string
+	CreatedBy    sql.NullInt64
+	UpdatedAt    string
+	UpdatedBy    sql.NullInt64
+}
+
+type Company struct {
+	ID        int64
+	Name      string
+	Pan       string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
 }
 
 type GstState struct {
