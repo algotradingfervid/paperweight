@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -224,7 +225,10 @@ func TestDoc_Transitions_Refused(t *testing.T) {
 					continue
 				}
 				t.Run(string(a), func(t *testing.T) {
-					want := fmt.Sprintf(tmpl, x, guardStateLabel[s])
+					want := tmpl
+					if strings.Contains(tmpl, "%") {
+						want = fmt.Sprintf(tmpl, x, guardStateLabel[s])
+					}
 					guardRefused(t, h, guardActor(h, a), d, a, guardInput(h, d, a), want)
 				})
 			}
@@ -289,10 +293,9 @@ func TestDoc_Closed_IsTerminal(t *testing.T) {
 			"PO/26-27/00001 is not waiting for approval. It is Closed.")
 	})
 	t.Run("reopen", func(t *testing.T) {
-		// DOC-016 gives the closed text; the plan's guard gives unknown actions
-		// "{X} can't be changed that way." Either is a refusal of reopen.
+		// reopen is not an action (R6), so it gets the plan's unknown-action text.
 		guardRefused(t, h, h.Priya, d, doc.Action("reopen"), doc.ActionInput{Version: d.Version},
-			closed, "PO/26-27/00001 can't be changed that way.")
+			"PO/26-27/00001 can't be changed that way.")
 	})
 	if slices.Contains(doctype.Actions(), doc.Action("reopen")) {
 		t.Errorf("Actions() = %v, must not contain reopen (R6)", doctype.Actions())
