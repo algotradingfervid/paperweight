@@ -85,7 +85,7 @@ func t10Harness(t *testing.T, w *authtest.World, opts ...webtest.Option) (*webte
 				s.WriteError(rw, r, err)
 				return
 			}
-			_, _ = rw.Write([]byte("DOC LIST " + dt))
+			_, _ = rw.Write([]byte("DOC LIST " + dt)) //nolint:gosec // test stub handler, plain text
 		})))
 		r.Method(http.MethodPost, "/doc/{doctype}/{id}/save", s.CheckedInHandler(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 			st.mu.Lock()
