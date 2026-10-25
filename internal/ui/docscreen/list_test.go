@@ -132,8 +132,8 @@ func TestDocList_RendersCardsAndCount(t *testing.T) {
 
 func TestDocList_StateRoundTripsURL(t *testing.T) {
 	e := newEnv(t, "read")
-	e.lister.Set(docscreentest.Sample, twoRows(30))
-	rec := e.get(t, "/doc/docscreentest.Sample?q=steel&sort=amount.desc&f=state:=:approved&page=2")
+	e.lister.Set(docscreentest.Sample, twoRows(80))
+	rec := e.get(t, "/doc/docscreentest.Sample?q=steel&sort=amount.desc&f=state:=:approved&page=2&size=50")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -142,6 +142,7 @@ func TestDocList_StateRoundTripsURL(t *testing.T) {
 		Sort:    "amount.desc",
 		Filters: []docscreen.Filter{{Field: "state", Op: "=", Values: []string{"approved"}}},
 		Page:    2,
+		Size:    50,
 	}
 	if got := e.lister.Last(); !reflect.DeepEqual(got, want) {
 		t.Errorf("Lister got %+v, want %+v", got, want)
@@ -158,6 +159,9 @@ func TestDocList_StateRoundTripsURL(t *testing.T) {
 	if form.Find(`input[type="hidden"][name="f"][value="state:=:approved"]`).Length() != 1 {
 		t.Error("form does not keep the active filter as a hidden f")
 	}
+	if form.Find(`input[type="hidden"][name="size"][value="50"]`).Length() != 1 {
+		t.Error("form does not keep the page size as a hidden size")
+	}
 	if form.Find(`input[type="hidden"][name="page"]`).Length() != 0 {
 		t.Error("form keeps page; a new search or sort must start on page 1")
 	}
@@ -173,10 +177,10 @@ func TestDocList_StateRoundTripsURL(t *testing.T) {
 	if u.Path != "/doc/docscreentest.Sample" || u.Query().Has("f") || u.Query().Get("q") != "steel" || u.Query().Get("sort") != "amount.desc" {
 		t.Errorf("chip remove URL = %q", href)
 	}
-	if got := doc.Find(".pagination-range").Text(); got != "26–30 of 30" {
+	if got := doc.Find(".pagination-range").Text(); got != "51–80 of 80" {
 		t.Errorf("range = %q", got)
 	}
-	if prev, _ := doc.Find(`a[rel="prev"]`).Attr("href"); prev != "/doc/docscreentest.Sample?"+(docscreen.ListQuery{Search: "steel", Sort: "amount.desc", Filters: want.Filters, Page: 1}).Encode() {
+	if prev, _ := doc.Find(`a[rel="prev"]`).Attr("href"); prev != "/doc/docscreentest.Sample?"+(docscreen.ListQuery{Search: "steel", Sort: "amount.desc", Filters: want.Filters, Page: 1, Size: 50}).Encode() {
 		t.Errorf("prev = %q", prev)
 	}
 }

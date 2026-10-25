@@ -79,11 +79,14 @@ func (q ListQuery) Encode() string {
 	}
 	for _, f := range q.Filters {
 		for _, val := range f.Values {
-			v.Add("f", f.Field+":"+f.Op+":"+val)
+			v.Add("f", f.param(val))
 		}
 	}
 	return v.Encode()
 }
+
+// param is one f value of the filter: Field:Op:Value.
+func (f Filter) param(val string) string { return f.Field + ":" + f.Op + ":" + val }
 
 // ListRow is one list result; Values are plain, keyed by Field.Name.
 type ListRow struct {

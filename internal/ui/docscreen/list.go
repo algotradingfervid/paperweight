@@ -223,7 +223,7 @@ func keep(q ListQuery) []components.Param {
 	var out []components.Param
 	for _, f := range q.Filters {
 		for _, val := range f.Values {
-			out = append(out, components.Param{Name: "f", Value: f.Field + ":" + f.Op + ":" + val})
+			out = append(out, components.Param{Name: "f", Value: f.param(val)})
 		}
 	}
 	if q.Size > 0 {
