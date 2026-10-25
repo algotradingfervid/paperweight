@@ -185,6 +185,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | UI CD-160 buffered Render 026383e; `make ci` green | — | director | | 20:05 | — | — | — |
 | WP1-NAM | 18 Numbering screen | High | crew-test-writer, crew-implementer, crew-reviewer | 17:50 | 18:10 | 2 | 0/0/7 (flash bug → CD-160; 2 minors fixed, 1 reverted) | 3004445 b49667a aadb877 aa39db2 |
 | Merges | NAM Task 18 95db286 (NAM complete); `make ci` green | — | director | | 20:15 | — | — | — |
+| WP1-AUTH | CD-162 authfake CheckValues parity | High | crew-implementer, crew-test-writer, crew-reviewer | | | 1 | 0/1/2 (project row missing → added) | 81e51ee, 61111ae |
+| Merges | AUTH CD-162 (merge below); `make ci` green | — | director | | 20:25 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
