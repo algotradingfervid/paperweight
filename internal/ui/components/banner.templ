@@ -1,0 +1,58 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// bannerLook is a banner kind's role, icon, word and tint class. The word
+// means the kind never relies on colour alone; the class is written out
+// whole so the CSS build finds it.
+type bannerLook struct{ role, icon, word, tint string }
+
+var bannerLooks = map[BannerKind]bannerLook{
+	Success: {"status", "check-circle", "Success", "banner--success"},
+	Info:    {"status", "info", "Information", "banner--info"},
+	Warning: {"alert", "alert-circle", "Warning", "banner--warning"},
+	Danger:  {"alert", "x-circle", "Error", "banner--danger"},
+}
+
+func lookOf(k BannerKind) bannerLook {
+	if l, ok := bannerLooks[k]; ok {
+		return l
+	}
+	return bannerLooks[Info]
+}
+
+// Banner shows a message with its kind's icon and word; children follow the message.
+templ Banner(p BannerProps) {
+	{{ l := lookOf(p.Kind) }}
+	<div class={ "alert", "banner", l.tint } role={ l.role }>
+		@icons.Icon(l.icon)
+		<div class="banner-body">
+			<p>
+				<strong>{ l.word }:</strong>
+				if p.Title != "" {
+					<strong>{ p.Title }</strong>
+				}
+				{ p.Message }
+			</p>
+			{ children... }
+			if p.Link != nil {
+				<p><a href={ templ.SafeURL(p.Link.Href) }>{ p.Link.Label }</a></p>
+			}
+		</div>
+	</div>
+}
+
+// Warnings shows msgs, as given, in one warning banner (CD-68).
+templ Warnings(msgs []string) {
+	if len(msgs) == 1 {
+		@Banner(BannerProps{Kind: Warning, Message: msgs[0]})
+	} else if len(msgs) > 1 {
+		@Banner(BannerProps{Kind: Warning}) {
+			<ul class="banner-items">
+				for _, m := range msgs {
+					<li>{ m }</li>
+				}
+			</ul>
+		}
+	}
+}

@@ -1,0 +1,13 @@
+package components
+
+// ToastRegion is the polite region app.js fills with success and info toasts (CD-75).
+templ ToastRegion() {
+	<div id="toasts" class="toast toast-end" role="status" aria-live="polite"></div>
+}
+
+// Toast appends one toast to the region out of band.
+templ Toast(level, message string) {
+	<div id="toasts" hx-swap-oob="beforeend">
+		<div class={ "alert", lookOf(BannerKind(level)).tint }>{ message }</div>
+	</div>
+}

@@ -1,0 +1,76 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// Chip is one active filter; RemoveURL is the same page without it.
+type Chip struct{ Label, RemoveURL string }
+
+// FilterBarProps describes the search, sort and filter bar above a result set.
+type FilterBarProps struct {
+	Action, Search, SearchLabel, Sort string
+	Sorts                             []Option
+	Chips                             []Chip
+	FilterURL, ClearURL, Count        string
+	New, Export                       *Link
+}
+
+// FilterBar is a GET form, so a filtered URL can be shared.
+templ FilterBar(p FilterBarProps) {
+	<form class="filterbar" method="get" action={ templ.SafeURL(p.Action) } hx-get={ p.Action } hx-target="#main" hx-push-url="true" hx-trigger="change, submit" role="search">
+		<div class="filterbar-row">
+			<div class="filterbar-search">
+				<label for="filter-q">{ p.SearchLabel }</label>
+				<input id="filter-q" class="input" type="search" name="q" value={ p.Search }/>
+			</div>
+			if len(p.Sorts) > 0 {
+				<div class="filterbar-sort">
+					<label for="filter-sort">Sort by</label>
+					<select id="filter-sort" class="select" name="sort">
+						for _, o := range p.Sorts {
+							<option value={ o.Value } selected?={ o.Value == p.Sort }>{ o.Label }</option>
+						}
+					</select>
+				</div>
+			}
+			if p.FilterURL != "" {
+				<a class="btn btn-outline" href={ templ.SafeURL(p.FilterURL) }>
+					@icons.Icon("filter")
+					Filter
+				</a>
+			}
+		</div>
+		if len(p.Chips) > 0 {
+			<ul class="filterbar-chips">
+				for _, c := range p.Chips {
+					<li>
+						<a class="badge chip" href={ templ.SafeURL(c.RemoveURL) }>
+							{ c.Label }
+							@icons.Icon("x")
+							<span class="visually-hidden">Remove filter</span>
+						</a>
+					</li>
+				}
+				<li><a class="btn btn-ghost" href={ templ.SafeURL(p.ClearURL) }>Clear all</a></li>
+			</ul>
+		}
+		if p.Count != "" || p.New != nil || p.Export != nil {
+			<div class="filterbar-row">
+				if p.Count != "" {
+					<p class="filterbar-count">{ p.Count }</p>
+				}
+				if p.Export != nil {
+					<a class="btn btn-outline" href={ templ.SafeURL(p.Export.Href) }>
+						@icons.Icon("download")
+						{ p.Export.Label }
+					</a>
+				}
+				if p.New != nil {
+					<a class="btn btn-primary" href={ templ.SafeURL(p.New.Href) }>
+						@icons.Icon("plus")
+						{ p.New.Label }
+					</a>
+				}
+			</div>
+		}
+	</form>
+}

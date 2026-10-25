@@ -1,0 +1,128 @@
+package components
+
+import (
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// btnClass maps a variant to its daisyUI classes (design-system §7.1).
+func btnClass(v Variant) string {
+	switch v {
+	case Primary:
+		return "btn btn-primary"
+	case Ghost:
+		return "btn btn-ghost"
+	case Danger:
+		return "btn btn-error"
+	default:
+		return "btn btn-outline"
+	}
+}
+
+// barButton renders a ButtonProps inside the bar; form names the form the
+// bar sits outside of.
+templ barButton(b ButtonProps, form string) {
+	if b.Href != "" {
+		<a
+			class={ btnClass(b.Variant) }
+			href={ templ.SafeURL(b.Href) }
+			if b.AriaLabel != "" {
+				aria-label={ b.AriaLabel }
+			}
+			{ b.Attrs... }
+		>
+			if b.Icon != "" {
+				@icons.Icon(b.Icon)
+			}
+			{ b.Label }
+		</a>
+	} else {
+		<button
+			type={ orDefault(b.Type, "submit") }
+			class={ btnClass(b.Variant) }
+			if b.Name != "" {
+				name={ b.Name }
+				value={ b.Value }
+			}
+			if form != "" {
+				form={ form }
+			}
+			if b.AriaLabel != "" {
+				aria-label={ b.AriaLabel }
+			}
+			{ b.Attrs... }
+		>
+			if b.Icon != "" {
+				@icons.Icon(b.Icon)
+			}
+			{ b.Label }
+		</button>
+	}
+}
+
+// ActionBar holds a screen's actions: sticky on phones, inline from 48rem.
+// A note replaces the buttons; with nothing to show it renders nothing.
+templ ActionBar(p ActionBarProps) {
+	if p.Note != "" {
+		<div class="actionbar">
+			<p class="actionbar-note">{ p.Note }</p>
+		</div>
+	} else if p.Primary != nil || p.Secondary != nil {
+		<div class="actionbar">
+			if p.Secondary != nil {
+				@barButton(*p.Secondary, p.Form)
+			}
+			if p.Primary != nil {
+				@barButton(*p.Primary, p.Form)
+			}
+		</div>
+	}
+	if p.FinishLater && p.Note == "" {
+		<div class="actionbar-later">
+			<button
+				type="submit"
+				name="nav"
+				value="finish"
+				class="btn btn-ghost"
+				if p.Form != "" {
+					form={ p.Form }
+				}
+			>Save and finish later</button>
+		</div>
+	}
+}
+
+// MoreActions lists the secondary actions; a POST action is a one-button form.
+templ MoreActions(items []MoreAction) {
+	if len(items) > 0 {
+		<section class="more-actions" aria-labelledby="more-actions-title">
+			<h2 id="more-actions-title">More actions</h2>
+			<ul class="more-actions-items">
+				for _, it := range items {
+					<li>
+						if it.Post {
+							<form method="post" action={ templ.SafeURL(it.Href) }>
+								<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
+								<button type="submit" class={ moreClass(it.Danger) }>{ it.Label }</button>
+							</form>
+						} else if it.NewTab {
+							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) } target="_blank" rel="noopener">
+								{ it.Label }
+								<span class="visually-hidden">(opens in a new tab)</span>
+							</a>
+						} else {
+							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) }>{ it.Label }</a>
+						}
+					</li>
+				}
+			</ul>
+		</section>
+	}
+}
+
+func moreClass(danger bool) string {
+	if danger {
+		return "btn btn-error"
+	}
+	return "btn btn-ghost"
+}

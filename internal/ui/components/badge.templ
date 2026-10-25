@@ -1,0 +1,39 @@
+package components
+
+import (
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// stateLook is a state's word, Lucide icon and classes (design-system §5).
+// The classes are written out whole so the CSS build finds them.
+type stateLook struct{ word, icon, class string }
+
+var stateLooks = map[doctype.State]stateLook{
+	doctype.StateDraft:     {"Draft", "pencil", "badge badge--draft"},
+	doctype.StatePending:   {"Pending approval", "clock", "badge badge--pending_approval"},
+	doctype.StateApproved:  {"Approved", "check-circle", "badge badge--approved"},
+	doctype.StateRejected:  {"Rejected", "x-circle", "badge badge--rejected"},
+	doctype.StateCancelled: {"Cancelled", "ban", "badge badge--cancelled"},
+	doctype.StateClosed:    {"Closed", "lock", "badge badge--closed"},
+}
+
+// StateLabel returns the word shown for s; an unknown state is shown as given.
+func StateLabel(s doctype.State) string {
+	if l, ok := stateLooks[s]; ok {
+		return l.word
+	}
+	return string(s)
+}
+
+// StateBadge shows a document state as word, tint and icon, never colour alone.
+templ StateBadge(s doctype.State) {
+	if l, ok := stateLooks[s]; ok {
+		<span class={ l.class }>
+			@icons.Icon(l.icon)
+			{ l.word }
+		</span>
+	} else {
+		<span class="badge badge--neutral">{ string(s) }</span>
+	}
+}
