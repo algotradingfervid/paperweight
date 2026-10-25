@@ -10,9 +10,9 @@ import (
 
 const (
 	draftMark     = `<div class="watermark" data-status="draft">DRAFT</div>`
-	draftTitle    = `<h1 class="doc-title">Purchase Order <span class="badge" data-status="draft">DRAFT</span></h1>`
+	draftTitle    = `<h1 class="doc-title">Purchase Order <span class="doc_badge" data-status="draft">DRAFT</span></h1>`
 	cancelMark    = `<div class="watermark" data-status="cancelled">CANCELLED</div>`
-	cancelTitle   = `<h1 class="doc-title">Purchase Order <span class="badge" data-status="cancelled">CANCELLED</span></h1>`
+	cancelTitle   = `<h1 class="doc-title">Purchase Order <span class="doc_badge" data-status="cancelled">CANCELLED</span></h1>`
 	firstPONumber = "PO/26-27/00001"
 )
 

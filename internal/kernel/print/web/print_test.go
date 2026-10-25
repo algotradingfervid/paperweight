@@ -146,7 +146,7 @@ func TestPrint_WatermarkNotOverridable(t *testing.T) {
 	body := rec.Body.String()
 	for _, want := range []string{
 		`<div class="watermark" data-status="draft">DRAFT</div>`,
-		`<span class="badge" data-status="draft">DRAFT</span>`,
+		`<span class="doc_badge" data-status="draft">DRAFT</span>`,
 		"Draft 42",
 	} {
 		if !strings.Contains(body, want) {

@@ -5,7 +5,7 @@ package print
 templ DocTitle(title string) {
 	{{ h := HeaderFrom(ctx) }}
 	<h1 class="doc-title">{ title }if h.Status.Code != "" {
-			{ " " }<span class="badge" data-status={ h.Status.Code }>{ h.Status.Label }</span>
+			{ " " }<span class="doc_badge" data-status={ h.Status.Code }>{ h.Status.Label }</span>
 		}</h1>
 	<p class="doc-number">{ h.Number }</p>
 }
