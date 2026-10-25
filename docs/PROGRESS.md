@@ -53,6 +53,9 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-UI | 1 Foundation | Light | crew-implementer | 15:24 | | | | |
 | WP1-AUTH | 4 authtest World | High | crew-test-writer, crew-implementer | | 16:12 | 1 | minors fixed | 330aff7 tests, 6de2f30 |
 | WP1-NAM | 6 EnsureSeries and Assign | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:21 | 1 | 0/0/1 (to Task 11) | af71b5e tests, a8b95a1 |
+| WP1-NUM | 5 Dates, FY, IST time | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:24 | 1 | 0/0/2 (carry-over) | 9a0dd85 tests, 7070525 |
+| WP1-NUM | Tasks 1–5 merged to main (CD-53), `make ci` green | — | director | | 16:27 | — | — | a9cb2f1 |
+| WP1-DOC | 4 Test doubles | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:29 | 1 | 0/0/2 (1 fixed, 1 carry-over) | ced329d tests, 70898c8 |
 | WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
 
 ## Wave 1 carry-overs (put in the named task's brief)
@@ -73,6 +76,10 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 - Every WP's worktree copy of the plans/test docs predates CD-107..114: name the CDs in briefs until each branch rebases onto main.
 - DOC Task 4: `fyShort` in `fixturetest/doubles.go` is a stand-in for the `types.FiscalYear` stub; delete it when wp/doc rebases onto NUM.
 - Worktree `.golangci.yml` predates the test-only gosec exclusions (G115, G404, G204, G702; main c8cad38 and after): copy main's file into a worktree when its tests hit them (done for wp/num).
+- After the NUM merge, wp/approval, wp/naming, wp/files-print and wp/doc were rebased onto main (16:28); FILE-001 is green. wp/auth and wp/ui rebase between tasks.
+- NUM-076 (committed test): an empty `ZONEINFO` still lets Go read `/usr/share/zoneinfo`, so part (b) doesn't prove the embedded tzdata; only the import check pins D-NUM-18. Strengthen it in a NUM P2 task.
+- NUM: `types.Date`/`Timestamp` `Scan` refuse NULL; nullable columns need `sql.Null[types.Date]` at the call site.
+- DOC Task 6+: the fixture double records `CheckValues` as `key=id1,id2 key2=id3` (keys sorted, ids in caller order); tests expecting several keys use this format.
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
