@@ -34,6 +34,12 @@ func TestButton_SubmitBusyAttributes(t *testing.T) {
 		t.Error("a type=button button must not carry data-busy-label")
 	}
 
+	for v, want := range map[components.Variant]string{"": "btn-outline", components.Secondary: "btn-outline", components.Primary: "btn-primary", components.Ghost: "btn-ghost", components.Danger: "btn-error"} {
+		if b := uitest.Render(t, components.Button(components.ButtonProps{Label: "Go", Type: "button", Variant: v})).Find("button"); !b.HasClass(want) {
+			t.Errorf("variant %q: class %q, want %s", v, b.AttrOr("class", ""), want)
+		}
+	}
+
 	link := uitest.Render(t, components.Button(components.ButtonProps{Label: "Cancel", Href: "/doc/po", Variant: components.Secondary}))
 	a := link.Find("a.btn")
 	if a.Length() != 1 || link.Find("button").Length() != 0 {

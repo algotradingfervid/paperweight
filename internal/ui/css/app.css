@@ -6,6 +6,8 @@
 @source not "../**/*_test.go";
 @source not "../testdata";
 @source not "../icons/icons_gen.go";
+@source not "../screens";
+@source not "../uibrowser";
 
 @theme {
   --color-*: initial;

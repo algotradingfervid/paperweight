@@ -1,13 +1,40 @@
 package components
 
-// ToastRegion is the polite region app.js fills with success and info toasts (CD-75).
+// ToastRegion is the polite region toast.js fills with success and info toasts (CD-75).
 templ ToastRegion() {
-	<div id="toasts" class="toast toast-end" role="status" aria-live="polite"></div>
+	<div id="toasts" class="toast toast-end toast-bottom toasts" role="status" aria-live="polite"></div>
 }
 
-// Toast appends one toast to the region out of band.
-templ Toast(level, message string) {
+// Toast appends one success or info toast to #toasts out of band. Errors and
+// warnings are never toasts (CD-75): any other level panics.
+func Toast(level, message string) templ.Component {
+	k := BannerKind(level)
+	if k != Success && k != Info {
+		panic("components.Toast: level " + level + " is not a toast (CD-75)")
+	}
+	return toastOOB(k, message)
+}
+
+templ toastOOB(k BannerKind, message string) {
 	<div id="toasts" hx-swap-oob="beforeend">
-		<div class={ "alert", lookOf(BannerKind(level)).tint }>{ message }</div>
+		@notice(k, message)
 	</div>
+}
+
+// NoticeTemplates are the notices toast.js copies for the notice event: one
+// <template id="notice-KIND"> per kind, so a notice built in the browser is
+// the same markup as Toast.
+templ NoticeTemplates() {
+	for _, k := range []BannerKind{Success, Info, Warning, Danger} {
+		<template id={ "notice-" + string(k) }>
+			@notice(k, "")
+		</template>
+	}
+}
+
+// notice is a Banner without a role (its region has one) and a dismiss button.
+templ notice(k BannerKind, message string) {
+	@Banner(BannerProps{Kind: k, Message: message, NoRole: true}) {
+		@Button(ButtonProps{Type: "button", Icon: "x", AriaLabel: "Dismiss", Variant: Ghost, Attrs: templ.Attributes{"data-dismiss": true}})
+	}
 }

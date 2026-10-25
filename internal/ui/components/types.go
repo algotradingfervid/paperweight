@@ -45,11 +45,13 @@ const (
 	Warning BannerKind = "warning"
 )
 
-// BannerProps describes a banner.
+// BannerProps describes a banner. NoRole drops its role, for a banner inside
+// a live region that already has one.
 type BannerProps struct {
 	Kind           BannerKind
 	Title, Message string
 	Link           *Link
+	NoRole         bool
 }
 
 // ActionBarProps describes the sticky action bar.

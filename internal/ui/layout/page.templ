@@ -38,12 +38,13 @@ templ Page(o PageOpts) {
 					</nav>
 				}
 				<div class="app-content">
-					<div id="toasts" class="toast toast-end toast-bottom toasts" role="status" aria-live="polite"></div>
+					@components.ToastRegion()
 					<div id="alerts" role="alert" class="alerts">
 						for _, n := range alerts {
-							@alertFlash(n)
+							@components.Banner(components.BannerProps{Kind: flashKind(n.Level), Message: n.Text, NoRole: true})
 						}
 					</div>
+					@components.NoticeTemplates()
 					<div class="app-page">
 						@mainEl(o, banners) {
 							{ children... }
@@ -100,22 +101,4 @@ templ mainEl(o PageOpts, banners []web.Notice) {
 // flash renders a flash message as a Banner, as text (never markup).
 templ flash(n web.Notice) {
 	@components.Banner(components.BannerProps{Kind: flashKind(n.Level), Message: n.Text})
-}
-
-// alertFlash is Banner's markup for a warning or error flash, without a role
-// of its own: #alerts is the live region, so it is announced once.
-templ alertFlash(n web.Notice) {
-	{{ icon, word, tint := "alert-circle", "Warning", "banner--warning" }}
-	if flashKind(n.Level) == components.Danger {
-		{{ icon, word, tint = "x-circle", "Error", "banner--danger" }}
-	}
-	<div class={ "alert", "banner", tint }>
-		@icons.Icon(icon)
-		<div class="banner-body">
-			<p>
-				<strong>{ word }:</strong>
-				{ n.Text }
-			</p>
-		</div>
-	</div>
 }

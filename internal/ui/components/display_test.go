@@ -330,3 +330,60 @@ func TestMoreActions_PostHasCSRFAndDangerClass(t *testing.T) {
 		t.Errorf("empty MoreActions rendered %q", h)
 	}
 }
+
+func TestToast_OnlySuccessAndInfo(t *testing.T) {
+	for _, level := range []string{"error", "warning", "danger", "loud"} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("Toast(%q) did not panic", level)
+				}
+			}()
+			_ = components.Toast(level, "No.").Render(context.Background(), &strings.Builder{})
+		}()
+	}
+	for _, level := range []string{"success", "info"} {
+		doc := uitest.Render(t, components.Toast(level, "Saved."))
+		n := doc.Find(`#toasts[hx-swap-oob="beforeend"] > .alert.banner.banner--` + level)
+		if n.Length() != 1 {
+			t.Fatalf("%s: no banner toast in #toasts", level)
+		}
+		if _, ok := n.Attr("role"); ok {
+			t.Errorf("%s: toast has its own role", level)
+		}
+		if !strings.Contains(text(n), "Saved.") || n.Find("strong").First().Text() == "" {
+			t.Errorf("%s: toast text %q", level, text(n))
+		}
+		b := n.Find(`button[type="button"][data-dismiss][aria-label="Dismiss"]`)
+		if b.Length() != 1 {
+			t.Errorf("%s: toast has no dismiss button", level)
+		}
+	}
+}
+
+func TestBanner_ErrorIsDangerUnknownPanics(t *testing.T) {
+	b := uitest.Render(t, components.Banner(components.BannerProps{Kind: "error", Message: "Failed."})).Find(".alert")
+	if !b.HasClass("banner--danger") || b.AttrOr("role", "") != "alert" {
+		t.Errorf("error banner class %q role %q", b.AttrOr("class", ""), b.AttrOr("role", ""))
+	}
+	n := uitest.Render(t, components.Banner(components.BannerProps{Kind: components.Warning, Message: "Check.", NoRole: true})).Find(".alert")
+	if _, ok := n.Attr("role"); ok || !n.HasClass("banner--warning") {
+		t.Errorf("NoRole banner role %q class %q", n.AttrOr("role", ""), n.AttrOr("class", ""))
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("unknown banner kind did not panic")
+		}
+	}()
+	_ = components.Banner(components.BannerProps{Kind: "loud", Message: "?"}).Render(context.Background(), &strings.Builder{})
+}
+
+func TestMoreActions_PostBusyLabelIsItsLabel(t *testing.T) {
+	ctx := ui.WithShell(context.Background(), ui.Shell{CSRF: "tok-1"})
+	doc := uitest.RenderCtx(t, ctx, components.MoreActions([]components.MoreAction{
+		{Label: "Cancel order", Href: "/doc/po/1/cancel", Post: true, Danger: true},
+	}))
+	if got := doc.Find("button").AttrOr("data-busy-label", ""); got != "Cancel order…" {
+		t.Errorf("data-busy-label = %q", got)
+	}
+}

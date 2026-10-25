@@ -1,5 +1,7 @@
-/* summary.css: label and value pairs, stacked on phones and side by side from 30rem. */
+/* summary.css: label and value pairs, stacked on phones and side by side once the list is 30rem wide
+   (the list is the container its rows query). */
 @utility summary {
+  container-type: inline-size;
   display: grid;
   gap: var(--space-3);
   margin: 0;

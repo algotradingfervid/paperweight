@@ -14,17 +14,28 @@ var bannerLooks = map[BannerKind]bannerLook{
 	Danger:  {"alert", "x-circle", "Error", "banner--danger"},
 }
 
+// lookOf is k's look; "error" (the CD-75 notice level) is Danger and an
+// unknown kind panics.
 func lookOf(k BannerKind) bannerLook {
-	if l, ok := bannerLooks[k]; ok {
-		return l
+	if k == "error" {
+		k = Danger
 	}
-	return bannerLooks[Info]
+	l, ok := bannerLooks[k]
+	if !ok {
+		panic("components: unknown banner kind " + string(k))
+	}
+	return l
 }
 
 // Banner shows a message with its kind's icon and word; children follow the message.
 templ Banner(p BannerProps) {
 	{{ l := lookOf(p.Kind) }}
-	<div class={ "alert", "banner", l.tint } role={ l.role }>
+	<div
+		class={ "alert", "banner", l.tint }
+		if !p.NoRole {
+			role={ l.role }
+		}
+	>
 		@icons.Icon(l.icon)
 		<div class="banner-body">
 			<p>

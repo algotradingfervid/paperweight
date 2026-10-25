@@ -50,7 +50,7 @@ templ MoreActions(items []MoreAction) {
 						if it.Post {
 							<form method="post" action={ templ.SafeURL(it.Href) }>
 								<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
-								@Button(ButtonProps{Label: it.Label, Variant: moreVariant(it.Danger)})
+								@Button(ButtonProps{Label: it.Label, Busy: it.Label + "…", Variant: moreVariant(it.Danger)})
 							</form>
 						} else if it.NewTab {
 							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) } target="_blank" rel="noopener">

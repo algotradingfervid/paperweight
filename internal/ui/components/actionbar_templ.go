@@ -167,7 +167,7 @@ func MoreActions(items []MoreAction) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = Button(ButtonProps{Label: it.Label, Variant: moreVariant(it.Danger)}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = Button(ButtonProps{Label: it.Label, Busy: it.Label + "…", Variant: moreVariant(it.Danger)}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

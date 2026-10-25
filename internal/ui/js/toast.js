@@ -1,21 +1,14 @@
 // toast.js: server notices (HX-Trigger {"notice":{"level","text"}}, CD-75).
 // Success and info are toasts in #toasts that leave after 5 s (paused while
 // hovered or focused). Errors and warnings are never toasts: they go to the
-// persistent #alerts region and stay until closed (CD-47). Text is set with
-// textContent, never as markup.
+// persistent #alerts region and stay until closed (CD-47). Each notice is a
+// copy of its <template id="notice-KIND"> (components.NoticeTemplates), the
+// same markup as the server's components.Toast; toasts htmx adds out of band
+// get the same setup. Text is set as a text node, never as markup.
 
-const LEVELS = { success: "alert-success", info: "alert-info", warning: "alert-warning", error: "alert-error" };
+const KINDS = { success: "success", info: "info", warning: "warning", error: "danger" };
 const DISMISS_MS = 5000;
-
-function closeButton(node) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "btn btn-ghost btn-square";
-  btn.setAttribute("aria-label", "Dismiss");
-  btn.textContent = "×";
-  btn.addEventListener("click", function () { node.remove(); });
-  return btn;
-}
+const wired = new WeakSet();
 
 function autoDismiss(node) {
   let timer = 0;
@@ -30,22 +23,33 @@ function autoDismiss(node) {
   start();
 }
 
-function show(level, text) {
-  const cls = LEVELS[level] || LEVELS.error;
-  const toast = level === "success" || level === "info";
-  const region = document.getElementById(toast ? "toasts" : "alerts");
-  if (!region) return;
-  const node = document.createElement("div");
-  node.className = "alert " + cls;
-  const p = document.createElement("p");
-  p.textContent = String(text == null ? "" : text);
-  node.appendChild(p);
-  node.appendChild(closeButton(node));
-  region.appendChild(node);
+function wire(node, toast) {
+  if (wired.has(node)) return;
+  wired.add(node);
+  const btn = node.querySelector("[data-dismiss]");
+  if (btn) btn.addEventListener("click", function () { node.remove(); });
   if (toast) autoDismiss(node);
+}
+
+function show(level, text) {
+  const kind = KINDS[level] || KINDS.error;
+  const toast = kind === "success" || kind === "info";
+  const region = document.getElementById(toast ? "toasts" : "alerts");
+  const tpl = document.getElementById("notice-" + kind);
+  if (!region || !tpl) return;
+  const node = tpl.content.firstElementChild.cloneNode(true);
+  node.querySelector(".banner-body p").append(" " + String(text == null ? "" : text));
+  region.appendChild(node);
+  wire(node, toast);
 }
 
 document.addEventListener("notice", function (evt) {
   const d = evt.detail || {};
   show(d.level, d.text);
+});
+
+document.addEventListener("htmx:oobAfterSwap", function () {
+  const region = document.getElementById("toasts");
+  if (!region) return;
+  for (const node of region.children) wire(node, true);
 });

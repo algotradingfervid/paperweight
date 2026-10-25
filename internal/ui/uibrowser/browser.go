@@ -91,6 +91,10 @@ func CSPProblems(ctx context.Context) func() []string {
 // problems.
 func Check(t *testing.T, ctx context.Context, s screens.Screen, base string) {
 	t.Helper()
+	if s.As != "" {
+		t.Errorf("%s: sign-in not supported yet", s.Name)
+		return
+	}
 	csp := CSPProblems(ctx)
 	for _, w := range screens.Widths {
 		if err := At(ctx, w, base+s.URL); err != nil {
@@ -119,6 +123,9 @@ func Check(t *testing.T, ctx context.Context, s screens.Screen, base string) {
 		for _, p := range csp() {
 			t.Errorf("%s@%d: CSP: %s", s.Name, w, p)
 		}
+	}
+	for _, p := range csp() {
+		t.Errorf("%s: CSP: %s", s.Name, p)
 	}
 }
 

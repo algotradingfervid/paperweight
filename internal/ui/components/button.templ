@@ -10,9 +10,10 @@ var daisyVariant = map[Variant]string{
 	Danger:    "btn-error",
 }
 
+// buttonClass is v's classes; an empty Variant is Secondary.
 func buttonClass(v Variant) string {
 	if v == "" {
-		return "btn tap"
+		v = Secondary
 	}
 	return "btn tap " + daisyVariant[v] + " btn--" + string(v)
 }

@@ -5,7 +5,7 @@ import "strings"
 // Worst-case display values for the gallery and the full-route sweep (U6).
 const (
 	// LongName100 is a 100-rune party or item name made of words.
-	LongName100 = "Shree Venkateshwara Agro Industries and Cold Storage Private Limited Unit Two Hosur Road Bengaluru K"
+	LongName100 = "Shree Venkateshwara Agro Industries and Cold Storage Private Limited Unit Three Hosur Road Bengaluru"
 	// LongCode60 is 60 characters with no break opportunity.
 	LongCode60 = "27AAPFU0939F1ZV27AAPFU0939F1ZV27AAPFU0939F1ZV27AAPFU0939F1ZV"
 	// MaxMoney is the largest amount the forms accept.
