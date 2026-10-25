@@ -16,30 +16,34 @@ import (
 )
 
 const (
-	// msgSeparateSaves refuses a Left save that also links another
-	// employee's user (MST-119 review; plan and 06 are silent, TEST-DISPUTE
-	// note in .work/status/mst-14-tests2.md).
+	// msgSeparateSaves refuses a save that changes user_id unless the
+	// employee is Active before and after (CD-179, CD-181).
 	msgSeparateSaves = "Change the user and the status in separate saves."
 	msgNoManager     = "Reporting manager not found. Pick one from the list." // CD-170
 )
 
 // TestEmployee_LeftClearingUserDisablesOldUser: an Active → Left save that
-// also clears the user still disables the user who was linked (MST-119).
-func TestEmployee_LeftClearingUserDisablesOldUser(t *testing.T) { // MST-119
+// also clears the user is refused (CD-179, CD-181: the user changes only on
+// an Active → Active save); EMP-007 and deepak are unchanged. Before CD-179
+// this save was accepted and disabled deepak.
+func TestEmployee_LeftClearingUserDisablesOldUser(t *testing.T) { // MST-119, CD-181
 	w := newWorld(t)
 	w.seedFixtureEmployees(t)
 	deepak := userID(t, "deepak@vardhan.test")
+	id, version := w.ids["EMP-007"], w.versions["EMP-007"]
 
-	if err := w.update(t, "EMP-007", func(in *employee.Input) {
+	err := w.update(t, "EMP-007", func(in *employee.Input) {
 		in.Status, in.Relieving, in.UserID = employee.Left, date(2026, time.October, 24), 0
-	}); err != nil {
-		t.Fatalf("mark EMP-007 Left and clear user: %v", err)
+	})
+	wantUserFieldError(t, err, msgSeparateSaves)
+	if e := w.get(t, id); e.Status != employee.Active || e.UserID != deepak || e.Version != version || e.Relieving != (types.Date{}) {
+		t.Errorf("EMP-007 after refused save = {Status %q, UserID %d, Version %d, Relieving %v}; want {Active, %d, %d, blank}", e.Status, e.UserID, e.Version, e.Relieving, deepak, version)
 	}
-	if w.userEnabled(t, deepak) {
-		t.Errorf("deepak enabled after EMP-007 Left (user cleared in the same save); want disabled")
+	if !w.userEnabled(t, deepak) {
+		t.Errorf("deepak disabled after the refused save; want enabled")
 	}
-	if !hasAction(w.entries(t, "User", int64(deepak)), "disable") {
-		t.Errorf("User deepak audit has no disable entry")
+	if hasAction(w.entries(t, "User", int64(deepak)), "disable") {
+		t.Errorf("User deepak audit has a disable entry after the refused save; want none")
 	}
 }
 
@@ -67,14 +71,16 @@ func TestEmployee_LeftWithOtherEmployeesUser(t *testing.T) { // MST-119
 	}
 }
 
-// TestEmployee_RejoinWithOtherUser: re-joining with a different user doesn't
-// re-enable the user who was disabled when the employee left.
-func TestEmployee_RejoinWithOtherUser(t *testing.T) { // MST-119
+// TestEmployee_RejoinWithOtherUser: re-joining with a different user is
+// refused (CD-179, CD-181), so re-joining always re-enables the user that
+// leaving disabled. Before CD-179 this save was accepted with suresh.
+func TestEmployee_RejoinWithOtherUser(t *testing.T) { // MST-119, CD-181
 	w := newWorld(t)
 	deepak, suresh := userID(t, "deepak@vardhan.test"), userID(t, "suresh@vardhan.test")
 	in := w.input("EMP-007", "Deepak Nair")
 	in.UserID = deepak
 	w.create(t, in)
+	id := w.ids["EMP-007"]
 
 	if err := w.update(t, "EMP-007", func(in *employee.Input) {
 		in.Status, in.Relieving = employee.Left, date(2026, time.October, 24)
@@ -84,19 +90,29 @@ func TestEmployee_RejoinWithOtherUser(t *testing.T) { // MST-119
 	if w.userEnabled(t, deepak) {
 		t.Fatalf("deepak enabled after EMP-007 Left; want disabled")
 	}
-	if err := w.update(t, "EMP-007", func(in *employee.Input) {
+	version := w.versions["EMP-007"]
+	err := w.update(t, "EMP-007", func(in *employee.Input) {
 		in.Status, in.Relieving, in.UserID = employee.Active, types.Date{}, suresh
-	}); err != nil {
-		t.Fatalf("re-join EMP-007 with suresh: %v", err)
+	})
+	wantUserFieldError(t, err, msgSeparateSaves)
+	if e := w.get(t, id); e.Status != employee.Left || e.UserID != deepak || e.Version != version {
+		t.Errorf("EMP-007 after refused re-join = {Status %q, UserID %d, Version %d}; want {Left, %d, %d}", e.Status, e.UserID, e.Version, deepak, version)
 	}
 	if w.userEnabled(t, deepak) {
-		t.Errorf("deepak enabled after EMP-007 re-joined with suresh; want still disabled")
+		t.Errorf("deepak enabled after the refused re-join; want still disabled")
 	}
 	if !w.userEnabled(t, suresh) {
-		t.Errorf("suresh disabled after EMP-007 re-joined with suresh; want enabled")
+		t.Errorf("suresh disabled after the refused re-join; want enabled")
 	}
-	if e := w.get(t, w.ids["EMP-007"]); e.Status != employee.Active || e.UserID != suresh {
-		t.Errorf("EMP-007 = {Status %q, UserID %d}; want {Active, %d}", e.Status, e.UserID, suresh)
+
+	// Re-joining with the same user is the way back, and re-enables deepak.
+	if err := w.update(t, "EMP-007", func(in *employee.Input) {
+		in.Status, in.Relieving = employee.Active, types.Date{}
+	}); err != nil {
+		t.Fatalf("re-join EMP-007 with deepak: %v", err)
+	}
+	if !w.userEnabled(t, deepak) {
+		t.Errorf("deepak disabled after EMP-007 re-joined with deepak; want enabled")
 	}
 }
 
