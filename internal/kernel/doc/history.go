@@ -21,7 +21,7 @@ func History(ctx context.Context, d *db.DB, a auth.Service, p auth.Principal, do
 		if err != nil {
 			return err
 		}
-		if err := a.Can(ctx, p, dt.Name, "read", recordRef(dt, rec)); err != nil {
+		if err := a.Can(ctx, p, dt.Name, auth.RightRead, recordRef(dt, rec)); err != nil {
 			return err
 		}
 		out, err = audit.ForDoc(ctx, tx, dt.Name, id)
@@ -36,7 +36,11 @@ func History(ctx context.Context, d *db.DB, a auth.Service, p auth.Principal, do
 // DeletedHistory returns the audit entries of a deleted document, oldest
 // first. Only an Administrator may read them.
 func DeletedHistory(ctx context.Context, d *db.DB, a auth.Service, p auth.Principal, doctype string, id int64) ([]audit.Entry, error) {
-	admin, err := a.HasRole(ctx, p.ID, "Administrator")
+	dt, ok := Lookup(doctype)
+	if !ok || !dt.IsDocument() {
+		return nil, errGone()
+	}
+	admin, err := a.HasRole(ctx, p.ID, auth.RoleAdministrator)
 	if err != nil {
 		return nil, err
 	}
