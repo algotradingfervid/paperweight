@@ -52,15 +52,18 @@ func TestApprovalRule_FromAmountPrecision(t *testing.T) {
 // An edit without a readable version is refused with AUTH's bad-form message
 // and saves nothing (CD-94; CD-146 analogue).
 func TestWeb_RuleEditNeedsVersion(t *testing.T) {
-	for name, version := range map[string][]string{"missing": nil, "non-numeric": {"abc"}} {
-		t.Run(name, func(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		version []string
+	}{{"missing", nil}, {"non-numeric", []string{"abc"}}} {
+		t.Run(tc.name, func(t *testing.T) {
 			e := at.New(t)
 			before := rulesOf(t, e)
 			form := url.Values{
 				"doctype": {at.Order}, "from_amount": {"75000.00"}, "approver_type": {"role"}, "role": {"Purchase Manager"},
 			}
-			if version != nil {
-				form["version"] = version
+			if tc.version != nil {
+				form["version"] = tc.version
 			}
 			code, body := post(t, e, e.Anil, rulesPath+"/"+strconv.FormatInt(e.R1, 10), form)
 			if code != http.StatusBadRequest {
