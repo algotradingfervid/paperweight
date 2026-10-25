@@ -52,10 +52,10 @@ func TestApprovalRule_RoleMustBeActive(t *testing.T) { // APR-006
 	at.WantErr(t, err, approval.ErrInvalidRule, "Role Site Auditor is disabled. Choose an active role.")
 	wantField(t, err, "role")
 
-	// A role that doesn't exist gets the same message.
+	// A role that doesn't exist gets its own message (CD-147).
 	in.Role = "Night Watch"
 	_, err = a.CreateRule(t.Context(), e.Anil, in)
-	at.WantErr(t, err, approval.ErrInvalidRule, "Role Night Watch is disabled. Choose an active role.")
+	at.WantErr(t, err, approval.ErrInvalidRule, "Role Night Watch doesn't exist. Choose an active role.")
 
 	// A reporting-manager rule checks its fallback role.
 	_, err = a.CreateRule(t.Context(), e.Anil, approval.RuleInput{DocType: at.Claim, FromAmount: at.Rs(100000),
