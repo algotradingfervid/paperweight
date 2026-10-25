@@ -143,6 +143,7 @@ func contractCases() []contractCase {
 	return []contractCase{
 		{"FILE-001_attach_then_open_returns_bytes_and_meta", caseAttachOpen},
 		{"FILE-030_list_newest_first", caseListOrder},
+		{"FILE-030_list_same_instant_newest_id_first", caseListSameInstant},
 		{"FILE-025_read_follows_parent", caseReadFollowsParent},
 		{"FILE-026_uploader_without_read_refused", caseNoOwnerBypass},
 		{"FILE-025_hidden_parent_not_found", caseHiddenParent},
@@ -160,6 +161,7 @@ func contractCases() []contractCase {
 		{"FILE-009_content_mismatch_refused", caseMismatch},
 		{"FILE-002_size_limit_boundary", caseSize},
 		{"FILE-043_FILE-044_copy_on_amend", caseCopyAll},
+		{"FILE-043_copy_from_unknown_source_not_found", caseCopyAllMissingSource},
 		{"FILE-042_delete_all", caseDeleteAll},
 	}
 }
@@ -341,6 +343,16 @@ func caseListOrder(t *testing.T, c *contract) {
 	c.wantNames(t, "three uploads 5 min apart", c.ravi, ref, "third.pdf", "second.pdf", "first.pdf")
 	other := c.po(43, "draft", "Draft 43")
 	c.wantNames(t, "another parent", c.ravi, other)
+}
+
+// FILE-030: uploads at the same instant list the newer id first
+// (uploaded_at DESC, id DESC).
+func caseListSameInstant(t *testing.T, c *contract) {
+	c.writer()
+	ref := c.po(42, "draft", "Draft 42")
+	c.mustAttach(t, c.ravi, ref, "first.pdf", pdf(contractSmallBytes, 1))
+	c.mustAttach(t, c.ravi, ref, "second.pdf", pdf(contractSmallBytes, 2))
+	c.wantNames(t, "two uploads at the same instant", c.ravi, ref, "second.pdf", "first.pdf")
 }
 
 // FILE-025, FILE-026, CD-126: read on the parent lets anyone read its files;
@@ -610,6 +622,19 @@ func caseCopyAll(t *testing.T, c *contract) {
 	if b, _ := c.open(t, c.ravi, drawingID); !bytes.Equal(b, drawing) {
 		t.Errorf("Open(original drawing.pdf) bytes differ from the upload")
 	}
+}
+
+// FILE-043: CopyAll from a source document that doesn't exist returns
+// doctype.ErrNotFound and copies nothing.
+func caseCopyAllMissingSource(t *testing.T, c *contract) {
+	c.writer()
+	ghost := auth.RecordRef{DocType: contractPOType, ID: 999999, CreatedBy: c.ravi.ID}
+	to := c.po(43, "draft", "Draft 43")
+	err := c.s.Write(func(tx *db.Tx) error { return c.svc.CopyAll(t.Context(), tx, ghost, to) })
+	if !errors.Is(err, doctype.ErrNotFound) {
+		t.Errorf("CopyAll from a missing source error = %v, want doctype.ErrNotFound", err)
+	}
+	c.wantNames(t, "target after the refused CopyAll", c.ravi, to)
 }
 
 // FILE-042: DeleteAll removes every row of the parent and no other's.

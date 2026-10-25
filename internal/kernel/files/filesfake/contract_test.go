@@ -57,7 +57,8 @@ func (s *fakeSetup) Advance(d time.Duration) { s.clock.Advance(d) }
 func TestContract_Fake(t *testing.T) {
 	filestest.Run(t, func(t *testing.T) (files.Service, filestest.Setup) {
 		c := testkit.Clock()
-		f := filesfake.New(c)
-		return f, &fakeSetup{fake: f, auth: authfake.New(), docs: docfake.New(), clock: c}
+		a, docs := authfake.New(), docfake.New()
+		f := filesfake.NewWith(c, a, docs)
+		return f, &fakeSetup{fake: f, auth: a, docs: docs, clock: c}
 	})
 }

@@ -37,10 +37,8 @@ func (s *Store) Remove(ctx context.Context, tx *db.Tx, p auth.Principal, id int6
 	if err != nil {
 		return err
 	}
-	switch info.State {
-	case doctype.StateDraft, doctype.StateRejected, "":
-	default:
-		return &Error{Kind: KindRemoveLocked, Code: http.StatusUnprocessableEntity, Message: msgRemoveLocked}
+	if err := RemoveAllowed(info.State); err != nil {
+		return err
 	}
 	if guard := s.cfg.RemoveGuards[row.ParentDocType]; guard != nil {
 		line, err := guard(ctx, tx, row.ParentID, id)
@@ -66,6 +64,16 @@ func (s *Store) Remove(ctx context.Context, tx *db.Tx, p auth.Principal, id int6
 		By: p.ID,
 		At: s.cfg.Clock.Now().UTC(),
 	})
+}
+
+// RemoveAllowed refuses Remove unless the parent is draft, rejected or
+// stateless. Exported so filesfake refuses what Store refuses (CD-125, CD-182).
+func RemoveAllowed(state doctype.State) error {
+	switch state {
+	case doctype.StateDraft, doctype.StateRejected, "":
+		return nil
+	}
+	return &Error{Kind: KindRemoveLocked, Code: http.StatusUnprocessableEntity, Message: msgRemoveLocked}
 }
 
 // CopyAll copies every attachment row of from onto to, uploaded by

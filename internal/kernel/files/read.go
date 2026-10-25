@@ -41,7 +41,7 @@ func (s *Store) Open(ctx context.Context, p auth.Principal, id int64) (io.ReadCl
 			var info doctype.Info
 			info, err = s.cfg.Info.Info(ctx, tx, row.ParentDocType, row.ParentID)
 			if err != nil {
-				return notFoundErr(err)
+				return NotFoundErr(err)
 			}
 			if p.ID == 0 {
 				return &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgNoRight, "read", info.DocLabel), Err: auth.ErrForbidden}
@@ -98,30 +98,36 @@ func (s *Store) List(ctx context.Context, p auth.Principal, parent auth.RecordRe
 	return out, nil
 }
 
-// canOnParent loads the parent's Info and checks right r on it (built from
-// Info). A missing or hidden parent is KindNotFound; no right is KindForbidden
-// with AUTH's text naming Info.DocLabel (write is worded "change").
+// canOnParent is CanOnParent with the Store's own auth and InfoSource.
 func (s *Store) canOnParent(ctx context.Context, tx *db.Tx, p auth.Principal, r auth.Right, dt string, id int64) (doctype.Info, error) {
-	info, err := s.cfg.Info.Info(ctx, tx, dt, id)
+	return CanOnParent(ctx, tx, s.cfg.Auth, s.cfg.Info, p, r, dt, id)
+}
+
+// CanOnParent loads the parent's Info from src and checks right r on it with
+// a (built from Info). A missing or hidden parent is KindNotFound; no right is
+// KindForbidden with AUTH's text naming Info.DocLabel (write is worded
+// "change"). Exported so filesfake refuses what Store refuses (CD-125, CD-182).
+func CanOnParent(ctx context.Context, tx *db.Tx, a auth.Service, src doctype.InfoSource, p auth.Principal, r auth.Right, dt string, id int64) (doctype.Info, error) {
+	info, err := src.Info(ctx, tx, dt, id)
 	if err != nil {
-		return doctype.Info{}, notFoundErr(err)
+		return doctype.Info{}, NotFoundErr(err)
 	}
 	ref := refFrom(info)
 	verb := string(r)
 	if r == "write" {
 		verb = "change"
 	}
-	if err := s.cfg.Auth.Can(ctx, p, dt, r, &ref); err != nil {
+	if err := a.Can(ctx, p, dt, r, &ref); err != nil {
 		if errors.Is(err, auth.ErrForbidden) {
 			return doctype.Info{}, &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgNoRight, verb, info.DocLabel), Err: err}
 		}
-		return doctype.Info{}, notFoundErr(err)
+		return doctype.Info{}, NotFoundErr(err)
 	}
 	return info, nil
 }
 
-// notFoundErr maps doctype.ErrNotFound to KindNotFound and returns any other error as is.
-func notFoundErr(err error) error {
+// NotFoundErr maps doctype.ErrNotFound to KindNotFound and returns any other error as is.
+func NotFoundErr(err error) error {
 	if errors.Is(err, doctype.ErrNotFound) {
 		return &Error{Kind: KindNotFound, Code: http.StatusNotFound, Message: MsgNotFound, Err: err}
 	}
