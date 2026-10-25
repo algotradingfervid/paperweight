@@ -57,6 +57,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-NUM | Tasks 1–5 merged to main (CD-53), `make ci` green | — | director | | 16:27 | — | — | a9cb2f1 |
 | WP1-DOC | 4 Test doubles | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:29 | 1 | 0/0/2 (1 fixed, 1 carry-over) | ced329d tests, 70898c8 |
 | WP1-UI | 2 UI lint test | Light | crew-implementer | | 16:31 | 1 | review batched | 1131fe4 |
+| WP1-UI | 3 Icons | Light | crew-implementer | | 16:44 | 1 | review batched | f99ad58 |
+| WP1-NAM | 7 Numbers across the lifecycle | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:45 | 1 | 0/0/3 (CD-122) | dda9db5 tests, 2390fe7 |
 | WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
 
 ## Wave 1 carry-overs (put in the named task's brief)
