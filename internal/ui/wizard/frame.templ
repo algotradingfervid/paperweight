@@ -1,0 +1,70 @@
+package wizard
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// Bar is the step's action bar: the primary label (default "Save and
+// continue") and whether "Back" shows.
+type Bar struct {
+	Primary string
+	Back    bool
+}
+
+func (b Bar) primary() string {
+	if b.Primary == "" {
+		return "Save and continue"
+	}
+	return b.Primary
+}
+
+func (b Bar) props(m Model) components.ActionBarProps {
+	p := components.ActionBarProps{
+		Primary:     &components.ButtonProps{Label: b.primary(), Variant: components.Primary},
+		FinishLater: m.Mode == Document,
+	}
+	if b.Back {
+		p.Secondary = &components.ButtonProps{Label: "Back", Name: "nav", Value: "back", Variant: components.Secondary}
+	}
+	return p
+}
+
+func titleLine(m Model) string {
+	if m.DocLabel == "" {
+		return m.Title
+	}
+	return m.Title + " · " + m.DocLabel
+}
+
+// Frame is one wizard step, swapped whole as #wizard: title line, stepper,
+// conflict banner, error summary, warnings, the step heading and the step
+// form around children. Focus goes to the heading unless errors or a
+// conflict are shown.
+templ Frame(m Model, bar Bar) {
+	<div id="wizard">
+		<p class="wizard-title">{ titleLine(m) }</p>
+		@Stepper(m)
+		if m.Conflict != "" {
+			@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Conflict, Link: &components.Link{Label: "Reload", Href: m.ReloadURL}})
+		}
+		@components.ErrorSummary(m.Errors)
+		@components.Warnings(m.Warnings)
+		if len(m.Errors) == 0 && m.Conflict == "" {
+			<h1 id="step-title" tabindex="-1" autofocus>{ m.Heading() }</h1>
+		} else {
+			<h1 id="step-title" tabindex="-1">{ m.Heading() }</h1>
+		}
+		@components.Form(components.FormProps{Action: m.StepURL(m.Current), HX: true, Target: "#wizard"}) {
+			{ children... }
+			if m.Mode == Document {
+				<input type="hidden" name="version" value={ strconv.Itoa(m.Version) }/>
+			}
+			if m.ReturnTo != "" {
+				<input type="hidden" name="return" value={ m.ReturnTo }/>
+			}
+			@components.ActionBar(bar.props(m))
+		}
+	</div>
+}

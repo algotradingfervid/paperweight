@@ -1,0 +1,27 @@
+package wizard
+
+import "strconv"
+
+// Stepper is the progress indicator (research §7.6): "Step n of N", one list
+// item per step and a <progress> bar. Steps before Current are done links,
+// visited steps after it are links too, and steps beyond Furthest are text.
+templ Stepper(m Model) {
+	{{ n, total := strconv.Itoa(m.Current+1), strconv.Itoa(len(m.Steps)) }}
+	<nav class="stepper" aria-label={ m.Title + " steps" }>
+		<p class="stepper__count" id="step-count">Step { n } of { total }</p>
+		<ol class="stepper__list">
+			for i, s := range m.Steps {
+				if i < m.Current {
+					<li class="stepper__step is-done"><a href={ templ.SafeURL(m.StepURL(i)) }><span class="visually-hidden">Completed: </span>{ s.Label }</a></li>
+				} else if i == m.Current {
+					<li class="stepper__step is-current" aria-current="step"><span>{ s.Label }</span></li>
+				} else if i <= m.Furthest {
+					<li class="stepper__step is-visited"><a href={ templ.SafeURL(m.StepURL(i)) }>{ s.Label }</a></li>
+				} else {
+					<li class="stepper__step"><span>{ s.Label }</span></li>
+				}
+			}
+		</ol>
+		<progress class="stepper__bar" max={ total } value={ n } aria-labelledby="step-count">{ n } of { total }</progress>
+	</nav>
+}
