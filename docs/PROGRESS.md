@@ -139,6 +139,9 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | FILE-P (FILE 5–14) 3d66864; `make ci` green | — | director | | 18:05 | — | — | — |
 | WP1-NUM | 15 list and csvio P2 | Standard | crew-implementer, crew-reviewer | 17:07 | 17:17 | 1 | 0/1/4 (error-rows header escaping fixed) | 9da0907 |
 | Merges | NUM done (Tasks 1–15) 765248f; `make ci` green | — | director | | 18:15 | — | — | — |
+| WP1-FILE | 15 P2 files cases (lane) | High | crew-test-writer opus, crew-implementer opus ×2, crew-reviewer opus | 17:02 | 17:17 | 1 | 0/0/4 (KindReceiptMismatch added; Check orphan grace skipped — run when idle, WP3 note) | 5d2a285 tests, ec0759f (cherry-picked onto rebased branch) |
+| WP1-FILE | 16 P2 print cases | Standard | crew-implementer opus ×2, crew-reviewer opus, crew-implementer haiku (minors) | 17:18 | 17:28 | 1 | 0/0/4 (CSS form feed escape and page.css template check fixed) + TEST-DISPUTE upheld (linked print.js vs <script bans) | d4c4508 |
+| Merges | FILE done (Tasks 1–16) d9a4c39; `make ci` green | — | director | | 18:40 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
