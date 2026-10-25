@@ -272,12 +272,16 @@ func (a *Auth) CheckValues(ctx context.Context, p Principal, doctypeName string,
 	})
 }
 
-func (a *Auth) valueError(ctx context.Context, tx *db.Tx, d Dimension, ids []int64) error {
-	codesFor := a.dir.SiteCodes
+// codes returns the Directory's codes for d's value IDs.
+func (a *Auth) codes(ctx context.Context, tx *db.Tx, d Dimension, ids []int64) (map[int64]string, error) {
 	if d == DimProject {
-		codesFor = a.dir.ProjectCodes
+		return a.dir.ProjectCodes(ctx, tx, ids)
 	}
-	m, err := codesFor(ctx, tx, ids)
+	return a.dir.SiteCodes(ctx, tx, ids)
+}
+
+func (a *Auth) valueError(ctx context.Context, tx *db.Tx, d Dimension, ids []int64) error {
+	m, err := a.codes(ctx, tx, d, ids)
 	if err != nil {
 		return err
 	}
@@ -328,6 +332,88 @@ func (a *Auth) ReadableDocTypes(ctx context.Context, p Principal) ([]string, err
 		case !errors.Is(err, ErrForbidden):
 			return nil, err
 		}
+	}
+	return out, nil
+}
+
+// AllowedRights reports, for each right that applies to doctype, whether Can
+// allows it for rec (the UI's buttons, AUTH-084).
+func (a *Auth) AllowedRights(ctx context.Context, p Principal, doctypeName string, rec *RecordRef) (map[Right]bool, error) {
+	dt, err := lookup(doctypeName)
+	if err != nil {
+		return nil, err
+	}
+	out := map[Right]bool{}
+	for _, r := range AllRights {
+		if !Applies(dt, r) {
+			continue
+		}
+		err := a.Can(ctx, p, dt.Name, r, rec)
+		switch {
+		case err == nil:
+			out[r] = true
+		case errors.Is(err, ErrForbidden), errors.Is(err, ErrNotFound):
+			out[r] = false
+		default:
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// DefaultValue returns p's only allowed value on dimension dim; ok is false
+// unless exactly one value is allowed (AUTH-100).
+func (a *Auth) DefaultValue(ctx context.Context, p Principal, dim Dimension) (int64, bool, error) {
+	var ids []int64
+	if err := a.db.Read(ctx, func(tx *db.Tx) error {
+		allowed, err := restrictions(ctx, dbq.New(tx.SQL()), p.ID)
+		ids = allowed[dim]
+		return err
+	}); err != nil {
+		return 0, false, err
+	}
+	if len(ids) != 1 {
+		return 0, false, nil
+	}
+	return ids[0], true, nil
+}
+
+// RestrictionLabels returns u's allowed codes per restricted dimension, with
+// " (disabled)" on values the dimension's master reports disabled (AUTH-105).
+func (a *Auth) RestrictionLabels(ctx context.Context, u UserID) (map[Dimension][]string, error) {
+	out := map[Dimension][]string{}
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
+		allowed, err := restrictions(ctx, dbq.New(tx.SQL()), u)
+		if err != nil {
+			return err
+		}
+		for d, ids := range allowed {
+			codes, err := a.codes(ctx, tx, d, ids)
+			if err != nil {
+				return err
+			}
+			master, hasMaster := masterFor(d)
+			for _, id := range ids {
+				label, ok := codes[id]
+				if !ok {
+					continue
+				}
+				if hasMaster {
+					info, found, err := master.Master.Lookup(ctx, tx, id)
+					if err != nil {
+						return err
+					}
+					if found && info.Disabled {
+						label += " (disabled)"
+					}
+				}
+				out[d] = append(out[d], label)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return out, nil
 }

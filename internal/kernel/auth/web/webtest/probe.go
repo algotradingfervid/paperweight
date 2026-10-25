@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -72,6 +73,9 @@ func mountProbe(t testing.TB, r chi.Router, srv *authweb.Server, w *authtest.Wor
 	}
 	r.Method(http.MethodGet, "/search", srv.Self(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		search(rw, req, srv, probes)
+	})))
+	r.Method(http.MethodGet, "/reports/po-value", srv.Right(authtest.DTOrder, auth.RightRead, http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		poValue(rw, req, srv, w)
 	})))
 	r.Method(http.MethodGet, "/files/{id}", srv.Self(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		file(rw, req, srv, w)
@@ -310,8 +314,34 @@ func lines(rs []row) string {
 	return b.String()
 }
 
-func (p *probe) newForm(w http.ResponseWriter, _ *http.Request) {
-	writeText(w, "text/html; charset=utf-8", "New "+p.dt.Label)
+// newForm shows the site_id input of DocTypes with a header site, prefilled
+// with the user's only allowed Site (AUTH-100), else empty and required.
+func (p *probe) newForm(w http.ResponseWriter, r *http.Request) {
+	if !slices.Contains(p.dt.SiteFields, "site_id") {
+		writeText(w, "text/html; charset=utf-8", "New "+p.dt.Label)
+		return
+	}
+	ctx := r.Context()
+	id, ok, err := p.w.Auth.DefaultValue(ctx, principal(r), auth.DimSite)
+	var code string
+	if err == nil && ok {
+		err = p.w.DB.Read(ctx, func(tx *db.Tx) error {
+			codes, err := p.w.Dir.SiteCodes(ctx, tx, []int64{id})
+			code = codes[id]
+			return err
+		})
+	}
+	if err != nil {
+		p.srv.WriteError(w, r, err)
+		return
+	}
+	input := `<input name="site_id" required>`
+	if ok {
+		input = fmt.Sprintf(`<input name="site_id" value="%d" required> %s`, id, html.EscapeString(code))
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write([]byte(html.EscapeString("New "+p.dt.Label) + "\n" + input + "\n")) //nolint:gosec // G705: the label and code are escaped, the id is an int64
 }
 
 func (p *probe) listJSON(w http.ResponseWriter, r *http.Request) {
@@ -719,6 +749,29 @@ func (p *probe) importCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/"+p.slug+"/list", http.StatusSeeOther)
+}
+
+// poValue answers "Total: <paise>" over the POs p may read, summed in SQL
+// under Scope (AUTH-111).
+func poValue(w http.ResponseWriter, r *http.Request, srv *authweb.Server, wd *authtest.World) {
+	ctx := r.Context()
+	dt, _ := doctype.Lookup(authtest.DTOrder)
+	pred, err := wd.Auth.Scope(ctx, principal(r), dt.Name, auth.RightRead)
+	var total int64
+	if err == nil {
+		query := `SELECT coalesce(sum(` + q(dt.Table, "amount") + `), 0) FROM "` + dt.Table + `"`
+		if pred.SQL != "" {
+			query += ` WHERE ` + pred.SQL
+		}
+		err = wd.DB.Read(ctx, func(tx *db.Tx) error {
+			return tx.SQL().QueryRowContext(ctx, query, pred.Args...).Scan(&total) //nolint:gosec // G202: the table is a probe constant and the predicate uses ? arguments
+		})
+	}
+	if err != nil {
+		srv.WriteError(w, r, err)
+		return
+	}
+	writeText(w, "text/plain; charset=utf-8", fmt.Sprintf("Total: %d\n", total))
 }
 
 // file serves an attachment to whoever can read its parent record.
