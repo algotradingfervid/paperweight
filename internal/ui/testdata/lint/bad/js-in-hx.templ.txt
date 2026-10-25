@@ -1,0 +1,5 @@
+package bad
+
+templ x() {
+	<div hx-vals='js:{a: 1}'></div>
+}

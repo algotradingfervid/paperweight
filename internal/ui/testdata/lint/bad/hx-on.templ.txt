@@ -1,0 +1,5 @@
+package bad
+
+templ x() {
+	<button hx-on:click="go()">Go</button>
+}

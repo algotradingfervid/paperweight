@@ -1,0 +1,4 @@
+/* bad: fixed-width */
+.x {
+	width: 20rem;
+}

@@ -1,0 +1,5 @@
+package print
+
+templ x() {
+	<table><tr><td>1</td></tr></table>
+}

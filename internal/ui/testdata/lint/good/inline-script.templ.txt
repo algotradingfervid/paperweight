@@ -1,0 +1,6 @@
+package good
+
+templ x() {
+	<script src="/x.js" defer></script>
+	<script type="application/json">{"a": 1}</script>
+}

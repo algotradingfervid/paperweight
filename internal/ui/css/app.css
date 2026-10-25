@@ -3,6 +3,8 @@
 @import "tailwindcss" source(none);
 @source "../../ui/**/*.{templ,go}";
 @source "../../{kernel,masters,modules}/**/*.templ";
+@source not "../**/*_test.go";
+@source not "../testdata";
 
 @theme {
   --color-*: initial;

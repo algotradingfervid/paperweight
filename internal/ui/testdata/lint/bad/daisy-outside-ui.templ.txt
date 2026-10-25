@@ -1,0 +1,5 @@
+package bad
+
+templ x() {
+	<button class="btn">Go</button>
+}

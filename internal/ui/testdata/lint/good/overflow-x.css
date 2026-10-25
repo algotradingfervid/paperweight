@@ -1,0 +1,3 @@
+/* good: overflow-x.css */
+.x { overflow-x: hidden; }
+.y { overflow-x: clip; }

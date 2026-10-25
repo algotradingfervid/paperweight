@@ -1,0 +1,8 @@
+/* good: nowrap.css */
+.truncate { white-space: nowrap }
+@utility truncate {
+  white-space: nowrap;
+}
+@utility visually-hidden {
+  white-space: nowrap;
+}

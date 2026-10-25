@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<button type="button" data-action="go">Go</button>
+}

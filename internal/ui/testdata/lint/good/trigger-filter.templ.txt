@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<input hx-trigger="change, keyup delay:300ms"/>
+}

@@ -1,0 +1,4 @@
+/* bad: vw */
+.x {
+	max-inline-size: 100vw;
+}

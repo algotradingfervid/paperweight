@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<div class="w-full p-2"></div>
+}

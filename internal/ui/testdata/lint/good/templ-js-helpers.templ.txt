@@ -1,0 +1,5 @@
+package good
+
+templ x() {
+	<p>{ "templ" }</p>
+}
