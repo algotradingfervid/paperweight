@@ -72,7 +72,9 @@ var pages = []galleryPage{
 
 // strictPolicy is WP0's policy without 'unsafe-inline' for styles, reporting
 // to screens.CSPReportPath (SG-UI-6).
-const strictPolicy = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; report-uri " + screens.CSPReportPath
+func strictPolicy(wp0 string) string {
+	return strings.Replace(wp0, " 'unsafe-inline'", "", 1) + "; report-uri " + screens.CSPReportPath
+}
 
 // Handler is the gallery app: WP0's router (security headers and CSP), the
 // fake shell, the static files and Routes. ?csp=strict sends strictPolicy.
@@ -90,7 +92,8 @@ func Handler() http.Handler {
 func strictCSP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("csp") == "strict" {
-			w.Header().Set("Content-Security-Policy", strictPolicy)
+			h := w.Header()
+			h.Set("Content-Security-Policy", strictPolicy(h.Get("Content-Security-Policy")))
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -289,8 +292,8 @@ func Screens(base string) []screens.Screen {
 	return out
 }
 
-// run is a Setup that evaluates js and waits until done is true and no
-// transition is running (axe reads colours mid-fade otherwise).
+// run is a Setup that evaluates js and waits until done is true and until
+// CSS animations have ended (axe reads colours mid-fade otherwise).
 func run(js, done string) func(context.Context) error {
 	return func(ctx context.Context) error {
 		return chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](js), settled(done))

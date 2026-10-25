@@ -34,7 +34,8 @@ function combobox() {
       }
 
       // On phones the open search is a full-screen panel (CD-133): the
-      // page behind it is inert and Tab stays inside it.
+      // page behind it is inert and Tab stays inside it. Live regions stay
+      // live, so notices are still announced.
       let inerted = [];
 
       function sheet() {
@@ -52,13 +53,25 @@ function combobox() {
         const start = root.closest(".field") || root;
         for (let el = start; el.parentElement && el !== document.body; el = el.parentElement) {
           for (const sib of el.parentElement.children) {
-            if (sib !== el && !sib.inert) {
+            if (sib !== el && !sib.inert && !sib.matches("[role=alert], [role=status]")) {
               sib.inert = true;
               inerted.push(sib);
             }
           }
         }
       }
+
+      // Inert is always released: when the picker is removed (destroy) and
+      // when its form sends a request that may swap it away (the picker's
+      // own searches don't count).
+      const release = function () { setInert(false); };
+      const onRequest = function (e) { if (!root.contains(e.target)) release(); };
+      const form = root.closest("form");
+      if (form) form.addEventListener("htmx:beforeRequest", onRequest);
+      this.cleanup = function () {
+        release();
+        if (form) form.removeEventListener("htmx:beforeRequest", onRequest);
+      };
 
       function setOpen(open) {
         input.setAttribute("aria-expanded", open ? "true" : "false");
@@ -149,6 +162,10 @@ function combobox() {
           input.focus();
         }
       });
+    },
+
+    destroy() {
+      this.cleanup();
     },
   };
 }
