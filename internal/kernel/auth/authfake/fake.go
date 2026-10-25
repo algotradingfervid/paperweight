@@ -119,6 +119,7 @@ func setFlag(m map[auth.UserID]map[string]bool, u auth.UserID, role string, on b
 }
 
 // Restrict limits u to records whose projects and sites are in the lists; a nil list leaves that dimension open.
+// A non-nil empty list means "restricted to nothing", a state the real service can't hold.
 func (f *Fake) Restrict(u auth.UserID, projects, sites []int64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -80,7 +80,7 @@ func (a *Auth) ChangeRestrictions(ctx context.Context, actor Principal, id UserI
 	if !isAdmin(actor) {
 		return ErrAdminOnlyAccess
 	}
-	if dim != DimProject && dim != DimSite {
+	if ValidDimension(string(dim)) != nil {
 		return ErrBadForm
 	}
 	return a.db.Write(ctx, func(tx *db.Tx) error {

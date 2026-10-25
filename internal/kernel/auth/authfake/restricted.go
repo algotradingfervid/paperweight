@@ -2,7 +2,6 @@ package authfake
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -13,9 +12,8 @@ import (
 // real service: an unknown dimension is an error, and the Administrator is
 // never restricted (CD-174).
 func (f *Fake) Restricted(ctx context.Context, tx *db.Tx, p auth.Principal, dimension string) (bool, error) {
-	d := auth.Dimension(dimension)
-	if d != auth.DimProject && d != auth.DimSite {
-		return false, fmt.Errorf("authfake: unknown dimension %q", dimension)
+	if err := auth.ValidDimension(dimension); err != nil {
+		return false, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -23,7 +21,7 @@ func (f *Fake) Restricted(ctx context.Context, tx *db.Tx, p auth.Principal, dime
 		return false, nil
 	}
 	limit := f.restricted[p.ID]
-	if d == auth.DimProject {
+	if auth.Dimension(dimension) == auth.DimProject {
 		return limit.projects != nil, nil
 	}
 	return limit.sites != nil, nil
