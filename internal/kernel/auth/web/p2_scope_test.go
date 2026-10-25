@@ -143,8 +143,8 @@ func TestRestriction_ClearLifts(t *testing.T) {
 	admin := signedIn(t, h, t14Admin)
 	path := "/users/" + t14ID(int64(w.Users[t14Suresh])) + "/restrictions"
 	for _, code := range []string{"PUNE-WH", "METRO-SITE"} {
-		wantStatus(t, "admin removes "+code+" from suresh",
-			admin.Post(path, url.Values{"dimension": {"site"}, "remove": {t14ID(w.Sites[code])}}), http.StatusSeeOther)
+		form := t13With(url.Values{"dimension": {"site"}, "remove": {t14ID(w.Sites[code])}}, t13DBVersion(t, w, t14Suresh))
+		wantStatus(t, "admin removes "+code+" from suresh", admin.Post(path, form), http.StatusSeeOther)
 	}
 	if n := t14Int(t, w, `SELECT count(*) FROM user_restrictions WHERE user_id = ? AND dimension = 'site'`, int64(w.Users[t14Suresh])); n != 0 {
 		t.Fatalf("suresh site restriction rows after clearing = %d, want 0", n)
