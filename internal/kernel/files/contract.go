@@ -8,7 +8,6 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
 )
 
 type Meta struct {
@@ -22,7 +21,10 @@ type Meta struct {
 
 // Spooled is a temp file on disk, hashed and type-checked outside the transaction.
 type Spooled struct {
-	_ byte // non-zero size, so every *Spooled is a distinct pointer; FILE adds the real fields
+	path   string // under files/tmp/ until Attach moves it into place
+	size   int64
+	sha256 string // lower-case hex
+	head   []byte // the first min(size, SniffBytes) bytes
 }
 
 type Service interface {
@@ -33,9 +35,3 @@ type Service interface {
 	CopyAll(ctx context.Context, tx *db.Tx, from, to auth.RecordRef) error // copies uploaded by to.CreatedBy
 	DeleteAll(ctx context.Context, tx *db.Tx, parent auth.RecordRef) error
 }
-
-// Store creates Spooled files (WP0 addition, CD-29). FILE adds its fields.
-type Store struct{}
-
-// Spool copies up to limit bytes of r to a temp file (WP0 addition).
-func (s *Store) Spool(r io.Reader, limit int64) (*Spooled, error) { return nil, errs.ErrNotImplemented }

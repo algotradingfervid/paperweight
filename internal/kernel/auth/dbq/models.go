@@ -13,6 +13,18 @@ type AppMetum struct {
 	Value string
 }
 
+type Attachment struct {
+	ID            int64
+	ParentDoctype string
+	ParentID      int64
+	FileName      string
+	Size          int64
+	ContentType   string
+	Sha256        string
+	UploadedBy    int64
+	UploadedAt    string
+}
+
 type AuthLog struct {
 	ID        int64
 	At        string

@@ -17,6 +17,7 @@ require (
 	github.com/chromedp/cdproto v0.157.8
 	github.com/chromedp/chromedp v0.21.0
 	github.com/evanw/esbuild v0.28.2
+	github.com/gabriel-vasile/mimetype v1.4.16
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/pressly/goose/v3 v3.29.0
 	golang.org/x/crypto v0.58.0

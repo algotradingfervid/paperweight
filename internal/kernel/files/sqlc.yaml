@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: ../../../migrations/00500_attachment.sql
+    queries: queries
+    gen:
+      go:
+        package: dbq
+        out: dbq
+        rename:
+          parent_doctype: ParentDocType

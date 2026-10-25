@@ -1,0 +1,21 @@
+package print
+
+// Page is the print page shell. It links its stylesheets (no inline style or
+// script: the print CSP forbids them) and puts the watermark first in body.
+templ Page(h Header, body templ.Component) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<title>{ h.Title }</title>
+			<link rel="stylesheet" href="/print/assets/print.css"/>
+			<link rel="stylesheet" href="/print/assets/brand.css"/>
+		</head>
+		<body>
+			if h.Status.Code != "" {
+				<div class="watermark" data-status={ h.Status.Code }>{ h.Status.Label }</div>
+			}
+			@body
+		</body>
+	</html>
+}
