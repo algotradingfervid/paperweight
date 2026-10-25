@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -34,6 +35,12 @@ func t17RoleID(t *testing.T, w *authtest.World, role string) int64 {
 func t17RightsPath(t *testing.T, w *authtest.World, role, dt string) string {
 	t.Helper()
 	return fmt.Sprintf("/roles/%d/rights/%s", t17RoleID(t, w, role), dt)
+}
+
+// t17RoleVersion is roles.version of role, which a rights form posts (CD-146, CD-158).
+func t17RoleVersion(t *testing.T, w *authtest.World, role string) string {
+	t.Helper()
+	return strconv.FormatInt(t14Int(t, w, `SELECT version FROM roles WHERE name = ?`, role), 10)
 }
 
 func t17Rights(t *testing.T, w *authtest.World, role, dt string) map[auth.Right]auth.Scope {
@@ -168,6 +175,7 @@ func TestMatrix_SeedEditReset(t *testing.T) {
 	for rt, s := range edited {
 		form.Set(string(rt), string(s))
 	}
+	form.Set("version", t17RoleVersion(t, w, "Purchase User"))
 	r = admin.Post(t17RightsPath(t, w, "Purchase User", authtest.DTOrder), form)
 	t17WantSaved(t, "admin removes Purchase User PO export", r)
 	if got := t17Rights(t, w, "Purchase User", authtest.DTOrder); !reflect.DeepEqual(got, edited) {
@@ -235,7 +243,7 @@ func TestMatrix_ChangesAudited(t *testing.T) {
 	v := t13PageVersion(t, admin, w, t13Suresh)
 	n0 := len(w.Audit.Entries())
 
-	r := admin.Post(t17RightsPath(t, w, "Stores", authtest.DTOrder), url.Values{"read": {"all"}, "print": {"all"}})
+	r := admin.Post(t17RightsPath(t, w, "Stores", authtest.DTOrder), t13With(url.Values{"read": {"all"}, "print": {"all"}}, t17RoleVersion(t, w, "Stores")))
 	t17WantSaved(t, "admin grants Stores PO print", r)
 	r = admin.Post(t13UserPath(w, t13Suresh, "/restrictions"), t13With(url.Values{
 		"dimension": {"site"}, "add": {t14ID(w.Sites["TECH-SITE"])},
@@ -276,13 +284,13 @@ func TestMatrix_UnknownRightRejected(t *testing.T) {
 	path := t17RightsPath(t, w, "Stores", authtest.DTOrder)
 	before := t17Rights(t, w, "Stores", authtest.DTOrder)
 
-	r := admin.Post(path, url.Values{"read": {"all"}, "fly": {"all"}})
+	r := admin.Post(path, t13With(url.Values{"read": {"all"}, "fly": {"all"}}, t17RoleVersion(t, w, "Stores")))
 	t17WantFormError(t, "rights form with key fly", r, "CHECK", "constraint", "sqlite", "SQL")
 	if got := t17Rights(t, w, "Stores", authtest.DTOrder); !reflect.DeepEqual(got, before) {
 		t.Fatalf("RoleRights(Stores, PO) after the refused save = %v, want unchanged %v", got, before)
 	}
 
-	r = admin.Post(path, url.Values{"read": {"all"}, "print": {"all"}})
+	r = admin.Post(path, t13With(url.Values{"read": {"all"}, "print": {"all"}}, t17RoleVersion(t, w, "Stores")))
 	t17WantSaved(t, "rights form with known keys", r)
 	if got, want := t17Rights(t, w, "Stores", authtest.DTOrder), (map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll, auth.RightPrint: auth.ScopeAll}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("RoleRights(Stores, PO) after a valid save = %v, want %v", got, want)
