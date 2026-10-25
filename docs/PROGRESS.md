@@ -51,6 +51,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-DOC | 1 DocType registry | High | crew-test-writer | 15:24 | | | | |
 | WP1-APR | 1 Schema and queries | High | crew-test-writer | 15:24 | | | | |
 | WP1-UI | 1 Foundation | Light | crew-implementer | 15:24 | | | | |
+| WP1-AUTH | 4 authtest World | High | crew-test-writer, crew-implementer | | 16:12 | 1 | minors fixed | 330aff7 tests, 6de2f30 |
 
 ## Wave 1 carry-overs (put in the named task's brief)
 
@@ -67,6 +68,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 - FILE Task 3: FILE-001's ListEntry time needs NUM's real `types.FormatIST`; green only after NUM merges and wp/files-print rebases.
 - FILE Task 5: delete the placeholder Remove/Open/List/CopyAll/DeleteAll in store.go when adding read.go/remove.go.
 - Every WP's worktree copy of the plans/test docs predates CD-107..114: name the CDs in briefs until each branch rebases onto main.
+- DOC Task 4: `fyShort` in `fixturetest/doubles.go` is a stand-in for the `types.FiscalYear` stub; delete it when wp/doc rebases onto NUM.
+- Worktree `.golangci.yml` predates the test-only gosec exclusions (G115, G404, G204, G702; main c8cad38 and after): copy main's file into a worktree when its tests hit them (done for wp/num).
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
