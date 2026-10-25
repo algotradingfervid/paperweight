@@ -128,3 +128,64 @@ func (q *Queries) ListByDoc(ctx context.Context, arg ListByDocParams) ([]ListByD
 	}
 	return items, nil
 }
+
+const listDeleted = `-- name: ListDeleted :many
+SELECT doc_type, doc_id, action, from_state, to_state, reason, changes, user_id, at,
+       cause_doc_type, cause_doc_id, cause_number, cause_action
+FROM audit_log
+WHERE action = 'delete'
+ORDER BY id DESC
+`
+
+type ListDeletedRow struct {
+	DocType      string
+	DocID        int64
+	Action       string
+	FromState    string
+	ToState      string
+	Reason       string
+	Changes      string
+	UserID       int64
+	At           string
+	CauseDocType sql.NullString
+	CauseDocID   sql.NullInt64
+	CauseNumber  sql.NullString
+	CauseAction  sql.NullString
+}
+
+func (q *Queries) ListDeleted(ctx context.Context) ([]ListDeletedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDeleted)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDeletedRow
+	for rows.Next() {
+		var i ListDeletedRow
+		if err := rows.Scan(
+			&i.DocType,
+			&i.DocID,
+			&i.Action,
+			&i.FromState,
+			&i.ToState,
+			&i.Reason,
+			&i.Changes,
+			&i.UserID,
+			&i.At,
+			&i.CauseDocType,
+			&i.CauseDocID,
+			&i.CauseNumber,
+			&i.CauseAction,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
