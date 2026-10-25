@@ -60,9 +60,11 @@ type UsersPage struct {
 	Users       []auth.UserInfo
 }
 
-// UserPage shows one user.
+// UserPage shows one user. Version is the user's version, posted back as the
+// hidden version field (CD-94).
 type UserPage struct {
 	CSRF, Error string
 	Warnings    []string
 	User        auth.UserInfo
+	Version     int64
 }

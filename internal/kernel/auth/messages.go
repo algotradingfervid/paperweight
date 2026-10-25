@@ -43,6 +43,8 @@ var (
 	ErrAdminOnlyRoles       = &Problem{403, "Only an administrator can change roles."}
 	ErrAdminOnlyAccess      = &Problem{403, "Only an administrator can change site and project access."}
 	ErrAdminOnlyWhoCan      = &Problem{403, "Only an administrator can see who has which rights."}
+	ErrAdminOnlyUsers       = &Problem{403, "Only an administrator can manage users."}
+	ErrBadForm              = &Problem{400, "The form could not be read. Reload the page and try again."}
 	ErrSetupDone            = &Problem{409, "Setup is already complete. Sign in instead."}
 	ErrUsersExist           = &Problem{409, "Users already exist. Sign in as an administrator to add more users."}
 	ErrEmailInvalid         = &Problem{400, "Enter a valid email address, such as name@company.in."}
@@ -60,6 +62,12 @@ func EmailTakenError(email string) *Problem {
 // ReferencedUserError: the user can't be deleted (CD-19).
 func ReferencedUserError(name string) *Problem {
 	return &Problem{409, fmt.Sprintf("%s has created or changed records, so they can't be deleted. Disable them instead.", name)}
+}
+
+// UserChangedError: the user was saved by someone else after the page was
+// opened (the DOC-069 wording; name is the user's stored name).
+func UserChangedError(name string) *Problem {
+	return &Problem{409, fmt.Sprintf("Someone else changed %s after you opened it. Reload it and make your changes again.", name)}
 }
 
 // NoRolesWarning is shown after saving a user with no roles.

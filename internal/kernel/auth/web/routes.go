@@ -27,6 +27,14 @@ func (s *Server) Mount(r chi.Router) {
 	r.Method(http.MethodGet, "/account/password", s.Self(http.HandlerFunc(s.getPassword)))
 	r.Method(http.MethodPost, "/account/password", s.Self(http.HandlerFunc(s.postPassword)))
 	r.Method(http.MethodPost, "/users/{id}/password", s.Admin(auth.ErrNotAdminPassword.Msg, http.HandlerFunc(s.postResetPassword)))
+	// User administration (Task 13).
+	r.Method(http.MethodGet, "/users", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.listUsers)))
+	r.Method(http.MethodPost, "/users", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.createUser)))
+	r.Method(http.MethodGet, "/users/{id}", s.Self(http.HandlerFunc(s.showUser)))
+	r.Method(http.MethodPost, "/users/{id}", s.Self(http.HandlerFunc(s.updateUser)))
+	r.Method(http.MethodPost, "/users/{id}/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.updateRoles)))
+	r.Method(http.MethodPost, "/users/{id}/restrictions", s.Admin(auth.ErrAdminOnlyAccess.Msg, http.HandlerFunc(s.changeRestrictions)))
+	r.Method(http.MethodPost, "/users/{id}/delete", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.deleteUser)))
 }
 
 // CheckRoutes returns one "METHOD path: problem" line per route that does not

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/platform/web"
 )
 
 type (
@@ -13,10 +14,13 @@ type (
 	userStateKey struct{}
 )
 
-// Middleware records the request meta, loads and saves the session, loads the
-// principal and lets CSRFToken reach the session.
+// Middleware records the request meta, loads and saves the session, lets
+// web.Flash and CSRFToken reach it and loads the principal.
 func (s *Server) Middleware(next http.Handler) http.Handler {
-	load := s.sm.LoadAndSave(s.loadPrincipal(next))
+	principal := s.loadPrincipal(next)
+	load := s.sm.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal.ServeHTTP(w, r.WithContext(web.WithSessions(r.Context(), s.sm)))
+	}))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var hash string
 		if c, err := r.Cookie(s.sm.Cookie.Name); err == nil && c.Value != "" {

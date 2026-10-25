@@ -130,7 +130,7 @@ func (q *Queries) DeleteUserSessionsExcept(ctx context.Context, arg DeleteUserSe
 
 const getUser = `-- name: GetUser :one
 SELECT id, email, name, mobile, CAST(ifnull(password_hash, '') AS TEXT) AS password_hash, enabled,
-    CAST(last_login_at IS NOT NULL AS INTEGER) AS signed_in
+    CAST(last_login_at IS NOT NULL AS INTEGER) AS signed_in, version
 FROM users WHERE id = ?
 `
 
@@ -142,6 +142,7 @@ type GetUserRow struct {
 	PasswordHash string
 	Enabled      int64
 	SignedIn     int64
+	Version      int64
 }
 
 func (q *Queries) GetUser(ctx context.Context, id int64) (GetUserRow, error) {
@@ -155,6 +156,7 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (GetUserRow, error) {
 		&i.PasswordHash,
 		&i.Enabled,
 		&i.SignedIn,
+		&i.Version,
 	)
 	return i, err
 }

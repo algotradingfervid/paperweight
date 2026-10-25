@@ -68,7 +68,7 @@ func (s *Server) CheckedInHandler(h http.Handler) http.Handler {
 var ownerFields = []string{"created_by", "created_at", "updated_by", "updated_at"}
 
 // errBadForm answers a form body that does not parse.
-var errBadForm = &auth.Problem{Code: http.StatusBadRequest, Msg: "The form could not be read. Reload the page and try again."}
+var errBadForm = auth.ErrBadForm
 
 func (g *Guarded) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if g.Req.Kind == KindPublic {

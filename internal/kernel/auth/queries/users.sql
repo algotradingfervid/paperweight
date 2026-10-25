@@ -1,6 +1,6 @@
 -- name: GetUser :one
 SELECT id, email, name, mobile, CAST(ifnull(password_hash, '') AS TEXT) AS password_hash, enabled,
-    CAST(last_login_at IS NOT NULL AS INTEGER) AS signed_in
+    CAST(last_login_at IS NOT NULL AS INTEGER) AS signed_in, version
 FROM users WHERE id = ?;
 
 -- name: UserIDByEmail :one

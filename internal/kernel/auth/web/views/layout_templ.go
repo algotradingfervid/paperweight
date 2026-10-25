@@ -143,12 +143,4 @@ func (Default) Sessions(p authweb.SessionsPage) templ.Component {
 	return layout("Sessions", p.CSRF, p.Error, p.Warnings)
 }
 
-func (Default) Users(p authweb.UsersPage) templ.Component {
-	return layout("Users", p.CSRF, p.Error, p.Warnings)
-}
-
-func (Default) User(p authweb.UserPage) templ.Component {
-	return layout(p.User.Name, p.CSRF, p.Error, p.Warnings)
-}
-
 var _ = templruntime.GeneratedTemplate
