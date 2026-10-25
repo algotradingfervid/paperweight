@@ -19,7 +19,8 @@ func TestDoc_Validate_UnreadableRequiredOneError(t *testing.T) {
 	l["qty"] = "12.5.3"
 
 	n, errs := normalize(dt, ActionInput{Values: h, Lines: []map[string]string{validLine(), l}}, PlainValue, true)
-	ferrs, _ := checkFields(context.Background(), nil, dt, &n, false, testMasters())
+	// Required is checked on submit (CD-178): requireLines true.
+	ferrs, _ := checkFields(context.Background(), nil, dt, &n, true, testMasters())
 	got := append(errs, ferrs...)
 
 	want := []FieldError{

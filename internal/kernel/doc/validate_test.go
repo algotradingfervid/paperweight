@@ -108,17 +108,8 @@ func hasErr(errs []FieldError, want FieldError) bool {
 	return false
 }
 
-// DOC-019
-func TestDoc_Validate_MandatoryCollected(t *testing.T) {
-	h := validHeader()
-	delete(h, "supplier_id")
-	delete(h, "order_date")
-	_, errs, _ := validate(t, testDT(), ActionInput{Values: h, Lines: []map[string]string{validLine()}}, false)
-	eqErrs(t, errs, []FieldError{
-		{Field: "supplier_id", Line: 0, Message: "Supplier is required."},
-		{Field: "order_date", Line: 0, Message: "Order date is required."},
-	})
-}
+// DOC-019 is TestDoc_Validate_MandatoryCollected in required_test.go: it
+// submits through the engine (CD-178).
 
 // DOC-020
 func TestDoc_Validate_MandatoryBlankRules(t *testing.T) {
@@ -133,7 +124,8 @@ func TestDoc_Validate_MandatoryBlankRules(t *testing.T) {
 	h["is_urgent"] = "false"
 	l := validLine()
 	l["qty"] = "0"
-	_, errs, _ := validate(t, dt, ActionInput{Values: h, Lines: []map[string]string{l}}, false)
+	// Required is checked on submit (CD-178): requireLines true.
+	_, errs, _ := validate(t, dt, ActionInput{Values: h, Lines: []map[string]string{l}}, true)
 
 	if !hasErr(errs, FieldError{Field: "supplier_ref", Line: 0, Message: "Supplier ref is required."}) {
 		t.Errorf("errors %#v: want supplier_ref \"Supplier ref is required.\"", errs)
@@ -154,7 +146,8 @@ func TestDoc_Validate_LineMandatoryRowNo(t *testing.T) {
 	l2 := validLine()
 	l2["qty"] = ""
 	in := ActionInput{Values: validHeader(), Lines: []map[string]string{validLine(), l2, validLine()}}
-	_, errs, _ := validate(t, testDT(), in, false)
+	// Required is checked on submit (CD-178): requireLines true.
+	_, errs, _ := validate(t, testDT(), in, true)
 	want := FieldError{Field: "qty", Line: 2, Message: "Line 2: Quantity is required."}
 	eqErrs(t, errs, []FieldError{want})
 	if len(errs) == 1 {
@@ -162,6 +155,9 @@ func TestDoc_Validate_LineMandatoryRowNo(t *testing.T) {
 			t.Errorf("Path() = %q, want %q", got, "lines[2].qty")
 		}
 	}
+	// A draft save skips Required (CD-178): no error for the empty qty.
+	_, errs, _ = validate(t, testDT(), in, false)
+	eqErrs(t, errs, nil)
 }
 
 // DOC-022
@@ -245,7 +241,8 @@ func TestDoc_Lines_BlankDropped(t *testing.T) {
 		{"item_id": "", "qty": "", "rate": "", "description": ""},
 		{"item_id": "", "qty": "", "rate": "", "description": "loading charges"},
 	}
-	n, errs, _ := validate(t, testDT(), ActionInput{Values: validHeader(), Lines: lines}, false)
+	// Required is checked on submit (CD-178): requireLines true.
+	n, errs, _ := validate(t, testDT(), ActionInput{Values: validHeader(), Lines: lines}, true)
 	if len(n.Lines) != 2 {
 		t.Fatalf("normalized lines = %d, want 2", len(n.Lines))
 	}
