@@ -417,8 +417,24 @@ func TestSessions_UserRevokesOthers(t *testing.T) {
 	if n := strings.Count(page.Body, started); n < 2 {
 		t.Errorf("sessions page shows %q %d times, want at least 2 (each session's start): %q", started, n, page.Body)
 	}
-	if used := types.FormatIST(authtest.T0.Add(time.Hour)); !strings.Contains(page.Body, used) {
+	used := types.FormatIST(authtest.T0.Add(time.Hour))
+	if !strings.Contains(page.Body, used) {
 		t.Errorf("sessions page does not show Safari's last use %q: %q", used, page.Body)
+	}
+	// Each session's own row shows its start; Safari's row shows both its
+	// start (10:30) and its last use (11:30), so a view printing only
+	// last-use times fails.
+	for ua, want := range map[string][]string{t16Chrome: {started}, t16Safari: {started, used}} {
+		row := t16Row(page.Body, ua)
+		if row == "" {
+			t.Errorf("sessions page has no <li> row for %q: %q", ua, page.Body)
+			continue
+		}
+		for _, s := range want {
+			if !strings.Contains(row, s) {
+				t.Errorf("sessions page row for %q does not show %q: %q", ua, s, row)
+			}
+		}
 	}
 	if strings.Contains(page.Body, "24-10-2026 05:00") {
 		t.Errorf("sessions page shows the UTC time 24-10-2026 05:00, want IST (CD-33)")
@@ -542,4 +558,15 @@ func TestChangePassword_FailureEchoesNoPassword(t *testing.T) {
 			}
 		}
 	}
+}
+
+// t16Row returns the <li> element of body that contains ua, or "".
+func t16Row(body, ua string) string {
+	for _, part := range strings.Split(body, "<li")[1:] {
+		row, _, _ := strings.Cut(part, "</li>")
+		if strings.Contains(row, ua) {
+			return row
+		}
+	}
+	return ""
 }
