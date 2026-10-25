@@ -43,6 +43,16 @@ const kitChildDDL = `CREATE TABLE kit_child (
 	thing_id INTEGER NOT NULL REFERENCES kit_thing(id) ON DELETE RESTRICT
 )`
 
+// owned is a Kind over kit_owned, rows that belong to a kit_thing.
+var owned = mstkit.Kind{DocType: "Party Bank Account", Label: "Party Bank Account", Table: "kit_owned"}
+
+// kitOwnedDDL is a child table whose rows are deleted with their kit_thing.
+const kitOwnedDDL = `CREATE TABLE kit_owned (
+	id INTEGER PRIMARY KEY,
+	thing_id INTEGER NOT NULL REFERENCES kit_thing(id) ON DELETE CASCADE,
+	name TEXT NOT NULL
+)`
+
 const seedTS = "2026-10-24T05:00:00.000Z"
 
 type kit struct {
@@ -229,11 +239,32 @@ func TestKit_DisableWritesAudit(t *testing.T) {
 	if disabled, version, _ := k.thing(t, id); disabled != 1 || version != 2 {
 		t.Errorf("after disable: disabled=%d version=%d; want 1, 2", disabled, version)
 	}
+	// Disabling an already-disabled row is a no-op: nil, no version bump, no audit.
+	if err := k.db.Write(ctx, func(tx *db.Tx) error {
+		return k.env.SetDisabledTx(ctx, tx, k.kavya, party, id, 2, true)
+	}); err != nil {
+		t.Errorf("disable already-disabled row = %v; want nil", err)
+	}
+	if disabled, version, _ := k.thing(t, id); disabled != 1 || version != 2 {
+		t.Errorf("after second disable: disabled=%d version=%d; want 1, 2", disabled, version)
+	}
+	if n := len(k.audit.For("Party", id)); n != 1 {
+		t.Errorf("entries after second disable = %d; want 1", n)
+	}
 	k.write(t, func(tx *db.Tx) error {
 		return k.env.SetDisabledTx(ctx, tx, k.kavya, party, id, 2, false)
 	})
 	if disabled, version, _ := k.thing(t, id); disabled != 0 || version != 3 {
 		t.Errorf("after enable: disabled=%d version=%d; want 0, 3", disabled, version)
+	}
+	// Enabling an already-enabled row is a no-op: nil, no version bump, no audit.
+	if err := k.db.Write(ctx, func(tx *db.Tx) error {
+		return k.env.SetDisabledTx(ctx, tx, k.kavya, party, id, 3, false)
+	}); err != nil {
+		t.Errorf("enable already-enabled row = %v; want nil", err)
+	}
+	if disabled, version, _ := k.thing(t, id); disabled != 0 || version != 3 {
+		t.Errorf("after second enable: disabled=%d version=%d; want 0, 3", disabled, version)
 	}
 	got := k.audit.For("Party", id)
 	if len(got) != 2 {
@@ -283,6 +314,91 @@ func TestKit_DeleteRefusedWhenReferenced(t *testing.T) {
 	}
 	if es := k.audit.For("Party", free); len(es) != 1 || es[0].Action != "delete" {
 		t.Errorf("entries after delete = %+v; want one delete entry", es)
+	}
+
+	// A reference to a child row (CASCADE) blocks the master's delete too.
+	t.Run("child row referenced", func(t *testing.T) {
+		k := newKit(t)
+		id := k.insertThing(t, "V-SHARMA", "Sharma Steel Traders")
+		var childID int64
+		k.write(t, func(tx *db.Tx) error {
+			if _, err := tx.SQL().ExecContext(ctx, kitOwnedDDL); err != nil {
+				return err
+			}
+			res, err := tx.SQL().ExecContext(ctx, `INSERT INTO kit_owned (thing_id, name) VALUES (?, ?)`, id, "Bank account")
+			if err != nil {
+				return err
+			}
+			childID, err = res.LastInsertId()
+			return err
+		})
+		k.docs.AddReference("kit_owned", childID, doc.Reference{DocType: "Purchase Order", Field: "bank_account", ID: 1, Display: "PO/26-27/00001", State: doc.StateApproved})
+		err := k.db.Write(ctx, func(tx *db.Tx) error {
+			return k.env.DeleteTx(ctx, tx, k.kavya, party, id, 1, mstkit.Child{Kind: owned, FKColumn: "thing_id"})
+		})
+		var refused *mstkit.DeleteRefusedError
+		if !errors.As(err, &refused) || err.Error() != msg {
+			t.Fatalf("DeleteTx = %v; want *DeleteRefusedError %q", err, msg)
+		}
+		if _, _, ok := k.thing(t, id); !ok {
+			t.Error("master row was deleted although its child row is referenced")
+		}
+		var n int
+		if err := k.db.Read(ctx, func(tx *db.Tx) error {
+			return tx.SQL().QueryRowContext(ctx, `SELECT count(*) FROM kit_owned WHERE id = ?`, childID).Scan(&n)
+		}); err != nil {
+			t.Fatalf("read kit_owned: %v", err)
+		}
+		if n != 1 {
+			t.Errorf("kit_owned row %d count = %d; want 1 (still exists)", childID, n)
+		}
+		if es := k.audit.For("Party", id); len(es) != 0 {
+			t.Errorf("entries after refused delete = %+v; want none", es)
+		}
+	})
+}
+
+func TestKit_UsedOutsideDrafts(t *testing.T) {
+	k := newKit(t)
+	ctx := context.Background()
+	used := k.insertThing(t, "V-SHARMA", "Sharma Steel Traders")
+	draftOnly := k.insertThing(t, "C-TATA", "Tata Projects")
+	draft := doc.Reference{DocType: "Purchase Order", Field: "party", ID: 42, Display: "Draft 42", State: doc.StateDraft}
+	master := doc.Reference{DocType: "Expense Type", Field: "party", ID: 7, Display: "Expense Type TRAVEL", State: ""}
+	po := doc.Reference{DocType: "Purchase Order", Field: "party", ID: 1, Display: "PO/26-27/00001", State: doc.StateApproved}
+	k.docs.AddReference("kit_thing", used, draft)
+	k.docs.AddReference("kit_thing", used, master)
+	k.docs.AddReference("kit_thing", used, po)
+	k.docs.AddReference("kit_thing", draftOnly, draft)
+	k.docs.AddReference("kit_thing", draftOnly, master)
+	k.write(t, func(tx *db.Tx) error {
+		ref, ok, err := k.env.UsedOutsideDrafts(ctx, tx, "kit_thing", used)
+		if err != nil || !ok || ref != po {
+			t.Errorf("UsedOutsideDrafts(draft, master, PO) = %+v, %v, %v; want %+v, true, nil", ref, ok, err, po)
+		}
+		ref, ok, err = k.env.UsedOutsideDrafts(ctx, tx, "kit_thing", draftOnly)
+		if err != nil || ok {
+			t.Errorf("UsedOutsideDrafts(draft, master) = %+v, %v, %v; want ok false, nil error", ref, ok, err)
+		}
+		return nil
+	})
+}
+
+func TestKit_WriteChecksRight(t *testing.T) {
+	k := newKit(t)
+	ctx := context.Background()
+	// Priya may read and write Party, but not delete it.
+	k.auth.Allow(k.priya.ID, party.DocType, "read", "write")
+	ran := false
+	err := k.env.Write(ctx, k.priya, party, auth.Right("delete"), func(*db.Tx) error {
+		ran = true
+		return nil
+	})
+	if !errors.Is(err, auth.ErrForbidden) {
+		t.Errorf("Env.Write(priya, delete) = %v; want auth.ErrForbidden", err)
+	}
+	if ran {
+		t.Error("Env.Write ran fn although the right was denied")
 	}
 }
 
