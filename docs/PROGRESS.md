@@ -99,7 +99,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-UI | 12 docscreen list (lane/ui-12) | Standard | crew-implementer opus | 17:01 | | | | |
 | WP1-UI | 9-fix tests (lane/ui-9) | High | crew-test-writer opus | 17:05 | | | | |
 | WP3 | 6 early (Steps 1, 3: deploy files, operations draft) | Standard | impl opus, fix haiku, rev opus ×2 | 16:57 | 17:13 | 1 | 0/1/5 (all fixed) | 1d9d1c4 |
-| Merges | NAM done caad6e0; UI-M1 (Tasks 1–8) 7c3ef2f; WP3 early cb39476; `make ci` green after each | — | director | | 17:40 | — | — | — |
+| Merges | NAM done caad6e0; UI-M1 (Tasks 1–8) 7c3ef2f; WP3 early cb39476; `make ci` green after each | — | director | | 17:06 | — | — | — |
 | WP1-NUM | 6 gstcalc line, split, totals | High | crew-test-writer, crew-implementer, crew-reviewer | 16:28 | 16:33 | 1 | 0/0/4 (no change; plan names gstcalc.go, stub is contract.go) | 1e9fff3 tests, 62ab10c |
 | WP1-NUM | 8 list WHERE clause | Standard | crew-implementer, crew-reviewer | 16:33 | 16:41 | 1 | 0/0/4 (to Task 9 brief) | 5e91d77 |
 | WP1-NUM | 7 gstcalc place of supply, recompute | High | crew-test-writer, crew-implementer, crew-reviewer | 16:34 | 16:39 | 1 | 0/0/3 (carried) | 96f0fb1 tests, 4ac9b41 |
@@ -121,7 +121,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | lanes 7, 8, 9 merged into wp/auth | — | AD-1 | | 16:49 | — | — | ae11dbd, a20bbd3 |
 | WP1-AUTH | CD-137 db test fix; make ci green (AUTH-M1) | — | crew-implementer (haiku), crew-verifier | | 17:06 | 1 | — | a8f94a1 |
 | WP1-AUTH | 10 Web core | High | crew-test-writer, crew-implementer, crew-reviewer | 16:50 | 17:10 | 2 | 0/4/9 (attempt 1: owner-field strip on parse error, client CSRF GET, guest session per request → CD-136 lazy CSRF; attempt 2: late token never saved → up-front for sessions with values + harness check; minors fixed) | bd37afa tests, 1cba802 lint, 082a7ec |
-| Merges | NUM-M2 1ddda63 (contracts_test.go stub rows: both removed); AUTH-M1 71d58e9 + dbq regenerate; `make ci` green after each | — | director | | 17:55 | — | — | — |
+| Merges | NUM-M2 1ddda63 (contracts_test.go stub rows: both removed); AUTH-M1 71d58e9 + dbq regenerate; `make ci` green after each | — | director | | 17:09 | — | — | — |
 | WP1-FILE | 5 Open, List, Remove, CopyAll, DeleteAll | High | crew-implementer opus ×2, crew-reviewer opus ×2 | 16:29 | 16:36 | 1 | 0/1/2 (CD-126 wording fixed; order fixed; CopyAll order untested, carry-over) | 3e33acc tests, a47287c |
 | WP1-FILE | 10 Amount in words | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus | 16:29 | 16:38 | 1 | 0/0/1 (optional, skipped) | 474e282 tests, a714c27, merge 208df79 |
 | WP1-FILE | 11 Print registry, page shell, status, watermark, title | Standard | crew-implementer opus, crew-reviewer opus, crew-implementer haiku (minors) | 16:32 | 16:38 | 1 | 0/0/2 (both fixed) | 8df07d3 |
@@ -136,12 +136,12 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-FILE | CD-140 letterhead logo fallback | Standard | crew-implementer opus ×2, crew-reviewer opus | 17:15 | 17:18 | 1 | TEST-DISPUTE: FILE-064 logo check follows CD-140 | bc21c33 |
 | WP1-FILE | FILE-P rebase fixes | — | crew-verifier haiku, crew-implementer haiku | 17:10 | 17:17 | — | UI lint daisy-outside-ui: badge → doc_badge | b462e5a, ae36419 |
 | WP1-FILE | 16 P2 print cases (lane) | Standard | crew-implementer opus | 17:18 | | | | |
-| Merges | FILE-P (FILE 5–14) 3d66864; `make ci` green | — | director | | 18:05 | — | — | — |
+| Merges | FILE-P (FILE 5–14) 3d66864; `make ci` green | — | director | | 17:17 | — | — | — |
 | WP1-NUM | 15 list and csvio P2 | Standard | crew-implementer, crew-reviewer | 17:07 | 17:17 | 1 | 0/1/4 (error-rows header escaping fixed) | 9da0907 |
-| Merges | NUM done (Tasks 1–15) 765248f; `make ci` green | — | director | | 18:15 | — | — | — |
+| Merges | NUM done (Tasks 1–15) 765248f; `make ci` green | — | director | | 17:19 | — | — | — |
 | WP1-FILE | 15 P2 files cases (lane) | High | crew-test-writer opus, crew-implementer opus ×2, crew-reviewer opus | 17:02 | 17:17 | 1 | 0/0/4 (KindReceiptMismatch added; Check orphan grace skipped — run when idle, WP3 note) | 5d2a285 tests, ec0759f (cherry-picked onto rebased branch) |
 | WP1-FILE | 16 P2 print cases | Standard | crew-implementer opus ×2, crew-reviewer opus, crew-implementer haiku (minors) | 17:18 | 17:28 | 1 | 0/0/4 (CSS form feed escape and page.css template check fixed) + TEST-DISPUTE upheld (linked print.js vs <script bans) | d4c4508 |
-| Merges | FILE done (Tasks 1–16) d9a4c39; `make ci` green | — | director | | 18:40 | — | — | — |
+| Merges | FILE done (Tasks 1–16) d9a4c39; `make ci` green | — | director | | 17:37 | — | — | — |
 | WP1-DOC | 6 Engine skeleton, create, Load, harness | High | crew-implementer opus, crew-reviewer opus, crew-implementer haiku (shared layout) | 16:28 | 16:42 | 1 | 0/0/2 (accepted; Task 7 must merge Validate errors like create) | 1cd911f tests, 4e1a4b9 |
 | WP1-DOC | 7 Save an existing draft | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus, crew-implementer haiku (comments) | 16:42 | 16:54 | 1 | 0/0/5 (2 comment fixes; save rules sent as DECISION; reorder test owed) | f5c854f tests, 103bad4, merge bc5b7c2 |
 | WP1-DOC | 8 Transition guard and refusal messages (lane) | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus | 16:42 | 16:52 | 1 | 0/0/3 + TEST-DISPUTE upheld (Sprintf on fixed texts; reopen wording pinned) | d4c00dd tests, 7c21489 test fix, a0e57f5 |
@@ -154,8 +154,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | 12 Account and passwords | High | crew-test-writer, crew-implementer, crew-reviewer | 17:20 | 17:30 | 1 | 0/0/2 (password-echo test → Task 16; duplicate csrf input → Task 21) | 4d5759c tests, 5815cee |
 | WP1-AUTH | 15 Own/team scope, restrictions, channels (tests only) | High | crew-test-writer, crew-reviewer | 17:20 | 17:32 | 1 | 0/1/3 (API list positive control; perm_version assert; AUTH-099 sorted → CD-149) | ef3b8d7, 2e9960f, 9159fd0 |
 | WP1-AUTH | 13 User admin handlers | High | crew-test-writer, crew-implementer, crew-reviewer | 17:10 | 17:36 | 2 | 0/4/8 (plan gap → CD-143 service methods; CD-146 versioned web writes + restriction version bump + body parse before roles; flash harness gap → CD-150 web.WithSessions (prod double-save bug); no-roles form → empty list) | ce2aa68 tests, e1de3f0 ruling, 0e5f8c3 |
-| Merges | CD-151 fix d32d5b5; DOC-M1 (DOC 1–12) 58465c3 (director finished the wp/doc rebase); AUTH done (Tasks 1–15) f75c813; `make ci` green after each | — | director | | 18:55 | — | — | — |
-| Budgets | after DOC-M1: head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 4, AD-5 4 (CD-124: 3 slots to AD-5 from finished NUM and FILE) | — | director | | 18:55 | — | — | — |
+| Merges | CD-151 fix d32d5b5; DOC-M1 (DOC 1–12) 58465c3 (director finished the wp/doc rebase); AUTH done (Tasks 1–15) f75c813; `make ci` green after each | — | director | | 17:42 | — | — | — |
+| Budgets | after DOC-M1: head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 4, AD-5 4 (CD-124: 3 slots to AD-5 from finished NUM and FILE) | — | director | | — | — | — | — |
 | WP1-APR | 2 Core types, errors, format, harness | High | crew-implementer, crew-reviewer | 16:28 | 16:39 | 1 | 0/2/2 (driver read leniency, missing submit/write checks; all fixed) | 4ec4115 tests, 267beeb |
 | WP1-APR | 3 Rule administration | High | crew-test-writer, crew-implementer, crew-reviewer | 16:40 | 16:47 | 1 | 0/0/5 (carried); APR-013 green after Task 6 | 311c119 tests, af0f585 |
 | WP1-APR | 4 Rule matching (lane/approval-4) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:40 | 16:44 | 1 | 0/0/2 (dedup test carried) | 7eef4dc tests, dd00b12 |
@@ -175,38 +175,38 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-APR | 16 Stuck, inbox and history P2 (lane/approval-16) | High | crew-test-writer, crew-implementer, crew-reviewer | 17:29 | 17:39 | 1 | 0/1/3 (refusal text → CD-152, fixed) | 4c1962e, c17da31 tests, c6675ba |
 | WP1-APR | 12b Engine driver | High | crew-implementer | 17:48 | | | | |
 | WP1-APR | 18 DOC-coupled P2 (lane/approval-18) | High | crew-test-writer | 17:48 | | | | |
-| Merges | APR done (P1 71/71) 8102873; `make ci` green; 12b and 18 follow | — | director | | 19:05 | — | — | — |
+| Merges | APR done (P1 71/71) 8102873; `make ci` green; 12b and 18 follow | — | director | | 17:47 | — | — | — |
 | WP1-NAM | 16 Cross-package P2 vs real DOC and FILE (+ harness amend carry-over) | High | crew-implementer (test-only), crew-reviewer | 17:45 | 17:52 | 1 | 0/0/4 (NAM-047 text → CD-155) | cf8828a |
-| Merges | NAM Task 16 e2dd7d5; `make ci` green | — | director | | 19:20 | — | — | — |
+| Merges | NAM Task 16 e2dd7d5; `make ci` green | — | director | | 17:54 | — | — | — |
 | WP1-AUTH | CD-156 ids never reused | High | crew-implementer, crew-reviewer | | | 1 | 0/0/0 | 2faefcc |
-| Merges | AUTH CD-156 5aecfe2; `make ci` green | — | director | | 19:35 | — | — | — |
+| Merges | AUTH CD-156 5aecfe2; `make ci` green | — | director | | 17:58 | — | — | — |
 | WP1-AUTH | CD-157 C authfake denial text | High | crew-implementer, crew-reviewer | | | 1 | 0/0/2 | b843525 |
-| Merges | AUTH CD-157 C 7e2bf9b; `make ci` green | — | director | | 19:55 | — | — | — |
-| Merges | UI CD-160 buffered Render 026383e; `make ci` green | — | director | | 20:05 | — | — | — |
+| Merges | AUTH CD-157 C 7e2bf9b; `make ci` green | — | director | | 18:03 | — | — | — |
+| Merges | UI CD-160 buffered Render 026383e; `make ci` green | — | director | | 18:06 | — | — | — |
 | WP1-NAM | 18 Numbering screen | High | crew-test-writer, crew-implementer, crew-reviewer | 17:50 | 18:10 | 2 | 0/0/7 (flash bug → CD-160; 2 minors fixed, 1 reverted) | 3004445 b49667a aadb877 aa39db2 |
-| Merges | NAM Task 18 95db286 (NAM complete); `make ci` green | — | director | | 20:15 | — | — | — |
+| Merges | NAM Task 18 95db286 (NAM complete); `make ci` green | — | director | | 18:13 | — | — | — |
 | WP1-AUTH | CD-162 authfake CheckValues parity | High | crew-implementer, crew-test-writer, crew-reviewer | | | 1 | 0/1/2 (project row missing → added) | 81e51ee, 61111ae |
-| Merges | AUTH CD-162 (merge below); `make ci` green | — | director | | 20:25 | — | — | — |
+| Merges | AUTH CD-162 (merge below); `make ci` green | — | director | | — | — | — | — |
 | WP1-DOC | 14 Lifecycle table and fuzz (lane 13) | High | crew-test-writer opus, crew-reviewer opus, crew-implementer opus (model fix) | 17:38 | 17:53 | 1 | 0/0/4 + major for product → CD-156 (ids reused) | 8fe78a3, 7f2f192 |
 | WP1-DOC | 17 P2 audit values and history | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus, crew-implementer haiku (minors) | 17:40 | 18:03 | 1 | 0/0/3 (2 fixed; ListDeleted index deferred) + blocked on CD-156 | 99ed8d4 tests, 18d73a9 |
 | WP1-DOC | CD-156 ids never reused (fixture + attachment) | High | crew-implementer opus, crew-reviewer opus | 17:52 | 18:00 | 1 | 0/0/0; make ci green on lane/doc-cd156 | 275f46b |
 | WP1-DOC | CD-157 (A) reject reason to APR, (F) Receipt Amount | High | crew-implementer opus, crew-reviewer opus | 18:00 | 18:06 | 1 | 0/0/2 (double's Fail-before-reason order; plan text :319 :545 :572 stale → head) | fe22fbe (lane cd156) |
 | WP1-DOC | CD-162 fixture read-only state field | High | crew-implementer opus, crew-reviewer opus | 18:06 | 18:13 | 1 | | 0d07e62 |
 | WP1-DOC | CD-163 audit.ValidateEntry parity + files Op fix | High | crew-implementer opus, crew-implementer haiku, crew-reviewer opus | 18:08 | 18:13 | 1 | found files audit changes without Op (fixed) | d9454e7, 0599efa |
-| Merges | DOC batch (CD-156, CD-157 A/F, CD-162, CD-163) ee93bd7; `make ci` green | — | director | | 20:35 | — | — | — |
+| Merges | DOC batch (CD-156, CD-157 A/F, CD-162, CD-163) ee93bd7; `make ci` green | — | director | | 18:17 | — | — | — |
 | WP1-DOC | 13 Concurrency (lane) | High | crew-test-writer opus, crew-reviewer opus, crew-implementer opus (test tightening) | 17:38 | 17:49 | 1 | 0/0/3 (DOC-073 loser errors pinned; case text update proposed) | 2e4d607, bc699e6 |
 | WP1-DOC | 15 P2 validation and line extras (lane) | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus | 17:40 | 17:52 | 1 | 0/0/4 (DOC-002 explicit-0 check can't fail: fixture has no non-zero default, carry-over) | 85e335b tests, 7d37ebc (lane 15) |
 | WP1-DOC | 16 P2 lifecycle, links, tx extras (lane) | High | crew-test-writer opus, crew-reviewer opus, crew-implementer opus (test minors) | 17:40 | 17:55 | 1 | 0/0/4 (all tests passed on existing engine; no code needed; 4 test fixes) | 8fad957, ad555e4, merge 4171714 |
 | WP1-DOC | Fixture harness template-DB speedup | Standard | crew-implementer opus | 17:55 | 17:58 | — | dropped: baseline already 6.6 s doc tests, ~85 fuzz execs/s; needs testkit change | — |
-| Merges | DOC done (Tasks 1–17) 6d505af; `make ci` green | — | director | | 20:45 | — | — | — |
-| Budgets | AD-4 finished (DOC, FILE): its 4 slots go to AD-5 (masters, now the longest chain): head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 0, AD-5 8 | — | director | | 20:45 | — | — | — |
-| Merges | NAM CD-164 follow-ups (merge above); `make ci` green | — | director | | 20:55 | — | — | — |
+| Merges | DOC done (Tasks 1–17) 6d505af; `make ci` green | — | director | | 18:21 | — | — | — |
+| Budgets | AD-4 finished (DOC, FILE): its 4 slots go to AD-5 (masters, now the longest chain): head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 0, AD-5 8 | — | director | | — | — | — | — |
+| Merges | NAM CD-164 follow-ups (merge above); `make ci` green | — | director | | — | — | — | — |
 | WP1-APR | 12b Engine driver | High | crew-implementer, crew-reviewer | 17:48 | 18:05 | 1 | 0/0/3; 10 engine-only failures → CD-157 | e6740e0, 47fb2e8 |
 | WP1-APR | 18 DOC-coupled P2 | High | crew-test-writer, crew-reviewer | 17:48 | 18:05 | 1 | APR-064 waits on CD-157 C; claimWithState → AD-4 | d76c22e→9e29712, d7c5c95 |
 | WP1-APR | CD-156 AUTOINCREMENT ids (lane/approval-ids) | Standard | crew-implementer | 17:53 | 17:54 | 1 | test failed first; director review | 8b44c92 |
 | WP1-APR | CD-157 test changes, engine default, CD-162, CD-168 | High | crew-implementer, crew-reviewer | 17:58 | 18:27 | 1 | engine default green after AD-4/AD-1 changes | a65b452..44b9884 |
-| Merges | APR complete a53b971; `make ci` green. NUM, NAM, APR, DOC, FILE complete | — | director | | 21:05 | — | — | — |
-| Budgets | AD-3 finished: head 2, AD-1 5, AD-2 3, AD-5 12, 3 held in reserve for whoever asks | — | director | | 21:05 | — | — | — |
+| Merges | APR complete a53b971; `make ci` green. NUM, NAM, APR, DOC, FILE complete | — | director | | 18:28 | — | — | — |
+| Budgets | AD-3 finished: head 2, AD-1 5, AD-2 3, AD-5 12, 3 held in reserve for whoever asks | — | director | | — | — | — | — |
 | WP1-AUTH | CD-153 import rule; rebase on main a6e6a43; make ci green, checkids 92/92 | — | crew-implementer (haiku), crew-verifier | | 17:42 | 1 | — | 2a125db |
 | WP1-AUTH | 16 P2 sign-in, password, sessions | High | crew-test-writer, crew-implementer, crew-reviewer | 17:40 | 17:50 | 1 | 0/2/3 (session start-time test too weak; no non-admin unlock control; RevokeOthers on store; unlock audit only when locked; AUTH-038 plan times differ from case) | 43084c3 tests, ba09712, 13f89c5 |
 | WP1-AUTH | 18 P2 scope, fuzz, denials | High | crew-test-writer, crew-implementer, crew-reviewer | 17:40 | 17:54 | 1 | 0/1/4 (AllowedRights test ignored rec → per-record cases; refused report caller; RestrictionLabels skips unknown codes; TEST-DISPUTE AUTH-104 version, ruled) | 264e52d tests, b519216 ruling, a9e07d4, a02575f |
@@ -215,7 +215,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | 21 Styled sign-in, password, session views | Standard | crew-implementer, crew-reviewer | 17:50 | 18:09 | 1 | 0/1/4 (End all other sessions → CD-159; ErrorSummary role=alert wrapper dropped (CD-159 UI); must-differ rule; ps-6; Unknown device) | 3b05436 (rebased) |
 | WP1-AUTH | 17 P2 users, roles, matrix | High | crew-test-writer, crew-implementer, crew-reviewer | 17:45 | 18:23 | 2 | 0/5/9 (CD-158: id-in-write, role versions, Config.Seed, no role resurrection; missing tests added; TEST-DISPUTE matrix tests post version; rename keeps no defaults on reset, by design) | e0bed74 |
 | WP1-AUTH | 19 P2 Who can view | Standard | crew-test-writer, crew-implementer, crew-reviewer | 18:00 | 18:33 | 1 | 0/1/4 (authweb imported internal/ui → moved to screens + import test; shared restrictionLabels; unknown right 400; RightLabel; default doctype) | 68e4c8d |
-| Merges | AUTH P2 batch (16–19, 21) 5db427c; `make ci` green. AUTH left: Task 20 (waits for UI-M2) and CD-171 | — | director | | 21:20 | — | — | — |
+| Merges | AUTH P2 batch (16–19, 21) 5db427c; `make ci` green. AUTH left: Task 20 (waits for UI-M2) and CD-171 | — | director | | 18:35 | — | — | — |
 | WP2 | 2 gstin | High | tw opus, impl opus, rev opus, minors haiku | 16:28 | 16:38 | 1 | 0/0/4 (3 fixed, 1 plan text: PAN example AAACR5055K in Task 2 Step 3 and Task 20) | 3ebb986 tests, 5db5c91, 03e4330 |
 | WP2 | 1a mstkit rules (fakes) | High | tw opus ×2, impl opus ×2, rev opus ×2 | 16:39 | 16:56 | 1 | 0/1/7 (test gap on DeleteTx child refs; all fixed, 1 optional carry-over) | 1b9c2f8, 3d233eb tests, 5896980 gofmt, 2135f23 |
 | WP2 | 2b gstin/gstcalc parity (CD-130) | High | tw opus, impl opus, rev opus | 17:46 | 17:49 | 1 | 0/0/1 (cosmetic, skipped) | d2e51ac test, 37eb910 |
@@ -230,8 +230,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP2 | 1d RegisterMaster list defaults (CD-167) | High | tw opus ×2 + haiku fixtures, impl opus ×2, rev opus ×2 | 18:44 | 18:34 | 1 | 0/1/2 (forced name sort broke Address/Contact; fixed) | 8a6e6a0, 404069d tests, 71819b9 |
 | WP2 | 10 item + conversions | High | tw opus ×2, impl opus ×2, rev opus ×2 | 18:20 | 18:42 | 1 | 0/1/6 (Links removed per CD-167; typed factors; reset before validate; audit codes) | 9e13a9c, 5e706c0 tests, 04390e3 (lane/masters-catalogue) |
 | WP2 | 12 project | Standard (High flow) | tw opus ×2, impl opus ×3, rev opus ×2 | 18:13 | 18:52 | 1 | 0/1/4 (RecordRef ProjectIDs; CD-172 create; CD-170 branch; party-missing block) | 32510d6, e6f7505 tests, d43fd95 (lane/masters-org) |
-| Merges | WP2 part 1 (Tasks 1–5, 8–11) e2cb5cb + dbq 5e65428; AUTH CD-171 5a793ca; `make ci` green after each | — | director | | 21:35 | — | — | — |
-| Merges | AUTH CD-173 + CD-174 cd10b67; `make ci` green | — | director | | 22:05 | — | — | — |
+| Merges | WP2 part 1 (Tasks 1–5, 8–11) e2cb5cb + dbq 5e65428; AUTH CD-171 5a793ca; `make ci` green after each | — | director | | 18:52 | — | — | — |
+| Merges | AUTH CD-173 + CD-174 cd10b67; `make ci` green | — | director | | 19:17 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
