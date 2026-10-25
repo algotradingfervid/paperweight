@@ -91,22 +91,7 @@ templ LineGrid(rows []LineGridRow, total string) {
 			}
 			for _, r := range rows {
 				<div class="linegrid-row">
-					<form
-						id={ lineGridID(r.No) }
-						class="linegrid-form"
-						hx-post={ r.PostURL }
-						hx-trigger="change"
-						hx-target="this"
-						hx-swap="outerHTML"
-						hx-include="#doc-version"
-						hx-sync="#line-editor:queue all"
-					>
-						<span class="linegrid-no"><span class="visually-hidden">Line</span>{ strconv.Itoa(r.No) }</span>
-						for _, c := range r.Cells {
-							@c.Input
-						}
-						<span class="num linegrid-amount"><span class="visually-hidden">Amount</span>{ r.Amount }</span>
-					</form>
+					@LineGridRowForm(r)
 					<div class="linegrid-actions">
 						if r.RemoveURL != "" {
 							@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", r.No), Href: r.RemoveURL, Variant: Ghost})
@@ -130,4 +115,25 @@ templ LineGrid(rows []LineGridRow, total string) {
 			</p>
 		</div>
 	</div>
+}
+
+// LineGridRowForm is one grid row's form, as LineGrid renders it, so a row
+// save can return just #grid-row-<no> for its hx-target="this" swap.
+templ LineGridRowForm(r LineGridRow) {
+	<form
+		id={ lineGridID(r.No) }
+		class="linegrid-form"
+		hx-post={ r.PostURL }
+		hx-trigger="change"
+		hx-target="this"
+		hx-swap="outerHTML"
+		hx-include="#doc-version"
+		hx-sync="#line-editor:queue all"
+	>
+		<span class="linegrid-no"><span class="visually-hidden">Line</span>{ strconv.Itoa(r.No) }</span>
+		for _, c := range r.Cells {
+			@c.Input
+		}
+		<span class="num linegrid-amount"><span class="visually-hidden">Amount</span>{ r.Amount }</span>
+	</form>
 }
