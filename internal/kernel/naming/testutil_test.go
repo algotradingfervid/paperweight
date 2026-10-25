@@ -10,7 +10,6 @@ import (
 
 // Shared fixtures (00-fixtures.md). Used from Task 2 on.
 
-//nolint:unused // shared fixture, used by later tasks' tests
 func day(y int, m time.Month, d int) types.Date { return types.Date{Year: y, Month: m, Day: d} }
 
 // fixedClock is a clock.Clock at a chosen instant, for the few cases that
