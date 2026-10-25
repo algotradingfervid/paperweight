@@ -291,7 +291,7 @@ func TestLogin_UnknownEmailSameResponse(t *testing.T) {
 		t.Errorf("header keys differ: wrong password %q, unknown email %q", ka, kb)
 	}
 	for _, k := range ka {
-		if k == "Set-Cookie" || k == "Date" {
+		if k == "Set-Cookie" || k == "Date" || k == "X-Test-Csrf" { // X-Test-Csrf: webtest harness only (CD-136)
 			continue
 		}
 		if va, vb := wrong.Header.Values(k), unknown.Header.Values(k); strings.Join(va, "\x00") != strings.Join(vb, "\x00") {
