@@ -49,7 +49,7 @@ func testOrder() DocType {
 			{Name: "total", Label: "Total", Type: Money, ReadOnly: true},
 			{Name: "qty", Label: "Qty", Type: Qty, OnLine: true, Step: "lines"},
 			{Name: "received_qty", Label: "Received qty", Type: Qty, OnLine: true, Step: "lines", RollUp: true, EditableAfterSubmit: true},
-			{Name: "posted_at", Label: "Posted at", Type: Timestamp, System: true, EditableAfterSubmit: true},
+			{Name: "posted_at", Label: "Posted at", Type: Timestamp, OnLine: true, Step: "lines", System: true, EditableAfterSubmit: true},
 		},
 		Hooks: nopHooks{},
 	}
