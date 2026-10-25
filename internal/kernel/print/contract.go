@@ -4,15 +4,10 @@ package print
 import (
 	"context"
 
-	"github.com/a-h/templ"
-
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/errs"
 	"github.com/vardhan/internaltools/internal/types"
 )
-
-func Register(doctype string, view func(ctx context.Context, tx *db.Tx, id int64) (templ.Component, error)) {
-}
 
 func InWordsINR(m types.Money) (string, error) { return "", errs.ErrNotImplemented }
 

@@ -1,0 +1,32 @@
+/* Print stylesheet (spec §5 print, CD-99). Brand colour comes only from
+   --doc-accent in /print/assets/brand.css; status colours are fixed. */
+
+@page { size: A4 portrait; margin: 15mm; }
+
+html { color: #111; background: #fff; }
+body { margin: 0; font-family: system-ui, sans-serif; font-size: 10pt; line-height: 1.35; }
+
+h1, h2, h3 { color: var(--doc-accent); margin: 0 0 2mm; }
+.doc-title { font-size: 16pt; display: flex; align-items: center; gap: 3mm; }
+.doc-number { margin: 0 0 4mm; font-weight: 600; }
+hr { border: 0; border-block-start: 0.4mm solid var(--doc-accent); }
+
+.badge { font-size: 9pt; font-weight: 700; padding: 0.5mm 2mm; border: 0.3mm solid currentColor; border-radius: 1mm; }
+.badge[data-status="draft"] { color: #8a5a00; }
+.badge[data-status="cancelled"] { color: #b00020; }
+
+.watermark { position: fixed; inset-block-start: 45%; inset-inline: 0; text-align: center; font-size: 96pt; font-weight: 700; opacity: 0.12; transform: rotate(-30deg); pointer-events: none; z-index: 1000; }
+.watermark[data-status="draft"] { color: #8a5a00; }
+.watermark[data-status="cancelled"] { color: #b00020; }
+
+.logo { max-inline-size: 60mm; max-block-size: 20mm; inline-size: auto; block-size: auto; object-fit: contain }
+
+table { inline-size: 100%; border-collapse: collapse; }
+thead { display: table-header-group; }
+th { text-align: start; border-block-end: 0.4mm solid var(--doc-accent); }
+th, td { padding: 1mm 1.5mm; vertical-align: top; }
+tr { break-inside: avoid; }
+.totals { background: color-mix(in srgb, var(--doc-accent) 10%, #fff); border-block-start: 0.4mm solid var(--doc-accent); }
+.closing { break-inside: avoid; }
+
+img { image-orientation: from-image; }
