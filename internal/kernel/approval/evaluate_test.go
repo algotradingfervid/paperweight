@@ -7,17 +7,9 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/approval"
 	at "github.com/vardhan/internaltools/internal/kernel/approval/approvaltest"
-	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/types"
 )
-
-// employeesSubmitClaims gives the Employee role the Expense Claim row's submit
-// right (own) on its stand-in fixture.Claim: 00-fixtures.md seeds it only on
-// Expense Claim, and Deepak submits his own claim in APR-020/044/048/051.
-func employeesSubmitClaims(e *at.Env) {
-	e.Auth.Grant("Employee", at.Claim, "submit", auth.ScopeOwn)
-}
 
 func TestApprovalSubmit_BelowThresholdApproved(t *testing.T) { // APR-016
 	e := at.New(t)
@@ -44,7 +36,6 @@ func TestApprovalMatch_UsesGrandTotalWithGST(t *testing.T) { // APR-019 (grand t
 func TestApprovalMatch_ExpenseUsesClaimTotal(t *testing.T) { // APR-020
 	e := at.New(t)
 	e2 := e.AddRule(t, approval.RuleInput{DocType: at.Claim, FromAmount: at.Rs(25000), ApproverType: approval.ApproverRole, Role: "Director"})
-	employeesSubmitClaims(e)
 	d := e.NewDoc(t, at.Claim, 10, at.Rs(18000)+at.Rs(7000), e.Deepak)
 	at.MustOK(t, e.Submit(e.Deepak, d))
 	r, ok := e.Latest(t, d)
@@ -104,7 +95,6 @@ func TestApprovalSubmit_NoEligibleApproverRefused(t *testing.T) { // APR-040
 
 func TestApprovalExpense_ReportingManagerApproves(t *testing.T) { // APR-044
 	e := at.New(t)
-	employeesSubmitClaims(e)
 	d := e.NewDoc(t, at.Claim, 10, at.Rs(3450), e.Deepak)
 	at.MustOK(t, e.Submit(e.Deepak, d))
 	r, _ := e.Latest(t, d)
@@ -135,7 +125,6 @@ func TestApprovalExpense_DisabledManagerUsesFallback(t *testing.T) { // APR-048
 		t.Run(c.name, func(t *testing.T) {
 			e := at.New(t)
 			c.setup(t, e)
-			employeesSubmitClaims(e)
 			d := e.NewDoc(t, at.Claim, 10, at.Rs(3450), e.Deepak)
 			at.MustOK(t, e.Submit(e.Deepak, d))
 			r, ok := e.Latest(t, d)
@@ -149,7 +138,6 @@ func TestApprovalExpense_DisabledManagerUsesFallback(t *testing.T) { // APR-048
 func TestApprovalExpense_HighAmountGoesToRole(t *testing.T) { // APR-051
 	e := at.New(t)
 	e2 := e.AddRule(t, approval.RuleInput{DocType: at.Claim, FromAmount: at.Rs(25000), ApproverType: approval.ApproverRole, Role: "Director"})
-	employeesSubmitClaims(e)
 	d := e.NewDoc(t, at.Claim, 10, at.Rs(30000), e.Deepak)
 	at.MustOK(t, e.Submit(e.Deepak, d))
 	r, ok := e.Latest(t, d)

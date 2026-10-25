@@ -166,7 +166,6 @@ func TestApprovalEligible_LiveRoleCheck(t *testing.T) { // APR-042
 
 func TestApprovalExpense_OtherManagerRefused(t *testing.T) { // APR-045 (CD-11 team scope, CD-52 order)
 	e := at.New(t)
-	employeesSubmitClaims(e)
 	d := e.NewDoc(t, at.Claim, 10, at.Rs(3450), e.Deepak)
 	at.MustOK(t, e.Submit(e.Deepak, d))
 	at.WantNotFound(t, e.Approve(e.Ravi, d)) // Ravi's team is Priya and Suresh, not Deepak: he can't see Draft 10 → 404
@@ -184,7 +183,6 @@ func TestApprovalExpense_OtherManagerRefused(t *testing.T) { // APR-045 (CD-11 t
 func TestApprovalExpense_ManagerDisabledWhilePending(t *testing.T) { // APR-049
 	setup := func(t *testing.T) (*at.Env, at.Doc) {
 		e := at.New(t)
-		employeesSubmitClaims(e)
 		d := e.NewDoc(t, at.Claim, 10, at.Rs(3450), e.Deepak)
 		at.MustOK(t, e.Submit(e.Deepak, d))
 		e.Disable(t, e.Priya.ID)

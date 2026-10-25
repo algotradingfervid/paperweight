@@ -233,12 +233,6 @@ func TestApprovalAmend_NeedsFreshApproval(t *testing.T) { // APR-087 (APR half: 
 	}
 }
 
-// statusSource is Task 8's Approvals.Status, reached through an interface so
-// this file compiles before Task 8 merges into this lane.
-type statusSource interface {
-	Status(ctx context.Context, tx *db.Tx, doctype string, id int64) (approval.Status, error)
-}
-
 func TestApprovalCopy_ClearsApprovalFields(t *testing.T) { // APR-088 (APR state is keyed by document id, so a copy has none)
 	e := at.New(t)
 	orig := e.NewDoc(t, at.Order, 42, at.Rs(60000), e.Priya)
@@ -248,12 +242,8 @@ func TestApprovalCopy_ClearsApprovalFields(t *testing.T) { // APR-088 (APR state
 		t.Fatalf("original number %q, want PO/26-27/00001", e.Number(t, orig))
 	}
 	cp := e.NewDoc(t, at.Order, 70, at.Rs(60000), e.Priya)
-	src, ok := any(e.A).(statusSource)
-	if !ok {
-		t.Fatal("approval.Approvals has no Status method yet (Task 8)")
-	}
 	var s approval.Status
-	at.MustOK(t, e.DB.Read(t.Context(), func(tx *db.Tx) (err error) { s, err = src.Status(t.Context(), tx, at.Order, 70); return }))
+	at.MustOK(t, e.DB.Read(t.Context(), func(tx *db.Tx) (err error) { s, err = e.A.Status(t.Context(), tx, at.Order, 70); return }))
 	if r, ok := e.Latest(t, cp); ok || s.Line != "" || s.Pending || len(e.History(t, cp)) != 0 || e.Title(t, cp) != "Draft 70" {
 		t.Errorf("copy carries approval state: request %+v status %+v title %q", r, s, e.Title(t, cp))
 	}

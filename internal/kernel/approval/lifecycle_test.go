@@ -146,7 +146,7 @@ func TestApprovalRevise_RejectedIsLocked(t *testing.T) { // APR-062
 	at.MustOK(t, e.Submit(e.Priya, d))
 	at.MustOK(t, e.Reject(e.Ravi, d, "Rate is too high."))
 	before := snap(t, e, d)
-	wantMsg(t, e.Save(e.Priya, d, map[string]string{"lines.1.qty": "10.000"}), "Draft 42 was rejected. Click Revise to edit it.", 409)
+	wantMsg(t, e.Save(e.Priya, d, map[string]string{"lines.1.qty": "10.000"}), "Draft 42 was rejected. Revise it to move it back to draft.", 409) // DOC's guard text (CD-142)
 	wantUnchanged(t, e, d, before)
 }
 
@@ -202,12 +202,12 @@ func TestApprovalTransition_NoDirectStateWrite(t *testing.T) { // APR-076
 	e := at.New(t)
 	e.RequireEngine(t)
 	d := e.NewDoc(t, at.Order, 42, at.Rs(60000), e.Priya)
-	before := snap(t, e, d)
-	err := e.SetState(e.Priya, d, doctype.StateApproved)
-	if err == nil || err.Error() != "State can only change through Submit, Withdraw, Approve, Reject or Revise." {
-		t.Errorf("error = %v, want the state-field refusal", err)
+	// The posted state is ignored like every system field (DOC-003, CD-142):
+	// the save succeeds and the document stays a numberless draft.
+	at.MustOK(t, e.SetState(e.Priya, d, doctype.StateApproved))
+	if e.State(t, d) != doctype.StateDraft || e.Number(t, d) != "" || len(e.History(t, d)) != 0 {
+		t.Errorf("state %s number %q history %v, want draft, no number, no history", e.State(t, d), e.Number(t, d), e.History(t, d))
 	}
-	wantUnchanged(t, e, d, before)
 	if _, ok := e.Latest(t, d); ok {
 		t.Error("an approval request was opened")
 	}

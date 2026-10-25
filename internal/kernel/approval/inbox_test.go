@@ -1,7 +1,6 @@
 package approval_test
 
 import (
-	"context"
 	"math"
 	"slices"
 	"testing"
@@ -15,27 +14,12 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// statusReader and myRequester are Task 8's read-model methods on
-// *approval.Approvals, reached through interfaces so this file compiles
-// before inbox.go exists; a missing method fails the test.
-type statusReader interface {
-	Status(ctx context.Context, tx *db.Tx, doctype string, id int64) (approval.Status, error)
-}
-
-type myRequester interface {
-	MyRequests(ctx context.Context, p auth.Principal, page types.Page) (types.Result[approval.RequestItem], error)
-}
-
 // docStatus is the document's approval status line, read in one db.Read.
 func docStatus(t *testing.T, e *at.Env, d at.Doc) approval.Status {
 	t.Helper()
-	sr, ok := any(e.A).(statusReader)
-	if !ok {
-		t.Fatal("(*approval.Approvals).Status(ctx, tx, doctype, id) (Status, error) not implemented")
-	}
 	var s approval.Status
 	at.MustOK(t, e.DB.Read(t.Context(), func(tx *db.Tx) (err error) {
-		s, err = sr.Status(t.Context(), tx, d.Type, d.ID)
+		s, err = e.A.Status(t.Context(), tx, d.Type, d.ID)
 		return err
 	}))
 	return s
@@ -44,11 +28,7 @@ func docStatus(t *testing.T, e *at.Env, d at.Doc) approval.Status {
 // myRequests is p's "My requests" page.
 func myRequests(t *testing.T, e *at.Env, p auth.Principal, page types.Page) types.Result[approval.RequestItem] {
 	t.Helper()
-	mr, ok := any(e.A).(myRequester)
-	if !ok {
-		t.Fatal("(*approval.Approvals).MyRequests(ctx, p, page) (types.Result[RequestItem], error) not implemented")
-	}
-	res, err := mr.MyRequests(t.Context(), p, page)
+	res, err := e.A.MyRequests(t.Context(), p, page)
 	at.MustOK(t, err)
 	return res
 }
@@ -109,7 +89,6 @@ func TestApprovalRevise_ToDraftKeepsReason(t *testing.T) { // APR-063
 func TestApprovalInbox_OnlyActionable(t *testing.T) { // APR-077
 	e := at.New(t)
 	e.Auth.AddRole(e.Ravi.ID, "Purchase User")
-	employeesSubmitClaims(e)
 	steps := []struct {
 		d  at.Doc
 		by auth.Principal
@@ -176,7 +155,6 @@ func TestApprovalInbox_OnlyActionable(t *testing.T) { // APR-077
 
 func TestApprovalStatus_PendingClaimNamesManager(t *testing.T) {
 	e := at.New(t)
-	employeesSubmitClaims(e)
 	d := e.NewDoc(t, at.Claim, 10, at.Rs(3450), e.Deepak)
 	at.MustOK(t, e.Submit(e.Deepak, d))
 	wantStatus(t, "pending claim", docStatus(t, e, d), "Waiting for approval from Priya Shah or Director", true)
