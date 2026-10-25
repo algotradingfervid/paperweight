@@ -33,7 +33,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/kernel/naming/namingfake"
 	"github.com/vardhan/internaltools/internal/kernel/print"
-	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/errs"
@@ -176,9 +175,7 @@ func TestContracts_StubsReturnNotImplemented(t *testing.T) {
 	cases := []struct {
 		name string
 		err  error
-	}{
-		{`gstin.ValidateGSTIN("27AAFCV2449G1Z7")`, gstin.ValidateGSTIN("27AAFCV2449G1Z7")},
-	}
+	}{}
 	for _, c := range cases {
 		if !errors.Is(c.err, errs.ErrNotImplemented) {
 			t.Errorf("%s error = %v, want errs.ErrNotImplemented", c.name, c.err)
