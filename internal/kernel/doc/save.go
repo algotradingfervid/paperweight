@@ -54,7 +54,11 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 			return Result{}, err
 		}
 	}
-	if fe := e.checkSources(ctx, tx, dt, d); fe != nil {
+	fe, err := e.checkSources(ctx, tx, dt, d)
+	if err != nil {
+		return Result{}, err
+	}
+	if fe != nil {
 		errs = byPosition(dt, append(errs, *fe))
 	}
 	if errs = append(errs, dt.Hooks.Validate(ctx, tx, id)...); len(errs) > 0 {
@@ -136,7 +140,11 @@ func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocT
 		}
 		after.Lines = append(after.Lines, Line{ID: id, LineNo: i + 1, Values: l.Values})
 	}
-	if fe := e.checkSources(ctx, tx, dt, after); fe != nil {
+	fe, err := e.checkSources(ctx, tx, dt, after)
+	if err != nil {
+		return Result{}, err
+	}
+	if fe != nil {
 		errs = byPosition(dt, append(errs, *fe))
 	}
 	if errs = append(errs, dt.Hooks.Validate(ctx, tx, d.ID)...); len(errs) > 0 {

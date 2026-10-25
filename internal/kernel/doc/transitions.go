@@ -28,7 +28,11 @@ func (e *engine) revalidate(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) 
 	if n.err != nil {
 		return nil, n.err
 	}
-	if fe := e.checkSources(ctx, tx, dt, d); fe != nil {
+	fe, err := e.checkSources(ctx, tx, dt, d)
+	if err != nil {
+		return nil, err
+	}
+	if fe != nil {
 		errs = append(errs, *fe)
 	}
 	if errs = append(errs, dt.Hooks.Validate(ctx, tx, d.ID)...); len(errs) > 0 {

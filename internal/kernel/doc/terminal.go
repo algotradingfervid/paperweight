@@ -53,8 +53,8 @@ func (e *engine) cancel(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	if rerr != nil {
 		return Result{}, rerr
 	}
-	if blocked := e.checkBlockers(ctx, tx, dt, d, naming.Label(d.Number, d.ID)); blocked != nil {
-		return Result{}, blocked // D-DOC-05: before any write
+	if err := e.checkBlockers(ctx, tx, dt, d, naming.Label(d.Number, d.ID)); err != nil {
+		return Result{}, err // D-DOC-05: before any write
 	}
 	if err := e.setState(ctx, tx, p, dt, d, StateCancelled, []string{quote("state_reason")}, []any{why}); err != nil {
 		return Result{}, err

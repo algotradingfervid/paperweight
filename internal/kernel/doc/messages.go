@@ -63,4 +63,18 @@ const (
 	msgCancelReason = "Enter a reason for cancelling (at least 3 characters)."
 	msgReasonLong   = "Keep the reason under 500 characters."
 	msgAmended      = "%s has already been amended as %s. Open that document instead."
+
+	// Links (Task 11). Sources: the source's display name, then its
+	// lower-cased Label; msgSourceLineNotFound takes the target's Label.
+	msgSourceLineNotFound = "%s line not found. Pick one from the list."
+	msgSourceNotApproved  = "%s isn't approved yet. Pick an approved %s."
+	msgSourcePending      = "%s is waiting for approval. Pick an approved %s."
+	msgSourceCancelled    = "%s is cancelled. Remove the line or pick another %s."
+	msgSourceClosed       = "%s is closed. Remove the line or pick another %s."
+	// Blockers: the cancelled document's display name, then the blocker's
+	// display name and state word (one), or the count and the list (many).
+	msgBlockedOne   = "Can't cancel %s because %s (%s) is linked to it. Cancel %s first."
+	msgBlockedMany  = "Can't cancel %s because %d documents are linked to it. Cancel them first: %s"
+	msgBlockedMore  = " …and %d more."
+	msgBlockerEntry = "%s (%s)"
 )
