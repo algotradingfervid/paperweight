@@ -52,6 +52,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-APR | 1 Schema and queries | High | crew-test-writer | 15:24 | | | | |
 | WP1-UI | 1 Foundation | Light | crew-implementer | 15:24 | | | | |
 | WP1-AUTH | 4 authtest World | High | crew-test-writer, crew-implementer | | 16:12 | 1 | minors fixed | 330aff7 tests, 6de2f30 |
+| WP1-NAM | 6 EnsureSeries and Assign | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:21 | 1 | 0/0/1 (to Task 11) | af71b5e tests, a8b95a1 |
 | WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
 
 ## Wave 1 carry-overs (put in the named task's brief)
@@ -65,6 +66,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 - UI Task 2: lint allows `white-space: nowrap` and `1px` in `visually-hidden` too; allow the raw colours in the appended brand block in `static/` (CD-112).
 - UI Task 6: no `data-theme` below `<html>` (CD-112); `.grid` shadows Tailwind's built-in `grid`.
 - NUM plan: Task 1's fuzz seed comment (k=1 → unit 100, not 10) is wrong; fix the plan text when convenient.
+- NAM Task 11: update `staticPrefix`'s `//nolint:unused` comment in template.go (it names Task 6; the user is Task 11).
 - NAM Task 3: code done but uncommitted; run its hand-in and review after NAM Task 5's code lands (counter_test.go needs next/readLast to build).
 - FILE Task 3: FILE-001's ListEntry time needs NUM's real `types.FormatIST`; green only after NUM merges and wp/files-print rebases.
 - FILE Task 5: delete the placeholder Remove/Open/List/CopyAll/DeleteAll in store.go when adding read.go/remove.go.
