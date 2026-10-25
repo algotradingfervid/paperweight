@@ -581,7 +581,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-073 · A cancel and a dependent approve can't both succeed
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved order O and pending receipt R against it **When** "cancel O" and "approve R" run at the same time (repeated 50 times) **Then** in every run the end state is never "O cancelled and R approved". Either O is cancelled and R's approve failed, or R is approved and O's cancel failed.
+- **Given** approved order O and receipt R against it, either pending (approve R) or draft with no approval rule (submit R auto-approves), since a pending R always blocks the cancel (CD-156) **When** "cancel O" and "approve R" run at the same time (repeated 50 times) **Then** in every run the end state is never "O cancelled and R approved". Either O is cancelled and R's approve failed, or R is approved and O's cancel failed.
 - **Go test:** `TestDoc_Concurrency_CancelVsApprove`
 - **Sources:** `frappe/frappe/model/delete_doc.py:168-177` (row lock before delete), `frappe/frappe/tests/test_linked_with.py:421` (`test_deadlocks_are_not_deferred`)
 
