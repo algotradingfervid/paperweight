@@ -3,8 +3,11 @@ package item_test
 import (
 	"context"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/masters/item"
 	"github.com/vardhan/internaltools/internal/masters/msttest"
 	"github.com/vardhan/internaltools/internal/masters/uom"
@@ -233,6 +236,152 @@ func TestItemUoM_StockUoMChangeResets(t *testing.T) { // MST-089
 	}{{"GRAM", gram}, {"BOX", box}} {
 		if f, ok := itemFactor(t, env, saved.ID, u.id); ok {
 			t.Errorf("Factor(item, %s) = %d, true after the reset; want no row", u.code, f)
+		}
+	}
+}
+
+// wantLineMessage checks that err is a 422 *mstkit.ValidationError holding
+// exactly one field error: on line, field factor, with message msg.
+func wantLineMessage(t *testing.T, what string, err error, line int, msg string) {
+	t.Helper()
+	ve := validationErr(t, what, err)
+	if ve == nil {
+		return
+	}
+	got := ve.FieldErrors()
+	if len(got) != 1 || got[0].Line != line || got[0].Field != "factor" || got[0].Message != msg {
+		t.Errorf("%s: FieldErrors() = %+v; want exactly one {Field factor, Line %d, Message %q}", what, got, line, msg)
+	}
+}
+
+// TestItem_FactorDecimalsTyped has no case ID (MST Task 10 review): factors
+// passed as typed values, not parsed, still obey uom.ParseFactor's rules:
+// at most 6 decimal places (MST-085) and at most types.MaxFactor.
+func TestItem_FactorDecimalsTyped(t *testing.T) {
+	const (
+		box        int64 = 2
+		decimalMsg       = "Row 2: Conversion factor can have at most 6 decimal places."
+		maxMsg           = "Row 2: Conversion factor is too large. The maximum is 10,00,000."
+	)
+	for _, c := range []struct {
+		shown string
+		f     types.Factor
+		msg   string
+	}{
+		{"0.000000001", 1, decimalMsg},
+		{"0.001234567", 1_234_567, decimalMsg},
+		{"1000000.000000001", types.MaxFactor + 1, maxMsg},
+	} {
+		in := goodsInput("7214")
+		in.Conversions = []item.Conversion{
+			{UoMID: stockUoMID, Factor: factor(t, "1")},
+			{UoMID: box, Factor: c.f},
+		}
+		_, err := item.Validate(in)
+		wantLineMessage(t, "Validate(rows (stock, 1), (BOX, "+c.shown+"))", err, 2, c.msg)
+	}
+	// Six decimals and the maximum itself are fine.
+	for _, f := range []types.Factor{1_000, types.MaxFactor} {
+		in := goodsInput("7214")
+		in.Conversions = []item.Conversion{{UoMID: stockUoMID, Factor: factor(t, "1")}, {UoMID: box, Factor: f}}
+		if _, err := item.Validate(in); err != nil {
+			t.Errorf("Validate(row (BOX, %s)): %v; want nil", f.Plain(), err)
+		}
+	}
+}
+
+// TestItem_StockUoMChangeSkipsDroppedRows has no case ID (MST Task 10
+// review): a stock UoM change resets the conversions (MST-089), so the
+// posted rows the reset drops are not validated against the new stock UoM.
+func TestItem_StockUoMChangeSkipsDroppedRows(t *testing.T) {
+	env := msttest.New(t)
+	ctx := context.Background()
+	svc := item.New(env.Kit)
+	kgs, nos := uomID(t, env, "KGS"), uomID(t, env, "NOS")
+
+	in := item.Input{Code: "MS-ANGLE-50", Name: "MS Angle 50x50x5", Type: goods, HSNSAC: "7216", StockUoMID: kgs, IsStock: true,
+		Conversions: []item.Conversion{{UoMID: kgs, Factor: factor(t, "1")}, {UoMID: nos, Factor: factor(t, "1000")}}}
+	saved, err := svc.Create(ctx, env.Kavya, in)
+	if err != nil {
+		t.Fatalf("Create(stock KGS, rows (KGS, 1), (NOS, 1000)): %v", err)
+	}
+
+	// The page posts the old rows and purchase UoM with the new stock UoM.
+	in.StockUoMID, in.PurchaseUoMID = nos, kgs
+	upd, err := svc.Update(ctx, env.Kavya, saved.ID, saved.Version, in)
+	if err != nil {
+		t.Fatalf("Update(stock UoM KGS → NOS, old rows (KGS, 1), (NOS, 1000) posted): %v; want nil (the reset drops those rows)", err)
+	}
+	wantWarn := []string{"Stock UoM changed. Re-enter the other conversions."}
+	if !reflect.DeepEqual(upd.Warnings, wantWarn) {
+		t.Errorf("Update Saved.Warnings = %q; want %q", upd.Warnings, wantWarn)
+	}
+	want := []item.Conversion{{UoMID: nos, Factor: factor(t, "1")}}
+	if got := conversions(t, env, saved.ID); !reflect.DeepEqual(got, want) {
+		t.Errorf("Conversions after the change = %+v; want [(NOS %d, 1)] %+v", got, nos, want)
+	}
+	if got := getItem(t, env, saved.ID); got.StockUoMID != nos || got.PurchaseUoMID != nos {
+		t.Errorf("MS-ANGLE-50 = {StockUoMID %d, PurchaseUoMID %d}; want {NOS %d, NOS %d}", got.StockUoMID, got.PurchaseUoMID, nos, nos)
+	}
+}
+
+// TestItem_ConversionsAuditUsesCodes has no case ID (MST Task 10 review):
+// the audit entry for the conversions field names UoMs by code, not id.
+func TestItem_ConversionsAuditUsesCodes(t *testing.T) {
+	env := msttest.New(t)
+	ctx := context.Background()
+	svc := item.New(env.Kit)
+	nos, box := uomID(t, env, "NOS"), uomID(t, env, "BOX")
+
+	in := boltInput(t, env, item.Conversion{UoMID: nos, Factor: factor(t, "1")}, item.Conversion{UoMID: box, Factor: factor(t, "100")})
+	saved, err := svc.Create(ctx, env.Kavya, in)
+	if err != nil {
+		t.Fatalf("Create(BOLT-M12, rows (NOS, 1), (BOX, 100)): %v", err)
+	}
+	in.Conversions[1].Factor = factor(t, "50")
+	if _, err := svc.Update(ctx, env.Kavya, saved.ID, saved.Version, in); err != nil {
+		t.Fatalf("Update(BOLT-M12, (BOX, 100) → (BOX, 50)): %v", err)
+	}
+
+	var entries []audit.Entry
+	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
+		var err error
+		entries, err = audit.ForDoc(ctx, tx, item.DocType, saved.ID)
+		return err
+	}); err != nil {
+		t.Fatalf("audit.ForDoc(BOLT-M12): %v", err)
+	}
+	var conv []audit.Change
+	for _, e := range entries {
+		if e.Action != "save" {
+			continue
+		}
+		for _, ch := range e.Changes {
+			if ch.Field == "conversions" {
+				conv = append(conv, ch)
+			}
+		}
+	}
+	if len(conv) != 1 {
+		t.Fatalf("save entries' conversions changes = %+v (entries %+v); want exactly one", conv, entries)
+	}
+	ids := []string{strconv.FormatInt(nos, 10) + ":", strconv.FormatInt(box, 10) + ":"}
+	for _, side := range []struct{ name, v, factor string }{
+		{"Before", conv[0].Before, "100"},
+		{"After", conv[0].After, "50"},
+	} {
+		for _, code := range []string{"NOS", "BOX"} {
+			if !strings.Contains(side.v, code) {
+				t.Errorf("conversions change %s = %q; want UoM code %s in it", side.name, side.v, code)
+			}
+		}
+		if !strings.Contains(side.v, side.factor) {
+			t.Errorf("conversions change %s = %q; want the BOX factor %s in it", side.name, side.v, side.factor)
+		}
+		for _, id := range ids {
+			if strings.Contains(side.v, id) {
+				t.Errorf("conversions change %s = %q; want UoM codes, not the raw id %q", side.name, side.v, id)
+			}
 		}
 	}
 }
