@@ -274,10 +274,10 @@ func TestUpload_StorageWriteError(t *testing.T) {
 
 	f := newFixture(t, logger)
 	filesDir := filepath.Join(f.env.DataDir, "files")
-	if err := os.Chmod(filesDir, 0o555); err != nil {
+	if err := os.Chmod(filesDir, 0o555); err != nil { //nolint:gosec // test dir made read-only to force a storage write error
 		t.Fatalf("chmod files/: %v", err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(filesDir, 0o700) })
+	t.Cleanup(func() { _ = os.Chmod(filesDir, 0o700) }) //nolint:gosec // restores the test dir for cleanup
 
 	rec := serve(f, uploadReq(t, uploadPath, &f.deepak, part{"file", "bill.pdf", filestest.PDF(4096)}))
 
