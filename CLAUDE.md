@@ -43,6 +43,12 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Tailwind also picks up plain words in comments and strings ("list", "menu", "filter", "stack"), pulling daisyUI component CSS into the bundle: keep daisyUI words out of comments and exclude generated or test-only Go with `@source not`. It can't see concatenated class names (`"badge--"+state`): write each class in full.
 - Compose the existing component (`components.Button`, Banner, Toast); never re-create its markup or classes in another file (three times in UI Tasks 4–8).
 - Keep a lane worktree until its review has passed: removing it loses the worker's transcript, so the fix loop can't resume it. macOS has no `timeout` command.
+- Template literals in tests and plans must render ≤ 14 characters (GRN/, EXP/ and PUR/ broke it: CD-113/115/129); check each against `parseTemplate` first.
+- Fakes and reference drivers refuse everything the real component refuses; a lenient double lets tests pass that fail under the engine (APR's driver skipped DOC's read visibility and submit/write rights; CD-125).
+- Test each behaviour a CD or plan names through the public path, so deleting its call site fails a test; a helper's unit test alone passed with the call removed three times in NUM.
+- A catalogue user message covers only the condition it names; caller bugs get a plain internal error.
+- Fixture ids follow name order, so sort-by-link-name tests insert rows out of name order.
+- A `\ufeff` escape written through the Write/Bash tools becomes a real BOM byte (Go refuses it): use a named constant, as for NBSP. In AD sessions finished crew workers can't be resumed ("No transcript found"): fix loops dispatch a fresh worker with the findings and exact scope.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here

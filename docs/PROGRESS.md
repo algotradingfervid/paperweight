@@ -61,6 +61,45 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-NAM | 7 Numbers across the lifecycle | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:45 | 1 | 0/0/3 (CD-122) | dda9db5 tests, 2390fe7 |
 | WP1-AUTH | 2 Password hashing and policy | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:50 | 2 | 0/2/3 (bounded strict PHC parsing; all fixed) | ef71d3a tests, 2d7795f |
 | WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
+| WP1-NAM | 8 Concurrent approvals, preview | High | crew-test-writer, crew-implementer, crew-reviewer | 16:28 | 16:31 | 1 | 0/0/2 (carry-over to Task 13) | 9f33ee4 tests, b385a8c |
+| WP1-NAM | 9 Amendment numbers | High | crew-test-writer, crew-implementer, crew-reviewer | 16:31 | 16:36 | 1 | 0/1/1 (raw SQL to dbq fixed; minor to Task 13) | 0913f0a tests, 0419e3c |
+| WP1-NAM | 11 Admin settings (lane/naming-11) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:34 | 16:41 | 1 | TEST-DISPUTE (PUR/ over cap, DECISION escalated); 0/0/5 carried | ba8a4de, 48771bd tests, 624f532, merge e0411d1 |
+| WP1-NAM | 10 Gapless invariant fuzz | High | crew-implementer (test-only), crew-reviewer | 16:36 | 16:44 | 1 | 0/0/2 (carried to Task 13) | 80883e9 |
+| WP1-NAM | 12 P2 template, counter input (lane/naming-12) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:43 | 16:45 | 1 | 0/0/2 (carried to Task 15) | fa638d2 tests, 5aa7187 |
+| WP1-NAM | 13 P2 counter, assign, tx edges | High | crew-test-writer, crew-implementer, crew-reviewer | 16:45 | 16:53 | 1 | 0/0/4 (to follow-up) | 261161f tests, c7f9a8a |
+| WP1-NAM | 14 P2 amendment edges (lane/naming-14) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:45 | 16:49 | 1 | 0/0/2 (k<1 internal error fixed; harness move to Task 16) | dc3f3b7 tests, 0de3270 |
+| WP1-NAM | 15 P2 admin edges (lane/naming-15) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:46 | 16:53 | 1 | 0/0/3 (fixed) | 0f6c7e8 tests, 36cacdd |
+| WP1-NAM | 17 WP completion check | Standard | crew-implementer (haiku) | 16:54 | 16:56 | 1 | checkids NAM 47/47 | a0ebe80 |
+| WP1-UI | Rebase onto main d17fb3a | — | AD-2 | 16:28 | 16:28 | — | — | 0a0416e |
+| WP1-UI | Batched review Tasks 1–3 | Light | crew-reviewer opus | 16:30 | 16:31 | 1 | 0/0/2 (fixes with Task 4) | — |
+| WP1-UI | 6 App shell (lane/ui-6) | Light | crew-implementer opus | 16:30 | 16:38 | 1 | review batched (4,6,7) | 16e6701, merge b9dd19e |
+| WP1-UI | 7 Form components (lane/ui-7) | Light | crew-implementer opus | 16:30 | 16:38 | 1 | review batched (4,6,7) | d44908d, merge 854f1ae |
+| WP1-UI | 4 Contrast test + review 1–3 minors (wp/ui) | Light | crew-implementer opus | 16:31 | 16:34 | 1 | review batched (4–8) | e127e0d |
+| WP1-UI | 8 Display components (lane/ui-8) | Light | crew-implementer opus | 16:34 | 16:42 | 1 | review batched (5,8) | 4d17538, merge 5c51bd8 |
+| WP1-UI | 5 Screen registry, browser helpers (lane/ui-5) | Light | crew-implementer opus | 16:34 | 16:41 | 1 | review batched (5,8) | a223e63, merge bb8267e |
+| WP1-UI | Batched review Tasks 4, 6, 7 | Light | crew-reviewer opus | 16:38 | 16:44 | 1 | 0/1/5 (Task 6 flash→Banner; fixes in 6-fix) | — |
+| WP1-UI | gofmt contrast_test.go (lint-only, AD) | — | AD-2 | 16:41 | 16:41 | — | — | 4728966 |
+| WP1-UI | 6/7 review fixes (wp/ui) | Light | crew-implementer opus | 16:44 | 16:48 | 1 | — (re-check pending) | 17a4eb8 |
+| WP1-UI | 8-fix ActionBar via Button (lane/ui-8b) | Light | crew-implementer opus | 16:44 | 16:46 | 1 | — | 5a61281, merge 11eb207 |
+| WP1-UI | 9 DataList/LineList tests (lane/ui-9) | High | crew-test-writer opus | 16:44 | 16:48 | 1 | — | fe232d9 |
+| WP1-UI | 10 Picker, upload (lane/ui-10) | Light | crew-implementer opus | 16:44 | 16:52 | 1 | review batched (10,11) | 234a9a4 |
+| WP1-UI | 11 Wizard framework (lane/ui-11) | Light | crew-implementer opus | 16:44 | 16:52 | 1 | review batched (10,11) | 96193b6 |
+| WP1-UI | 9 DataList/LineList code (lane/ui-9) | High | crew-implementer opus | 16:48 | 17:01 | 1 | review pending | c8485f4 |
+| WP1-UI | Batched review Tasks 5, 8 | Light | crew-reviewer opus | 16:47 | 16:52 | 1 | 0/1/6 (server Toast levels/dismiss) | — |
+| WP1-UI | M1 precheck make ci + checkids (11eb207) | — | crew-verifier haiku | 16:50 | 16:52 | — | PASS | — |
+| WP1-UI | 5–8 review fixes (lane/ui-fix) | Light | crew-implementer opus | 16:53 | 16:55 | 1 | — | cae040d |
+| WP1-UI | Batched review Tasks 10, 11 | Light | crew-reviewer opus | 16:52 | 16:56 | 1 | 0/3/5 (Task 10 hand-written Button/Form, multiple; Task 11 approved) | — |
+| WP1-UI | Re-check majors (Task 6 flash, Task 8 Toast) | Light | crew-reviewer opus | 16:55 | 16:57 | 1 | APPROVE; 2 minors left | — |
+| WP1-UI | 10-fix (lane/ui-10) | Light | crew-implementer opus | 16:56 | 16:59 | 1 | — | 826c874 |
+| WP1-UI | 11-fix conflict focus (lane/ui-11) | Light | crew-implementer opus | 16:56 | 16:58 | 1 | — | ad30a03 |
+| WP1-UI | UI-M1 make ci + checkids UI (cae040d) | — | AD-2 | 16:57 | 16:57 | — | PASS; MERGE-READY sent | cae040d |
+| WP1-UI | 8-minors (#alerts dismiss, MoreActions links) (lane/ui-fix) | Light | crew-implementer opus | 16:57 | 17:01 | 1 | — | 79ecb85, merge 97ece6a |
+| WP1-UI | Re-check Task 10 majors | Light | crew-reviewer opus | 16:59 | 17:01 | 1 | APPROVE | merge cd4d22e |
+| WP1-UI | Review Task 9 (High) | High | crew-reviewer opus | 17:01 | 17:05 | 1 | 0/3/6 (grid actions, cell inputs, Ctrl+Enter loses edit) | — |
+| WP1-UI | 12 docscreen list (lane/ui-12) | Standard | crew-implementer opus | 17:01 | | | | |
+| WP1-UI | 9-fix tests (lane/ui-9) | High | crew-test-writer opus | 17:05 | | | | |
+| WP3 | 6 early (Steps 1, 3: deploy files, operations draft) | Standard | impl opus, fix haiku, rev opus ×2 | 16:57 | 17:13 | 1 | 0/1/5 (all fixed) | 1d9d1c4 |
+| Merges | NAM done caad6e0; UI-M1 (Tasks 1–8) 7c3ef2f; WP3 early cb39476; `make ci` green after each | — | director | | 17:40 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
