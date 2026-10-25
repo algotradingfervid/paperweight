@@ -1,0 +1,55 @@
+package layout
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/platform/brand"
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// header is the 56 px app header: menu button (phones), brand, page title,
+// inbox link and user menu. Bare drops the menu button and the inbox.
+templ header(o PageOpts, s ui.Shell) {
+	<header class="app-header">
+		if !o.Bare {
+			<button type="button" class="btn btn-ghost btn-square menu-button" aria-label="Menu" aria-haspopup="dialog" aria-controls="nav-sheet" data-open-dialog="nav-sheet">
+				@icons.Icon("menu")
+			</button>
+		}
+		<a class={ "brand", templ.KV("brand-bare", o.Bare) } href="/">
+			<img class="brand-logo" src={ brand.AppLogoURL } width={ strconv.Itoa(brand.AppLogoWidth) } height={ strconv.Itoa(brand.AppLogoHeight) } alt=""/>
+			<span class="brand-name">{ s.AppName }</span>
+		</a>
+		if !o.Bare {
+			<span class="header-title truncate">{ o.Title }</span>
+		}
+		<div class="header-end">
+			if !o.Bare {
+				<a class="btn btn-ghost inbox-link" href="/approvals" aria-label={ inboxLabel(s.InboxCount) }>
+					@icons.Icon("inbox")
+					if s.InboxCount > 0 {
+						<span class="badge badge-primary" aria-hidden="true">{ strconv.Itoa(s.InboxCount) }</span>
+					}
+				</a>
+			}
+			if s.SignedIn {
+				<details class="user-menu">
+					<summary class="btn btn-ghost" aria-label={ s.User }>
+						@icons.Icon("user")
+						<span class="user-name truncate">{ s.User }</span>
+					</summary>
+					<div class="user-menu-panel">
+						<form method="post" action="/signout">
+							<input type="hidden" name="csrf_token" value={ s.CSRF }/>
+							<button type="submit" class="btn btn-ghost w-full">
+								@icons.Icon("log-out")
+								Sign out
+							</button>
+						</form>
+					</div>
+				</details>
+			}
+		</div>
+	</header>
+}

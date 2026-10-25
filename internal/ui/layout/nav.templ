@@ -1,0 +1,47 @@
+package layout
+
+import (
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// navList is the main navigation; the item whose Href is the longest prefix
+// of Shell.Path is the current page.
+templ navList(s ui.Shell) {
+	{{ cur := currentHref(s.Nav, s.Path) }}
+	<ul class="menu w-full nav-list">
+		for _, it := range s.Nav {
+			<li>
+				if it.Href == cur {
+					<a href={ templ.SafeURL(it.Href) } class="menu-active" aria-current="page">
+						if it.Icon != "" {
+							@icons.Icon(it.Icon)
+						}
+						{ it.Label }
+					</a>
+				} else {
+					<a href={ templ.SafeURL(it.Href) }>
+						if it.Icon != "" {
+							@icons.Icon(it.Icon)
+						}
+						{ it.Label }
+					</a>
+				}
+			</li>
+		}
+	</ul>
+}
+
+// navSheet is the phone navigation: a native dialog opened by the menu button.
+templ navSheet(s ui.Shell) {
+	<dialog id="nav-sheet" class="modal modal-start sheet" aria-label="Menu">
+		<div class="modal-box nav-sheet-box">
+			<button type="button" class="btn btn-ghost btn-square" aria-label="Close menu" data-close-dialog>
+				@icons.Icon("x")
+			</button>
+			<nav aria-label="Main">
+				@navList(s)
+			</nav>
+		</div>
+	</dialog>
+}
