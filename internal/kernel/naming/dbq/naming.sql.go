@@ -25,6 +25,22 @@ func (q *Queries) CountIssuedForDoc(ctx context.Context, arg CountIssuedForDocPa
 	return count, err
 }
 
+const getAmendmentNumber = `-- name: GetAmendmentNumber :one
+SELECT number FROM naming_issued WHERE root = ? AND amendment_no = ?
+`
+
+type GetAmendmentNumberParams struct {
+	Root        string
+	AmendmentNo int64
+}
+
+func (q *Queries) GetAmendmentNumber(ctx context.Context, arg GetAmendmentNumberParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getAmendmentNumber, arg.Root, arg.AmendmentNo)
+	var number string
+	err := row.Scan(&number)
+	return number, err
+}
+
 const getCounterLast = `-- name: GetCounterLast :one
 SELECT last FROM naming_counters WHERE doctype = ? AND prefix = ?
 `
@@ -39,6 +55,27 @@ func (q *Queries) GetCounterLast(ctx context.Context, arg GetCounterLastParams) 
 	var last int64
 	err := row.Scan(&last)
 	return last, err
+}
+
+const getRootIssued = `-- name: GetRootIssued :one
+SELECT prefix, seq FROM naming_issued WHERE doctype = ? AND number = ? AND amendment_no = 0
+`
+
+type GetRootIssuedParams struct {
+	DocType string
+	Number  string
+}
+
+type GetRootIssuedRow struct {
+	Prefix string
+	Seq    int64
+}
+
+func (q *Queries) GetRootIssued(ctx context.Context, arg GetRootIssuedParams) (GetRootIssuedRow, error) {
+	row := q.db.QueryRowContext(ctx, getRootIssued, arg.DocType, arg.Number)
+	var i GetRootIssuedRow
+	err := row.Scan(&i.Prefix, &i.Seq)
+	return i, err
 }
 
 const getSeries = `-- name: GetSeries :one
