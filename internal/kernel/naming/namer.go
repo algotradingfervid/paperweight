@@ -47,7 +47,10 @@ func (n *Namer) Preview(ctx context.Context, doctype string, d types.Date) (stri
 	return "", errs.ErrNotImplemented
 }
 
-func (n *Namer) ValidateTemplate(tpl string) error { return errs.ErrNotImplemented }
+func (n *Namer) ValidateTemplate(tpl string) error {
+	_, err := parseTemplate(tpl)
+	return err
+}
 
 func (n *Namer) List(ctx context.Context) ([]SeriesInfo, error) { return nil, errs.ErrNotImplemented }
 
