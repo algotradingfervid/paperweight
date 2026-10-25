@@ -24,7 +24,7 @@ func mustParse(t testing.TB, s string) template {
 // TestTemplate_DefaultsRender covers NAM-001.
 func TestTemplate_DefaultsRender(t *testing.T) {
 	for tpl, want := range map[string]string{
-		"PO/{FY}/{#####}":  "PO/26-27/00001",
+		"PO/{FY}/{#####}": "PO/26-27/00001",
 		"GR/{FY}/{#####}": "GR/26-27/00001",
 		"EX/{FY}/{#####}": "EX/26-27/00001",
 	} {
