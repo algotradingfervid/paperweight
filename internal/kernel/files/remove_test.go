@@ -73,9 +73,9 @@ func TestAttachment_RemoveFromDraftAudited(t *testing.T) {
 		DocID:   42,
 		Action:  "attachment_removed",
 		Changes: []audit.Change{
-			{Field: "file_name", Before: "receipt.jpg"},
-			{Field: "size", Before: "2456789"},
-			{Field: "sha256", Before: sha},
+			{Field: "file_name", Op: audit.OpSet, Before: "receipt.jpg"},
+			{Field: "size", Op: audit.OpSet, Before: "2456789"},
+			{Field: "sha256", Op: audit.OpSet, Before: sha},
 		},
 		By: ravi.ID,
 	}
@@ -274,9 +274,9 @@ func TestAttachment_CopiedOnAmend(t *testing.T) {
 		}
 		seen[name] = true
 		want := []audit.Change{
-			{Field: "file_name", After: name},
-			{Field: "size", After: strconv.Itoa(len(content))},
-			{Field: "sha256", After: shaHex(content)},
+			{Field: "file_name", Op: audit.OpSet, After: name},
+			{Field: "size", Op: audit.OpSet, After: strconv.Itoa(len(content))},
+			{Field: "sha256", Op: audit.OpSet, After: shaHex(content)},
 		}
 		if !reflect.DeepEqual(e.Changes, want) {
 			t.Errorf("copy audit Changes = %+v, want %+v", e.Changes, want)

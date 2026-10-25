@@ -39,7 +39,7 @@ type storedChange struct {
 
 // Append writes e to audit_log inside tx. It refuses an incomplete entry.
 func (Store) Append(ctx context.Context, tx *db.Tx, e Entry) error {
-	if err := check(e); err != nil {
+	if err := ValidateEntry(e); err != nil {
 		return err
 	}
 	var changes []storedChange // nil Changes is stored as null and reads back nil
@@ -76,7 +76,9 @@ func (Store) Append(ctx context.Context, tx *db.Tx, e Entry) error {
 	return nil
 }
 
-func check(e Entry) error {
+// ValidateEntry reports why the store would refuse e, or nil (CD-163). The
+// store and auditfake both call it.
+func ValidateEntry(e Entry) error {
 	switch {
 	case e.DocType == "":
 		return errors.New("audit: entry has no DocType")

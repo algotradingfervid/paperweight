@@ -3,6 +3,7 @@ package doc
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/audit"
@@ -13,8 +14,6 @@ import (
 )
 
 // The approval transitions (Task 9).
-
-const maxReasonRunes = 1000
 
 // revalidate checks the stored d before it leaves draft or is approved: the
 // core field checks with at least one line, the source documents, then
@@ -189,10 +188,7 @@ func (e *engine) approve(ctx context.Context, tx *db.Tx, p auth.Principal, dt *D
 }
 
 func (e *engine) reject(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, in ActionInput) (Result, error) {
-	reason, rerr := reason(in.Reason, 1, maxReasonRunes, msgReasonReject, msgReasonTooLong)
-	if rerr != nil {
-		return Result{}, rerr
-	}
+	reason := strings.TrimSpace(in.Reason) // APR checks it (CD-157)
 	if err := e.setState(ctx, tx, p, dt, d, StateRejected, []string{quote("state_reason")}, []any{reason}); err != nil {
 		return Result{}, err
 	}

@@ -3,7 +3,7 @@
 
 -- +goose Up
 CREATE TABLE fixture_receipt (
-    id                INTEGER PRIMARY KEY,
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
     number            TEXT UNIQUE,
     state             TEXT NOT NULL DEFAULT 'draft' CHECK (state IN ('draft', 'pending_approval', 'approved', 'closed', 'rejected', 'cancelled')),
     state_reason      TEXT NOT NULL DEFAULT '',
@@ -21,7 +21,7 @@ CREATE TABLE fixture_receipt (
 CREATE UNIQUE INDEX fixture_receipt_one_amendment ON fixture_receipt (amended_from_id) WHERE amended_from_id IS NOT NULL;
 
 CREATE TABLE fixture_receipt_line (
-    id        INTEGER PRIMARY KEY,
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
     parent_id INTEGER NOT NULL REFERENCES fixture_receipt (id) ON DELETE CASCADE,
     line_no   INTEGER NOT NULL,
     order_line_id INTEGER,
@@ -29,7 +29,7 @@ CREATE TABLE fixture_receipt_line (
 );
 
 CREATE TABLE fixture_effect_log (
-    id            INTEGER PRIMARY KEY,
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
     receipt_id    INTEGER NOT NULL,
     order_line_id INTEGER,
     action        TEXT NOT NULL CHECK (action IN ('apply', 'reverse'))

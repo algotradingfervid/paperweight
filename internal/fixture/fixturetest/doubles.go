@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/kernel/approval"
@@ -308,11 +309,24 @@ func (a *Approvals) CheckApprover(ctx context.Context, _ *db.Tx, p auth.Principa
 	return nil
 }
 
-// Record accepts only the protocol actions approve, reject, revise and withdraw.
-func (a *Approvals) Record(ctx context.Context, _ *db.Tx, _ string, _ int64, action doctype.Action, _ auth.Principal, _ string) error {
+// Record accepts only the protocol actions approve, reject, revise and
+// withdraw. Like APR, it refuses a reject whose trimmed reason is empty or
+// longer than 1,000 characters (CD-157).
+func (a *Approvals) Record(ctx context.Context, _ *db.Tx, _ string, _ int64, action doctype.Action, _ auth.Principal, reason string) error {
 	switch action {
-	case doctype.ActionApprove, doctype.ActionReject, doctype.ActionRevise, doctype.ActionWithdraw:
+	case doctype.ActionApprove, doctype.ActionRevise, doctype.ActionWithdraw:
 		return a.call(ctx, "Record:"+string(action))
+	case doctype.ActionReject:
+		if err := a.call(ctx, "Record:"+string(action)); err != nil {
+			return err
+		}
+		switch n := utf8.RuneCountInString(strings.TrimSpace(reason)); {
+		case n == 0:
+			return &approval.UserError{Kind: approval.ErrReasonRequired, Msg: "Enter a reason for rejecting.", Field: "reason"}
+		case n > 1000:
+			return &approval.UserError{Kind: approval.ErrReasonTooLong, Msg: "Reason must be 1,000 characters or fewer.", Field: "reason"}
+		}
+		return nil
 	}
 	_ = a.call(ctx, "Record:"+string(action)) // the protocol violation wins over an injected Fail
 	if a.TB != nil {

@@ -65,9 +65,9 @@ func (s *Store) Attach(ctx context.Context, tx *db.Tx, p auth.Principal, parent 
 		DocID:   parent.ID,
 		Action:  "attachment_added",
 		Changes: []audit.Change{
-			{Field: "file_name", After: c.Name},
-			{Field: "size", After: strconv.FormatInt(f.Size(), 10)},
-			{Field: "sha256", After: f.SHA256()},
+			{Op: audit.OpSet, Field: "file_name", After: c.Name},
+			{Op: audit.OpSet, Field: "size", After: strconv.FormatInt(f.Size(), 10)},
+			{Op: audit.OpSet, Field: "sha256", After: f.SHA256()},
 		},
 		By: p.ID,
 		At: now,

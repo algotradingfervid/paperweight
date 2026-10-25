@@ -118,9 +118,9 @@ func TestAttachment_AddAfterApproval(t *testing.T) {
 		DocID:   34,
 		Action:  "attachment_added",
 		Changes: []audit.Change{
-			{Field: "file_name", After: "vendor-bill.pdf"},
-			{Field: "size", After: strconv.Itoa(len(content))},
-			{Field: "sha256", After: sha},
+			{Field: "file_name", Op: audit.OpSet, After: "vendor-bill.pdf"},
+			{Field: "size", Op: audit.OpSet, After: strconv.Itoa(len(content))},
+			{Field: "sha256", Op: audit.OpSet, After: sha},
 		},
 		By: suresh.ID,
 	}

@@ -53,10 +53,6 @@ const (
 	msgCancelledLocked   = "%s is cancelled and can't be changed. Amend it to make a corrected copy."
 	msgCancelledDelete   = "Cancelled documents are kept for the record and can't be deleted."
 
-	// Approval transitions (Task 9).
-	msgReasonReject  = "Enter a reason for rejecting."
-	msgReasonTooLong = "Keep the reason under 1,000 characters."
-
 	// Close, cancel, amend (Task 10). msgAmended: the source's display name,
 	// the amendment's (CD-27).
 	msgCloseReason  = "Enter a reason for closing (at least 3 characters)."

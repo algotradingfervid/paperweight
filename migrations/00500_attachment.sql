@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE attachment (
-  id             INTEGER PRIMARY KEY,
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
   parent_doctype TEXT    NOT NULL,
   parent_id      INTEGER NOT NULL,
   file_name      TEXT    NOT NULL CHECK (length(file_name) BETWEEN 1 AND 480),

@@ -397,3 +397,74 @@ func TestFixture_ClaimAmountIsSumOfLines(t *testing.T) {
 		t.Errorf("fixture.Claim EmployeeField = %q, want \"employee_id\"", claim.EmployeeField)
 	}
 }
+
+// TestFixture_ReceiptAmountIsQtyTimesRate: Receipt's Amount is the sum of
+// each line's received qty × its order line's rate, in paise (CD-157).
+func TestFixture_ReceiptAmountIsQtyTimesRate(t *testing.T) {
+	d := newFixtureDB(t)
+	receipt := mustLookup(t, fixture.Receipt)
+	const ts = "2026-10-24T05:00:00.000Z"
+	insertReceipt := func(tx *db.Tx) (int64, error) {
+		var id int64
+		err := tx.SQL().QueryRowContext(t.Context(),
+			`INSERT INTO fixture_receipt (created_at, created_by, updated_at, updated_by, receipt_date)
+			 VALUES (?, 7, ?, 7, '2026-10-24') RETURNING id`, ts, ts).Scan(&id)
+		return id, err
+	}
+	err := d.Write(t.Context(), func(tx *db.Tx) error {
+		ctx := context.Background()
+		var order int64
+		if err := tx.SQL().QueryRowContext(ctx,
+			`INSERT INTO fixture_order (created_at, created_by, updated_at, updated_by) VALUES (?, 7, ?, 7) RETURNING id`,
+			ts, ts).Scan(&order); err != nil {
+			return err
+		}
+		// Order lines: 100.000 at ₹62.5000 and 50.000 at ₹60.0000.
+		var ol1, ol2 int64
+		if err := tx.SQL().QueryRowContext(ctx,
+			`INSERT INTO fixture_order_line (parent_id, line_no, qty, rate) VALUES (?, 1, 100000, 625000) RETURNING id`,
+			order).Scan(&ol1); err != nil {
+			return err
+		}
+		if err := tx.SQL().QueryRowContext(ctx,
+			`INSERT INTO fixture_order_line (parent_id, line_no, qty, rate) VALUES (?, 2, 50000, 600000) RETURNING id`,
+			order).Scan(&ol2); err != nil {
+			return err
+		}
+
+		// Received 2.500 × ₹62.5000 = ₹156.25 and 10.000 × ₹60.0000 = ₹600.00.
+		id, err := insertReceipt(tx)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.SQL().ExecContext(ctx,
+			`INSERT INTO fixture_receipt_line (parent_id, line_no, order_line_id, qty) VALUES (?, 1, ?, 2500), (?, 2, ?, 10000)`,
+			id, ol1, id, ol2); err != nil {
+			return err
+		}
+		amt, err := receipt.Hooks.Amount(ctx, tx, id)
+		if err != nil {
+			t.Errorf("Receipt Amount: %v", err)
+		}
+		if amt != types.Money(75625) {
+			t.Errorf("Receipt Amount = %d, want 75625", amt)
+		}
+
+		// No lines: amount 0.
+		empty, err := insertReceipt(tx)
+		if err != nil {
+			return err
+		}
+		amt, err = receipt.Hooks.Amount(ctx, tx, empty)
+		if err != nil {
+			t.Errorf("Receipt Amount (no lines): %v", err)
+		}
+		if amt != 0 {
+			t.Errorf("Receipt Amount (no lines) = %d, want 0", amt)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("d.Write: %v", err)
+	}
+}
