@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
@@ -427,5 +429,118 @@ func TestAddress_PrimaryUniqueUnderRace(t *testing.T) { // Review Focus 3
 	})
 	if err == nil || !strings.Contains(err.Error(), "UNIQUE constraint failed") {
 		t.Errorf("second primary billing by SQL = %v; want a UNIQUE constraint failure", err)
+	}
+}
+
+// TestAddress_ListsByName pins M1/M13 for Address: the list's title column
+// is the stored `name` (the title, or the city when the title is blank) and
+// the list sorts by it, so untitled addresses don't all sort as "".
+func TestAddress_ListsByName(t *testing.T) {
+	dt, ok := doctype.Lookup(address.DocType)
+	if !ok {
+		t.Fatalf("doctype.Lookup(%q): not registered", address.DocType)
+	}
+	prio := map[string]int{}
+	for _, f := range dt.Fields {
+		prio[f.Name] = f.ListPriority
+	}
+	if p, ok := prio["name"]; !ok || p != 1 {
+		t.Errorf("Address field name: declared %v, ListPriority %d; want declared with ListPriority 1", ok, p)
+	}
+	if p := prio["title"]; p != 0 {
+		t.Errorf("Address field title: ListPriority %d; want 0", p)
+	}
+	if want := []doctype.SortKey{{Field: "name"}}; len(dt.DefaultSort) != 1 || dt.DefaultSort[0] != want[0] {
+		t.Errorf("Address DefaultSort = %+v; want %+v", dt.DefaultSort, want)
+	}
+
+	env := msttest.New(t)
+	s := address.New(env.Kit)
+	p := addrParty(t, env, "LISTCO", "List Test Co", "", gstin.Unregistered)
+	mk := func(title, city, state string) int64 {
+		return addrCreate(t, env, s, address.Input{PartyID: p, Title: title, Line1: "1 Main Road", City: city,
+			StateCode: state, Country: "India", IsBilling: true})
+	}
+	ids := map[int64]bool{}
+	for _, a := range []struct{ title, city, state string }{
+		{"", "Pune", "27"}, {"", "Ahmedabad", "24"}, {"Bhiwandi godown", "Thane", "27"}, {"", "Mumbai", "27"},
+	} {
+		ids[mk(a.title, a.city, a.state)] = true
+	}
+
+	ls := list.Service{DB: env.DB, Auth: env.Kit.Auth}
+	res, err := ls.List(context.Background(), env.Kavya, dt, list.Query{Page: 1})
+	if err != nil {
+		t.Fatalf("list Addresses as Kavya: %v", err)
+	}
+	var got []string
+	for _, row := range res.Rows {
+		if ids[row.ID] {
+			name, _ := row.Values["name"].(string)
+			got = append(got, name)
+		}
+	}
+	want := []string{"Ahmedabad", "Bhiwandi godown", "Mumbai", "Pune"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("Address list names = %q; want %q (stored name, name order)", got, want)
+	}
+}
+
+// TestAddress_UpdateKeepsOwner: an Update that omits the owner keeps it; one
+// that posts another party is refused on party_id (proposed text).
+func TestAddress_UpdateKeepsOwner(t *testing.T) {
+	const ownerMsg = "The owner of an address can't be changed."
+	env := msttest.New(t)
+	ctx := context.Background()
+	s := address.New(env.Kit)
+	shree := addrShree(t, env)
+	id := addrCreate(t, env, s, addrMumbai(shree))
+
+	in := addrMumbai(0)
+	in.Line2 = "Andheri East"
+	if _, err := s.Update(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, in); err != nil {
+		t.Fatalf("Update(Mumbai, PartyID 0) = %v; want nil", err)
+	}
+	if a := addrGet(t, env.DB, s, id); a.PartyID != shree || a.Line2 != "Andheri East" {
+		t.Errorf("after Update(PartyID 0): {PartyID %d, Line2 %q}; want {%d, %q}", a.PartyID, a.Line2, shree, "Andheri East")
+	}
+
+	other := addrParty(t, env, "SHREE-NEW", "Shree Steel New", addrShreePAN, gstin.Regular)
+	moved := addrMumbai(other)
+	_, err := s.Update(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, moved)
+	addrWantHas(t, err, ownerMsg)
+	var ve *mstkit.ValidationError
+	if errors.As(err, &ve) {
+		for _, fe := range ve.FieldErrors() {
+			if fe.Message == ownerMsg && fe.Field != "party_id" {
+				t.Errorf("owner error on field %q; want party_id", fe.Field)
+			}
+		}
+	}
+	if a := addrGet(t, env.DB, s, id); a.PartyID != shree {
+		t.Errorf("after refused owner change: PartyID = %d; want %d", a.PartyID, shree)
+	}
+}
+
+// TestAddress_EditUnderDisabledOwner: CD-170's disabled-party check applies
+// when an address is created or moved, not when an existing one is edited.
+func TestAddress_EditUnderDisabledOwner(t *testing.T) {
+	env := msttest.New(t)
+	ctx := context.Background()
+	s := address.New(env.Kit)
+	ps := party.New(env.Kit)
+	shree := addrShree(t, env)
+	id := addrCreate(t, env, s, addrMumbai(shree))
+	if err := ps.SetDisabled(ctx, env.Kavya, shree, addrPartyGet(t, env.DB, ps, shree).Version, true); err != nil {
+		t.Fatalf("disable SHREE: %v", err)
+	}
+
+	in := addrMumbai(shree)
+	in.Line2 = "Andheri East"
+	if _, err := s.Update(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, in); err != nil {
+		t.Fatalf("Update(Mumbai of disabled SHREE) = %v; want nil", err)
+	}
+	if a := addrGet(t, env.DB, s, id); a.Line2 != "Andheri East" {
+		t.Errorf("after Update: Line2 = %q; want %q", a.Line2, "Andheri East")
 	}
 }

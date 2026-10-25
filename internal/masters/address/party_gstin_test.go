@@ -8,6 +8,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/masters/msttest"
 	"github.com/vardhan/internaltools/internal/masters/party"
+	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
 // Messages copied verbatim from 06-masters.md MST-044, MST-047 and MST-048
@@ -173,5 +174,164 @@ func TestParty_BlankCategoryGuessedFromPrimaryBilling(t *testing.T) {
 	}
 	if p := addrPartyGet(t, env.DB, ps, shree); p.GSTCategory != gstin.Regular {
 		t.Errorf("after Update(blank category): GSTCategory = %q; want %q (guessed from %s)", p.GSTCategory, gstin.Regular, addrMumbaiGSTIN)
+	}
+}
+
+// MST-034's messages, verbatim from 06-masters.md.
+const (
+	addrNeedGSTINMsg  = "Enter a GSTIN, or set GST category to Unregistered or Overseas."
+	addrUnregGSTINMsg = "GST category can't be Unregistered when a GSTIN is entered."
+	addrCoromCode     = "COROM"
+	addrCoromName     = "Coromandel Cables"
+)
+
+// addrChennai is COROM's Chennai billing address without a GSTIN.
+func addrChennai(partyID int64) address.Input {
+	return address.Input{PartyID: partyID, Title: "Chennai", Line1: "22 Guindy Industrial Estate", City: "Chennai",
+		StateCode: "33", Country: "India", Pincode: "600001", IsBilling: true}
+}
+
+// addrM5Holds checks M5 over the whole database: no Registered Regular,
+// Registered Composition or SEZ party has a primary billing address without
+// a GSTIN, and no Unregistered party has any address with a GSTIN.
+func addrM5Holds(t *testing.T, env *msttest.Env, when string) {
+	t.Helper()
+	ctx := context.Background()
+	var registeredNoGSTIN, unregisteredWithGSTIN []string
+	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
+		q := func(sqlText string, args []any, out *[]string) error {
+			rows, err := tx.SQL().QueryContext(ctx, sqlText, args...)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var code string
+				if err := rows.Scan(&code); err != nil {
+					return err
+				}
+				*out = append(*out, code)
+			}
+			return rows.Err()
+		}
+		if err := q(`SELECT p.code FROM party p JOIN address a ON a.party_id = p.id
+			WHERE p.gst_category IN (?, ?, ?) AND a.is_primary_billing = 1 AND a.gstin = ''`,
+			[]any{string(gstin.Regular), string(gstin.Composition), string(gstin.SEZ)}, &registeredNoGSTIN); err != nil {
+			return err
+		}
+		return q(`SELECT p.code FROM party p JOIN address a ON a.party_id = p.id
+			WHERE p.gst_category = ? AND a.gstin <> ''`,
+			[]any{string(gstin.Unregistered)}, &unregisteredWithGSTIN)
+	}); err != nil {
+		t.Fatalf("%s: M5 check: %v", when, err)
+	}
+	if len(registeredNoGSTIN) > 0 {
+		t.Errorf("%s: registered parties %v have a primary billing address without a GSTIN (M5)", when, registeredNoGSTIN)
+	}
+	if len(unregisteredWithGSTIN) > 0 {
+		t.Errorf("%s: Unregistered parties %v have an address with a GSTIN (MST-034)", when, unregisteredWithGSTIN)
+	}
+}
+
+// TestParty_M5HoldsOnEveryWritePath pins M5 and MST-034 on every write that
+// can break them: promoting an address, a party update, and a shipping-only
+// address with a GSTIN, which is checked against the stored category and
+// never upgrades it (only a primary billing address drives the guess and the
+// upgrade, MST-049).
+func TestParty_M5HoldsOnEveryWritePath(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// step sets up the world (checked against M5 too) and returns the
+		// write that must be refused.
+		step func(t *testing.T, env *msttest.Env) error
+		msg  string
+	}{
+		{
+			name: "SetPrimary on a billing address without a GSTIN",
+			step: func(t *testing.T, env *msttest.Env) error {
+				s := address.New(env.Kit)
+				shree := addrShree(t, env)
+				addrCreate(t, env, s, addrMumbai(shree))
+				office := addrMumbai(shree)
+				office.Title, office.Line1, office.GSTIN = "Mumbai office", "Unit 5, Andheri East", ""
+				id := addrCreate(t, env, s, office)
+				addrM5Holds(t, env, "after the second billing address")
+				return addrSetPrimary(env, s, id, true, addrGet(t, env.DB, s, id).Version)
+			},
+			msg: addrNeedGSTINMsg,
+		},
+		{
+			name: "party Update to Unregistered while an address has a GSTIN",
+			step: func(t *testing.T, env *msttest.Env) error {
+				s := address.New(env.Kit)
+				ps := party.New(env.Kit)
+				shree := addrShree(t, env)
+				addrCreate(t, env, s, addrMumbai(shree))
+				addrM5Holds(t, env, "after Mumbai")
+				in := party.Input{Code: addrShreeCode, Name: addrShreeName, IsVendor: true, PAN: addrShreePAN, GSTCategory: gstin.Unregistered}
+				_, err := ps.Update(context.Background(), env.Kavya, shree, addrPartyGet(t, env.DB, ps, shree).Version, in)
+				return err
+			},
+			msg: addrUnregGSTINMsg,
+		},
+		{
+			name: "party Update to Registered Regular while the primary billing address has no GSTIN",
+			step: func(t *testing.T, env *msttest.Env) error {
+				s := address.New(env.Kit)
+				ps := party.New(env.Kit)
+				corom := addrParty(t, env, addrCoromCode, addrCoromName, "", gstin.Unregistered)
+				addrCreate(t, env, s, addrChennai(corom))
+				addrM5Holds(t, env, "after Chennai")
+				in := party.Input{Code: addrCoromCode, Name: addrCoromName, IsVendor: true, GSTCategory: gstin.Regular}
+				_, err := ps.Update(context.Background(), env.Kavya, corom, addrPartyGet(t, env.DB, ps, corom).Version, in)
+				return err
+			},
+			msg: addrNeedGSTINMsg,
+		},
+		{
+			name: "shipping-only address with a GSTIN on an Unregistered party",
+			step: func(t *testing.T, env *msttest.Env) error {
+				s := address.New(env.Kit)
+				corom := addrParty(t, env, addrCoromCode, addrCoromName, "", gstin.Unregistered)
+				addrCreate(t, env, s, addrChennai(corom))
+				addrM5Holds(t, env, "after Chennai")
+				ship := addrChennai(corom)
+				ship.Title, ship.Line1, ship.GSTIN = "Chennai godown", "8 Ambattur Industrial Estate", addrCoromGSTIN
+				ship.IsBilling, ship.IsShipping = false, true
+				_, err := s.Create(context.Background(), env.Kavya, ship)
+				return err
+			},
+			msg: addrUnregGSTINMsg,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := msttest.New(t)
+			addrM5Holds(t, env, "at start")
+			err := tc.step(t, env)
+			addrM5Holds(t, env, "after the refused write")
+			addrWantHas(t, err, tc.msg)
+		})
+	}
+
+}
+
+// TestParty_OverseasKeptWithoutGSTIN: an Overseas party with an Indian
+// address and no GSTIN (MST-047 allows it) keeps Overseas when saved with a
+// blank category; the guess only fills a category the GSTIN decides.
+func TestParty_OverseasKeptWithoutGSTIN(t *testing.T) {
+	env := msttest.New(t)
+	s := address.New(env.Kit)
+	ps := party.New(env.Kit)
+	ovs := addrParty(t, env, "HIGHSEAS", "High Seas Traders", "", gstin.Overseas)
+	in := addrMumbai(ovs)
+	in.GSTIN = ""
+	addrCreate(t, env, s, in)
+
+	pin := party.Input{Code: "HIGHSEAS", Name: "High Seas Traders", IsVendor: true}
+	if _, err := ps.Update(context.Background(), env.Kavya, ovs, addrPartyGet(t, env.DB, ps, ovs).Version, pin); err != nil {
+		t.Fatalf("Update(HIGHSEAS, blank category) = %v; want nil", err)
+	}
+	if p := addrPartyGet(t, env.DB, ps, ovs); p.GSTCategory != gstin.Overseas {
+		t.Errorf("after Update(blank category): GSTCategory = %q; want %q", p.GSTCategory, gstin.Overseas)
 	}
 }
