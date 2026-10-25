@@ -341,6 +341,23 @@ func (s *Service) Get(ctx context.Context, tx *db.Tx, id int64) (Site, error) {
 	return fromRow(r), nil
 }
 
+// Codes maps each of ids to its site's code; ids with no site are left out
+// (auth.Directory, M10).
+func (s *Service) Codes(ctx context.Context, tx *db.Tx, ids []int64) (map[int64]string, error) {
+	codes := make(map[int64]string, len(ids))
+	for _, id := range ids {
+		r, err := s.Get(ctx, tx, id)
+		if errors.Is(err, doctype.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		codes[id] = r.Code
+	}
+	return codes, nil
+}
+
 // ByCode reads the site with code (upper-cased and trimmed first).
 func (s *Service) ByCode(ctx context.Context, tx *db.Tx, code string) (Site, bool, error) {
 	r, err := dbq.New(tx.SQL()).GetSiteByCode(ctx, strings.ToUpper(strings.TrimSpace(code)))
