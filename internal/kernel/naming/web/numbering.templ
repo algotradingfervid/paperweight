@@ -47,7 +47,7 @@ templ editPage(f editForm) {
 				@components.SummaryList(f.counters())
 			}
 			@components.Form(components.FormProps{Action: editPath(f.S.DocType) + "/counter"}) {
-				@components.TextInput(components.FieldProps{ID: components.FieldID("prefix"), Name: "prefix", Label: "Prefix", Value: f.Prefix})
+				@components.TextInput(components.FieldProps{ID: components.FieldID("prefix"), Name: "prefix", Label: "Prefix", Value: f.Prefix, Error: f.errFor("prefix")})
 				@components.TextInput(components.FieldProps{ID: components.FieldID("last"), Name: "last", Label: "Last number used", Value: f.Last, Error: f.errFor("last")})
 				@components.Button(components.ButtonProps{Label: "Save counter", Busy: "Saving…"})
 			}

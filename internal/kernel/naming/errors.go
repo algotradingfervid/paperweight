@@ -12,7 +12,7 @@ import (
 type Error struct {
 	Kind  error  // one of the sentinels below, or auth.ErrForbidden
 	Msg   string // user-facing text from the catalogue
-	Field string // "template" or "last" when the error belongs to a form field
+	Field string // "template", "prefix" or "last" when the error belongs to a form field
 }
 
 func (e *Error) Error() string { return e.Msg }
@@ -59,6 +59,10 @@ var (
 	ErrInvalidGSTNumber   = errors.New("naming: invalid GST document number")
 )
 
+// MsgForbidden is the refusal for a non-Administrator changing numbering
+// (CD-66). The Numbering screen's guard shows it too (CD-164).
+const MsgForbidden = "You don't have permission to change document numbering. Ask an Administrator."
+
 // User-facing messages, copied from docs/tests/core/02-naming.md.
 //
 //nolint:unused // catalogue; each message is used by the task that builds its check
@@ -84,8 +88,7 @@ const (
 	msgPrefixMismatch = "Prefix %s doesn't match series %s." // Review Focus 6
 	msgBelowIssued    = "%s has already issued numbers up to %0*d. Set %d or more."
 	msgCounterRange   = "Last number used must be a whole number from 0 to %d."
-	msgForbidden      = "You don't have permission to change document numbering. Ask an Administrator." // CD-66
-	msgNoSeries       = "No numbering series is set up for %s. Ask an Administrator."                   // Review Focus 2; CD-66
-	msgNoDate         = "A document date is needed to give it a number."                                // Review Focus 1
+	msgNoSeries       = "No numbering series is set up for %s. Ask an Administrator." // Review Focus 2; CD-66
+	msgNoDate         = "A document date is needed to give it a number."              // Review Focus 1
 	msgUnknownRoot    = "%s isn't a number issued for %s, so it can't be amended."
 )
