@@ -194,6 +194,12 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-DOC | CD-162 fixture read-only state field | High | crew-implementer opus, crew-reviewer opus | 18:06 | 18:13 | 1 | | 0d07e62 |
 | WP1-DOC | CD-163 audit.ValidateEntry parity + files Op fix | High | crew-implementer opus, crew-implementer haiku, crew-reviewer opus | 18:08 | 18:13 | 1 | found files audit changes without Op (fixed) | d9454e7, 0599efa |
 | Merges | DOC batch (CD-156, CD-157 A/F, CD-162, CD-163) ee93bd7; `make ci` green | — | director | | 20:35 | — | — | — |
+| WP1-DOC | 13 Concurrency (lane) | High | crew-test-writer opus, crew-reviewer opus, crew-implementer opus (test tightening) | 17:38 | 17:49 | 1 | 0/0/3 (DOC-073 loser errors pinned; case text update proposed) | 2e4d607, bc699e6 |
+| WP1-DOC | 15 P2 validation and line extras (lane) | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus | 17:40 | 17:52 | 1 | 0/0/4 (DOC-002 explicit-0 check can't fail: fixture has no non-zero default, carry-over) | 85e335b tests, 7d37ebc (lane 15) |
+| WP1-DOC | 16 P2 lifecycle, links, tx extras (lane) | High | crew-test-writer opus, crew-reviewer opus, crew-implementer opus (test minors) | 17:40 | 17:55 | 1 | 0/0/4 (all tests passed on existing engine; no code needed; 4 test fixes) | 8fad957, ad555e4, merge 4171714 |
+| WP1-DOC | Fixture harness template-DB speedup | Standard | crew-implementer opus | 17:55 | 17:58 | — | dropped: baseline already 6.6 s doc tests, ~85 fuzz execs/s; needs testkit change | — |
+| Merges | DOC done (Tasks 1–17) 6d505af; `make ci` green | — | director | | 20:45 | — | — | — |
+| Budgets | AD-4 finished (DOC, FILE): its 4 slots go to AD-5 (masters, now the longest chain): head 2, AD-1 5, AD-2 3, AD-3 7, AD-4 0, AD-5 8 | — | director | | 20:45 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
@@ -238,6 +244,7 @@ Nothing in flight; every worktree is clean. Next step per WP:
 - NUM follow-ups (it-num/.work/carry-over.md): IGST tolerance-message test; inter-state CGST message wording; NUM-076 tzdata check.
 - APR carry-overs: it-approval/.work/carry-over.md (read before WP3 Task 1's APR suite).
 - WP3 Task 2: set `authweb.Config.Seed` to `auth.SeedOptions{LinkedMasterRead: true}` (CD-158, CD-10).
+- DOC carry-overs: `audit` ListDeleted has no partial index on action='delete' (add in a new audit migration if the admin page slows; CD-117 sqlc list); DOC-002's explicit-0 check can't fail until a fixture field has a non-zero default; `audit_log.id` stays plain INTEGER PRIMARY KEY (its no-delete trigger prevents reuse).
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
