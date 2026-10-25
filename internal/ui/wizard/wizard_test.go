@@ -221,8 +221,16 @@ func TestFrame_FocusTarget(t *testing.T) {
 
 	c := docModel()
 	c.Conflict = "Someone else changed this."
-	if _, ok := renderFrame(t, c, wizard.Bar{}).Find("h1#step-title").Attr("autofocus"); ok {
+	cd := renderFrame(t, c, wizard.Bar{})
+	if _, ok := cd.Find("h1#step-title").Attr("autofocus"); ok {
 		t.Error("h1 must not have autofocus on a conflict")
+	}
+	w := cd.Find("#wizard-conflict")
+	if _, ok := w.Attr("autofocus"); !ok || w.AttrOr("tabindex", "") != "-1" || w.Find(".banner--danger").Length() != 1 {
+		t.Error("conflict banner wrapper must take autofocus with tabindex -1")
+	}
+	if cd.Find("[autofocus]").Length() != 1 {
+		t.Error("exactly one autofocus on a conflict")
 	}
 }
 

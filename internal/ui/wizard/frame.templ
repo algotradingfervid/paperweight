@@ -41,13 +41,18 @@ func titleLine(m Model) string {
 // Frame is one wizard step, swapped whole as #wizard: title line, stepper,
 // conflict banner, error summary, warnings, the step heading and the step
 // form around children. Focus goes to the heading unless errors or a
-// conflict are shown.
+// conflict are shown; on a conflict without errors the banner's wrapper
+// takes focus.
 templ Frame(m Model, bar Bar) {
 	<div id="wizard">
 		<p class="wizard-title">{ titleLine(m) }</p>
 		@Stepper(m)
-		if m.Conflict != "" {
-			@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Conflict, Link: &components.Link{Label: "Reload", Href: m.ReloadURL}})
+		if m.Conflict != "" && len(m.Errors) == 0 {
+			<div id="wizard-conflict" tabindex="-1" autofocus>
+				@conflictBanner(m)
+			</div>
+		} else if m.Conflict != "" {
+			@conflictBanner(m)
 		}
 		@components.ErrorSummary(m.Errors)
 		@components.Warnings(m.Warnings)
@@ -67,4 +72,8 @@ templ Frame(m Model, bar Bar) {
 			@components.ActionBar(bar.props(m))
 		}
 	</div>
+}
+
+templ conflictBanner(m Model) {
+	@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Conflict, Link: &components.Link{Label: "Reload", Href: m.ReloadURL}})
 }
