@@ -72,7 +72,7 @@ Test password for all fixture users: `Correct-Horse-42`.
 | Stores | Purchase Order / `fixture.Order` | read (all) |
 | Employee | Expense Claim | read, create, write, submit, print (own) |
 | Employee | Expense Claim / `fixture.Claim` | read, approve (team: claims of employees who report directly to me) |
-| Director | Purchase Order, Expense Claim | read, approve, print, export (all) |
+| Director | Purchase Order / `fixture.Order`, Expense Claim / `fixture.Claim` | read, approve, print, export (all) |
 | Masters Manager | every master | read, create, write, delete, export, import (all) |
 
 Scopes are `own`, `team` and `all` (CD-11). So Priya creates and submits orders, Ravi approves them (and has no Withdraw button), Suresh receives goods, and Priya approves Deepak's expense claims as Deepak's reporting manager. A test that needs anything else adds it in its own setup.
