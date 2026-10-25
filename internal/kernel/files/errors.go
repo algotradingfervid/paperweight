@@ -28,7 +28,7 @@ const (
 )
 
 const (
-	msgTooLarge    = "File is larger than 10 MB. Choose a smaller file or compress it."
+	MsgTooLarge    = "File is larger than 10 MB. Choose a smaller file or compress it."
 	msgEmpty       = "File is empty. Choose another file."
 	msgType        = "File type %s is not allowed. Use PDF, JPG, PNG, WEBP, HEIC, XLSX, DOCX or CSV."
 	msgMismatch    = "File content does not match its %s extension. Upload the original file."

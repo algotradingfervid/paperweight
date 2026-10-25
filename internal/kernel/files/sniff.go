@@ -42,7 +42,7 @@ func Check(pol Policy, rawName string, size int64, head []byte) (Checked, error)
 		return Checked{}, &Error{Kind: KindEmpty, Code: http.StatusUnprocessableEntity, Message: msgEmpty}
 	}
 	if size > pol.MaxBytes {
-		msg := msgTooLarge
+		msg := MsgTooLarge
 		if pol.SizeMessage != "" {
 			msg = pol.SizeMessage
 		}

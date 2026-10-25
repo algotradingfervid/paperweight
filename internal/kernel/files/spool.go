@@ -69,7 +69,7 @@ func (s *Store) spoolTo(f io.WriteCloser, path string, r io.Reader, limit int64)
 		err = s.storageErr("spool", path, cerr)
 	}
 	if err == nil && n > limit {
-		err = &Error{Kind: KindTooLarge, Code: http.StatusRequestEntityTooLarge, Message: msgTooLarge}
+		err = &Error{Kind: KindTooLarge, Code: http.StatusRequestEntityTooLarge, Message: MsgTooLarge}
 	}
 	if err != nil {
 		return nil, err

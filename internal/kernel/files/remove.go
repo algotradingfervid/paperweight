@@ -23,7 +23,7 @@ func (s *Store) Remove(ctx context.Context, tx *db.Tx, p auth.Principal, id int6
 	q := dbq.New(tx.SQL())
 	row, err := q.GetAttachment(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return &Error{Kind: KindNotFound, Code: http.StatusNotFound, Message: msgNotFound, Err: doctype.ErrNotFound}
+		return &Error{Kind: KindNotFound, Code: http.StatusNotFound, Message: MsgNotFound, Err: doctype.ErrNotFound}
 	}
 	if err != nil {
 		return err

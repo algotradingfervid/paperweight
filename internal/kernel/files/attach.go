@@ -18,7 +18,11 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-const msgStorage = "Couldn't save the file. Try again or contact your administrator."
+// MsgStorage is the message for a failed save.
+const MsgStorage = "Couldn't save the file. Try again or contact your administrator."
+
+// msgStorage stays for the package's internal tests.
+const msgStorage = MsgStorage
 
 // timeLayout is the fixed-width UTC text every timestamp is stored as (§4.3).
 const timeLayout = "2006-01-02T15:04:05.000Z"
@@ -166,5 +170,5 @@ func syncPath(path string) error {
 // storageErr logs an OS failure and returns the one storage message users see.
 func (s *Store) storageErr(op, path string, err error) error {
 	s.cfg.Logger.Error("files: storage failure", "op", op, "path", path, "err", err)
-	return &Error{Kind: KindStorage, Code: http.StatusInternalServerError, Message: msgStorage, Err: err}
+	return &Error{Kind: KindStorage, Code: http.StatusInternalServerError, Message: MsgStorage, Err: err}
 }

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	msgNotFound    = "File not found."
+	MsgNotFound    = "File not found."
 	msgNoRight     = "You don't have permission to %s %s. Ask your administrator for a role that allows it."
 	msgBlobMissing = "The file is missing from storage. Ask your administrator to restore it from backup."
 )
@@ -31,7 +31,7 @@ func (s *Store) Open(ctx context.Context, p auth.Principal, id int64) (io.ReadCl
 		var err error
 		row, err = dbq.New(tx.SQL()).GetAttachment(ctx, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			return &Error{Kind: KindNotFound, Code: http.StatusNotFound, Message: msgNotFound, Err: doctype.ErrNotFound}
+			return &Error{Kind: KindNotFound, Code: http.StatusNotFound, Message: MsgNotFound, Err: doctype.ErrNotFound}
 		}
 		if err != nil {
 			return err
@@ -111,7 +111,7 @@ func (s *Store) canOnParent(ctx context.Context, tx *db.Tx, p auth.Principal, r 
 // notFoundErr maps doctype.ErrNotFound to KindNotFound and returns any other error as is.
 func notFoundErr(err error) error {
 	if errors.Is(err, doctype.ErrNotFound) {
-		return &Error{Kind: KindNotFound, Code: http.StatusNotFound, Message: msgNotFound, Err: err}
+		return &Error{Kind: KindNotFound, Code: http.StatusNotFound, Message: MsgNotFound, Err: err}
 	}
 	return err
 }
