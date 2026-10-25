@@ -76,16 +76,25 @@ func (h *handlers) edit(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	f := editForm{S: s, Template: s.Template}
-	next, err := h.d.Svc.Preview(r.Context(), s.DocType, types.Today(h.d.Clock))
-	switch {
-	case err == nil: // the number part is last and always its full width
-		f.Prefix = next[:len(next)-strings.Count(s.Template, "#")]
-	case !errors.Is(err, naming.ErrExhausted):
+	prefix, err := h.prefix(r.Context(), s)
+	if err != nil {
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	h.render(w, r, http.StatusOK, f)
+	h.render(w, r, http.StatusOK, editForm{S: s, Template: s.Template, Prefix: prefix})
+}
+
+// prefix is s's prefix for a document dated today, blank when the series
+// has used all its numbers.
+func (h *handlers) prefix(ctx context.Context, s naming.SeriesInfo) (string, error) {
+	next, err := h.d.Svc.Preview(ctx, s.DocType, types.Today(h.d.Clock))
+	switch {
+	case err == nil: // the number part is last and always its full width
+		return next[:len(next)-strings.Count(s.Template, "#")], nil
+	case errors.Is(err, naming.ErrExhausted):
+		return "", nil
+	}
+	return "", err
 }
 
 func (h *handlers) saveTemplate(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +102,12 @@ func (h *handlers) saveTemplate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	f := editForm{S: s, Template: r.PostFormValue("template")}
+	prefix, err := h.prefix(r.Context(), s)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	f := editForm{S: s, Template: r.PostFormValue("template"), Prefix: prefix}
 	h.finish(w, r, f, h.d.Admin.SetTemplate(r.Context(), p, s.DocType, f.Template))
 }
 
