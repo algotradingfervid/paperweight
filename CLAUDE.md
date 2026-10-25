@@ -44,7 +44,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Compose the existing component (`components.Button`, Banner, Toast); never re-create its markup or classes in another file (three times in UI Tasks 4–8).
 - Keep a lane worktree until its review has passed: removing it loses the worker's transcript, so the fix loop can't resume it. macOS has no `timeout` command.
 - Template literals in tests and plans must render ≤ 14 characters (GRN/, EXP/ and PUR/ broke it: CD-113/115/129); check each against `parseTemplate` first.
-- Fakes and reference drivers refuse everything the real component refuses; a lenient double lets tests pass that fail under the engine (APR's driver skipped DOC's read visibility and submit/write rights; CD-125).
+- Fakes and reference drivers refuse everything the real component refuses; a lenient double lets tests pass that fail under the engine (APR's driver skipped DOC's read visibility and submit/write rights; CD-125). Best: the fake calls the real validator (`audit.ValidateEntry`, `auth.DeniedError`) rather than copying it (authfake CheckLink, auditfake Op; CD-125, CD-163).
 - Test each behaviour a CD or plan names through the public path, so deleting its call site fails a test; a helper's unit test alone passed with the call removed three times in NUM.
 - A catalogue user message covers only the condition it names; caller bugs get a plain internal error. A new refusal gets its own message even when it reuses an error kind and status (CD-147, CD-152). Another WP's test expects the producing WP's text, never its own copy (CD-142, CD-155).
 - Fixture ids follow name order, so sort-by-link-name tests insert rows out of name order.

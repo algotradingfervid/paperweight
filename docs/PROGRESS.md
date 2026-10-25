@@ -182,6 +182,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | AUTH CD-156 5aecfe2; `make ci` green | — | director | | 19:35 | — | — | — |
 | WP1-AUTH | CD-157 C authfake denial text | High | crew-implementer, crew-reviewer | | | 1 | 0/0/2 | b843525 |
 | Merges | AUTH CD-157 C 7e2bf9b; `make ci` green | — | director | | 19:55 | — | — | — |
+| Merges | UI CD-160 buffered Render 026383e; `make ci` green | — | director | | 20:05 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
