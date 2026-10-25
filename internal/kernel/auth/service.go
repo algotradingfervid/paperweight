@@ -381,39 +381,47 @@ func (a *Auth) DefaultValue(ctx context.Context, p Principal, dim Dimension) (in
 // RestrictionLabels returns u's allowed codes per restricted dimension, with
 // " (disabled)" on values the dimension's master reports disabled (AUTH-105).
 func (a *Auth) RestrictionLabels(ctx context.Context, u UserID) (map[Dimension][]string, error) {
-	out := map[Dimension][]string{}
+	var out map[Dimension][]string
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
-		allowed, err := restrictions(ctx, dbq.New(tx.SQL()), u)
-		if err != nil {
-			return err
-		}
-		for d, ids := range allowed {
-			codes, err := a.codes(ctx, tx, d, ids)
-			if err != nil {
-				return err
-			}
-			master, hasMaster := masterFor(d)
-			for _, id := range ids {
-				label, ok := codes[id]
-				if !ok {
-					continue
-				}
-				if hasMaster {
-					info, found, err := master.Master.Lookup(ctx, tx, id)
-					if err != nil {
-						return err
-					}
-					if found && info.Disabled {
-						label += " (disabled)"
-					}
-				}
-				out[d] = append(out[d], label)
-			}
-		}
-		return nil
+		var err error
+		out, err = a.restrictionLabels(ctx, tx, u)
+		return err
 	})
 	if err != nil {
 		return nil, err
+	}
+	return out, nil
+}
+
+// restrictionLabels is RestrictionLabels inside the caller's transaction.
+func (a *Auth) restrictionLabels(ctx context.Context, tx *db.Tx, u UserID) (map[Dimension][]string, error) {
+	out := map[Dimension][]string{}
+	allowed, err := restrictions(ctx, dbq.New(tx.SQL()), u)
+	if err != nil {
+		return nil, err
+	}
+	for d, ids := range allowed {
+		codes, err := a.codes(ctx, tx, d, ids)
+		if err != nil {
+			return nil, err
+		}
+		master, hasMaster := masterFor(d)
+		for _, id := range ids {
+			label, ok := codes[id]
+			if !ok {
+				continue
+			}
+			if hasMaster {
+				info, found, err := master.Master.Lookup(ctx, tx, id)
+				if err != nil {
+					return nil, err
+				}
+				if found && info.Disabled {
+					label += " (disabled)"
+				}
+			}
+			out[d] = append(out[d], label)
+		}
 	}
 	return out, nil
 }

@@ -107,11 +107,16 @@ func ReadRequiredError(label string) *Problem {
 
 // NotApplicableError: r doesn't apply to the DocType.
 func NotApplicableError(r Right, label string) *Problem {
+	return &Problem{400, fmt.Sprintf("%s does not apply to %s. Clear it.", RightLabel(r), label)}
+}
+
+// RightLabel is how a right reads on its own: capitalised, "Approve".
+func RightLabel(r Right) string {
 	name := string(r)
 	if name != "" {
 		name = strings.ToUpper(name[:1]) + name[1:]
 	}
-	return &Problem{400, fmt.Sprintf("%s does not apply to %s. Clear it.", name, label)}
+	return name
 }
 
 // TeamNotApplicableError: team scope on a DocType without an employee field.

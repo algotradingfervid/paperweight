@@ -1,0 +1,99 @@
+// Package authscreens holds AUTH's admin screens built from internal/ui
+// components (CD-49). authweb handlers render them directly; they are not
+// part of authweb.Views.
+package authscreens
+
+import (
+	"strings"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// WhoCanPage is the "Who can…" view (design-system §8.6). Rights lists only
+// the rights that apply to DocType; Roles is shown when Shown is set.
+type WhoCanPage struct {
+	DocTypes        []*doctype.DocType
+	Rights          []auth.Right
+	DocType, Right  string
+	Error           string
+	Shown           bool
+	Roles           []auth.WhoCanRole
+}
+
+// WhoCan is the GET form (a shareable URL) and, below it, one Card per role.
+templ WhoCan(p WhoCanPage) {
+	{{ o := uilayout.PageOpts{Title: "Who can…", Error: p.Error != ""} }}
+	if o.Error {
+		{{ o.BannerSlot = components.ErrorSummary([]components.FieldErr{{ID: components.FieldID("right"), Message: p.Error}}) }}
+	}
+	@uilayout.Page(o) {
+		@components.Form(components.FormProps{Action: "/rights/who-can", Method: "get"}) {
+			<div class="stack">
+				@components.Select(components.FieldProps{ID: components.FieldID("doctype"), Name: "doctype", Label: "Document type", Value: p.DocType}, docTypeOptions(p.DocTypes))
+				@components.Select(components.FieldProps{ID: components.FieldID("right"), Name: "right", Label: "Right", Value: p.Right}, rightOptions(p.Rights))
+				@components.Button(components.ButtonProps{Label: "Show", Type: "submit"})
+			</div>
+		}
+		if p.Shown {
+			<ul class="stack">
+				for _, g := range p.Roles {
+					<li>
+						@components.Card(roleTitle(g), nil) {
+							if len(g.Users) == 0 {
+								<p>No users have this role.</p>
+							} else {
+								<ul class="stack">
+									for _, u := range g.Users {
+										<li>
+											<p>{ u.Name }</p>
+											if codes := u.Restrictions[auth.DimProject]; len(codes) > 0 {
+												<p>Projects: { strings.Join(codes, ", ") }</p>
+											}
+											if codes := u.Restrictions[auth.DimSite]; len(codes) > 0 {
+												<p>Sites: { strings.Join(codes, ", ") }</p>
+											}
+										</li>
+									}
+								</ul>
+							}
+						}
+					</li>
+				}
+			</ul>
+		}
+	}
+}
+
+// docTypeOptions are the DocType select's options, value Name, label Label.
+func docTypeOptions(dts []*doctype.DocType) []components.Option {
+	var out []components.Option
+	for _, d := range dts {
+		out = append(out, components.Option{Value: d.Name, Label: d.Label})
+	}
+	return out
+}
+
+// rightOptions are the right select's options, labelled by auth.RightLabel.
+func rightOptions(rs []auth.Right) []components.Option {
+	var out []components.Option
+	for _, r := range rs {
+		out = append(out, components.Option{Value: string(r), Label: auth.RightLabel(r)})
+	}
+	return out
+}
+
+// roleTitle is a role Card's heading: "Administrator · every right", else
+// "{Role} · {All|Own|Team}".
+func roleTitle(g auth.WhoCanRole) string {
+	if g.Role == auth.RoleAdministrator {
+		return g.Role + " · every right"
+	}
+	s := string(g.Scope)
+	if s != "" {
+		s = strings.ToUpper(s[:1]) + s[1:]
+	}
+	return g.Role + " · " + s
+}
