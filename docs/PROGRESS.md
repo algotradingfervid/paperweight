@@ -45,3 +45,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP0 | 5 Contracts and fakes | High | crew-test-writer, crew-implementer | 14:54 | 15:12 | 1 | 0/1/5 (4 fixed, 1 kept as CD-105) | e8a49e8 tests, 23bd4f1 |
 | WP0 | 6 Test kit | High | crew-test-writer, crew-implementer | 14:55 | 15:14 | 1 | 0/0/3 (2 fixed, 1 doc fix CD-106) | 4e12eca tests, 7adeaaf |
 | WP0 | 8 Command and CI gate | Standard | crew-implementer | 15:16 | 15:18 | 1 | 0/0/4 fixed | 4496ad2 |
+
+## WP0 timing (crew report, 25 Oct 2026)
+
+Tasks 3–8 ran 14:51–15:18 IST with up to three workers at once. Worker time 50.5 min across 16 workers. Medians: implementer 4.6 min, test-writer 3.5 min, reviewer 1.1 min. Slowest step: the Task 5 implementer (10.6 min, plus one fix round for a Review Focus 6 gap). Next to optimise: split large contract tasks by package so implementers run in parallel. Findings: 2 majors (Task 4 non-ASCII HX-Trigger, Task 5 approval protocol), both fixed in attempt 1; no task needed attempt 2.
