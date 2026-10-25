@@ -33,11 +33,52 @@ function combobox() {
         }
       }
 
+      // On phones the open search is a full-screen panel (CD-133): the
+      // page behind it is inert and Tab stays inside it.
+      let inerted = [];
+
+      function sheet() {
+        return search.hasAttribute("data-open") && getComputedStyle(search).position === "fixed";
+      }
+
+      function setInert(on) {
+        if (!on) {
+          inerted.forEach(function (el) { el.inert = false; });
+          inerted = [];
+          return;
+        }
+        if (inerted.length || !sheet()) return;
+        // The field keeps its label, hint and message, which name the input.
+        const start = root.closest(".field") || root;
+        for (let el = start; el.parentElement && el !== document.body; el = el.parentElement) {
+          for (const sib of el.parentElement.children) {
+            if (sib !== el && !sib.inert) {
+              sib.inert = true;
+              inerted.push(sib);
+            }
+          }
+        }
+      }
+
       function setOpen(open) {
         input.setAttribute("aria-expanded", open ? "true" : "false");
         search.toggleAttribute("data-open", open);
+        setInert(open);
         if (!open) setActive(-1);
       }
+
+      search.addEventListener("keydown", function (e) {
+        if (e.key !== "Tab" || !sheet()) return;
+        const els = Array.from(search.querySelectorAll("input, button")).filter(function (el) { return el.getClientRects().length > 0; });
+        const first = els[0], last = els[els.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      });
 
       // close shuts the list; with a value already chosen it shows that
       // summary again instead of the search.

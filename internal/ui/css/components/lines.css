@@ -54,7 +54,7 @@
     & .linegrid { display: grid; gap: var(--space-2); }
     & :is(.linegrid-head, .linegrid-row) {
       display: grid;
-      grid-template-columns: minmax(0, 0.5fr) minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 2fr);
+      grid-template-columns: minmax(0, 0.5fr) minmax(0, 2.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 2fr);
       column-gap: var(--space-2);
       align-items: start;
       & > * { min-inline-size: 0; }

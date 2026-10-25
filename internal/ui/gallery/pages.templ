@@ -1,0 +1,284 @@
+package gallery
+
+import (
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
+)
+
+// full is a gallery page in the app shell; frag is its #main for htmx.
+templ full(o layout.PageOpts, body templ.Component) {
+	@layout.Page(o) {
+		@body
+	}
+}
+
+templ frag(o layout.PageOpts, body templ.Component) {
+	@layout.Main(o) {
+		@body
+	}
+}
+
+templ indexBody() {
+	<ul class="cluster" role="list">
+		for _, p := range pages {
+			<li>
+				@components.Button(components.ButtonProps{Label: p.opts.Title, Href: "/_gallery/" + p.slug, Variant: components.Secondary})
+			</li>
+		}
+	</ul>
+}
+
+templ buttonsBody() {
+	@components.Card("Variants", nil) {
+		<div class="cluster">
+			@components.Button(components.ButtonProps{Label: "Save", Type: "button", Variant: components.Primary})
+			@components.Button(components.ButtonProps{Label: "Back", Type: "button", Variant: components.Secondary})
+			@components.Button(components.ButtonProps{Label: "Cancel", Type: "button", Variant: components.Ghost})
+			@components.Button(components.ButtonProps{Label: "Delete", Type: "button", Variant: components.Danger})
+			@components.Button(components.ButtonProps{Label: "Print", Icon: "printer", Href: "/_gallery/buttons"})
+			@components.Button(components.ButtonProps{AriaLabel: "More actions", Icon: "more-horizontal", Type: "button", Variant: components.Ghost})
+		</div>
+	}
+	@components.Card("Busy while saving", nil) {
+		@components.Form(components.FormProps{ID: "slow-form", Action: "/_gallery/buttons", HX: true}) {
+			<p>This form takes half a second to save.</p>
+			@components.Button(components.ButtonProps{Label: "Save and continue", Variant: components.Primary})
+		}
+	}
+}
+
+templ fieldsBody() {
+	@components.Card("Every input", nil) {
+		@fieldSet("f", "")
+	}
+	@components.Card("After a refused save", nil) {
+		@components.ErrorSummary([]components.FieldErr{{ID: "e-name", Message: uitest.LongError}})
+		@fieldSet("e", uitest.LongError)
+	}
+}
+
+// fieldSet is every input, with ids prefixed by pre; errText fills each
+// field's message region.
+templ fieldSet(pre, errText string) {
+	<div class="stack">
+		@components.TextInput(components.FieldProps{ID: pre + "-name", Name: pre + "_name", Label: "Supplier name", Value: uitest.LongName100, Error: errText})
+		@components.EmailInput(components.FieldProps{ID: pre + "-email", Name: pre + "_email", Label: "Email", Value: uitest.LongEmail, Error: errText}, "email")
+		@components.PasswordInput(components.FieldProps{ID: pre + "-password", Name: pre + "_password", Label: "Password", Error: errText}, "current-password")
+		@components.Textarea(components.FieldProps{ID: pre + "-remarks", Name: pre + "_remarks", Label: "Remarks", Hint: "Shown on the printed order.", Value: uitest.LongDevanagari, Optional: true, Error: errText}, 1000)
+		@components.MoneyInput(components.FieldProps{ID: pre + "-amount", Name: pre + "_amount", Label: "Amount", Value: "99,99,99,999.99", Error: errText})
+		@components.QtyInput(components.FieldProps{ID: pre + "-qty", Name: pre + "_qty", Label: "Quantity", Value: "1,00,000", Error: errText}, false, "kg")
+		@components.RateInput(components.FieldProps{ID: pre + "-rate", Name: pre + "_rate", Label: "Rate", Value: "9,99,999.9999", Error: errText})
+		@components.PercentInput(components.FieldProps{ID: pre + "-discount", Name: pre + "_discount", Label: "Discount", Value: "12.5", Error: errText})
+		@components.DateInput(components.DateProps{FieldProps: components.FieldProps{ID: pre + "-date", Name: pre + "_date", Label: "Order date", Value: "24-10-2026", Echo: "Saturday, 24 October 2026", Error: errText}, Today: "24-10-2026", Yesterday: "23-10-2026"})
+		@components.CodeInput(components.FieldProps{ID: pre + "-gstin", Name: pre + "_gstin", Label: "GSTIN", Value: uitest.LongCode60, Error: errText}, components.GSTIN)
+		@components.Radios(components.FieldProps{ID: pre + "-delivery", Name: pre + "_delivery", Label: "Delivery", Value: "site", Error: errText}, deliveryOptions)
+		@components.Checkboxes(components.FieldProps{ID: pre + "-docs", Name: pre + "_docs", Label: "Documents to send", Error: errText}, docOptions, []string{"invoice"})
+		@components.Segmented(components.FieldProps{ID: pre + "-priority", Name: pre + "_priority", Label: "Priority", Value: "Normal", Error: errText}, priorityOptions)
+		@components.Select(components.FieldProps{ID: pre + "-terms", Name: pre + "_terms", Label: "Payment terms", Value: "30", Error: errText}, termOptions)
+	</div>
+}
+
+templ badgesBody() {
+	@components.Card("Document states", nil) {
+		<div class="cluster">
+			for _, s := range []doctype.State{doctype.StateDraft, doctype.StatePending, doctype.StateApproved, doctype.StateRejected, doctype.StateCancelled, doctype.StateClosed} {
+				@components.StateBadge(s)
+			}
+		</div>
+	}
+	@components.Banner(components.BannerProps{Kind: components.Success, Message: "Saved Draft 42."})
+	@components.Banner(components.BannerProps{Kind: components.Info, Title: "Waiting for approval.", Message: uitest.LongName100})
+	@components.Banner(components.BannerProps{Kind: components.Warning, Message: uitest.LongError})
+	@components.Banner(components.BannerProps{Kind: components.Danger, Message: uitest.LongError, Link: &components.Link{Label: "Reload", Href: "/_gallery/badges-banners"}})
+	@components.Card(uitest.LongName100, &components.Link{Label: "Change", Href: "/_gallery/badges-banners"}) {
+		@components.SummaryList([]components.Pair{
+			{Label: "Supplier", Value: uitest.LongName100},
+			{Label: "GSTIN", Value: uitest.LongCode60, Code: true},
+			{Label: "Total", Value: uitest.MaxMoney, Num: true},
+			{Label: "Name in Hindi", Value: uitest.LongDevanagari},
+		})
+		@components.AmountInWords("Rupees ninety-nine crore ninety-nine lakh ninety-nine thousand nine hundred ninety-nine and ninety-nine paise only")
+	}
+	@components.Disclosure("More details", false) {
+		<p>{ uitest.LongError }</p>
+	}
+	@components.EmptyState("No sample orders yet.", &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"})
+}
+
+templ dialogsBody() {
+	<div class="cluster">
+		@components.Button(components.ButtonProps{Label: "Open dialog", Type: "button", Attrs: templ.Attributes{"data-open-dialog": "sample-dialog", "aria-haspopup": "dialog"}})
+		@components.Button(components.ButtonProps{Label: "Open sheet", Type: "button", Attrs: templ.Attributes{"data-open-dialog": "sample-sheet", "aria-haspopup": "dialog"}})
+	</div>
+	@components.Dialog("sample-dialog", "Delete Draft 42?") {
+		<p>{ uitest.LongError }</p>
+		<div class="cluster">
+			@components.Button(components.ButtonProps{Label: "Keep it", Type: "button", Attrs: templ.Attributes{"data-close-dialog": true}})
+			@components.Button(components.ButtonProps{Label: "Delete", Type: "button", Variant: components.Danger, Attrs: templ.Attributes{"data-close-dialog": true}})
+		</div>
+	}
+	@components.Sheet("sample-sheet", uitest.LongName100) {
+		@components.SummaryList([]components.Pair{
+			{Label: "GSTIN", Value: uitest.LongCode60, Code: true},
+			{Label: "Total", Value: uitest.MaxMoney, Num: true},
+		})
+		@components.Button(components.ButtonProps{Label: "Done", Type: "button", Variant: components.Primary, Attrs: templ.Attributes{"data-close-dialog": true}})
+	}
+}
+
+templ datalistBody() {
+	@components.DataList(sampleList(false))
+	<h2>An empty list</h2>
+	@components.DataList(sampleList(true))
+}
+
+templ linesBody() {
+	<input type="hidden" id="doc-version" name="version" value="1"/>
+	<h2>Editable, 500 lines</h2>
+	@components.LineList(components.LineListProps{
+		Cards: lineCards(500, true), Grid: gridRows(500), TaxableTotal: uitest.MaxMoney,
+		AddURL: "/_gallery/lines", Total: 500, Editable: true,
+	})
+	<h2>Read only, the first 20 of 500</h2>
+	@components.LineList(components.LineListProps{
+		Cards: lineCards(20, false), TaxableTotal: uitest.MaxMoney,
+		ShowAllURL: "/_gallery/lines", FindURL: "/_gallery/lines", Total: 500,
+	})
+}
+
+// gridText is a grid cell that only shows a value.
+templ gridText(v string) {
+	<span>{ v }</span>
+}
+
+templ pickerBody() {
+	@components.Picker(components.PickerProps{
+		Field:     components.FieldProps{ID: "f-item", Label: "Item", Hint: "Search by code or name."},
+		SearchURL: searchURL("f-item-list"), HiddenName: "item_id", ListboxID: "f-item-list",
+	})
+	@components.Picker(components.PickerProps{
+		Field:     components.FieldProps{ID: "f-supplier", Label: "Supplier"},
+		SearchURL: searchURL("f-supplier-list"), HiddenName: "supplier_id", ListboxID: "f-supplier-list",
+		Chosen:    &pickRows[2],
+	})
+	@components.Picker(components.PickerProps{
+		Field:      components.FieldProps{ID: "f-uom", Label: "Unit"},
+		HiddenName: "uom_id",
+		Options:    []components.Option{{Value: "1", Label: "kg"}, {Value: "2", Label: "Number"}, {Value: "3", Label: "Metre"}},
+	})
+}
+
+templ pickerResults(listboxID, q string) {
+	@components.PickerResults(listboxID, search(q), q)
+}
+
+templ uploadBody() {
+	@components.FileUpload(components.UploadProps{ID: "upload", Label: "Attachments", Action: "/_gallery/upload", Files: attachments})
+	@components.FileUpload(components.UploadProps{ID: "upload-refused", Label: "Bill photo", Action: "/_gallery/upload", Error: uitest.LongError})
+}
+
+templ wizardFrame(m wizard.Model, v stepValues) {
+	@wizard.Frame(m, wizard.Bar{Back: m.Current > 0, Primary: barLabel(m)}) {
+		@wizardStep(m, v)
+	}
+}
+
+templ wizardStep(m wizard.Model, v stepValues) {
+	switch m.Current {
+		case 0:
+			@components.TextInput(components.FieldProps{ID: "f-reference", Name: "reference", Label: "Reference", Value: v.reference, Error: v.errFor("f-reference")})
+			@components.DateInput(components.DateProps{FieldProps: components.FieldProps{ID: "f-order_date", Name: "order_date", Label: "Order date", Value: v.date, Error: v.errFor("f-order_date")}, Today: "24-10-2026", Yesterday: "23-10-2026"})
+			@components.Picker(components.PickerProps{
+				Field:     components.FieldProps{ID: "f-supplier_id", Label: "Supplier", Optional: true},
+				SearchURL: searchURL("f-supplier_id-list"), HiddenName: "supplier_id", ListboxID: "f-supplier_id-list",
+				Chosen:    v.supplier,
+			})
+		case 1:
+			@components.Picker(components.PickerProps{
+				Field:     components.FieldProps{ID: "f-item_id", Label: "Item"},
+				SearchURL: searchURL("f-item_id-list"), HiddenName: "item_id", ListboxID: "f-item_id-list",
+				Chosen:    &pickRows[2],
+			})
+			@components.QtyInput(components.FieldProps{ID: "f-qty", Name: "qty", Label: "Quantity", Value: "1,00,000"}, false, "kg")
+			@components.RateInput(components.FieldProps{ID: "f-rate", Name: "rate", Label: "Rate", Value: "9,99,999.9999"})
+		case 2:
+			@components.Radios(components.FieldProps{ID: "f-delivery", Name: "delivery", Label: "Delivery", Value: "site"}, deliveryOptions)
+			@components.Textarea(components.FieldProps{ID: "f-remarks", Name: "remarks", Label: "Remarks", Value: uitest.LongError, Optional: true}, 1000)
+		default:
+			@wizard.CheckSection("Supplier and date", wizard.Complete, "/_gallery/wizard-1") {
+				@components.SummaryList([]components.Pair{
+					{Label: "Supplier", Value: pickRows[2].Display()},
+					{Label: "Order date", Value: "24-10-2026"},
+				})
+			}
+			@wizard.CheckSection("Items", wizard.Attention, "/_gallery/wizard-2") {
+				@components.SummaryList([]components.Pair{{Label: "Total", Value: uitest.MaxMoney, Num: true}})
+			}
+			@wizard.CheckSection("Terms", "", "/_gallery/wizard-3") {
+				@components.SummaryList([]components.Pair{{Label: "Remarks", Value: uitest.LongError}})
+			}
+	}
+}
+
+templ actionbarBody() {
+	@components.Form(components.FormProps{ID: "actionbar-form", Action: "/_gallery/actionbar"}) {
+		@components.TextInput(components.FieldProps{ID: "f-note", Name: "note", Label: "Note", Optional: true})
+	}
+	@components.ActionBar(components.ActionBarProps{Note: "You raised Draft 42, so someone else must approve it."})
+	@components.MoreActions([]components.MoreAction{
+		{Label: "Print", Href: "/_gallery/actionbar", NewTab: true},
+		{Label: "Withdraw", Href: "/_gallery/actionbar", Post: true},
+		{Label: "Cancel order", Href: "/_gallery/actionbar", Danger: true},
+	})
+}
+
+templ actionbarBar() {
+	@components.ActionBar(components.ActionBarProps{
+		Primary:   &components.ButtonProps{Label: "Approve", Variant: components.Primary},
+		Secondary: &components.ButtonProps{Label: "Reject", Variant: components.Secondary},
+		Form:      "actionbar-form",
+	})
+}
+
+templ warningsBody() {
+	@components.Warnings([]string{uitest.LongError, uitest.LongError, uitest.LongError})
+}
+
+templ filterbarBody() {
+	@components.FilterBar(components.FilterBarProps{
+		Action: "/_gallery/filterbar", Search: uitest.LongName100, SearchLabel: "Search sample orders",
+		Sort: "amount.desc", Sorts: []components.Option{{Value: "amount.desc", Label: "Amount high to low"}, {Value: "amount.asc", Label: "Amount low to high"}},
+		Chips: []components.Chip{
+			{Label: "State: Approved, Pending approval", RemoveURL: "/_gallery/filterbar"},
+			{Label: "Supplier: " + uitest.LongName100, RemoveURL: "/_gallery/filterbar"},
+			{Label: "GSTIN: " + uitest.LongCode60, RemoveURL: "/_gallery/filterbar"},
+			{Label: "Amount: > " + uitest.MaxMoney, RemoveURL: "/_gallery/filterbar"},
+			{Label: "Order date: 01-04-2026, 31-03-2027", RemoveURL: "/_gallery/filterbar"},
+			{Label: "Name: " + uitest.LongDevanagari, RemoveURL: "/_gallery/filterbar"},
+		},
+		FilterURL: "/_gallery/filterbar", ClearURL: "/_gallery/filterbar", Count: "12,34,567 sample orders",
+		New:    &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"},
+		Export: &components.Link{Label: "Export", Href: "/_gallery/filterbar"},
+	})
+}
+
+templ paginationBody() {
+	@components.Pagination(components.PageInfo{Page: 1, From: 1, To: 25, Total: 1234567, Noun: "sample orders", NextURL: "/_gallery/pagination"})
+	@components.Pagination(components.PageInfo{Page: 2, From: 26, To: 50, Total: 1234567, Noun: "suppliers", PrevURL: "/_gallery/pagination", NextURL: "/_gallery/pagination"})
+	@components.Pagination(components.PageInfo{Page: 3, From: 51, To: 60, Total: 60, Noun: "items", PrevURL: "/_gallery/pagination"})
+	@components.Pagination(components.PageInfo{Page: 9, From: 201, To: 60, Total: 60, Noun: "parties", PrevURL: "/_gallery/pagination"})
+}
+
+templ bareBody() {
+	@components.Banner(components.BannerProps{Kind: components.Info, Message: "Your session ended. Sign in again as " + uitest.LongEmail + "."})
+	@components.Form(components.FormProps{Action: "/_gallery/bare"}) {
+		<div class="stack">
+			@components.EmailInput(components.FieldProps{ID: "f-email", Name: "email", Label: "Email", Value: uitest.LongEmail}, "username")
+			@components.PasswordInput(components.FieldProps{ID: "f-password", Name: "password", Label: "Password"}, "current-password")
+			@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
+		</div>
+	}
+}

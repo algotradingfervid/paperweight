@@ -179,7 +179,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<span>Take photo</span> <input type=\"file\" name=\"file\" accept=\"image/*\" capture=\"environment\" class=\"visually-hidden\" aria-describedby=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<span>Take photo</span> <input type=\"file\" name=\"file\" accept=\"image/*\" capture=\"environment\" class=\"input-overlay\" aria-describedby=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -201,7 +201,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<span>Choose file</span> <input type=\"file\" name=\"file\" accept=\"image/*,application/pdf\" class=\"visually-hidden\" aria-describedby=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<span>Choose file</span> <input type=\"file\" name=\"file\" accept=\"image/*,application/pdf\" class=\"input-overlay\" aria-describedby=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

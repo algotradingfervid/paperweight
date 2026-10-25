@@ -11,6 +11,8 @@
     min-block-size: var(--control-h);
     font-size: var(--text-base);
   }
+  /* A value longer than the box ends in an ellipsis until it is edited. */
+  & .input { text-overflow: ellipsis; }
 }
 
 @utility field__label {
@@ -90,6 +92,11 @@
   font-size: var(--text-base);
   color: var(--color-text);
   cursor: pointer;
+  /* The control itself is a full target too (design-system §10). */
+  & > :is(.radio, .checkbox) {
+    --size: var(--target-min);
+    padding: calc(var(--target-min) / 4);
+  }
 }
 
 @utility field__choice-text {
@@ -103,6 +110,7 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   & > label {
+    position: relative;
     flex: 1 1 0;
     min-inline-size: 0;
     display: flex;
@@ -137,6 +145,14 @@
     font-size: var(--h2);
     line-height: var(--leading-tight);
   }
+  /* One column: daisyUI's alert puts a second child beside the first. */
+  &:has(> :nth-child(2)) { grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; }
   & ul { margin: 0; padding-inline-start: var(--space-4); }
-  & a { color: var(--color-danger-800); text-decoration: underline; }
+  & a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--target-min);
+    color: var(--color-danger-800);
+    text-decoration: underline;
+  }
 }

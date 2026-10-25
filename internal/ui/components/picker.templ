@@ -30,6 +30,7 @@ templ Picker(p PickerProps) {
 							hx-get={ p.SearchURL }
 							hx-trigger="input changed delay:250ms, focus once"
 							hx-target={ "#" + p.ListboxID }
+							hx-swap="innerHTML"
 							{ controlAttrs(pickerSearchField(p), "input field__input")... }
 						/>
 						@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})

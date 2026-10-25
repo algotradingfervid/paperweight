@@ -50,7 +50,7 @@ templ Segmented(p FieldProps, opts []Option) {
 		<div class="segmented">
 			for i, o := range opts {
 				<label>
-					<input type="radio" value={ o.Value } checked?={ o.Value == p.Value } { choiceAttrs(p, i, "visually-hidden")... }/>
+					<input type="radio" value={ o.Value } checked?={ o.Value == p.Value } { choiceAttrs(p, i, "input-overlay")... }/>
 					{ o.Label }
 				</label>
 			}

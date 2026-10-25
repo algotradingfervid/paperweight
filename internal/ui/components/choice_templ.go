@@ -260,7 +260,7 @@ func Segmented(p FieldProps, opts []Option) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, choiceAttrs(p, i, "visually-hidden"))
+				templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, choiceAttrs(p, i, "input-overlay"))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

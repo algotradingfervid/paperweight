@@ -47,7 +47,7 @@ templ uploadForm(p UploadProps, camera bool) {
 					name="file"
 					accept="image/*"
 					capture="environment"
-					class="visually-hidden"
+					class="input-overlay"
 					aria-describedby={ p.ID + "-hint " + p.ID + "-msg" }
 				/>
 			} else {
@@ -57,7 +57,7 @@ templ uploadForm(p UploadProps, camera bool) {
 					type="file"
 					name="file"
 					accept="image/*,application/pdf"
-					class="visually-hidden"
+					class="input-overlay"
 					aria-describedby={ p.ID + "-hint " + p.ID + "-msg" }
 				/>
 			}
