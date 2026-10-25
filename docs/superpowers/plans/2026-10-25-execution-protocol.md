@@ -119,7 +119,7 @@ Questions: work does not stop for the owner. The director sends an open question
 ## 8. Parallelism (paperweight)
 
 - One worktree per WP on `wp/<name>` (spec §9 rule 1). Inside a WP, tasks run in parallel only as the plan's "Execution order and parallelism" table allows; two agents never edit the same file.
-- At most 15 agents run at once across all sessions (CD-121). Go tests use temp SQLite files, so there is no database-slot limit.
+- At most 25 agents run at once across all sessions (CD-121, CD-124). Go tests use temp SQLite files, so there is no database-slot limit.
 - From Wave 1 on, assistant directors (`assistant-director` skill) run groups of WPs in their own sessions, each within its worker budget in `.claude/harness.json` (`assistant_directors`). They commit on their `wp/` branches and send the head director only escalations (DECISION, CONTRACT-CR, OWNER, STUCK, CROSS-WP, MERGE-READY, LEARN). The head director alone merges, edits protected docs and `CLAUDE.md`, and writes CD entries. Gates, milestone merges and lanes follow `2026-10-25-parallel-schedule.md` (CD-123).
 - Merges into main go one at a time, each with a green `make ci`.
 

@@ -18,7 +18,7 @@
     "merge": "make ci",
     "e2e": "make e2e"
   },
-  "max_parallel_agents": 15,
+  "max_parallel_agents": 25,
   "assistant_directors": {
     "head": {
       "workers": 2,
@@ -28,13 +28,13 @@
       "wps": [
         "auth"
       ],
-      "workers": 3
+      "workers": 4
     },
     "AD-2": {
       "wps": [
         "ui"
       ],
-      "workers": 3
+      "workers": 5
     },
     "AD-3": {
       "wps": [
@@ -42,14 +42,14 @@
         "naming",
         "approval"
       ],
-      "workers": 3
+      "workers": 8
     },
     "AD-4": {
       "wps": [
         "doc",
         "files-print"
       ],
-      "workers": 3
+      "workers": 5
     },
     "AD-5": {
       "wps": [

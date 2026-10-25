@@ -41,18 +41,18 @@ Owner request, 25 Oct 2026 (CD-123). Work starts when the packages it needs are 
 
 The longest chains are UI (about 10 steps to UI-M2) and AUTH (about 8 steps), so their ADs get first claim on spare workers.
 
-## 4. Sessions and worker budgets (15 agents)
+## 4. Sessions and worker budgets (25 agents, CD-124)
 
 | Session | Runs | Workers |
 |---|---|---|
 | Head director | milestone and WP merges, CD log, `PROGRESS.md`, escalations | 2 |
-| AD-1 | AUTH | 3 |
-| AD-2 | UI | 3 |
-| AD-3 | NUM, NAM, APR | 3 |
-| AD-4 | DOC, FILE | 3 |
+| AD-1 | AUTH | 4 |
+| AD-2 | UI | 5 |
+| AD-3 | NUM, NAM, APR | 8 |
+| AD-4 | DOC, FILE | 5 |
 | AD-5 | MST (WP2) and early WP3 work, in `../it-masters` on `wp/masters` | 1 |
 
-An AD with idle workers may lend them: it tells the head director (`ESCALATE <AD> - CROSS-WP: lend N`), and the head director gives the slots to the AD on the longest chain. WP3's late tasks (2–6) are run by the head director once AD-5's work and every WP are merged.
+Budgets follow each group's peak width (AUTH 4, UI 5, NUM+NAM+APR 3+3+4 trimmed to 8, DOC+FILE 3+4 trimmed to 5). When the three master groups open, the head director moves 3 slots to AD-5 from whichever AD has finished or is idle. An AD with idle workers may lend them: it tells the head director (`ESCALATE <AD> - CROSS-WP: lend N`), and the head director gives the slots to the AD on the longest chain. WP3's late tasks (2–6) are run by the head director once AD-5's work and every WP are merged.
 
 ## 5. Gotchas
 
