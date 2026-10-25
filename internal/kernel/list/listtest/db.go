@@ -235,8 +235,10 @@ func SeedFixtures(t testing.TB, d *db.DB) IDs {
 }
 
 // Run executes Build and BuildCount and returns the page's ids and the total.
+// A zero q.Page lists page 1.
 func Run(t testing.TB, d *db.DB, dt *doctype.DocType, q list.Query, scope auth.Predicate) (ids []int64, total int) {
 	t.Helper()
+	q.Page = max(q.Page, 1)
 	query, args, err := list.Build(dt, q, scope)
 	if err != nil {
 		t.Fatalf("listtest.Run: Build: %v", err)

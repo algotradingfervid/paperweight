@@ -51,6 +51,29 @@ func BuildCount(dt *doctype.DocType, q Query, scope auth.Predicate) (string, []a
 	return "SELECT COUNT(*) FROM " + dt.Table + where, args, nil
 }
 
+// BuildTotals sums the Money fields over the rows Build would page through,
+// one column per field in order.
+func BuildTotals(dt *doctype.DocType, q Query, scope auth.Predicate, fields []string) (string, []any, error) {
+	if len(fields) == 0 {
+		return "", nil, fmt.Errorf("list: %s totals need at least one field", dt.Name)
+	}
+	sums := make([]string, len(fields))
+	for i, name := range fields {
+		j := slices.IndexFunc(dt.Fields, func(f doctype.Field) bool {
+			return f.Name == name && f.Type == doctype.Money && !f.OnLine
+		})
+		if j < 0 {
+			return "", nil, fmt.Errorf("list: %s.%s is not a header Money field", dt.Name, name)
+		}
+		sums[i] = "COALESCE(SUM(" + column(dt, dt.Fields[j]) + "), 0)"
+	}
+	where, args, err := whereClause(dt, q, scope)
+	if err != nil {
+		return "", nil, err
+	}
+	return "SELECT " + strings.Join(sums, ", ") + " FROM " + dt.Table + where, args, nil
+}
+
 // column is the qualified SQL column of f; the table is never aliased (CD-16).
 func column(dt *doctype.DocType, f doctype.Field) string {
 	c := f.Column
@@ -110,7 +133,7 @@ func allowedOps(t doctype.FieldType) ([]Op, string) {
 }
 
 func filterCond(dt *doctype.DocType, f Filter) (string, []any, error) {
-	i := slices.IndexFunc(dt.Fields, func(fd doctype.Field) bool { return fd.Name == f.Field && fd.Filterable })
+	i := slices.IndexFunc(dt.Fields, func(fd doctype.Field) bool { return fd.Name == f.Field && fd.Filterable && !fd.OnLine })
 	if i < 0 {
 		return "", nil, badQuery(fmt.Sprintf("You can't filter %s by '%s'.", dt.PluralLabel, f.Field))
 	}

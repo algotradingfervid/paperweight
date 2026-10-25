@@ -33,7 +33,8 @@ func filter(field string, op list.Op, values ...string) list.Filter {
 	return list.Filter{Field: field, Op: op, Values: values}
 }
 
-func query(fs ...list.Filter) list.Query { return list.Query{Filters: fs} }
+// query is a page-1 query with filters fs.
+func query(fs ...list.Filter) list.Query { return list.Query{Filters: fs, Page: 1} }
 
 // sameIDs compares id sets ignoring order.
 func sameIDs(t *testing.T, what string, got []int64, want ...int64) {
@@ -96,7 +97,7 @@ func TestList_FilterEquals(t *testing.T) { // NUM-100
 	}
 
 	// Unfiltered: unnumbered rows display as "Draft <id>" (CD-59).
-	q, args, err := list.Build(listtest.PO(), list.Query{}, noScope)
+	q, args, err := list.Build(listtest.PO(), list.Query{Page: 1}, noScope)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +347,7 @@ func TestList_NoSQLInjection(t *testing.T) { // NUM-110
 
 func TestList_BuildQualifiesWithTableName(t *testing.T) { // CD-16 (no case ID)
 	scope := auth.Predicate{SQL: "numt_po.project_id = ?", Args: []any{7}}
-	q, args, err := list.Build(listtest.PO(), list.Query{}, scope)
+	q, args, err := list.Build(listtest.PO(), list.Query{Page: 1}, scope)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,7 +376,7 @@ func TestList_BuildQualifiesWithTableName(t *testing.T) { // CD-16 (no case ID)
 		t.Errorf("BuildCount args = %v, want to end with 7", cargs)
 	}
 
-	q, _, err = list.Build(listtest.PO(), list.Query{}, auth.Predicate{})
+	q, _, err = list.Build(listtest.PO(), list.Query{Page: 1}, auth.Predicate{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,5 +392,42 @@ func TestList_ColumnsByPriority(t *testing.T) { // CD-42 (supporting, no case ID
 	}
 	if want := []string{"number", "grand_total", "status", "date", "party_name"}; !slices.Equal(names, want) {
 		t.Errorf("Columns(PO) = %v, want %v", names, want)
+	}
+}
+
+func TestList_RejectLineFields(t *testing.T) { // Task 8 review (supporting, no case ID)
+	dt := *listtest.PO()
+	dt.Fields = append(slices.Clone(dt.Fields), doctype.Field{
+		Name: "item", Label: "Item", Type: doctype.Text, Filterable: true, Sortable: true, OnLine: true,
+	})
+	dt.SearchFields = append(slices.Clone(dt.SearchFields), "item")
+	wantQueryError(t, &dt, query(filter("item", list.OpEq, "x")), "You can't filter Purchase Orders by 'item'.")
+	q, _, err := list.Build(&dt, list.Query{Search: "x", Page: 1}, noScope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(q, "numt_po.item") {
+		t.Errorf("search reached the line field: %q", q)
+	}
+}
+
+func TestList_RejectBadIDAndCheckValues(t *testing.T) { // Task 8 review (supporting, no case ID)
+	wantQueryError(t, listtest.PO(), query(filter("project_id", list.OpEq, "abc")), "Choose a value for Project.")
+	wantQueryError(t, listtest.Party(), query(filter("disabled", list.OpEq, "2")), "Choose a value for Disabled.")
+}
+
+func TestList_BuildTotalsProgrammerErrors(t *testing.T) { // Task 9 review (supporting, no case ID)
+	for what, fields := range map[string][]string{
+		"no fields":       nil,
+		"non-Money field": {"party_name"},
+	} {
+		q, _, err := list.BuildTotals(listtest.PO(), list.Query{}, noScope, fields)
+		if err == nil {
+			t.Errorf("%s: nil error, query %q", what, q)
+			continue
+		}
+		if errors.Is(err, list.ErrBadQuery) {
+			t.Errorf("%s: %v is a user-facing QueryError, want a plain error", what, err)
+		}
 	}
 }

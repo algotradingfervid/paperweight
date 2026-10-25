@@ -17,7 +17,7 @@ func searchCond(dt *doctype.DocType, search string) (string, []any) {
 	var conds []string
 	var args []any
 	for _, name := range dt.SearchFields {
-		i := slices.IndexFunc(dt.Fields, func(f doctype.Field) bool { return f.Name == name })
+		i := slices.IndexFunc(dt.Fields, func(f doctype.Field) bool { return f.Name == name && !f.OnLine })
 		if i < 0 {
 			continue
 		}
