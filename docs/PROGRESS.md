@@ -62,6 +62,20 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | 2 Password hashing and policy | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:50 | 2 | 0/2/3 (bounded strict PHC parsing; all fixed) | ef71d3a tests, 2d7795f |
 | WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
 
+## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
+
+Nothing in flight; every worktree is clean. Next step per WP:
+
+| WP | AD | Last committed | Next |
+|---|---|---|---|
+| AUTH | AD-1 | Task 2 (2d7795f); Tasks 1–4 done | Task 5 (Service: Can, UsersWithRight, …). Not rebased since the NUM merge; rebase first. Lint base `fe349d6~1`. |
+| UI | AD-2 | Task 3 (f99ad58); Tasks 1–3 done | Task 4 (contrast). Light-tier batched review of Tasks 1–3 still owed. Not rebased since the NUM merge. |
+| NUM | AD-3 | Tasks 1–5, merged to main (a9cb2f1) | Task 6 (gstcalc; removes its CD-111 stub row). |
+| NAM | AD-3 | Task 7 (2390fe7) | Task 8 (concurrent approvals, preview). |
+| APR | AD-3 | Task 1; Task 2 tests at cbe1141 | Task 2 implementer. Tests use `doctype.StatePending` (plan says `StatePendingApproval`); Anil's fixture email is `admin@vardhan.test`, not `anil@`. |
+| DOC | AD-4 | Task 5 / Task 4 (70898c8); Task 6 tests at e5de141 | Task 6 implementer: delete `fyShort`, add `doc.NumberFuncs` + `fixturetest.Numbers()/RefNumbers()` (CD-119), `fixture.go`/`receipt.go` per CD-118 (also commit them), go-cmp optional (CD-110). |
+| FILE | AD-4 | Task 4 (68a9150); Task 5 tests at 12de7f6 | Task 5 implementer (FILE-029 then green); print track Tasks 10 ∥ 11 ready. |
+
 ## Wave 1 carry-overs (put in the named task's brief)
 
 - APR Tasks 2+: wait for NUM Tasks 1–5 on main (CD-53), then rebase wp/approval.
