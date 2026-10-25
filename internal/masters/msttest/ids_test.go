@@ -58,6 +58,11 @@ func TestMasters_IDsNeverReused(t *testing.T) {
 			t.Fatalf("WP2 tables = %v, want %s among them", wp2, want)
 		}
 	}
+	for table := range rowOverrides {
+		if !slices.Contains(wp2, table) {
+			t.Errorf("rowOverrides names %s, which is not a WP2 table", table)
+		}
+	}
 
 	for _, table := range wp2 {
 		t.Run(table, func(t *testing.T) {
@@ -263,10 +268,23 @@ func checkNoReuse(ctx context.Context, d *db.DB, table string) error {
 	return nil
 }
 
-// insertGenericRow inserts a row giving a value only to NOT NULL columns
-// without a default (other than id): a parent's key for a foreign key (a
-// generic parent row is inserted when the parent is empty), otherwise a
-// unique value of the column's type. It returns the new row's id.
+// rowOverrides are column values a generic row can't guess, for CHECK
+// constraints that span columns or need a value other than a fresh positive
+// one. Each entry names the constraint it satisfies. An override is always
+// set, even on a column with a default; one naming a column the table lacks
+// fails the test, so a stale entry can't hide.
+var rowOverrides = map[string]map[string]any{
+	"party": {"is_vendor": int64(1)}, // CHECK (is_vendor = 1 OR is_customer = 1)
+}
+
+// insertGenericRow inserts a row giving a value to the table's rowOverrides
+// columns and to NOT NULL columns without a default (other than id): a
+// parent's key for a foreign key (a generic parent row is inserted when the
+// parent is empty), otherwise a value of the column's type that is fresh for
+// every column of every row (a positive integer, so CHECKs such as > 0 hold
+// and UNIQUE columns and composites never collide). Any constraint it still
+// breaks fails the insert loudly; the fix is a rowOverrides entry, never a
+// skip. It returns the new row's id.
 func insertGenericRow(ctx context.Context, q db.DBTX, table string, seq *int, depth int) (int64, error) {
 	if depth > 3 {
 		return 0, errors.New("foreign keys nest too deep for a generic row")
@@ -279,14 +297,23 @@ func insertGenericRow(ctx context.Context, q db.DBTX, table string, seq *int, de
 	if err != nil {
 		return 0, err
 	}
+	overrides := rowOverrides[table]
+	for name := range overrides {
+		if !slices.ContainsFunc(cols, func(c column) bool { return c.name == name }) {
+			return 0, fmt.Errorf("rowOverrides[%q] names column %s, which the table doesn't have", table, name)
+		}
+	}
 	var names, marks []string
 	var args []any
 	for _, c := range cols {
-		if c.name == "id" || !c.notNull || c.hasDflt {
+		ov, hasOv := overrides[c.name]
+		if c.name == "id" || (!hasOv && (!c.notNull || c.hasDflt)) {
 			continue
 		}
 		var v any
-		if fk, ok := fks[c.name]; ok {
+		if hasOv {
+			v = ov
+		} else if fk, ok := fks[c.name]; ok {
 			v, err = parentKey(ctx, q, fk, seq, depth)
 			if err != nil {
 				return 0, fmt.Errorf("column %s: parent %s: %w", c.name, fk.table, err)
@@ -314,9 +341,9 @@ func genericValue(typ string, n int) any {
 	t := strings.ToUpper(typ)
 	switch {
 	case strings.Contains(t, "INT"):
-		return int64(1)
+		return int64(n)
 	case strings.Contains(t, "REAL"), strings.Contains(t, "FLOA"), strings.Contains(t, "DOUB"):
-		return 1.0
+		return float64(n)
 	case strings.Contains(t, "BLOB"):
 		return []byte{byte(n)}
 	default:
