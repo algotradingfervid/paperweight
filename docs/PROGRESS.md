@@ -178,6 +178,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | APR done (P1 71/71) 8102873; `make ci` green; 12b and 18 follow | — | director | | 19:05 | — | — | — |
 | WP1-NAM | 16 Cross-package P2 vs real DOC and FILE (+ harness amend carry-over) | High | crew-implementer (test-only), crew-reviewer | 17:45 | 17:52 | 1 | 0/0/4 (NAM-047 text → CD-155) | cf8828a |
 | Merges | NAM Task 16 e2dd7d5; `make ci` green | — | director | | 19:20 | — | — | — |
+| WP1-AUTH | CD-156 ids never reused | High | crew-implementer, crew-reviewer | | | 1 | 0/0/0 | 2faefcc |
+| Merges | AUTH CD-156 5aecfe2; `make ci` green | — | director | | 19:35 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
@@ -221,6 +223,7 @@ Nothing in flight; every worktree is clean. Next step per WP:
 - WP3 (from FILE): mount files/web under a prefix (its NotFound says "File not found."); run `files check` when idle (in-flight uploads look like orphans); CopyAll order is untested; the `signedOut` helper is duplicated in files/web and print/web.
 - NUM follow-ups (it-num/.work/carry-over.md): IGST tolerance-message test; inter-state CGST message wording; NUM-076 tzdata check.
 - APR carry-overs: it-approval/.work/carry-over.md (read before WP3 Task 1's APR suite).
+- WP3 Task 2: set `authweb.Config.Seed` to `auth.SeedOptions{LinkedMasterRead: true}` (CD-158, CD-10).
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
