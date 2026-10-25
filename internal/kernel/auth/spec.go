@@ -39,7 +39,7 @@ func ScopeOptions(dt *doctype.DocType) []Scope {
 }
 
 // ownerColumn is the column own scope compares with the user (§4.3).
-func ownerColumn(dt *doctype.DocType) string { //nolint:unused // used by Can and Scope (Tasks 5, 6)
+func ownerColumn(dt *doctype.DocType) string {
 	if dt.OwnerField != "" {
 		return dt.OwnerField
 	}

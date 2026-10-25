@@ -115,6 +115,9 @@ func TestRights_AdminAll(t *testing.T) {
 			if err := w.Auth.Can(ctx, admin, dt.Name, r, nil); err != nil {
 				t.Errorf("admin Can(%s, %s, nil) = %v, want nil", dt.Name, r, err)
 			}
+			if pred, err := w.Auth.Scope(ctx, admin, dt.Name, r); err != nil || pred.SQL != "" || len(pred.Args) != 0 {
+				t.Errorf("admin Scope(%s, %s) = ({SQL %q, Args %v}, %v), want empty Predicate and nil", dt.Name, r, pred.SQL, pred.Args, err)
+			}
 		}
 	}
 	if checked == 0 || w.Sites["TECH-SITE"] == 0 || w.Projects["PRJ-TECHPARK"] == 0 {

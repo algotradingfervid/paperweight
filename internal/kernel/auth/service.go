@@ -39,7 +39,6 @@ func (a *Auth) LoadPrincipal(ctx context.Context, u UserID) (Principal, UserStat
 		if err != nil {
 			return err
 		}
-		slices.Sort(roles)
 		p = Principal{ID: u, Name: row.Name, Roles: roles}
 		st = UserState{Email: row.Email, Enabled: row.Enabled != 0, MustChangePassword: row.MustChangePassword != 0}
 		return nil
@@ -132,16 +131,12 @@ func (a *Auth) Can(ctx context.Context, p Principal, doctypeName string, r Right
 	if err := a.db.Read(ctx, func(tx *db.Tx) error {
 		isOwn = rec.CreatedBy == p.ID
 		if dt.EmployeeField != "" && rec.EmployeeID != 0 {
-			me, found, err := a.dir.EmployeeForUser(ctx, tx, p.ID)
+			me, reports, found, err := a.employee(ctx, tx, p.ID)
 			if err != nil {
 				return err
 			}
 			if found {
 				isOwn = isOwn || rec.EmployeeID == me
-				reports, err := a.dir.DirectReports(ctx, tx, me)
-				if err != nil {
-					return err
-				}
 				isTeam = slices.Contains(reports, rec.EmployeeID)
 			}
 		}
@@ -179,11 +174,26 @@ func (a *Auth) Can(ctx context.Context, p Principal, doctypeName string, r Right
 	return nil
 }
 
+// employee returns u's employee and that employee's active direct reports,
+// read from the Directory on every call (never cached); found is false when u
+// has no employee.
+func (a *Auth) employee(ctx context.Context, tx *db.Tx, u UserID) (me int64, reports []int64, found bool, err error) {
+	me, found, err = a.dir.EmployeeForUser(ctx, tx, u)
+	if err != nil || !found {
+		return 0, nil, false, err
+	}
+	reports, err = a.dir.DirectReports(ctx, tx, me)
+	if err != nil {
+		return 0, nil, false, err
+	}
+	return me, reports, true, nil
+}
+
 // recordAllowed applies the restrictions strictly: on each restricted
 // dimension dt declares, rec needs at least one value and every value allowed.
 func recordAllowed(dt *doctype.DocType, rec *RecordRef, allowed map[Dimension][]int64) bool {
 	for _, d := range []Dimension{DimProject, DimSite} {
-		ok, restricted := allowed[d]
+		allowedIDs, restricted := allowed[d]
 		if !restricted || len(dimFields(dt, d)) == 0 {
 			continue
 		}
@@ -195,7 +205,7 @@ func recordAllowed(dt *doctype.DocType, rec *RecordRef, allowed map[Dimension][]
 			return false
 		}
 		for _, id := range ids {
-			if !slices.Contains(ok, id) {
+			if !slices.Contains(allowedIDs, id) {
 				return false
 			}
 		}
@@ -216,6 +226,9 @@ func (a *Auth) UsersWithRight(ctx context.Context, doctypeName string, r Right, 
 	var out []UserID
 	for _, id := range ids {
 		p, _, err := a.LoadPrincipal(ctx, UserID(id))
+		if errors.Is(err, ErrNotFound) {
+			continue // deleted since the list was read
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -244,14 +257,14 @@ func (a *Auth) CheckValues(ctx context.Context, p Principal, doctypeName string,
 			return err
 		}
 		for _, d := range []Dimension{DimProject, DimSite} {
-			ok, restricted := allowed[d]
+			allowedIDs, restricted := allowed[d]
 			if !restricted {
 				continue
 			}
 			for _, f := range dimFields(dt, d) {
 				for _, v := range values[f] {
-					if !slices.Contains(ok, v) {
-						return a.valueError(ctx, tx, d, ok)
+					if !slices.Contains(allowedIDs, v) {
+						return a.valueError(ctx, tx, d, allowedIDs)
 					}
 				}
 			}
@@ -318,11 +331,6 @@ func (a *Auth) ReadableDocTypes(ctx context.Context, p Principal) ([]string, err
 		}
 	}
 	return out, nil
-}
-
-// Scope is built in Task 6.
-func (a *Auth) Scope(ctx context.Context, p Principal, doctypeName string, r Right) (Predicate, error) {
-	return Predicate{}, errs.ErrNotImplemented
 }
 
 // --- BEGIN Task 7 stubs: delete on merge with Task 7's users.go ---
