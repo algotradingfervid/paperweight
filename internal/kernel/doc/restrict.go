@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -102,4 +103,61 @@ func parentOf(ctx context.Context, tx *db.Tx, target string, id int64) (int64, b
 		return 0, false, fmt.Errorf("doc: read %s %d: %w", t.LinesTable, id, err)
 	}
 	return parent, true, nil
+}
+
+// restrictedRequired returns the Required errors a draft save keeps (CD-178):
+// an empty Required field in ProjectFields or SiteFields when p is restricted
+// on that dimension, since the draft would hide from p (auth.recordAllowed).
+// p is restricted on column c when Auth.CheckValues refuses id 0, which no
+// record has, as outside p's allowed values.
+func (e *engine) restrictedRequired(ctx context.Context, p auth.Principal, dt *DocType, n *normalized) ([]FieldError, error) {
+	restricted := map[string]bool{}
+	isRestricted := func(c string) (bool, error) {
+		if r, ok := restricted[c]; ok {
+			return r, nil
+		}
+		err := e.Auth.CheckValues(ctx, p, dt.Name, map[string][]int64{c: {0}})
+		var ve *auth.ValueError
+		if err != nil && !errors.As(err, &ve) {
+			return false, err
+		}
+		restricted[c] = err != nil
+		return err != nil, nil
+	}
+	var errs []FieldError
+	check := func(vals Values, unread map[string]bool, line int, onLine bool) error {
+		for _, f := range dt.Fields {
+			c := f.Column
+			if onLine {
+				c = "lines." + c
+			}
+			if !f.Required || !userField(f, onLine) || unread[f.Name] || !isEmpty(vals[f.Name]) ||
+				!slices.Contains(slices.Concat(dt.ProjectFields, dt.SiteFields), c) {
+				continue
+			}
+			r, err := isRestricted(c)
+			if err != nil {
+				return err
+			}
+			if r {
+				errs = append(errs, fieldErr(f, line, msgRequired))
+			}
+		}
+		return nil
+	}
+	if err := check(n.Header, n.unread, 0, false); err != nil {
+		return nil, err
+	}
+	for i, l := range n.Lines {
+		if err := check(l.Values, l.unread, i+1, true); err != nil {
+			return nil, err
+		}
+	}
+	return errs, nil
+}
+
+// isEmpty reports whether v is nil or blank text.
+func isEmpty(v any) bool {
+	s, isText := v.(string)
+	return v == nil || (isText && strings.TrimSpace(s) == "")
 }

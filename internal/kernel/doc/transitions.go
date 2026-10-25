@@ -16,8 +16,8 @@ import (
 // The approval transitions (Task 9).
 
 // revalidate checks the stored d before it leaves draft or is approved: the
-// core field checks with at least one line, the source documents, then
-// Hooks.Validate. Every error becomes one KindInvalid error.
+// core field checks with Required and at least one line (CD-178), the source
+// documents, then Hooks.Validate. Every error becomes one KindInvalid error.
 func (e *engine) revalidate(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) ([]string, error) {
 	n := normalized{Header: d.Header, links: map[linkKey]doctype.MasterInfo{}}
 	for i, l := range d.Lines {

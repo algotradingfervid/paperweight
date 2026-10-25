@@ -79,16 +79,18 @@ func checkReadOnly(dt *DocType, in ActionInput, current *Doc) []FieldError {
 // checkFields collects every field error of n (D-DOC-20), in field order and
 // then line order, at most one per field: required, NonNegative, Positive,
 // Min/Max, MaxLen, Select options, then the master lookup of a Link (CD-21).
+// submit adds Required and at least one line; a draft save skips them (R8,
+// CD-178).
 // Fields normalize couldn't read already have their error and are skipped.
 // Master warnings are returned once per distinct text (CD-68). A lookup error
 // stops further lookups and is left in n.err.
-func checkFields(ctx context.Context, tx *db.Tx, dt *DocType, n *normalized, requireLines bool, masters masterResolver) (errs []FieldError, warnings []string) {
+func checkFields(ctx context.Context, tx *db.Tx, dt *DocType, n *normalized, submit bool, masters masterResolver) (errs []FieldError, warnings []string) {
 	check := func(vals Values, unread map[string]bool, line int, onLine bool) {
 		for _, f := range dt.Fields {
 			if !userField(f, onLine) || unread[f.Name] {
 				continue
 			}
-			if e, w, bad := checkField(ctx, tx, f, vals[f.Name], line, n, masters); bad {
+			if e, w, bad := checkField(ctx, tx, f, vals[f.Name], line, submit, n, masters); bad {
 				errs = append(errs, e)
 			} else if w != "" && !slices.Contains(warnings, w) {
 				warnings = append(warnings, w)
@@ -97,7 +99,7 @@ func checkFields(ctx context.Context, tx *db.Tx, dt *DocType, n *normalized, req
 	}
 	check(n.Header, n.unread, 0, false)
 	switch {
-	case len(n.Lines) == 0 && requireLines:
+	case len(n.Lines) == 0 && submit:
 		errs = append(errs, FieldError{Field: "lines", Message: msgNoLines})
 	case len(n.Lines) > maxLines:
 		errs = append(errs, FieldError{Field: "lines", Message: msgTooManyLines})
@@ -109,9 +111,10 @@ func checkFields(ctx context.Context, tx *db.Tx, dt *DocType, n *normalized, req
 }
 
 // checkField returns the first error of value v of f, or a master warning.
-func checkField(ctx context.Context, tx *db.Tx, f Field, v any, line int, n *normalized, masters masterResolver) (FieldError, string, bool) {
+// An empty Required value is an error only on submit.
+func checkField(ctx context.Context, tx *db.Tx, f Field, v any, line int, submit bool, n *normalized, masters masterResolver) (FieldError, string, bool) {
 	if s, isText := v.(string); v == nil || (isText && strings.TrimSpace(s) == "") {
-		if f.Required && f.Type != Check {
+		if submit && f.Required && f.Type != Check {
 			return fieldErr(f, line, msgRequired), "", true
 		}
 		if v == nil {
