@@ -737,7 +737,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-099 · Saving a document with a disallowed value is rejected
 - **Priority:** P1
 - **Level:** integration
-- **Given** Suresh restricted to `PUNE-WH` and `METRO-SITE` **When** Suresh POSTs a new GRN with Site `TECH-SITE`, made up in the request **Then** 403 "You can only use Sites PUNE-WH, METRO-SITE. Choose one of your allowed sites." and nothing is saved.
+- **Given** Suresh restricted to `PUNE-WH` and `METRO-SITE` **When** Suresh POSTs a new GRN with Site `TECH-SITE`, made up in the request **Then** 403 "You can only use Sites METRO-SITE, PUNE-WH. Choose one of your allowed sites." and nothing is saved.
 - **Go test:** `TestRestriction_SaveDisallowedValue`
 - **Sources:** `frappe/frappe/tests/test_permissions.py:413` (`test_insert_if_owner_with_user_permissions`: insert refused, then allowed after the permission is added), `frappe/frappe/tests/test_permissions.py:455` (`test_ignore_user_permissions_if_missing`)
 
