@@ -5,11 +5,7 @@ import (
 	"context"
 
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
-	"github.com/vardhan/internaltools/internal/types"
 )
-
-func InWordsINR(m types.Money) (string, error) { return "", errs.ErrNotImplemented }
 
 type LetterheadInfo struct { // CD-58
 	LegalName, LogoURL, BranchName string
