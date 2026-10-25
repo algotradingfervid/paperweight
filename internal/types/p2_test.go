@@ -68,6 +68,16 @@ func TestDate_DueDateRules(t *testing.T) { // NUM-084
 			t.Errorf("%s: DueDate(%v, %+v) = %v, want %v", c.name, bill, c.rule, got, c.want)
 		}
 	}
+	// Months with FromMonthEnd: Months after the bill, then that month's end (ERPNext).
+	for _, c := range []struct{ bill, want Date }{
+		{fyDate(2026, time.February, 15), fyDate(2026, time.March, 31)},
+		{fyDate(2026, time.April, 10), fyDate(2026, time.May, 31)},
+	} {
+		r := TermRule{Months: 1, FromMonthEnd: true}
+		if got := DueDate(c.bill, r); got != c.want {
+			t.Errorf("DueDate(%v, %+v) = %v, want %v", c.bill, r, got, c.want)
+		}
+	}
 
 	wantMsg(t, ValidateDueDate(bill, fyDate(2026, time.January, 14)), "Due date can't be before the bill date.")
 	for _, due := range []Date{bill, fyDate(2026, time.February, 14)} {

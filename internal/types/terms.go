@@ -5,20 +5,24 @@ import (
 	"time"
 )
 
-// TermRule is a payment term: Months then Days after the bill date, or
-// after the end of the bill's month when FromMonthEnd.
+// TermRule is a payment term: Months then Days after the bill date; with
+// FromMonthEnd the Days count from the end of the month Months brings.
 type TermRule struct {
 	Days, Months int
 	FromMonthEnd bool
 }
 
-// DueDate applies r to the bill date.
+// DueDate applies r to the bill date: AddMonths(bill, Months), moved to
+// that month's last day when FromMonthEnd, then AddDays(Days). Taking the
+// month end after adding months follows ERPNext
+// (erpnext/accounts/party.py: get_last_day(add_months(due_date, credit_months))),
+// so 15 Feb + 1 month from month end is 31 Mar, not 28 Mar.
 func DueDate(bill Date, r TermRule) Date {
-	base := bill
+	due := AddMonths(bill, r.Months)
 	if r.FromMonthEnd {
-		base = LastDayOfMonth(bill)
+		due = LastDayOfMonth(due)
 	}
-	return AddDays(AddMonths(base, r.Months), r.Days)
+	return AddDays(due, r.Days)
 }
 
 // ValidateDueDate refuses a due date before the bill date.
