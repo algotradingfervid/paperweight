@@ -58,6 +58,7 @@ const (
 	p2lChild = "p2l.Child"
 )
 
+// p2l.Head and p2l.Child are registered for the whole doc test binary, but their tables exist only inside TestDoc_Link_HeaderLevel; a test that queries every registered table would need them.
 var _ = func() bool {
 	doc.Register(doc.DocType{
 		Name: p2lHead, Label: "Head document", PluralLabel: "Head documents",
@@ -501,8 +502,8 @@ func TestDoc_Amend_AuditBothSides(t *testing.T) {
 	if m.Action != "amended" || m.By != h.Ravi.ID || !m.At.Equal(at) {
 		t.Errorf("A's new row %q By %d At %v; want amended, %d, %v", m.Action, m.By, m.At, h.Ravi.ID, at)
 	}
-	if m.From != m.To {
-		t.Errorf("amended row %q -> %q, want no state change", m.From, m.To)
+	if m.From != "" || m.To != "" {
+		t.Errorf("amended row %q -> %q, want both empty (no state change)", m.From, m.To)
 	}
 	fixturetest.Eq(t, m.Changes, []audit.Change{{Field: "amended_to", Before: "", After: strconv.FormatInt(res.ID, 10), Op: "set"}})
 	trState(t, h, fixture.Order, a.ID, doc.StateCancelled, a.Version)
@@ -536,7 +537,7 @@ func TestDoc_Tx_BusyTimeout(t *testing.T) {
 	in := h.In(d)
 	in.Values["remarks"] = "Saved while another user writes"
 
-	wait := p2lHoldWrite(t, holder, 400*time.Millisecond)
+	wait := p2lHoldWrite(t, holder, time.Second)
 	_, err := e2.Do(t.Context(), h.Priya, fixture.Order, d.ID, doc.ActionSave, in)
 	wait()
 	fixturetest.ErrIs(t, err, doc.KindBusy, p2lBusyText)
@@ -584,15 +585,30 @@ func TestDoc_Hooks_ShareTx(t *testing.T) {
 	if !slices.Contains(probe.Hooks(), "ApplyEffects") {
 		t.Fatalf("hooks = %q, want ApplyEffects to have run (and written its row)", probe.Hooks())
 	}
-	var rows int
-	if err := h.DB.SQL().QueryRowContext(t.Context(),
-		`SELECT COUNT(*) FROM fixture_effect_log WHERE receipt_id = ?`, r.ID).Scan(&rows); err != nil {
-		t.Fatalf("count fixture_effect_log: %v", err)
+	effectRows := func(id int64) int {
+		t.Helper()
+		var rows int
+		if err := h.DB.SQL().QueryRowContext(t.Context(),
+			`SELECT COUNT(*) FROM fixture_effect_log WHERE receipt_id = ?`, id).Scan(&rows); err != nil {
+			t.Fatalf("count fixture_effect_log: %v", err)
+		}
+		return rows
 	}
-	if rows != 0 {
+	if rows := effectRows(r.ID); rows != 0 {
 		t.Errorf("fixture_effect_log rows for the receipt = %d, want 0 (rolled back with the action)", rows)
 	}
 	ruUnchanged(t, h, fixture.Receipt, r.ID, doc.StatePending, r.Version)
+
+	// Control: without the fault, the same approve leaves ApplyEffects' row.
+	h.Approvals.Fail = nil
+	r2 := ruSubmit(t, h, fixturetest.RL{OrderLineID: ol[0], Qty: "3"})
+	if r2.State != doc.StatePending {
+		t.Fatalf("setup: control receipt State = %q, want pending_approval", r2.State)
+	}
+	h.MustDo(t, t.Context(), h.Ravi, fixture.Receipt, r2.ID, doc.ActionApprove, trIn(r2.Version))
+	if rows := effectRows(r2.ID); rows == 0 {
+		t.Errorf("fixture_effect_log rows for the control receipt = 0, want ApplyEffects' row")
+	}
 
 	// The Tx hooks get, and the DBTX its SQL() returns (CD-06), can't end the transaction.
 	txType, dbtxType := reflect.TypeFor[*db.Tx](), reflect.TypeFor[db.DBTX]()
