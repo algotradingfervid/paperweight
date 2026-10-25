@@ -25,7 +25,6 @@ type DocView struct {
 	Lines          []LineView
 	GrandTotal     string
 	InWords        string
-	TaxableTotal   string // the DocType's roll-up header field, shown under the lines
 	PrintURL       string // Print's URL from Deps.PrintURL
 	Approval       ApprovalView
 	ApproveBlocked string
@@ -117,9 +116,6 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 			return DocView{}, err
 		}
 		v.Header = append(v.Header, components.Pair{Label: f.Label, Value: shown, Num: numeric(f)})
-		if rollUpTarget(dt, f.Name) {
-			v.TaxableTotal = shown
-		}
 		if v.Inputs[f.Name], err = inputValue(f, plain); err != nil {
 			return DocView{}, err
 		}
@@ -244,15 +240,4 @@ func inputValue(f doctype.Field, plain string) (string, error) {
 		return types.FormatDate(dt), err
 	}
 	return plain, nil
-}
-
-// rollUpTarget reports whether header field name is one of dt's own
-// roll-up targets.
-func rollUpTarget(dt *doctype.DocType, name string) bool {
-	for _, ru := range dt.RollUps {
-		if ru.TargetDocType == dt.Name && ru.TargetField == name {
-			return true
-		}
-	}
-	return false
 }

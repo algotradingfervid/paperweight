@@ -21,7 +21,8 @@ templ docMain(pv pageView) {
 }
 
 // docBanners sit above the h1: a rejected document's reason first, then a
-// refused action's message, then an htmx action's success.
+// refused action's message, then an action's success and, after an approve,
+// the "Next request" link straight under it.
 templ docBanners(pv pageView) {
 	if pv.V.Info.State == doctype.StateRejected && pv.V.Origin.StateReason != "" {
 		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.V.Origin.StateReason})
@@ -33,6 +34,11 @@ templ docBanners(pv pageView) {
 	if pv.Success != "" {
 		@components.Banner(components.BannerProps{Kind: components.Success, Message: pv.Success})
 	}
+	if pv.Next != "" {
+		// A space keeps the banner's text and the link's apart in the page text.
+		{ " " }
+		<p><a href={ templ.SafeURL(pv.Next) }>Next request</a></p>
+	}
 }
 
 // docBody follows the phone order of design-system §8.4; from 80rem the
@@ -41,9 +47,6 @@ templ docBanners(pv pageView) {
 templ docBody(pv pageView) {
 	<div class="doc-layout">
 		<div class="doc-main">
-			if pv.Next != "" {
-				<p><a href={ templ.SafeURL(pv.Next) }>Next request</a></p>
-			}
 			if pv.V.Info.Party != "" {
 				<p>{ pv.V.Info.Party }</p>
 			}
@@ -67,7 +70,7 @@ templ docBody(pv pageView) {
 			}
 			if len(pv.V.Lines) > 0 {
 				@components.Card("Lines", nil) {
-					@components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines), TaxableTotal: pv.V.TaxableTotal})
+					@components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines)})
 				}
 			}
 			if len(pv.V.History) > 0 {

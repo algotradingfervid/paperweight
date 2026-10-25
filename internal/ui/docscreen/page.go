@@ -25,8 +25,9 @@ var directActions = map[string]doctype.Action{
 	"amend":    doctype.ActionAmend,
 }
 
-// badVersionText answers a POST without a usable version.
-const badVersionText = "This page is out of date. Reload it and try again."
+// badVersionText answers a POST without a usable version (CD-146's
+// errBadForm wording, CD-148).
+const badVersionText = "The form could not be read. Reload the page and try again."
 
 // pageView is everything the document page renders.
 type pageView struct {
@@ -37,7 +38,7 @@ type pageView struct {
 	Forms   []actionForm
 	Danger  string // a refused action's message, unchanged
 	Errors  []components.FieldErr
-	Success string // an htmx action's banner (a 303 uses the flash)
+	Success string // an htmx action's banner, or the flash's beside "Next request" (a 303 uses the flash)
 	Next    string // "Next request" link after an approve
 }
 
@@ -78,8 +79,24 @@ func (d Deps) page(w http.ResponseWriter, r *http.Request) {
 	pv := d.pageViewOf(r.Context(), p, dt, v)
 	if r.URL.Query().Get("next") == "1" {
 		pv.Next = d.InboxURL
+		pv.Success = takeSuccess(r.Context())
 	}
 	ui.Render(w, r, http.StatusOK, docPage(pv), docMain(pv))
+}
+
+// takeSuccess takes the flash's first success notice, so the page shows it
+// with the "Next request" link straight under it; the other notices go back
+// for the layout.
+func takeSuccess(ctx context.Context) string {
+	var text string
+	for _, n := range web.TakeFlash(ctx) {
+		if n.Level == "success" && text == "" {
+			text = n.Text
+			continue
+		}
+		web.Flash(ctx, n.Level, n.Text)
+	}
+	return text
 }
 
 func (d Deps) pageViewOf(ctx context.Context, p auth.Principal, dt *doctype.DocType, v DocView) pageView {
