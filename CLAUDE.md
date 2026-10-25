@@ -35,6 +35,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Every package's `sqlc.yaml` reads the shared `migrations/`, so its `dbq/models.go` changes when any WP adds a migration. After rebasing onto main, run `make generate` and commit the regenerated `dbq/` before `make ci`.
 - Test-writers can't lint before code exists. Lint-only fixes to committed test files (errcheck, an unused helper's `//nolint`) are made by the director as their own commit; never an assertion change.
 - Plan text was never compiled: before relying on an identifier a plan names, check it against the frozen §5 names (`go doc`). DOC Task 1 hit two such clashes (CD-107 `Check`, and a fixture missing `OnLine`).
+- Tailwind scans every `.go` and `.templ` file under `internal/ui` (tests too): any change there changes the hashed CSS, so run `make generate` before the hand-in or `TestAssets_UpToDate` fails. The Tailwind binary takes ~5 s to start.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
