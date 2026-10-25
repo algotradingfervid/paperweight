@@ -88,17 +88,3 @@ type Directory interface { // CD-13: implemented by MST, wired by internal/app
 	ProjectCodes(ctx context.Context, tx *db.Tx, ids []int64) (map[int64]string, error)
 	SiteCodes(ctx context.Context, tx *db.Tx, ids []int64) (map[int64]string, error)
 }
-
-// Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-type principalKey struct{}
-
-// Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-func WithPrincipal(ctx context.Context, p Principal) context.Context {
-	return context.WithValue(ctx, principalKey{}, p)
-}
-
-// Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-func PrincipalFrom(ctx context.Context) (Principal, bool) {
-	p, ok := ctx.Value(principalKey{}).(Principal)
-	return p, ok
-}
