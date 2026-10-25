@@ -1,8 +1,10 @@
 package naming
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // gstNumberRe is the GST document-number format.
@@ -31,6 +33,16 @@ func GuardNumberField(stored, supplied *string) error {
 		return &Error{Kind: ErrClientNumber, Msg: msgClientNumber}
 	case *supplied != *stored:
 		return &Error{Kind: ErrNumberImmutable, Msg: msgImmutable}
+	}
+	return nil
+}
+
+// CheckAmendmentNo rejects a k-th amendment of root when k is above 9.
+// DOC calls it when the user clicks Amend (CD-28); docLabel is the
+// DocType's label, lower-cased in the message.
+func CheckAmendmentNo(root string, k int, docLabel string) error {
+	if k > 9 {
+		return &Error{Kind: ErrAmendmentLimit, Msg: fmt.Sprintf(msgAmendLimit, root, strings.ToLower(docLabel))}
 	}
 	return nil
 }
