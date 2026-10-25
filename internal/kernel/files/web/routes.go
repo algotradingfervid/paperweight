@@ -26,7 +26,8 @@ type Config struct {
 type handlers struct{ cfg Config }
 
 // Routes serves POST /attachments/{doctype}/{id} (multipart field "file") and
-// POST /files/{id}/remove.
+// POST /files/{id}/remove, GET and HEAD /files/{id}[?download=1]. Any other
+// path is 404 "File not found.".
 func Routes(cfg Config) chi.Router {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
@@ -35,6 +36,9 @@ func Routes(cfg Config) chi.Router {
 	r := chi.NewRouter()
 	r.Post("/attachments/{doctype}/{id}", h.upload)
 	r.Post("/files/{id}/remove", h.remove)
+	r.Get("/files/{id}", h.download)
+	r.Head("/files/{id}", h.download)
+	r.NotFound(notFound)
 	return r
 }
 
