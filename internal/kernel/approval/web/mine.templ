@@ -1,0 +1,37 @@
+package web
+
+import (
+	"github.com/vardhan/internaltools/internal/kernel/approval"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// minePairs are a My requests card's facts: the inbox facts, the document's
+// state and, once decided, who decided, when and why.
+func minePairs(it approval.RequestItem) []components.Pair {
+	pairs := append(inboxPairs(it.InboxItem), components.Pair{Label: "Status", Value: components.StateLabel(doctype.State(it.State))})
+	if it.DecidedByName != "" {
+		pairs = append(pairs,
+			components.Pair{Label: "Decided by", Value: it.DecidedByName},
+			components.Pair{Label: "Decided on", Value: types.FormatIST(it.DecidedAt)},
+		)
+	}
+	if it.Reason != "" {
+		pairs = append(pairs, components.Pair{Label: "Reason", Value: it.Reason})
+	}
+	return pairs
+}
+
+// minePage is "My requests": the latest request of each document I submitted.
+templ minePage(rows []approval.RequestItem, docURL func(string, int64) string, pi components.PageInfo) {
+	if len(rows) == 0 {
+		@components.EmptyState("You haven't submitted anything for approval.", nil)
+	}
+	for _, it := range rows {
+		@components.Card(it.Title, &components.Link{Label: "Open", Href: docURL(it.DocType, it.DocID)}) {
+			@components.SummaryList(minePairs(it))
+		}
+	}
+	@components.Pagination(pi)
+}

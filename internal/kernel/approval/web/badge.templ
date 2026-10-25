@@ -1,0 +1,10 @@
+package web
+
+import "strconv"
+
+// badge is the inbox count for the header; empty when nothing is waiting.
+templ badge(n int) {
+	if n > 0 {
+		{ strconv.Itoa(n) }
+	}
+}

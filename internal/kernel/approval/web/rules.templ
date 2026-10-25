@@ -1,0 +1,103 @@
+package web
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/kernel/approval"
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+func ruleTitle(r approval.Rule, labels map[string]string) string {
+	label, ok := labels[r.DocType]
+	if !ok {
+		label = r.DocType
+	}
+	return label + " from " + types.FormatINR(r.FromAmount)
+}
+
+func ruleURL(r approval.Rule, action string) string {
+	u := rulesPath + "/" + strconv.FormatInt(r.ID, 10)
+	if action != "" {
+		u += "/" + action
+	}
+	return u
+}
+
+func rulePairs(r approval.Rule) []components.Pair {
+	approver := r.Role
+	if r.ApproverType == approval.ApproverManager {
+		approver = "Reporting manager, or " + r.FallbackRole + " when there is none"
+	}
+	self, status := "Not allowed", "Enabled"
+	if r.AllowSelfApproval {
+		self = "Allowed"
+	}
+	if !r.Enabled {
+		status = "Disabled"
+	}
+	return []components.Pair{
+		{Label: "Approved by", Value: approver},
+		{Label: "Approving own documents", Value: self},
+		{Label: "Status", Value: status},
+	}
+}
+
+// rulesPage lists the approval rules, each as a card with its actions.
+templ rulesPage(rules []approval.Rule, labels map[string]string) {
+	@components.Button(components.ButtonProps{Label: "Add a rule", Href: rulesPath + "/new", Variant: components.Primary})
+	if len(rules) == 0 {
+		@components.EmptyState("There are no approval rules. Documents are approved when submitted.", nil)
+	}
+	for _, r := range rules {
+		@components.Card(ruleTitle(r, labels), &components.Link{Label: "Edit", Href: ruleURL(r, "")}) {
+			@components.SummaryList(rulePairs(r))
+			if r.Enabled {
+				@components.Form(components.FormProps{Action: ruleURL(r, "disable")}) {
+					@components.Button(components.ButtonProps{Label: "Disable rule"})
+				}
+			} else {
+				@components.Form(components.FormProps{Action: ruleURL(r, "enable")}) {
+					@components.Button(components.ButtonProps{Label: "Enable rule"})
+				}
+			}
+			@components.Form(components.FormProps{Action: ruleURL(r, "delete")}) {
+				@components.Button(components.ButtonProps{Label: "Delete rule", Variant: components.Danger, Busy: "Deleting…"})
+			}
+		}
+	}
+}
+
+var approverOptions = []components.Option{
+	{Value: string(approval.ApproverRole), Label: "A user with a role"},
+	{Value: string(approval.ApproverManager), Label: "The employee's reporting manager", Hint: "Only for expense claims."},
+}
+
+var selfOption = []components.Option{{Value: "yes", Label: "The person who submitted the document may approve it"}}
+
+func selfChecked(f ruleForm) []string {
+	if f.AllowSelf {
+		return []string{"yes"}
+	}
+	return nil
+}
+
+// rulePage is the new and edit rule form; it posts the version it was loaded at (CD-94).
+templ rulePage(f ruleForm, docTypes []components.Option) {
+	@components.ErrorSummary(f.summary())
+	@components.Form(components.FormProps{Action: f.action()}) {
+		if f.ID != 0 {
+			<input type="hidden" name="version" value={ strconv.FormatInt(f.Version, 10) }/>
+		}
+		@components.Select(components.FieldProps{ID: components.FieldID("doctype"), Name: "doctype", Label: "Document type", Value: f.DocType, Error: f.errFor("doctype")}, docTypes)
+		@components.MoneyInput(components.FieldProps{ID: components.FieldID("from_amount"), Name: "from_amount", Label: "From amount", Hint: "Documents of this amount or more need approval.", Value: f.FromAmount, Error: f.errFor("from_amount")})
+		@components.Radios(components.FieldProps{ID: components.FieldID("approver_type"), Name: "approver_type", Label: "Who approves", Value: f.ApproverType, Error: f.errFor("approver_type")}, approverOptions)
+		@components.TextInput(components.FieldProps{ID: components.FieldID("role"), Name: "role", Label: "Approver role", Hint: "For a user with a role.", Value: f.Role, Error: f.errFor("role"), Optional: true})
+		@components.TextInput(components.FieldProps{ID: components.FieldID("fallback_role"), Name: "fallback_role", Label: "Fallback role", Hint: "For the reporting manager: approves when the employee has no reporting manager.", Value: f.FallbackRole, Error: f.errFor("fallback_role"), Optional: true})
+		@components.Checkboxes(components.FieldProps{ID: components.FieldID("allow_self_approval"), Name: "allow_self_approval", Label: "Approving own documents", Optional: true}, selfOption, selfChecked(f))
+		@components.ActionBar(components.ActionBarProps{
+			Primary:   &components.ButtonProps{Label: "Save rule", Variant: components.Primary},
+			Secondary: &components.ButtonProps{Label: "Cancel", Href: rulesPath},
+		})
+	}
+}
