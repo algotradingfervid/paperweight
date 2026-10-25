@@ -74,7 +74,12 @@ func readRows(data []byte) (*Sheet, int, error) {
 		}
 		var pe *csv.ParseError
 		if errors.As(err, &pe) {
-			return nil, 0, &FileError{Msg: fmt.Sprintf("Row %d has a quote mark (\") in the wrong place. Save the file again as CSV and try once more.", pe.StartLine-newlinesBefore)}
+			// CD-132: quote errors get the quote-mark message; any other parse error gets the generic one.
+			row := pe.StartLine - newlinesBefore
+			if errors.Is(pe.Err, csv.ErrBareQuote) || errors.Is(pe.Err, csv.ErrQuote) {
+				return nil, 0, &FileError{Msg: fmt.Sprintf("Row %d has a quote mark (\") in the wrong place. Save the file again as CSV and try once more.", row)}
+			}
+			return nil, 0, &FileError{Msg: fmt.Sprintf("Row %d can't be read. Save the file again as CSV and try once more.", row)}
 		}
 		if err != nil {
 			return nil, 0, err
