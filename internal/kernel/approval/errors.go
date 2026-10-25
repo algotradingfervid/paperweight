@@ -133,24 +133,24 @@ func notEligible(title string, amount types.Money, manager string, roles []strin
 	return userErr(ErrNotEligible, "", "Only a user with the %s role can approve %s (%s).", joinRoles(roles), title, types.FormatINR(amount))
 }
 
-func selfApproval(label string, roles []string) error { //nolint:unused // first used in Task 7; remove this directive then
+func selfApproval(label string, roles []string) error {
 	return userErr(ErrSelfApproval, "", "You can't approve your own %s. Ask another %s to approve it.", label, joinRoles(roles))
 }
 
 // noLongerPending is for a state a person's decision produced (CD-26);
 // outcome is approved, rejected or withdrawn.
-func noLongerPending(title, outcome, name string) error { //nolint:unused // first used in Task 7; remove this directive then
+func noLongerPending(title, outcome, name string) error {
 	return userErr(ErrNotPending, "", "%s is no longer waiting for approval. It was %s by %s.", title, outcome, name)
 }
 
-func notPending(title string, state doctype.State) error { //nolint:unused // first used in Task 7; remove this directive then
+func notPending(title string, state doctype.State) error {
 	return userErr(ErrNotPending, "", "%s is not waiting for approval. It is %s.", title, stateLabel(state))
 }
 
-func reasonRequired() error { //nolint:unused // first used in Task 7; remove this directive then
+func reasonRequired() error {
 	return userErr(ErrReasonRequired, "reason", "Enter a reason for rejecting.")
 }
 
-func reasonTooLong() error { //nolint:unused // first used in Task 7; remove this directive then
+func reasonTooLong() error {
 	return userErr(ErrReasonTooLong, "reason", "Reason must be 1,000 characters or fewer.")
 }

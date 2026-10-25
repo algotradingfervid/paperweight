@@ -62,20 +62,7 @@ func New(d Deps) *Approvals {
 	return a
 }
 
-// Stubs until their tasks: CheckApprover, Record, History (Task 7); Inbox
-// (Task 8).
-
-func (a *Approvals) CheckApprover(ctx context.Context, tx *db.Tx, p auth.Principal, dt string, id int64) error {
-	return errs.ErrNotImplemented
-}
-
-func (a *Approvals) Record(ctx context.Context, tx *db.Tx, dt string, id int64, action doctype.Action, p auth.Principal, reason string) error {
-	return errs.ErrNotImplemented
-}
-
-func (a *Approvals) History(ctx context.Context, tx *db.Tx, dt string, id int64) ([]HistoryRow, error) {
-	return nil, errs.ErrNotImplemented
-}
+// Stub until its task: Inbox (Task 8).
 
 func (a *Approvals) Inbox(ctx context.Context, p auth.Principal, page types.Page) (types.Result[InboxItem], error) {
 	return types.Result[InboxItem]{}, errs.ErrNotImplemented
