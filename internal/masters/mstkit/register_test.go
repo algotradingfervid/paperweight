@@ -122,6 +122,73 @@ func TestKit_RegisterMasterListDefaults(t *testing.T) {
 	}
 }
 
+// declaredSortSeq makes each registration's name unique (-count > 1).
+var declaredSortSeq atomic.Int64
+
+// TestKit_RegisterMasterKeepsDeclaredSort has no case ID (MST 1d review,
+// CD-167 "DefaultSort only on declared fields"): RegisterMaster keeps the
+// master's declared DefaultSort minus keys that aren't declared fields (such
+// as "id"); only when nothing is left and a name field exists does it use
+// [{name}]. Masters without a name field (Address, Contact) keep their own.
+func TestKit_RegisterMasterKeepsDeclaredSort(t *testing.T) {
+	disabled := doctype.Field{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check}
+	cases := []struct {
+		label  string
+		fields []doctype.Field
+		sort   []doctype.SortKey
+		want   []doctype.SortKey
+	}{
+		{
+			label: "no name field, declared {title},{id}",
+			fields: []doctype.Field{
+				{Name: "title", Label: "Title", Column: "title", Type: doctype.Text, Required: true},
+				{Name: "city", Label: "City", Column: "city", Type: doctype.Text},
+				disabled,
+			},
+			sort: []doctype.SortKey{{Field: "title"}, {Field: "id"}},
+			want: []doctype.SortKey{{Field: "title"}},
+		},
+		{
+			label: "name field, declared {code},{id}",
+			fields: []doctype.Field{
+				{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true},
+				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+				disabled,
+			},
+			sort: []doctype.SortKey{{Field: "code"}, {Field: "id"}},
+			want: []doctype.SortKey{{Field: "code"}},
+		},
+		{
+			label: "name field, nothing declared",
+			fields: []doctype.Field{
+				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+				disabled,
+			},
+			sort: nil,
+			want: []doctype.SortKey{{Field: "name"}},
+		},
+	}
+	for _, c := range cases {
+		name := fmt.Sprintf("kit.DeclaredSort%d", declaredSortSeq.Add(1))
+		mstkit.RegisterMaster(doctype.DocType{
+			Name:        name,
+			Label:       "Declared Sort",
+			PluralLabel: "Declared Sorts",
+			Table:       "kit_declared_sort",
+			DefaultSort: c.sort,
+			Fields:      c.fields,
+		}, thingMaster)
+		dt, ok := doctype.Lookup(name)
+		if !ok {
+			t.Errorf("%s: doctype.Lookup(%q) not found after RegisterMaster", c.label, name)
+			continue
+		}
+		if !reflect.DeepEqual(dt.DefaultSort, c.want) {
+			t.Errorf("%s: DefaultSort = %+v; want %+v", c.label, dt.DefaultSort, c.want)
+		}
+	}
+}
+
 // noDisabledSeq makes each registration's name unique, so a panic can only
 // come from the missing disabled field, not a duplicate (-count > 1).
 var noDisabledSeq atomic.Int64
