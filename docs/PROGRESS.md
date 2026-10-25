@@ -57,7 +57,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 - APR Tasks 2+: wait for NUM Tasks 1–5 on main (CD-53), then rebase wp/approval.
 - AUTH Task 7: `users.updated_by` FK has no ON DELETE; the delete path must report `ReferencedUserError`, not a raw FK error.
 - AUTH Task 17: a rights key outside the 11 known rights still reaches the DB CHECK (raw error); the form handler must reject it.
-- DOC Task 6: the engine must return `normalized.err` (a failed MasterLookup) before using `checkFields`' errors, and test it with a failing lookup; `fixture`'s local `refused(msg)` must call `doc.Refused` once Task 6 creates it (Task 13 needs `KindRefused`); NAM `render` doesn't range-check the counter, so `Assign` must refuse overflow first.
+- DOC Task 6: merge `normalize`'s and `checkFields`' errors by position (field, then line), not by appending one list to the other; the engine must return `normalized.err` (a failed MasterLookup) before using `checkFields`' errors, and test it with a failing lookup; `fixture`'s local `refused(msg)` must call `doc.Refused` once Task 6 creates it (Task 13 needs `KindRefused`); NAM `render` doesn't range-check the counter, so `Assign` must refuse overflow first.
 - DOC Task 6: share one timestamp layout with `audit` (`timeLayout` is private there); `doc.NewEngine` calls `doctype.CheckRegistry()` (CD-107).
 - NAM Task 6: reuse or replace `GetSeries` (one series lookup); drop `//nolint:unused` on names that become used (catalogue block, staticPrefix, fiscalYear).
 - UI Task 2: lint allows `white-space: nowrap` and `1px` in `visually-hidden` too; allow the raw colours in the appended brand block in `static/` (CD-112).
