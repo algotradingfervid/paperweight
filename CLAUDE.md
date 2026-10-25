@@ -30,6 +30,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - daisyUI classes only inside `internal/ui`; no `*-soft` variants, `table`, `countdown`, `radial-progress` or popover dropdowns (research `ui-library.md` §4).
 - `go test` without `-count=1` uses the cache (also with `-race`); `make test` forces a full run. Use the fast check while working.
 - `scripts/checktestids` must accept flags after the area argument (`make checkids` passes `<AREA> --exclude-level e2e`).
+- High-tier hand-in lint: use `--new-from-rev=<commit before the tests commit>`, not the tests commit itself, or the committed test file is never linted (a QF1011 in `contracts_test.go` reached `make ci` this way).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here

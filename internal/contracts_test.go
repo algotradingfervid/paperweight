@@ -55,7 +55,7 @@ func TestContracts_FakesSatisfyInterfaces(t *testing.T) {
 	var _ naming.Service = namingfake.New()
 	var _ naming.Admin = namingfake.New()
 	var _ audit.Writer = auditfake.New()
-	var _ *auditfake.Recorder = auditfake.New() // CD-86
+	var _ *auditfake.Recorder = auditfake.New() //nolint:staticcheck // CD-86: the explicit type pins the exported name Recorder
 	var _ approval.Service = approvalfake.New()
 	var _ files.Service = filesfake.New(clock.NewFixed(fixedNow))
 	var _ doc.Engine = docfake.New()
