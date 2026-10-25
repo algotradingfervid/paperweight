@@ -1,0 +1,114 @@
+package components
+
+import "strconv"
+
+// LineList is the line cards, the running taxable total and "Add an item"
+// (design-system §8.2). Editable adds Change, Remove and the move buttons,
+// which are POST forms. With Grid set, the LineGrid follows and replaces
+// the cards from 64rem.
+templ LineList(p LineListProps) {
+	<div
+		if len(p.Grid) > 0 {
+			class="linelist linelist--grid"
+		} else {
+			class="linelist"
+		}
+	>
+		<ol class="lines">
+			for _, c := range p.Cards {
+				<li class="lines-card">
+					<div class="lines-top">
+						<span class="lines-no">{ strconv.Itoa(c.No) }</span>
+						<span class="lines-name">
+							<span>{ c.Item }</span>
+							<span class="code">{ c.Code }</span>
+						</span>
+						<span class="num lines-amount">{ c.Amount }</span>
+					</div>
+					<p class="lines-meta">
+						<span class="num">{ c.QtyRate }</span>
+						<span>{ c.Tax }</span>
+					</p>
+					if p.Editable {
+						<div class="lines-actions">
+							@Button(ButtonProps{Label: "Change", AriaLabel: lineAria("Change", c.No), Href: c.ChangeURL, Variant: Ghost})
+							@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", c.No), Href: c.RemoveURL, Variant: Ghost})
+							if c.MoveUpURL != "" {
+								@Form(FormProps{Action: c.MoveUpURL}) {
+									@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", c.No), Icon: "arrow-up", Variant: Ghost})
+								}
+							}
+							if c.MoveDownURL != "" {
+								@Form(FormProps{Action: c.MoveDownURL}) {
+									@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", c.No), Icon: "arrow-down", Variant: Ghost})
+								}
+							}
+						</div>
+					}
+				</li>
+			}
+		</ol>
+		if p.Total > len(p.Cards) {
+			<div class="lines-more">
+				@Button(ButtonProps{Label: "Show all " + strconv.Itoa(p.Total) + " lines", Href: p.ShowAllURL, Variant: Secondary})
+				@Form(FormProps{Action: p.FindURL, Method: "get"}) {
+					<div class="lines-find">
+						@TextInput(FieldProps{ID: "line-find", Name: "find", Label: "Find a line", Value: p.Find})
+						@Button(ButtonProps{Label: "Find", Busy: "Finding…", Icon: "search", Variant: Secondary})
+					</div>
+				}
+			</div>
+		}
+		<p class="lines-total">
+			<span>Taxable total</span>
+			<span class="num">{ p.TaxableTotal }</span>
+		</p>
+		if p.Editable {
+			@Button(ButtonProps{Label: "Add an item", Href: p.AddURL, Icon: "plus", Variant: Secondary, Attrs: templ.Attributes{"data-add-line": true}})
+		}
+		if len(p.Grid) > 0 {
+			@LineGrid(p.Grid, p.TaxableTotal)
+		}
+	</div>
+}
+
+// LineGrid is the desktop line editor, shown from 64rem. Each row is its own
+// form that saves on change and swaps only itself; saves queue one at a
+// time on #line-editor and each sends the page's #doc-version (CD-95).
+templ LineGrid(rows []LineGridRow, total string) {
+	<div id="line-editor" class="line-editor">
+		<div class="linegrid" x-data="linegrid">
+			if len(rows) > 0 {
+				<div class="linegrid-head" aria-hidden="true">
+					<span>#</span>
+					for _, f := range rows[0].Fields {
+						<span>{ f.Label }</span>
+					}
+					<span class="num">Amount</span>
+				</div>
+			}
+			for _, r := range rows {
+				<form
+					id={ lineGridID(r.No) }
+					class="linegrid-row"
+					hx-post={ r.PostURL }
+					hx-trigger="change"
+					hx-target="this"
+					hx-swap="outerHTML"
+					hx-include="#doc-version"
+					hx-sync="#line-editor:queue all"
+				>
+					<span class="linegrid-no">{ strconv.Itoa(r.No) }</span>
+					for _, f := range r.Fields {
+						@TextInput(f)
+					}
+					<span class="num linegrid-amount">{ r.Amount }</span>
+				</form>
+			}
+			<p id="grid-total" class="linegrid-total">
+				<span>Taxable total</span>
+				<span class="num">{ total }</span>
+			</p>
+		</div>
+	</div>
+}

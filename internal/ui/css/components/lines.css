@@ -1,0 +1,73 @@
+/* lines.css: line cards on phones and the fitting line grid from 64rem
+   (design-system §8.2, CD-95). With a grid, it replaces the cards, the
+   "Show all" part and the cards' total from 64rem. */
+@utility linelist {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--space-3);
+  & > * { min-inline-size: 0; }
+  & .lines { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+  & .lines-card {
+    display: grid;
+    gap: var(--space-1);
+    min-inline-size: 0;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: var(--border-w) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+  }
+  & .lines-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+    & > * { min-inline-size: 0; }
+  }
+  & .lines-no { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+  & .lines-name { display: flex; flex-wrap: wrap; gap: var(--space-2); flex: 1 1 12rem; font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+  & .lines-name .code { color: var(--color-text-secondary); font-weight: var(--weight-regular); }
+  & .lines-amount { margin-inline-start: auto; font-weight: var(--weight-semibold); }
+  & .lines-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+  & .lines-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); & form { display: contents; } }
+  & .lines-more { display: grid; gap: var(--space-3); justify-items: start; & > * { max-inline-size: 100%; } }
+  & .lines-find { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); & .field { flex: 1 1 16rem; } }
+  & .lines-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); margin: 0; font-weight: var(--weight-semibold); }
+  & > .btn { justify-self: start; }
+  @container (min-width: 64rem) {
+    &.linelist--grid :is(.lines, .lines-more, .lines-total) { display: none; }
+  }
+}
+
+/* #line-editor is never replaced by a row save; only its row forms are. */
+@utility line-editor {
+  container-type: inline-size;
+  & .linegrid { display: none; }
+  @container (min-width: 64rem) {
+    & .linegrid { display: grid; gap: var(--space-2); }
+    & :is(.linegrid-head, .linegrid-row) {
+      display: grid;
+      grid-template-columns: minmax(0, 0.5fr) minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.25fr);
+      column-gap: var(--space-2);
+      align-items: start;
+      & > * { min-inline-size: 0; }
+    }
+    & .linegrid-head {
+      padding: var(--space-2) 0;
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+      border-block-end: var(--border-w) solid var(--color-border-subtle);
+    }
+    & .linegrid-row .field__label { @apply visually-hidden; }
+    & :is(.linegrid-no, .linegrid-amount) { display: flex; align-items: center; min-block-size: var(--control-h); overflow-wrap: anywhere; }
+    & .linegrid-amount { justify-content: flex-end; }
+    & .linegrid-total { display: flex; justify-content: flex-end; gap: var(--space-4); margin: 0; font-weight: var(--weight-semibold); }
+  }
+}
