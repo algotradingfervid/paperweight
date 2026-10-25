@@ -745,6 +745,12 @@ var kernelTable = map[string][]string{
 	"doc":      {"auth", "naming", "approval", "audit", "files"},
 }
 
+// helperExtra lists the extra imports a named test helper may make (CD-168:
+// APR's engine driver runs the real DOC engine, naming and fixtures).
+var helperExtra = map[string][]string{
+	"internal/kernel/approval/approvaltest": {"internal/kernel/doc", "internal/kernel/naming", "internal/fixture"},
+}
+
 // areaPackages lists the kernel packages owned by the same work package (CD-93: FILE owns files and print).
 func areaPackages(pkg string) []string {
 	if pkg == "files" || pkg == "print" {
@@ -810,6 +816,9 @@ func importRule(pkg, imp string) (bool, string) {
 	switch {
 	case len(parts) >= 2 && isHelperName(parts[1], top):
 		if imp == parent || underOrEqual(imp, "internal/testkit") || isFakePackage(imp) || underOrEqual(imp, parent+"/"+parts[1]) {
+			return true, ""
+		}
+		if slices.Contains(helperExtra[pkg], imp) {
 			return true, ""
 		}
 		return false, fmt.Sprintf("%s (a fake/test helper) may import what %s may, plus %s, internal/testkit and any internal/kernel/*/*fake (CD-85)", pkg, parent, parent)
@@ -915,6 +924,11 @@ func TestContracts_KernelImportsFollowTable(t *testing.T) {
 		{"doctype_imports_auth", "internal/kernel/doctype", "internal/kernel/auth", false},
 		{"auth_imports_ui", "internal/kernel/auth", "internal/ui", false},
 		{"approval_web_imports_filesfake", "internal/kernel/approval/web", "internal/kernel/files/filesfake", false},
+		{"approvaltest_imports_doc", "internal/kernel/approval/approvaltest", "internal/kernel/doc", true},
+		{"approvaltest_imports_naming", "internal/kernel/approval/approvaltest", "internal/kernel/naming", true},
+		{"approvaltest_imports_fixture", "internal/kernel/approval/approvaltest", "internal/fixture", true},
+		{"approvaltest_imports_files", "internal/kernel/approval/approvaltest", "internal/kernel/files", false},
+		{"approvalfake_imports_doc", "internal/kernel/approval/approvalfake", "internal/kernel/doc", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
