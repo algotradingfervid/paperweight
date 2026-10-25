@@ -1,0 +1,26 @@
+# Paperweight web app. Install as /etc/systemd/system/paperweight.service
+# (see docs/operations.md). Logs go to journald: journalctl -u paperweight
+[Unit]
+Description=Paperweight internal business tools
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paperweight
+Group=paperweight
+ExecStart=/usr/local/bin/app serve --data /var/lib/paperweight --addr 127.0.0.1:8080
+Restart=on-failure
+RestartSec=5s
+UMask=0027
+
+# Hardening: the app writes only to its data directory.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/paperweight
+
+[Install]
+WantedBy=multi-user.target

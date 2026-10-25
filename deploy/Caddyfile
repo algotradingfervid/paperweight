@@ -1,0 +1,6 @@
+# Replace paperweight.example.com with the real domain. Caddy gets and renews
+# the TLS certificate itself (ports 80 and 443 must be reachable) and redirects
+# HTTP to HTTPS. No security headers here: the app sets them on every response.
+paperweight.example.com {
+	reverse_proxy 127.0.0.1:8080
+}
