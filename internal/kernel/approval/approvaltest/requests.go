@@ -43,9 +43,12 @@ func parseTime(t testing.TB, s string) time.Time {
 }
 
 // Counter is how many numbers the driver's stand-in series prefix has used
-// (0 when none; APR-072).
+// (0 when none; APR-072); under the engine driver, NAM's counter.
 func (e *Env) Counter(t testing.TB, prefix string) int {
 	t.Helper()
+	if e.eng != nil {
+		return e.engineCounter(t, prefix)
+	}
 	var n int
 	MustOK(t, e.DB.Read(context.Background(), func(tx *db.Tx) error {
 		return tx.SQL().QueryRowContext(context.Background(),
