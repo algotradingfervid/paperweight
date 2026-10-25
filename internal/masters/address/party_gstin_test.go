@@ -436,11 +436,11 @@ func TestParty_OverseasCountryOnPartyUpdate(t *testing.T) {
 // billing one. A TCS GSTIN fits Registered Regular only (MST-033, CD-39).
 func TestParty_CategoryCheckedAgainstAllGSTINs(t *testing.T) {
 	const (
-		fkCode    = "FKART"
-		fkName    = "Flipkart Internet"
-		fkPAN     = "AABCF8078M"
-		fkGSTIN   = "29AABCF8078M1ZX" // regular GSTIN of the TCS GSTIN's PAN (check digit by gstin.CheckDigit)
-		fkTCS     = "29AABCF8078M1C8" // MST-033's e-commerce TCS GSTIN
+		fkCode     = "FKART"
+		fkName     = "Flipkart Internet"
+		fkPAN      = "AABCF8078M"
+		fkGSTIN    = "29AABCF8078M1ZX" // regular GSTIN of the TCS GSTIN's PAN (check digit by gstin.CheckDigit)
+		fkTCS      = "29AABCF8078M1C8" // MST-033's e-commerce TCS GSTIN
 		fkMismatch = "GSTIN 29AABCF8078M1C8 doesn't match GST category Registered Composition. Check the GSTIN and the category."
 	)
 	env := msttest.New(t)
