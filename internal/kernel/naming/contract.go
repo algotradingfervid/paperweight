@@ -42,8 +42,4 @@ func Label(number string, id int64) string {
 	return number
 }
 
-func ValidateGSTDocNumber(s string) error { return errs.ErrNotImplemented }
-
-func GuardNumberField(stored, supplied *string) error { return errs.ErrNotImplemented }
-
 func CheckAmendmentNo(root string, k int, docLabel string) error { return errs.ErrNotImplemented }
