@@ -191,13 +191,18 @@ func addrChennai(partyID int64) address.Input {
 		StateCode: "33", Country: "India", Pincode: "600001", IsBilling: true}
 }
 
-// addrM5Holds checks M5 over the whole database: no Registered Regular,
-// Registered Composition or SEZ party has a primary billing address without
-// a GSTIN, and no Unregistered party has any address with a GSTIN.
+// addrPrimaryBillingMsg is CD-177 (1): a registered party's primary billing
+// address can't be unticked, disabled or deleted.
+const addrPrimaryBillingMsg = "This is the party's primary billing address. Make another billing address primary first."
+
+// addrM5Holds checks M5 over the whole database: every Registered Regular,
+// Registered Composition or SEZ party with any address has exactly one
+// primary billing address, and it has a GSTIN; no Unregistered party has any
+// address with a GSTIN.
 func addrM5Holds(t *testing.T, env *msttest.Env, when string) {
 	t.Helper()
 	ctx := context.Background()
-	var registeredNoGSTIN, unregisteredWithGSTIN []string
+	var registeredNoGSTIN, registeredNotOnePrimary, unregisteredWithGSTIN []string
 	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
 		q := func(sqlText string, args []any, out *[]string) error {
 			rows, err := tx.SQL().QueryContext(ctx, sqlText, args...)
@@ -219,6 +224,13 @@ func addrM5Holds(t *testing.T, env *msttest.Env, when string) {
 			[]any{string(gstin.Regular), string(gstin.Composition), string(gstin.SEZ)}, &registeredNoGSTIN); err != nil {
 			return err
 		}
+		if err := q(`SELECT p.code FROM party p
+			WHERE p.gst_category IN (?, ?, ?)
+			AND EXISTS (SELECT 1 FROM address a WHERE a.party_id = p.id)
+			AND (SELECT count(*) FROM address a WHERE a.party_id = p.id AND a.is_primary_billing = 1) <> 1`,
+			[]any{string(gstin.Regular), string(gstin.Composition), string(gstin.SEZ)}, &registeredNotOnePrimary); err != nil {
+			return err
+		}
 		return q(`SELECT p.code FROM party p JOIN address a ON a.party_id = p.id
 			WHERE p.gst_category = ? AND a.gstin <> ''`,
 			[]any{string(gstin.Unregistered)}, &unregisteredWithGSTIN)
@@ -227,6 +239,9 @@ func addrM5Holds(t *testing.T, env *msttest.Env, when string) {
 	}
 	if len(registeredNoGSTIN) > 0 {
 		t.Errorf("%s: registered parties %v have a primary billing address without a GSTIN (M5)", when, registeredNoGSTIN)
+	}
+	if len(registeredNotOnePrimary) > 0 {
+		t.Errorf("%s: registered parties %v have addresses but not exactly one primary billing address (M5, CD-177)", when, registeredNotOnePrimary)
 	}
 	if len(unregisteredWithGSTIN) > 0 {
 		t.Errorf("%s: Unregistered parties %v have an address with a GSTIN (MST-034)", when, unregisteredWithGSTIN)
@@ -303,6 +318,36 @@ func TestParty_M5HoldsOnEveryWritePath(t *testing.T) {
 			},
 			msg: addrUnregGSTINMsg,
 		},
+		{
+			name: "Update unticking Billing on a registered party's primary billing address",
+			step: func(t *testing.T, env *msttest.Env) error {
+				s := address.New(env.Kit)
+				id := addrShreeMumbai(t, env, s)
+				in := addrMumbai(addrOwnerOf(t, env, s, id))
+				in.IsBilling, in.IsShipping = false, true
+				_, err := s.Update(context.Background(), env.Kavya, id, addrGet(t, env.DB, s, id).Version, in)
+				return err
+			},
+			msg: addrPrimaryBillingMsg,
+		},
+		{
+			name: "SetDisabled on a registered party's only primary billing address",
+			step: func(t *testing.T, env *msttest.Env) error {
+				s := address.New(env.Kit)
+				id := addrShreeMumbai(t, env, s)
+				return s.SetDisabled(context.Background(), env.Kavya, id, addrGet(t, env.DB, s, id).Version, true)
+			},
+			msg: addrPrimaryBillingMsg,
+		},
+		{
+			name: "Delete of a registered party's only primary billing address",
+			step: func(t *testing.T, env *msttest.Env) error {
+				s := address.New(env.Kit)
+				id := addrShreeMumbai(t, env, s)
+				return s.Delete(context.Background(), env.Kavya, id, addrGet(t, env.DB, s, id).Version)
+			},
+			msg: addrPrimaryBillingMsg,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := msttest.New(t)
@@ -313,6 +358,107 @@ func TestParty_M5HoldsOnEveryWritePath(t *testing.T) {
 		})
 	}
 
+}
+
+// addrShreeMumbai creates SHREE with Mumbai as its only (primary billing)
+// address, checks M5, and returns Mumbai's id.
+func addrShreeMumbai(t *testing.T, env *msttest.Env, s *address.Service) int64 {
+	t.Helper()
+	id := addrCreate(t, env, s, addrMumbai(addrShree(t, env)))
+	if !addrGet(t, env.DB, s, id).PrimaryBilling {
+		t.Fatal("Mumbai: PrimaryBilling = false; want true (first billing address)")
+	}
+	addrM5Holds(t, env, "after Mumbai")
+	return id
+}
+
+// addrOwnerOf is the party of address id.
+func addrOwnerOf(t *testing.T, env *msttest.Env, s *address.Service, id int64) int64 {
+	t.Helper()
+	return addrGet(t, env.DB, s, id).PartyID
+}
+
+// TestParty_UnregisteredMayLosePrimaryBilling: CD-177 (1) lets an
+// Unregistered party's primary billing address be disabled or deleted.
+func TestParty_UnregisteredMayLosePrimaryBilling(t *testing.T) {
+	env := msttest.New(t)
+	ctx := context.Background()
+	s := address.New(env.Kit)
+
+	corom := addrParty(t, env, addrCoromCode, addrCoromName, "", gstin.Unregistered)
+	chennai := addrCreate(t, env, s, addrChennai(corom))
+	if !addrGet(t, env.DB, s, chennai).PrimaryBilling {
+		t.Fatal("Chennai: PrimaryBilling = false; want true (first billing address)")
+	}
+	if err := s.SetDisabled(ctx, env.Kavya, chennai, addrGet(t, env.DB, s, chennai).Version, true); err != nil {
+		t.Errorf("SetDisabled(COROM's primary billing Chennai) = %v; want nil", err)
+	}
+
+	tata := addrParty(t, env, "C-TATA", "Tata Projects", "", gstin.Unregistered)
+	mumbai := addrMumbai(tata)
+	mumbai.GSTIN = ""
+	id := addrCreate(t, env, s, mumbai)
+	if !addrGet(t, env.DB, s, id).PrimaryBilling {
+		t.Fatal("C-TATA Mumbai: PrimaryBilling = false; want true (first billing address)")
+	}
+	if err := s.Delete(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version); err != nil {
+		t.Errorf("Delete(C-TATA's primary billing Mumbai) = %v; want nil", err)
+	}
+	if as := addrForParty(t, env.DB, s, tata); len(as) != 0 {
+		t.Errorf("after Delete: ForParty(C-TATA) = %+v; want none", as)
+	}
+	addrM5Holds(t, env, "after disable and delete")
+}
+
+// TestParty_OverseasCountryOnPartyUpdate pins CD-177 (2): a party with an
+// address outside India can't be updated to any category but Overseas
+// (MST-047's text).
+func TestParty_OverseasCountryOnPartyUpdate(t *testing.T) {
+	env := msttest.New(t)
+	s := address.New(env.Kit)
+	ps := party.New(env.Kit)
+	sg := addrParty(t, env, "SG-STEEL", "Singapore Steel Pte Ltd", "", gstin.Overseas)
+	addrCreate(t, env, s, address.Input{
+		PartyID: sg, Title: "Singapore", Line1: "1 Raffles Place", City: "Singapore",
+		Country: "Singapore", Pincode: "118524", IsBilling: true,
+	})
+
+	in := party.Input{Code: "SG-STEEL", Name: "Singapore Steel Pte Ltd", IsVendor: true, GSTCategory: gstin.Unregistered}
+	_, err := ps.Update(context.Background(), env.Kavya, sg, addrPartyGet(t, env.DB, ps, sg).Version, in)
+	addrWantHas(t, err, addrOverseasMsg)
+	if p := addrPartyGet(t, env.DB, ps, sg); p.GSTCategory != gstin.Overseas {
+		t.Errorf("after refusal: SG-STEEL GSTCategory = %q; want %q", p.GSTCategory, gstin.Overseas)
+	}
+}
+
+// TestParty_CategoryCheckedAgainstAllGSTINs pins CD-177 (2): a party update
+// checks the category against every address GSTIN, not only the primary
+// billing one. A TCS GSTIN fits Registered Regular only (MST-033, CD-39).
+func TestParty_CategoryCheckedAgainstAllGSTINs(t *testing.T) {
+	const (
+		fkCode    = "FKART"
+		fkName    = "Flipkart Internet"
+		fkPAN     = "AABCF8078M"
+		fkGSTIN   = "29AABCF8078M1ZX" // regular GSTIN of the TCS GSTIN's PAN (check digit by gstin.CheckDigit)
+		fkTCS     = "29AABCF8078M1C8" // MST-033's e-commerce TCS GSTIN
+		fkMismatch = "GSTIN 29AABCF8078M1C8 doesn't match GST category Registered Composition. Check the GSTIN and the category."
+	)
+	env := msttest.New(t)
+	s := address.New(env.Kit)
+	ps := party.New(env.Kit)
+	fk := addrParty(t, env, fkCode, fkName, fkPAN, gstin.Regular)
+	addrCreate(t, env, s, address.Input{PartyID: fk, Title: "Bengaluru", Line1: "Embassy Tech Village", City: "Bengaluru",
+		StateCode: "29", Country: "India", Pincode: "560103", GSTIN: fkGSTIN, IsBilling: true})
+	addrCreate(t, env, s, address.Input{PartyID: fk, Title: "Bengaluru TCS", Line1: "Embassy Tech Village", City: "Bengaluru",
+		StateCode: "29", Country: "India", Pincode: "560103", GSTIN: fkTCS, IsShipping: true})
+	addrM5Holds(t, env, "after both addresses")
+
+	in := party.Input{Code: fkCode, Name: fkName, IsVendor: true, PAN: fkPAN, GSTCategory: gstin.Composition}
+	_, err := ps.Update(context.Background(), env.Kavya, fk, addrPartyGet(t, env.DB, ps, fk).Version, in)
+	addrWantHas(t, err, fkMismatch)
+	if p := addrPartyGet(t, env.DB, ps, fk); p.GSTCategory != gstin.Regular {
+		t.Errorf("after refusal: FKART GSTCategory = %q; want %q", p.GSTCategory, gstin.Regular)
+	}
 }
 
 // TestParty_OverseasKeptWithoutGSTIN: an Overseas party with an Indian

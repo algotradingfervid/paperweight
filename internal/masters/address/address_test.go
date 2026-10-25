@@ -544,3 +544,29 @@ func TestAddress_EditUnderDisabledOwner(t *testing.T) {
 		t.Errorf("after Update: Line2 = %q; want %q", a.Line2, "Andheri East")
 	}
 }
+
+// TestAddress_SetPrimaryRefusesDisabled pins CD-177 (3): a disabled address
+// can't be made primary.
+func TestAddress_SetPrimaryRefusesDisabled(t *testing.T) {
+	const msg = "Enable this address before making it primary."
+	env := msttest.New(t)
+	ctx := context.Background()
+	s := address.New(env.Kit)
+	shree := addrShree(t, env)
+	mumbai := addrCreate(t, env, s, addrMumbai(shree))
+	pune := addrMumbai(shree)
+	pune.Title, pune.Line1, pune.City, pune.Pincode = "Pune", "Survey 21, Bhosari MIDC", "Pune", "411001"
+	puneID := addrCreate(t, env, s, pune)
+	if err := s.SetDisabled(ctx, env.Kavya, puneID, addrGet(t, env.DB, s, puneID).Version, true); err != nil {
+		t.Fatalf("SetDisabled(Pune) = %v; want nil (not the primary billing address)", err)
+	}
+
+	err := addrSetPrimary(env, s, puneID, true, addrGet(t, env.DB, s, puneID).Version)
+	addrWantHas(t, err, msg)
+	if addrGet(t, env.DB, s, puneID).PrimaryBilling {
+		t.Error("after refusal: Pune PrimaryBilling = true; want false")
+	}
+	if !addrGet(t, env.DB, s, mumbai).PrimaryBilling {
+		t.Error("after refusal: Mumbai PrimaryBilling = false; want true")
+	}
+}
