@@ -1,0 +1,312 @@
+package auth
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"maps"
+	"slices"
+	"sort"
+	"sync"
+
+	"github.com/vardhan/internaltools/internal/kernel/audit"
+	"github.com/vardhan/internaltools/internal/kernel/auth/dbq"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/platform/db"
+)
+
+// ValidateRow checks one role × DocType row: inapplicable rights first (in
+// AllRights order), then team scope (CD-11), then read-required.
+func ValidateRow(dt *doctype.DocType, rights map[Right]Scope) error {
+	for _, r := range AllRights {
+		if _, ok := rights[r]; ok && !Applies(dt, r) {
+			return NotApplicableError(r, dt.Label)
+		}
+	}
+	if dt.EmployeeField == "" {
+		for _, s := range rights {
+			if s == ScopeTeam {
+				return TeamNotApplicableError(dt.Label)
+			}
+		}
+	}
+	if _, ok := rights[RightRead]; !ok && len(rights) > 0 {
+		return ReadRequiredError(dt.Label)
+	}
+	return nil
+}
+
+// SeedOptions controls SeedDefaults. LinkedMasterRead (production, CD-10)
+// also grants read (all) on every master a creatable DocType links to.
+type SeedOptions struct{ LinkedMasterRead bool }
+
+// SeedDefaults writes each registered DocType's DefaultRights for every
+// (role, DocType) that has no row yet, creating missing roles, then bumps
+// perm_version. Rows that exist (seeded or edited) are left alone.
+func (a *Auth) SeedDefaults(ctx context.Context, opts SeedOptions) error {
+	return a.db.Write(ctx, func(tx *db.Tx) error {
+		q := dbq.New(tx.SQL())
+		type creator struct {
+			role string
+			dt   *doctype.DocType
+		}
+		var creators []creator
+		for _, dt := range doctype.All() {
+			for _, role := range slices.Sorted(maps.Keys(dt.DefaultRights)) {
+				rights, err := parseDefaults(dt.DefaultRights[role])
+				if err == nil {
+					err = ValidateRow(dt, rights)
+				}
+				if err != nil {
+					return fmt.Errorf("auth.SeedDefaults: DocType %s, role %s: %w", dt.Name, role, err)
+				}
+				if err := a.seedRow(ctx, q, role, dt.Name, rights); err != nil {
+					return err
+				}
+				if _, ok := rights[RightCreate]; ok {
+					creators = append(creators, creator{role, dt})
+				}
+			}
+		}
+		if opts.LinkedMasterRead {
+			for _, c := range creators {
+				for _, m := range linkedMasters(c.dt) {
+					if err := a.seedRow(ctx, q, c.role, m, map[Right]Scope{RightRead: ScopeAll}); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return q.BumpPermVersion(ctx)
+	})
+}
+
+// parseDefaults turns DefaultRights strings into rights and scopes.
+func parseDefaults(in map[string]string) (map[Right]Scope, error) {
+	out := make(map[Right]Scope, len(in))
+	for r, s := range in {
+		if !slices.Contains(AllRights, Right(r)) {
+			return nil, fmt.Errorf("unknown right %q", r)
+		}
+		if _, ok := scopeRank[Scope(s)]; !ok {
+			return nil, fmt.Errorf("unknown scope %q for right %s", s, r)
+		}
+		out[Right(r)] = Scope(s)
+	}
+	return out, nil
+}
+
+// linkedMasters returns the names of the masters dt links to, sorted.
+func linkedMasters(dt *doctype.DocType) []string {
+	var targets []string
+	for _, f := range dt.Fields {
+		if f.Link != "" {
+			targets = append(targets, f.Link)
+		}
+	}
+	for _, l := range dt.Links {
+		targets = append(targets, l.Target)
+	}
+	var out []string
+	for _, t := range targets {
+		if m, ok := doctype.Lookup(t); ok && m.Master != nil && !slices.Contains(out, t) {
+			out = append(out, t)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// seedRow creates role if missing and inserts its row on dt (customised 0)
+// only if none exists.
+func (a *Auth) seedRow(ctx context.Context, q *dbq.Queries, role, dt string, rights map[Right]Scope) error {
+	r, err := q.GetRoleByName(ctx, role)
+	var id int64
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		at := FormatTime(a.clock.Now())
+		if id, err = q.InsertRole(ctx, dbq.InsertRoleParams{Name: role, At: at}); err != nil {
+			return err
+		}
+	case err != nil:
+		return err
+	default:
+		id = r.ID
+	}
+	n, err := q.CountRoleDocType(ctx, dbq.CountRoleDocTypeParams{RoleID: id, Doctype: dt})
+	if err != nil || n > 0 {
+		return err
+	}
+	if err := q.InsertRoleDocType(ctx, dbq.InsertRoleDocTypeParams{RoleID: id, Doctype: dt}); err != nil {
+		return err
+	}
+	return insertRights(ctx, q, id, dt, rights)
+}
+
+func insertRights(ctx context.Context, q *dbq.Queries, roleID int64, dt string, rights map[Right]Scope) error {
+	for _, r := range AllRights {
+		if s, ok := rights[r]; ok {
+			if err := q.InsertRoleRight(ctx, dbq.InsertRoleRightParams{
+				RoleID: roleID, Doctype: dt, RightName: string(r), Scope: string(s),
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// SetRights replaces role's rights on doctype, marks the row customised,
+// bumps perm_version and writes one audit entry; a save that changes nothing
+// writes nothing. Only an Administrator may do
+// it, and the Administrator role itself is fixed.
+func (a *Auth) SetRights(ctx context.Context, actor Principal, role, doctypeName string, rights map[Right]Scope) error {
+	if !slices.Contains(actor.Roles, RoleAdministrator) {
+		return ErrAdminOnlyRoles
+	}
+	dt, ok := doctype.Lookup(doctypeName)
+	if !ok {
+		return ErrNotFound
+	}
+	for _, rt := range AllRights {
+		if s, ok := rights[rt]; ok && scopeRank[s] == 0 {
+			return ScopeInvalidError(rt)
+		}
+	}
+	return a.db.Write(ctx, func(tx *db.Tx) error {
+		q := dbq.New(tx.SQL())
+		r, err := q.GetRoleByName(ctx, role)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if r.IsAdmin != 0 {
+			return ErrAdminRoleFixed
+		}
+		if err := ValidateRow(dt, rights); err != nil {
+			return err
+		}
+		before, err := roleRights(ctx, q, role, doctypeName)
+		if err != nil || maps.Equal(before, rights) {
+			return err
+		}
+		if err := q.MarkRoleDocTypeCustomised(ctx, dbq.MarkRoleDocTypeCustomisedParams{RoleID: r.ID, Doctype: doctypeName}); err != nil {
+			return err
+		}
+		if err := q.DeleteRoleRights(ctx, dbq.DeleteRoleRightsParams{RoleID: r.ID, Doctype: doctypeName}); err != nil {
+			return err
+		}
+		if err := insertRights(ctx, q, r.ID, doctypeName, rights); err != nil {
+			return err
+		}
+		if err := q.BumpPermVersion(ctx); err != nil {
+			return err
+		}
+		var changes []audit.Change
+		for _, rt := range AllRights {
+			b, af := scopeText(before[rt]), scopeText(rights[rt])
+			if b != af {
+				changes = append(changes, audit.Change{Field: doctypeName + "." + string(rt), Before: b, After: af, Op: "set"})
+			}
+		}
+		return a.audit.Append(ctx, tx, audit.Entry{
+			DocType: "Role", DocID: r.ID, Action: "rights", Changes: changes,
+			By: actor.ID, At: a.clock.Now(),
+		})
+	})
+}
+
+func scopeText(s Scope) string {
+	if s == "" {
+		return "none"
+	}
+	return string(s)
+}
+
+// RoleRights returns role's rights on doctype (empty when it has none).
+func (a *Auth) RoleRights(ctx context.Context, role, doctypeName string) (map[Right]Scope, error) {
+	var out map[Right]Scope
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
+		var err error
+		out, err = roleRights(ctx, dbq.New(tx.SQL()), role, doctypeName)
+		return err
+	})
+	return out, err
+}
+
+func roleRights(ctx context.Context, q *dbq.Queries, role, doctypeName string) (map[Right]Scope, error) {
+	rows, err := q.ListRoleRightsByName(ctx, dbq.ListRoleRightsByNameParams{Role: role, Doctype: doctypeName})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[Right]Scope, len(rows))
+	for _, row := range rows {
+		out[Right(row.RightName)] = Scope(row.Scope)
+	}
+	return out, nil
+}
+
+// matrix is role name → DocType → right → scope.
+type matrix map[string]map[string]map[Right]Scope
+
+// matrixCache holds the whole matrix for one perm_version.
+type matrixCache struct {
+	mu      sync.Mutex
+	version int64
+	m       matrix
+}
+
+// grant returns the widest scope any of roles holds for r on doctype ("" =
+// none). The matrix is cached by perm_version, read once per call.
+func (a *Auth) grant(ctx context.Context, roles []string, doctypeName string, r Right) (Scope, error) {
+	m, err := a.loadMatrix(ctx)
+	if err != nil {
+		return "", err
+	}
+	var s Scope
+	for _, role := range roles {
+		s = Wider(s, m[role][doctypeName][r])
+	}
+	return s, nil
+}
+
+func (a *Auth) loadMatrix(ctx context.Context) (matrix, error) {
+	var m matrix
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
+		q := dbq.New(tx.SQL())
+		v, err := q.GetPermVersion(ctx)
+		if err != nil {
+			return err
+		}
+		a.cache.mu.Lock()
+		if a.cache.m != nil && a.cache.version == v {
+			m = a.cache.m
+		}
+		a.cache.mu.Unlock()
+		if m != nil {
+			return nil
+		}
+		rows, err := q.ListAllRoleRights(ctx)
+		if err != nil {
+			return err
+		}
+		m = matrix{}
+		for _, row := range rows {
+			if m[row.Role] == nil {
+				m[row.Role] = map[string]map[Right]Scope{}
+			}
+			if m[row.Role][row.Doctype] == nil {
+				m[row.Role][row.Doctype] = map[Right]Scope{}
+			}
+			m[row.Role][row.Doctype][Right(row.RightName)] = Scope(row.Scope)
+		}
+		a.cache.mu.Lock()
+		a.cache.version, a.cache.m = v, m
+		a.cache.mu.Unlock()
+		return nil
+	})
+	return m, err
+}

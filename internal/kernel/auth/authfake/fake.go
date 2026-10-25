@@ -117,7 +117,7 @@ func (f *Fake) Restrict(u auth.UserID, projects, sites []int64) {
 	f.restricted[u] = restriction{projects: slices.Clone(projects), sites: slices.Clone(sites)}
 }
 
-// Hide makes the record invisible to everyone: Can on it and CheckLink to it return auth.ErrNotFound.
+// Hide makes the record invisible to everyone: Can on it returns auth.ErrNotFound and CheckLink to it a *auth.LinkError (CD-125).
 func (f *Fake) Hide(doctype string, id int64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -293,8 +293,13 @@ func (f *Fake) CheckValues(ctx context.Context, p auth.Principal, name string, v
 func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, id int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.hidden[record{target, id}] {
-		return auth.ErrNotFound
+	_, canRead := f.scopeLocked(p, target, auth.RightRead)
+	if f.hidden[record{target, id}] || !canRead {
+		label := target
+		if dt, ok := doctype.Lookup(target); ok {
+			label = dt.Label
+		}
+		return &auth.LinkError{Label: label, Display: fmt.Sprintf("#%d", id)} // CD-125
 	}
 	return nil
 }
