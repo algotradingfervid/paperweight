@@ -62,20 +62,8 @@ func New(d Deps) *Approvals {
 	return a
 }
 
-// Stubs until their tasks: Evaluate, Open, LatestRequest (Task 6);
-// CheckApprover, Record, History (Task 7); Inbox (Task 8).
-
-func (a *Approvals) Evaluate(ctx context.Context, tx *db.Tx, dt string, id int64, amount types.Money, requester auth.Principal) (Requirement, error) {
-	return Requirement{}, errs.ErrNotImplemented
-}
-
-func (a *Approvals) Open(ctx context.Context, tx *db.Tx, dt string, id int64, req Requirement) error {
-	return errs.ErrNotImplemented
-}
-
-func (a *Approvals) LatestRequest(ctx context.Context, tx *db.Tx, dt string, id int64) (Request, bool, error) {
-	return Request{}, false, errs.ErrNotImplemented
-}
+// Stubs until their tasks: CheckApprover, Record, History (Task 7); Inbox
+// (Task 8).
 
 func (a *Approvals) CheckApprover(ctx context.Context, tx *db.Tx, p auth.Principal, dt string, id int64) error {
 	return errs.ErrNotImplemented

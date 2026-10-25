@@ -37,7 +37,7 @@ func recordRef(in doctype.Info) *auth.RecordRef {
 
 // own lists the users a document belongs to: the requester, its creator and
 // the claimant's user (when the employee has one). Zeros are dropped.
-func (a *Approvals) own(ctx context.Context, tx *db.Tx, requester types.UserID, in doctype.Info) ([]types.UserID, error) { //nolint:unused // first used in Task 6; remove this directive then
+func (a *Approvals) own(ctx context.Context, tx *db.Tx, requester types.UserID, in doctype.Info) ([]types.UserID, error) {
 	ids := []types.UserID{requester, in.CreatedBy}
 	if in.EmployeeID != 0 {
 		u, ok, err := a.dir.UserForEmployee(ctx, tx, in.EmployeeID)

@@ -121,7 +121,7 @@ func ruleConflict() error {
 	return userErr(ErrRuleConflict, "", "This rule was changed by someone else. Reload and try again.")
 }
 
-func noApprover(label, role string) error { //nolint:unused // first used in Task 6; remove this directive then
+func noApprover(label, role string) error {
 	return userErr(ErrNoApprover, "", "No one else can approve this %s. Give the %s role to another active user, then submit again.", label, role)
 }
 
