@@ -41,7 +41,7 @@ templ Page(o PageOpts) {
 					@components.ToastRegion()
 					<div id="alerts" role="alert" class="alerts">
 						for _, n := range alerts {
-							@components.Banner(components.BannerProps{Kind: flashKind(n.Level), Message: n.Text, NoRole: true})
+							@components.Notice(flashKind(n.Level), n.Text)
 						}
 					</div>
 					@components.NoticeTemplates()

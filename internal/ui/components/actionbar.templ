@@ -53,12 +53,9 @@ templ MoreActions(items []MoreAction) {
 								@Button(ButtonProps{Label: it.Label, Busy: it.Label + "…", Variant: moreVariant(it.Danger)})
 							</form>
 						} else if it.NewTab {
-							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) } target="_blank" rel="noopener">
-								{ it.Label }
-								<span class="visually-hidden">(opens in a new tab)</span>
-							</a>
+							@Button(ButtonProps{Label: it.Label, AriaLabel: it.Label + " (opens in a new tab)", Href: it.Href, Variant: moreVariant(it.Danger), Attrs: templ.Attributes{"target": "_blank", "rel": "noopener"}})
 						} else {
-							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) }>{ it.Label }</a>
+							@Button(ButtonProps{Label: it.Label, Href: it.Href, Variant: moreVariant(it.Danger)})
 						}
 					</li>
 				}
@@ -72,11 +69,4 @@ func moreVariant(danger bool) Variant {
 		return Danger
 	}
 	return Ghost
-}
-
-func moreClass(danger bool) string {
-	if danger {
-		return "btn btn-error"
-	}
-	return "btn btn-ghost"
 }

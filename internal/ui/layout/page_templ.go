@@ -210,7 +210,7 @@ func Page(o PageOpts) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		for _, n := range alerts {
-			templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: flashKind(n.Level), Message: n.Text, NoRole: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Notice(flashKind(n.Level), n.Text).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

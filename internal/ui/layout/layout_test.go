@@ -126,6 +126,9 @@ func TestLayout_FlashShownOnce(t *testing.T) {
 	if !strings.Contains(page.Find(`#alerts .alert.banner.banner--warning`).Text(), "Check the rate on line 2.") {
 		t.Error("warning flash is not a warning banner in #alerts")
 	}
+	if page.Find(`#alerts .banner--warning button[type="button"][data-dismiss][aria-label="Dismiss"]`).Length() != 1 {
+		t.Error("warning flash in #alerts has no dismiss button")
+	}
 	if !strings.Contains(page.Find(`#alerts .alert.banner.banner--danger`).Text(), "The PDF could not be made.") {
 		t.Error("error flash is not a danger banner in #alerts")
 	}

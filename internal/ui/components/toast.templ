@@ -17,7 +17,7 @@ func Toast(level, message string) templ.Component {
 
 templ toastOOB(k BannerKind, message string) {
 	<div id="toasts" hx-swap-oob="beforeend">
-		@notice(k, message)
+		@Notice(k, message)
 	</div>
 }
 
@@ -27,13 +27,13 @@ templ toastOOB(k BannerKind, message string) {
 templ NoticeTemplates() {
 	for _, k := range []BannerKind{Success, Info, Warning, Danger} {
 		<template id={ "notice-" + string(k) }>
-			@notice(k, "")
+			@Notice(k, "")
 		</template>
 	}
 }
 
-// notice is a Banner without a role (its region has one) and a dismiss button.
-templ notice(k BannerKind, message string) {
+// Notice is a Banner without a role (its region has one) and a dismiss button.
+templ Notice(k BannerKind, message string) {
 	@Banner(BannerProps{Kind: k, Message: message, NoRole: true}) {
 		@Button(ButtonProps{Type: "button", Icon: "x", AriaLabel: "Dismiss", Variant: Ghost, Attrs: templ.Attributes{"data-dismiss": true}})
 	}

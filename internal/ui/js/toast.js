@@ -4,7 +4,8 @@
 // persistent #alerts region and stay until closed (CD-47). Each notice is a
 // copy of its <template id="notice-KIND"> (components.NoticeTemplates), the
 // same markup as the server's components.Toast; toasts htmx adds out of band
-// get the same setup. Text is set as a text node, never as markup.
+// get the same setup, and so do the flashes the server renders in #alerts.
+// Text is set as a text node, never as markup.
 
 const KINDS = { success: "success", info: "info", warning: "warning", error: "danger" };
 const DISMISS_MS = 5000;
@@ -53,3 +54,6 @@ document.addEventListener("htmx:oobAfterSwap", function () {
   if (!region) return;
   for (const node of region.children) wire(node, true);
 });
+
+const alerts = document.getElementById("alerts");
+if (alerts) for (const node of alerts.children) wire(node, false);

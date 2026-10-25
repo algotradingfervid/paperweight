@@ -321,8 +321,17 @@ func TestMoreActions_PostHasCSRFAndDangerClass(t *testing.T) {
 		t.Errorf("danger button class %q text %q", b.AttrOr("class", ""), text(b))
 	}
 	a := doc.Find(`a[href="/doc/po/1/print"]`)
-	if a.AttrOr("target", "") != "_blank" || a.HasClass("btn-error") {
-		t.Errorf("print item target %q class %q", a.AttrOr("target", ""), a.AttrOr("class", ""))
+	if a.AttrOr("target", "") != "_blank" || a.AttrOr("rel", "") != "noopener" || a.HasClass("btn-error") || !a.HasClass("btn--ghost") {
+		t.Errorf("print item target %q rel %q class %q", a.AttrOr("target", ""), a.AttrOr("rel", ""), a.AttrOr("class", ""))
+	}
+	if got := a.AttrOr("aria-label", ""); got != "Print (opens in a new tab)" {
+		t.Errorf("print item aria-label = %q", got)
+	}
+	doc = uitest.Render(t, components.MoreActions([]components.MoreAction{
+		{Label: "Delete draft", Href: "/doc/po/1/delete", Danger: true},
+	}))
+	if l := doc.Find(`a[href="/doc/po/1/delete"]`); !l.HasClass("btn--danger") || !l.HasClass("tap") {
+		t.Errorf("danger link class %q", l.AttrOr("class", ""))
 	}
 
 	doc = uitest.Render(t, components.MoreActions(nil))
