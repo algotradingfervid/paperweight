@@ -1,0 +1,32 @@
+package docscreen
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+templ listPage(v listView) {
+	@layout.Page(v.Opts) {
+		@listBody(v)
+	}
+}
+
+templ listMain(v listView) {
+	@layout.Main(v.Opts) {
+		@listBody(v)
+	}
+}
+
+templ listBody(v listView) {
+	@components.FilterBar(v.Bar)
+	@components.DataList(v.List)
+	@components.Pagination(v.Pages)
+}
+
+templ problemPage(pr Problem) {
+	@layout.Page(problemOpts(pr))
+}
+
+templ problemMain(pr Problem) {
+	@layout.Main(problemOpts(pr))
+}
