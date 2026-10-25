@@ -194,14 +194,12 @@
 }
 
 /* ---------- Layout primitives (design-system §6) ---------- */
-/* daisyUI also ships a `.stack` (cards piled up, later children at 70% and
-   90% opacity). Ours wins over its nested layer; the opacity reset undoes the
-   rest that matters until app.css excludes daisyUI's stack. */
+/* app.css excludes daisyUI's own `.stack`, so only this one applies. */
 @utility stack {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  & > * { min-inline-size: 0; opacity: 1; }
+  & > * { min-inline-size: 0; }
 }
 
 @utility cluster {

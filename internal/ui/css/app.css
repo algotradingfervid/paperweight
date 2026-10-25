@@ -18,6 +18,7 @@
 
 @plugin "../vendor/daisyui/daisyui.mjs" {
   themes: false;
+  exclude: stack;
 }
 @import "./theme.css";
 

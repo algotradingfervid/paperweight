@@ -28,14 +28,14 @@ const (
 // PageOpts describes one page. BannerSlot renders above the h1, BarSlot after
 // the main content and Side in the side panel shown from 80rem.
 type PageOpts struct {
-	Title                    string
-	Error                    bool
-	Bare                     bool
-	Width                    Width
-	Back                     *components.Link
+	Title                     string
+	Error                     bool
+	Bare                      bool
+	Width                     Width
+	Back                      *components.Link
 	BannerSlot, BarSlot, Side templ.Component
-	HeadingID                string
-	NoHeading                bool
+	HeadingID                 string
+	NoHeading                 bool
 }
 
 // htmxConfig is research §2.2 plus the 409 entry (Decision U5, CD-47).
@@ -107,14 +107,12 @@ func split(notices []web.Notice) (banners, alerts []web.Notice) {
 	return banners, alerts
 }
 
-func alertClass(level string) string {
-	switch level {
-	case "success":
-		return "alert alert-success"
-	case "info":
-		return "alert alert-info"
-	case "warning":
-		return "alert alert-warning"
+// flashKind is the banner kind for a flash level; "error" (and anything
+// unknown) is Danger.
+func flashKind(level string) components.BannerKind {
+	switch k := components.BannerKind(level); k {
+	case components.Success, components.Info, components.Warning:
+		return k
 	}
-	return "alert alert-error"
+	return components.Danger
 }

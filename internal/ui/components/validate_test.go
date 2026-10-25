@@ -66,6 +66,17 @@ func TestValidateHandler_FormatsAndErrors(t *testing.T) {
 		t.Errorf("error trigger = %+v", ev.Field)
 	}
 
+	empty := uitest.Do(t, h, http.MethodPost, "/ui/validate/money", form(""))
+	if empty.Code != http.StatusOK {
+		t.Fatalf("empty status = %d", empty.Code)
+	}
+	if got := strings.TrimSpace(uitest.Doc(t, empty).Find("#f-amt-msg").Text()); got != "" {
+		t.Errorf("empty message = %q", got)
+	}
+	if ev := trigger(t, empty.Header()); ev.Field.ID != "f-amt" || ev.Field.Value != "" || ev.Field.Invalid {
+		t.Errorf("empty trigger = %+v", ev.Field)
+	}
+
 	evil := "<script>alert(1)</script>"
 	fake["money"] = func(in string) (string, string, error) { return "", "", errors.New(in) }
 	xs := uitest.Do(t, h, http.MethodPost, "/ui/validate/money", form(evil))

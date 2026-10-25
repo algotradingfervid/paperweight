@@ -1,16 +1,24 @@
 // busy.js: a submitting button is disabled and shows its data-busy-label
 // until the htmx request ends, so a double tap sends one request.
 
+// labelOf is the button's label <span> (its icon stays), the button itself
+// when it holds only text, or null for an icon-only button.
+function labelOf(btn) {
+  return btn.querySelector(":scope > span:last-child") || (btn.children.length ? null : btn);
+}
+
 function setBusy(btn) {
   if (!btn || !btn.dataset.busyLabel || btn.disabled) return;
-  btn.dataset.idleLabel = btn.textContent;
-  btn.textContent = btn.dataset.busyLabel;
+  const el = labelOf(btn);
+  btn.dataset.idleLabel = el ? el.textContent : "";
+  if (el) el.textContent = btn.dataset.busyLabel;
   btn.disabled = true;
 }
 
 function clearBusy(btn) {
   if (!btn || btn.dataset.idleLabel === undefined) return;
-  btn.textContent = btn.dataset.idleLabel;
+  const el = labelOf(btn);
+  if (el) el.textContent = btn.dataset.idleLabel;
   delete btn.dataset.idleLabel;
   btn.disabled = false;
 }
@@ -26,11 +34,13 @@ function submitter(evt) {
 }
 
 // A plain form post: disable after the event has run, so the button's own
-// name and value are still sent.
+// name and value are still sent. If the page stays (a download), the button
+// works again after a few seconds.
 document.addEventListener("submit", function (evt) {
   if (evt.defaultPrevented) return;
   const btn = evt.submitter;
   setTimeout(function () { setBusy(btn); }, 0);
+  setTimeout(function () { clearBusy(btn); }, 5000);
 });
 
 document.addEventListener("htmx:beforeRequest", function (evt) {

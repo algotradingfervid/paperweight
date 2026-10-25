@@ -96,6 +96,7 @@ func TestLayout_FlashShownOnce(t *testing.T) {
 		ctx := templ.WithChildren(ui.WithShell(r.Context(), shell()), text("Hello"))
 		web.Flash(ctx, "success", "Approved. PO/26-27/00001 has been numbered.")
 		web.Flash(ctx, "warning", "Check the rate on line 2.")
+		web.Flash(ctx, "error", "The PDF could not be made.")
 		var buf bytes.Buffer
 		if err := layout.Main(layout.PageOpts{Title: "PO"}).Render(ctx, &buf); err != nil {
 			t.Error(err)
@@ -110,7 +111,7 @@ func TestLayout_FlashShownOnce(t *testing.T) {
 	if strings.Contains(main.Text(), "Approved") || strings.Contains(main.Text(), "Check the rate") {
 		t.Error("Main fragment shows the flash")
 	}
-	banner := page.Find("main .alert-success")
+	banner := page.Find(`main .alert.banner.banner--success[role="status"]`)
 	if !strings.Contains(banner.Text(), "Approved. PO/26-27/00001 has been numbered.") {
 		t.Fatalf("no success banner with the flash; main = %q", page.Find("main").Text())
 	}
@@ -122,8 +123,17 @@ func TestLayout_FlashShownOnce(t *testing.T) {
 	if strings.Index(html, "Approved.") > strings.Index(html, "<h1") {
 		t.Error("success banner is not above the h1")
 	}
-	if !strings.Contains(page.Find("#alerts").Text(), "Check the rate on line 2.") {
-		t.Error("warning flash is not in #alerts")
+	if !strings.Contains(page.Find(`#alerts .alert.banner.banner--warning`).Text(), "Check the rate on line 2.") {
+		t.Error("warning flash is not a warning banner in #alerts")
+	}
+	if !strings.Contains(page.Find(`#alerts .alert.banner.banner--danger`).Text(), "The PDF could not be made.") {
+		t.Error("error flash is not a danger banner in #alerts")
+	}
+	if n := page.Find(`#alerts [role="alert"]`).Length(); n != 0 {
+		t.Errorf("%d role=alert elements inside #alerts", n)
+	}
+	if page.Find(".alert-success, .alert-warning, .alert-error").Length() != 0 {
+		t.Error("flash uses a solid daisyUI alert fill")
 	}
 	if strings.Contains(page.Find("#alerts").Text(), "Approved") {
 		t.Error("success flash is in #alerts")
@@ -147,6 +157,9 @@ func TestShell_SignOutPosts(t *testing.T) {
 	}
 	if doc.Find(`a[href="/signout"]`).Length() != 0 {
 		t.Error("sign-out is a link")
+	}
+	if doc.Find(`.user-menu summary[aria-label="Account menu: Priya Shah"]`).Length() != 1 {
+		t.Error("user menu summary is not labelled Account menu: <user>")
 	}
 }
 

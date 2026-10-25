@@ -4,6 +4,7 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
@@ -40,7 +41,7 @@ templ Page(o PageOpts) {
 					<div id="toasts" class="toast toast-end toast-bottom toasts" role="status" aria-live="polite"></div>
 					<div id="alerts" role="alert" class="alerts">
 						for _, n := range alerts {
-							@notice(n)
+							@alertFlash(n)
 						}
 					</div>
 					<div class="app-page">
@@ -83,7 +84,7 @@ templ mainEl(o PageOpts, banners []web.Notice) {
 				@o.BannerSlot
 			}
 			for _, n := range banners {
-				@notice(n)
+				@flash(n)
 			}
 			if !o.NoHeading {
 				<h1 id={ headingID(o) } tabindex="-1">{ o.Title }</h1>
@@ -96,9 +97,25 @@ templ mainEl(o PageOpts, banners []web.Notice) {
 	</main>
 }
 
-// notice renders a flash message as text (never markup).
-templ notice(n web.Notice) {
-	<div class={ alertClass(n.Level) }>
-		<p>{ n.Text }</p>
+// flash renders a flash message as a Banner, as text (never markup).
+templ flash(n web.Notice) {
+	@components.Banner(components.BannerProps{Kind: flashKind(n.Level), Message: n.Text})
+}
+
+// alertFlash is Banner's markup for a warning or error flash, without a role
+// of its own: #alerts is the live region, so it is announced once.
+templ alertFlash(n web.Notice) {
+	{{ icon, word, tint := "alert-circle", "Warning", "banner--warning" }}
+	if flashKind(n.Level) == components.Danger {
+		{{ icon, word, tint = "x-circle", "Error", "banner--danger" }}
+	}
+	<div class={ "alert", "banner", tint }>
+		@icons.Icon(icon)
+		<div class="banner-body">
+			<p>
+				<strong>{ word }:</strong>
+				{ n.Text }
+			</p>
+		</div>
 	</div>
 }

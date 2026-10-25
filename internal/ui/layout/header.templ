@@ -35,7 +35,7 @@ templ header(o PageOpts, s ui.Shell) {
 			}
 			if s.SignedIn {
 				<details class="user-menu">
-					<summary class="btn btn-ghost" aria-label={ s.User }>
+					<summary class="btn btn-ghost" aria-label={ "Account menu: " + s.User }>
 						@icons.Icon("user")
 						<span class="user-name truncate">{ s.User }</span>
 					</summary>
