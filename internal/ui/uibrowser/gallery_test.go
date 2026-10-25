@@ -174,12 +174,13 @@ func waitFor(t *testing.T, ctx context.Context, what, expr string) {
 }
 
 // markEl puts data-test-target on the element expr returns, and reports
-// whether there was one.
+// whether there was one. expr is evaluated before the old mark is cleared,
+// so it may refer to the marked element.
 func markEl(t *testing.T, ctx context.Context, expr string) bool {
 	t.Helper()
 	return eval[bool](t, ctx, `(() => {
-  document.querySelectorAll("[data-test-target]").forEach(function (e) { e.removeAttribute("data-test-target"); });
   const el = (`+expr+`);
+  document.querySelectorAll("[data-test-target]").forEach(function (e) { e.removeAttribute("data-test-target"); });
   if (!el) return false;
   el.setAttribute("data-test-target", "");
   return true;
@@ -517,8 +518,16 @@ func TestGalleryBrowser_DoubleSubmitSendsOnce(t *testing.T) {
 		t.Fatal(`buttons page: no htmx form with a "Saving…" submit button`)
 	}
 	path := eval[string](t, ctx, `new URL(document.querySelector("[data-test-target]").form.getAttribute("hx-post"), location.href).pathname`)
+	// Two real clicks at the button's centre, the second one a double click
+	// (chromedp.DoubleClick sends a single click event).
+	xy := eval[[]float64](t, ctx, `(() => {
+  const b = document.querySelector("[data-test-target]");
+  b.scrollIntoView({block: "center"});
+  const r = b.getBoundingClientRect();
+  return [r.left + r.width / 2, r.top + r.height / 2];
+})()`)
 	m := g.mark()
-	do(t, ctx, "double click", chromedp.DoubleClick(target))
+	do(t, ctx, "double click", chromedp.MouseClickXY(xy[0], xy[1]), chromedp.MouseClickXY(xy[0], xy[1], chromedp.ClickCount(2)))
 	waitFor(t, ctx, "the busy button", `(() => { const b = document.querySelector("[data-test-target]"); return b !== null && b.disabled && b.textContent.trim() === "Saving…"; })()`)
 	if n := countPosts(g.since(m), path); n != 0 {
 		t.Errorf("the POST to %s had finished before the busy state was seen (handler must take 500 ms)", path)
@@ -758,27 +767,37 @@ func TestGalleryBrowser_LineGridCtrlEnterKeepsRefusedEdit(t *testing.T) {
 	}
 }
 
+// TestGalleryBrowser_LineGridEnterSkipsCombobox: Enter on the active row of
+// a grid picker chooses it and does not move to another row. It runs on a
+// row with an item chosen (through "Change") and on the empty first row.
 func TestGalleryBrowser_LineGridEnterSkipsCombobox(t *testing.T) {
 	g := startGallery(t)
 	ctx := New(t)
-	open(t, ctx, 1440, g.URL+"/_gallery/lines")
-	kind := eval[string](t, ctx, `(() => {
-  const vis = function (e) { return e.getClientRects().length > 0; };
-  const c = Array.from(document.querySelectorAll('#line-editor form[id^="grid-row-"] [role=combobox]')).find(vis);
-  if (c) { c.setAttribute("data-test-target", ""); return "combobox"; }
-  const ch = Array.from(document.querySelectorAll('#line-editor form[id^="grid-row-"] [data-picker-change]')).find(vis);
-  if (ch) { ch.setAttribute("data-test-target", ""); return "change"; }
-  return "";
-})()`)
-	if kind == "" {
-		t.Skip("the line grid has no picker cell")
+	for _, c := range []struct{ name, sel string }{
+		{"chosen item", "[data-picker-change]"},
+		{"empty row", "[role=combobox]"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			open(t, ctx, 1440, g.URL+"/_gallery/lines")
+			if !markEl(t, ctx, `Array.from(document.querySelectorAll('#line-editor form[id^="grid-row-"] `+c.sel+`')).find(function (e) { return e.getClientRects().length > 0; })`) {
+				t.Fatalf("lines page@1440: no visible %s in a line grid row", c.sel)
+			}
+			if c.sel == "[data-picker-change]" {
+				do(t, ctx, "Change the item", chromedp.Click(target))
+				if !markEl(t, ctx, `document.querySelector("[data-test-target]").closest(".picker").querySelector("[role=combobox]")`) {
+					t.Fatal("the grid picker has no combobox after Change")
+				}
+				waitFor(t, ctx, "the search shown after Change", `document.querySelector("[data-test-target]").getClientRects().length > 0`)
+			}
+			lineGridEnter(t, ctx)
+		})
 	}
-	if kind == "change" {
-		do(t, ctx, "Change the item", chromedp.Click(target))
-		if !markEl(t, ctx, `document.querySelector("[data-test-target]").closest(".picker").querySelector("[role=combobox]")`) {
-			t.Fatal("the grid picker has no combobox after Change")
-		}
-	}
+}
+
+// lineGridEnter types "st" in the marked grid combobox, moves to the first
+// option and presses Enter.
+func lineGridEnter(t *testing.T, ctx context.Context) {
+	t.Helper()
 	formID := eval[string](t, ctx, `document.querySelector("[data-test-target]").closest("form").id`)
 	before := eval[string](t, ctx, `location.href`)
 	list := `document.getElementById(document.querySelector("[data-test-target]").getAttribute("aria-controls"))`
@@ -804,5 +823,113 @@ func TestGalleryBrowser_LineGridEnterSkipsCombobox(t *testing.T) {
 	}
 	if got := eval[string](t, ctx, `location.href`); got != before {
 		t.Errorf("Enter in the grid picker moved to %s", got)
+	}
+}
+
+// inertCount is the number of inert elements on the page.
+const inertCount = `document.querySelectorAll("[inert]").length`
+
+// TestGalleryBrowser_PickerReleasesInert: the phone picker panel makes the
+// page behind it inert (CD-133) and leaves nothing inert once it is gone,
+// whether closed with Esc or swapped away by a wizard step's submit.
+func TestGalleryBrowser_PickerReleasesInert(t *testing.T) {
+	g := startGallery(t)
+	ctx := New(t)
+	const panelOpen = `document.querySelector("[data-picker-search][data-open]") !== null`
+	openPanel := func(t *testing.T, page string) {
+		t.Helper()
+		open(t, ctx, 320, g.URL+page)
+		if n := eval[int](t, ctx, inertCount); n != 0 {
+			t.Fatalf("%s@320: %d inert elements before the picker opened", page, n)
+		}
+		if !markEl(t, ctx, `Array.from(document.querySelectorAll("[role=combobox]")).find(function (e) { return e.getClientRects().length > 0; })`) {
+			t.Fatalf("%s@320: no visible picker combobox", page)
+		}
+		do(t, ctx, "open the picker", chromedp.Click(target))
+		waitFor(t, ctx, "the open search panel", panelOpen)
+		if n := eval[int](t, ctx, inertCount); n == 0 {
+			t.Fatalf("%s@320: the open picker panel made nothing inert (CD-133)", page)
+		}
+	}
+
+	t.Run("Esc", func(t *testing.T) {
+		openPanel(t, "/_gallery/picker")
+		do(t, ctx, "Esc", chromedp.KeyEvent(kb.Escape))
+		waitFor(t, ctx, "the panel closed", `!(`+panelOpen+`)`)
+		if n := eval[int](t, ctx, inertCount); n != 0 {
+			t.Errorf("after Esc %d elements are still inert: %s", n,
+				eval[string](t, ctx, `Array.from(document.querySelectorAll("[inert]")).map(function (e) { return e.outerHTML.slice(0, 80); }).join(" | ")`))
+		}
+	})
+
+	t.Run("wizard step submitted", func(t *testing.T) {
+		openPanel(t, "/_gallery/wizard-1")
+		do(t, ctx, "mark the page", chromedp.Evaluate[chromedp.Void](`window.__samePage = true`))
+		do(t, ctx, "submit step 1 with the panel open", chromedp.Evaluate[chromedp.Void](`(() => {
+  const b = document.querySelector("#wizard form button[type=submit]:not([name=nav])");
+  b.form.requestSubmit(b);
+})()`))
+		waitFor(t, ctx, "step 2", `location.pathname === "/_gallery/wizard-2" && document.querySelector(".htmx-request") === null`)
+		if !eval[bool](t, ctx, `window.__samePage === true`) {
+			t.Fatal("step 1 was submitted by a full page load, want htmx to swap #wizard")
+		}
+		if n := eval[int](t, ctx, inertCount); n != 0 {
+			t.Errorf("after the step swap %d elements are still inert: %s", n,
+				eval[string](t, ctx, `Array.from(document.querySelectorAll("[inert]")).map(function (e) { return e.outerHTML.slice(0, 80); }).join(" | ")`))
+		}
+	})
+}
+
+// TestGalleryBrowser_NumberInputsNotClipped: a number input shows its
+// worst-case value whole at every width; only non-number single-line inputs
+// may end in an ellipsis (AD decision A).
+func TestGalleryBrowser_NumberInputsNotClipped(t *testing.T) {
+	g := startGallery(t)
+	ctx := New(t)
+	type numInput struct {
+		ID, Value, TextOverflow  string
+		ScrollWidth, ClientWidth float64
+	}
+	pages := []struct {
+		page string
+		want []string // worst-case values the page's visible number inputs must hold
+		wide int64    // from this width on, the number inputs must be shown
+	}{
+		{"fields", []string{"99,99,99,999.99", "1,00,000", "9,99,999.9999"}, 0},
+		{"lines", []string{"1,00,000", "9,99,999.9999"}, 1440},
+	}
+	for _, p := range pages {
+		for _, w := range screens.Widths {
+			open(t, ctx, w, g.URL+"/_gallery/"+p.page)
+			ins := eval[[]numInput](t, ctx, `Array.from(document.querySelectorAll("input.num")).filter(function (e) { return e.getClientRects().length > 0; }).map(function (e) {
+  return {ID: e.id, Value: e.value, TextOverflow: getComputedStyle(e).textOverflow, ScrollWidth: e.scrollWidth, ClientWidth: e.clientWidth};
+})`)
+			if w >= p.wide {
+				for _, v := range p.want {
+					if !slices.ContainsFunc(ins, func(in numInput) bool { return in.Value == v }) {
+						t.Errorf("%s@%d: no visible input.num holds the worst-case value %q", p.page, w, v)
+					}
+				}
+			}
+			var bad []string // the line grid has 500 rows: report a few
+			for _, in := range ins {
+				if in.Value == "" {
+					continue
+				}
+				if in.ScrollWidth > in.ClientWidth+1 {
+					bad = append(bad, "input.num#"+in.ID+" "+strconv.Quote(in.Value)+" is clipped: scrollWidth "+strconv.FormatFloat(in.ScrollWidth, 'f', -1, 64)+" > clientWidth "+strconv.FormatFloat(in.ClientWidth, 'f', -1, 64))
+				}
+				if in.TextOverflow == "ellipsis" {
+					bad = append(bad, "input.num#"+in.ID+" "+strconv.Quote(in.Value)+" has text-overflow: ellipsis")
+				}
+			}
+			for i, b := range bad {
+				if i == 6 {
+					t.Errorf("%s@%d: ... and %d more", p.page, w, len(bad)-i)
+					break
+				}
+				t.Errorf("%s@%d: %s", p.page, w, b)
+			}
+		}
 	}
 }

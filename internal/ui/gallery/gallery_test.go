@@ -249,4 +249,7 @@ func TestGallery_NotInRelease(t *testing.T) {
 	if strings.Contains(deps, "internal/ui/gallery") {
 		t.Error("cmd/app (release build) imports internal/ui/gallery")
 	}
+	if strings.Contains(deps, "github.com/chromedp/") {
+		t.Error("cmd/app (release build) depends on chromedp")
+	}
 }
