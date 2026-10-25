@@ -71,45 +71,45 @@ func userErr(kind error, field, format string, args ...any) error {
 	return &UserError{Kind: kind, Msg: fmt.Sprintf(format, args...), Field: field}
 }
 
-func notAdmin() error { //nolint:unused // first used in Task 3; remove this directive then
+func notAdmin() error {
 	return userErr(ErrNotAdmin, "", "You don't have permission to change approval rules. Ask an Administrator.")
 }
 
-func invalidFromAmount() error { //nolint:unused // first used in Task 3; remove this directive then
+func invalidFromAmount() error {
 	return userErr(ErrInvalidRule, "from_amount", "From amount must be ₹0.00 or more.")
 }
 
-func noApproverRole() error { //nolint:unused // first used in Task 3; remove this directive then
+func noApproverRole() error {
 	return userErr(ErrInvalidRule, "role", "Choose an approver role for this rule.")
 }
 
-func noFallbackRole() error { //nolint:unused // first used in Task 3; remove this directive then
+func noFallbackRole() error {
 	return userErr(ErrInvalidRule, "fallback_role", "Choose a fallback role for claims whose employee has no reporting manager.")
 }
 
 // managerNotAvailable lists the labels of the employee-based DocTypes.
-func managerNotAvailable(labels []string) error { //nolint:unused // first used in Task 3; remove this directive then
+func managerNotAvailable(labels []string) error {
 	return userErr(ErrInvalidRule, "role", "Reporting manager approval is only available for %s. Choose a role.", strings.Join(labels, " or "))
 }
 
-func masterDocType(label string) error { //nolint:unused // first used in Task 3; remove this directive then
+func masterDocType(label string) error {
 	return userErr(ErrInvalidRule, "doctype", "%s is a master and can't need approval. Choose a document type.", label)
 }
 
-func noDocType() error { //nolint:unused // first used in Task 3; remove this directive then
+func noDocType() error {
 	return userErr(ErrInvalidRule, "doctype", "Choose a document type.")
 }
 
 // roleDisabled names the field ("role" or "fallback_role") that holds role.
-func roleDisabled(field, role string) error { //nolint:unused // first used in Task 3; remove this directive then
+func roleDisabled(field, role string) error {
 	return userErr(ErrInvalidRule, field, "Role %s is disabled. Choose an active role.", role)
 }
 
-func duplicateRule(label string, from types.Money) error { //nolint:unused // first used in Task 3; remove this directive then
+func duplicateRule(label string, from types.Money) error {
 	return userErr(ErrDuplicateRule, "from_amount", "A %s rule from %s already exists. Edit that rule instead.", label, types.FormatINR(from))
 }
 
-func ruleInUse(n int64) error { //nolint:unused // first used in Task 3; remove this directive then
+func ruleInUse(n int64) error {
 	docs := "documents"
 	if n == 1 {
 		docs = "document"
@@ -117,7 +117,7 @@ func ruleInUse(n int64) error { //nolint:unused // first used in Task 3; remove 
 	return userErr(ErrRuleInUse, "", "This rule has been used by %s %s. Disable it instead of deleting.", types.FormatCount(n), docs)
 }
 
-func ruleConflict() error { //nolint:unused // first used in Task 3; remove this directive then
+func ruleConflict() error {
 	return userErr(ErrRuleConflict, "", "This rule was changed by someone else. Reload and try again.")
 }
 
