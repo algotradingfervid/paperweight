@@ -39,10 +39,6 @@ func (n *Namer) AssignAmendment(ctx context.Context, tx *db.Tx, doctype string, 
 	return "", errs.ErrNotImplemented
 }
 
-func (n *Namer) Preview(ctx context.Context, doctype string, d types.Date) (string, error) {
-	return "", errs.ErrNotImplemented
-}
-
 func (n *Namer) ValidateTemplate(tpl string) error {
 	_, err := parseTemplate(tpl)
 	return err
