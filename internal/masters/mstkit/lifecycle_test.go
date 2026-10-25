@@ -5,12 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/audit/auditfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
+	"github.com/vardhan/internaltools/internal/kernel/csvio"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doc/docfake"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -226,7 +229,106 @@ func TestKit_AuditSkipsCreateWhenImporting(t *testing.T) {
 	if es := k.audit.For("Party", other); len(es) != 1 || es[0].Action != "create" {
 		t.Errorf("entries for %d = %+v; want one create entry", other, es)
 	}
-	// csvio.IsImport sub-case (CD-60) added when NUM-M2 lands.
+	// csvio's real import flags the RowFunc's ctx (CD-60): with no
+	// mstkit.Importing, mstkit's create entry is still skipped, and the only
+	// create entry is csvio's own "created by import" one (M12, NUM-145).
+	t.Run("csvio import", func(t *testing.T) {
+		k := newKit(t)
+		registerImported.Do(func() {
+			mstkit.RegisterMaster(doctype.DocType{
+				Name:        imported.DocType,
+				Label:       imported.Label,
+				PluralLabel: "Imported Things",
+				Table:       imported.Table,
+				Importable:  true,
+				Fields: []doctype.Field{
+					{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true},
+					{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true},
+				},
+			}, mstkit.StandardLookup(imported))
+			csvio.RegisterImporter(imported.DocType, importedRow)
+		})
+		importRun = &importCall{kit: k}
+		t.Cleanup(func() { importRun = nil })
+		k.auth.Allow(k.kavya.ID, imported.DocType, "read", "create", "import")
+		dt, ok := doctype.Lookup(imported.DocType)
+		if !ok {
+			t.Fatalf("doctype.Lookup(%q) not found", imported.DocType)
+		}
+		im := csvio.NewImporter(k.db, k.auth, k.clock, k.audit)
+		rep, err := im.Import(context.Background(), k.kavya, dt, strings.NewReader("Code,Name\r\nK-KUMAR,Kumar Hardware\r\n"))
+		if err != nil {
+			t.Fatalf("csvio Import: %v", err)
+		}
+		if rep.Imported != 1 || len(rep.Errors) != 0 {
+			t.Fatalf("report = %+v; want 1 imported, no errors", rep)
+		}
+		if importRun.calls != 1 || importRun.id == 0 {
+			t.Fatalf("RowFunc calls = %d, id = %d; want one call that created a row", importRun.calls, importRun.id)
+		}
+		if !importRun.isImporting {
+			t.Error("mstkit.IsImporting(RowFunc ctx) = false under csvio's import; want true (csvio.IsImport, CD-60)")
+		}
+		es := k.audit.For(imported.DocType, importRun.id)
+		var mine, csvios int
+		for _, e := range es {
+			if e.Action != "create" {
+				continue
+			}
+			if e.Reason == "created by import" {
+				csvios++
+			} else {
+				mine++
+			}
+		}
+		if mine != 0 {
+			t.Errorf("mstkit create entries during csvio import = %d; want 0 (entries %+v)", mine, es)
+		}
+		if csvios != 1 {
+			t.Errorf(`csvio "created by import" entries = %d; want 1 (entries %+v)`, csvios, es)
+		}
+	})
+}
+
+// imported is the importable test master the csvio sub-case registers.
+var imported = mstkit.Kind{DocType: "kit.Imported", Label: "Thing", Table: "kit_thing", HasCode: true}
+
+// registerImported guards the global registrations (both panic on a
+// duplicate, -count > 1).
+var registerImported sync.Once
+
+// importCall is what importedRow sees during one csvio sub-case run.
+type importCall struct {
+	kit         *kit
+	calls       int
+	id          int64
+	isImporting bool
+}
+
+var importRun *importCall
+
+// importedRow is the csvio RowFunc: it inserts the row and audits a create
+// through mstkit, as a master's CreateTx does.
+func importedRow(ctx context.Context, tx *db.Tx, p auth.Principal, row map[string]string) (int64, []doctype.FieldError, error) {
+	run := importRun
+	run.calls++
+	run.isImporting = mstkit.IsImporting(ctx)
+	res, err := tx.SQL().ExecContext(ctx,
+		`INSERT INTO kit_thing (code, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+		row["code"], row["name"], seedTS, seedTS)
+	if err != nil {
+		return 0, nil, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, nil, err
+	}
+	run.id = id
+	after := map[string]string{"code": row["code"], "name": row["name"]}
+	if err := run.kit.env.Audit(ctx, tx, p, imported, id, "create", nil, after); err != nil {
+		return 0, nil, err
+	}
+	return id, nil, nil
 }
 
 func TestKit_DisableWritesAudit(t *testing.T) {
@@ -319,6 +421,9 @@ func TestKit_DeleteRefusedWhenReferenced(t *testing.T) {
 	// A reference to a child row (CASCADE) blocks the master's delete too.
 	t.Run("child row referenced", func(t *testing.T) {
 		k := newKit(t)
+		// A filler row first, so the master (id 2) and its child row (id 1)
+		// don't share an id and a mixed-up table/id lookup can't pass.
+		k.insertThing(t, "FILLER", "Filler")
 		id := k.insertThing(t, "V-SHARMA", "Sharma Steel Traders")
 		var childID int64
 		k.write(t, func(tx *db.Tx) error {
