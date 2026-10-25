@@ -88,6 +88,50 @@ func (a *Approvals) MyRequests(ctx context.Context, p auth.Principal, page types
 	return pageOf(items, page), nil
 }
 
+// Stuck lists, oldest first, the open requests no one can approve now
+// (Administrators only). A request whose document can't be read is skipped.
+func (a *Approvals) Stuck(ctx context.Context, p auth.Principal) ([]StuckItem, error) {
+	ok, err := a.auth.HasRole(ctx, p.ID, "Administrator")
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, notAdminStuck()
+	}
+	var items []StuckItem
+	err = a.db.Read(ctx, func(tx *db.Tx) error {
+		rows, err := dbq.New(tx.SQL()).ListOpenRequests(ctx)
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			r, err := requestOf(row)
+			if err != nil {
+				return err
+			}
+			in, ok := a.resolve(ctx, tx, r)
+			if !ok {
+				continue
+			}
+			users, err := a.eligible(ctx, snapshotOf(r), in)
+			if err != nil {
+				return err
+			}
+			if len(users) == 0 {
+				items = append(items, StuckItem{
+					InboxItem: inboxItem(r, in),
+					Message:   "No active approver: needs " + joinRoles(r.ApproverRoles) + ".",
+				})
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // Status is the document's approval line, from its last history row.
 func (a *Approvals) Status(ctx context.Context, tx *db.Tx, dt string, id int64) (Status, error) {
 	last, err := dbq.New(tx.SQL()).LastHistory(ctx, dbq.LastHistoryParams{DocType: dt, DocID: id})

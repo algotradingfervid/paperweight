@@ -1,0 +1,23 @@
+package web
+
+import (
+	"github.com/vardhan/internaltools/internal/kernel/approval"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// stuckPairs are a stuck card's facts: the problem first, then the inbox facts.
+func stuckPairs(it approval.StuckItem) []components.Pair {
+	return append([]components.Pair{{Label: "Problem", Value: it.Message}}, inboxPairs(it.InboxItem)...)
+}
+
+// stuckPage is "Stuck approvals": one card per open request no one can approve, oldest first.
+templ stuckPage(rows []approval.StuckItem, docURL func(string, int64) string) {
+	if len(rows) == 0 {
+		@components.EmptyState("No approvals are stuck.", nil)
+	}
+	for _, it := range rows {
+		@components.Card(it.Title, &components.Link{Label: "Open", Href: docURL(it.DocType, it.DocID)}) {
+			@components.SummaryList(stuckPairs(it))
+		}
+	}
+}

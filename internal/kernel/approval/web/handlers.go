@@ -103,6 +103,19 @@ func (h *handlers) mine(w http.ResponseWriter, r *http.Request) {
 		minePage(res.Rows, h.d.DocURL, pageInfo("/approvals/mine", "requests", page, res.Total)))
 }
 
+func (h *handlers) stuck(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.principal(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.d.Approvals.Stuck(r.Context(), p)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	h.render(w, r, http.StatusOK, "Stuck approvals", stuckPage(items, h.d.DocURL))
+}
+
 func (h *handlers) rules(w http.ResponseWriter, r *http.Request) {
 	p, ok := h.principal(w, r)
 	if !ok {

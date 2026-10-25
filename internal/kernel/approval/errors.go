@@ -75,6 +75,10 @@ func notAdmin() error {
 	return userErr(ErrNotAdmin, "", "You don't have permission to change approval rules. Ask an Administrator.")
 }
 
+func notAdminStuck() error {
+	return userErr(ErrNotAdmin, "", "You don't have permission to see stuck approvals. Ask an Administrator.")
+}
+
 func invalidFromAmount() error {
 	return userErr(ErrInvalidRule, "from_amount", "From amount must be ₹0.00 or more.")
 }
