@@ -1,0 +1,15 @@
+package views
+
+import authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+
+func (Default) Message(p authweb.MessagePage) templ.Component {
+	return message(p)
+}
+
+templ message(p authweb.MessagePage) {
+	@layout(p.Title, p.CSRF, p.Error, p.Warnings) {
+		if p.Message != "" {
+			<p>{ p.Message }</p>
+		}
+	}
+}
