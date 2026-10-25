@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 )
 
 // PublicPaths may be Public or unguarded; a trailing * matches any suffix.
@@ -22,6 +24,9 @@ func (s *Server) Mount(r chi.Router) {
 	r.Method(http.MethodPost, "/signout", s.Self(http.HandlerFunc(s.postSignOut)))
 	r.Method(http.MethodGet, "/setup", Public(http.HandlerFunc(s.getSetup)))
 	r.Method(http.MethodPost, "/setup", Public(http.HandlerFunc(s.postSetup)))
+	r.Method(http.MethodGet, "/account/password", s.Self(http.HandlerFunc(s.getPassword)))
+	r.Method(http.MethodPost, "/account/password", s.Self(http.HandlerFunc(s.postPassword)))
+	r.Method(http.MethodPost, "/users/{id}/password", s.Admin(auth.ErrNotAdminPassword.Msg, http.HandlerFunc(s.postResetPassword)))
 }
 
 // CheckRoutes returns one "METHOD path: problem" line per route that does not
