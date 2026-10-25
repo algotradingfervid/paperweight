@@ -142,9 +142,50 @@ type Company struct {
 	UpdatedBy sql.NullInt64
 }
 
+type ExpenseType struct {
+	ID               int64
+	Code             string
+	Name             string
+	DefaultHsnSac    string
+	DefaultTaxCodeID sql.NullInt64
+	Disabled         int64
+	Version          int64
+	CreatedAt        string
+	CreatedBy        sql.NullInt64
+	UpdatedAt        string
+	UpdatedBy        sql.NullInt64
+}
+
 type GstState struct {
 	Code string
 	Name string
+}
+
+type Item struct {
+	ID               int64
+	Code             string
+	Name             string
+	ItemType         string
+	HsnSac           string
+	StockUomID       int64
+	PurchaseUomID    int64
+	DefaultTaxCodeID sql.NullInt64
+	IsStock          int64
+	StandardRate     int64
+	Disabled         int64
+	Version          int64
+	CreatedAt        string
+	CreatedBy        sql.NullInt64
+	UpdatedAt        string
+	UpdatedBy        sql.NullInt64
+}
+
+type ItemUom struct {
+	ID       int64
+	ParentID int64
+	LineNo   int64
+	UomID    int64
+	Factor   int64
 }
 
 type LoginAttempt struct {
@@ -261,6 +302,34 @@ type Session struct {
 	LastSeenAt string
 	Ip         string
 	UserAgent  string
+}
+
+type TaxCode struct {
+	ID        int64
+	Code      string
+	Name      string
+	Treatment string
+	Rate      int64
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type Uom struct {
+	ID          int64
+	Code        string
+	Name        string
+	Uqc         string
+	WholeNumber int64
+	Disabled    int64
+	Version     int64
+	CreatedAt   string
+	CreatedBy   sql.NullInt64
+	UpdatedAt   string
+	UpdatedBy   sql.NullInt64
 }
 
 type User struct {
