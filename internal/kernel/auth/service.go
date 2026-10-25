@@ -10,7 +10,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth/dbq"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
 )
 
 var _ Service = (*Auth)(nil)
@@ -332,17 +331,3 @@ func (a *Auth) ReadableDocTypes(ctx context.Context, p Principal) ([]string, err
 	}
 	return out, nil
 }
-
-// --- BEGIN Task 7 stubs: delete on merge with Task 7's users.go ---
-
-// DisableUser is built in Task 7.
-func (a *Auth) DisableUser(ctx context.Context, tx *db.Tx, u UserID, reason string) error {
-	return errs.ErrNotImplemented
-}
-
-// EnableUser is built in Task 7.
-func (a *Auth) EnableUser(ctx context.Context, tx *db.Tx, u UserID) error {
-	return errs.ErrNotImplemented
-}
-
-// --- END Task 7 stubs ---
