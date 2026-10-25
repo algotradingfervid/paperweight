@@ -12,3 +12,6 @@
 .DS_Store
 .idea/
 .vscode/
+
+# crew harness status and timing (local)
+/.work/

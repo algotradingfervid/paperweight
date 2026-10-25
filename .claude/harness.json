@@ -1,0 +1,15 @@
+{
+  "protocol": "docs/superpowers/plans/2026-10-25-execution-protocol.md",
+  "progress": "docs/PROGRESS.md",
+  "decision_log": "docs/specs/contract-changes.md",
+  "ux_template": "docs/ux/TEMPLATE.md",
+  "protected": ["docs/specs/*", "docs/research/*", "docs/superpowers/plans/*", "docs/tests/*"],
+  "commands": {
+    "fast_test": "go test -race ./{pkg}/...",
+    "handin": ["go test -race {dirs}", "bin/tools/golangci-lint run --new-from-rev={base} {dirs}"],
+    "merge": "make ci",
+    "e2e": "make e2e"
+  },
+  "max_parallel_agents": 6,
+  "models": {"judgement": "opus", "mechanical": "haiku"}
+}

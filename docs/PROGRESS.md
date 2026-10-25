@@ -1,12 +1,12 @@
 # Progress
 
-Status on 24 October 2026: **spec, tests and plans complete; awaiting product-owner review. No code written yet.**
+Status on 25 October 2026: **specs, tests and plans complete; crew harness built and verified (CD-101). App build paused at WP0** (Tasks 1–2 done, 3/7/7b partial on branch `wip/wp0-start`, unreviewed). Next: resume WP0 under the harness.
 
 ## Read in this order
 
 1. `docs/specs/2026-10-24-core-platform-spec.md`: the core platform (stack, architecture, §5 Go contracts, parallel work packages).
 2. `docs/specs/2026-10-24-design-system.md`: front-end spec (mobile-first, light only, no horizontal scroll, wizards). Visual preview: https://claude.ai/artifact/BmUKkSr1GtsLED2KAbyDtn
-3. `docs/specs/contract-changes.md`: decision log CD-01 to CD-100; the spec already includes them.
+3. `docs/specs/contract-changes.md`: decision log CD-01 to CD-101; the spec already includes them.
 4. `docs/tests/core/README.md`: 722 test cases (556 P1, 166 P2) across `01-` to `07-*.md`; fixtures in `00-fixtures.md`.
 5. `docs/superpowers/plans/`: one plan per work package.
 6. `docs/superpowers/plans/2026-10-25-execution-protocol.md`: how tasks are run (director, roles, risk tier per task, review cadence; CD-96), and the design stage every new screen goes through first (`docs/ux/TEMPLATE.md`, CD-97).

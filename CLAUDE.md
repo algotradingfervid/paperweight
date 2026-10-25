@@ -1,19 +1,37 @@
 # Paperweight
 
-Internal business tools (purchase orders, goods receipts, expenses) for a small Indian company. Go + templ + htmx + Alpine (CSP build) + SQLite, daisyUI on Tailwind for styling. Start with `docs/PROGRESS.md`.
+Internal business tools (purchase orders, goods receipts, expenses) for a small Indian company. Go 1.27.3 + templ + htmx 2.0.11 + Alpine (CSP build) + SQLite (modernc, WAL), styled with daisyUI 5 on Tailwind v4 standalone (no Node). Start with `docs/PROGRESS.md`.
 
-## The main session is the director
+## Commands (from WP0 Task 1)
 
-Run all work under `docs/superpowers/plans/2026-10-25-execution-protocol.md`:
-- Plan, brief, dispatch, record, commit and merge; do not write production code or read whole diffs yourself.
-- Workers are the `.claude/agents/pw-*` roles. Every dispatch sets `model` explicitly: `opus` or `haiku` only, never `fable`.
-- Give each task a tier (protocol §3) and record it in the PROGRESS task table with times, attempts and findings.
-- New or changed screens need an approved UX design first (protocol §9, `docs/ux/TEMPLATE.md`).
-- Decisions go in `docs/specs/contract-changes.md` as CD entries; the spec is updated to match.
+| What | Command |
+|---|---|
+| Fast check for one package (use while working; cache on) | `go test -race ./internal/<pkg>/...` |
+| Full tests (no cache) | `make test` |
+| Lint (repo-local golangci-lint v2.15.0) | `make lint`; for one task's changes `bin/tools/golangci-lint run --new-from-rev=<base> <dirs>` |
+| Generate (go generate, sqlc, templ, CSS) | `make generate` |
+| Build | `make build` |
+| Everything before a merge | `make ci` |
+| Browser tests | `make e2e` |
+| Test-ID check for an area | `make checkids AREA=<AREA>` |
 
-## Repository rules
+## Who owns which files
 
-- Work-package worktrees live at `../it-<wp>` on branch `wp/<wp>` (spec §9). Wave 0 (WP0) runs on `main` and ends with the tag `wp0-foundation`.
-- Commit at each approved task. Never push, force-push or use `--no-verify` without the owner's say-so.
-- Local Go is 1.25.5; `go.mod` asks for 1.27.3 and the toolchain directive downloads it.
-- Branding is changed only in `internal/platform/brand/` (CD-99).
+- Generated and committed (regenerate, never hand-edit): `*_templ.go`, `**/dbq/`, `internal/ui/static/*`, `internal/ui/assets_gen.go`, `internal/ui/icons/icons_gen.go`, `internal/platform/brand/brand_gen.go`.
+- Vendored: `internal/ui/vendor/` (daisyUI, Tailwind checksum). Re-copy from upstream at the pinned version.
+- Director only (workers are blocked from editing): `docs/specs/`, `docs/research/`, `docs/superpowers/plans/`, `docs/tests/`, `CLAUDE.md`, `.claude/`.
+- Branding: only `internal/platform/brand/` (CD-99).
+
+## Things that will bite you
+
+- Every write goes through `db.Write` (`BEGIN IMMEDIATE`); checks that depend on other rows read inside that transaction, and a save uses the `version` the page posted, never a freshly loaded one (CD-94).
+- No `style=` attributes, inline scripts, `hx-on`, trigger filters `[...]` or templ `css`/`script` blocks: the CSP and the UI lint test reject them.
+- Our component CSS must be Tailwind `@utility`, never `@layer components`: daisyUI's layers sit inside `utilities` and win over `components` (CD-98).
+- daisyUI classes only inside `internal/ui`; no `*-soft` variants, `table`, `countdown`, `radial-progress` or popover dropdowns (research `ui-library.md` §4).
+- `go test` without `-count=1` uses the cache (also with `-race`); `make test` forces a full run. Use the fast check while working.
+- `scripts/checktestids` must accept flags after the area argument (`make checkids` passes `<AREA> --exclude-level e2e`).
+- Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
+
+## How work runs here
+
+This project uses the crew harness (`.claude/harness.json`): the main session is the director (`director` skill), workers are the global `crew-*` agents, and the rules are in `docs/superpowers/plans/2026-10-25-execution-protocol.md`. New or changed screens need an approved UX design first (`docs/ux/TEMPLATE.md`). Decisions go in `docs/specs/contract-changes.md`. Worktrees live at `../it-<wp>` on `wp/<wp>`; WP0 runs on `main` and ends with the tag `wp0-foundation`. The paused WP0 work is on branch `wip/wp0-start` (not reviewed; resume from it, don't merge it as is). Never push without the owner's say-so.

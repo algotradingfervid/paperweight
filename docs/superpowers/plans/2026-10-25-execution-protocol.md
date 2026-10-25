@@ -17,7 +17,7 @@ The fix is not fewer checks on risky code. It is: match the process to the risk,
 
 ## 2. Roles (general)
 
-Only `haiku` and `opus` are used; never `fable`. Every dispatch sets `model` explicitly. The role definitions are `.claude/agents/pw-implementer.md`, `pw-test-writer.md`, `pw-reviewer.md` (read-only tools), `pw-verifier.md` (`haiku`), `pw-researcher.md` and `pw-ux-designer.md`.
+Only `haiku` and `opus` are used; never `fable`. Every dispatch sets `model` explicitly. The roles are the global crew-harness agents in `~/.claude/agents/`: `crew-implementer`, `crew-test-writer`, `crew-reviewer` (read-only), `crew-verifier` (`haiku`), `crew-researcher`, `crew-ux-designer` and `crew-ui-reviewer` (CD-101). Project settings for the harness are in `.claude/harness.json`.
 
 | Role | Model | Does | Never |
 |---|---|---|---|
@@ -95,7 +95,7 @@ The reviewer reads the hand-in output and does not repeat it. A failing hand-in 
 Every worker gets the same brief shape and nothing from the conversation:
 
 ```
-You are the <role> for <WP> Task <n> (<tier> tier).
+TASK: paperweight <WP> <task> | ROLE: <role> | TIER: <tier>
 Read <plan path> section "Task <n>" and follow it exactly. Also read: <spec sections>, <CD ids>, docs/superpowers/plans/2026-10-25-execution-protocol.md sections 4–6.
 You may change only: <paths from the task's Files list>. Read nothing else unless the task names it.
 Commands: <section 5 commands for this role>.
@@ -135,7 +135,7 @@ Each rule is either checked on this machine or follows from the measurements in 
 | Wave 1 runs its 7 WPs at once, each in its own worktree | Go tests use temp SQLite files, so there is no shared database or connection limit (PO-tato capped server-test tasks at 4) | spec §8, section 8 |
 | Fixes resume the same implementer and reviewer instead of starting fresh agents | The agent keeps the files and reasoning it already loaded; a fresh agent re-reads the spec and plan | section 1: fresh agents per finding drove PO-tato's slowest tasks |
 | Briefs point at one plan section and a file list, and say "read nothing else" | The plans already hold exact code-level steps, so an implementer needs little exploration | section 6 |
-| Agent definitions (`.claude/agents/pw-*.md`) never change during a wave, and the task-specific part of each brief comes last | Anthropic prompt caching reuses an identical prompt prefix, so repeated dispatches of the same role are cheaper and start faster | Anthropic docs, prompt caching (prefix-based) |
+| Agent definitions (`~/.claude/agents/crew-*.md`) never change during a wave, and the task-specific part of each brief comes last | Anthropic prompt caching reuses an identical prompt prefix, so repeated dispatches of the same role are cheaper and start faster | Anthropic docs, prompt caching (prefix-based) |
 | The director never polls; it waits for completion notices and reads status files only when reporting | No wasted turns | section 6 |
 | `haiku` for the verifier and mechanical edits; `opus` only where judgement is needed | Faster and cheaper per call | section 2 |
 
