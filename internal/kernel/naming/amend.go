@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/naming/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -31,8 +30,11 @@ func (n *Namer) AssignAmendment(ctx context.Context, tx *db.Tx, doctype string, 
 	if err != nil {
 		return "", err
 	}
-	if k < 1 || k > 9 {
-		return "", &Error{Kind: ErrAmendmentLimit, Msg: fmt.Sprintf(msgAmendLimit, root, strings.ToLower(s.Label))}
+	if k < 1 {
+		return "", fmt.Errorf("naming: amendment number %d is outside 1..9", k)
+	}
+	if err := CheckAmendmentNo(root, k, s.Label); err != nil {
+		return "", err
 	}
 	existing, err := amendmentOf(ctx, dq, root, k)
 	if err != nil {

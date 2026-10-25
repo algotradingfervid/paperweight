@@ -8,7 +8,6 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
@@ -41,5 +40,3 @@ func Label(number string, id int64) string {
 	}
 	return number
 }
-
-func CheckAmendmentNo(root string, k int, docLabel string) error { return errs.ErrNotImplemented }
