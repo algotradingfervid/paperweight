@@ -32,6 +32,8 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - `scripts/checktestids` must accept flags after the area argument (`make checkids` passes `<AREA> --exclude-level e2e`).
 - High-tier hand-in lint: use `--new-from-rev=<commit before the tests commit>`, not the tests commit itself, or the committed test file is never linted (a QF1011 in `contracts_test.go` reached `make ci` this way).
 - Workers run in parallel: write temp files only to your own scratchpad or a path containing your task label, never a shared name such as `/tmp/handin.txt` (two hand-ins clobbered each other in Wave 1).
+- Every package's `sqlc.yaml` reads the shared `migrations/`, so its `dbq/models.go` changes when any WP adds a migration. After rebasing onto main, run `make generate` and commit the regenerated `dbq/` before `make ci`.
+- Test-writers can't lint before code exists. Lint-only fixes to committed test files (errcheck, an unused helper's `//nolint`) are made by the director as their own commit; never an assertion change.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
