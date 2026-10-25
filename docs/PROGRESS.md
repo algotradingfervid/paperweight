@@ -180,6 +180,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | NAM Task 16 e2dd7d5; `make ci` green | — | director | | 19:20 | — | — | — |
 | WP1-AUTH | CD-156 ids never reused | High | crew-implementer, crew-reviewer | | | 1 | 0/0/0 | 2faefcc |
 | Merges | AUTH CD-156 5aecfe2; `make ci` green | — | director | | 19:35 | — | — | — |
+| WP1-AUTH | CD-157 C authfake denial text | High | crew-implementer, crew-reviewer | | | 1 | 0/0/2 | b843525 |
+| Merges | AUTH CD-157 C 7e2bf9b; `make ci` green | — | director | | 19:55 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
