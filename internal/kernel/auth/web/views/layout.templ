@@ -33,7 +33,3 @@ templ layout(title, csrf, errText string, warnings []string) {
 		</body>
 	</html>
 }
-
-func (Default) Sessions(p authweb.SessionsPage) templ.Component {
-	return layout("Sessions", p.CSRF, p.Error, p.Warnings)
-}

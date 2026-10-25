@@ -1,0 +1,41 @@
+package views
+
+import (
+	"fmt"
+
+	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	"github.com/vardhan/internaltools/internal/types"
+)
+
+func (Default) Sessions(p authweb.SessionsPage) templ.Component {
+	return sessions(p)
+}
+
+// sessions lists the user's sessions with their start and last-use times in
+// IST (CD-33).
+templ sessions(p authweb.SessionsPage) {
+	@layout("Sessions", p.CSRF, p.Error, p.Warnings) {
+		<ul>
+			for _, s := range p.Sessions {
+				<li>
+					<span>{ s.UserAgent }</span>
+					<span>{ s.IP }</span>
+					<span>Started { types.FormatIST(s.CreatedAt) }</span>
+					<span>Last used { types.FormatIST(s.LastSeenAt) }</span>
+					if s.Current {
+						<span>This session</span>
+					} else {
+						<form method="post" action={ templ.SafeURL(fmt.Sprintf("/account/sessions/%d/revoke", s.ID)) }>
+							<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+							<button type="submit">Sign out</button>
+						</form>
+					}
+				</li>
+			}
+		</ul>
+		<form method="post" action="/account/sessions/revoke-others">
+			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+			<button type="submit">Sign out all other sessions</button>
+		</form>
+	}
+}

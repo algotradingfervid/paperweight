@@ -139,8 +139,4 @@ func layout(title, csrf, errText string, warnings []string) templ.Component {
 	})
 }
 
-func (Default) Sessions(p authweb.SessionsPage) templ.Component {
-	return layout("Sessions", p.CSRF, p.Error, p.Warnings)
-}
-
 var _ = templruntime.GeneratedTemplate

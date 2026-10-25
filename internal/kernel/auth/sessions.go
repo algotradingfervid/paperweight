@@ -245,6 +245,11 @@ func (st *SessionStore) RevokeForUser(ctx context.Context, u UserID, id int64) e
 	})
 }
 
+// RevokeOthers deletes every session of u except the one with keepHash.
+func (st *SessionStore) RevokeOthers(ctx context.Context, u UserID, keepHash string) error {
+	return st.db.Write(ctx, func(tx *db.Tx) error { return st.RevokeAll(ctx, tx, u, keepHash) })
+}
+
 // RevokeAll deletes every session of u except the one with exceptHash ("" keeps none).
 func (st *SessionStore) RevokeAll(ctx context.Context, tx *db.Tx, u UserID, exceptHash string) error {
 	return dbq.New(tx.SQL()).DeleteSessionsForUser(ctx, dbq.DeleteSessionsForUserParams{UserID: int64(u), TokenHash: exceptHash})
