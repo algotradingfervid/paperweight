@@ -1,0 +1,10 @@
+/* card.css: section card over daisyUI card. */
+@utility card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  & > * { min-inline-size: 0; }
+  & > a { display: inline-flex; align-items: center; min-block-size: var(--target-min); }
+}

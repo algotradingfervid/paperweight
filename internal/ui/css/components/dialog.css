@@ -1,0 +1,22 @@
+/* dialog.css: native dialog over daisyUI modal; the sheet comes from the bottom below 48rem. */
+@utility dialog {
+  & .modal-box { max-block-size: 85dvh; border-radius: var(--radius-xl); }
+  & .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  & .dialog-head h2 { margin: 0; min-inline-size: 0; font-size: var(--h3); line-height: var(--leading-tight); }
+  &::backdrop { background-color: var(--color-overlay); }
+  @media (prefers-reduced-motion: no-preference) {
+    & .modal-box { transition: translate var(--dur-base) var(--ease-enter), opacity var(--dur-base) var(--ease-enter); }
+    &[open] .modal-box { @starting-style { translate: 0 var(--space-8); opacity: 0; } }
+  }
+}
+@utility sheet {
+  & .modal-box {
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+    padding-block-end: calc(var(--space-6) + var(--safe-bottom));
+    box-shadow: var(--shadow-sheet);
+  }
+  @media (min-width: 48rem) {
+    & .modal-box { border-radius: var(--radius-xl); padding-block-end: var(--space-6); box-shadow: var(--shadow-3); }
+  }
+}

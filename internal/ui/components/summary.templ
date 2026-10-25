@@ -1,0 +1,18 @@
+package components
+
+// SummaryList shows label and value pairs.
+templ SummaryList(pairs []Pair) {
+	<dl class="summary">
+		for _, p := range pairs {
+			<div class="summary-row">
+				<dt>{ p.Label }</dt>
+				<dd class={ templ.KV("num", p.Num), templ.KV("code", p.Code) }>{ p.Value }</dd>
+			</div>
+		}
+	</dl>
+}
+
+// AmountInWords shows a total in words under the figure.
+templ AmountInWords(words string) {
+	<p class="in-words">{ words }</p>
+}
