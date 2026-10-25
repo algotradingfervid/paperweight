@@ -32,7 +32,7 @@ Design consequence: approval, GRN and expense flows are designed on a 360 px pho
 | Interactivity | htmx, configured by `<meta name="htmx-config">` (research §2.2): `allowEval:false`, `allowScriptTags:false`, `includeIndicatorStyles:false`, `selfRequestsOnly:true`, `historyCacheSize:0`, `refreshOnHistoryMiss:true`, `defaultFocusScroll:true`, 422 swapped as non-error | htmx.org **2.0.11** (npm `latest`; 4.0.0 is on the `next` tag and has had no patch release, so it is deferred; config above already matches htmx 4 behaviour) | 0BSD |
 | Local state | Alpine.js **CSP build**; every component registered with `Alpine.data` in `app.js`; no arrow functions, template literals or globals in attributes | @alpinejs/csp 3.17.5 | MIT |
 | Own JS | One `app.js` (< 3 KB gzip target): event delegation for dialogs, sheets, toasts, upload progress, Alpine registrations | n/a | n/a |
-| CSS | Hand-written CSS with tokens, `@layer`, container queries, a closed set of component classes; bundled and minified by esbuild's Go API from `go generate`; content-hashed, embedded, `Cache-Control: immutable` | evanw/esbuild v0.28.2 (build-time Go module) | MIT |
+| CSS | **daisyUI 5 on Tailwind CSS v4** (CD-98, `docs/research/ui-library.md`): our tokens are the Tailwind theme (`@theme static`, defaults cleared), one custom light daisyUI theme built from the tokens, daisyUI classes used only inside `internal/ui` components (§7.1), our own component rules written as Tailwind `@utility`. Built by the pinned Tailwind standalone executable (checksum-verified, no Node) from `go generate`; content-hashed, embedded, `Cache-Control: immutable`. esbuild still bundles `app.js` | tailwindcss v4.3.3 (standalone), daisyui v5.7.50 (vendored `daisyui.mjs`), evanw/esbuild v0.28.2 | MIT |
 | Icons | Lucide, only the icons listed in `internal/ui/icons/icons.txt`, generated into templ components emitting inline `<svg aria-hidden="true">` | lucide-static 1.61.0 (vendored SVGs) | ISC |
 | UI font | Inter variable, self-hosted subset (Latin-1, punctuation, ₹, arrows; features `kern liga calt tnum case zero`), 41.2 KB, all weights; preloaded | Inter 4.1 | OFL-1.1 |
 | Devanagari | Noto Sans Devanagari variable subset, loaded only via `unicode-range` when such text is present | 2.007 | OFL-1.1 |
@@ -45,7 +45,11 @@ No Node.js at build or run time. Font subsetting (`pyftsubset`) is a one-off dev
 
 **Supported browsers.** Last two years of Chrome/Edge, Safari 16.4+, Firefox 115+ (esbuild engines Chrome 111 / Safari 16.4 / Firefox 115). Everything used is Baseline widely available: `@layer`, container queries, `:has()`, nesting (lowered by esbuild), `dvh`, `inert`, `<dialog>`, `<details>`.
 
-## 4. Principles
+## 4. Philosophy and principles
+
+**Philosophy.** This is a work tool, not a product to admire. People open it to get a job done (raise an order, approve it, receive goods, claim an expense) and go back to their real work. So the app should feel **calm, fast and obvious**: calm because it never surprises, shouts or loses work; fast because the daily job takes the fewest taps and every screen answers in well under a second; obvious because every screen says what it is, what state the record is in, and what to do next, in the business's own words. When a choice is unclear, pick the option that a tired user on a phone, with one hand and a weak network, gets right the first time. Consistency beats novelty: the same job looks and works the same way everywhere, so learning one screen teaches the rest.
+
+Rules 1–7 below are binding for every screen; rules 8–12 explain how to decide when the rules don't settle a question. Each rule names the established principle it comes from.
 
 1. **One thing per screen on a phone.** A screen has one job and one primary button.
 2. **Server is the truth.** Every state lives in the database; every screen is a URL that renders fully without JavaScript. htmx and Alpine only enhance.
@@ -54,6 +58,11 @@ No Node.js at build or run time. Font subsetting (`pyftsubset`) is a one-off dev
 5. **Big, obvious targets.** At least 44 × 44 px with 8 px gaps; 48 px for the phone action bar.
 6. **Never colour alone.** Every status, error and selection also has a word, an icon or a shape.
 7. **Fast for daily users.** Defaults for everything that can be defaulted; Enter submits a step; the check page doubles as the whole-form view.
+8. **Speed is part of the design** (Doherty threshold; Nielsen: visibility of system status). A screen or step answers in under 400 ms on the office network; anything slower shows that it is working ("Saving…", the htmx indicator) and what happened afterwards ("Saved", "Submitted to Ravi Kulkarni"). Never a silent wait, never a spinner with no words.
+9. **Prevent mistakes, then make them easy to undo** (Nielsen: error prevention; user control and freedom). Constrain input where the rule is known (pickers, `inputmode`, fixed options as radios), default to the likely value, and let the system work things out (GST split, place of supply, amount in words) instead of asking. Confirm only what can't be undone. Nothing typed is ever lost, and every decision has a way back (withdraw, revise, amend).
+10. **Recognise, don't recall** (Nielsen: recognition rather than recall). Show the context the decision needs on the screen where it is made: the party's code and city in a picker, the order's pending quantity on a receipt line, the approval rule on the approval page. A user should never need to remember something from a previous screen.
+11. **Familiar beats clever** (Jakob's law; Nielsen: consistency and standards). Use patterns people already know from common apps and from the paper forms they replace: lists, forms, a check page, an inbox. The same job uses the same pattern, component and words everywhere; a new pattern needs a reason and a design-system change.
+12. **Fewer choices, bigger targets for the next step** (Hick's law, Fitts's law, progressive disclosure). Each screen shows what the next step needs and hides the rest behind "More" or a disclosure; the most frequent action is the largest and closest to the thumb. The complexity of tax, numbering and approval rules lives in the system, not in the user's head (Tesler's law).
 
 ## 5. Tokens
 
@@ -89,6 +98,22 @@ Every contrast pair is computed in research §9 and must stay passing: text ≥ 
 | Closed | primary-50 / primary-800 | `lock` |
 
 Negative money shows a minus sign, never red alone.
+
+### 5.1 Branding (one config file, applied at build time)
+
+Branding is changed by editing one folder and rebuilding, never by changing code (CD-99). `internal/platform/brand/` holds `brand.json` and the image files it names:
+
+| Key | Meaning | Default |
+|---|---|---|
+| `app_name` | Name in the header, page titles and sign-in page | `"Paperweight"` |
+| `primary` | Main brand colour: primary buttons, links, focus ring, current step, selected state | `#1F4FD1` (token primary-600) |
+| `primary_700`, `primary_800`, `primary_50` | Optional hover, pressed / text-on-tint, and tint shades; derived from `primary` when absent | token values |
+| `document_accent` | Accent on printed documents: headings, rules, totals band | same as `primary` |
+| `app_logo` | Logo in the app header and sign-in page (SVG or PNG, at most 200 KB) | `logo.svg` |
+| `document_logo` | Logo on printed documents and the letterhead (PNG or JPEG, at most 1 MB) | `logo-print.png` |
+| `favicon` | Browser tab icon (PNG, 32 × 32 or larger) | `favicon.png` |
+
+The build checks every brand colour against the same contrast rules as the tokens (white text on `primary` and `primary_700` ≥ 4.5:1; `primary` as text on canvas, surface and sunken ≥ 4.5:1; `primary_800` on `primary_50` ≥ 4.5:1; focus ≥ 3:1 on every surface; `document_accent` on white ≥ 4.5:1) and fails with a message that names the colour and the pair. Status colours (success, warning, danger, info) and the neutrals are not brandable, because they carry meaning. To rebrand: replace the files, edit `brand.json`, run `make generate && make build`, deploy.
 
 ## 6. Layout
 
@@ -132,6 +157,31 @@ All components are templ functions in `internal/ui/components/`. Screens compose
 | `AmountInWords` | Under large totals on check and approval pages ("Rupees Ninety Four Thousand One Hundred Sixty Four Only") using `print.InWordsINR` | None |
 | `EmptyState` | Message plus the one useful action ("No purchase orders yet. New purchase order") | None |
 | `Icon` | Generated Lucide components; icon-only buttons need `aria-label` | None |
+
+### 7.1 daisyUI base for each component (CD-98)
+
+Components are still ours: the templ function, its props, its ARIA and behaviour. daisyUI supplies the base styling only, and only inside `internal/ui`. Screens elsewhere compose components and may use Tailwind layout utilities (spacing, flex, grid, container queries), never daisyUI class names. Where the column says "own", the component is written as a Tailwind `@utility` in `internal/ui/css/` from tokens. Banned daisyUI parts and the reasons: `docs/research/ui-library.md` §4.
+
+| Component | daisyUI base |
+|---|---|
+| `Button` | `btn` + `btn-primary` / `btn-outline` (secondary) / `btn-ghost` / `btn-error` (danger); `loading` for busy |
+| `Field`, number, date and code inputs | `fieldset`, `label`, `input`, `textarea`, `select`; error state `input-error` plus our message; suffixes with `join` |
+| `Picker` | `input` + `menu` / `list` for options; phone sheet is `modal modal-bottom md:modal-middle` |
+| `Radios`, `Checkboxes` | `radio`, `checkbox` in own full-row labels |
+| `FileUpload` | `file-input`, `progress` |
+| `Stepper` | own (daisyUI `steps` can't show only the current label on phones) |
+| `ActionBar` | own (sticky bottom bar with safe-area padding) |
+| `StateBadge` | `badge` + our tint utilities (`bg-warning-50 text-warning-800`), never `badge-soft` |
+| `Card`, `SummaryList` | `card`, `card-body`; `<dl>` own |
+| `DataList`, `LineList` | own (container-query cards to rows) |
+| `ErrorSummary`, `Banner` | `alert` + our tint utilities |
+| `Toast` | `toast` + `alert` |
+| `Dialog`, `Sheet` | `modal` on `<dialog>`, `modal-bottom md:modal-middle`, `modal-box` |
+| `Disclosure` | `collapse` on `<details>` |
+| `Pagination` | `join` + `btn` |
+| `FilterBar` | `input`, `btn`, `badge` chips |
+| App shell navigation | `navbar`, `drawer` (CSS-only toggle, works without JS), `menu` |
+| Loading indicator | `loading loading-spinner` inside `.htmx-indicator` |
 
 ## 8. Screen patterns
 
@@ -226,7 +276,7 @@ Sentence case everywhere. Buttons are verbs ("Save and continue", "Submit for ap
 
 ## 10. Enforcement
 
-**Lint test** (`internal/ui/lint_test.go`, Go, no Node) walks `**/*.templ` and `internal/ui/css/*.css` and fails with `file:line` on: `style=` attributes; inline `<script>` (except `type="application/json"`); `hx-on`, `js:` in `hx-vals`/`hx-headers`, trigger filters `[...]`; templ `css`/`script` blocks; fixed `width`/`min-width`/`inline-size` in px/rem/em outside `tokens.css` (except inside `min(100%, …)`); `100vw`; `overflow-x: auto|scroll`; `overflow-x: hidden` on `html`/`body`; `white-space: nowrap` outside `.truncate`; raw colours outside `tokens.css`; `<table` outside `print/`. Full rule table: research §6.3.
+**Lint test** (`internal/ui/lint_test.go`, Go, no Node) walks `**/*.templ` and `internal/ui/css/*.css` and fails with `file:line` on: `style=` attributes; inline `<script>` (except `type="application/json"`); `hx-on`, `js:` in `hx-vals`/`hx-headers`, trigger filters `[...]`; templ `css`/`script` blocks; fixed `width`/`min-width`/`inline-size` in px/rem/em outside `tokens.css` (except inside `min(100%, …)`); `100vw`; `overflow-x: auto|scroll`; `overflow-x: hidden` on `html`/`body`; `white-space: nowrap` outside `.truncate`; raw colours outside `tokens.css` and `theme.css`; `<table` outside `print/`. Full rule table: research §6.3. Added with daisyUI (CD-98): banned daisyUI classes and `dark:` variants anywhere; daisyUI class names outside `internal/ui`; Tailwind arbitrary values (`-[`) outside `internal/ui/css`; `overflow-x-auto`, `overflow-x-scroll`, `w-screen` and `whitespace-nowrap` (except in the `.truncate` utility).
 
 **Overflow test** (`e2e`, chromedp): every GET route from `chi.Walk` (except `/static`, `/print`, `/api`) plus `Setup` variants (each wizard step, each dialog/sheet, a 422 state, an empty list) × widths 320, 360, 390, 768, 1024, 1440; mobile emulation below 768. Assert `document.documentElement.scrollWidth <= document.documentElement.clientWidth` (**not** `innerWidth`, which grows with content under mobile emulation) and that no element's box extends past the viewport or has content wider than itself. Script verbatim in research §6.4. A route with no screen entry fails the test.
 

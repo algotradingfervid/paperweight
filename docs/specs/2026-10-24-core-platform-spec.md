@@ -492,6 +492,7 @@ Rules for parallel agents:
 3. Each Wave 1/2 WP is done when every P1 case that does not need another WP's real implementation passes, lint is clean, and `go run ./scripts/checktestids <AREA> --exclude-level e2e` reports nothing missing. Cases the plan marks "after DOC/NAM merge" or "Wave 3", and every e2e case, are WP3's entry and exit criteria (CD-40).
 4. Merge order within a wave doesn't matter, except that NUM's `internal/types` (NUM Tasks 1–5) merges first (CD-53); each merge must keep `make test` green on main.
 5. The current round of decisions is in `docs/specs/contract-changes.md`; §5 above already includes them.
+6. Tasks are run under `docs/superpowers/plans/2026-10-25-execution-protocol.md`: a director dispatches workers, each task gets a risk tier (High, Standard or Light) that sets who writes the tests and how often it is reviewed, and each check runs once (CD-96).
 
 ## 10. Verification of the whole core
 

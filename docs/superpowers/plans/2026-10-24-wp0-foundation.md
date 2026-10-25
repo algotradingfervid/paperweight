@@ -1,6 +1,6 @@
 # WP0 Foundation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run it under `docs/superpowers/plans/2026-10-25-execution-protocol.md` (roles, risk tier per task, review cadence; CD-96).
 
 **Goal:** Create the repository, toolchain, platform packages, test kit and every §5 contract stub and fake, so that the Wave 1 work packages can then be built in parallel without touching each other's files.
 
@@ -109,7 +109,7 @@ Expected: `go.mod` lists exactly these three `tool` directives. Runtime dependen
 
 - [ ] **Step 3: Write `.gitignore`**
 
-Ignore `reference/` (local research clones), `/bin/`, `/data/`, `*.db`, `*.db-wal`, `*.db-shm`, `/tmp/`.
+Ignore `reference/` (local research clones), `/bin/`, `/data/`, `*.db`, `*.db-wal`, `*.db-shm`, `/tmp/`, `/.work/` (agent status files, execution protocol §6).
 
 - [ ] **Step 4: Write the `Makefile`**
 
@@ -412,6 +412,36 @@ Expected: tests PASS. The first report prints `P1 implemented: 0/556` (the P1 to
 - [ ] **Step 5: Commit**
 
 `git add scripts && git commit -m "feat(scripts): add test-ID coverage checker with level exclusion"`
+
+### Task 7b: Brand config (`internal/platform/brand`, CD-99)
+
+Runs after Task 7 and before Task 8, so Task 8's gate and tag cover it. Standard tier.
+
+**Files:**
+- Create: `internal/platform/brand/{brand.go,colour.go,static.go,brand_test.go,colour_test.go}`, `internal/platform/brand/brand.json`, `internal/platform/brand/assets/{logo.svg,logo-print.png,favicon.png}`, `internal/platform/brand/gen/main.go`, `internal/platform/brand/brand_gen.go` (generated), `internal/platform/brand/README.md`
+
+**Interfaces:**
+- Produces (`package brand`, standard library only, imports no internal package, so every package may import it under spec §4.2 rule 3):
+  - `type Config struct{ AppName string `json:"app_name"`; Primary string `json:"primary"`; Primary700 string `json:"primary_700"`; Primary800 string `json:"primary_800"`; Primary50 string `json:"primary_50"`; DocumentAccent string `json:"document_accent"`; AppLogo string `json:"app_logo"`; DocumentLogo string `json:"document_logo"`; Favicon string `json:"favicon"` }`
+  - `func Parse(b []byte, files fs.FS) (Config, error)`: unknown keys are an error; colours are `#RRGGBB` (upper-cased on output); missing `primary_700`, `primary_800`, `primary_50` are derived (`Mix(primary, "#000000", 0.15)`, `Mix(primary, "#000000", 0.30)`, `Mix(primary, "#FFFFFF", 0.93)`); missing `document_accent` = `primary`; image files must exist in `files` with the extensions and size limits of design-system §5.1; then every contrast pair of design-system §5.1 is checked against the fixed token neutrals (`#FFFFFF` surface and text-on-fill, `#F5F6F8` canvas, `#EDEFF2` sunken).
+  - `func Load() Config`: parses the embedded `brand.json` and `assets/`; panics on error (the tests and `go generate` fail first, so a bad config never builds).
+  - `func Contrast(a, b string) (float64, error)`: WCAG 2.x ratio (the formula in WP1-UI Task 4). `func Mix(a, b string, t float64) (string, error)`: interpolation in OKLab, `t=0` gives `a`, `t=1` gives `b`.
+  - `func CSS(c Config) string`: one unlayered `:root{…}` block setting `--color-primary-600`, `--color-primary-700`, `--color-primary-800`, `--color-primary-50`, `--color-focus`, daisyUI's `--color-primary` and `--color-accent`, and `--color-doc-accent`. `func PrintCSS(c Config) string`: `:root{--doc-accent:#RRGGBB}`.
+  - `brand_gen.go` (from `//go:generate go run ./gen`): constants `AppLogoURL`, `DocumentLogoURL`, `FaviconURL` = `"/static/brand/<name>.<sha256[:8]>.<ext>"`. `func Static() http.Handler` serves those names with `Cache-Control: public, max-age=31536000, immutable`; unknown name → 404. WP3 mounts it at `/static/brand/`.
+- Default `brand.json`: `{"app_name":"Paperweight","primary":"#1F4FD1","primary_700":"#1A3FA8","primary_800":"#16348A","primary_50":"#EEF3FF","document_accent":"#1F4FD1","app_logo":"logo.svg","document_logo":"logo-print.png","favicon":"favicon.png"}` (the token values, so the default look is unchanged). Default images are placeholders (a wordmark SVG and plain PNGs drawn with `image/png`) until the owner supplies real logos.
+
+- [ ] **Step 1: Write the failing tests.**
+  - `TestContrast_KnownPairs`: `#141A23` on `#FFFFFF` rounds to 17.47; `#FFFFFF` on `#1F4FD1` is at least 4.5; an invalid colour returns an error.
+  - `TestMix_Endpoints`: `Mix(a,b,0) == a`, `Mix(a,b,1) == b` for three pairs; results are `#RRGGBB`.
+  - `TestParse_Defaults`: the default `brand.json` parses; `CSS` contains `--color-primary-600:#1F4FD1` and `--color-doc-accent:#1F4FD1`.
+  - `TestParse_DerivesShades`: `{"primary":"#0F6E56", …}` without shades gives a 700 and 800 darker than the primary and a 50 lighter than it, and all §5.1 pairs pass.
+  - `TestParse_TooLightPrimary`: `"primary":"#8AB4F8"` fails; the error starts with `brand.json: "primary" #8AB4F8 is too light:` and contains `needs at least 4.5:1`.
+  - `TestParse_RejectsUnknownKeyAndMissingFile`: an unknown key and a missing logo file each fail with an error naming the key or file.
+  - `TestBrand_EmbeddedIsValid`: `Load()` does not panic. `TestBrand_GenUpToDate`: running the generator in memory equals the committed `brand_gen.go`. `TestStatic_ServesLogo`: `GET` of the base name of `AppLogoURL` → 200 with the immutable header; unknown → 404.
+- [ ] **Step 2: Run them to see them fail.** `go test ./internal/platform/brand/...` → FAIL.
+- [ ] **Step 3: Implement** the package, the generator and the default assets. `README.md` explains how to rebrand: replace the files, edit `brand.json`, run `make generate && make build`, deploy.
+- [ ] **Step 4: Run them to see them pass.** Same command → PASS; `make lint` clean.
+- [ ] **Step 5: Commit.** `git add internal/platform/brand && git commit -m "feat(platform): brand config with build-time contrast checks"`
 
 ### Task 8: Command skeleton and CI gate
 

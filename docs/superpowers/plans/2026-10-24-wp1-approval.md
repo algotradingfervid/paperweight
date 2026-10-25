@@ -1,6 +1,6 @@
 # WP1-APR Approvals Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run it under `docs/superpowers/plans/2026-10-25-execution-protocol.md` (roles, risk tier per task, review cadence; CD-96).
 
 **Goal:** Fill `internal/kernel/approval` (rules, matching, eligibility, requests, append-only history, inbox, "My requests", inbox and rule-admin screens) so every APR test case in `docs/tests/core/04-approvals.md` passes, and DOC can plug it in behind the frozen `approval.Service` contract.
 

@@ -1,6 +1,6 @@
 # WP1-FILE: Files and Printing Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run it under `docs/superpowers/plans/2026-10-25-execution-protocol.md` (roles, risk tier per task, review cadence; CD-96).
 
 **Goal:** Build the kernel attachment store (`internal/kernel/files`) and the A4 print views with watermarks and amount in words (`internal/kernel/print`), plus their HTTP handlers, so that every P1 case in `docs/tests/core/05-files-print.md` passes.
 
@@ -756,7 +756,7 @@ git commit -m "feat(print): InWordsINR with Indian lakh/crore scale"
 
 Page shell (exact parts the tests check): `<!doctype html>`, `<html lang="en">`, `<title>{h.Title}</title>`, `<link rel="stylesheet" href="/print/assets/print.css">`, and when `Status.Code != ""` the first body child `<div class="watermark" data-status="{code}">{label}</div>`. No inline `<style>` or `<script>` (the CSP forbids them).
 
-`print.css` must contain these lines verbatim: `@page { size: A4 portrait; margin: 15mm; }`, `.watermark { position: fixed;` (with `transform: rotate(-30deg)` and `pointer-events: none`), `thead { display: table-header-group; }`, `tr { break-inside: avoid; }`, `.closing { break-inside: avoid; }`, `img { image-orientation: from-image; }`.
+Branding (CD-99): the page head also links `/print/assets/brand.css`, served by the same router from `brand.PrintCSS(brand.Load())` (`internal/platform/brand`, WP0 Task 7b), and `print.css` colours headings, rules and the totals band with `var(--doc-accent)`; it never hard-codes a brand colour. `print.css` must contain these lines verbatim: `@page { size: A4 portrait; margin: 15mm; }`, `.watermark { position: fixed;` (with `transform: rotate(-30deg)` and `pointer-events: none`), `thead { display: table-header-group; }`, `tr { break-inside: avoid; }`, `.closing { break-inside: avoid; }`, `img { image-orientation: from-image; }`.
 
 - [ ] **Step 1: Write the failing tests**
 

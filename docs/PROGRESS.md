@@ -6,9 +6,10 @@ Status on 24 October 2026: **spec, tests and plans complete; awaiting product-ow
 
 1. `docs/specs/2026-10-24-core-platform-spec.md`: the core platform (stack, architecture, §5 Go contracts, parallel work packages).
 2. `docs/specs/2026-10-24-design-system.md`: front-end spec (mobile-first, light only, no horizontal scroll, wizards). Visual preview: https://claude.ai/artifact/BmUKkSr1GtsLED2KAbyDtn
-3. `docs/specs/contract-changes.md`: decision log CD-01 to CD-95; the spec already includes them.
+3. `docs/specs/contract-changes.md`: decision log CD-01 to CD-100; the spec already includes them.
 4. `docs/tests/core/README.md`: 722 test cases (556 P1, 166 P2) across `01-` to `07-*.md`; fixtures in `00-fixtures.md`.
 5. `docs/superpowers/plans/`: one plan per work package.
+6. `docs/superpowers/plans/2026-10-25-execution-protocol.md`: how tasks are run (director, roles, risk tier per task, review cadence; CD-96), and the design stage every new screen goes through first (`docs/ux/TEMPLATE.md`, CD-97).
 
 ## Execution order
 
@@ -24,7 +25,14 @@ Work-package done rule: spec §9 rule 3 (CD-40). Check with `go run ./scripts/ch
 
 ## Open before execution
 
-- Product owner reviews the specs and plans and chooses an execution method (subagent-driven recommended).
+- Product owner reviews the specs and plans. Execution method: the execution protocol (CD-96); the director records each task's tier, times, attempts and findings in a task table here.
 - Local Go is 1.25.5; the spec needs 1.27.3 (`go` downloads it through the toolchain directive).
 - Git repository: https://github.com/algotradingfervid/paperweight (public). WP0 Task 1 skips `git init`.
 - The Common Core Blueprint artifact (https://claude.ai/artifact/2LtWD6ytFvrZJYvW2786y7) still recommends Frappe; the decided stack is Go + templ + htmx + SQLite.
+
+## Task table (execution protocol §7)
+
+Times are local (IST). Findings are blocker / major / minor from the task review.
+
+| WP | Task | Tier | Implementer | Start | End | Attempts | Findings | Commit |
+|---|---|---|---|---|---|---|---|---|

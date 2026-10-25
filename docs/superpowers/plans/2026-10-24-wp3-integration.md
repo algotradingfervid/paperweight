@@ -1,6 +1,6 @@
 # WP3 Integration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Run it under `docs/superpowers/plans/2026-10-25-execution-protocol.md` (roles, risk tier per task, review cadence; CD-96).
 
 **Goal:** Join the Wave 1 kernel packages and Wave 2 masters into one working binary, prove fakes and real services behave the same, and pass the whole-core verification in spec §10.
 
@@ -12,6 +12,7 @@
 
 ## Contract decisions applied (Round 4)
 
+- CD-99: WP3 mounts `brand.Static()` (`internal/platform/brand`) at `/static/brand/` beside UI's `/static/ui/`; the app shell, print pages and letterhead already read the brand config, so no other wiring is needed. Rebranding is a change to `internal/platform/brand/` plus a rebuild.
 - CD-91: WP3 also switches `testkit` user seeding to AUTH's real tables (CD-67), writes UI's `Lister`/`Extras` adapters over DOC, APR, FILE and `list` (CD-78), moves Wave 1 area templates onto UI components (CD-49), wires `auth/cli` `user disable` into `cmd/app` (CD-18), asserts CD-17 for signed-out requests and asserts DOC-085's route clause (no PUT, PATCH or DELETE route). Tasks 2 and 3.
 - CD-87: `/ui/validate/*` is mounted with AUTH's `Self` guard; `CheckedInHandler` is used only for `/doc/`. Task 2.
 - CD-92: the withdraw e2e case is `TestE2E_ApprovalWithdraw` (APR-097); the P1 total is the current one in `docs/tests/core/README.md` (556 on 24-10-2026). Tasks 3 and 4.
