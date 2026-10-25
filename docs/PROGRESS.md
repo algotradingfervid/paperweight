@@ -45,6 +45,16 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP0 | 5 Contracts and fakes | High | crew-test-writer, crew-implementer | 14:54 | 15:12 | 1 | 0/1/5 (4 fixed, 1 kept as CD-105) | e8a49e8 tests, 23bd4f1 |
 | WP0 | 6 Test kit | High | crew-test-writer, crew-implementer | 14:55 | 15:14 | 1 | 0/0/3 (2 fixed, 1 doc fix CD-106) | 4e12eca tests, 7adeaaf |
 | WP0 | 8 Command and CI gate | Standard | crew-implementer | 15:16 | 15:18 | 1 | 0/0/4 fixed | 4496ad2 |
+| WP1-NUM | 1 types rounding and 128-bit | High | crew-test-writer | 15:24 | | | | |
+| WP1-AUTH | 1 Package foundation | High | crew-test-writer | 15:24 | | | | |
+| WP1-NAM | 1 Schema, skeleton, errors, FY seam | High | crew-test-writer | 15:24 | | | | |
+| WP1-DOC | 1 DocType registry | High | crew-test-writer | 15:24 | | | | |
+| WP1-APR | 1 Schema and queries | High | crew-test-writer | 15:24 | | | | |
+| WP1-UI | 1 Foundation | Light | crew-implementer | 15:24 | | | | |
+
+## Wave 1 setup (25 Oct 2026)
+
+Worktrees `../it-<wp>` on `wp/<wp>` from `main` 8b89c73 (num, auth, naming, doc, approval, files-print, ui); `bin/tools` is symlinked into each. Each WP runs its tasks in plan order; WPs run in parallel, at most 6 workers at once. NUM Tasks 1–5 merge to main first (CD-53); other WPs then rebase onto it.
 
 ## WP0 timing (crew report, 25 Oct 2026)
 
