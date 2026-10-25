@@ -105,6 +105,11 @@ func roleDisabled(field, role string) error {
 	return userErr(ErrInvalidRule, field, "Role %s is disabled. Choose an active role.", role)
 }
 
+// roleMissing names the field ("role" or "fallback_role") that holds a role that doesn't exist.
+func roleMissing(field, role string) error {
+	return userErr(ErrInvalidRule, field, "Role %s doesn't exist. Choose an active role.", role)
+}
+
 func duplicateRule(label string, from types.Money) error {
 	return userErr(ErrDuplicateRule, "from_amount", "A %s rule from %s already exists. Edit that rule instead.", label, types.FormatINR(from))
 }

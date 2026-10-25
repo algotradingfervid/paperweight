@@ -253,11 +253,12 @@ func (a *Approvals) checkRule(ctx context.Context, p auth.Principal, in RuleInpu
 		if in.ApproverType == ApproverManager {
 			field, role = "fallback_role", in.FallbackRole
 		}
-		// A role that doesn't exist deliberately gets the "disabled" message
-		// too (APR-006 wording): either way, choose an active role.
-		_, active, err := a.roles.RoleStatus(ctx, role)
+		exists, active, err := a.roles.RoleStatus(ctx, role)
 		if err != nil {
 			return in, err
+		}
+		if !exists {
+			return in, roleMissing(field, role)
 		}
 		if !active {
 			return in, roleDisabled(field, role)
