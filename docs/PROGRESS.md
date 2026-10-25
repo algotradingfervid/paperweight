@@ -100,6 +100,28 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-UI | 9-fix tests (lane/ui-9) | High | crew-test-writer opus | 17:05 | | | | |
 | WP3 | 6 early (Steps 1, 3: deploy files, operations draft) | Standard | impl opus, fix haiku, rev opus ×2 | 16:57 | 17:13 | 1 | 0/1/5 (all fixed) | 1d9d1c4 |
 | Merges | NAM done caad6e0; UI-M1 (Tasks 1–8) 7c3ef2f; WP3 early cb39476; `make ci` green after each | — | director | | 17:40 | — | — | — |
+| WP1-NUM | 6 gstcalc line, split, totals | High | crew-test-writer, crew-implementer, crew-reviewer | 16:28 | 16:33 | 1 | 0/0/4 (no change; plan names gstcalc.go, stub is contract.go) | 1e9fff3 tests, 62ab10c |
+| WP1-NUM | 8 list WHERE clause | Standard | crew-implementer, crew-reviewer | 16:33 | 16:41 | 1 | 0/0/4 (to Task 9 brief) | 5e91d77 |
+| WP1-NUM | 7 gstcalc place of supply, recompute | High | crew-test-writer, crew-implementer, crew-reviewer | 16:34 | 16:39 | 1 | 0/0/3 (carried) | 96f0fb1 tests, 4ac9b41 |
+| WP1-NUM | 13 types P2 | High | crew-test-writer, crew-implementer, crew-reviewer | 16:34 | 16:38 | 1 | 0/0/4 (comment minors carried; FromMonthEnd reading to researcher) | 1c5bf2f tests, 4a9af3e |
+| WP1-NUM | 13b DueDate month-end follows ERPNext (DECISION escalated) | High | crew-researcher, crew-implementer | 16:39 | 16:41 | 1 | director diff check | 97a7112 |
+| WP1-NUM | 9 list sort, pages, service | Standard | crew-implementer, crew-reviewer | 16:43 | 16:50 | 1 | 0/1/4 (link-sort test proved by mutation; all fixed) | b393471 |
+| WP1-NUM | 10 csvio read, headers | Standard | crew-implementer, crew-reviewer | 16:43 | 16:48 | 1 | 0/1/2 (row cap before full read, fixed; ParseError msg to Task 11) | 721871c |
+| WP1-NUM | 11 csvio import | Standard | crew-implementer, crew-reviewer | 16:49 | 17:00 | 1 | 0/2/9 (unescape and savepoint untested; fixed, mutation-proven) | a8dde7b |
+| WP1-NUM | 14 gstcalc P2 | High | crew-test-writer, crew-implementer, crew-reviewer | 16:51 | 16:54 | 1 | 0/0/3 (96 question escalated; IGST msg test carried) | 9513932 tests, 2d9688f |
+| WP1-NUM | 12 csvio export | Standard | crew-implementer, crew-reviewer | 17:00 | 17:05 | 1 | 0/0/2 (OnLine header, missing link: note for plan) | 99e1377 |
+| WP1-NUM | NUM-M2 merge check (make ci green, checkids 105/105) | — | crew-verifier | 17:08 | 17:07 | — | — | ec921b5 |
+| WP1-NUM | 15 list and csvio P2 | Standard | crew-implementer | 17:07 | | | | |
+| WP1-AUTH | rebase onto main d17fb3a | — | AD-1 | | 16:25 | — | — | dfef97b |
+| WP1-AUTH | 9 Sessions | High | crew-test-writer, crew-implementer, crew-reviewer | 16:27 | 16:37 | 1 | 0/1/3 (upsert removed; uid error; ORDER BY; Sweep/AllCtx/absolute untested → Task 16) | 377e12b tests, 1af9ceb lint, ff3c0be |
+| WP1-AUTH | 5 Service (Can …) | High | crew-test-writer, crew-implementer, crew-reviewer | 16:27 | 16:38 | 1 | 0/0/5 (3 code minors → Task 6 brief; Can-order/strict/create + ReadableDocTypes test gaps → Task 15/18) | ced63f7 tests, 51cef81 (incl. CD-125) |
+| WP1-AUTH | 7 Users | High | crew-test-writer, crew-implementer, crew-reviewer | 16:27 | 16:43 | 1 | 0/1/9 (CD-94 hash re-check in own change; argon2 out of reset write; stored role names; ActionDelete; test found-flag; reset re-checks policy; rest → Tasks 13/17) | b32bf00 tests, f3157d7 |
+| WP1-AUTH | 8 Sign-in and lockout | High | crew-test-writer, crew-implementer, crew-reviewer | 16:40 | 16:46 | 1 | 0/1/6 (CD-94 re-check in success write; conditional rehash; expired-window test; byte precheck; 3 test minors → Task 16) | a0c6676 tests, cb7a4af |
+| WP1-AUTH | 6 Scope | High | crew-test-writer, crew-implementer, crew-reviewer | 16:39 | 16:49 | 1 | 0/1/5 (major: tests missed NULL-header line case → agreement test added; Applies parity; dedupe clause; lazy Directory; AUTH-069 Scope assert; site master shape) | ef6e5a1 tests, f563ae1 |
+| WP1-AUTH | lanes 7, 8, 9 merged into wp/auth | — | AD-1 | | 16:49 | — | — | ae11dbd, a20bbd3 |
+| WP1-AUTH | CD-137 db test fix; make ci green (AUTH-M1) | — | crew-implementer (haiku), crew-verifier | | 17:06 | 1 | — | a8f94a1 |
+| WP1-AUTH | 10 Web core | High | crew-test-writer, crew-implementer, crew-reviewer | 16:50 | 17:10 | 2 | 0/4/9 (attempt 1: owner-field strip on parse error, client CSRF GET, guest session per request → CD-136 lazy CSRF; attempt 2: late token never saved → up-front for sessions with values + harness check; minors fixed) | bd37afa tests, 1cba802 lint, 082a7ec |
+| Merges | NUM-M2 1ddda63 (contracts_test.go stub rows: both removed); AUTH-M1 71d58e9 + dbq regenerate; `make ci` green after each | — | director | | 17:55 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 

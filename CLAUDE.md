@@ -49,6 +49,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A catalogue user message covers only the condition it names; caller bugs get a plain internal error.
 - Fixture ids follow name order, so sort-by-link-name tests insert rows out of name order.
 - A `\ufeff` escape written through the Write/Bash tools becomes a real BOM byte (Go refuses it): use a named constant, as for NBSP. In AD sessions finished crew workers can't be resumed ("No transcript found"): fix loops dispatch a fresh worker with the findings and exact scope.
+- scs saves the session at the first `Write`/`WriteHeader`: anything put into the session (CSRF token, flash, uid) must happen before the response starts, or it is silently lost (two AUTH Task 10 review rounds).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
