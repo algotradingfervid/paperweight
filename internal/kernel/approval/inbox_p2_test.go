@@ -1,7 +1,6 @@
 package approval_test
 
 import (
-	"errors"
 	"slices"
 	"sync"
 	"testing"
@@ -55,9 +54,7 @@ func TestApprovalStuck_ListedForAdmin(t *testing.T) { // APR-043
 
 	// Only an Administrator may see the list (ErrNotAdmin, 403).
 	items, err := e.A.Stuck(t.Context(), e.Priya)
-	if !errors.Is(err, approval.ErrNotAdmin) {
-		t.Errorf("Priya's Stuck error = %v, want ErrNotAdmin", err)
-	}
+	at.WantErr(t, err, approval.ErrNotAdmin, "You don't have permission to see stuck approvals. Ask an Administrator.")
 	at.WantStatus(t, err, 403)
 	if len(items) != 0 {
 		t.Errorf("Priya's refused Stuck returned %+v, want nothing", items)
