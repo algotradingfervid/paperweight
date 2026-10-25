@@ -25,7 +25,7 @@ func mustParse(t testing.TB, s string) template {
 func TestTemplate_DefaultsRender(t *testing.T) {
 	for tpl, want := range map[string]string{
 		"PO/{FY}/{#####}":  "PO/26-27/00001",
-		"GRN/{FY}/{#####}": "GRN/26-27/00001",
+		"GR/{FY}/{#####}": "GR/26-27/00001",
 		"EXP/{FY}/{#####}": "EXP/26-27/00001",
 	} {
 		got := mustParse(t, tpl).render(day(2026, 4, 1), 1)
