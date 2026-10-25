@@ -128,7 +128,8 @@ func TestGST_StateFromGSTIN(t *testing.T) { // NUM-040
 			t.Errorf("StateName(%q) = (%q, %v), want (%q, true)", k.code, name, ok, k.name)
 		}
 	}
-	for _, code := range []string{"25", "99", ""} {
+	// D-MST-10: legacy 28 (old Andhra Pradesh) is rejected; 96 (Other Countries) is not in gstcalc's table.
+	for _, code := range []string{"25", "99", "", "28", "96"} {
 		if name, ok := gstcalc.StateName(code); name != "" || ok {
 			t.Errorf("StateName(%q) = (%q, %v), want (\"\", false)", code, name, ok)
 		}
