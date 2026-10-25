@@ -64,10 +64,12 @@ func validateRule(in RuleInput, lookup func(string) (*doctype.DocType, bool), al
 		if in.FallbackRole == "" {
 			return noFallbackRole()
 		}
-	default:
+	case ApproverRole:
 		if in.Role == "" {
 			return noApproverRole()
 		}
+	default: // empty or unknown type: refuse here, not at the DB CHECK
+		return noApproverRole()
 	}
 	return nil
 }
@@ -251,6 +253,8 @@ func (a *Approvals) checkRule(ctx context.Context, p auth.Principal, in RuleInpu
 		if in.ApproverType == ApproverManager {
 			field, role = "fallback_role", in.FallbackRole
 		}
+		// A role that doesn't exist deliberately gets the "disabled" message
+		// too (APR-006 wording): either way, choose an active role.
 		_, active, err := a.roles.RoleStatus(ctx, role)
 		if err != nil {
 			return in, err

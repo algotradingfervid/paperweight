@@ -34,11 +34,7 @@ func match(rules []Rule, amount types.Money) (matched Rule, higher []Rule, ok bo
 func approverRoles(matched Rule, higher []Rule) []string {
 	var roles []string
 	for _, r := range append([]Rule{matched}, higher...) {
-		role := r.Role
-		if r.ApproverType == ApproverManager {
-			role = r.FallbackRole
-		}
-		if !slices.Contains(roles, role) {
+		if role := approverRole(r); !slices.Contains(roles, role) {
 			roles = append(roles, role)
 		}
 	}
