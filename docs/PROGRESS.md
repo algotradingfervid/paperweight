@@ -44,3 +44,4 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP0 | 4 Web platform | High | crew-test-writer, crew-implementer | 14:54 | 15:04 | 1 | 0/1/3 (all fixed) | ac7158a tests, 9959bcb |
 | WP0 | 5 Contracts and fakes | High | crew-test-writer, crew-implementer | 14:54 | 15:12 | 1 | 0/1/5 (4 fixed, 1 kept as CD-105) | e8a49e8 tests, 23bd4f1 |
 | WP0 | 6 Test kit | High | crew-test-writer, crew-implementer | 14:55 | 15:14 | 1 | 0/0/3 (2 fixed, 1 doc fix CD-106) | 4e12eca tests, 7adeaaf |
+| WP0 | 8 Command and CI gate | Standard | crew-implementer | 15:16 | 15:18 | 1 | 0/0/4 fixed | 4496ad2 |
