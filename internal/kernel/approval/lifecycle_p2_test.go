@@ -131,6 +131,7 @@ func TestApprovalReject_NotExportable(t *testing.T) { // APR-070
 	svc := &list.Service{DB: e.DB, Auth: e.Auth}
 	res, err := svc.List(t.Context(), e.Meena, claimWithState(t), list.Query{
 		Filters: []list.Filter{{Field: "state", Op: list.OpEq, Values: []string{string(doctype.StateApproved)}}},
+		Page:    1,
 	})
 	at.MustOK(t, err)
 	var ids []int64
