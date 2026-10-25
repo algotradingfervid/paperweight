@@ -59,6 +59,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-UI | 2 UI lint test | Light | crew-implementer | | 16:31 | 1 | review batched | 1131fe4 |
 | WP1-UI | 3 Icons | Light | crew-implementer | | 16:44 | 1 | review batched | f99ad58 |
 | WP1-NAM | 7 Numbers across the lifecycle | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:45 | 1 | 0/0/3 (CD-122) | dda9db5 tests, 2390fe7 |
+| WP1-AUTH | 2 Password hashing and policy | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:50 | 2 | 0/2/3 (bounded strict PHC parsing; all fixed) | ef71d3a tests, 2d7795f |
 | WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
 
 ## Wave 1 carry-overs (put in the named task's brief)
@@ -84,6 +85,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 - NUM: `types.Date`/`Timestamp` `Scan` refuse NULL; nullable columns need `sql.Null[types.Date]` at the call site.
 - DOC Task 6+: the fixture double records `CheckValues` as `key=id1,id2 key2=id3` (keys sorted, ids in caller order); tests expecting several keys use this format.
 - UI batch review: Task 2 stores templ fixtures as `.templ.txt`; `Allow` takes the enclosing selector; the fixed-width rule skips `@media`/`@container` (plan defect).
+- AUTH Task 12 (account/password handlers): a corrupt stored hash returns plain `errBadHash` (500), not an HTTPError; map it there.
+- AUTH Task 11: `go mod tidy` drops `golang.org/x/term` until `auth/cli` imports it; keep the hand-restored lines. Consider a `go mod tidy -diff` check in `make ci` after that.
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
