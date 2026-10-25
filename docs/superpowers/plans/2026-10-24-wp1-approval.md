@@ -93,6 +93,7 @@ DOC does **not** run its generic `Can(approve)` for approve and reject (CD-52); 
 | Error kind | `Status()` | Message |
 |---|---|---|
 | `ErrNotAdmin` | 403 | You don't have permission to change approval rules. Ask an Administrator. (CD-66: "Administrator", never "Admin") |
+| `ErrNotAdmin` (stuck list) | 403 | You don't have permission to see stuck approvals. Ask an Administrator. (CD-152) |
 | `ErrInvalidRule` | 422 | From amount must be ₹0.00 or more. · Choose an approver role for this rule. · Choose a fallback role for claims whose employee has no reporting manager. · Reporting manager approval is only available for {employee-based labels joined " or "}. Choose a role. · {Label} is a master and can't need approval. Choose a document type. · Choose a document type. (unknown name) · Role {r} is disabled. Choose an active role. |
 | `ErrDuplicateRule` | 422 | A {Label} rule from {₹amount} already exists. Edit that rule instead. |
 | `ErrRuleInUse` | 409 | This rule has been used by {n} documents. Disable it instead of deleting. (`1 document` when n = 1) |
