@@ -56,6 +56,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-NUM | 5 Dates, FY, IST time | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:24 | 1 | 0/0/2 (carry-over) | 9a0dd85 tests, 7070525 |
 | WP1-NUM | Tasks 1–5 merged to main (CD-53), `make ci` green | — | director | | 16:27 | — | — | a9cb2f1 |
 | WP1-DOC | 4 Test doubles | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:29 | 1 | 0/0/2 (1 fixed, 1 carry-over) | ced329d tests, 70898c8 |
+| WP1-UI | 2 UI lint test | Light | crew-implementer | | 16:31 | 1 | review batched | 1131fe4 |
 | WP1-FILE | 4 Attach rules | High | crew-test-writer, crew-implementer, crew-reviewer | | 16:20 | 1 | 0/0/2 (no change; CD-120) | ca5c886 tests, 36f8cd9 |
 
 ## Wave 1 carry-overs (put in the named task's brief)
@@ -80,6 +81,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 - NUM-076 (committed test): an empty `ZONEINFO` still lets Go read `/usr/share/zoneinfo`, so part (b) doesn't prove the embedded tzdata; only the import check pins D-NUM-18. Strengthen it in a NUM P2 task.
 - NUM: `types.Date`/`Timestamp` `Scan` refuse NULL; nullable columns need `sql.Null[types.Date]` at the call site.
 - DOC Task 6+: the fixture double records `CheckValues` as `key=id1,id2 key2=id3` (keys sorted, ids in caller order); tests expecting several keys use this format.
+- UI batch review: Task 2 stores templ fixtures as `.templ.txt`; `Allow` takes the enclosing selector; the fixed-width rule skips `@media`/`@container` (plan defect).
 - Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
 
 ## Wave 1 setup (25 Oct 2026)
