@@ -370,7 +370,7 @@ func TestNumberingScreen_Save(t *testing.T) {
 
 		page := e.get("anil", testEditPath(testPO))
 		wantStatus(t, "admin GET edit page after save", page, http.StatusOK)
-		if got := testNorm(page.doc.Find(".banner--success").Text()); !strings.Contains(got, saved) {
+		if got := testNorm(page.doc.Find("main .banner--success").Text()); !strings.Contains(got, saved) {
 			t.Errorf("success banner %q does not contain %q", got, saved)
 		}
 		if got, _ := page.doc.Find(`input[name="template"]`).Attr("value"); got != "PR/{FY}/{#####}" {
@@ -393,7 +393,7 @@ func TestNumberingScreen_Save(t *testing.T) {
 		}
 
 		again := e.get("anil", testEditPath(testPO))
-		if n := again.doc.Find(".banner--success").Length(); n != 0 {
+		if n := again.doc.Find("main .banner--success").Length(); n != 0 {
 			t.Errorf("success banner shown again on the second GET (%d)", n)
 		}
 	})
@@ -441,7 +441,7 @@ func TestNumberingScreen_Save(t *testing.T) {
 			t.Errorf("PO/26-27/ counter = %d, want 12", got)
 		}
 		next := e.get("anil", testEditPath(testPO))
-		if got := testNorm(next.doc.Find(".banner--success").Text()); !strings.Contains(got, saved) {
+		if got := testNorm(next.doc.Find("main .banner--success").Text()); !strings.Contains(got, saved) {
 			t.Errorf("success banner %q does not contain %q", got, saved)
 		}
 	})
