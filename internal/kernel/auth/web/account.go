@@ -52,3 +52,62 @@ func (s *Server) postResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect(w, r, fmt.Sprintf("/users/%d", id))
 }
+
+// postUnlock clears a user's sign-in lockout (Administrator).
+func (s *Server) postUnlock(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.WriteError(w, r, auth.ErrNotFound)
+		return
+	}
+	p, _ := auth.PrincipalFrom(ctx)
+	if err := s.a.Unlock(ctx, p, auth.UserID(id)); err != nil {
+		s.WriteError(w, r, err)
+		return
+	}
+	redirect(w, r, fmt.Sprintf("/users/%d", id))
+}
+
+// getSessions lists the signed-in user's sessions.
+func (s *Server) getSessions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	p, _ := auth.PrincipalFrom(ctx)
+	page := SessionsPage{CSRF: CSRFToken(ctx)}
+	var err error
+	page.Sessions, err = s.st.ListForUser(ctx, p.ID, auth.HashToken(s.sm.Token(ctx)))
+	if err != nil {
+		s.WriteError(w, r, err)
+		return
+	}
+	render(w, r, http.StatusOK, s.v.Sessions(page))
+}
+
+// postRevokeSession ends one of the signed-in user's sessions; another
+// user's session id is not found.
+func (s *Server) postRevokeSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.WriteError(w, r, auth.ErrNotFound)
+		return
+	}
+	p, _ := auth.PrincipalFrom(ctx)
+	if err := s.st.RevokeForUser(ctx, p.ID, id); err != nil {
+		s.WriteError(w, r, err)
+		return
+	}
+	redirect(w, r, "/account/sessions")
+}
+
+// postRevokeOthers ends the signed-in user's other sessions; the current one
+// stays.
+func (s *Server) postRevokeOthers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	p, _ := auth.PrincipalFrom(ctx)
+	if err := s.st.RevokeOthers(ctx, p.ID, auth.HashToken(s.sm.Token(ctx))); err != nil {
+		s.WriteError(w, r, err)
+		return
+	}
+	redirect(w, r, "/account/sessions")
+}

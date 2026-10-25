@@ -1,0 +1,55 @@
+package views
+
+import (
+	"fmt"
+
+	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+func (Default) Sessions(p authweb.SessionsPage) templ.Component {
+	return sessions(p)
+}
+
+// sessions lists the user's sessions, one card each, with their start and
+// last-use times in IST (CD-33).
+templ sessions(p authweb.SessionsPage) {
+	@page(uilayout.PageOpts{Title: "Sessions"}, p.CSRF, p.Error, "main", p.Warnings) {
+		<ul class="stack">
+			for _, s := range p.Sessions {
+				<li>
+					@components.Card(deviceName(s.UserAgent), nil) {
+						@components.SummaryList([]components.Pair{
+							{Label: "Network address", Value: s.IP, Code: true},
+							{Label: "Started", Value: types.FormatIST(s.CreatedAt)},
+							{Label: "Last used", Value: types.FormatIST(s.LastSeenAt)},
+						})
+						if s.Current {
+							<p>This session</p>
+						} else {
+							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/account/sessions/%d/revoke", s.ID)) }>
+								<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+								@components.Button(components.ButtonProps{Label: "End session", Busy: "Ending…"})
+							</form>
+						}
+					}
+				</li>
+			}
+		</ul>
+		<form method="post" action="/account/sessions/revoke-others">
+			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+			@components.Button(components.ButtonProps{Label: "End all other sessions", Busy: "Ending…"})
+		</form>
+	}
+}
+
+// deviceName is the card title for a session: its user agent, or "Unknown
+// device" when the browser sent none.
+func deviceName(ua string) string {
+	if ua == "" {
+		return "Unknown device"
+	}
+	return ua
+}

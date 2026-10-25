@@ -1,13 +1,16 @@
 package views
 
-import authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+import (
+	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
 
 func (Default) Message(p authweb.MessagePage) templ.Component {
 	return message(p)
 }
 
 templ message(p authweb.MessagePage) {
-	@layout(p.Title, p.CSRF, p.Error, p.Warnings) {
+	@page(uilayout.PageOpts{Title: p.Title, Bare: true}, p.CSRF, p.Error, "main", p.Warnings) {
 		if p.Message != "" {
 			<p>{ p.Message }</p>
 		}

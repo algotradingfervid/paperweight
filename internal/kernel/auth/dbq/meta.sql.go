@@ -28,3 +28,23 @@ func (q *Queries) GetPermVersion(ctx context.Context) (int64, error) {
 	err := row.Scan(&perm_version)
 	return perm_version, err
 }
+
+const getSeeded = `-- name: GetSeeded :one
+SELECT seeded FROM auth_meta WHERE id = 1
+`
+
+func (q *Queries) GetSeeded(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getSeeded)
+	var seeded int64
+	err := row.Scan(&seeded)
+	return seeded, err
+}
+
+const setSeeded = `-- name: SetSeeded :exec
+UPDATE auth_meta SET seeded = 1 WHERE id = 1
+`
+
+func (q *Queries) SetSeeded(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, setSeeded)
+	return err
+}

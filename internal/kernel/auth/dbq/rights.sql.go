@@ -39,19 +39,45 @@ func (q *Queries) DeleteRoleRights(ctx context.Context, arg DeleteRoleRightsPara
 	return err
 }
 
-const getRoleByName = `-- name: GetRoleByName :one
-SELECT id, is_admin FROM roles WHERE name_key = lower(?1)
+const getRoleByID = `-- name: GetRoleByID :one
+SELECT id, name, name_key, is_admin, version, created_at, created_by, updated_at, updated_by FROM roles WHERE id = ?
 `
 
-type GetRoleByNameRow struct {
-	ID      int64
-	IsAdmin int64
+func (q *Queries) GetRoleByID(ctx context.Context, id int64) (Role, error) {
+	row := q.db.QueryRowContext(ctx, getRoleByID, id)
+	var i Role
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.NameKey,
+		&i.IsAdmin,
+		&i.Version,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
 }
 
-func (q *Queries) GetRoleByName(ctx context.Context, name string) (GetRoleByNameRow, error) {
+const getRoleByName = `-- name: GetRoleByName :one
+SELECT id, name, name_key, is_admin, version, created_at, created_by, updated_at, updated_by FROM roles WHERE name_key = lower(?1)
+`
+
+func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) {
 	row := q.db.QueryRowContext(ctx, getRoleByName, name)
-	var i GetRoleByNameRow
-	err := row.Scan(&i.ID, &i.IsAdmin)
+	var i Role
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.NameKey,
+		&i.IsAdmin,
+		&i.Version,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
 	return i, err
 }
 

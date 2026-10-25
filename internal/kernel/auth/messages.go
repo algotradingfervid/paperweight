@@ -67,6 +67,17 @@ func ReferencedUserError(name string) *Problem {
 // UserChangedError: the user was saved by someone else after the page was
 // opened (the DOC-069 wording; name is the user's stored name).
 func UserChangedError(name string) *Problem {
+	return changedError(name)
+}
+
+// RoleChangedError: the role was saved by someone else after the page was
+// opened (UserChangedError's wording; name is the role's stored name).
+func RoleChangedError(name string) *Problem {
+	return changedError(name)
+}
+
+// changedError is the shared body of UserChangedError and RoleChangedError.
+func changedError(name string) *Problem {
 	return &Problem{409, fmt.Sprintf("Someone else changed %s after you opened it. Reload it and make your changes again.", name)}
 }
 
@@ -96,11 +107,16 @@ func ReadRequiredError(label string) *Problem {
 
 // NotApplicableError: r doesn't apply to the DocType.
 func NotApplicableError(r Right, label string) *Problem {
+	return &Problem{400, fmt.Sprintf("%s does not apply to %s. Clear it.", RightLabel(r), label)}
+}
+
+// RightLabel is how a right reads on its own: capitalised, "Approve".
+func RightLabel(r Right) string {
 	name := string(r)
 	if name != "" {
 		name = strings.ToUpper(name[:1]) + name[1:]
 	}
-	return &Problem{400, fmt.Sprintf("%s does not apply to %s. Clear it.", name, label)}
+	return name
 }
 
 // TeamNotApplicableError: team scope on a DocType without an employee field.

@@ -11,7 +11,7 @@ import (
 )
 
 // TestMigrations_AuthTablesAndRoles checks the AUTH schema (migrations
-// 00100–00103): the seeded roles, the tables, and two column constraints.
+// 00100–00104): the seeded roles, the tables, and two column constraints.
 func TestMigrations_AuthTablesAndRoles(t *testing.T) {
 	d := testkit.NewDB(t)
 	ctx := context.Background()

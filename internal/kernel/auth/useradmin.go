@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth/dbq"
@@ -102,6 +104,14 @@ func (a *Auth) ChangeRestrictions(ctx context.Context, actor Principal, id UserI
 		if err := setRestrictions(ctx, q, id, dim, after); err != nil {
 			return err
 		}
+		b, err := a.codesText(ctx, tx, dim, before)
+		if err != nil {
+			return err
+		}
+		af, err := a.codesText(ctx, tx, dim, after)
+		if err != nil {
+			return err
+		}
 		now := a.clock.Now()
 		if err := q.TouchUser(ctx, dbq.TouchUserParams{At: FormatTime(now), By: byArg(actor.ID), ID: int64(id)}); err != nil {
 			return err
@@ -111,8 +121,29 @@ func (a *Auth) ChangeRestrictions(ctx context.Context, actor Principal, id UserI
 		}
 		return a.audit.Append(ctx, tx, audit.Entry{
 			DocType: "User", DocID: int64(id), Action: "update",
-			Changes: []audit.Change{{Field: string(dim) + "s", Before: idsText(before), After: idsText(after), Op: "set"}},
+			Changes: []audit.Change{{Field: string(dim) + "s", Before: b, After: af, Op: "set"}},
 			By:      actor.ID, At: now,
 		})
 	})
+}
+
+// codesText shows ids of dimension d as "[CODE, CODE]" in ID order, with the
+// codes looked up through Directory inside tx; an ID without a code shows as
+// its number.
+func (a *Auth) codesText(ctx context.Context, tx *db.Tx, d Dimension, ids []int64) (string, error) {
+	codesFor := a.dir.SiteCodes
+	if d == DimProject {
+		codesFor = a.dir.ProjectCodes
+	}
+	m, err := codesFor(ctx, tx, ids)
+	if err != nil {
+		return "", err
+	}
+	s := make([]string, len(ids))
+	for i, id := range ids {
+		if s[i] = m[id]; s[i] == "" {
+			s[i] = strconv.FormatInt(id, 10)
+		}
+	}
+	return "[" + strings.Join(s, ", ") + "]", nil
 }

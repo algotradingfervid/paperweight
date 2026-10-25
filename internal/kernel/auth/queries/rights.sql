@@ -1,5 +1,8 @@
 -- name: GetRoleByName :one
-SELECT id, is_admin FROM roles WHERE name_key = lower(sqlc.arg(name));
+SELECT * FROM roles WHERE name_key = lower(sqlc.arg(name));
+
+-- name: GetRoleByID :one
+SELECT * FROM roles WHERE id = ?;
 
 -- name: InsertRole :one
 INSERT INTO roles (name, name_key, created_at, updated_at)

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
@@ -60,6 +61,39 @@ func (a *Auth) locked(ctx context.Context, key string, limit int) (bool, error) 
 		return err
 	})
 	return n > 0, err
+}
+
+// Unlock clears u's account lockout counter. Only an Administrator may do it;
+// u's email is read inside the write. Unlocking an account that is not locked
+// writes no audit entry.
+func (a *Auth) Unlock(ctx context.Context, actor Principal, u UserID) error {
+	if !isAdmin(actor) {
+		return ErrAdminOnlyField
+	}
+	return a.db.Write(ctx, func(tx *db.Tx) error {
+		q := dbq.New(tx.SQL())
+		row, err := getUser(ctx, q, u)
+		if err != nil {
+			return err
+		}
+		key := AccountKey(row.Email)
+		n, err := q.LockoutIsLocked(ctx, dbq.LockoutIsLockedParams{
+			Key: key, Limit: AccountLimit, Now: FormatTime(a.clock.Now()),
+		})
+		if err != nil {
+			return err
+		}
+		if err := q.LockoutDelete(ctx, key); err != nil {
+			return err
+		}
+		if n == 0 {
+			return nil
+		}
+		return a.audit.Append(ctx, tx, audit.Entry{
+			DocType: "User", DocID: int64(u), Action: "unlock",
+			Reason: "unlocked by " + actor.Name, By: actor.ID, At: a.clock.Now(),
+		})
+	})
 }
 
 // SweepLockouts deletes expired counters and returns how many it deleted.

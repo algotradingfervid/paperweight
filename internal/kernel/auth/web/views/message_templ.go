@@ -8,7 +8,10 @@ package views
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+import (
+	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
 
 func (Default) Message(p authweb.MessagePage) templ.Component {
 	return message(p)
@@ -55,7 +58,7 @@ func message(p authweb.MessagePage) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(p.Message)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/message.templ`, Line: 12, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/message.templ`, Line: 15, Col: 17}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -68,7 +71,7 @@ func message(p authweb.MessagePage) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout(p.Title, p.CSRF, p.Error, p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = page(uilayout.PageOpts{Title: p.Title, Bare: true}, p.CSRF, p.Error, "main", p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

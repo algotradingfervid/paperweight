@@ -79,13 +79,13 @@ func checkAdminsLeft(ctx context.Context, q *dbq.Queries, except UserID) error {
 }
 
 // resolveRoles looks up names (any case) and returns the roles sorted and
-// unique by their stored names.
+// unique by their stored names; an unknown name is ErrBadForm.
 func resolveRoles(ctx context.Context, q *dbq.Queries, names []string) ([]dbq.RoleByNameRow, error) {
 	roles := make([]dbq.RoleByNameRow, 0, len(names))
 	for _, name := range names {
 		r, err := q.RoleByName(ctx, name)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, ErrBadForm // a role the form never offered
 		}
 		if err != nil {
 			return nil, err
@@ -128,14 +128,6 @@ func setRestrictions(ctx context.Context, q *dbq.Queries, u UserID, d Dimension,
 		}
 	}
 	return nil
-}
-
-func idsText(ids []int64) string {
-	s := make([]string, len(ids))
-	for i, id := range ids {
-		s[i] = strconv.FormatInt(id, 10)
-	}
-	return strings.Join(s, ", ")
 }
 
 func sortedIDs(ids []int64) []int64 {
@@ -317,7 +309,15 @@ func (a *Auth) UpdateUser(ctx context.Context, actor Principal, id UserID, p Use
 			if slices.Equal(before, after) {
 				continue
 			}
-			set(string(r.dim)+"s", idsText(before), idsText(after))
+			b, err := a.codesText(ctx, tx, r.dim, before)
+			if err != nil {
+				return err
+			}
+			af, err := a.codesText(ctx, tx, r.dim, after)
+			if err != nil {
+				return err
+			}
+			set(string(r.dim)+"s", b, af)
 			if err := setRestrictions(ctx, q, id, r.dim, after); err != nil {
 				return err
 			}
@@ -452,6 +452,31 @@ func (a *Auth) readUser(ctx context.Context, id UserID) (dbq.GetUserRow, error) 
 		return err
 	})
 	return u, err
+}
+
+// DisplayName is u's name, with " (disabled)" for a disabled user.
+func (a *Auth) DisplayName(ctx context.Context, u UserID) (string, error) {
+	row, err := a.readUser(ctx, u)
+	if err != nil {
+		return "", err
+	}
+	if row.Enabled == 0 {
+		return row.Name + " (disabled)", nil
+	}
+	return row.Name, nil
+}
+
+// EnabledUsers lists the enabled users in ascending ID order.
+func (a *Auth) EnabledUsers(ctx context.Context) ([]UserID, error) {
+	var out []UserID
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
+		ids, err := dbq.New(tx.SQL()).ListEnabledUserIDs(ctx)
+		for _, id := range ids {
+			out = append(out, UserID(id))
+		}
+		return err
+	})
+	return out, err
 }
 
 // ResetPassword sets a temporary password the target must change at their

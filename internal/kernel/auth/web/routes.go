@@ -27,6 +27,11 @@ func (s *Server) Mount(r chi.Router) {
 	r.Method(http.MethodGet, "/account/password", s.Self(http.HandlerFunc(s.getPassword)))
 	r.Method(http.MethodPost, "/account/password", s.Self(http.HandlerFunc(s.postPassword)))
 	r.Method(http.MethodPost, "/users/{id}/password", s.Admin(auth.ErrNotAdminPassword.Msg, http.HandlerFunc(s.postResetPassword)))
+	// Unlock and sessions (Task 16).
+	r.Method(http.MethodPost, "/users/{id}/unlock", s.Admin(auth.ErrAdminOnlyField.Msg, http.HandlerFunc(s.postUnlock)))
+	r.Method(http.MethodGet, "/account/sessions", s.Self(http.HandlerFunc(s.getSessions)))
+	r.Method(http.MethodPost, "/account/sessions/{id}/revoke", s.Self(http.HandlerFunc(s.postRevokeSession)))
+	r.Method(http.MethodPost, "/account/sessions/revoke-others", s.Self(http.HandlerFunc(s.postRevokeOthers)))
 	// User administration (Task 13).
 	r.Method(http.MethodGet, "/users", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.listUsers)))
 	r.Method(http.MethodPost, "/users", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.createUser)))
@@ -35,6 +40,15 @@ func (s *Server) Mount(r chi.Router) {
 	r.Method(http.MethodPost, "/users/{id}/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.updateRoles)))
 	r.Method(http.MethodPost, "/users/{id}/restrictions", s.Admin(auth.ErrAdminOnlyAccess.Msg, http.HandlerFunc(s.changeRestrictions)))
 	r.Method(http.MethodPost, "/users/{id}/delete", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.deleteUser)))
+	// Roles and the rights matrix (Task 17).
+	r.Method(http.MethodGet, "/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.listRoles)))
+	r.Method(http.MethodPost, "/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.createRole)))
+	r.Method(http.MethodPost, "/roles/{id}/rename", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.renameRole)))
+	r.Method(http.MethodPost, "/roles/{id}/delete", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.deleteRole)))
+	r.Method(http.MethodPost, "/roles/{id}/rights/{doctype}", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.setRights)))
+	r.Method(http.MethodPost, "/rights/{doctype}/reset", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.resetRights)))
+	// Who can… (Task 19).
+	r.Method(http.MethodGet, "/rights/who-can", s.Admin(auth.ErrAdminOnlyWhoCan.Msg, http.HandlerFunc(s.getWhoCan)))
 }
 
 // CheckRoutes returns one "METHOD path: problem" line per route that does not

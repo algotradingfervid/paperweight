@@ -1,13 +1,33 @@
-// Package views is the default templ set for authweb.Views: plain pages until
-// Task 21 rebuilds them from internal/ui components (CD-88).
+// Package views is the default templ set for authweb.Views. The sign-in,
+// setup, password, session and message pages are built from internal/ui
+// components (CD-88); the user pages stay plain until WP3 (CD-91).
 package views
 
-import authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+import (
+	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
 
 // Default implements authweb.Views.
 type Default struct{}
 
 var _ authweb.Views = Default{}
+
+// page is the styled page shell: layout.Page with the error in an
+// ErrorSummary (linking to errField; it takes focus, CD-159) above the heading,
+// then the warnings and the session's CSRF token.
+templ page(o uilayout.PageOpts, csrf, errText, errField string, warnings []string) {
+	{{ o.Error = errText != "" }}
+	if o.Error {
+		{{ o.BannerSlot = components.ErrorSummary([]components.FieldErr{{ID: errField, Message: errText}}) }}
+	}
+	@uilayout.Page(o) {
+		@components.Warnings(warnings)
+		<input type="hidden" name="csrf_token" value={ csrf }/>
+		{ children... }
+	}
+}
 
 // layout is the plain page shell: the title, the error in role="alert", the
 // warnings and the session's CSRF token.
@@ -32,8 +52,4 @@ templ layout(title, csrf, errText string, warnings []string) {
 			</main>
 		</body>
 	</html>
-}
-
-func (Default) Sessions(p authweb.SessionsPage) templ.Component {
-	return layout("Sessions", p.CSRF, p.Error, p.Warnings)
 }

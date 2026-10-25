@@ -1,6 +1,10 @@
 package views
 
-import authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+import (
+	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
 
 func (Default) Login(p authweb.LoginPage) templ.Component {
 	return login(p)
@@ -9,21 +13,15 @@ func (Default) Login(p authweb.LoginPage) templ.Component {
 // login is the sign-in form. The email is never re-filled after a failed
 // attempt, so a wrong password and an unknown email answer alike (AUTH-004).
 templ login(p authweb.LoginPage) {
-	@layout("Sign in", p.CSRF, p.Error, p.Warnings) {
-		<form method="post" action="/signin">
+	@page(uilayout.PageOpts{Title: "Sign in", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, components.FieldID("email"), p.Warnings) {
+		<form method="post" action="/signin" class="stack">
 			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
 			if p.Next != "" {
 				<input type="hidden" name="next" value={ p.Next }/>
 			}
-			<label>
-				Email
-				<input type="email" name="email" autocomplete="username" required/>
-			</label>
-			<label>
-				Password
-				<input type="password" name="password" autocomplete="current-password" required/>
-			</label>
-			<button type="submit">Sign in</button>
+			@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Attrs: required}, "username")
+			@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: required}, "current-password")
+			@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
 		</form>
 	}
 }

@@ -12,6 +12,8 @@ import (
 type Config struct {
 	Secure     bool // served over HTTPS
 	TrustProxy bool // take the client IP from X-Forwarded-For
+	// Seed is what a matrix reset seeds with (WP3 sets LinkedMasterRead).
+	Seed auth.SeedOptions
 }
 
 // Server holds what AUTH's middleware, guards and handlers need.
