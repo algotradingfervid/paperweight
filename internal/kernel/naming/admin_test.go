@@ -95,14 +95,14 @@ func TestSettings_TemplateChangeNewPrefix(t *testing.T) {
 	must(t, h.approve(a))
 	wantDoc(t, h, a, doctype.StateApproved, "PO/26-27/00007")
 
-	if err := h.nm.SetTemplate(ctx, admin, dtPO, "PUR/{FY}/{#####}"); err != nil {
-		t.Fatalf("SetTemplate(admin, PO, PUR/{FY}/{#####}): %v", err)
+	if err := h.nm.SetTemplate(ctx, admin, dtPO, "PR/{FY}/{#####}"); err != nil {
+		t.Fatalf("SetTemplate(admin, PO, PR/{FY}/{#####}): %v", err)
 	}
 
 	b := h.create(dtPO, d)
 	must(t, h.submit(b, true))
 	must(t, h.approve(b))
-	wantDoc(t, h, b, doctype.StateApproved, "PUR/26-27/00001")
+	wantDoc(t, h, b, doctype.StateApproved, "PR/26-27/00001")
 	wantDoc(t, h, a, doctype.StateApproved, "PO/26-27/00007")
 }
 
@@ -188,8 +188,8 @@ func TestSettings_AdminOnly(t *testing.T) {
 		}
 	}
 	for _, p := range []auth.Principal{ravi, priya} {
-		check("SetTemplate("+p.Name+", PO, PUR/{FY}/{#####})",
-			h.nm.SetTemplate(ctx, p, dtPO, "PUR/{FY}/{#####}"))
+		check("SetTemplate("+p.Name+", PO, PR/{FY}/{#####})",
+			h.nm.SetTemplate(ctx, p, dtPO, "PR/{FY}/{#####}"))
 		check("SetCounter("+p.Name+", PO, PO/26-27/, 12)",
 			h.nm.SetCounter(ctx, p, dtPO, "PO/26-27/", 12))
 	}
@@ -210,16 +210,16 @@ func TestSettings_AdminOnly(t *testing.T) {
 func TestSettings_Audited(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
-	if err := h.nm.SetTemplate(ctx, admin, dtPO, "PUR/{FY}/{#####}"); err != nil {
-		t.Fatalf("SetTemplate(admin, PO, PUR/{FY}/{#####}): %v", err)
+	if err := h.nm.SetTemplate(ctx, admin, dtPO, "PR/{FY}/{#####}"); err != nil {
+		t.Fatalf("SetTemplate(admin, PO, PR/{FY}/{#####}): %v", err)
 	}
-	if err := h.nm.SetCounter(ctx, admin, dtPO, "PUR/26-27/", 12); err != nil {
-		t.Fatalf("SetCounter(admin, PO, PUR/26-27/, 12): %v", err)
+	if err := h.nm.SetCounter(ctx, admin, dtPO, "PR/26-27/", 12); err != nil {
+		t.Fatalf("SetCounter(admin, PO, PR/26-27/, 12): %v", err)
 	}
 
 	at := time.Date(2026, 10, 24, 5, 0, 0, 0, time.UTC)
 	want := []audit.Entry{
-		{DocType: "naming.Series", Action: "update", Changes: []audit.Change{{Field: "template", Before: "PO/{FY}/{#####}", After: "PUR/{FY}/{#####}", Op: "set"}}, By: 1, At: at},
+		{DocType: "naming.Series", Action: "update", Changes: []audit.Change{{Field: "template", Before: "PO/{FY}/{#####}", After: "PR/{FY}/{#####}", Op: "set"}}, By: 1, At: at},
 		{DocType: "naming.Counter", Action: "update", Changes: []audit.Change{{Field: "last", Before: "0", After: "12", Op: "set"}}, By: 1, At: at},
 	}
 	got := h.audit.Entries()
@@ -249,8 +249,8 @@ func TestSettings_Audited(t *testing.T) {
 func TestSettings_TrimsTemplate(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
-	if err := h.nm.SetTemplate(ctx, admin, dtPO, "  PUR/{FY}/{#####}  "); err != nil {
-		t.Fatalf("SetTemplate(admin, PO, %q) = %v, want nil", "  PUR/{FY}/{#####}  ", err)
+	if err := h.nm.SetTemplate(ctx, admin, dtPO, "  PR/{FY}/{#####}  "); err != nil {
+		t.Fatalf("SetTemplate(admin, PO, %q) = %v, want nil", "  PR/{FY}/{#####}  ", err)
 	}
 	list, err := h.nm.List(ctx)
 	if err != nil {
@@ -260,8 +260,8 @@ func TestSettings_TrimsTemplate(t *testing.T) {
 	for _, s := range list {
 		if s.DocType == dtPO {
 			found = true
-			if s.Template != "PUR/{FY}/{#####}" {
-				t.Errorf("List: PO Template = %q, want %q", s.Template, "PUR/{FY}/{#####}")
+			if s.Template != "PR/{FY}/{#####}" {
+				t.Errorf("List: PO Template = %q, want %q", s.Template, "PR/{FY}/{#####}")
 			}
 		}
 	}
