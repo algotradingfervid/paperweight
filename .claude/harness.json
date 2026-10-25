@@ -10,6 +10,13 @@
     "merge": "make ci",
     "e2e": "make e2e"
   },
-  "max_parallel_agents": 6,
+  "max_parallel_agents": 15,
+  "assistant_directors": {
+    "head": {"workers": 3, "does": "merges to main, decision log, owner questions, escalations"},
+    "AD-1": {"wps": ["auth"], "workers": 3},
+    "AD-2": {"wps": ["ui"], "workers": 3},
+    "AD-3": {"wps": ["num", "naming", "approval"], "workers": 3},
+    "AD-4": {"wps": ["doc", "files-print"], "workers": 3}
+  },
   "models": {"judgement": "opus", "mechanical": "haiku"}
 }
