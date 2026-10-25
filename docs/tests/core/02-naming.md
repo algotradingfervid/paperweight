@@ -361,7 +361,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GR/{FY}/{##
 ### NAM-047 · Only a cancelled document can be amended
 - **Priority:** P2
 - **Level:** integration
-- **Given** approved (not cancelled) `PO/26-27/00007` **When** the user amends it **Then** error "PO/26-27/00007 can't be amended because it isn't cancelled. Cancel it first." (DOC owns the rule; NAM checks that no suffix is computed.)
+- **Given** approved (not cancelled) `PO/26-27/00007` **When** the user amends it **Then** error "Only cancelled documents can be amended. Cancel PO/26-27/00007 first." (DOC owns the rule; NAM checks that no suffix is computed.)
 - **Go test:** `TestAmend_RequiresCancelled`
 - **Sources:** `frappe/frappe/model/document.py:1173` (`validate_amended_from`)
 

@@ -46,7 +46,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Template literals in tests and plans must render ≤ 14 characters (GRN/, EXP/ and PUR/ broke it: CD-113/115/129); check each against `parseTemplate` first.
 - Fakes and reference drivers refuse everything the real component refuses; a lenient double lets tests pass that fail under the engine (APR's driver skipped DOC's read visibility and submit/write rights; CD-125).
 - Test each behaviour a CD or plan names through the public path, so deleting its call site fails a test; a helper's unit test alone passed with the call removed three times in NUM.
-- A catalogue user message covers only the condition it names; caller bugs get a plain internal error. A new refusal gets its own message even when it reuses an error kind and status (CD-147, CD-152).
+- A catalogue user message covers only the condition it names; caller bugs get a plain internal error. A new refusal gets its own message even when it reuses an error kind and status (CD-147, CD-152). Another WP's test expects the producing WP's text, never its own copy (CD-142, CD-155).
 - Fixture ids follow name order, so sort-by-link-name tests insert rows out of name order.
 - A `\ufeff` escape written through the Write/Bash tools becomes a real BOM byte (Go refuses it): use a named constant, as for NBSP. In AD sessions finished crew workers can't be resumed ("No transcript found"): fix loops dispatch a fresh worker with the findings and exact scope.
 - scs saves the session at the first `Write`/`WriteHeader`: anything put into the session (CSRF token, flash, uid) must happen before the response starts, or it is silently lost (two AUTH Task 10 review rounds).
