@@ -11,6 +11,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
+	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
@@ -628,15 +629,26 @@ func TestDoc_Reject_RequiresReason(t *testing.T) {
 	h := fixturetest.New(t)
 	d := h.PendingOrder(t)
 	count := h.AuditCount(t)
-	for _, tc := range []struct{ name, reason, msg string }{
-		{"empty", "", "Enter a reason for rejecting."},
-		{"spaces", "   ", "Enter a reason for rejecting."},
-		{"1001 runes", strings.Repeat("a", 1001), "Keep the reason under 1,000 characters."},
-		{"1001 Devanagari runes", strings.Repeat("क", 1001), "Keep the reason under 1,000 characters."},
+	// APR checks the reject reason, not DOC (CD-157).
+	for _, tc := range []struct {
+		name, reason string
+		kind         error
+		msg          string
+	}{
+		{"empty", "", approval.ErrReasonRequired, "Enter a reason for rejecting."},
+		{"spaces", "   ", approval.ErrReasonRequired, "Enter a reason for rejecting."},
+		{"1001 runes", strings.Repeat("a", 1001), approval.ErrReasonTooLong, "Reason must be 1,000 characters or fewer."},
+		{"1001 Devanagari runes", strings.Repeat("क", 1001), approval.ErrReasonTooLong, "Reason must be 1,000 characters or fewer."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := h.Do(t, t.Context(), h.Ravi, fixture.Order, d.ID, doc.ActionReject, trIn(d.Version, tc.reason))
-			fixturetest.ErrIs(t, err, doc.KindInvalid, tc.msg)
+			var ue *approval.UserError
+			if !errors.Is(err, tc.kind) || !errors.As(err, &ue) {
+				t.Fatalf("err = %v (%T), want an *approval.UserError of kind %v", err, err, tc.kind)
+			}
+			if ue.Msg != tc.msg || ue.Field != "reason" {
+				t.Errorf("Msg, Field = %q, %q; want %q, \"reason\"", ue.Msg, ue.Field, tc.msg)
+			}
 			trState(t, h, fixture.Order, d.ID, doc.StatePending, d.Version)
 		})
 	}

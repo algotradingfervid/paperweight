@@ -127,7 +127,33 @@ func (receiptHooks) effects(ctx context.Context, tx *db.Tx, id int64, hook, acti
 	return err
 }
 
-func (receiptHooks) Amount(context.Context, *db.Tx, int64) (types.Money, error) { return 0, nil }
+// Amount is the sum of each line's qty × its order line's rate (CD-157).
+func (receiptHooks) Amount(ctx context.Context, tx *db.Tx, id int64) (types.Money, error) {
+	rows, err := tx.SQL().QueryContext(ctx, `
+		SELECT COALESCE(rl.qty, 0), COALESCE(ol.rate, 0)
+		FROM fixture_receipt_line rl JOIN fixture_order_line ol ON ol.id = rl.order_line_id
+		WHERE rl.parent_id = ?`, id)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	var total types.Money
+	for rows.Next() {
+		var (
+			qty  types.Qty
+			rate types.Rate
+		)
+		if err := rows.Scan(&qty, &rate); err != nil {
+			return 0, err
+		}
+		amt, err := qty.Times(rate)
+		if err != nil {
+			return 0, err
+		}
+		total += amt
+	}
+	return total, rows.Err()
+}
 
 func (receiptHooks) Date(ctx context.Context, tx *db.Tx, id int64) (types.Date, error) {
 	return readDate(ctx, tx, `SELECT receipt_date FROM fixture_receipt WHERE id = ?`, id)
