@@ -176,6 +176,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-APR | 12b Engine driver | High | crew-implementer | 17:48 | | | | |
 | WP1-APR | 18 DOC-coupled P2 (lane/approval-18) | High | crew-test-writer | 17:48 | | | | |
 | Merges | APR done (P1 71/71) 8102873; `make ci` green; 12b and 18 follow | — | director | | 19:05 | — | — | — |
+| WP1-NAM | 16 Cross-package P2 vs real DOC and FILE (+ harness amend carry-over) | High | crew-implementer (test-only), crew-reviewer | 17:45 | 17:52 | 1 | 0/0/4 (NAM-047 text → CD-155) | cf8828a |
+| Merges | NAM Task 16 e2dd7d5; `make ci` green | — | director | | 19:20 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
