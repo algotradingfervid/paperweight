@@ -394,7 +394,22 @@ func TestDB_MigrateAppliesEmbedded(t *testing.T) {
 		t.Fatalf("look for sessions table: %v", err)
 	}
 	if n != 0 {
-		t.Errorf("sessions tables = %d, want 0 (CD-14)", n)
+		var banned int
+		if err := d.SQL().QueryRowContext(ctx,
+			`SELECT count(*) FROM pragma_table_info('sessions') WHERE name IN ('token','expiry')`).Scan(&banned); err != nil {
+			t.Fatalf("look for sessions token/expiry columns: %v", err)
+		}
+		if banned != 0 {
+			t.Errorf("sessions token or expiry columns = %d, want 0 (CD-14)", banned)
+		}
+		var hashed int
+		if err := d.SQL().QueryRowContext(ctx,
+			`SELECT count(*) FROM pragma_table_info('sessions') WHERE name = 'token_hash'`).Scan(&hashed); err != nil {
+			t.Fatalf("look for sessions token_hash column: %v", err)
+		}
+		if hashed != 1 {
+			t.Errorf("sessions token_hash columns = %d, want 1 (CD-14)", hashed)
+		}
 	}
 }
 
