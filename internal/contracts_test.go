@@ -172,13 +172,11 @@ func TestContracts_ErrorsImplementHTTPError(t *testing.T) {
 }
 
 func TestContracts_StubsReturnNotImplemented(t *testing.T) {
-	ctx := context.Background()
 	cases := []struct {
 		name string
 		err  error
 	}{
 		{`gstin.ValidateGSTIN("27AAFCV2449G1Z7")`, gstin.ValidateGSTIN("27AAFCV2449G1Z7")},
-		{"audit.Append(ctx, nil, audit.Entry{})", audit.Append(ctx, nil, audit.Entry{})},
 	}
 	for _, c := range cases {
 		if !errors.Is(c.err, errs.ErrNotImplemented) {

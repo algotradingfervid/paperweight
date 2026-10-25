@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
@@ -39,14 +38,8 @@ type Writer interface {
 	Append(ctx context.Context, tx *db.Tx, e Entry) error
 }
 
-// Default is the Writer behind Append. WP0 ships a stub; DOC replaces it.
-var Default Writer = stubWriter{}
-
-type stubWriter struct{}
-
-func (stubWriter) Append(ctx context.Context, tx *db.Tx, e Entry) error {
-	return errs.ErrNotImplemented
-}
+// Default is the Writer behind Append: the audit_log Store.
+var Default Writer = Store{}
 
 // Append = Default.Append.
 func Append(ctx context.Context, tx *db.Tx, e Entry) error { return Default.Append(ctx, tx, e) }

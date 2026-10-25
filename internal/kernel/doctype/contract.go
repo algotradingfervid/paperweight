@@ -1,11 +1,24 @@
 // Package doctype holds the DocType registry and every DocType type (spec §5,
 // CD-02). DOC owns it.
+//
+// Document table convention. Header: id, number (NULL until first approval),
+// state, state_reason, amended_from_id, amendment_root_id, amendment_no,
+// version, created_at, created_by, updated_at, updated_by, then one column per
+// header Field. Lines: id, parent_id, line_no, then one column per line Field;
+// the header version covers its lines. Declared column types are only INTEGER,
+// TEXT and BLOB (CD-34).
+//
+// Link semantics. A Field of type Link holds the id of a record of the DocType
+// named in Field.Link; when that DocType has a Master, DOC validates the value
+// through Master.Lookup (CD-21). A LinkSpec on a source DocType marks a
+// document-to-document link: with OnLine, Field is a line field holding a
+// Target line id; without it, a header field holding a Target header id. A
+// RollUp is declared on the source DocType; JoinField is a source line field
+// holding a target line id. Masters display as "{Code} {Name}" (CD-68).
 package doctype
 
 import (
 	"context"
-	"sort"
-	"sync"
 
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -69,6 +82,12 @@ type Field struct {
 	Options                                                        []string
 	Hint, Step                                                     string // CD-42
 	ReadOnly                                                       bool   // CD-79: computed fields; client values rejected
+
+	// DOC's additions (§5 last paragraph).
+	NonNegative, Positive               bool
+	Min, Max                            *int64
+	Default                             string // in the form value format
+	RollUp, System, EditableAfterSubmit bool
 }
 
 type SortKey struct {
@@ -118,49 +137,7 @@ type DocType struct {
 	Master                                                          MasterLookup                 // non-nil only for masters (CD-21)
 }
 
-// Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-var registry = struct {
-	mu     sync.Mutex
-	byName map[string]*DocType
-}{byName: map[string]*DocType{}}
-
-// Register adds dt at init; it panics on an empty Name or a duplicate. DOC adds
-// full spec validation later.
-//
-// Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-func Register(dt DocType) {
-	if dt.Name == "" {
-		panic("doctype.Register: DocType has no Name")
-	}
-	registry.mu.Lock()
-	defer registry.mu.Unlock()
-	if _, dup := registry.byName[dt.Name]; dup {
-		panic("doctype.Register: DocType " + dt.Name + " is already registered")
-	}
-	registry.byName[dt.Name] = &dt
-}
-
-// Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-func Lookup(name string) (*DocType, bool) {
-	registry.mu.Lock()
-	defer registry.mu.Unlock()
-	dt, ok := registry.byName[name]
-	return dt, ok
-}
-
-// All returns every registered DocType, sorted by Name.
-//
-// Working WP0 body; the owning WP may move it out of contract.go (CD-84).
-func All() []*DocType {
-	registry.mu.Lock()
-	defer registry.mu.Unlock()
-	all := make([]*DocType, 0, len(registry.byName))
-	for _, dt := range registry.byName {
-		all = append(all, dt)
-	}
-	sort.Slice(all, func(i, j int) bool { return all[i].Name < all[j].Name })
-	return all
-}
+// Register, Lookup and All live in registry.go (CD-84).
 
 type Info struct { // CD-05
 	DocType, DocLabel   string
