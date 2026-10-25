@@ -12,8 +12,6 @@ import (
 func (e *engine) checkSources(context.Context, *db.Tx, *DocType, Doc) *FieldError { return nil }
 
 // checkBlockers refuses cancelling d while linked documents are live.
-//
-//nolint:unused // called by cancel from Task 10 on
 func (e *engine) checkBlockers(context.Context, *db.Tx, *DocType, Doc, string) *Error { return nil }
 
 // References lists the documents that link to the master row id of table (CD-22).
