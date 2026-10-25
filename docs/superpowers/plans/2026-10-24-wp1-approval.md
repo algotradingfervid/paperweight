@@ -1420,7 +1420,7 @@ func TestWeb_InboxListsCardsOldestFirst(t *testing.T) {
 func TestWeb_RuleFormRefusesNonAdmin(t *testing.T) {
 	e := at.New(t)
 	code, body := post(t, e, e.Ravi, "/admin/approval-rules", url.Values{"doctype": {at.Order}, "from_amount": {"200000.00"}, "approver_type": {"role"}, "role": {"Director"}})
-	if code != 403 || !strings.Contains(body, "You don't have permission to change approval rules. Ask an Administrator.") { t.Error(code, body) }
+	if code != 403 || !strings.Contains(pageText(t, body), "You don't have permission to change approval rules. Ask an Administrator.") { t.Error(code, body) } // pageText: the page text via goquery, not raw bytes (HTML escapes the apostrophe; CD-148)
 }
 func TestWeb_InboxEscapesUserText(t *testing.T) { // Review Focus 5
 	e := at.New(t)
