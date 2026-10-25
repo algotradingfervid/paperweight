@@ -1,0 +1,29 @@
+package views
+
+import authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+
+func (Default) Login(p authweb.LoginPage) templ.Component {
+	return login(p)
+}
+
+// login is the sign-in form. The email is never re-filled after a failed
+// attempt, so a wrong password and an unknown email answer alike (AUTH-004).
+templ login(p authweb.LoginPage) {
+	@layout("Sign in", p.CSRF, p.Error, p.Warnings) {
+		<form method="post" action="/signin">
+			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+			if p.Next != "" {
+				<input type="hidden" name="next" value={ p.Next }/>
+			}
+			<label>
+				Email
+				<input type="email" name="email" autocomplete="username" required/>
+			</label>
+			<label>
+				Password
+				<input type="password" name="password" autocomplete="current-password" required/>
+			</label>
+			<button type="submit">Sign in</button>
+		</form>
+	}
+}

@@ -16,7 +16,13 @@ var PublicPaths = []string{"/signin", "/setup", "/static/*", "/healthz"}
 var CheckedInHandlerPrefixes = []string{"/doc/"}
 
 // Mount registers AUTH's routes on r.
-func (s *Server) Mount(chi.Router) {}
+func (s *Server) Mount(r chi.Router) {
+	r.Method(http.MethodGet, "/signin", Public(http.HandlerFunc(s.getSignIn)))
+	r.Method(http.MethodPost, "/signin", Public(http.HandlerFunc(s.postSignIn)))
+	r.Method(http.MethodPost, "/signout", s.Self(http.HandlerFunc(s.postSignOut)))
+	r.Method(http.MethodGet, "/setup", Public(http.HandlerFunc(s.getSetup)))
+	r.Method(http.MethodPost, "/setup", Public(http.HandlerFunc(s.postSetup)))
+}
 
 // CheckRoutes returns one "METHOD path: problem" line per route that does not
 // declare its permission properly.

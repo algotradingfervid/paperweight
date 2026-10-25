@@ -542,3 +542,18 @@ func (a *Auth) ChangeOwnPassword(ctx context.Context, u UserID, current, next, c
 		})
 	})
 }
+
+// DisableUserByEmail disables the user with email (as the system) and ends
+// their sessions; an unknown email is ErrNotFound.
+func (a *Auth) DisableUserByEmail(ctx context.Context, email, reason string) error {
+	return a.db.Write(ctx, func(tx *db.Tx) error {
+		id, err := dbq.New(tx.SQL()).UserIDByEmail(ctx, NormalizeEmail(email))
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		return a.DisableUser(ctx, tx, UserID(id), reason)
+	})
+}

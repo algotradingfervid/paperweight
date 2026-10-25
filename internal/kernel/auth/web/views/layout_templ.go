@@ -139,14 +139,6 @@ func layout(title, csrf, errText string, warnings []string) templ.Component {
 	})
 }
 
-func (Default) Login(p authweb.LoginPage) templ.Component {
-	return layout("Sign in", p.CSRF, p.Error, p.Warnings)
-}
-
-func (Default) Setup(p authweb.SetupPage) templ.Component {
-	return layout("Set up", p.CSRF, p.Error, p.Warnings)
-}
-
 func (Default) Password(p authweb.PasswordPage) templ.Component {
 	return layout("Change password", p.CSRF, p.Error, p.Warnings)
 }
