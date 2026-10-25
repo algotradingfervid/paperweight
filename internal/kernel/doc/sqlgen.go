@@ -149,8 +149,6 @@ func insertRow(ctx context.Context, tx *db.Tx, table string, cols []string, args
 // updateHeaderGuarded sets cols (quoted column names) to args on the header
 // id at version, and bumps the version, updated_at and updated_by. ok is
 // false when no row matched: the document changed or is gone (stale).
-//
-//nolint:unused // called by save and the actions from Task 7 on
 func updateHeaderGuarded(ctx context.Context, tx *db.Tx, dt *DocType, id int64, version int, cols []string, args []any, at time.Time, by types.UserID) (ok bool, err error) {
 	set := ""
 	for _, c := range cols {

@@ -70,3 +70,42 @@ func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
 }
+
+// saveChanges is the change set of saving after over before (CD-20): a set
+// change per changed header field, a set change per changed field of a kept
+// line (at its new line number), an add change per new line (its id from
+// newIDs by index in after.Lines) and a remove change per dropped line (at
+// its old line number). A change of line_no alone is not recorded. Links of
+// both versions are expected in after.links.
+func saveChanges(dt *DocType, before Doc, after normalized, newIDs map[int]int64) []audit.Change {
+	var changes []audit.Change
+	diff := func(fields []Field, b, a Values, lineNo int, lineID int64) {
+		for _, f := range fields {
+			bv, av := toSQL(f, b[f.Name]), toSQL(f, a[f.Name])
+			if rawJSON(f, bv, nil) != rawJSON(f, av, nil) {
+				changes = append(changes, audit.Change{Field: f.Name, LineNo: lineNo, LineID: lineID,
+					Before: rawJSON(f, bv, after.links), After: rawJSON(f, av, after.links), Op: audit.OpSet})
+			}
+		}
+	}
+	diff(storedFields(dt, false), before.Header, after.Header, 0, 0)
+	stored := map[int64]Line{}
+	for _, l := range before.Lines {
+		stored[l.ID] = l
+	}
+	kept := map[int64]bool{}
+	for i, l := range after.Lines {
+		if l.ID == 0 {
+			changes = append(changes, audit.Change{LineNo: i + 1, LineID: newIDs[i], After: lineJSON(dt, l.Values, after.links), Op: audit.OpAdd})
+			continue
+		}
+		kept[l.ID] = true
+		diff(storedFields(dt, true), stored[l.ID].Values, l.Values, i+1, l.ID)
+	}
+	for _, l := range before.Lines {
+		if !kept[l.ID] {
+			changes = append(changes, audit.Change{LineNo: l.LineNo, LineID: l.ID, Before: lineJSON(dt, l.Values, after.links), Op: audit.OpRemove})
+		}
+	}
+	return changes
+}
