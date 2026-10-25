@@ -2,6 +2,8 @@ package naming
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/vardhan/internaltools/internal/kernel/naming/dbq"
@@ -37,15 +39,13 @@ func (n *Namer) Assign(ctx context.Context, tx *db.Tx, doctype string, docID int
 	}
 	p := t.prefix(d)
 	now := nowText(n.clk)
-	c, err := next(ctx, tx, doctype, p, now)
+	c, err := next(ctx, tx, doctype, p, t.maxCounter(), now)
 	if err != nil {
 		return "", err
 	}
-	if c > t.maxCounter() {
-		return "", &Error{Kind: ErrExhausted, Msg: fmt.Sprintf(msgExhausted, p, t.maxCounter())}
-	}
 	num := t.render(d, c)
-	if err := q.InsertIssued(ctx, dbq.InsertIssuedParams{
+	// The unique indexes are the backstop if the counter was ever set back.
+	if _, err := q.InsertIssuedRoot(ctx, dbq.InsertIssuedRootParams{
 		DocType:     doctype,
 		DocID:       docID,
 		Number:      num,
@@ -54,7 +54,9 @@ func (n *Namer) Assign(ctx context.Context, tx *db.Tx, doctype string, docID int
 		Root:        num,
 		AmendmentNo: 0,
 		IssuedAt:    now,
-	}); err != nil {
+	}); errors.Is(err, sql.ErrNoRows) {
+		return "", &Error{Kind: ErrDuplicateNumber, Msg: fmt.Sprintf(msgDuplicate, num)}
+	} else if err != nil {
 		return "", err
 	}
 	return num, nil

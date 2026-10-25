@@ -147,6 +147,42 @@ func (q *Queries) InsertIssued(ctx context.Context, arg InsertIssuedParams) erro
 	return err
 }
 
+const insertIssuedRoot = `-- name: InsertIssuedRoot :one
+INSERT INTO naming_issued(doctype, doc_id, number, prefix, seq, root, amendment_no, issued_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT DO NOTHING
+RETURNING id
+`
+
+type InsertIssuedRootParams struct {
+	DocType     string
+	DocID       int64
+	Number      string
+	Prefix      string
+	Seq         int64
+	Root        string
+	AmendmentNo int64
+	IssuedAt    string
+}
+
+// No conflict target: a root number collides on both number and
+// (root, amendment_no), and either one means the number is already used.
+func (q *Queries) InsertIssuedRoot(ctx context.Context, arg InsertIssuedRootParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, insertIssuedRoot,
+		arg.DocType,
+		arg.DocID,
+		arg.Number,
+		arg.Prefix,
+		arg.Seq,
+		arg.Root,
+		arg.AmendmentNo,
+		arg.IssuedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const insertSeriesIfMissing = `-- name: InsertSeriesIfMissing :exec
 INSERT INTO naming_series(doctype, label, template, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(doctype) DO NOTHING
@@ -246,7 +282,10 @@ func (q *Queries) ListSeries(ctx context.Context) ([]NamingSeries, error) {
 }
 
 const nextCounter = `-- name: NextCounter :one
-INSERT INTO naming_counters(doctype, prefix, last, created_at, updated_at) VALUES (?, ?, 1, ?, ?)
+INSERT INTO naming_counters(doctype, prefix, last, created_at, updated_at)
+SELECT ?1, ?2, 1, ?3, ?4
+WHERE NOT EXISTS (SELECT 1 FROM naming_counters c
+    WHERE c.doctype = ?1 AND c.prefix = ?2 AND c.last >= ?5)
 ON CONFLICT(doctype, prefix) DO UPDATE SET last = last + 1, version = version + 1, updated_at = excluded.updated_at
 RETURNING last
 `
@@ -256,14 +295,19 @@ type NextCounterParams struct {
 	Prefix    string
 	CreatedAt string
 	UpdatedAt string
+	Max       int64
 }
 
+// The max guard sits in the SELECT's WHERE, not the upsert's (sqlc doesn't
+// bind parameters there): an exhausted counter gives no row to upsert, so
+// nothing changes and nothing is returned.
 func (q *Queries) NextCounter(ctx context.Context, arg NextCounterParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, nextCounter,
 		arg.DocType,
 		arg.Prefix,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.Max,
 	)
 	var last int64
 	err := row.Scan(&last)

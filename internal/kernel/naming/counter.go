@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/vardhan/internaltools/internal/kernel/naming/dbq"
 	"github.com/vardhan/internaltools/internal/platform/clock"
@@ -14,13 +15,22 @@ import (
 // number, creating the row at 1 the first time. It is one UPSERT…RETURNING
 // statement inside the caller's db.Write transaction, so there is no
 // read-then-write race and a rolled-back approval rolls the counter back too.
-func next(ctx context.Context, tx *db.Tx, doctype, prefix string, now string) (int64, error) {
-	return dbq.New(tx.SQL()).NextCounter(ctx, dbq.NextCounterParams{
+// A counter already at max is left alone and gives ErrExhausted.
+func next(ctx context.Context, tx *db.Tx, doctype, prefix string, max int64, now string) (int64, error) {
+	if tx == nil || !tx.Writable() {
+		return 0, ErrNeedsTx
+	}
+	c, err := dbq.New(tx.SQL()).NextCounter(ctx, dbq.NextCounterParams{
 		DocType:   doctype,
 		Prefix:    prefix,
 		CreatedAt: now,
 		UpdatedAt: now,
+		Max:       max,
 	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, &Error{Kind: ErrExhausted, Msg: fmt.Sprintf(msgExhausted, prefix, max)}
+	}
+	return c, err
 }
 
 // readLast returns the last number given for (doctype, prefix), or 0 when no

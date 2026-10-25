@@ -2,6 +2,7 @@ package naming
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -24,9 +25,13 @@ func (n *Namer) Preview(ctx context.Context, doctype string, d types.Date) (stri
 		if err != nil {
 			return err
 		}
-		last, err := readLast(ctx, tx.SQL(), doctype, t.prefix(d))
+		p := t.prefix(d)
+		last, err := readLast(ctx, tx.SQL(), doctype, p)
 		if err != nil {
 			return err
+		}
+		if last >= t.maxCounter() {
+			return &Error{Kind: ErrExhausted, Msg: fmt.Sprintf(msgExhausted, p, t.maxCounter())}
 		}
 		num = t.render(d, last+1)
 		return nil
