@@ -8,7 +8,9 @@ package approvaltest
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/audit"
@@ -47,6 +49,7 @@ type Env struct {
 	R1, R2, E1                                      int64
 
 	nextUser auth.UserID
+	t        testing.TB // the test New built this Env for; engine-only methods skip it
 }
 
 // New builds the harness: testkit DB and seed, shared fakes, approval.New,
@@ -66,6 +69,7 @@ func New(t testing.TB) *Env {
 		Kavya:    testkit.Principal(t, "kavya@vardhan.test"),
 		Deepak:   testkit.Principal(t, "deepak@vardhan.test"),
 		nextUser: 1001,
+		t:        t,
 	}
 	MustOK(t, d.Write(context.Background(), func(tx *db.Tx) error {
 		for _, q := range harnessTables {
@@ -303,6 +307,87 @@ func (e *Env) back(p auth.Principal, d Doc, from doctype.State, action doctype.A
 		}
 		return setState(ctx, tx, d, doctype.StateDraft)
 	})
+}
+
+// RequireEngine skips t under the reference driver: the case needs the real
+// doc.Engine (Task 12b), so it is a WP3 entry and exit criterion (CD-40).
+// Only the reference driver exists until 12b, so it always skips.
+func (e *Env) RequireEngine(t testing.TB) {
+	t.Helper()
+	t.Skip("needs APR_DRIVER=engine (real doc.Engine); WP3 exit criterion, CD-40")
+}
+
+// Save runs DOC's save of an existing document with changes: header field
+// names in DOC's form value format ("amount": "40000.00"), and
+// "lines.<n>.<field>" for line n (1-based). The driver posts the document's
+// currently loaded version, as the page would (CD-94). Engine only.
+func (e *Env) Save(p auth.Principal, d Doc, changes map[string]string) error {
+	e.RequireEngine(e.t)
+	return nil
+}
+
+// SetState runs DOC's save with a "state" value (APR-076). Engine only.
+func (e *Env) SetState(p auth.Principal, d Doc, state doctype.State) error {
+	e.RequireEngine(e.t)
+	return nil
+}
+
+// Delete runs DOC's delete. Engine only.
+func (e *Env) Delete(p auth.Principal, d Doc) error {
+	e.RequireEngine(e.t)
+	return nil
+}
+
+// Offered is the actions DOC offers p on the document. Engine only.
+func (e *Env) Offered(p auth.Principal, d Doc) []doctype.Action {
+	e.RequireEngine(e.t)
+	return nil
+}
+
+// Version is the document's version. Engine only (the stand-in rows have none);
+// APR-091 and APR-094 need it.
+func (e *Env) Version(t testing.TB, d Doc) int64 {
+	t.Helper()
+	e.RequireEngine(t)
+	return 0
+}
+
+// Cancel runs DOC's cancel (a reference stand-in until 12b): cancel right →
+// from-state guard (approved only) → reason trimmed, 3–500 characters →
+// cancelled, effects reversed. No APR call (CD-23). The not-approved branch
+// returns the harness guard's own text as a stand-in for DOC's message.
+func (e *Env) Cancel(p auth.Principal, d Doc, reason string) error {
+	ctx := context.Background()
+	return e.DB.Write(ctx, func(tx *db.Tx) error {
+		if err := e.can(ctx, tx, p, d, "cancel"); err != nil {
+			return err
+		}
+		if _, err := e.guard(ctx, tx, d, doctype.StateApproved); err != nil {
+			return err
+		}
+		switch n := utf8.RuneCountInString(strings.TrimSpace(reason)); {
+		case n < 3:
+			return reasonError("Enter a reason for cancelling (at least 3 characters).")
+		case n > 500:
+			return reasonError("Keep the reason under 500 characters.")
+		}
+		if _, err := tx.SQL().ExecContext(ctx, `DELETE FROM aprtest_effects WHERE doctype = ? AND id = ?`, d.Type, d.ID); err != nil {
+			return err
+		}
+		return setState(ctx, tx, d, doctype.StateCancelled)
+	})
+}
+
+// reasonError stands in for DOC's KindInvalid error on the cancel reason:
+// 422 with the message on the reason field.
+type reasonError string
+
+var _ doctype.HTTPError = reasonError("")
+
+func (e reasonError) Error() string { return string(e) }
+func (reasonError) Status() int     { return 422 }
+func (e reasonError) FieldErrors() []doctype.FieldError {
+	return []doctype.FieldError{{Field: "reason", Message: string(e)}}
 }
 
 // checkDecider is DOC's part before approve and reject (CD-52): a hidden
