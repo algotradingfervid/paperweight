@@ -42,12 +42,8 @@ type Result[T any] struct { // CD-01
 	Total int
 }
 
-// ParseMoney and the other parsers (CD-33).
-func ParseMoney(s string) (Money, error)     { return 0, errNotImplemented }
-func ParseQty(s string) (Qty, error)         { return 0, errNotImplemented }
-func ParseRate(s string) (Rate, error)       { return 0, errNotImplemented }
-func ParsePercent(s string) (Percent, error) { return 0, errNotImplemented }
-func ParseDate(s string) (Date, error)       { return Date{}, errNotImplemented }
+// ParseDate (CD-33); the number parsers are in parse.go.
+func ParseDate(s string) (Date, error) { return Date{}, errNotImplemented }
 
 func FormatDate(d Date) string     { return "" } // "24-10-2026"
 func FormatIST(t time.Time) string { return "" } // "24-10-2026 10:30", the only timestamp format
