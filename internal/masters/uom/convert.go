@@ -16,6 +16,30 @@ const (
 	msgFactorNineDP   = "Conversion factor can have at most 9 decimal places." // types.ParseFactor's wording
 )
 
+// types.ParseFactor's wording.
+const (
+	msgFactorZero  = "Conversion factor must be more than 0."
+	msgFactorLarge = "Conversion factor is too large. The maximum is 10,00,000."
+)
+
+// FactorOne is a conversion factor of 1.
+const FactorOne types.Factor = factorScale
+
+// CheckFactor checks a factor that was not parsed against ParseFactor's
+// rules: more than 0, at most types.MaxFactor and at most 6 decimal places
+// (MST-085). The messages are ParseFactor's.
+func CheckFactor(f types.Factor) error {
+	switch {
+	case f <= 0:
+		return &types.InputError{Msg: msgFactorZero}
+	case f > types.MaxFactor:
+		return &types.InputError{Msg: msgFactorLarge}
+	case f%factorSixDPUnit != 0:
+		return &types.InputError{Msg: msgFactorDecimals}
+	}
+	return nil
+}
+
 // ParseFactor reads a conversion factor: more than 0 and at most 6 decimal
 // places (MST-085), stored at types.Factor's 1e-9 scale.
 func ParseFactor(s string) (types.Factor, error) {

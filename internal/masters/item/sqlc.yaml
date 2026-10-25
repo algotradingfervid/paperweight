@@ -1,0 +1,12 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema:
+      - ../../../migrations/01250_uom.sql
+      - ../../../migrations/01300_tax_code.sql
+      - ../../../migrations/01350_item.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq
