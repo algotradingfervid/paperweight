@@ -286,3 +286,23 @@ func TestSettings_SetCounterPrefixMismatch(t *testing.T) {
 		t.Errorf("audit entries = %d, want 0", n)
 	}
 }
+
+// TestSettings_CounterRange covers NAM-058.
+func TestSettings_CounterRange(t *testing.T) {
+	const tpl = "PO/{FY}/{#####}"
+	const msg = "Last number used must be a whole number from 0 to 99999."
+	for _, s := range []string{"-1", "100000", "12a"} {
+		got, err := ParseLastNumber(tpl, s)
+		wantNamingError(t, "ParseLastNumber("+tpl+", "+s+")", err, ErrCounterRange, msg)
+		if err == nil {
+			t.Errorf("ParseLastNumber(%q, %q) = %d, nil; want error", tpl, s, got)
+		}
+	}
+	if got, err := ParseLastNumber(tpl, "143"); err != nil || got != 143 {
+		t.Errorf("ParseLastNumber(%q, %q) = %d, %v; want 143, nil", tpl, "143", got, err)
+	}
+
+	h := newHarness(t)
+	err := h.nm.SetCounter(context.Background(), admin, dtPO, "PO/26-27/", 100000)
+	wantNamingError(t, "SetCounter(admin, PO, PO/26-27/, 100000)", err, ErrCounterRange, msg)
+}

@@ -57,6 +57,10 @@ func TestTemplate_Validate(t *testing.T) {
 			"POR/{FY}/{#####}":    fmt.Sprintf(msgTooLong, 15),
 			"SCPL/PO/{FY}/{####}": fmt.Sprintf(msgTooLong, 18),
 		}},
+		{"braces", map[string]string{ // NAM-016
+			"PO/{FY/{###}": msgBraces,
+			"PO/FY}/{###}": msgBraces,
+		}},
 		{"valid", map[string]string{
 			"PO/{FY}/{#####}":   "",
 			"PO-{FY}-{#####}":   "",
