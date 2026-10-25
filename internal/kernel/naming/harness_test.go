@@ -264,7 +264,8 @@ func (h *harness) deleteDraft(id int64) error {
 }
 
 // amend creates the next amendment draft of a cancelled document. It refuses
-// a second live amendment with DOC-065's text (CD-27).
+// a tenth amendment with CheckAmendmentNo and a second live amendment with
+// DOC-065's text (CD-27).
 //
 //nolint:unused // harness step used by later tasks' tests
 func (h *harness) amend(id int64) (int64, error) {
@@ -278,6 +279,19 @@ func (h *harness) amend(id int64) (int64, error) {
 		if p.state != string(doctype.StateCancelled) {
 			return wrongState(p, "amend")
 		}
+		// DOC calls CheckAmendmentNo when the user clicks Amend (CD-28). The
+		// root and k come from the stored fields, never from the number.
+		root := p.number.String
+		if p.amendmentNo > 0 {
+			root = p.amendmentRoot.String
+		}
+		s, err := loadSeries(ctx, tx.SQL(), p.doctype)
+		if err != nil {
+			return err
+		}
+		if err := CheckAmendmentNo(root, p.amendmentNo+1, s.Label); err != nil {
+			return err
+		}
 		var exID int64
 		var exNumber sql.NullString
 		err = tx.SQL().QueryRowContext(ctx,
@@ -289,10 +303,6 @@ func (h *harness) amend(id int64) (int64, error) {
 				Msg: fmt.Sprintf(msgAlreadyAmended, p.number.String, Label(exNumber.String, exID))}
 		case !errors.Is(err, sql.ErrNoRows):
 			return err
-		}
-		root := p.number.String
-		if p.amendmentNo > 0 {
-			root = p.amendmentRoot.String
 		}
 		res, err := tx.SQL().ExecContext(ctx,
 			`INSERT INTO nam_test_docs(doctype, state, doc_date, amended_from, amendment_root, amendment_no)

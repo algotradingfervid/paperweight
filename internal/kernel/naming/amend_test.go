@@ -238,30 +238,6 @@ func TestAmend_DeletedDraftFreesSuffix(t *testing.T) {
 	}
 }
 
-// amendAsDOC is the harness amend with DOC's CheckAmendmentNo call in front
-// of it (CD-28: DOC calls CheckAmendmentNo when the user clicks Amend). The
-// root and k come from the stored fields, never from the number.
-func amendAsDOC(t *testing.T, h *harness, id int64, docLabel string) (int64, error) {
-	t.Helper()
-	ctx := context.Background()
-	var p row
-	if err := h.db.Read(ctx, func(tx *db.Tx) error {
-		var err error
-		p, err = loadDoc(ctx, tx.SQL(), id)
-		return err
-	}); err != nil {
-		t.Fatalf("amendAsDOC load %d: %v", id, err)
-	}
-	root := p.number.String
-	if p.amendmentNo > 0 {
-		root = p.amendmentRoot.String
-	}
-	if err := CheckAmendmentNo(root, p.amendmentNo+1, docLabel); err != nil {
-		return 0, err
-	}
-	return h.amend(id)
-}
-
 // TestAmend_Limit covers NAM-045.
 func TestAmend_Limit(t *testing.T) {
 	const wantMsg = "PO/26-27/00007 has been amended 9 times, which is the limit. Create a new purchase order instead."
@@ -290,7 +266,7 @@ func TestAmend_Limit(t *testing.T) {
 		wantDoc(t, h, cur, doctype.StateApproved, "PO/26-27/00007")
 		for k := 1; k <= 9; k++ {
 			must(t, h.cancel(cur))
-			next, err := amendAsDOC(t, h, cur, "Purchase Order")
+			next, err := h.amend(cur)
 			if err != nil {
 				t.Fatalf("amend to -%d: %v", k, err)
 			}
@@ -301,7 +277,7 @@ func TestAmend_Limit(t *testing.T) {
 		must(t, h.cancel(cur))
 
 		docsBefore := h.count(`SELECT COUNT(*) FROM nam_test_docs`)
-		_, err := amendAsDOC(t, h, cur, "Purchase Order")
+		_, err := h.amend(cur)
 		if !errors.Is(err, ErrAmendmentLimit) {
 			t.Fatalf("amend(-9): err = %v, want ErrAmendmentLimit", err)
 		}
