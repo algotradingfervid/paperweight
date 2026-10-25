@@ -2,7 +2,7 @@
 /reference/
 
 # Build output, local tools and local data
-/bin/
+/bin
 /data/
 /tmp/
 *.db
