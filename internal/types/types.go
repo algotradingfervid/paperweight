@@ -2,14 +2,7 @@
 // formatters (spec §5, NUM). WP0 declares the signatures; NUM implements them.
 package types
 
-import (
-	"errors"
-	"time"
-)
-
-// errNotImplemented stands in for errs.ErrNotImplemented: types imports no
-// internal package (spec §4.2), so the stubs carry their own copy.
-var errNotImplemented = errors.New("not implemented yet")
+import "time"
 
 type Money int64   // paise
 type Qty int64     // thousandths
@@ -23,15 +16,13 @@ type Date struct {
 	Day   int
 }
 
-// Timestamp is a UTC instant; NUM adds its fields.
-type Timestamp struct{}
+// Timestamp is a UTC instant, truncated to the millisecond (timestamp.go).
+type Timestamp struct{ t time.Time }
 
 type FY struct {
 	Start, End   Date
 	Label, Short string
 } // "2026-27", "26-27"
-
-func FiscalYear(d Date) FY { return FY{} }
 
 type UserID int64 // CD-01
 
@@ -41,9 +32,3 @@ type Result[T any] struct { // CD-01
 	Rows  []T
 	Total int
 }
-
-// ParseDate (CD-33); the number parsers are in parse.go.
-func ParseDate(s string) (Date, error) { return Date{}, errNotImplemented }
-
-func FormatDate(d Date) string     { return "" } // "24-10-2026"
-func FormatIST(t time.Time) string { return "" } // "24-10-2026 10:30", the only timestamp format
