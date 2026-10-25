@@ -326,6 +326,23 @@ type PaymentTermsRow struct {
 	Days     int64
 }
 
+type Project struct {
+	ID         int64
+	Code       string
+	Name       string
+	BranchID   int64
+	CustomerID sql.NullInt64
+	StartDate  sql.NullString
+	EndDate    sql.NullString
+	Status     string
+	Disabled   int64
+	Version    int64
+	CreatedAt  string
+	CreatedBy  sql.NullInt64
+	UpdatedAt  string
+	UpdatedBy  sql.NullInt64
+}
+
 type Role struct {
 	ID        int64
 	Name      string
