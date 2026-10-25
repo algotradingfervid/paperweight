@@ -11,6 +11,8 @@ tool (
 )
 
 require (
+	github.com/alexedwards/scs/v2 v2.9.0
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/pressly/goose/v3 v3.29.0
 	modernc.org/sqlite v1.61.0
 )
