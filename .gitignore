@@ -1,17 +1,18 @@
 # Third-party source clones used only as read-only references (Frappe, ERPNext, HRMS, Odoo, Tryton, India Compliance)
 /reference/
 
-# Build output and local data
+# Build output, local tools and local data
 /bin/
 /data/
+/tmp/
 *.db
 *.db-shm
 *.db-wal
+
+# Agent status files (execution protocol section 6)
+/.work/
 
 # OS and editor files
 .DS_Store
 .idea/
 .vscode/
-
-# crew harness status and timing (local)
-/.work/
