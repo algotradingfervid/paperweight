@@ -312,7 +312,6 @@ func TestCopy_ClearsNumber(t *testing.T) {
 	})
 
 	t.Run("amendment", func(t *testing.T) {
-		t.Skip("needs AssignAmendment") // remove in Task 10, after Task 9 merges
 		h := newHarness(t)
 		h.preset(dtPO, "PO/26-27/", 6)
 		a := h.create(dtPO, day(2026, 10, 24))
