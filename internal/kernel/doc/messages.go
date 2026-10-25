@@ -27,4 +27,26 @@ const (
 	msgAlreadySubmitted = "%s has already been submitted."
 	msgFixFields        = "Fix the highlighted fields and save again."
 	msgInternal         = "doc: internal error in %s %s: %v" // doctype, action, recovered panic
+
+	// Transition guard (Task 8). The first %s is the document's display name.
+	msgUnknownAction     = "%s can't be changed that way."
+	msgNotWaiting        = "%s is not waiting for approval. It is %s."
+	msgNoLongerWaiting   = "%s is no longer waiting for approval. It was %s by %s." // display, approved|rejected|withdrawn, Name
+	msgNotSubmitted      = "%s hasn't been submitted, so there is nothing to withdraw."
+	msgOnlyRejected      = "Only rejected documents can be revised."
+	msgOnlyApprovedCanc  = "Only approved documents can be cancelled. Delete the draft instead."
+	msgOnlyApprovedClose = "Only approved documents can be closed."
+	msgOnlyCancelled     = "Only cancelled documents can be amended."
+	msgCancelFirst       = "Only cancelled documents can be amended. Cancel %s first."
+	msgPendingLocked     = "%s is waiting for approval and can't be changed. Withdraw it to make changes."
+	msgPendingCancel     = "%s is waiting for approval. Withdraw it first if it needs changes."
+	msgPendingDelete     = "%s is waiting for approval and can't be deleted. Withdraw it first, then delete it."
+	msgApprovedLocked    = "%s is approved and can't be edited. Cancel and amend it to make changes."
+	msgApprovedWithdraw  = "%s has already been approved and can't be withdrawn. Cancel and amend it to make changes."
+	msgApprovedDelete    = "Approved documents can't be deleted. Cancel it instead."
+	msgRejectedLocked    = "%s was rejected. Revise it to move it back to draft."
+	msgRejectedDelete    = "Rejected documents can't be deleted. Revise it to move it back to draft, then delete it."
+	msgClosed            = "%s is closed and can't be changed."
+	msgCancelledLocked   = "%s is cancelled and can't be changed. Amend it to make a corrected copy."
+	msgCancelledDelete   = "Cancelled documents are kept for the record and can't be deleted."
 )

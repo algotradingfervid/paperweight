@@ -89,9 +89,11 @@ func (e *engine) do(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocTyp
 		return Result{}, err
 	}
 	decision := a == ActionApprove || a == ActionReject
-	right := rights[a]
-	if decision {
-		right = "read" // visibility only; CheckApprover owns the approve right (CD-52)
+	right, known := rights[a]
+	if !known {
+		// approve, reject: visibility only, CheckApprover owns the approve
+		// right (CD-52); an unknown action is refused by guard below.
+		right = "read"
 	}
 	if err := e.Auth.Can(ctx, p, dt.Name, right, recordRef(dt, d)); err != nil {
 		return Result{}, err
