@@ -52,6 +52,18 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-APR | 1 Schema and queries | High | crew-test-writer | 15:24 | | | | |
 | WP1-UI | 1 Foundation | Light | crew-implementer | 15:24 | | | | |
 
+## Wave 1 carry-overs (put in the named task's brief)
+
+- APR Tasks 2+: wait for NUM Tasks 1–5 on main (CD-53), then rebase wp/approval.
+- AUTH Task 7: `users.updated_by` FK has no ON DELETE; the delete path must report `ReferencedUserError`, not a raw FK error.
+- AUTH Task 17: a rights key outside the 11 known rights still reaches the DB CHECK (raw error); the form handler must reject it.
+- DOC Task 6: share one timestamp layout with `audit` (`timeLayout` is private there); `doc.NewEngine` calls `doctype.CheckRegistry()` (CD-107).
+- NAM Task 6: reuse or replace `GetSeries` (one series lookup); drop `//nolint:unused` on names that become used (catalogue block, staticPrefix, fiscalYear).
+- UI Task 2: lint allows `white-space: nowrap` and `1px` in `visually-hidden` too; allow the raw colours in the appended brand block in `static/` (CD-112).
+- UI Task 6: no `data-theme` below `<html>` (CD-112); `.grid` shadows Tailwind's built-in `grid`.
+- NUM plan: Task 1's fuzz seed comment (k=1 → unit 100, not 10) is wrong; fix the plan text when convenient.
+- Merges: both DOC and NAM edit `internal/contracts_test.go` (CD-111 rows); expect a small conflict.
+
 ## Wave 1 setup (25 Oct 2026)
 
 Worktrees `../it-<wp>` on `wp/<wp>` from `main` 8b89c73 (num, auth, naming, doc, approval, files-print, ui); `bin/tools` is symlinked into each. Each WP runs its tasks in plan order; WPs run in parallel, at most 6 workers at once. NUM Tasks 1–5 merge to main first (CD-53); other WPs then rebase onto it.
