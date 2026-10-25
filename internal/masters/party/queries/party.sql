@@ -27,3 +27,15 @@ FROM party WHERE code = ?;
 SELECT p.default_payment_terms_id, coalesce(t.disabled, 0) AS terms_disabled
 FROM party p LEFT JOIN payment_terms t ON t.id = p.default_payment_terms_id
 WHERE p.id = ?;
+
+-- name: AddressGSTINs :many
+SELECT gstin FROM address WHERE party_id = ? AND gstin <> '' ORDER BY id;
+
+-- name: PrimaryBillingAddress :one
+SELECT gstin, country FROM address WHERE party_id = ? AND is_primary_billing = 1;
+
+-- name: HasForeignAddress :one
+SELECT EXISTS (SELECT 1 FROM address WHERE party_id = ? AND country <> 'India');
+
+-- name: PartyAddressesGST :many
+SELECT country, gstin, is_primary_billing, is_primary_shipping, disabled FROM address WHERE party_id = ? ORDER BY id;

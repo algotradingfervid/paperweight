@@ -8,6 +8,31 @@ import (
 	"database/sql"
 )
 
+type Address struct {
+	ID                int64
+	PartyID           sql.NullInt64
+	BranchID          sql.NullInt64
+	Name              string
+	Title             string
+	Line1             string
+	Line2             string
+	City              string
+	StateCode         sql.NullString
+	Country           string
+	Pincode           string
+	Gstin             string
+	IsBilling         int64
+	IsShipping        int64
+	IsPrimaryBilling  int64
+	IsPrimaryShipping int64
+	Disabled          int64
+	Version           int64
+	CreatedAt         string
+	CreatedBy         sql.NullInt64
+	UpdatedAt         string
+	UpdatedBy         sql.NullInt64
+}
+
 type AppMetum struct {
 	Key   string
 	Value string
@@ -113,7 +138,6 @@ type AuthLog struct {
 type AuthMetum struct {
 	ID          int64
 	PermVersion int64
-	Seeded      int64
 }
 
 type Branch struct {
@@ -143,50 +167,41 @@ type Company struct {
 	UpdatedBy sql.NullInt64
 }
 
-type ExpenseType struct {
-	ID               int64
-	Code             string
-	Name             string
-	DefaultHsnSac    string
-	DefaultTaxCodeID sql.NullInt64
-	Disabled         int64
-	Version          int64
-	CreatedAt        string
-	CreatedBy        sql.NullInt64
-	UpdatedAt        string
-	UpdatedBy        sql.NullInt64
+type Contact struct {
+	ID         int64
+	PartyID    sql.NullInt64
+	BranchID   sql.NullInt64
+	Name       string
+	FirstName  string
+	MiddleName string
+	LastName   string
+	IsPrimary  int64
+	Disabled   int64
+	Version    int64
+	CreatedAt  string
+	CreatedBy  sql.NullInt64
+	UpdatedAt  string
+	UpdatedBy  sql.NullInt64
+}
+
+type ContactEmail struct {
+	ID        int64
+	ContactID int64
+	Email     string
+	IsPrimary int64
+}
+
+type ContactPhone struct {
+	ID        int64
+	ContactID int64
+	Number    string
+	Kind      string
+	IsPrimary int64
 }
 
 type GstState struct {
 	Code string
 	Name string
-}
-
-type Item struct {
-	ID               int64
-	Code             string
-	Name             string
-	ItemType         string
-	HsnSac           string
-	StockUomID       int64
-	PurchaseUomID    int64
-	DefaultTaxCodeID sql.NullInt64
-	IsStock          int64
-	StandardRate     int64
-	Disabled         int64
-	Version          int64
-	CreatedAt        string
-	CreatedBy        sql.NullInt64
-	UpdatedAt        string
-	UpdatedBy        sql.NullInt64
-}
-
-type ItemUom struct {
-	ID       int64
-	ParentID int64
-	LineNo   int64
-	UomID    int64
-	Factor   int64
 }
 
 type LoginAttempt struct {
@@ -303,34 +318,6 @@ type Session struct {
 	LastSeenAt string
 	Ip         string
 	UserAgent  string
-}
-
-type TaxCode struct {
-	ID        int64
-	Code      string
-	Name      string
-	Treatment string
-	Rate      int64
-	Disabled  int64
-	Version   int64
-	CreatedAt string
-	CreatedBy sql.NullInt64
-	UpdatedAt string
-	UpdatedBy sql.NullInt64
-}
-
-type Uom struct {
-	ID          int64
-	Code        string
-	Name        string
-	Uqc         string
-	WholeNumber int64
-	Disabled    int64
-	Version     int64
-	CreatedAt   string
-	CreatedBy   sql.NullInt64
-	UpdatedAt   string
-	UpdatedBy   sql.NullInt64
 }
 
 type User struct {

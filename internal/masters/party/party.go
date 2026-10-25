@@ -36,6 +36,8 @@ var owned = []mstkit.Child{
 const (
 	msgRole     = "Tick Vendor, Customer or both."
 	msgCategory = "GST category must be Registered Regular, Registered Composition, Unregistered, SEZ or Overseas."
+	// MST-047, as the address package words it (CD-177).
+	msgOverseas = "Addresses outside India must have GST category Overseas."
 )
 
 func init() {
@@ -90,7 +92,7 @@ type Input struct {
 	Code, Name            string
 	IsVendor, IsCustomer  bool
 	PAN                   string
-	GSTCategory           gstin.Category // blank: Unregistered on create, kept on update (M5, CD-166)
+	GSTCategory           gstin.Category // blank: Unregistered on create; on update guessed from the primary billing address, else kept (M5, CD-166)
 	DefaultPaymentTermsID int64
 }
 
@@ -168,7 +170,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, in Input) (mstki
 	return saved, err
 }
 
-// CreateTx is Create inside tx.
+// CreateTx is Create inside tx. The importer's RowFunc must call it (Task 20).
 func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in Input) (mstkit.Saved, error) {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
@@ -197,6 +199,9 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "create", nil, auditFields(fromInput(in))); err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.CheckGST(ctx, tx, id, "gst_category"); err != nil {
+		return mstkit.Saved{}, err
+	}
 	return mstkit.Saved{ID: id, Version: 1}, nil
 }
 
@@ -211,7 +216,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 	return saved, err
 }
 
-// UpdateTx is Update inside tx.
+// UpdateTx is Update inside tx. The importer's RowFunc must call it (Task 20).
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
@@ -224,8 +229,8 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if in.GSTCategory == "" {
-		in.GSTCategory = old.GSTCategory // Task 6 replaces this with a guess from the primary billing address
+	if in, err = s.fromAddresses(ctx, tx, id, in, old.GSTCategory); err != nil {
+		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {
 		return mstkit.Saved{}, err
@@ -252,6 +257,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return mstkit.Saved{}, doctype.ErrNotFound
 	}
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", auditFields(old), auditFields(fromInput(in))); err != nil {
+		return mstkit.Saved{}, err
+	}
+	if err := s.CheckGST(ctx, tx, id, "gst_category"); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: old.Version + 1}, nil
@@ -285,28 +293,7 @@ func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightDelete, ref(id)); err != nil {
 		return err
 	}
-	children, err := existingChildren(ctx, tx)
-	if err != nil {
-		return err
-	}
-	return s.env.DeleteTx(ctx, tx, p, Kind, id, version, children...)
-}
-
-// existingChildren is owned without the tables not migrated yet: address and
-// contact arrive with MST Task 6, and mstkit.DeleteTx reads each child table.
-func existingChildren(ctx context.Context, tx *db.Tx) ([]mstkit.Child, error) {
-	var out []mstkit.Child
-	for _, c := range owned {
-		var n int
-		if err := tx.SQL().QueryRowContext(ctx,
-			"SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?", c.Kind.Table).Scan(&n); err != nil {
-			return nil, err
-		}
-		if n > 0 {
-			out = append(out, c)
-		}
-	}
-	return out, nil
+	return s.env.DeleteTx(ctx, tx, p, Kind, id, version, owned...)
 }
 
 // Get reads the party; a missing one is doctype.ErrNotFound.
