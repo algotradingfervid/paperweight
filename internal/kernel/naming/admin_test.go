@@ -11,6 +11,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // seriesTemplate reads the stored template for dt. Test goroutine only.
@@ -453,5 +454,42 @@ func TestSettings_ParseLastNumberTrims(t *testing.T) {
 	const tpl = "PO/{FY}/{#####}"
 	if got, err := ParseLastNumber(tpl, " 143 "); err != nil || got != 143 {
 		t.Errorf("ParseLastNumber(%q, %q) = %d, %v; want 143, nil", tpl, " 143 ", got, err)
+	}
+}
+
+// TestSettings_PreviewTemplateNoDate: a zero date gets the same error as
+// Preview, before the template is looked at.
+func TestSettings_PreviewTemplateNoDate(t *testing.T) {
+	h := newHarness(t)
+	got, err := h.nm.PreviewTemplate(context.Background(), "PO/{FY}/{#####}", types.Date{})
+	wantNamingError(t, "PreviewTemplate(PO/{FY}/{#####}, zero date)", err, ErrInvalidDate,
+		"A document date is needed to give it a number.")
+	if got != "" {
+		t.Errorf("PreviewTemplate(zero date) = %q, want \"\" with the error", got)
+	}
+}
+
+// TestSettings_PreviewTemplateNearMax: the preview lists only numbers the
+// series can still give, and an exhausted series gets Assign's error.
+func TestSettings_PreviewTemplateNearMax(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	d := day(2026, 10, 24)
+
+	h.preset(dtPO, "PO/26-27/", 99998)
+	got, err := h.nm.PreviewTemplate(ctx, "PO/{FY}/{#####}", d)
+	if err != nil {
+		t.Fatalf("PreviewTemplate(last 99998): %v", err)
+	}
+	if got != "PO/26-27/99999" {
+		t.Errorf("PreviewTemplate(last 99998) = %q, want %q", got, "PO/26-27/99999")
+	}
+
+	h.preset(dtGRN, "GR/26-27/", 99999)
+	got, err = h.nm.PreviewTemplate(ctx, "GR/{FY}/{#####}", d)
+	wantNamingError(t, "PreviewTemplate(last 99999)", err, ErrExhausted,
+		"Series GR/26-27/ has used all 99999 numbers. Ask an Administrator to add a digit to the series.")
+	if got != "" {
+		t.Errorf("PreviewTemplate(last 99999) = %q, want \"\" with the error", got)
 	}
 }

@@ -7,8 +7,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
-	"github.com/vardhan/internaltools/internal/types"
 )
 
 // RoleChecker is the one auth.Service method naming calls; production passes
@@ -38,8 +36,4 @@ func New(d *db.DB, clk clock.Clock, roles RoleChecker, aw audit.Writer) *Namer {
 func (n *Namer) ValidateTemplate(tpl string) error {
 	_, err := parseTemplate(tpl)
 	return err
-}
-
-func (n *Namer) PreviewTemplate(ctx context.Context, tpl string, d types.Date) (string, error) {
-	return "", errs.ErrNotImplemented
 }

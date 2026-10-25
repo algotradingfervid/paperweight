@@ -45,3 +45,6 @@ SELECT prefix, seq FROM naming_issued WHERE doctype = ? AND number = ? AND amend
 
 -- name: GetAmendmentNumber :one
 SELECT number FROM naming_issued WHERE root = ? AND amendment_no = ?;
+
+-- name: MaxCounterLastByPrefix :one
+SELECT CAST(COALESCE(MAX(last), 0) AS INTEGER) FROM naming_counters WHERE prefix = ?;
