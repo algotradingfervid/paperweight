@@ -204,7 +204,7 @@ func addrM5Holds(t *testing.T, env *msttest.Env, when string) {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() { _ = rows.Close() }()
 			for rows.Next() {
 				var code string
 				if err := rows.Scan(&code); err != nil {
