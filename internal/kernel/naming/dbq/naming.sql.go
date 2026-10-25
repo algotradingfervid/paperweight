@@ -9,6 +9,22 @@ import (
 	"context"
 )
 
+const countIssuedForDoc = `-- name: CountIssuedForDoc :one
+SELECT COUNT(*) FROM naming_issued WHERE doctype = ? AND doc_id = ?
+`
+
+type CountIssuedForDocParams struct {
+	DocType string
+	DocID   int64
+}
+
+func (q *Queries) CountIssuedForDoc(ctx context.Context, arg CountIssuedForDocParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIssuedForDoc, arg.DocType, arg.DocID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getCounterLast = `-- name: GetCounterLast :one
 SELECT last FROM naming_counters WHERE doctype = ? AND prefix = ?
 `

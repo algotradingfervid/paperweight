@@ -27,6 +27,14 @@ func (n *Namer) Assign(ctx context.Context, tx *db.Tx, doctype string, docID int
 	if err != nil {
 		return "", err
 	}
+	q := dbq.New(tx.SQL())
+	issued, err := q.CountIssuedForDoc(ctx, dbq.CountIssuedForDocParams{DocType: doctype, DocID: docID})
+	if err != nil {
+		return "", err
+	}
+	if issued > 0 {
+		return "", &Error{Kind: ErrNumberImmutable, Msg: msgImmutable}
+	}
 	p := t.prefix(d)
 	now := nowText(n.clk)
 	c, err := next(ctx, tx, doctype, p, now)
@@ -37,7 +45,7 @@ func (n *Namer) Assign(ctx context.Context, tx *db.Tx, doctype string, docID int
 		return "", &Error{Kind: ErrExhausted, Msg: fmt.Sprintf(msgExhausted, p, t.maxCounter())}
 	}
 	num := t.render(d, c)
-	if err := dbq.New(tx.SQL()).InsertIssued(ctx, dbq.InsertIssuedParams{
+	if err := q.InsertIssued(ctx, dbq.InsertIssuedParams{
 		DocType:     doctype,
 		DocID:       docID,
 		Number:      num,

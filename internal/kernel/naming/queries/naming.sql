@@ -16,3 +16,6 @@ ON CONFLICT(doctype) DO NOTHING;
 -- name: InsertIssued :exec
 INSERT INTO naming_issued(doctype, doc_id, number, prefix, seq, root, amendment_no, issued_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: CountIssuedForDoc :one
+SELECT COUNT(*) FROM naming_issued WHERE doctype = ? AND doc_id = ?;
