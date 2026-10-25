@@ -4,5 +4,6 @@ package migrations
 import "embed"
 
 // FS holds all *.sql files in migrations/.
-// STUB: the //go:embed *.sql directive is added with 00001_schema_conventions.sql.
+//
+//go:embed *.sql
 var FS embed.FS

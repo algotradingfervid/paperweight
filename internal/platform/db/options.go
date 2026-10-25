@@ -2,6 +2,8 @@ package db
 
 import "time"
 
+const defaultBusyTimeout = 5 * time.Second
+
 // Option configures Open.
 type Option func(*options)
 
@@ -10,7 +12,6 @@ type options struct {
 }
 
 // WithBusyTimeout sets the SQLite busy timeout (CD-08). Default 5 s.
-// STUB: has no effect yet.
 func WithBusyTimeout(d time.Duration) Option {
-	return func(*options) {}
+	return func(o *options) { o.busyTimeout = d }
 }
