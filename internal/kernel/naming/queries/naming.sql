@@ -39,3 +39,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(doctype, prefix) DO UPDATE SET last = excluded.last, version = version + 1,
     updated_at = excluded.updated_at, updated_by = excluded.updated_by
 RETURNING id;
+
+-- name: GetRootIssued :one
+SELECT prefix, seq FROM naming_issued WHERE doctype = ? AND number = ? AND amendment_no = 0;
+
+-- name: GetAmendmentNumber :one
+SELECT number FROM naming_issued WHERE root = ? AND amendment_no = ?;

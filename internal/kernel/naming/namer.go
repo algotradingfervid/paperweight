@@ -35,10 +35,6 @@ func New(d *db.DB, clk clock.Clock, roles RoleChecker, aw audit.Writer) *Namer {
 	return &Namer{db: d, clk: clk, roles: roles, audit: aw}
 }
 
-func (n *Namer) AssignAmendment(ctx context.Context, tx *db.Tx, doctype string, docID int64, root string, k int) (string, error) {
-	return "", errs.ErrNotImplemented
-}
-
 func (n *Namer) ValidateTemplate(tpl string) error {
 	_, err := parseTemplate(tpl)
 	return err
