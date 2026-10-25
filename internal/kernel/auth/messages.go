@@ -100,6 +100,11 @@ func TeamNotApplicableError(label string) *Problem {
 	return &Problem{400, fmt.Sprintf("Team does not apply to %s. Choose Own or All.", label)}
 }
 
+// ScopeInvalidError: a matrix right has an empty or unknown scope.
+func ScopeInvalidError(r Right) *Problem {
+	return &Problem{400, fmt.Sprintf("Scope for %s must be own, team or all.", r)}
+}
+
 // verb is how a right reads in a sentence.
 func verb(r Right) string {
 	if r == RightWrite {

@@ -39,6 +39,7 @@ type Auth struct {
 	refs   ReferenceChecker
 	info   doctype.InfoSource
 	verify VerifyFunc
+	cache  matrixCache
 }
 
 // New builds an Auth from d.
