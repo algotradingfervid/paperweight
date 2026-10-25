@@ -187,6 +187,13 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | NAM Task 18 95db286 (NAM complete); `make ci` green | — | director | | 20:15 | — | — | — |
 | WP1-AUTH | CD-162 authfake CheckValues parity | High | crew-implementer, crew-test-writer, crew-reviewer | | | 1 | 0/1/2 (project row missing → added) | 81e51ee, 61111ae |
 | Merges | AUTH CD-162 (merge below); `make ci` green | — | director | | 20:25 | — | — | — |
+| WP1-DOC | 14 Lifecycle table and fuzz (lane 13) | High | crew-test-writer opus, crew-reviewer opus, crew-implementer opus (model fix) | 17:38 | 17:53 | 1 | 0/0/4 + major for product → CD-156 (ids reused) | 8fe78a3, 7f2f192 |
+| WP1-DOC | 17 P2 audit values and history | High | crew-test-writer opus, crew-implementer opus, crew-reviewer opus, crew-implementer haiku (minors) | 17:40 | 18:03 | 1 | 0/0/3 (2 fixed; ListDeleted index deferred) + blocked on CD-156 | 99ed8d4 tests, 18d73a9 |
+| WP1-DOC | CD-156 ids never reused (fixture + attachment) | High | crew-implementer opus, crew-reviewer opus | 17:52 | 18:00 | 1 | 0/0/0; make ci green on lane/doc-cd156 | 275f46b |
+| WP1-DOC | CD-157 (A) reject reason to APR, (F) Receipt Amount | High | crew-implementer opus, crew-reviewer opus | 18:00 | 18:06 | 1 | 0/0/2 (double's Fail-before-reason order; plan text :319 :545 :572 stale → head) | fe22fbe (lane cd156) |
+| WP1-DOC | CD-162 fixture read-only state field | High | crew-implementer opus, crew-reviewer opus | 18:06 | 18:13 | 1 | | 0d07e62 |
+| WP1-DOC | CD-163 audit.ValidateEntry parity + files Op fix | High | crew-implementer opus, crew-implementer haiku, crew-reviewer opus | 18:08 | 18:13 | 1 | found files audit changes without Op (fixed) | d9454e7, 0599efa |
+| Merges | DOC batch (CD-156, CD-157 A/F, CD-162, CD-163) ee93bd7; `make ci` green | — | director | | 20:35 | — | — | — |
 
 ## Wave 1 handover to assistant directors (CD-121, 25 Oct 2026 16:55)
 
