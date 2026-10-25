@@ -263,6 +263,34 @@ type Session struct {
 	UserAgent  string
 }
 
+type TaxCode struct {
+	ID        int64
+	Code      string
+	Name      string
+	Treatment string
+	Rate      int64
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}
+
+type Uom struct {
+	ID          int64
+	Code        string
+	Name        string
+	Uqc         string
+	WholeNumber int64
+	Disabled    int64
+	Version     int64
+	CreatedAt   string
+	CreatedBy   sql.NullInt64
+	UpdatedAt   string
+	UpdatedBy   sql.NullInt64
+}
+
 type User struct {
 	ID                 int64
 	Email              string
