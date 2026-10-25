@@ -88,6 +88,30 @@ func TestAssign_PaddingExhausted(t *testing.T) {
 	}
 }
 
+// TestAssign_PaddingLastNumber covers NAM-063 at the boundary: 999 is still
+// issued, the one after it is exhausted.
+func TestAssign_PaddingLastNumber(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	must(t, h.nm.SetTemplate(ctx, admin, dtGRN, "GR/{FY}/{###}"))
+	h.preset(dtGRN, "GR/26-27/", 998)
+
+	if got, err := h.nm.Preview(ctx, dtGRN, day(2026, 10, 24)); err != nil || got != "GR/26-27/999" {
+		t.Errorf("Preview(GRN) = %q, %v; want GR/26-27/999", got, err)
+	}
+	g := h.create(dtGRN, day(2026, 10, 24))
+	must(t, h.submit(g, false))
+	wantDoc(t, h, g, doctype.StateApproved, "GR/26-27/999")
+	wantCounter(t, h, dtGRN, "GR/26-27/", 999)
+
+	g2 := h.create(dtGRN, day(2026, 10, 24))
+	err := h.submit(g2, false)
+	wantNamingError(t, "submit GRN", err, ErrExhausted,
+		"Series GR/26-27/ has used all 999 numbers. Ask an Administrator to add a digit to the series.")
+	wantDoc(t, h, g2, doctype.StateDraft, "")
+	wantCounter(t, h, dtGRN, "GR/26-27/", 999)
+}
+
 // TestSettings_PaddingChangeContinues covers NAM-053.
 func TestSettings_PaddingChangeContinues(t *testing.T) {
 	h := newHarness(t)

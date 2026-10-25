@@ -26,6 +26,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 -- name: InsertIssuedRoot :one
 -- No conflict target: a root number collides on both number and
 -- (root, amendment_no), and either one means the number is already used.
+-- DO NOTHING without a target also swallows a UNIQUE(doctype, doc_id)
+-- conflict, so assign.go's CountIssuedForDoc pre-check in the same
+-- transaction must stay: it is what gives ErrNumberImmutable.
 INSERT INTO naming_issued(doctype, doc_id, number, prefix, seq, root, amendment_no, issued_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT DO NOTHING

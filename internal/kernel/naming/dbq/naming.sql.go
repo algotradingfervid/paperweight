@@ -167,6 +167,9 @@ type InsertIssuedRootParams struct {
 
 // No conflict target: a root number collides on both number and
 // (root, amendment_no), and either one means the number is already used.
+// DO NOTHING without a target also swallows a UNIQUE(doctype, doc_id)
+// conflict, so assign.go's CountIssuedForDoc pre-check in the same
+// transaction must stay: it is what gives ErrNumberImmutable.
 func (q *Queries) InsertIssuedRoot(ctx context.Context, arg InsertIssuedRootParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertIssuedRoot,
 		arg.DocType,

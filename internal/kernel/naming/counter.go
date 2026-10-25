@@ -15,8 +15,8 @@ import (
 // number, creating the row at 1 the first time. It is one UPSERT…RETURNING
 // statement inside the caller's db.Write transaction, so there is no
 // read-then-write race and a rolled-back approval rolls the counter back too.
-// A counter already at max is left alone and gives ErrExhausted.
-func next(ctx context.Context, tx *db.Tx, doctype, prefix string, max int64, now string) (int64, error) {
+// A counter already at limit is left alone and gives ErrExhausted.
+func next(ctx context.Context, tx *db.Tx, doctype, prefix string, limit int64, now string) (int64, error) {
 	if tx == nil || !tx.Writable() {
 		return 0, ErrNeedsTx
 	}
@@ -25,10 +25,10 @@ func next(ctx context.Context, tx *db.Tx, doctype, prefix string, max int64, now
 		Prefix:    prefix,
 		CreatedAt: now,
 		UpdatedAt: now,
-		Max:       max,
+		Max:       limit,
 	})
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, &Error{Kind: ErrExhausted, Msg: fmt.Sprintf(msgExhausted, prefix, max)}
+		return 0, &Error{Kind: ErrExhausted, Msg: fmt.Sprintf(msgExhausted, prefix, limit)}
 	}
 	return c, err
 }
