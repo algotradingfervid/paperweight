@@ -1,0 +1,66 @@
+package namingweb
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+const (
+	seriesHint = "Use {FY} for the financial year, {YYYY} or {YY} for the year, {MM} for the month, and end with a number part like {#####}."
+	previewID  = "numbering-preview"
+)
+
+// listPage is one row per series, by label, each linking to its edit page.
+// internal/ui has no row component yet, so each row is a plain link whose
+// text is the whole row (NAM-051).
+templ listPage(rows []listRow) {
+	@layout.Page(layout.PageOpts{Title: "Numbering"}) {
+		<ul>
+			for _, row := range rows {
+				<li><a href={ templ.SafeURL(row.Href) }>{ row.Text }</a></li>
+			}
+		</ul>
+	}
+}
+
+// editPage is a series' template form, its preview box, its counters and
+// the counter form.
+templ editPage(f editForm) {
+	@layout.Page(layout.PageOpts{
+		Title: f.S.Label + " numbering",
+		Error: len(f.Errs) > 0,
+		Width: layout.Form,
+		Back:  &components.Link{Label: "Numbering", Href: basePath},
+	}) {
+		@components.ErrorSummary(f.summary())
+		@components.Form(components.FormProps{Action: editPath(f.S.DocType) + "/template"}) {
+			@components.TextInput(components.FieldProps{ID: components.FieldID("template"), Name: "template", Label: "Series", Hint: seriesHint, Value: f.Template, Error: f.errFor("template")})
+			@components.Button(components.ButtonProps{Label: "Save series", Variant: components.Primary, Busy: "Saving…"})
+		}
+		@components.TextInput(components.FieldProps{
+			ID: components.FieldID("tpl"), Name: "tpl", Label: "Try a series", Hint: "Shows the next three numbers without using them.", Value: f.Template,
+			Attrs: templ.Attributes{"hx-get": basePath + "/preview", "hx-trigger": "load, input changed delay:300ms", "hx-target": "#" + previewID},
+		})
+		<div id={ previewID } aria-live="polite"></div>
+		@components.Card("Counters", nil) {
+			if len(f.S.Counters) > 0 {
+				@components.SummaryList(f.counters())
+			}
+			@components.Form(components.FormProps{Action: editPath(f.S.DocType) + "/counter"}) {
+				@components.TextInput(components.FieldProps{ID: components.FieldID("prefix"), Name: "prefix", Label: "Prefix", Value: f.Prefix})
+				@components.TextInput(components.FieldProps{ID: components.FieldID("last"), Name: "last", Label: "Last number used", Value: f.Last, Error: f.errFor("last")})
+				@components.Button(components.ButtonProps{Label: "Save counter", Busy: "Saving…"})
+			}
+		}
+	}
+}
+
+// previewResult is the preview fragment: the next three numbers.
+templ previewResult(numbers string) {
+	@components.SummaryList([]components.Pair{{Label: "Next numbers", Value: numbers, Code: true}})
+}
+
+// previewError is the preview fragment for a template naming refuses.
+templ previewError(msg string) {
+	<p>{ msg }</p>
+}
