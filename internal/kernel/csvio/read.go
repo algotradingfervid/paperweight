@@ -98,6 +98,9 @@ func readRows(data []byte) (*Sheet, int, error) {
 			continue
 		}
 		if s.Header == nil {
+			if len(rec) == 1 && strings.Contains(rec[0], ";") {
+				return nil, 0, &FileError{Msg: "This file seems to use ';' between values. Save it as CSV (comma separated) and upload again."}
+			}
 			s.Header = rec
 			continue
 		}

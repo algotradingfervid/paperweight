@@ -34,10 +34,8 @@ func BuildAll(dt *doctype.DocType, q Query, scope auth.Predicate) (string, []any
 		return "", nil, err
 	}
 	cols := []string{dt.Table + ".id"}
-	for _, f := range dt.Fields {
-		if !f.OnLine {
-			cols = append(cols, column(dt, f)+" AS "+f.Name)
-		}
+	for _, f := range HeaderFields(dt) {
+		cols = append(cols, column(dt, f)+" AS "+f.Name)
 	}
 	return "SELECT " + strings.Join(cols, ", ") + " FROM " + dt.Table + where + order, args, nil
 }

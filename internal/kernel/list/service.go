@@ -20,12 +20,7 @@ type Row struct {
 
 // ScanRow scans the current row of a Build or BuildAll result.
 func ScanRow(dt *doctype.DocType, rows *sql.Rows) (Row, error) {
-	var fields []doctype.Field
-	for _, f := range dt.Fields {
-		if !f.OnLine {
-			fields = append(fields, f)
-		}
-	}
+	fields := HeaderFields(dt)
 	r := Row{Values: make(map[string]any, len(fields))}
 	raw := make([]any, len(fields))
 	dest := []any{&r.ID}

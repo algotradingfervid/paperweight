@@ -42,6 +42,18 @@ func Columns(dt *doctype.DocType) []doctype.Field {
 	return cols
 }
 
+// HeaderFields returns dt's fields that live on the main table, in
+// declaration order: every field but the OnLine ones.
+func HeaderFields(dt *doctype.DocType) []doctype.Field {
+	var fields []doctype.Field
+	for _, f := range dt.Fields {
+		if !f.OnLine {
+			fields = append(fields, f)
+		}
+	}
+	return fields
+}
+
 // BuildCount counts the rows Build would page through.
 func BuildCount(dt *doctype.DocType, q Query, scope auth.Predicate) (string, []any, error) {
 	where, args, err := whereClause(dt, q, scope)
@@ -74,27 +86,45 @@ func BuildTotals(dt *doctype.DocType, q Query, scope auth.Predicate, fields []st
 	return "SELECT " + strings.Join(sums, ", ") + " FROM " + dt.Table + where, args, nil
 }
 
-// column is the qualified SQL column of f; the table is never aliased (CD-16).
+// column is the qualified SQL column of f: on dt.LinesTable for an OnLine
+// field, else on dt.Table. Tables are never aliased (CD-16).
 func column(dt *doctype.DocType, f doctype.Field) string {
 	c := f.Column
 	if c == "" {
 		c = f.Name
 	}
+	if f.OnLine {
+		return dt.LinesTable + "." + c
+	}
 	return dt.Table + "." + c
 }
 
+// linePrefix marks a filter on an OnLine field: "line.<field>".
+const linePrefix = "line."
+
 // whereClause is " WHERE …" ANDing the filters, the search and the scope
-// predicate, or "" when there is no condition.
+// predicate, or "" when there is no condition. All line filters go into one
+// EXISTS, so they must hold on the same line (CD-16).
 func whereClause(dt *doctype.DocType, q Query, scope auth.Predicate) (string, []any, error) {
-	var conds []string
-	var args []any
+	var conds, lineConds []string
+	var args, lineArgs []any
 	for _, f := range q.Filters {
 		c, a, err := filterCond(dt, f)
 		if err != nil {
 			return "", nil, err
 		}
+		if strings.HasPrefix(f.Field, linePrefix) {
+			lineConds = append(lineConds, c)
+			lineArgs = append(lineArgs, a...)
+			continue
+		}
 		conds = append(conds, c)
 		args = append(args, a...)
+	}
+	if len(lineConds) > 0 {
+		conds = append(conds, "EXISTS (SELECT 1 FROM "+dt.LinesTable+" WHERE "+dt.LinesTable+".parent_id = "+
+			dt.Table+".id AND "+strings.Join(lineConds, " AND ")+")")
+		args = append(args, lineArgs...)
 	}
 	if c, a := searchCond(dt, q.Search); c != "" {
 		conds = append(conds, c)
@@ -133,8 +163,9 @@ func allowedOps(t doctype.FieldType) ([]Op, string) {
 }
 
 func filterCond(dt *doctype.DocType, f Filter) (string, []any, error) {
-	i := slices.IndexFunc(dt.Fields, func(fd doctype.Field) bool { return fd.Name == f.Field && fd.Filterable && !fd.OnLine })
-	if i < 0 {
+	name, onLine := strings.CutPrefix(f.Field, linePrefix)
+	i := slices.IndexFunc(dt.Fields, func(fd doctype.Field) bool { return fd.Name == name && fd.Filterable && fd.OnLine == onLine })
+	if i < 0 || (onLine && dt.LinesTable == "") {
 		return "", nil, badQuery(fmt.Sprintf("You can't filter %s by '%s'.", dt.PluralLabel, f.Field))
 	}
 	fd := dt.Fields[i]

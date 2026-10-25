@@ -51,6 +51,7 @@ func docTypes() []doctype.DocType {
 	required := func(fd doctype.Field) doctype.Field { fd.Required = true; return fd }
 	prio := func(fd doctype.Field, p int) doctype.Field { fd.ListPriority = p; return fd }
 	link := func(fd doctype.Field, target string) doctype.Field { fd.Link = target; return fd }
+	onLine := func(fd doctype.Field) doctype.Field { fd.OnLine = true; return fd }
 	nameAsc := []doctype.SortKey{{Field: "name"}}
 	dateDesc := []doctype.SortKey{{Field: "date", Desc: true}}
 
@@ -61,7 +62,7 @@ func docTypes() []doctype.DocType {
 
 	return []doctype.DocType{
 		{
-			Name: NamePO, Label: "Purchase Order", PluralLabel: "Purchase Orders", Table: "numt_po",
+			Name: NamePO, Label: "Purchase Order", PluralLabel: "Purchase Orders", Table: "numt_po", LinesTable: "numt_po_line",
 			Fields: filterable(
 				prio(sortable(f("number", "Number", doctype.Text)), 1),
 				prio(sortable(f("party_name", "Party", doctype.Text)), 5),
@@ -75,6 +76,8 @@ func docTypes() []doctype.DocType {
 				f("gst_rate", "GST", doctype.Percent),
 				f("remarks", "Remarks", doctype.Text),
 				f("created_at", "Created", doctype.Timestamp),
+				onLine(link(f("item", "Item", doctype.Link), NameItem)),
+				onLine(f("qty", "Qty", doctype.Qty)),
 			),
 			SearchFields: []string{"number", "party_name"},
 			DefaultSort:  dateDesc,
