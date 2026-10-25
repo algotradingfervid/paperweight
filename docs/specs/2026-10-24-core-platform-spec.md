@@ -176,6 +176,8 @@ e2e/                          chromedp browser tests (build tag e2e)
 - Foreign keys on (`PRAGMA foreign_keys=ON`), `ON DELETE RESTRICT` to masters.
 - Connection settings: WAL, `busy_timeout=5000`, `synchronous=NORMAL`, one writer.
 - Every write goes through `db.Write`, which opens `BEGIN IMMEDIATE`. Modules never open their own transactions.
+- Any check that depends on other rows (quantity limits, linked documents, approver eligibility, source state) reads inside the same `db.Write` transaction as the write it guards, never from data loaded before the transaction (CD-94).
+- The `version` checked by a write is the one the user's page was rendered from and posted back. A handler never substitutes a version it has just loaded, because that would silently overwrite another user's change (CD-94).
 
 ### 4.4 Generated code and migrations without shared files
 

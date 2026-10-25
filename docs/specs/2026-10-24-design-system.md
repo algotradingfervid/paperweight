@@ -145,7 +145,7 @@ All components are templ functions in `internal/ui/components/`. Screens compose
 ### 8.2 Line items (PO, GRN, expense lines; up to 500)
 
 - **Phone: add-to-a-list.** Each line is a card: line number, item name and code, "1,200 kg × ₹62.5000", amount on the right, tax code; actions "Change" and "Remove". Below: running taxable total and "Add an item". Add/Change opens a **line page** (its own URL: item picker, qty + UoM, rate, tax code, optional project/site) with "Save line" returning to the list. Remove asks on its own small confirm ("Remove line 3 (MS Angle 50x50x5)?").
-- **From 64rem: fitting grid.** Columns #, Item, Qty, UoM, Rate, Tax, Amount, actions, all shrinking; description wraps; detail (description, HSN, project, site) in an expandable row or the line page. Alpine handles keyboard entry (Enter/Tab between cells, add/remove row); each changed row posts with htmx and the server returns recalculated totals and GST split.
+- **From 64rem: fitting grid.** Columns #, Item, Qty, UoM, Rate, Tax, Amount, actions, all shrinking; description wraps; detail (description, HSN, project, site) in an expandable row or the line page. Alpine handles keyboard entry (Enter/Tab between cells, add/remove row); each changed row posts with htmx and the server returns recalculated totals and GST split. Row saves are queued one at a time, each carries the current document `version`, and a row save replaces only its own row plus the totals and `version` (out-of-band), so quick edits to several rows never conflict with each other or get dropped (CD-95).
 - More than 20 lines on a phone: first 20 cards, "Show all 64 lines", and "Find a line".
 - Reorder with "Move up" / "Move down", never drag.
 

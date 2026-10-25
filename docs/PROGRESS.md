@@ -6,7 +6,7 @@ Status on 24 October 2026: **spec, tests and plans complete; awaiting product-ow
 
 1. `docs/specs/2026-10-24-core-platform-spec.md`: the core platform (stack, architecture, §5 Go contracts, parallel work packages).
 2. `docs/specs/2026-10-24-design-system.md`: front-end spec (mobile-first, light only, no horizontal scroll, wizards). Visual preview: https://claude.ai/artifact/BmUKkSr1GtsLED2KAbyDtn
-3. `docs/specs/contract-changes.md`: decision log CD-01 to CD-93; the spec already includes them.
+3. `docs/specs/contract-changes.md`: decision log CD-01 to CD-95; the spec already includes them.
 4. `docs/tests/core/README.md`: 722 test cases (556 P1, 166 P2) across `01-` to `07-*.md`; fixtures in `00-fixtures.md`.
 5. `docs/superpowers/plans/`: one plan per work package.
 
