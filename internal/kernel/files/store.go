@@ -62,7 +62,7 @@ func (s *Store) policy(doctype string) Policy {
 
 // refFrom is the RecordRef permission checks use: always built from Info, never
 // from the caller's RecordRef beyond DocType and ID.
-func refFrom(info doctype.Info) auth.RecordRef { //nolint:unused // used by Task 4's rule checks
+func refFrom(info doctype.Info) auth.RecordRef {
 	return auth.RecordRef{
 		DocType:    info.DocType,
 		ID:         info.ID,

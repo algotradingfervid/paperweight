@@ -3,13 +3,17 @@ package files
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
+	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
@@ -19,18 +23,21 @@ const msgStorage = "Couldn't save the file. Try again or contact your administra
 // timeLayout is the fixed-width UTC text every timestamp is stored as (§4.3).
 const timeLayout = "2006-01-02T15:04:05.000Z"
 
-// Attach checks the spooled file against parent's policy, moves its bytes into
-// place and inserts the attachment row, all inside tx.
+// Attach checks the parent, the user's write right, the parent's state, the
+// file and the per-document count, then moves the bytes into place, inserts
+// the attachment row and audits the add, all inside tx (CD-94). On a refusal
+// it removes f's temp file.
 func (s *Store) Attach(ctx context.Context, tx *db.Tx, p auth.Principal, parent auth.RecordRef, name string, f *Spooled) (int64, error) {
-	c, err := Check(s.policy(parent.DocType), name, f.Size(), f.Head())
+	c, err := s.attachRules(ctx, tx, p, parent, name, f)
 	if err != nil {
+		_ = f.Cleanup()
 		return 0, err
 	}
 	now := s.cfg.Clock.Now().UTC()
 	if err := s.placeBlob(f, now); err != nil {
 		return 0, err
 	}
-	return dbq.New(tx.SQL()).InsertAttachment(ctx, dbq.InsertAttachmentParams{
+	id, err := dbq.New(tx.SQL()).InsertAttachment(ctx, dbq.InsertAttachmentParams{
 		ParentDocType: parent.DocType,
 		ParentID:      parent.ID,
 		FileName:      c.Name,
@@ -40,6 +47,66 @@ func (s *Store) Attach(ctx context.Context, tx *db.Tx, p auth.Principal, parent 
 		UploadedBy:    int64(p.ID),
 		UploadedAt:    now.Format(timeLayout),
 	})
+	if err != nil {
+		return 0, err
+	}
+	err = s.cfg.Audit.Append(ctx, tx, audit.Entry{
+		DocType: parent.DocType,
+		DocID:   parent.ID,
+		Action:  "attachment_added",
+		Changes: []audit.Change{
+			{Field: "file_name", After: c.Name},
+			{Field: "size", After: strconv.FormatInt(f.Size(), 10)},
+			{Field: "sha256", After: f.SHA256()},
+		},
+		By: p.ID,
+		At: now,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// attachRules runs Attach's checks in order: parent exists, write right on it
+// (built from its Info), not cancelled, Check, and the per-document count.
+func (s *Store) attachRules(ctx context.Context, tx *db.Tx, p auth.Principal, parent auth.RecordRef, name string, f *Spooled) (Checked, error) {
+	pol := s.policy(parent.DocType)
+	info, err := s.cfg.Info.Info(ctx, tx, parent.DocType, parent.ID)
+	if err != nil {
+		return Checked{}, parentErr(err)
+	}
+	ref := refFrom(info)
+	if err := s.cfg.Auth.Can(ctx, p, parent.DocType, "write", &ref); err != nil {
+		if errors.Is(err, auth.ErrForbidden) {
+			return Checked{}, &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgForbidden, info.Display), Err: err}
+		}
+		return Checked{}, parentErr(err)
+	}
+	if !pol.IgnoreState && info.State == doctype.StateCancelled {
+		return Checked{}, &Error{Kind: KindCancelled, Code: http.StatusUnprocessableEntity, Message: msgCancelled}
+	}
+	c, err := Check(pol, name, f.Size(), f.Head())
+	if err != nil {
+		return Checked{}, err
+	}
+	n, err := dbq.New(tx.SQL()).CountForParent(ctx, dbq.CountForParentParams{ParentDocType: parent.DocType, ParentID: parent.ID})
+	if err != nil {
+		return Checked{}, err
+	}
+	if n >= int64(pol.MaxCount) {
+		return Checked{}, &Error{Kind: KindLimit, Code: http.StatusUnprocessableEntity, Message: msgLimit}
+	}
+	return c, nil
+}
+
+// parentErr maps doctype.ErrNotFound (which is auth.ErrNotFound, CD-54) to
+// KindParentMissing and returns any other error as is.
+func parentErr(err error) error {
+	if errors.Is(err, doctype.ErrNotFound) {
+		return &Error{Kind: KindParentMissing, Code: http.StatusNotFound, Message: msgParent, Err: err}
+	}
+	return err
 }
 
 // placeBlob makes the blob for f exist at its BlobPath. An existing blob of the
