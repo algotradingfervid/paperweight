@@ -127,17 +127,6 @@ func (q *Queries) GetPartyByCode(ctx context.Context, code string) (GetPartyByCo
 	return i, err
 }
 
-const hasForeignAddress = `-- name: HasForeignAddress :one
-SELECT EXISTS (SELECT 1 FROM address WHERE party_id = ? AND country <> 'India')
-`
-
-func (q *Queries) HasForeignAddress(ctx context.Context, partyID sql.NullInt64) (bool, error) {
-	row := q.db.QueryRowContext(ctx, hasForeignAddress, partyID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const insertParty = `-- name: InsertParty :one
 INSERT INTO party (code, name, is_vendor, is_customer, pan, gst_category, default_payment_terms_id,
                    created_at, created_by, updated_at, updated_by)

@@ -347,6 +347,8 @@ func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal
 		return err
 	}
 	if disabled {
+		// Disabling a primary bumps the version twice (SetDisabledTx, then
+		// clearPrimaries) and writes two audit entries, on purpose.
 		var billing, shipping []int64
 		if a.PrimaryBilling {
 			billing = []int64{id}

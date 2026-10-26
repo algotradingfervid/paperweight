@@ -59,10 +59,10 @@ func (s *Service) ApplyGSTINTx(ctx context.Context, tx *db.Tx, p auth.Principal,
 // fromAddresses applies the party's addresses to an update (CD-167, M5): a
 // posted PAN must be the PAN of every address GSTIN (MST-048 wording; a blank
 // one takes the GSTINs' PAN, MST-040); a blank category is guessed from the
-// primary billing address's GSTIN (MST-035, MST-049), else kept as stored;
-// the category must be Overseas while an address is outside India (MST-047,
-// CD-177), fit the primary billing address (M5) and every address GSTIN
-// (MST-034, CD-177).
+// primary billing address's GSTIN, keeping a stored Composition or SEZ the
+// GSTIN fits (MST-035, MST-049), else kept as stored; the category must fit
+// the primary billing address (M5, MST-034). CheckGST, run last, checks the
+// rest of M5 (CD-180).
 func (s *Service) fromAddresses(ctx context.Context, tx *db.Tx, id int64, in Input, stored gstin.Category) (Input, error) {
 	q := dbq.New(tx.SQL())
 	owner := sql.NullInt64{Int64: id, Valid: true}
@@ -90,28 +90,14 @@ func (s *Service) fromAddresses(ctx context.Context, tx *db.Tx, id int64, in Inp
 	if in.GSTCategory == "" {
 		in.GSTCategory = stored
 		if hasPrimary && primary.Gstin != "" {
-			if in.GSTCategory, err = gstin.GuessCategory(primary.Gstin, primary.Country, ""); err != nil {
+			if in.GSTCategory, err = gstin.GuessCategory(primary.Gstin, primary.Country, stored); err != nil {
 				es.Add("gst_category", err.Error())
 				return Input{}, es.Err()
 			}
 		}
 	}
-	foreign, err := q.HasForeignAddress(ctx, owner)
-	if err != nil {
-		return Input{}, err
-	}
-	if foreign && in.GSTCategory != gstin.Overseas {
-		es.Add("gst_category", msgOverseas)
-		return Input{}, es.Err()
-	}
 	if hasPrimary {
 		if err := gstin.ValidateCategory(in.GSTCategory, primary.Gstin); err != nil {
-			es.Add("gst_category", err.Error())
-			return Input{}, es.Err()
-		}
-	}
-	for _, g := range gstins {
-		if err := gstin.ValidateCategory(in.GSTCategory, g); err != nil {
 			es.Add("gst_category", err.Error())
 			return Input{}, es.Err()
 		}
