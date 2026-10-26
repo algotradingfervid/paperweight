@@ -60,3 +60,18 @@ func (s *Service) CreateContact(context.Context, auth.Principal, ContactInput) (
 func (s *Service) SetPrimaryContactTx(context.Context, *db.Tx, auth.Principal, int64, int64) error {
 	return errs.ErrNotImplemented
 }
+
+// UpdateContact is MST Task 7's (standard surface Update for Contact).
+func (s *Service) UpdateContact(context.Context, auth.Principal, int64, int, ContactInput) (mstkit.Saved, error) {
+	return mstkit.Saved{}, errs.ErrNotImplemented
+}
+
+// SetContactDisabled is MST Task 7's (standard surface SetDisabled for Contact).
+func (s *Service) SetContactDisabled(context.Context, auth.Principal, int64, int, bool) error {
+	return errs.ErrNotImplemented
+}
+
+// DeleteContact is MST Task 7's (standard surface Delete for Contact).
+func (s *Service) DeleteContact(context.Context, auth.Principal, int64, int) error {
+	return errs.ErrNotImplemented
+}
