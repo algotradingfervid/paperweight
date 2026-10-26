@@ -28,10 +28,19 @@ func TestEnv_SeedAndDoubles(t *testing.T) {
 	if got := e.Title(t, d); got != "Draft 42" {
 		t.Errorf("title %q", got)
 	}
-	if err := e.Auth.Can(ctx, e.Ravi, at.Order, "approve", &auth.RecordRef{DocType: at.Order, ID: 42}); err != nil {
+	// On PRJ-METRO, the project Priya is restricted to (AUTH-093), so her
+	// refusal is the missing approve right, not the restriction.
+	var metro int64
+	for _, p := range e.F.Projects {
+		if p.Code == "PRJ-METRO" {
+			metro = p.ID
+		}
+	}
+	po42 := &auth.RecordRef{DocType: at.Order, ID: 42, ProjectIDs: []int64{metro}}
+	if err := e.Auth.Can(ctx, e.Ravi, at.Order, "approve", po42); err != nil {
 		t.Error(err)
 	}
-	if err := e.Auth.Can(ctx, e.Priya, at.Order, "approve", &auth.RecordRef{DocType: at.Order, ID: 42}); !errors.Is(err, auth.ErrForbidden) {
+	if err := e.Auth.Can(ctx, e.Priya, at.Order, "approve", po42); !errors.Is(err, auth.ErrForbidden) {
 		t.Error(err)
 	}
 	m, err := e.Dir.ManagerChain(ctx, nil, e.Emp("EMP-007"))

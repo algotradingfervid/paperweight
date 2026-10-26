@@ -32,6 +32,7 @@ func TestPrint_ToolbarAndFooterServed(t *testing.T) {
 	df.SetInfo(doctype.Info{DocType: poType, DocLabel: "Purchase Order", ID: 44, State: doctype.StateDraft, Display: "x\ny"})
 	df.SetInfo(doctype.Info{DocType: poType, DocLabel: "Purchase Order", ID: 45, State: doctype.StateDraft, Display: "p\fq\rr"})
 	df.SetInfo(doctype.Info{DocType: "test.Other", DocLabel: "Other", ID: 46, State: doctype.StateDraft, Display: "Other 46"})
+	fa.Grant("Purchase Manager", "test.Other", "read", auth.ScopeAll)
 	fa.Grant("Purchase Manager", "test.Other", "print", auth.ScopeAll)
 	reg := print.NewRegistry()
 	reg.Register(poType, titleView)

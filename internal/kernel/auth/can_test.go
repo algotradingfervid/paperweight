@@ -349,17 +349,18 @@ func TestAuthfake_MatchesReal(t *testing.T) {
 		name  string
 		email string
 		setup func(t *testing.T, w *authtest.World, f *authfake.Fake)
+		edit  func(po *auth.RecordRef) // changes the record Can is asked about
 	}{
 		{"read", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			clerkGrants(t, w, f, auth.RightRead)
 			w.AddRole(t, clerk, "Clerk")
 			f.AddRole(w.Users[clerk], "Clerk")
-		}},
+		}, nil},
 		{"read and approve", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
 			w.AddRole(t, clerk, "Clerk")
 			f.AddRole(w.Users[clerk], "Clerk")
-		}},
+		}, nil},
 		{"restricted to PUNE-WH, PO at TECH-SITE", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
 			w.AddRole(t, clerk, "Clerk")
@@ -367,27 +368,44 @@ func TestAuthfake_MatchesReal(t *testing.T) {
 			w.Restrict(t, clerk, nil, []string{"PUNE-WH"})
 			f.Restrict(w.Users[clerk], nil, []int64{w.Sites["PUNE-WH"]})
 			f.Hide(authtest.DTOrder, poID)
-		}},
+		}, nil},
+		{"restricted to PRJ-TECHPARK, record with no project (AUTH-093)", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
+			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
+			w.AddRole(t, clerk, "Clerk")
+			f.AddRole(w.Users[clerk], "Clerk")
+			w.Restrict(t, clerk, []string{"PRJ-TECHPARK"}, nil)
+			f.Restrict(w.Users[clerk], []int64{w.Projects["PRJ-TECHPARK"]}, nil)
+		}, func(po *auth.RecordRef) { po.ProjectIDs = nil }},
+		{"restricted to TECH-SITE, record with no site (AUTH-093)", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
+			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
+			w.AddRole(t, clerk, "Clerk")
+			f.AddRole(w.Users[clerk], "Clerk")
+			w.Restrict(t, clerk, nil, []string{"TECH-SITE"})
+			f.Restrict(w.Users[clerk], nil, []int64{w.Sites["TECH-SITE"]})
+		}, func(po *auth.RecordRef) { po.SiteIDs = nil }},
 		{"role added then removed (CD-86)", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
 			w.AddRole(t, clerk, "Clerk")
 			f.AddRole(w.Users[clerk], "Clerk")
 			w.RemoveRole(t, clerk, "Clerk")
 			f.RemoveRole(w.Users[clerk], "Clerk")
-		}},
+		}, nil},
 		{"Administrator (CD-86 wildcard)", "admin@vardhan.test", func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			for _, r := range auth.AllRights {
 				f.Grant(auth.RoleAdministrator, "*", r, auth.ScopeAll)
 			}
 			f.AddRole(w.Users["admin@vardhan.test"], auth.RoleAdministrator)
-		}},
+		}, nil},
+		{"Administrator role alone, no grants (CD-182)", "admin@vardhan.test", func(t *testing.T, w *authtest.World, f *authfake.Fake) {
+			f.AddRole(w.Users["admin@vardhan.test"], auth.RoleAdministrator)
+		}, nil},
 		{"disabled user (CD-86)", "old@vardhan.test", func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
 			u := w.Users["old@vardhan.test"]
 			w.AddRole(t, "old@vardhan.test", "Clerk")
 			f.AddUser(auth.UserInfo{ID: u, Email: "old@vardhan.test", Name: "Former Staff", Enabled: false})
 			f.AddRole(u, "Clerk")
-		}},
+		}, nil},
 	}
 
 	for _, tc := range cases {
@@ -403,6 +421,9 @@ func TestAuthfake_MatchesReal(t *testing.T) {
 			po := &auth.RecordRef{
 				DocType: authtest.DTOrder, ID: poID, CreatedBy: w.Users["admin@vardhan.test"],
 				ProjectIDs: []int64{w.Projects["PRJ-TECHPARK"]}, SiteIDs: []int64{tech},
+			}
+			if tc.edit != nil {
+				tc.edit(po)
 			}
 
 			compare := func(what string, real, fake error) {

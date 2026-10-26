@@ -33,8 +33,9 @@ func (m masterLookup) Lookup(ctx context.Context, tx *db.Tx, id int64) (doctype.
 
 func masterDocTypes() []doctype.DocType {
 	master := func(name, label, plural, table string) doctype.DocType {
+		// Importable, so SeedDefaults accepts the import right the default matrix grants (CD-171).
 		return doctype.DocType{
-			Name: name, Label: label, PluralLabel: plural, Table: table,
+			Name: name, Label: label, PluralLabel: plural, Table: table, Importable: true,
 			Fields: []doctype.Field{
 				{Name: "code", Label: "Code", Type: doctype.Text, Required: true, ListPriority: 1},
 				{Name: "name", Label: "Name", Type: doctype.Text, Required: true, ListPriority: 4},

@@ -11,18 +11,18 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/files/filestest"
 )
 
-// The 201 body comes from the upload's own transaction, so an uploader with
-// write but no read right still gets it.
+// The 201 body comes from the upload's own transaction. The real service
+// refuses write without read, so the uploader holds both.
 func TestUpload_WriteOnlyGetsCreated(t *testing.T) {
 	f := newFixture(t, nil)
 	ravi := f.env.User("ravi@vardhan.test")
-	f.env.Auth.Allow(ravi.ID, "expense", "write")
+	f.env.Auth.Allow(ravi.ID, "expense", "read", "write")
 	content := filestest.PDF(4096)
 
 	rec := serve(f, uploadReq(t, uploadPath, &ravi, part{"file", "bill.pdf", content}))
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("upload as Ravi with write only: status = %d, want 201 (body %q)", rec.Code, rec.Body.String())
+		t.Fatalf("upload as Ravi with read and write: status = %d, want 201 (body %q)", rec.Code, rec.Body.String())
 	}
 	rows := f.env.Rows(f.exp)
 	if len(rows) != 1 {

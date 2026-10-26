@@ -18,9 +18,7 @@ const rqRealPassword = "Correct-Horse-42"
 // rqRealEngine returns an engine for rq.Restricted over the real auth
 // service on h's database, and two users set up through AUTH's own admin
 // calls: the first is restricted to project PRJ-METRO, the second is not;
-// both have read, create and write on rq.Restricted. (authtest.NewWorld's
-// SeedDefaults refuses the fixture DocTypes' default rights, so the rights
-// are set here.)
+// both have read, create and write on rq.Restricted.
 func rqRealEngine(t *testing.T, h *fixturetest.H) (doc.Engine, auth.Principal, auth.Principal) {
 	t.Helper()
 	ctx := t.Context()

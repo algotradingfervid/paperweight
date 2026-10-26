@@ -10,6 +10,7 @@ import (
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/auth/authtest"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -213,4 +214,14 @@ func TestAuth_RestrictedReportsNone(t *testing.T) {
 	if want := auth.ValidDimension("colour"); got || err == nil || err.Error() != want.Error() {
 		t.Errorf("Restricted(priya, colour) = (%v, %v), want (false, %v)", got, err, want)
 	}
+}
+
+// The fixture masters grant Masters Manager import, so AUTH's SeedDefaults
+// accepts them only if they are Importable (CD-171): a test binary that
+// registers the fixture DocTypes can build an authtest.World.
+func TestFixtureDocTypes_SeedDefaults(t *testing.T) {
+	if _, ok := doctype.Lookup(fixture.Item); !ok {
+		t.Fatalf("fixture DocType %s is not registered", fixture.Item)
+	}
+	authtest.NewWorld(t)
 }
