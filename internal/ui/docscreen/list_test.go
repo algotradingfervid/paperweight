@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/vardhan/internaltools/internal/kernel/approval/approvalfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/doc/docfake"
@@ -49,7 +48,7 @@ func newEnv(t *testing.T, rights ...auth.Right) *env {
 		DB:        e.db,
 		Engine:    e.docs,
 		Auth:      e.az,
-		Approval:  approvalfake.New(),
+		Approval:  &approver{},
 		Lister:    e.lister,
 		Extras:    docscreentest.NewExtras(),
 		Principal: func(*http.Request) (auth.Principal, bool) { return priya, true },

@@ -2,7 +2,6 @@ package docscreen_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"reflect"
 	"slices"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -164,13 +164,12 @@ func barLabels2(bar components.ActionBarProps) []string {
 }
 
 func TestActions_ApproveBlockedShowsNote(t *testing.T) {
-	const blocked = "You submitted this, so someone else must approve it."
+	const blocked = "You can't approve your own Sample Order. Ask another Purchase Manager to approve it."
 	e := newDocEnv(t)
 	for _, r := range []auth.Right{"read", "approve", "print"} {
 		e.az.Grant("Purchase Manager", docscreentest.Sample, r, auth.ScopeAll)
 	}
 	e.az.AddRole(ravi.ID, "Purchase Manager")
-	e.apr.AllowApprover(ravi.ID)
 	e.as = ravi
 	e.seed(doctype.StatePending)
 	ctx := context.Background()
@@ -183,7 +182,7 @@ func TestActions_ApproveBlockedShowsNote(t *testing.T) {
 		t.Errorf("an eligible approver: ApproveBlocked = %q, want empty", v.ApproveBlocked)
 	}
 
-	e.apr.block = errors.New(blocked)
+	e.apr.block = &approval.UserError{Kind: approval.ErrSelfApproval, Msg: blocked}
 	v, err = e.d.View(ctx, ravi, docscreentest.Sample, 42)
 	if err != nil {
 		t.Fatal(err)

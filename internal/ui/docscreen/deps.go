@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -130,12 +129,18 @@ type Extras interface {
 	Attachments(ctx context.Context, p auth.Principal, rec auth.RecordRef) ([]components.Attachment, error)
 }
 
+// Approver says whether p may approve the pending document; a non-nil
+// error carries APR's wording. approval.Service satisfies it (CD-193).
+type Approver interface {
+	CheckApprover(ctx context.Context, tx *db.Tx, p auth.Principal, doctype string, id int64) error
+}
+
 // Deps is everything the docscreen routes read from.
 type Deps struct {
 	DB        Reader
 	Engine    doc.Engine
 	Auth      auth.Service
-	Approval  approval.Service
+	Approval  Approver
 	Lister    Lister
 	Extras    Extras
 	Principal func(*http.Request) (auth.Principal, bool) // nil → auth.PrincipalFrom(r.Context())
