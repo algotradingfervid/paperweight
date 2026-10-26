@@ -46,6 +46,7 @@ type UserInfo struct {
 	ID          UserID
 	Email, Name string
 	Enabled     bool
+	Version     int // users.version: moves on every change to the user (CD-189)
 }
 
 // forbiddenError is the WP0 placeholder behind ErrForbidden (CD-44). AUTH may

@@ -49,18 +49,19 @@ type Auth struct {
 	roles map[types.UserID][]string
 }
 
-// NewAuth returns an Auth with Users filled from 00-fixtures (ids 1–8).
+// NewAuth returns an Auth with Users filled from 00-fixtures (ids 1–8), at
+// the version a new user starts at (CD-189).
 func NewAuth() *Auth {
 	a := &Auth{Users: map[types.UserID]auth.UserInfo{}}
 	for _, u := range []auth.UserInfo{
-		{ID: 1, Email: "admin@vardhan.test", Name: "Anil Kapoor", Enabled: true},
-		{ID: 2, Email: "meena@vardhan.test", Name: "Meena Iyer", Enabled: true},
-		{ID: 3, Email: "ravi@vardhan.test", Name: "Ravi Kulkarni", Enabled: true},
-		{ID: 4, Email: "priya@vardhan.test", Name: "Priya Shah", Enabled: true},
-		{ID: 5, Email: "suresh@vardhan.test", Name: "Suresh Patil", Enabled: true},
-		{ID: 6, Email: "kavya@vardhan.test", Name: "Kavya Rao", Enabled: true},
-		{ID: 7, Email: "deepak@vardhan.test", Name: "Deepak Nair", Enabled: true},
-		{ID: 8, Email: "old@vardhan.test", Name: "Former Staff", Enabled: false},
+		{ID: 1, Email: "admin@vardhan.test", Name: "Anil Kapoor", Enabled: true, Version: 1},
+		{ID: 2, Email: "meena@vardhan.test", Name: "Meena Iyer", Enabled: true, Version: 1},
+		{ID: 3, Email: "ravi@vardhan.test", Name: "Ravi Kulkarni", Enabled: true, Version: 1},
+		{ID: 4, Email: "priya@vardhan.test", Name: "Priya Shah", Enabled: true, Version: 1},
+		{ID: 5, Email: "suresh@vardhan.test", Name: "Suresh Patil", Enabled: true, Version: 1},
+		{ID: 6, Email: "kavya@vardhan.test", Name: "Kavya Rao", Enabled: true, Version: 1},
+		{ID: 7, Email: "deepak@vardhan.test", Name: "Deepak Nair", Enabled: true, Version: 1},
+		{ID: 8, Email: "old@vardhan.test", Name: "Former Staff", Enabled: false, Version: 1},
 	} {
 		a.Users[u.ID] = u
 	}
