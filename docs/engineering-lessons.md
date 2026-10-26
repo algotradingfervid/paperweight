@@ -98,6 +98,9 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - A disabled record is never primary or default; disabling one clears the flag and promotes nothing (CD-180).
 - Master-to-master references are checked by the master's delete, since `doc.References` covers documents only (CD-167).
 
+- A rule on both owner kinds (party/branch) or both types (billing/shipping) needs a test for each half; a post-state backstop that skips one owner kind doesn't cover it (WP2 Task 6).
+- Don't store another package's state as a flag ("we disabled this user"): it goes stale when the owner changes it. Store the owner's version at that moment and compare it inside the write (CD-189).
+
 ## 9. UI: templ, htmx, Alpine, Tailwind and daisyUI
 
 - CSP: no `style=` attributes, inline scripts, `hx-on`, trigger filters `[...]`, or templ `css`/`script` blocks.
@@ -121,6 +124,9 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - `go test` without `-count=1` uses the cache; hand-ins use `-count=1`.
 - Invisible characters (NBSP, BOM) go behind a named constant written as an escape; the Write and Bash tools turn ` ` and `﻿` escapes into real bytes.
 
+- A guard put on a shared helper also goes on every duplicated call path; a test-local copy of `visit()` skipped the browser step deadlines (UI Task 17).
+- When a fake becomes faithful, tests in other packages that asserted the old fake's output fail on merge; run `make ci` after each contract-suite merge (CD-188).
+
 ## 11. Harness, git and process
 
 - Shell is zsh: an unquoted `$VAR` holding a list is not word-split. Iterate line by line: `while IFS= read -r f; do …; done < <(cmd)`. `grep` is ugrep (`-Z` isn't NUL-separated; `-P "\xC2\xA0"` finds nothing).
@@ -135,3 +141,5 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - An AD session can't resume finished crew workers ("No transcript found"); fix loops brief a fresh worker with the findings and exact scope.
 - macOS has no `timeout` command.
 - AD session transcripts in the worktree folders did not survive the overnight pause (only their tool-results folders remained), so `claude --resume` can't bring an AD back. Before any pause, each AD writes its full resume steps to `.work/ad-tasks.md`; a restart is a fresh AD session briefed from that file and PROGRESS "RESUME HERE" (26 Oct).
+- Scripts that parse git output pin its format (`--src-prefix=a/ --dst-prefix=b/ --no-color --no-ext-diff`): a user's `diff.noprefix` made covertouched pass vacuously.
+- `make covertouched BASE=<commit before the task> PKGS="<patterns>"` lists every uncovered touched statement; use it in hand-ins and reviews (CD-185 tooling).
