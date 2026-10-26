@@ -83,6 +83,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP3 (AD-4) | T1 DOC contract suite (wp3/contract-doc), CD-186 | High | crew-test-writer, crew-implementer, crew-reviewer | 25 Oct | 26 Oct | 2 | review CHANGES → CD-186; re-review APPROVE | squash 4a5e9db |
 | tooling (AD-5) | covertouched (lane/masters-covertouched) | Standard | crew-implementer ×2, crew-reviewer ×2 | 25 Oct | 26 Oct | 2 | 0/2/4 (all fixed) | squash 53e2ffc |
 | WP1-UI (AD-2) | UI-M2: Tasks 14, 17 and WP1-UI complete | Light/Standard | crew-implementer, crew-reviewer | 25 Oct | 26 Oct | 2 (Task 14) | Task 14 re-check APPROVE; Task 17 deadlines fixed | merge 9015065; head test fix after CD-186 |
+| WP3 (AD-1) | T1 AUTH contract suite (wp3/contract-auth), CD-192 | High | crew-test-writer, crew-implementer, crew-reviewer | 25 Oct | 26 Oct | 2 | 2/1/– then APPROVE (mutation-proved) | merge after 89fc8df |
 | WP1-UI | gofmt contrast_test.go (lint-only, AD) | — | AD-2 | 16:41 | 16:41 | — | — | 4728966 |
 | WP1-UI | 6/7 review fixes (wp/ui) | Light | crew-implementer opus | 16:44 | 16:48 | 1 | — (re-check pending) | 17a4eb8 |
 | WP1-UI | 8-fix ActionBar via Button (lane/ui-8b) | Light | crew-implementer opus | 16:44 | 16:46 | 1 | — | 5a61281, merge 11eb207 |

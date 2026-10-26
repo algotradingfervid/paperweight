@@ -81,6 +81,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Reference drivers (APR's) refuse what the engine refuses; run the suite on the real engine by default (CD-157).
 - Before extending a fake to pass a contract suite, list the real path's refusals. If covering them means copying the service, cut the fake's capability instead (it refuses everything it isn't told to return): namingfake deleted (CD-184), docfake.Do reduced (CD-186). Fifth lenient-double finding.
 - Contract-suite mutation checks run in an rsync scratch copy of the worktree: the crew guard blocks `git checkout -- <file>`, so say so in review briefs.
+- A fake change is checked against every package that imports the fake: run `make test`, not a hand-picked list (a hand-picked AUTH hand-in missed 5 failures in FILES, PRINT and contracts). A contract change to one double reaches every double of that contract (authfake and fixturetest.Auth; CD-189). Prove "fails without the fix" with `go test -overlay` on scratch copies, never by editing the worktree.
 
 ## 7. Validation and messages
 
