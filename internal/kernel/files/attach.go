@@ -78,24 +78,13 @@ func (s *Store) Attach(ctx context.Context, tx *db.Tx, p auth.Principal, parent 
 	return id, nil
 }
 
-// attachRules runs Attach's checks in order: parent exists, write right on it
-// (built from its Info), not cancelled, Check, not already attached to this
-// parent, and the per-document count.
+// attachRules runs Attach's checks in order: AttachParent, Check, then
+// AttachLimits on the duplicate and count read in tx.
 func (s *Store) attachRules(ctx context.Context, tx *db.Tx, p auth.Principal, parent auth.RecordRef, name string, f *Spooled) (Checked, error) {
 	pol := s.policy(parent.DocType)
-	info, err := s.cfg.Info.Info(ctx, tx, parent.DocType, parent.ID)
+	info, err := AttachParent(ctx, tx, s.cfg.Auth, s.cfg.Info, pol, p, parent)
 	if err != nil {
-		return Checked{}, parentErr(err)
-	}
-	ref := refFrom(info)
-	if err := s.cfg.Auth.Can(ctx, p, parent.DocType, "write", &ref); err != nil {
-		if errors.Is(err, auth.ErrForbidden) {
-			return Checked{}, &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgForbidden, info.Display), Err: err}
-		}
-		return Checked{}, parentErr(err)
-	}
-	if !pol.IgnoreState && info.State == doctype.StateCancelled {
-		return Checked{}, &Error{Kind: KindCancelled, Code: http.StatusUnprocessableEntity, Message: msgCancelled}
+		return Checked{}, err
 	}
 	c, err := Check(pol, name, f.Size(), f.Head())
 	if err != nil {
@@ -106,17 +95,48 @@ func (s *Store) attachRules(ctx context.Context, tx *db.Tx, p auth.Principal, pa
 	if err != nil {
 		return Checked{}, err
 	}
-	if dup {
-		return Checked{}, &Error{Kind: KindDuplicate, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgDuplicate, info.Display)}
-	}
 	n, err := q.CountForParent(ctx, dbq.CountForParentParams{ParentDocType: parent.DocType, ParentID: parent.ID})
 	if err != nil {
 		return Checked{}, err
 	}
-	if n >= int64(pol.MaxCount) {
-		return Checked{}, &Error{Kind: KindLimit, Code: http.StatusUnprocessableEntity, Message: msgLimit}
+	if err := AttachLimits(pol, info.Display, dup, n); err != nil {
+		return Checked{}, err
 	}
 	return c, nil
+}
+
+// AttachParent runs Attach's parent checks: the parent exists in src, p may
+// write it (checked with a, built from its Info) and, unless pol.IgnoreState,
+// it isn't cancelled. Exported so filesfake refuses what Store refuses (CD-125, CD-182).
+func AttachParent(ctx context.Context, tx *db.Tx, a auth.Service, src doctype.InfoSource, pol Policy, p auth.Principal, parent auth.RecordRef) (doctype.Info, error) {
+	info, err := src.Info(ctx, tx, parent.DocType, parent.ID)
+	if err != nil {
+		return doctype.Info{}, parentErr(err)
+	}
+	ref := refFrom(info)
+	if err := a.Can(ctx, p, parent.DocType, "write", &ref); err != nil {
+		if errors.Is(err, auth.ErrForbidden) {
+			return doctype.Info{}, &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgForbidden, info.Display), Err: err}
+		}
+		return doctype.Info{}, parentErr(err)
+	}
+	if !pol.IgnoreState && info.State == doctype.StateCancelled {
+		return doctype.Info{}, &Error{Kind: KindCancelled, Code: http.StatusUnprocessableEntity, Message: msgCancelled}
+	}
+	return info, nil
+}
+
+// AttachLimits refuses an upload whose bytes are already attached to the
+// parent (display names it) and one more when the parent has count of
+// pol.MaxCount. Exported so filesfake refuses what Store refuses (CD-125, CD-182).
+func AttachLimits(pol Policy, display string, duplicate bool, count int64) error {
+	if duplicate {
+		return &Error{Kind: KindDuplicate, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgDuplicate, display)}
+	}
+	if count >= int64(pol.MaxCount) {
+		return &Error{Kind: KindLimit, Code: http.StatusUnprocessableEntity, Message: msgLimit}
+	}
+	return nil
 }
 
 // CheckReceipt refuses attachmentID as line's receipt unless it is an
