@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vardhan/internaltools/internal/kernel/approval"
-	"github.com/vardhan/internaltools/internal/kernel/approval/approvalfake"
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/audit/auditfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -52,7 +50,6 @@ func TestContracts_FakesSatisfyInterfaces(t *testing.T) {
 	var _ auth.Directory = authfake.NewDirectory()
 	var _ audit.Writer = auditfake.New()
 	var _ *auditfake.Recorder = auditfake.New() //nolint:staticcheck // CD-86: the explicit type pins the exported name Recorder
-	var _ approval.Service = approvalfake.New()
 	var _ files.Service = filesfake.New(clock.NewFixed(fixedNow))
 	var _ doc.Engine = docfake.New()
 	var _ doctype.InfoSource = docfake.New()
@@ -390,116 +387,6 @@ func TestContracts_AuditFakeRecords(t *testing.T) {
 	if n := len(r.Entries()); n != 2 {
 		t.Errorf("Entries() after failed append has %d entries, want 2", n)
 	}
-}
-
-// Review Focus 6 (CD-23).
-func TestContracts_ApprovalFakeProtocol(t *testing.T) {
-	ctx := context.Background()
-	const dt = "fixture.Order"
-
-	t.Run("evaluate_fills_amount_and_requester", func(t *testing.T) {
-		f := approvalfake.New()
-		req, err := f.Evaluate(ctx, nil, dt, 1, types.Money(9416400), priya) // ₹94,164.00
-		if err != nil {
-			t.Fatalf("Evaluate error = %v", err)
-		}
-		if req.Amount != 9416400 || req.Requester != 4 {
-			t.Errorf("Evaluate = Amount %d, Requester %d; want 9416400, 4", req.Amount, req.Requester)
-		}
-		if req.Needed {
-			t.Errorf("Evaluate with no SetRequirement Needed = true, want false")
-		}
-	})
-
-	t.Run("submit_not_needed_open_then_approve", func(t *testing.T) {
-		f := approvalfake.New()
-		req := approval.Requirement{Needed: false, Amount: 9416400, Requester: 4}
-		if err := f.Open(ctx, nil, dt, 2, req); err != nil {
-			t.Fatalf("Open error = %v, want nil", err)
-		}
-		if err := f.Record(ctx, nil, dt, 2, doctype.ActionApprove, priya, ""); err != nil {
-			t.Fatalf("Record(approve) after Open error = %v, want nil", err)
-		}
-		var methods []string
-		for _, c := range f.Calls() {
-			if c.Method == "CheckApprover" {
-				t.Errorf("Calls() contains CheckApprover on the not-needed submit path: %+v", c)
-			}
-			methods = append(methods, c.Method)
-		}
-		// Call.Method holds the Service method name (plan Task 5, approvalfake Calls()).
-		if !slices.Equal(methods, []string{"Open", "Record"}) {
-			t.Errorf("Calls() methods = %v, want [Open Record]", methods)
-		}
-		if calls := f.Calls(); len(calls) == 2 && (calls[1].Action != doctype.ActionApprove || calls[1].ID != 2 || calls[1].DocType != dt || calls[1].By != 4) {
-			t.Errorf("Record call = %+v, want approve on %s 2 by 4", calls[1], dt)
-		}
-	})
-
-	t.Run("approve_with_nothing_open", func(t *testing.T) {
-		f := approvalfake.New()
-		if err := f.Record(ctx, nil, dt, 3, doctype.ActionApprove, priya, ""); !errors.Is(err, approvalfake.ErrProtocol) {
-			t.Errorf("Record(approve) with nothing open error = %v, want approvalfake.ErrProtocol", err)
-		}
-	})
-
-	t.Run("open_twice", func(t *testing.T) {
-		f := approvalfake.New()
-		req := approval.Requirement{Needed: true, ApproverRoles: []string{"Purchase Manager"}}
-		if err := f.Open(ctx, nil, dt, 4, req); err != nil {
-			t.Fatalf("first Open error = %v, want nil", err)
-		}
-		if err := f.Open(ctx, nil, dt, 4, req); !errors.Is(err, approvalfake.ErrProtocol) {
-			t.Errorf("second Open error = %v, want approvalfake.ErrProtocol", err)
-		}
-	})
-
-	t.Run("reject_then_revise_once", func(t *testing.T) {
-		f := approvalfake.New()
-		ravi := auth.Principal{ID: 3, Name: "Ravi Kulkarni"}
-		if err := f.Open(ctx, nil, dt, 5, approval.Requirement{Needed: true}); err != nil {
-			t.Fatalf("Open error = %v, want nil", err)
-		}
-		if err := f.Record(ctx, nil, dt, 5, doctype.ActionReject, ravi, "Wrong rate"); err != nil {
-			t.Fatalf("Record(reject) error = %v, want nil", err)
-		}
-		if err := f.Record(ctx, nil, dt, 5, doctype.ActionRevise, priya, ""); err != nil {
-			t.Fatalf("Record(revise) after reject error = %v, want nil", err)
-		}
-		if err := f.Record(ctx, nil, dt, 5, doctype.ActionRevise, priya, ""); !errors.Is(err, approvalfake.ErrProtocol) {
-			t.Errorf("second Record(revise) error = %v, want approvalfake.ErrProtocol", err)
-		}
-		var sawReason bool
-		for _, c := range f.Calls() {
-			if c.Action == doctype.ActionReject && c.Reason == "Wrong rate" {
-				sawReason = true
-			}
-		}
-		if !sawReason {
-			t.Errorf("Calls() = %+v, want a reject call with Reason \"Wrong rate\"", f.Calls())
-		}
-	})
-
-	t.Run("open_then_withdraw", func(t *testing.T) {
-		f := approvalfake.New()
-		if err := f.Open(ctx, nil, dt, 6, approval.Requirement{Needed: true}); err != nil {
-			t.Fatalf("Open error = %v, want nil", err)
-		}
-		if err := f.Record(ctx, nil, dt, 6, doctype.ActionWithdraw, priya, ""); err != nil {
-			t.Errorf("Record(withdraw) after Open error = %v, want nil", err)
-		}
-	})
-
-	t.Run("check_approver_not_allowed", func(t *testing.T) {
-		f := approvalfake.New()
-		if err := f.CheckApprover(ctx, nil, auth.Principal{ID: 7}, dt, 7); !errors.Is(err, auth.ErrForbidden) {
-			t.Errorf("CheckApprover for a user not allowed error = %v, want auth.ErrForbidden", err)
-		}
-		f.AllowApprover(3)
-		if err := f.CheckApprover(ctx, nil, auth.Principal{ID: 3}, dt, 7); err != nil {
-			t.Errorf("CheckApprover after AllowApprover(3) error = %v, want nil", err)
-		}
-	})
 }
 
 func TestContracts_DocFakeInfoAndReferences(t *testing.T) {
@@ -856,7 +743,6 @@ func TestContracts_KernelImportsFollowTable(t *testing.T) {
 		{"approvaltest_imports_naming", "internal/kernel/approval/approvaltest", "internal/kernel/naming", true},
 		{"approvaltest_imports_fixture", "internal/kernel/approval/approvaltest", "internal/fixture", true},
 		{"approvaltest_imports_files", "internal/kernel/approval/approvaltest", "internal/kernel/files", false},
-		{"approvalfake_imports_doc", "internal/kernel/approval/approvalfake", "internal/kernel/doc", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -3,6 +3,7 @@ package approvaltest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,15 +17,16 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// The fake-vs-real contract suite (WP3 Task 1, CD-182). Run drives an
+// The approval contract suite (WP3 Task 1, CD-182). It runs against the real
+// service only (CD-184: approvalfake is deleted). Run drives an
 // approval.Service through the CD-23 calls DOC makes (Evaluate, Open,
-// CheckApprover, Record) and checks the §5 behaviours DOC depends on. Every
-// refusal is checked by sentinel (errors.Is) and exact message, so a fake that
-// refuses differently, or not at all, fails the same row as a broken real
-// service (CD-125, CD-163, CD-173).
+// CheckApprover, Record), changing the document's state where DOC does: in the
+// same write, after CheckApprover and before Record (doc/transitions.go). Every
+// refusal is checked by sentinel (errors.Is) and exact message (CD-125,
+// CD-163, CD-173).
 
 // Setup arranges the state a behaviour needs, through the real service's
-// Administrator API or the fake's helpers. Principals are the canonical
+// Administrator API and the harness tables. Principals are the canonical
 // fixture users (testkit.Principal).
 type Setup interface {
 	// DB is the database each protocol step's db.Write runs in.
@@ -35,12 +37,12 @@ type Setup interface {
 	// NewDoc creates a draft of dt with id, amount and creator (an Order on
 	// PRJ-METRO; a Claim for the creator's employee).
 	NewDoc(t testing.TB, dt string, id int64, amount types.Money, creator auth.Principal)
-	// SetState puts the document in state with number ("" = none), as DOC
-	// does after each protocol step.
-	SetState(t testing.TB, dt string, id int64, state doctype.State, number string)
+	// SetState puts the document in state with number ("" = none) inside the
+	// caller's tx, as DOC's own write does before Record.
+	SetState(ctx context.Context, tx *db.Tx, dt string, id int64, state doctype.State, number string) error
 }
 
-// errRollback is the caller's failure after Record (APR-053).
+// errRollback is the caller's failure after Record.
 var errRollback = errors.New("approvaltest: caller fails after Record")
 
 // Seed-shaped rules (00-fixtures R1, R2, E1).
@@ -60,13 +62,21 @@ type contract struct {
 	anil, meena, ravi, priya, suresh auth.Principal
 	deepak                           auth.Principal
 	r1, r2                           int64 // the Order rules from orderRules
+	numbers                          map[docKey]string
+	seq                              map[string]int // numbers given per DocType
+}
+
+// docKey names one document.
+type docKey struct {
+	dt string
+	id int64
 }
 
 func newContract(t *testing.T, newSvc func(t *testing.T) (approval.Service, Setup)) *contract {
 	t.Helper()
 	svc, s := newSvc(t)
 	return &contract{
-		t: t, svc: svc, s: s,
+		t: t, svc: svc, s: s, numbers: map[docKey]string{}, seq: map[string]int{},
 		anil:   testkit.Principal(t, "admin@vardhan.test"),
 		meena:  testkit.Principal(t, "meena@vardhan.test"),
 		ravi:   testkit.Principal(t, "ravi@vardhan.test"),
@@ -101,8 +111,48 @@ func (c *contract) evaluate(dt string, id int64, amount types.Money, p auth.Prin
 	return req, err
 }
 
-// submit is DOC's submit (CD-23): Evaluate → Open (always) → if not needed,
-// Record(approve) without CheckApprover. It moves the state as DOC would.
+// number is the number DOC gives the document on approval: the one it
+// already has, or the next in its series (enterApproved).
+func (c *contract) number(dt string, id int64) string {
+	if n, ok := c.numbers[docKey{dt, id}]; ok {
+		return n
+	}
+	return fmt.Sprintf("%s%05d", prefixes[dt], c.seq[dt]+1)
+}
+
+// approved keeps the document's number once the write approving it commits.
+func (c *contract) approved(dt string, id int64) {
+	k := docKey{dt, id}
+	if _, ok := c.numbers[k]; !ok {
+		c.numbers[k] = c.number(dt, id)
+		c.seq[dt]++
+	}
+}
+
+// stateAfter is the state DOC writes before Record(a) (doc/transitions.go).
+var stateAfter = map[doctype.Action]doctype.State{
+	doctype.ActionApprove:  doctype.StateApproved,
+	doctype.ActionReject:   doctype.StateRejected,
+	doctype.ActionWithdraw: doctype.StateDraft,
+	doctype.ActionRevise:   doctype.StateDraft,
+}
+
+// act is DOC's tail of a in the caller's tx: the document moves to a's state
+// (an approve also numbers it), then Record.
+func (c *contract) act(ctx context.Context, tx *db.Tx, dt string, id int64, a doctype.Action, p auth.Principal, reason string) error {
+	n := c.numbers[docKey{dt, id}]
+	if a == doctype.ActionApprove {
+		n = c.number(dt, id)
+	}
+	if err := c.s.SetState(ctx, tx, dt, id, stateAfter[a], n); err != nil {
+		return err
+	}
+	return c.svc.Record(ctx, tx, dt, id, a, p, reason)
+}
+
+// submit is DOC's submit (CD-23): Evaluate → Open (always) → pending when
+// needed, otherwise approved and numbered, then Record(approve) without
+// CheckApprover; all in one write.
 func (c *contract) submit(dt string, id int64, amount types.Money, p auth.Principal) (approval.Requirement, error) {
 	var req approval.Requirement
 	err := c.write(func(ctx context.Context, tx *db.Tx) (err error) {
@@ -113,16 +163,12 @@ func (c *contract) submit(dt string, id int64, amount types.Money, p auth.Princi
 			return err
 		}
 		if req.Needed {
-			return nil
+			return c.s.SetState(ctx, tx, dt, id, doctype.StatePending, c.numbers[docKey{dt, id}])
 		}
-		return c.svc.Record(ctx, tx, dt, id, doctype.ActionApprove, p, "")
+		return c.act(ctx, tx, dt, id, doctype.ActionApprove, p, "")
 	})
-	if err == nil {
-		state := doctype.StatePending
-		if !req.Needed {
-			state = doctype.StateApproved
-		}
-		c.s.SetState(c.t, dt, id, state, "")
+	if err == nil && !req.Needed {
+		c.approved(dt, id)
 	}
 	return req, err
 }
@@ -143,18 +189,31 @@ func (c *contract) check(p auth.Principal, dt string, id int64) error {
 	return c.write(func(ctx context.Context, tx *db.Tx) error { return c.svc.CheckApprover(ctx, tx, p, dt, id) })
 }
 
+// record is a Record call that DOC's from-state guard or CheckApprover would
+// stop before it: the document stays as it is, so APR's own refusal is checked
+// against its current state (APR-055, APR-057, APR-061).
 func (c *contract) record(dt string, id int64, a doctype.Action, p auth.Principal, reason string) error {
 	return c.write(func(ctx context.Context, tx *db.Tx) error { return c.svc.Record(ctx, tx, dt, id, a, p, reason) })
 }
 
-// decide is DOC's approve or reject: CheckApprover, then Record, in one write.
+// back is DOC's withdraw or revise: draft, then Record, in one write.
+func (c *contract) back(dt string, id int64, a doctype.Action, p auth.Principal) error {
+	return c.write(func(ctx context.Context, tx *db.Tx) error { return c.act(ctx, tx, dt, id, a, p, "") })
+}
+
+// decide is DOC's approve or reject: CheckApprover, the new state, then
+// Record, in one write.
 func (c *contract) decide(dt string, id int64, a doctype.Action, p auth.Principal, reason string) error {
-	return c.write(func(ctx context.Context, tx *db.Tx) error {
+	err := c.write(func(ctx context.Context, tx *db.Tx) error {
 		if err := c.svc.CheckApprover(ctx, tx, p, dt, id); err != nil {
 			return err
 		}
-		return c.svc.Record(ctx, tx, dt, id, a, p, reason)
+		return c.act(ctx, tx, dt, id, a, p, reason)
 	})
+	if err == nil && a == doctype.ActionApprove {
+		c.approved(dt, id)
+	}
+	return err
 }
 
 // wantRefused checks sentinel and exact message; forbidden adds
@@ -207,7 +266,7 @@ var behaviours = []struct {
 	{"EligibleApproverPasses", eligiblePasses},                 // APR-029, APR-032
 	{"NonApproverRefused", nonApprover},                        // APR-030, APR-061
 	{"LowerTierRefused", lowerTier},                            // APR-033
-	{"SelfApprovalBlocked", selfApproval},                      // APR-035, APR-036
+	{"SelfApprovalBlocked", selfApproval},                      // APR-035, APR-036, APR-061
 	{"NoOtherApproverRefusesSubmit", noOtherApprover},          // APR-040
 	{"ReportingManagerApproves", reportingManager},             // APR-044, APR-045
 	{"DecisionClosesRequest", decisionCloses},                  // APR-071, APR-029
@@ -215,10 +274,10 @@ var behaviours = []struct {
 	{"RejectReasonRequired", reasonRequired},                   // APR-058
 	{"RejectReasonLengthInCharacters", reasonLength},           // APR-059, CD-157 A
 	{"Withdraw_ClosesRequestAndResubmits", withdraw},           // APR-091, APR-096
-	{"Withdraw_RefusedOutsidePending", withdrawOutside},        // APR-094, APR-055, APR-057
+	{"Withdraw_RefusedOutsidePending", withdrawOutside},        // APR-055, APR-057
 	{"Revise_ResubmitOpensFreshRequest", revise},               // APR-063, APR-067, APR-068
 	{"OutOfProtocolOrderRefused", outOfOrder},                  // CD-23, APR-055
-	{"RecordRollsBackWithCallerTx", rollback},                  // APR-053
+	{"RecordRollsBackWithCallerTx", rollback},                  // caller's tx fails
 }
 
 // APR-015: no rule for the DocType → not needed, Open records no request,
@@ -230,21 +289,24 @@ func noRule(c *contract) {
 	req, err := c.submit(Receipt, 43, Rs(1_20_000), c.suresh)
 	MustOK(t, err)
 	wantReq(t, "Evaluate", req, false, 0, nil, 0, Rs(1_20_000), c.suresh.ID)
-	c.s.SetState(t, Receipt, 43, doctype.StateApproved, "GR/26-27/00001")
 	wantRefused(t, "CheckApprover after a no-rule approval", c.check(c.ravi, Receipt, 43),
 		approval.ErrNotPending, "GR/26-27/00001 is not waiting for approval. It is Approved.", false)
 }
 
 // APR-022: only the Claim rule from ₹0.00 exists → a ₹10,00,000.00 Order
-// needs no approval.
+// needs no approval, while a Claim under the same rules does.
 func otherDocType(c *contract) {
 	t := c.t
 	c.s.SetRules(t, Order)
-	c.s.SetRules(t, Claim, managerRule(0, "Director"))
+	ids := c.s.SetRules(t, Claim, managerRule(0, "Director"))
 	c.s.NewDoc(t, Order, 41, Rs(10_00_000), c.priya)
 	req, err := c.evaluate(Order, 41, Rs(10_00_000), c.priya)
 	MustOK(t, err)
 	wantReq(t, "Evaluate", req, false, 0, nil, 0, Rs(10_00_000), c.priya.ID)
+	c.s.NewDoc(t, Claim, 10, Rs(3_450), c.deepak)
+	req, err = c.evaluate(Claim, 10, Rs(3_450), c.deepak)
+	MustOK(t, err)
+	wantReq(t, "Evaluate Claim", req, true, ids[0], []string{"Director"}, c.priya.ID, Rs(3_450), c.deepak.ID)
 }
 
 // APR-017, APR-018: needed when amount ≥ from amount, compared in paise.
@@ -327,8 +389,9 @@ func lowerTier(c *contract) {
 	wantOK(t, "CheckApprover Meena", c.check(c.meena, Order, 50))
 }
 
-// APR-035, APR-036: the requester (and creator) holding the role is blocked
-// at CheckApprover and at Record; another holder may approve.
+// APR-035, APR-036, APR-061: the requester (and creator) holding the role is
+// blocked from approving and rejecting at CheckApprover and at Record; another
+// holder may approve.
 func selfApproval(c *contract) {
 	t := c.t
 	c.orderRules()
@@ -336,6 +399,9 @@ func selfApproval(c *contract) {
 	const msg = "You can't approve your own Purchase Order. Ask another Purchase Manager or Director to approve it."
 	wantRefused(t, "CheckApprover Ravi on his own", c.check(c.ravi, Order, 43), approval.ErrSelfApproval, msg, true)
 	wantRefused(t, "Record(approve) Ravi on his own", c.record(Order, 43, doctype.ActionApprove, c.ravi, ""), approval.ErrSelfApproval, msg, true)
+	// APR-061: his reject is refused the same way.
+	wantRefused(t, "reject by Ravi on his own", c.decide(Order, 43, doctype.ActionReject, c.ravi, "Too costly."), approval.ErrSelfApproval, msg, true)
+	wantRefused(t, "Record(reject) Ravi on his own", c.record(Order, 43, doctype.ActionReject, c.ravi, "Too costly."), approval.ErrSelfApproval, msg, true)
 	// APR-036: created by Priya, submitted by Ravi → still Ravi's own.
 	c.mustPending(Order, 44, Rs(70_000), c.priya, c.ravi)
 	wantRefused(t, "CheckApprover Ravi as submitter", c.check(c.ravi, Order, 44), approval.ErrSelfApproval, msg, true)
@@ -374,7 +440,6 @@ func decisionCloses(c *contract) {
 	c.orderRules()
 	c.mustPending(Order, 42, Rs(60_000), c.priya, c.priya)
 	MustOK(t, c.decide(Order, 42, doctype.ActionApprove, c.ravi, ""))
-	c.s.SetState(t, Order, 42, doctype.StateApproved, "PO/26-27/00001")
 	const msg = "PO/26-27/00001 is no longer waiting for approval. It was approved by Ravi Kulkarni."
 	wantRefused(t, "CheckApprover Meena", c.check(c.meena, Order, 42), approval.ErrNotPending, msg, false)
 	wantRefused(t, "Record(reject) Meena", c.record(Order, 42, doctype.ActionReject, c.meena, "Too late."), approval.ErrNotPending, msg, false)
@@ -388,7 +453,6 @@ func rejectThenApprove(c *contract) {
 	c.orderRules()
 	c.mustPending(Order, 42, Rs(60_000), c.priya, c.priya)
 	MustOK(t, c.decide(Order, 42, doctype.ActionReject, c.ravi, "Rate is 12% above last PO. Renegotiate with vendor."))
-	c.s.SetState(t, Order, 42, doctype.StateRejected, "")
 	const msg = "Draft 42 is no longer waiting for approval. It was rejected by Ravi Kulkarni."
 	wantRefused(t, "CheckApprover Meena", c.check(c.meena, Order, 42), approval.ErrNotPending, msg, false)
 	wantRefused(t, "Record(approve) Meena", c.record(Order, 42, doctype.ActionApprove, c.meena, ""), approval.ErrNotPending, msg, false)
@@ -423,8 +487,7 @@ func withdraw(c *contract) {
 	t := c.t
 	c.orderRules()
 	c.mustPending(Order, 42, Rs(60_000), c.priya, c.priya)
-	MustOK(t, c.record(Order, 42, doctype.ActionWithdraw, c.priya, ""))
-	c.s.SetState(t, Order, 42, doctype.StateDraft, "")
+	MustOK(t, c.back(Order, 42, doctype.ActionWithdraw, c.priya))
 	const msg = "Draft 42 is no longer waiting for approval. It was withdrawn by Priya Shah."
 	wantRefused(t, "CheckApprover Ravi after withdraw", c.check(c.ravi, Order, 42), approval.ErrNotPending, msg, false)
 	wantRefused(t, "Record(approve) Ravi after withdraw", c.record(Order, 42, doctype.ActionApprove, c.ravi, ""), approval.ErrNotPending, msg, false)
@@ -436,16 +499,20 @@ func withdraw(c *contract) {
 	wantOK(t, "CheckApprover Meena on the new request", c.check(c.meena, Order, 42))
 }
 
-// APR-094, APR-055, APR-057: withdraw and decisions outside pending_approval
-// are refused by APR too (behind DOC's guard).
+// APR-055, APR-057: withdraw and decisions outside pending_approval are
+// refused by APR too (behind DOC's guard).
 func withdrawOutside(c *contract) {
 	t := c.t
 	c.orderRules()
 	c.s.NewDoc(t, Order, 44, Rs(60_000), c.priya)
-	wantRefused(t, "Record(withdraw) on a draft", c.record(Order, 44, doctype.ActionWithdraw, c.priya, ""),
+	// In DOC's order: the draft is written as draft, then Record(withdraw).
+	wantRefused(t, "withdraw of a draft", c.back(Order, 44, doctype.ActionWithdraw, c.priya),
 		approval.ErrNotPending, "Draft 44 is not waiting for approval. It is Draft.", false)
+	// APR-057: approved directly, not by a person's decision.
 	c.s.NewDoc(t, Order, 45, Rs(60_000), c.priya)
-	c.s.SetState(t, Order, 45, doctype.StateApproved, "PO/26-27/00001")
+	MustOK(t, c.write(func(ctx context.Context, tx *db.Tx) error {
+		return c.s.SetState(ctx, tx, Order, 45, doctype.StateApproved, "PO/26-27/00001")
+	}))
 	const msg = "PO/26-27/00001 is not waiting for approval. It is Approved."
 	wantRefused(t, "Record(withdraw) on an approved PO", c.record(Order, 45, doctype.ActionWithdraw, c.priya, ""), approval.ErrNotPending, msg, false)
 	wantRefused(t, "Record(reject) on an approved PO", c.record(Order, 45, doctype.ActionReject, c.ravi, "Wrong vendor."), approval.ErrNotPending, msg, false)
@@ -459,12 +526,14 @@ func revise(c *contract) {
 	c.orderRules()
 	c.mustPending(Order, 42, Rs(60_000), c.priya, c.priya)
 	MustOK(t, c.decide(Order, 42, doctype.ActionReject, c.ravi, "Rate is 12% above last PO. Renegotiate with vendor."))
-	c.s.SetState(t, Order, 42, doctype.StateRejected, "")
-	wantOK(t, "Record(revise) Priya", c.record(Order, 42, doctype.ActionRevise, c.priya, ""))
-	c.s.SetState(t, Order, 42, doctype.StateDraft, "")
+	wantOK(t, "revise by Priya", c.back(Order, 42, doctype.ActionRevise, c.priya))
 	req, err := c.submit(Order, 42, Rs(60_000), c.priya)
 	MustOK(t, err)
 	wantReq(t, "re-submit", req, true, c.r1, []string{"Purchase Manager", "Director"}, 0, Rs(60_000), c.priya.ID)
+	// APR-067: the fresh request refuses Priya, its requester; she holds no
+	// approver role, so the message is the not-eligible one (APR-035 needs the role).
+	wantRefused(t, "CheckApprover Priya on the fresh request", c.check(c.priya, Order, 42),
+		approval.ErrNotEligible, "Only a user with the Purchase Manager or Director role can approve Draft 42 (₹60,000.00).", true)
 	wantOK(t, "approve by Ravi on the fresh request", c.decide(Order, 42, doctype.ActionApprove, c.ravi, ""))
 }
 
@@ -478,11 +547,14 @@ func outOfOrder(c *contract) {
 	})
 	wantRefused(t, "Open without Evaluate", err, approval.ErrNotEvaluated, approval.ErrNotEvaluated.Error(), false)
 
+	// A second Open while a request is open is a caller bug: a plain internal
+	// error, no sentinel. The original request still decides.
 	req := c.mustPending(Order, 46, Rs(60_000), c.priya, c.priya)
 	err = c.write(func(ctx context.Context, tx *db.Tx) error { return c.svc.Open(ctx, tx, Order, 46, req) })
 	if err == nil {
 		t.Errorf("second Open while a request is open: error = nil, want a refusal")
 	}
+	wantOK(t, "CheckApprover Meena after the second Open", c.check(c.meena, Order, 46))
 
 	// APR-055: Record(approve) on a draft that was never submitted.
 	c.s.NewDoc(t, Order, 47, Rs(60_000), c.priya)
@@ -494,8 +566,8 @@ func outOfOrder(c *contract) {
 		approval.ErrUnknownAction, approval.ErrUnknownAction.Error(), false)
 }
 
-// APR-053: Record's writes roll back with the caller's transaction, so the
-// request stays open for the next approver.
+// When the caller's tx fails after Record, Record's writes roll back with it,
+// so the request stays open for the next approver.
 func rollback(c *contract) {
 	t := c.t
 	c.orderRules()
@@ -504,7 +576,7 @@ func rollback(c *contract) {
 		if err := c.svc.CheckApprover(ctx, tx, c.ravi, Order, 42); err != nil {
 			return err
 		}
-		if err := c.svc.Record(ctx, tx, Order, 42, doctype.ActionApprove, c.ravi, ""); err != nil {
+		if err := c.act(ctx, tx, Order, 42, doctype.ActionApprove, c.ravi, ""); err != nil {
 			return err
 		}
 		return errRollback
@@ -548,15 +620,15 @@ func (s envSetup) NewDoc(t testing.TB, dt string, id int64, amount types.Money, 
 	s.e.NewDoc(t, dt, id, amount, creator)
 }
 
-func (s envSetup) SetState(t testing.TB, dt string, id int64, state doctype.State, number string) {
-	t.Helper()
+func (s envSetup) SetState(ctx context.Context, tx *db.Tx, dt string, id int64, state doctype.State, number string) error {
+	q, args := `UPDATE aprtest_docs SET state = ?, number = ? WHERE doctype = ? AND id = ?`, []any{string(state), number, dt, id}
 	if s.e.eng != nil {
 		d, ok := doctype.Lookup(dt)
 		if !ok {
-			t.Fatalf("approvaltest: %s is not registered", dt)
+			return fmt.Errorf("approvaltest: %s is not registered", dt)
 		}
-		s.e.exec(t, `UPDATE `+d.Table+` SET state = ?, number = NULLIF(?, '') WHERE id = ?`, string(state), number, id)
-		return
+		q, args = `UPDATE `+d.Table+` SET state = ?, number = NULLIF(?, '') WHERE id = ?`, []any{string(state), number, id}
 	}
-	s.e.exec(t, `UPDATE aprtest_docs SET state = ?, number = ? WHERE doctype = ? AND id = ?`, string(state), number, dt, id)
+	_, err := tx.SQL().ExecContext(ctx, q, args...)
+	return err
 }

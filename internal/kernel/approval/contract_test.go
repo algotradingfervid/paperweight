@@ -7,8 +7,8 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/approval/approvaltest"
 )
 
-// TestContract_Approval runs the fake-vs-real contract suite against the real
-// service (WP3 Task 1, CD-182).
+// TestContract_Approval runs the approval contract suite against the real
+// service only (WP3 Task 1, CD-182, CD-184).
 func TestContract_Approval(t *testing.T) {
 	approvaltest.Run(t, func(t *testing.T) (approval.Service, approvaltest.Setup) {
 		e := approvaltest.New(t)
