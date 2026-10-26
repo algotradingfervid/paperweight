@@ -29,6 +29,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/kernel/files/filesfake"
+	"github.com/vardhan/internaltools/internal/kernel/files/filestest"
 	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/kernel/naming/namingfake"
@@ -56,7 +57,7 @@ func TestContracts_FakesSatisfyInterfaces(t *testing.T) {
 	var _ audit.Writer = auditfake.New()
 	var _ *auditfake.Recorder = auditfake.New() //nolint:staticcheck // CD-86: the explicit type pins the exported name Recorder
 	var _ approval.Service = approvalfake.New()
-	var _ files.Service = filesfake.New(clock.NewFixed(fixedNow))
+	var _ files.Service = filesfake.NewWith(clock.NewFixed(fixedNow), authfake.New(), docfake.New())
 	var _ doc.Engine = docfake.New()
 	var _ doctype.InfoSource = docfake.New()
 	var _ db.DBTX = (*sql.Tx)(nil)
@@ -570,8 +571,12 @@ func TestContracts_DocFakeLoad(t *testing.T) {
 func TestContracts_FilesFakeSpoolAttachList(t *testing.T) {
 	ctx := context.Background()
 	c := clock.NewFixed(fixedNow)
-	f := filesfake.New(c)
-	data := bytes.Repeat([]byte{0xAB, 0x01, 0x7F}, 2_300_001/3) // about 2.3 MB
+	a, docs := authfake.New(), docfake.New()
+	f := filesfake.NewWith(c, a, docs)
+	a.Allow(priya.ID, "fixture.Claim", "read", "write")
+	docs.SetInfo(doctype.Info{DocType: "fixture.Claim", ID: 1, State: doctype.StateDraft, Display: "Draft 1", CreatedBy: 4})
+	docs.SetInfo(doctype.Info{DocType: "fixture.Claim", ID: 2, State: doctype.StateDraft, Display: "Draft 2", CreatedBy: 3})
+	data := filestest.JPEG(2_300_001) // about 2.3 MB
 	parent := auth.RecordRef{DocType: "fixture.Claim", ID: 1, CreatedBy: 4}
 
 	sp := f.Spool("receipt.jpg", data)
