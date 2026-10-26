@@ -78,6 +78,13 @@ func TestForm_CSRFAndHTMX(t *testing.T) {
 			t.Errorf("%s = %q, want %q", attr, got, want)
 		}
 	}
+	if _, ok := f.Attr("hx-trigger"); ok {
+		t.Error("hx-trigger set without Trigger")
+	}
+	trig := uitest.RenderCtx(t, ctx, components.Form(components.FormProps{Action: "/files/1", HX: true, Trigger: "change"}))
+	if got, _ := trig.Find("form").Attr("hx-trigger"); got != "change" {
+		t.Errorf("hx-trigger = %q, want change", got)
+	}
 
 	get := uitest.RenderCtx(t, ctx, components.Form(components.FormProps{Action: "/doc/po", Method: "get", HX: true, Target: "#list"}))
 	g := get.Find("form")

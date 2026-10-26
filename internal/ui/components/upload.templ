@@ -1,0 +1,66 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// Attachment is one stored file as shown under FileUpload and on document
+// pages. Kind is "image", "heic", "pdf" or "other".
+type Attachment struct {
+	ID                                                       int64
+	Name, Size, UploadedBy, UploadedAt, URL, RemoveURL, Kind string
+}
+
+// UploadProps describes a FileUpload. Action receives one "file" part per
+// request; its response replaces the element with id ID.
+type UploadProps struct {
+	ID, Label, Action, Hint, Error string
+	Files                          []Attachment
+}
+
+// FileUpload states the limits first, then offers "Take photo" (rear camera
+// on phones) and "Choose file". Choosing a file posts it at once; upload.js
+// moves the progress bar on htmx:xhr:progress.
+templ FileUpload(p UploadProps) {
+	<div id={ p.ID } class="upload">
+		@choiceGroup(FieldProps{ID: p.ID, Label: p.Label, Hint: orDefault(p.Hint, "JPG, PNG, HEIC or PDF, up to 10 MB"), Error: p.Error}) {
+			<div class="upload__controls">
+				@uploadForm(p, true)
+				@uploadForm(p, false)
+			</div>
+		}
+		<progress class="progress upload__progress" max="100" value="0" hidden></progress>
+		if len(p.Files) > 0 {
+			@Attachments(p.Files)
+		}
+	</div>
+}
+
+// uploadForm is one control in its own form, so the other control's empty
+// input never sends a second "file" part.
+templ uploadForm(p UploadProps, camera bool) {
+	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: "#" + p.ID, Trigger: "change"}) {
+		<label class={ buttonClass(Secondary) + " upload__button" }>
+			if camera {
+				@icons.Icon("camera")
+				<span>Take photo</span>
+				<input
+					type="file"
+					name="file"
+					accept="image/*"
+					capture="environment"
+					class="input-overlay"
+					aria-describedby={ p.ID + "-hint " + p.ID + "-msg" }
+				/>
+			} else {
+				@icons.Icon("upload")
+				<span>Choose file</span>
+				<input
+					type="file"
+					name="file"
+					accept="image/*,application/pdf"
+					class="input-overlay"
+					aria-describedby={ p.ID + "-hint " + p.ID + "-msg" }
+				/>
+			}
+		</label>
+	}
+}

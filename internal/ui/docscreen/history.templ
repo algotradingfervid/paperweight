@@ -1,0 +1,28 @@
+package docscreen
+
+// History lists approval or audit entries, newest first as given: each row
+// "{At} · {By} · {Action}" and its changes "{Field}: {Before} → {After}".
+// Every value is text, never markup.
+templ History(rows []HistoryRow) {
+	<ol class="history">
+		for _, h := range rows {
+			<li class="history-row">
+				<p class="history-head">{ h.At + " · " + h.By + " · " + h.Action }</p>
+				if len(h.Changes) > 0 {
+					<ul class="history-changes">
+						for _, c := range h.Changes {
+							<li>{ c.Field + ": " + orEmpty(c.Before) + " → " + c.After }</li>
+						}
+					</ul>
+				}
+			</li>
+		}
+	</ol>
+}
+
+func orEmpty(s string) string {
+	if s == "" {
+		return "(empty)"
+	}
+	return s
+}

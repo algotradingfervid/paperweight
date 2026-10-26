@@ -1,0 +1,27 @@
+package wizard
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// CheckSection is one step's summary card on the check page: its title, its
+// status as a word and icon, and a "Change" link to the step. Children are
+// the summary.
+templ CheckSection(title string, status StepStatus, changeURL string) {
+	@components.Card(title, &components.Link{Label: "Change", Href: changeURL}) {
+		switch status {
+			case Complete:
+				<p class="check-status is-complete">
+					@icons.Icon("check-circle")
+					Complete
+				</p>
+			case Attention:
+				<p class="check-status is-attention">
+					@icons.Icon("alert-circle")
+					Needs attention
+				</p>
+		}
+		{ children... }
+	}
+}

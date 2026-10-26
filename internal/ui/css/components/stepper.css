@@ -1,0 +1,58 @@
+/* stepper.css: wizard progress (research §7.6, design-system §8.3). Phones show
+   only the current step's label, other steps are segments; all labels from 30rem. */
+@utility stepper {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  & .stepper__count { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+  & .stepper__list { display: flex; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+  & .stepper__step {
+    flex: 1 1 0;
+    min-inline-size: 0;
+    border-block-start: var(--border-w-strong) solid var(--color-progress-track);
+    font-size: 0;
+    overflow-wrap: anywhere;
+  }
+  & .stepper__step > a, & .stepper__step > span {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--target-min);
+    color: var(--color-text-secondary);
+  }
+  & .stepper__step.is-done, & .stepper__step.is-current { border-block-start-color: var(--color-primary-600); }
+  & .stepper__step > a { color: var(--color-primary-600); }
+  & .stepper__step.is-current { flex-grow: 2; font-size: var(--text-sm); }
+  & .stepper__step.is-current > span { color: var(--color-text); font-weight: var(--weight-bold); }
+  & .stepper__bar {
+    appearance: none;
+    inline-size: 100%;
+    block-size: var(--space-2);
+    border: 0;
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    background-color: var(--color-progress-track);
+    color: var(--color-primary-600);
+  }
+  & .stepper__bar::-webkit-progress-bar { background-color: var(--color-progress-track); }
+  & .stepper__bar::-webkit-progress-value { background-color: var(--color-primary-600); }
+  & .stepper__bar::-moz-progress-bar { background-color: var(--color-primary-600); }
+  @container (min-width: 30rem) {
+    & .stepper__step, & .stepper__step.is-current { flex-grow: 1; font-size: var(--text-sm); }
+  }
+}
+@utility wizard-title {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+@utility check-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); flex: none; }
+  &.is-complete { color: var(--color-success-700); }
+  &.is-attention { color: var(--color-warning-700); }
+}

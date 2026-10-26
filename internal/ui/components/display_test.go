@@ -3,6 +3,7 @@ package components_test
 import (
 	"bytes"
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -129,7 +130,7 @@ func TestFilterBar_URLState(t *testing.T) {
 	doc := uitest.Render(t, components.FilterBar(p))
 	f := doc.Find("form")
 	for attr, want := range map[string]string{
-		"method": "get", "hx-get": "/doc/po", "hx-target": "#main", "hx-push-url": "true", "hx-trigger": "change, submit", "action": "/doc/po",
+		"method": "get", "hx-get": "/doc/po", "hx-target": "#main", "hx-swap": "outerHTML", "hx-push-url": "true", "hx-trigger": "change, submit", "action": "/doc/po",
 	} {
 		if got := f.AttrOr(attr, ""); got != want {
 			t.Errorf("form %s = %q, want %q", attr, got, want)
@@ -167,6 +168,22 @@ func TestFilterBar_URLState(t *testing.T) {
 	doc = uitest.Render(t, components.FilterBar(p))
 	if strings.Contains(text(doc.Selection), "Clear all") || doc.Find("a.chip").Length() != 0 {
 		t.Error("Clear all shown without chips")
+	}
+}
+
+func TestFilterBar_KeepsParams(t *testing.T) {
+	doc := uitest.Render(t, components.FilterBar(components.FilterBarProps{
+		Action: "/doc/po", SearchLabel: "Search purchase orders",
+		Keep: []components.Param{{Name: "f", Value: "state:=:draft"}, {Name: "f", Value: "site_id:=:3"}, {Name: "size", Value: "50"}},
+	}))
+	hidden := doc.Find(`form input[type="hidden"]`)
+	var got []string
+	hidden.Each(func(_ int, s *goquery.Selection) {
+		got = append(got, s.AttrOr("name", "")+"="+s.AttrOr("value", ""))
+	})
+	want := []string{"f=state:=:draft", "f=site_id:=:3", "size=50"}
+	if !slices.Equal(got, want) {
+		t.Errorf("hidden inputs = %q, want %q", got, want)
 	}
 }
 
@@ -297,7 +314,7 @@ func TestDialog_NativeWithClose(t *testing.T) {
 			t.Errorf("%s: aria-labelledby %q does not name the title", name, lb)
 		}
 		cl := d.Find(`button[data-close-dialog][aria-label="Close"]`)
-		if cl.Length() != 1 || cl.AttrOr("type", "") != "button" {
+		if cl.Length() != 1 || cl.AttrOr("type", "") != "button" || !cl.HasClass("btn--ghost") {
 			t.Errorf("%s: close button missing", name)
 		}
 	}
@@ -321,8 +338,17 @@ func TestMoreActions_PostHasCSRFAndDangerClass(t *testing.T) {
 		t.Errorf("danger button class %q text %q", b.AttrOr("class", ""), text(b))
 	}
 	a := doc.Find(`a[href="/doc/po/1/print"]`)
-	if a.AttrOr("target", "") != "_blank" || a.HasClass("btn-error") {
-		t.Errorf("print item target %q class %q", a.AttrOr("target", ""), a.AttrOr("class", ""))
+	if a.AttrOr("target", "") != "_blank" || a.AttrOr("rel", "") != "noopener" || a.HasClass("btn-error") || !a.HasClass("btn--ghost") {
+		t.Errorf("print item target %q rel %q class %q", a.AttrOr("target", ""), a.AttrOr("rel", ""), a.AttrOr("class", ""))
+	}
+	if got := a.AttrOr("aria-label", ""); got != "Print (opens in a new tab)" {
+		t.Errorf("print item aria-label = %q", got)
+	}
+	doc = uitest.Render(t, components.MoreActions([]components.MoreAction{
+		{Label: "Delete draft", Href: "/doc/po/1/delete", Danger: true},
+	}))
+	if l := doc.Find(`a[href="/doc/po/1/delete"]`); !l.HasClass("btn--danger") || !l.HasClass("tap") {
+		t.Errorf("danger link class %q", l.AttrOr("class", ""))
 	}
 
 	doc = uitest.Render(t, components.MoreActions(nil))

@@ -24,11 +24,13 @@ templ ActionBar(p ActionBarProps) {
 		</div>
 	} else if p.Primary != nil || p.Secondary != nil {
 		<div class="actionbar">
-			if p.Secondary != nil {
-				@Button(inForm(*p.Secondary, p.Form))
-			}
+			// The primary comes first, so Enter in a field submits it (the
+			// form's default button is its first submit in tree order).
 			if p.Primary != nil {
 				@Button(inForm(*p.Primary, p.Form))
+			}
+			if p.Secondary != nil {
+				@Button(inForm(*p.Secondary, p.Form))
 			}
 		</div>
 	}
@@ -50,15 +52,15 @@ templ MoreActions(items []MoreAction) {
 						if it.Post {
 							<form method="post" action={ templ.SafeURL(it.Href) }>
 								<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
+								for _, h := range it.Hidden {
+									<input type="hidden" name={ h.Name } value={ h.Value }/>
+								}
 								@Button(ButtonProps{Label: it.Label, Busy: it.Label + "…", Variant: moreVariant(it.Danger)})
 							</form>
 						} else if it.NewTab {
-							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) } target="_blank" rel="noopener">
-								{ it.Label }
-								<span class="visually-hidden">(opens in a new tab)</span>
-							</a>
+							@Button(ButtonProps{Label: it.Label, AriaLabel: it.Label + " (opens in a new tab)", Href: it.Href, Variant: moreVariant(it.Danger), Attrs: templ.Attributes{"target": "_blank", "rel": "noopener"}})
 						} else {
-							<a class={ moreClass(it.Danger) } href={ templ.SafeURL(it.Href) }>{ it.Label }</a>
+							@Button(ButtonProps{Label: it.Label, Href: it.Href, Variant: moreVariant(it.Danger)})
 						}
 					</li>
 				}
@@ -72,11 +74,4 @@ func moreVariant(danger bool) Variant {
 		return Danger
 	}
 	return Ghost
-}
-
-func moreClass(danger bool) string {
-	if danger {
-		return "btn btn-error"
-	}
-	return "btn btn-ghost"
 }

@@ -1,0 +1,120 @@
+package components
+
+import "strconv"
+
+// DataList is one markup for every list (design-system §8.1): cards on
+// phones, aligned rows with a header from 48rem (container query). Each
+// card is one link; every value carries a hidden label.
+func DataList(p DataListProps) templ.Component {
+	if len(p.Rows) == 0 {
+		if p.Empty == nil {
+			return templ.NopComponent
+		}
+		return p.Empty
+	}
+	return dataList(p, listLayoutOf(p.Columns))
+}
+
+templ dataList(p DataListProps, l listLayout) {
+	<div class="datalist" data-cols={ strconv.Itoa(l.tracks()) }>
+		<div class="datalist-head" aria-hidden="true">
+			if l.title != nil {
+				@listHead(*l.title)
+			} else {
+				<span></span>
+			}
+			if l.figure != nil {
+				@listHead(*l.figure)
+			}
+			for _, c := range l.meta {
+				@listHead(c)
+			}
+			if l.state != nil {
+				@listHead(*l.state)
+			}
+		</div>
+		<ul class="list datalist-rows" role="list" aria-label={ p.Label }>
+			for _, r := range p.Rows {
+				<li>
+					@listCard(l, r)
+				</li>
+			}
+		</ul>
+	</div>
+}
+
+templ listHead(c Column) {
+	<span
+		if c.Num {
+			class="num"
+		}
+		if c.Priority >= PLow {
+			data-priority="low"
+		}
+	>{ c.Label }</span>
+}
+
+templ listCard(l listLayout, r Row) {
+	<a class="datalist-link" href={ templ.URL(r.Href) }>
+		<div class="datalist-r1">
+			if l.title != nil {
+				@listCell(*l.title, true, false, false) {
+					{ r.Values[l.title.Key] }
+				}
+			} else {
+				<p class="datalist-cell datalist-title">{ r.Title }</p>
+			}
+			if l.figure != nil {
+				@listCell(*l.figure, false, false, false) {
+					{ r.Values[l.figure.Key] }
+				}
+			}
+		</div>
+		if r.Party != "" {
+			<p class="datalist-cell datalist-party">{ r.Party }</p>
+		} else if c := l.listSecond(r); c != nil {
+			<div class="datalist-r2">
+				@listCell(*c, false, false, false) {
+					{ r.Values[c.Key] }
+				}
+			</div>
+		}
+		<div class="datalist-r3">
+			for i, c := range l.listThird(r) {
+				@listCell(c, false, i > 0, false) {
+					{ r.Values[c.Key] }
+				}
+			}
+			if sep, low := l.stateSep(r); l.state != nil {
+				@listCell(*l.state, false, sep, low) {
+					@StateBadge(r.State)
+				}
+			}
+		</div>
+	</a>
+}
+
+// listCell is one labelled value; sep puts " · " before it on cards, and
+// sepLow hides that separator with the low-priority values.
+templ listCell(c Column, title, sep, sepLow bool) {
+	<dl
+		class={ listCellClass(c, title) }
+		if c.Priority >= PLow {
+			data-priority="low"
+		}
+	>
+		<dt class="visually-hidden">{ c.Label }</dt>
+		<dd>
+			if sep {
+				<span
+					class="datalist-sep"
+					aria-hidden="true"
+					if sepLow {
+						data-priority="low"
+					}
+				>{ " · " }</span>
+			}
+			{ children... }
+		</dd>
+	</dl>
+}

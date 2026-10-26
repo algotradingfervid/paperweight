@@ -1,0 +1,43 @@
+package docscreen
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
+)
+
+templ stepFull(sv stepView) {
+	@layout.Page(stepOpts(sv)) {
+		@stepFrame(sv)
+	}
+}
+
+// stepMain is the step inside #main, for an htmx action whose form targets
+// #main and leads to a wizard page.
+templ stepMain(sv stepView) {
+	@layout.Main(stepOpts(sv)) {
+		@stepFrame(sv)
+	}
+}
+
+// stepFrame is the #wizard fragment: the step's fields in the step form,
+// its ReadOnly fields as text, and M.After for the items and check steps.
+templ stepFrame(sv stepView) {
+	@wizard.Frame(sv.M, sv.Bar) {
+		for _, c := range sv.Inputs {
+			@c
+		}
+		if len(sv.Fixed) > 0 {
+			@components.SummaryList(sv.Fixed)
+		}
+		if sv.Empty {
+			<p>Nothing needed here</p>
+		}
+	}
+}
+
+templ stepBanner(text string) {
+	if text != "" {
+		@components.Banner(components.BannerProps{Kind: components.Success, Message: text})
+	}
+}

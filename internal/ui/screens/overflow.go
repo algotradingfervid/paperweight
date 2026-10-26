@@ -22,6 +22,8 @@ const OverflowJS = `(() => {
 
 // TargetSizeJS returns a []string of "tag#id.class WxH" for every visible
 // interactive element whose box is smaller than 44 px in either dimension.
+// A labelled radio or checkbox is measured by its label, the full-row target
+// (CD-169).
 const TargetSizeJS = `(() => {
   const out = [];
   const name = el => el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") +
@@ -30,7 +32,8 @@ const TargetSizeJS = `(() => {
   for (const el of document.querySelectorAll(sel)) {
     const cs = getComputedStyle(el);
     if (cs.display === "none" || cs.visibility === "hidden") continue;
-    const r = el.getBoundingClientRect();
+    const choice = el.type === "radio" || el.type === "checkbox";
+    const r = (choice && el.labels && el.labels.length ? el.labels[0] : el).getBoundingClientRect();
     if (r.width === 0 && r.height === 0) continue;
     if (r.width < 44 || r.height < 44) out.push(name(el) + " " + Math.round(r.width) + "x" + Math.round(r.height));
   }

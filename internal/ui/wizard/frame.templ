@@ -1,0 +1,115 @@
+package wizard
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// Bar is the step's action bar: the primary label (default "Save and
+// continue"), whether "Back" shows, and NoPrimary for a step with no
+// primary (a check page the user may not submit).
+type Bar struct {
+	Primary   string
+	Back      bool
+	NoPrimary bool
+}
+
+// formID is the step form's id; when m.After follows the form, the bar's
+// buttons sit after it and post it through their form attribute.
+const formID = "wizard-form"
+
+// disabledElt disables, while the step form's request runs, every submit
+// in it and every bar button posting it. htmx resolves plain selectors to
+// all matches ("find" only to the first).
+const disabledElt = "#" + formID + " button[type=submit], button[form=" + formID + "]"
+
+func (b Bar) primary() string {
+	if b.Primary == "" {
+		return "Save and continue"
+	}
+	return b.Primary
+}
+
+func (b Bar) props(m Model) components.ActionBarProps {
+	p := components.ActionBarProps{
+		// The check step has nothing to save, and its form posts the
+		// submit, so it has no "Save and finish later".
+		FinishLater: m.Mode == Document && !m.Last(),
+	}
+	if m.After != nil {
+		p.Form = formID
+	}
+	if !b.NoPrimary {
+		p.Primary = &components.ButtonProps{Label: b.primary(), Variant: components.Primary}
+	}
+	if b.Back {
+		p.Secondary = &components.ButtonProps{Label: "Back", Name: "nav", Value: "back", Variant: components.Secondary}
+	}
+	return p
+}
+
+func titleLine(m Model) string {
+	if m.DocLabel == "" {
+		return m.Title
+	}
+	return m.Title + " · " + m.DocLabel
+}
+
+// Frame is one wizard step, swapped whole as #wizard: title line, stepper,
+// conflict banner, error summary, warnings, the step heading, the step
+// form around children and the action bar, or, with m.After, the form,
+// m.After and then the bar posting the form from outside. In Document mode the
+// form holds the page's one #doc-version (CD-95). Focus goes to the heading unless errors or a
+// conflict are shown; on a conflict without errors the banner's wrapper
+// takes focus.
+templ Frame(m Model, bar Bar) {
+	<div id="wizard">
+		<p class="wizard-title">{ titleLine(m) }</p>
+		@Stepper(m)
+		if m.Conflict != "" && len(m.Errors) == 0 {
+			<div id="wizard-conflict" tabindex="-1" autofocus>
+				@conflictBanner(m)
+			</div>
+		} else if m.Conflict != "" {
+			@conflictBanner(m)
+		}
+		@components.ErrorSummary(m.Errors)
+		@components.Warnings(m.Warnings)
+		if len(m.Errors) == 0 && m.Conflict == "" {
+			<h1 id="step-title" tabindex="-1" autofocus>{ m.Heading() }</h1>
+		} else {
+			<h1 id="step-title" tabindex="-1">{ m.Heading() }</h1>
+		}
+		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: m.formTarget(), DisabledElt: disabledElt}) {
+			{ children... }
+			if m.Mode == Document {
+				@DocVersion(m.Version, false)
+			}
+			if m.ReturnTo != "" {
+				<input type="hidden" name="return" value={ m.ReturnTo }/>
+			}
+			if m.After == nil {
+				@components.ActionBar(bar.props(m))
+			}
+		}
+		if m.After != nil {
+			@m.After
+			@components.ActionBar(bar.props(m))
+		}
+	</div>
+}
+
+// DocVersion is the document's one version input, #doc-version (CD-95);
+// oob renders it as an out-of-band swap for a line-grid row save.
+templ DocVersion(version int, oob bool) {
+	if oob {
+		<input type="hidden" id="doc-version" name="version" value={ strconv.Itoa(version) } hx-swap-oob="true"/>
+	} else {
+		<input type="hidden" id="doc-version" name="version" value={ strconv.Itoa(version) }/>
+	}
+}
+
+templ conflictBanner(m Model) {
+	@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Conflict, Link: &components.Link{Label: "Reload", Href: m.ReloadURL}})
+}

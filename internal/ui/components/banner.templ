@@ -47,6 +47,8 @@ templ Banner(p BannerProps) {
 			</p>
 			{ children... }
 			if p.Link != nil {
+				// A space keeps the message and the link apart in the page text.
+				{ " " }
 				<p><a href={ templ.SafeURL(p.Link.Href) }>{ p.Link.Label }</a></p>
 			}
 		</div>

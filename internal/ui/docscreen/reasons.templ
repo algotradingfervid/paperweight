@@ -1,0 +1,43 @@
+package docscreen
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+templ reasonPageFull(rv reasonView) {
+	@layout.Page(reasonOpts(rv)) {
+		@reasonBody(rv)
+	}
+}
+
+templ reasonPageMain(rv reasonView) {
+	@layout.Main(reasonOpts(rv)) {
+		@reasonBody(rv)
+	}
+}
+
+templ reasonBanners(rv reasonView) {
+	if rv.Danger != "" {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: rv.Danger})
+	}
+	@components.ErrorSummary(rv.Errors)
+}
+
+// reasonBody is the summary line, then the reason form or the delete
+// question.
+templ reasonBody(rv reasonView) {
+	<p>{ rv.Summary }</p>
+	if rv.Question != "" {
+		<p>{ rv.Question }</p>
+	}
+	@components.Form(components.FormProps{Action: rv.Action, HX: true}) {
+		<input type="hidden" name="version" value={ strconv.Itoa(rv.Version) }/>
+		if rv.Field.Name != "" {
+			@components.Textarea(rv.Field, rv.MaxLen)
+		}
+		@components.Button(rv.Button)
+	}
+}

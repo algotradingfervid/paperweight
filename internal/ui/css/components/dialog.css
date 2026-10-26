@@ -10,6 +10,8 @@
   }
 }
 @utility sheet {
+  /* A closed sheet takes no room: daisyUI keeps closed modals laid out (hidden), and a modal-start box sits off screen. */
+  &:not([open]) { display: none; }
   & .modal-box {
     border-end-start-radius: 0;
     border-end-end-radius: 0;

@@ -1,0 +1,41 @@
+package docscreen
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+templ listPage(v listView) {
+	@layout.Page(v.Opts) {
+		@listBody(v)
+	}
+}
+
+templ listMain(v listView) {
+	@layout.Main(v.Opts) {
+		@listBody(v)
+	}
+}
+
+templ listBody(v listView) {
+	@components.FilterBar(v.Bar)
+	@components.DataList(v.List)
+	@components.Pagination(v.Pages)
+}
+
+templ problemPage(pr Problem) {
+	@layout.Page(problemOpts(pr))
+}
+
+templ problemMain(pr Problem) {
+	@layout.Main(problemOpts(pr))
+}
+
+// actionBanners are an htmx action's success and warning banners, rendered
+// directly instead of through the flash (CD-80).
+templ actionBanners(success string, warnings []string) {
+	if success != "" {
+		@components.Banner(components.BannerProps{Kind: components.Success, Message: success})
+	}
+	@components.Warnings(warnings)
+}

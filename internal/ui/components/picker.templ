@@ -1,0 +1,69 @@
+package components
+
+import "strconv"
+
+// Picker is a master picker (design-system §7): a Select for fewer than 50
+// options, else an ARIA 1.2 combobox that htmx fills from SearchURL and
+// combobox.js drives. A chosen row shows as a summary with "Change". Below
+// 48rem the open search fills the screen like a sheet.
+templ Picker(p PickerProps) {
+	if len(p.Options) > 0 && len(p.Options) < 50 {
+		@Select(pickerSelectField(p), p.Options)
+	} else {
+		{{ id, text := pickerChosen(p) }}
+		@field(p.Field) {
+			<div class="picker" x-data="combobox">
+				<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
+					<p class="picker__summary" data-picker-summary>{ text }</p>
+					@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-picker-change": true}})
+				</div>
+				<div class="picker__search" data-picker-search hidden?={ p.Chosen != nil }>
+					<div class="picker__bar">
+						<input
+							type="text"
+							role="combobox"
+							aria-expanded="false"
+							aria-controls={ p.ListboxID }
+							aria-autocomplete="list"
+							autocomplete="off"
+							spellcheck="false"
+							hx-get={ p.SearchURL }
+							hx-trigger="input changed delay:250ms, focus once"
+							hx-target={ "#" + p.ListboxID }
+							hx-swap="innerHTML"
+							hx-sync="this:replace"
+							{ controlAttrs(pickerSearchField(p), "input field__input")... }
+						/>
+						@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})
+					</div>
+					<ul role="listbox" id={ p.ListboxID } class="list picker__list" aria-label={ p.Field.Label }></ul>
+				</div>
+				<input type="hidden" name={ p.HiddenName } value={ id } data-picker-value/>
+			</div>
+		}
+	}
+}
+
+// PickerResults is the listbox body a picker search returns: at most 20
+// rows, or one disabled "No matches" option.
+templ PickerResults(listboxID string, rows []PickRow, q string) {
+	if len(rows) == 0 {
+		<li role="option" aria-disabled="true" class="picker__option">{ "No matches for “" + q + "”." }</li>
+	}
+	for i, r := range rows[:min(len(rows), maxPickRows)] {
+		<li
+			role="option"
+			id={ listboxID + "-" + strconv.Itoa(i) }
+			aria-selected="false"
+			data-value={ strconv.FormatInt(r.ID, 10) }
+			data-label={ r.Display() }
+			class="picker__option"
+		>
+			<span class="picker__code">{ r.Code }</span>
+			<span class="picker__name">{ r.Name }</span>
+			if r.Line != "" {
+				<span class="picker__line">{ r.Line }</span>
+			}
+		</li>
+	}
+}

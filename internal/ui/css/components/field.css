@@ -11,6 +11,8 @@
     min-block-size: var(--control-h);
     font-size: var(--text-base);
   }
+  /* A value longer than the box ends in an ellipsis until it is edited; never a number (CD-169). */
+  & .input:not(.num) { text-overflow: ellipsis; }
 }
 
 @utility field__label {
@@ -103,6 +105,7 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   & > label {
+    position: relative;
     flex: 1 1 0;
     min-inline-size: 0;
     display: flex;
@@ -137,6 +140,16 @@
     font-size: var(--h2);
     line-height: var(--leading-tight);
   }
+  /* One column: daisyUI's alert puts a second child beside the first. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: row;
   & ul { margin: 0; padding-inline-start: var(--space-4); }
-  & a { color: var(--color-danger-800); text-decoration: underline; }
+  & a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--target-min);
+    min-inline-size: var(--target-min);
+    color: var(--color-danger-800);
+    text-decoration: underline;
+  }
 }
