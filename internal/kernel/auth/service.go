@@ -117,36 +117,54 @@ func (a *Auth) Can(ctx context.Context, p Principal, doctypeName string, r Right
 	if err != nil {
 		return err
 	}
-	if readScope == "" {
+	acc := Access{User: p.ID, Read: readScope, Right: rScope}
+	if readScope != "" && rec != nil {
+		if err := a.db.Read(ctx, func(tx *db.Tx) error {
+			var err error
+			if dt.EmployeeField != "" && rec.EmployeeID != 0 {
+				if acc.Employee, acc.Reports, acc.HasEmployee, err = a.employee(ctx, tx, p.ID); err != nil {
+					return err
+				}
+			}
+			acc.Allowed, err = restrictions(ctx, dbq.New(tx.SQL()), p.ID)
+			return err
+		}); err != nil {
+			return err
+		}
+	}
+	return acc.Can(dt, r, rec)
+}
+
+// Access is what Can and Scope decide from once the grants, the employee
+// and the restrictions are read. authfake fills it from its seeds and calls
+// the same methods, so the two can't drift (CD-182).
+type Access struct {
+	User        UserID
+	Read, Right Scope   // widest grants for read and for the right asked; "" = none
+	Employee    int64   // User's employee, when HasEmployee
+	Reports     []int64 // that employee's active direct reports
+	HasEmployee bool
+	Allowed     map[Dimension][]int64 // restrictions; an absent dimension is unrestricted
+}
+
+// Can is auth.Service.Can after the Applies and Administrator checks: a
+// record outside read scope or the restrictions is ErrNotFound; a missing
+// right, or a record outside its scope, is a *DeniedError.
+func (a Access) Can(dt *doctype.DocType, r Right, rec *RecordRef) error {
+	if a.Read == "" {
 		return denied(dt, r)
 	}
 	if rec == nil {
-		if rScope == "" {
+		if a.Right == "" {
 			return denied(dt, r)
 		}
 		return nil
 	}
-	var isOwn, isTeam, restrictionsOK bool
-	if err := a.db.Read(ctx, func(tx *db.Tx) error {
-		isOwn = rec.CreatedBy == p.ID
-		if dt.EmployeeField != "" && rec.EmployeeID != 0 {
-			me, reports, found, err := a.employee(ctx, tx, p.ID)
-			if err != nil {
-				return err
-			}
-			if found {
-				isOwn = isOwn || rec.EmployeeID == me
-				isTeam = slices.Contains(reports, rec.EmployeeID)
-			}
-		}
-		allowed, err := restrictions(ctx, dbq.New(tx.SQL()), p.ID)
-		if err != nil {
-			return err
-		}
-		restrictionsOK = recordAllowed(dt, rec, allowed)
-		return nil
-	}); err != nil {
-		return err
+	isOwn := rec.CreatedBy == a.User
+	var isTeam bool
+	if dt.EmployeeField != "" && rec.EmployeeID != 0 && a.HasEmployee {
+		isOwn = isOwn || rec.EmployeeID == a.Employee
+		isTeam = slices.Contains(a.Reports, rec.EmployeeID)
 	}
 	inScope := func(s Scope) bool {
 		switch s {
@@ -159,15 +177,15 @@ func (a *Auth) Can(ctx context.Context, p Principal, doctypeName string, r Right
 		}
 		return false
 	}
-	if !inScope(readScope) || !restrictionsOK {
+	if !inScope(a.Read) || !recordAllowed(dt, rec, a.Allowed) {
 		return ErrNotFound
 	}
-	if rScope == "" {
+	if a.Right == "" {
 		return denied(dt, r)
 	}
-	if r != RightCreate && !inScope(rScope) {
+	if r != RightCreate && !inScope(a.Right) {
 		e := denied(dt, r)
-		e.OwnOnly, e.TeamOnly = rScope == ScopeOwn, rScope == ScopeTeam
+		e.OwnOnly, e.TeamOnly = a.Right == ScopeOwn, a.Right == ScopeTeam
 		return e
 	}
 	return nil

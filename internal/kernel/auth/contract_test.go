@@ -99,4 +99,6 @@ func TestContract_Auth(t *testing.T) {
 		w := authtest.NewWorld(t)
 		return w.Auth, &realSetup{w: w, roles: map[string]bool{}}
 	})
+	w := authtest.NewWorld(t)
+	authtest.RunUnknownDocType(t, w.Auth, (&realSetup{w: w}).Admin(t))
 }

@@ -106,6 +106,7 @@ func TestAssign_AuditedWithTransition(t *testing.T) {
 func TestPrint_DraftLabel(t *testing.T) {
 	h, _ := realNaming(t)
 	fa := authfake.New()
+	fa.Grant("Purchase Manager", fixture.Order, "read", auth.ScopeAll) // print needs read too, as in the real service
 	fa.Grant("Purchase Manager", fixture.Order, "print", auth.ScopeAll)
 	fa.AddRole(h.Ravi.ID, "Purchase Manager")
 	reg := print.NewRegistry()

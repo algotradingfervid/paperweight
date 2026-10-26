@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth/dbq"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
@@ -32,81 +33,82 @@ func (a *Auth) Scope(ctx context.Context, p Principal, doctypeName string, r Rig
 	if err != nil {
 		return Predicate{}, err
 	}
-	if readScope == "" || rScope == "" {
+	acc := Access{User: p.ID, Read: readScope, Right: rScope}
+	if readScope != "" && rScope != "" {
+		scoped := slices.ContainsFunc([]Scope{readScope, rScope}, func(s Scope) bool { return s == ScopeOwn || s == ScopeTeam })
+		if err := a.db.Read(ctx, func(tx *db.Tx) error {
+			var err error
+			if scoped && dt.EmployeeField != "" {
+				if acc.Employee, acc.Reports, acc.HasEmployee, err = a.employee(ctx, tx, p.ID); err != nil {
+					return err
+				}
+			}
+			acc.Allowed, err = restrictions(ctx, dbq.New(tx.SQL()), p.ID)
+			return err
+		}); err != nil {
+			return Predicate{}, err
+		}
+	}
+	return acc.Scope(dt, r)
+}
+
+// Scope is auth.Service.Scope after the Applies and Administrator checks:
+// a missing grant for read or r is a *DeniedError; otherwise the filter for
+// the own and team scopes and the restrictions ("" = no filter).
+func (a Access) Scope(dt *doctype.DocType, r Right) (Predicate, error) {
+	if a.Read == "" || a.Right == "" {
 		return Predicate{}, denied(dt, r)
 	}
-	scopes := []Scope{readScope}
-	if rScope != readScope {
-		scopes = append(scopes, rScope)
+	scopes := []Scope{a.Read}
+	if a.Right != a.Read {
+		scopes = append(scopes, a.Right)
 	}
-	scoped := slices.ContainsFunc(scopes, func(s Scope) bool { return s == ScopeOwn || s == ScopeTeam })
-
 	t := dt.Table
 	var clauses []string
 	var args []any
-	err = a.db.Read(ctx, func(tx *db.Tx) error {
-		var me int64
-		var reports []int64
-		var found bool
-		if scoped && dt.EmployeeField != "" {
-			var err error
-			if me, reports, found, err = a.employee(ctx, tx, p.ID); err != nil {
-				return err
+	for _, s := range scopes {
+		if s != ScopeOwn && s != ScopeTeam {
+			continue
+		}
+		parts := []string{col(t, ownerColumn(dt)) + " = ?"}
+		args = append(args, int64(a.User))
+		if a.HasEmployee && dt.EmployeeField != "" {
+			parts = append(parts, col(t, dt.EmployeeField)+" = ?")
+			args = append(args, a.Employee)
+			if s == ScopeTeam && len(a.Reports) > 0 {
+				parts = append(parts, col(t, dt.EmployeeField)+" IN "+placeholders(len(a.Reports)))
+				args = appendIDs(args, a.Reports)
 			}
 		}
-		for _, s := range scopes {
-			if s != ScopeOwn && s != ScopeTeam {
-				continue
-			}
-			parts := []string{col(t, ownerColumn(dt)) + " = ?"}
-			args = append(args, int64(p.ID))
-			if found {
-				parts = append(parts, col(t, dt.EmployeeField)+" = ?")
-				args = append(args, me)
-				if s == ScopeTeam && len(reports) > 0 {
-					parts = append(parts, col(t, dt.EmployeeField)+" IN "+placeholders(len(reports)))
-					args = appendIDs(args, reports)
-				}
-			}
-			clauses = append(clauses, "("+strings.Join(parts, " OR ")+")")
+		clauses = append(clauses, "("+strings.Join(parts, " OR ")+")")
+	}
+	for _, d := range []Dimension{DimProject, DimSite} {
+		ids, restricted := a.Allowed[d]
+		header, lines := dimColumns(dt, d)
+		if !restricted || len(header)+len(lines) == 0 {
+			continue
 		}
-
-		allowed, err := restrictions(ctx, dbq.New(tx.SQL()), p.ID)
-		if err != nil {
-			return err
+		for _, h := range header {
+			clauses = append(clauses, "("+col(t, h)+" IS NULL OR "+col(t, h)+" IN "+placeholders(len(ids))+")")
+			args = appendIDs(args, ids)
 		}
-		for _, d := range []Dimension{DimProject, DimSite} {
-			ids, restricted := allowed[d]
-			header, lines := dimColumns(dt, d)
-			if !restricted || len(header)+len(lines) == 0 {
-				continue
-			}
-			for _, h := range header {
-				clauses = append(clauses, "("+col(t, h)+" IS NULL OR "+col(t, h)+" IN "+placeholders(len(ids))+")")
-				args = appendIDs(args, ids)
-			}
+		for _, l := range lines {
+			clauses = append(clauses, "NOT EXISTS ("+linesFrom(dt.LinesTable, t)+" AND "+
+				col(dt.LinesTable, l)+" IS NOT NULL AND "+col(dt.LinesTable, l)+" NOT IN "+placeholders(len(ids))+")")
+			args = appendIDs(args, ids)
+		}
+		var present []string
+		for _, h := range header {
+			present = append(present, col(t, h)+" IS NOT NULL")
+		}
+		if len(lines) > 0 {
+			var lp []string
 			for _, l := range lines {
-				clauses = append(clauses, "NOT EXISTS ("+linesFrom(dt.LinesTable, t)+" AND "+
-					col(dt.LinesTable, l)+" IS NOT NULL AND "+col(dt.LinesTable, l)+" NOT IN "+placeholders(len(ids))+")")
-				args = appendIDs(args, ids)
+				lp = append(lp, col(dt.LinesTable, l)+" IS NOT NULL")
 			}
-			var present []string
-			for _, h := range header {
-				present = append(present, col(t, h)+" IS NOT NULL")
-			}
-			if len(lines) > 0 {
-				var lp []string
-				for _, l := range lines {
-					lp = append(lp, col(dt.LinesTable, l)+" IS NOT NULL")
-				}
-				present = append(present, "EXISTS ("+linesFrom(dt.LinesTable, t)+" AND ("+strings.Join(lp, " OR ")+"))")
-			}
-			clauses = append(clauses, "("+strings.Join(present, " OR ")+")")
+			present = append(present, "EXISTS ("+linesFrom(dt.LinesTable, t)+" AND ("+strings.Join(lp, " OR ")+"))")
 		}
-		return nil
-	})
-	if err != nil {
-		return Predicate{}, err
+		clauses = append(clauses, "("+strings.Join(present, " OR ")+")")
 	}
 	if len(clauses) == 0 {
 		return Predicate{}, nil

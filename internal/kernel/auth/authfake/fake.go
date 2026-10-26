@@ -3,6 +3,7 @@ package authfake
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -225,59 +226,104 @@ func outside(ids, allowed []int64) bool {
 	return false
 }
 
+// docType returns the registered DocType, or for a name that isn't
+// registered a stand-in with the name as its labels and no columns.
+func docType(name string) *doctype.DocType {
+	if dt, ok := doctype.Lookup(name); ok {
+		return dt
+	}
+	return &doctype.DocType{Name: name, Label: name, PluralLabel: name}
+}
+
+// accessLocked returns what the real service decides p's r on name from:
+// the read and r grants, the Restrict lists and, with a Directory and
+// withEmployee, p's employee and reports. The Administrator holds every
+// right unrestricted. The decision itself is auth.Access's (CD-182).
+func (f *Fake) accessLocked(p auth.Principal, name string, r auth.Right) auth.Access {
+	if slices.Contains(f.rolesLocked(p), auth.RoleAdministrator) {
+		return auth.Access{User: p.ID, Read: auth.ScopeAll, Right: auth.ScopeAll}
+	}
+	grantOf := func(r auth.Right) auth.Scope {
+		if s, ok := f.scopeLocked(p, name, r); ok {
+			return s
+		}
+		return ""
+	}
+	acc := auth.Access{User: p.ID, Read: grantOf(auth.RightRead), Right: grantOf(r), Allowed: map[auth.Dimension][]int64{}}
+	limit := f.restricted[p.ID]
+	if limit.projects != nil {
+		acc.Allowed[auth.DimProject] = slices.Clone(limit.projects)
+	}
+	if limit.sites != nil {
+		acc.Allowed[auth.DimSite] = slices.Clone(limit.sites)
+	}
+	return acc
+}
+
+// withEmployee adds p's employee and direct reports from dir to acc, as the
+// real service reads them from its Directory.
+func withEmployee(ctx context.Context, dir auth.Directory, acc *auth.Access) error {
+	emp, linked, err := dir.EmployeeForUser(ctx, nil, acc.User)
+	if err != nil || !linked {
+		return err
+	}
+	reports, err := dir.DirectReports(ctx, nil, emp)
+	if err != nil {
+		return err
+	}
+	acc.Employee, acc.Reports, acc.HasEmployee = emp, reports, true
+	return nil
+}
+
+// Can decides like the real service through auth.Access.Can; a Hide record
+// is also not found for anyone who can read the DocType.
 func (f *Fake) Can(ctx context.Context, p auth.Principal, doctype string, r auth.Right, rec *auth.RecordRef) error {
 	if inapplicable(doctype, r) {
 		return denied(doctype, r)
 	}
+	dt := docType(doctype)
 	f.mu.Lock()
-	scope, ok := f.scopeLocked(p, doctype, r)
+	acc := f.accessLocked(p, doctype, r)
 	hidden := rec != nil && f.hidden[record{doctype, rec.ID}]
-	limit := f.restricted[p.ID]
 	dir := f.dir
 	f.mu.Unlock()
 
-	if !ok {
-		return denied(doctype, r)
-	}
-	if rec == nil {
-		return nil
-	}
-	if hidden || outside(rec.ProjectIDs, limit.projects) || outside(rec.SiteIDs, limit.sites) {
+	if hidden && acc.Read != "" {
 		return auth.ErrNotFound
 	}
-	if scope == auth.ScopeAll || rec.CreatedBy == p.ID {
-		return nil
-	}
-	if scope == auth.ScopeTeam && dir != nil {
-		emp, linked, err := dir.EmployeeForUser(ctx, nil, p.ID)
-		if err != nil {
+	if dir != nil && rec != nil && acc.Read != "" && dt.EmployeeField != "" && rec.EmployeeID != 0 {
+		if err := withEmployee(ctx, dir, &acc); err != nil {
 			return err
 		}
-		if linked {
-			reports, err := dir.DirectReports(ctx, nil, emp)
-			if err != nil {
-				return err
-			}
-			if slices.Contains(reports, rec.EmployeeID) {
-				return nil
-			}
-		}
 	}
-	return auth.ErrNotFound
+	return acc.Can(dt, r, rec)
 }
 
+// Scope builds the real service's filter through auth.Access.Scope, or
+// returns the SetScope Predicate for doctype once the grants allow it.
 func (f *Fake) Scope(ctx context.Context, p auth.Principal, doctype string, r auth.Right) (auth.Predicate, error) {
 	if inapplicable(doctype, r) {
 		return auth.Predicate{}, denied(doctype, r)
 	}
+	dt := docType(doctype)
 	f.mu.Lock()
-	defer f.mu.Unlock()
-	if _, ok := f.scopeLocked(p, doctype, r); !ok {
-		return auth.Predicate{}, denied(doctype, r)
+	acc := f.accessLocked(p, doctype, r)
+	set, isSet := f.scopes[doctype]
+	dir := f.dir
+	f.mu.Unlock()
+
+	scoped := slices.ContainsFunc([]auth.Scope{acc.Read, acc.Right}, func(s auth.Scope) bool { return s == auth.ScopeOwn || s == auth.ScopeTeam })
+	if dir != nil && !isSet && scoped && dt.EmployeeField != "" {
+		if err := withEmployee(ctx, dir, &acc); err != nil {
+			return auth.Predicate{}, err
+		}
 	}
-	pred := f.scopes[doctype]
-	pred.Args = slices.Clone(pred.Args)
-	return pred, nil
+	pred, err := acc.Scope(dt, r)
+	if err != nil || !isSet {
+		return pred, err
+	}
+	set.Args = slices.Clone(set.Args)
+	return set, nil
 }
 
 // CheckValues rejects proposed project and site ids outside p's Restrict lists
@@ -347,30 +393,45 @@ func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, i
 	return nil
 }
 
-// UsersWithRight returns the SetUsers list, or every user holding a granted role, sorted, without disabled users.
-// A right that doesn't apply to the DocType lists nobody, like the real service (CD-173).
+// UsersWithRight returns the SetUsers list without disabled users, or like
+// the real service every enabled user for whom Can on rec is nil, sorted.
+// A right that doesn't apply to the DocType lists nobody (CD-173).
 func (f *Fake) UsersWithRight(ctx context.Context, doctype string, r auth.Right, rec *auth.RecordRef) ([]auth.UserID, error) {
 	if inapplicable(doctype, r) {
 		return nil, nil
 	}
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	candidates, set := f.users[docRight{doctype, r}]
+	candidates = slices.Clone(candidates)
 	if !set {
-		for u, roles := range f.added {
-			for role := range roles {
-				_, one := f.grants[grant{role, docRight{doctype, r}}]
-				_, all := f.grants[grant{role, docRight{"*", r}}]
-				if (one || all) && !slices.Contains(candidates, u) {
-					candidates = append(candidates, u)
-				}
-			}
+		for u := range f.added {
+			candidates = append(candidates, u)
+		}
+		for u := range f.infos {
+			candidates = append(candidates, u)
+		}
+		for k := range f.allowed {
+			candidates = append(candidates, k.user)
 		}
 	}
-	var out []auth.UserID
+	var enabled []auth.UserID
 	for _, u := range candidates {
-		if info, known := f.infos[u]; known && !info.Enabled {
-			continue
+		if info, known := f.infos[u]; (!known || info.Enabled) && !slices.Contains(enabled, u) {
+			enabled = append(enabled, u)
+		}
+	}
+	f.mu.Unlock()
+
+	var out []auth.UserID
+	for _, u := range enabled {
+		if !set {
+			err := f.Can(ctx, auth.Principal{ID: u}, doctype, r, rec)
+			if errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
 		}
 		out = append(out, u)
 	}

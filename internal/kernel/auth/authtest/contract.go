@@ -65,6 +65,15 @@ func RunRefusals(t *testing.T, svc auth.Service) {
 	for _, row := range refusalRows {
 		t.Run(row.name, func(t *testing.T) { row.run(t, svc, admin, d) })
 	}
+	RunUnknownDocType(t, svc, admin)
+}
+
+// RunUnknownDocType runs the CD-171 unknown-DocType row. It is not in Run:
+// authfake answers an unregistered DocType with a 403 by design (CD-157).
+func RunUnknownDocType(t *testing.T, svc auth.Service, admin auth.Principal) {
+	t.Helper()
+	RegisterDocTypes()
+	t.Run("CD-171 unknown DocType", func(t *testing.T) { rowUnknownDocType(t, svc, admin, nil) })
 }
 
 // Roles the rows create; none of them is in the seeded matrix.
@@ -91,6 +100,7 @@ var contractRows = []struct {
 	{"AUTH-085 own scope predicate", rowOwnScopePredicate},
 	{"AUTH-092 project restriction is strict", rowProjectRestriction},
 	{"AUTH-092 restriction predicate", rowRestrictionPredicate},
+	{"AUTH-093 site restriction is strict", rowSiteRestriction},
 	{"AUTH-096 restriction never grants", rowRestrictionNoGrant},
 	{"AUTH-069 Administrator allowed and unrestricted", rowAdminAll},
 	{"AUTH-042 disabled user refused", rowDisabledUser},
@@ -356,6 +366,22 @@ func rowRestrictionPredicate(t *testing.T, svc auth.Service, s Setup) {
 	}
 }
 
+// AUTH-092, AUTH-093: restricted to PUNE-WH, a record on PUNE-WH is
+// allowed; one on TECH-SITE or with no site is not found.
+func rowSiteRestriction(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	pune, tech := masterID(t, s.DB(), "probe_site", "PUNE-WH"), masterID(t, s.DB(), "probe_site", "TECH-SITE")
+	s.Grant(t, roleReader, DTOrder, auth.RightRead, auth.ScopeAll)
+	p := s.User(t, "restricted@contract.test", roleReader)
+	s.Restrict(t, p.ID, nil, []int64{pune})
+	at := func(id int64, sites ...int64) *auth.RecordRef {
+		return &auth.RecordRef{DocType: DTOrder, ID: id, CreatedBy: s.Admin(t).ID, SiteIDs: sites}
+	}
+	wantNil(t, "Can(Order, read, PUNE-WH)", svc.Can(ctx, p, DTOrder, auth.RightRead, at(1, pune)))
+	wantNotFound(t, "Can(Order, read, TECH-SITE)", svc.Can(ctx, p, DTOrder, auth.RightRead, at(2, tech)))
+	wantNotFound(t, "Can(Order, read, no site) (strict, AUTH-093)", svc.Can(ctx, p, DTOrder, auth.RightRead, at(3)))
+}
+
 // AUTH-096: a restriction on a user with no Order rights still gives a 403.
 func rowRestrictionNoGrant(t *testing.T, svc auth.Service, s Setup) {
 	ctx := context.Background()
@@ -584,6 +610,28 @@ func rowUnknownDimension(t *testing.T, svc auth.Service, admin auth.Principal, d
 			}
 		}
 	}
+}
+
+// CD-171: an unknown DocType is a caller bug: the real service's plain
+// error, not a 403 or 404, from Can, Scope, CheckValues and UsersWithRight,
+// for the Administrator too.
+func rowUnknownDocType(t *testing.T, svc auth.Service, admin auth.Principal, _ *db.DB) {
+	ctx := context.Background()
+	const dt = "authtest.Unknown"
+	want := fmt.Sprintf("auth: unknown DocType %q", dt)
+	plain := func(what string, err error) {
+		t.Helper()
+		if err == nil || err.Error() != want || errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+			t.Errorf("%s(%s) = %v, want the plain error %q", what, dt, err, want)
+		}
+	}
+	plain("Can", svc.Can(ctx, admin, dt, auth.RightRead, nil))
+	plain("Can record", svc.Can(ctx, admin, dt, auth.RightRead, &auth.RecordRef{DocType: dt, ID: 1, CreatedBy: admin.ID}))
+	_, err := svc.Scope(ctx, admin, dt, auth.RightRead)
+	plain("Scope", err)
+	plain("CheckValues", svc.CheckValues(ctx, admin, dt, map[string][]int64{"project": {1}}))
+	_, err = svc.UsersWithRight(ctx, dt, auth.RightRead, nil)
+	plain("UsersWithRight", err)
 }
 
 // CD-174: Forbidden(msg) is a 403 showing exactly msg that errors.Is

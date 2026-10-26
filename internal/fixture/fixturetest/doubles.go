@@ -84,9 +84,27 @@ func (a *Auth) record(ctx context.Context, call string) {
 	fixture.ProbeFrom(ctx).Add(call)
 }
 
-// Can returns auth.ErrNotFound for a hidden record, then auth.ErrForbidden when denied.
+// applies refuses like the real service before any grant: an unknown DocType
+// is a plain error, a right that doesn't apply to it a *auth.DeniedError (CD-171, CD-173).
+func applies(name string, r auth.Right) error {
+	dt, ok := doctype.Lookup(name)
+	if !ok {
+		return fmt.Errorf("auth: unknown DocType %q", name)
+	}
+	if !auth.Applies(dt, r) {
+		return &auth.DeniedError{Right: r, Label: dt.Label, Plural: dt.PluralLabel}
+	}
+	return nil
+}
+
+// Can refuses like the real service an unknown DocType or a right that
+// doesn't apply, then returns auth.ErrNotFound for a hidden record, then
+// auth.ErrForbidden when denied.
 func (a *Auth) Can(ctx context.Context, p auth.Principal, dt string, r auth.Right, rec *auth.RecordRef) error {
 	a.record(ctx, "AUTH.Can:"+string(r))
+	if err := applies(dt, r); err != nil {
+		return err
+	}
 	if rec != nil && a.Hide != nil && a.Hide(p, dt, rec.ID) {
 		return auth.ErrNotFound
 	}
@@ -96,12 +114,13 @@ func (a *Auth) Can(ctx context.Context, p auth.Principal, dt string, r auth.Righ
 	return nil
 }
 
-// Scope returns an empty predicate (no filter).
-func (a *Auth) Scope(context.Context, auth.Principal, string, auth.Right) (auth.Predicate, error) {
-	return auth.Predicate{}, nil
+// Scope refuses like Can, otherwise returns an empty predicate (no filter).
+func (a *Auth) Scope(_ context.Context, _ auth.Principal, dt string, r auth.Right) (auth.Predicate, error) {
+	return auth.Predicate{}, applies(dt, r)
 }
 
-// CheckValues returns DenyValues' error when set.
+// CheckValues refuses an unknown DocType like the real service, otherwise
+// returns DenyValues' error when set.
 func (a *Auth) CheckValues(ctx context.Context, _ auth.Principal, dt string, values map[string][]int64) error {
 	keys := make([]string, 0, len(values))
 	for k := range values {
@@ -117,6 +136,9 @@ func (a *Auth) CheckValues(ctx context.Context, _ auth.Principal, dt string, val
 		parts = append(parts, k+"="+strings.Join(ids, ","))
 	}
 	a.record(ctx, "AUTH.CheckValues:"+strings.Join(parts, " "))
+	if _, ok := doctype.Lookup(dt); !ok {
+		return fmt.Errorf("auth: unknown DocType %q", dt)
+	}
 	if a.DenyValues != nil {
 		return a.DenyValues(dt, values)
 	}
@@ -132,8 +154,12 @@ func (a *Auth) CheckLink(ctx context.Context, _ auth.Principal, target string, i
 	return nil
 }
 
-// UsersWithRight returns no users.
-func (a *Auth) UsersWithRight(context.Context, string, auth.Right, *auth.RecordRef) ([]auth.UserID, error) {
+// UsersWithRight returns no users; an unknown DocType is an error, as in the
+// real service.
+func (a *Auth) UsersWithRight(_ context.Context, dt string, r auth.Right, _ *auth.RecordRef) ([]auth.UserID, error) {
+	if err := applies(dt, r); err != nil && !errors.Is(err, auth.ErrForbidden) {
+		return nil, err
+	}
 	return nil, nil
 }
 
