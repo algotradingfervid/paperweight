@@ -35,8 +35,14 @@ type Setup interface {
 	// approval) and returns the new rules' ids in order.
 	SetRules(t testing.TB, dt string, rules ...approval.RuleInput) []int64
 	// NewDoc creates a draft of dt with id, amount and creator (an Order on
-	// PRJ-METRO; a Claim for the creator's employee).
-	NewDoc(t testing.TB, dt string, id int64, amount types.Money, creator auth.Principal)
+	// PRJ-METRO; a Claim for the creator's employee), changed by opts
+	// (ForEmployee, InState).
+	NewDoc(t testing.TB, dt string, id int64, amount types.Money, creator auth.Principal, opts ...DocOpt)
+	// GrantRole and RemoveRole change u's roles from the next call on (CD-86).
+	GrantRole(t testing.TB, u auth.UserID, role string)
+	RemoveRole(t testing.TB, u auth.UserID, role string)
+	// Disable disables user u.
+	Disable(t testing.TB, u auth.UserID)
 	// SetState puts the document in state with number ("" = none) inside the
 	// caller's tx, as DOC's own write does before Record.
 	SetState(ctx context.Context, tx *db.Tx, dt string, id int64, state doctype.State, number string) error
@@ -60,7 +66,7 @@ type contract struct {
 	svc                              approval.Service
 	s                                Setup
 	anil, meena, ravi, priya, suresh auth.Principal
-	deepak                           auth.Principal
+	kavya, deepak                    auth.Principal
 	r1, r2                           int64 // the Order rules from orderRules
 	numbers                          map[docKey]string
 	seq                              map[string]int // numbers given per DocType
@@ -82,6 +88,7 @@ func newContract(t *testing.T, newSvc func(t *testing.T) (approval.Service, Setu
 		ravi:   testkit.Principal(t, "ravi@vardhan.test"),
 		priya:  testkit.Principal(t, "priya@vardhan.test"),
 		suresh: testkit.Principal(t, "suresh@vardhan.test"),
+		kavya:  testkit.Principal(t, "kavya@vardhan.test"),
 		deepak: testkit.Principal(t, "deepak@vardhan.test"),
 	}
 }
@@ -263,12 +270,13 @@ var behaviours = []struct {
 	{"OtherDocTypeRulesIgnored", otherDocType},                 // APR-022
 	{"Threshold_AtAndAboveFromAmount", threshold},              // APR-017, APR-018
 	{"HighestThresholdWins", highestWins},                      // APR-021
-	{"EligibleApproverPasses", eligiblePasses},                 // APR-029, APR-032
+	{"EligibleApprover_CheckedLive", eligiblePasses},           // APR-029, APR-032, APR-041, APR-042
 	{"NonApproverRefused", nonApprover},                        // APR-030, APR-061
 	{"LowerTierRefused", lowerTier},                            // APR-033
-	{"SelfApprovalBlocked", selfApproval},                      // APR-035, APR-036, APR-061
+	{"SelfApprovalBlocked", selfApproval},                      // APR-035, APR-036, APR-037, APR-061
 	{"NoOtherApproverRefusesSubmit", noOtherApprover},          // APR-040
 	{"ReportingManagerApproves", reportingManager},             // APR-044, APR-045
+	{"ManagerFallbackAndHigherClaimRule", managerFallback},     // APR-047, APR-048, APR-051
 	{"DecisionClosesRequest", decisionCloses},                  // APR-071, APR-029
 	{"FirstDecisionWins_RejectThenApprove", rejectThenApprove}, // APR-071, APR-060
 	{"RejectReasonRequired", reasonRequired},                   // APR-058
@@ -355,15 +363,25 @@ func highestWins(c *contract) {
 	wantReq(t, "Evaluate ₹6,00,000.00", req, true, c.r2, []string{"Director"}, 0, Rs(6_00_000), c.priya.ID)
 }
 
-// APR-029, APR-032: the rule's role holder and a higher-tier holder pass;
-// the role holder's approve is recorded.
+// APR-029, APR-032: the rule's role holder and a higher-tier holder pass.
+// APR-041, APR-042: eligibility is read at action time, not at submit: a role
+// given after submit lets Kavya approve, a role removed or a user disabled
+// after submit is refused; the new role holder's approve is recorded.
 func eligiblePasses(c *contract) {
 	t := c.t
 	c.orderRules()
 	c.mustPending(Order, 42, Rs(60_000), c.priya, c.priya)
 	wantOK(t, "CheckApprover Ravi (Purchase Manager)", c.check(c.ravi, Order, 42))
 	wantOK(t, "CheckApprover Meena (Director, higher tier)", c.check(c.meena, Order, 42))
-	wantOK(t, "approve by Ravi", c.decide(Order, 42, doctype.ActionApprove, c.ravi, ""))
+	const msg = "Only a user with the Purchase Manager or Director role can approve Draft 42 (₹60,000.00)."
+	wantRefused(t, "CheckApprover Kavya before the role", c.check(c.kavya, Order, 42), approval.ErrNotEligible, msg, true)
+	c.s.GrantRole(t, c.kavya.ID, "Purchase Manager")
+	wantOK(t, "CheckApprover Kavya given Purchase Manager after submit", c.check(c.kavya, Order, 42))
+	c.s.RemoveRole(t, c.ravi.ID, "Purchase Manager")
+	wantRefused(t, "CheckApprover Ravi after his role is removed", c.check(c.ravi, Order, 42), approval.ErrNotEligible, msg, true)
+	c.s.Disable(t, c.meena.ID)
+	wantRefused(t, "CheckApprover Meena disabled", c.check(c.meena, Order, 42), approval.ErrNotEligible, msg, true)
+	wantOK(t, "approve by Kavya", c.decide(Order, 42, doctype.ActionApprove, c.kavya, ""))
 }
 
 // APR-030, APR-061: a user without the role is refused at CheckApprover, and
@@ -389,9 +407,10 @@ func lowerTier(c *contract) {
 	wantOK(t, "CheckApprover Meena", c.check(c.meena, Order, 50))
 }
 
-// APR-035, APR-036, APR-061: the requester (and creator) holding the role is
-// blocked from approving and rejecting at CheckApprover and at Record; another
-// holder may approve.
+// APR-035, APR-036, APR-037, APR-061: the requester, the creator and the
+// claimant, each on their own, holding an approver role are blocked from
+// approving and rejecting at CheckApprover and at Record; another holder may
+// approve.
 func selfApproval(c *contract) {
 	t := c.t
 	c.orderRules()
@@ -406,6 +425,20 @@ func selfApproval(c *contract) {
 	c.mustPending(Order, 44, Rs(70_000), c.priya, c.ravi)
 	wantRefused(t, "CheckApprover Ravi as submitter", c.check(c.ravi, Order, 44), approval.ErrSelfApproval, msg, true)
 	wantOK(t, "CheckApprover Meena", c.check(c.meena, Order, 44))
+	// APR-036: created by Ravi, submitted by Priya → still Ravi's own.
+	c.mustPending(Order, 45, Rs(70_000), c.ravi, c.priya)
+	wantRefused(t, "CheckApprover Ravi as creator", c.check(c.ravi, Order, 45), approval.ErrSelfApproval, msg, true)
+	wantOK(t, "CheckApprover Meena on Draft 45", c.check(c.meena, Order, 45))
+	// APR-037: Anil enters and submits Claim Draft 12 for EMP-003 Ravi
+	// (manager Meena); Ravi, given the fallback role Director, is the claimant.
+	c.s.SetRules(t, Claim, managerRule(0, "Director"))
+	c.s.GrantRole(t, c.ravi.ID, "Director")
+	c.s.NewDoc(t, Claim, 12, Rs(2_000), c.anil, ForEmployee("EMP-003"))
+	_, err := c.submit(Claim, 12, Rs(2_000), c.anil)
+	MustOK(t, err)
+	wantRefused(t, "CheckApprover Ravi as claimant", c.check(c.ravi, Claim, 12),
+		approval.ErrSelfApproval, "You can't approve your own Expense Claim. Ask another Director to approve it.", true)
+	wantOK(t, "CheckApprover Meena (manager) on Claim 12", c.check(c.meena, Claim, 12))
 }
 
 // APR-040: the only Purchase Manager submits under a Purchase Manager-only
@@ -431,6 +464,30 @@ func reportingManager(c *contract) {
 	wantOK(t, "CheckApprover Priya (manager)", c.check(c.priya, Claim, 10))
 	wantRefused(t, "CheckApprover Anil", c.check(c.anil, Claim, 10),
 		approval.ErrNotEligible, "Only Priya Shah or a user with the Director role can approve Draft 10 (₹3,450.00).", true)
+}
+
+// APR-051: above E2 (₹25,000.00 → Director) the request uses E2, not the
+// manager. APR-047: Anil (EMP-001) has no manager → no designated user, the
+// fallback role Director. APR-048: Deepak's manager Priya disabled → the same.
+func managerFallback(c *contract) {
+	t := c.t
+	ids := c.s.SetRules(t, Claim, managerRule(0, "Director"), roleRule(Claim, Rs(25_000), "Director"))
+	req := c.mustPending(Claim, 13, Rs(30_000), c.deepak, c.deepak)
+	wantReq(t, "Evaluate ₹30,000.00 claim", req, true, ids[1], []string{"Director"}, 0, Rs(30_000), c.deepak.ID)
+	wantRefused(t, "CheckApprover Priya (manager) on Draft 13", c.check(c.priya, Claim, 13),
+		approval.ErrNotEligible, "Only a user with the Director role can approve Draft 13 (₹30,000.00).", true)
+	wantOK(t, "CheckApprover Meena on Draft 13", c.check(c.meena, Claim, 13))
+
+	req = c.mustPending(Claim, 20, Rs(2_000), c.anil, c.anil)
+	wantReq(t, "Evaluate Anil's claim", req, true, ids[0], []string{"Director"}, 0, Rs(2_000), c.anil.ID)
+	wantOK(t, "CheckApprover Meena on Draft 20", c.check(c.meena, Claim, 20))
+
+	c.s.Disable(t, c.priya.ID)
+	req = c.mustPending(Claim, 11, Rs(3_450), c.deepak, c.deepak)
+	wantReq(t, "Evaluate with Priya disabled", req, true, ids[0], []string{"Director"}, 0, Rs(3_450), c.deepak.ID)
+	wantRefused(t, "CheckApprover Anil on Draft 11", c.check(c.anil, Claim, 11),
+		approval.ErrNotEligible, "Only a user with the Director role can approve Draft 11 (₹3,450.00).", true)
+	wantOK(t, "CheckApprover Meena on Draft 11", c.check(c.meena, Claim, 11))
 }
 
 // APR-071: after Ravi's approve, every later decision on the request is
@@ -505,9 +562,16 @@ func withdrawOutside(c *contract) {
 	t := c.t
 	c.orderRules()
 	c.s.NewDoc(t, Order, 44, Rs(60_000), c.priya)
-	// In DOC's order: the draft is written as draft, then Record(withdraw).
-	wantRefused(t, "withdraw of a draft", c.back(Order, 44, doctype.ActionWithdraw, c.priya),
+	// DOC's guard refuses a withdraw from draft before Record (APR-094), so
+	// APR's own refusal is checked on the draft as it is.
+	wantRefused(t, "Record(withdraw) on a draft", c.record(Order, 44, doctype.ActionWithdraw, c.priya, ""),
 		approval.ErrNotPending, "Draft 44 is not waiting for approval. It is Draft.", false)
+	// APR-055: rejected directly, not by a person's decision.
+	c.s.NewDoc(t, Order, 46, Rs(60_000), c.priya, InState(doctype.StateRejected, ""))
+	const rejected = "Draft 46 is not waiting for approval. It is Rejected."
+	wantRefused(t, "Record(withdraw) on a rejected draft", c.record(Order, 46, doctype.ActionWithdraw, c.priya, ""), approval.ErrNotPending, rejected, false)
+	wantRefused(t, "Record(approve) on a rejected draft", c.record(Order, 46, doctype.ActionApprove, c.ravi, ""), approval.ErrNotPending, rejected, false)
+	wantRefused(t, "CheckApprover on a rejected draft", c.check(c.ravi, Order, 46), approval.ErrNotPending, rejected, false)
 	// APR-057: approved directly, not by a person's decision.
 	c.s.NewDoc(t, Order, 45, Rs(60_000), c.priya)
 	MustOK(t, c.write(func(ctx context.Context, tx *db.Tx) error {
@@ -530,7 +594,7 @@ func revise(c *contract) {
 	req, err := c.submit(Order, 42, Rs(60_000), c.priya)
 	MustOK(t, err)
 	wantReq(t, "re-submit", req, true, c.r1, []string{"Purchase Manager", "Director"}, 0, Rs(60_000), c.priya.ID)
-	// APR-067: the fresh request refuses Priya, its requester; she holds no
+	// APR-030, APR-061 on the fresh request: Priya, its requester, holds no
 	// approver role, so the message is the not-eligible one (APR-035 needs the role).
 	wantRefused(t, "CheckApprover Priya on the fresh request", c.check(c.priya, Order, 42),
 		approval.ErrNotEligible, "Only a user with the Purchase Manager or Director role can approve Draft 42 (₹60,000.00).", true)
@@ -615,9 +679,24 @@ func (s envSetup) SetRules(t testing.TB, dt string, rules ...approval.RuleInput)
 	return ids
 }
 
-func (s envSetup) NewDoc(t testing.TB, dt string, id int64, amount types.Money, creator auth.Principal) {
+func (s envSetup) NewDoc(t testing.TB, dt string, id int64, amount types.Money, creator auth.Principal, opts ...DocOpt) {
 	t.Helper()
-	s.e.NewDoc(t, dt, id, amount, creator)
+	s.e.NewDoc(t, dt, id, amount, creator, opts...)
+}
+
+func (s envSetup) GrantRole(t testing.TB, u auth.UserID, role string) {
+	t.Helper()
+	s.e.Auth.AddRole(u, role)
+}
+
+func (s envSetup) RemoveRole(t testing.TB, u auth.UserID, role string) {
+	t.Helper()
+	s.e.RemoveRole(t, u, role)
+}
+
+func (s envSetup) Disable(t testing.TB, u auth.UserID) {
+	t.Helper()
+	s.e.Disable(t, u)
 }
 
 func (s envSetup) SetState(ctx context.Context, tx *db.Tx, dt string, id int64, state doctype.State, number string) error {
