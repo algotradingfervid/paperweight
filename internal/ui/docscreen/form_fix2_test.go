@@ -215,49 +215,71 @@ func TestCheckPage_NoLinesItemsNeedsAttention(t *testing.T) {
 }
 
 // Spec R8: DOC's no-lines error (Field "lines", Line 0) sends the user to
-// the Items step, and its error summary link lands on an element there.
+// the Items step, and its error summary link lands on an element there: the
+// line editor when the draft has lines, else the step heading.
 func TestSubmit_LinesErrorLinksToLineEditor(t *testing.T) {
 	const msg = "Add at least one line."
-	for _, hx := range []bool{true, false} {
-		t.Run(map[bool]string{true: "htmx", false: "plain"}[hx], func(t *testing.T) {
-			e := newFormEnv(t, allRights...)
-			rec := sampleRecord()
-			rec.Lines = nil
-			docscreentest.Seed(e.docs, sampleInfo(42, doctype.StateDraft), rec)
-			invalid := statusErr{status: http.StatusUnprocessableEntity, msg: "Fix the highlighted fields and save again.",
-				fields: []doctype.FieldError{{Field: "lines", Line: 0, Message: msg}}}
-			e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSubmit, doc.Result{}, invalid)
-
-			var hdr []string
-			if hx {
-				hdr = []string{"HX-Request", "true"}
-			}
-			res := e.post(t, doc42+"/submit", nil, hdr...)
-			if res.Code != http.StatusUnprocessableEntity {
-				t.Fatalf("status = %d, want 422; body %.300s", res.Code, res.Body)
-			}
-			page := uitest.Doc(t, res)
-			if got := norm(page.Find("h1#step-title").Text()); got != "Items" {
-				t.Errorf("heading = %q, want Items", got)
-			}
-			link := page.Find(".error-summary a").FilterFunction(func(_ int, s *goquery.Selection) bool {
-				return norm(s.Text()) == msg
+	cases := []struct {
+		name  string
+		lines bool
+		href  string
+	}{
+		{"with lines", true, "#line-editor"},
+		{"no lines", false, "#step-title"},
+	}
+	for _, c := range cases {
+		for _, hx := range []bool{true, false} {
+			t.Run(c.name+"/"+map[bool]string{true: "htmx", false: "plain"}[hx], func(t *testing.T) {
+				testLinesErrorLink(t, msg, c.lines, c.href, hx)
 			})
-			if link.Length() != 1 {
-				t.Fatalf("error summary has %d links reading %q, want 1", link.Length(), msg)
-			}
-			href, _ := link.Attr("href")
-			id, ok := strings.CutPrefix(href, "#")
-			if !ok || id == "" {
-				t.Fatalf("link href = %q, want a #fragment", href)
-			}
-			dest := page.Find("#wizard").Find(`[id="` + id + `"]`)
-			if dest.Length() != 1 {
-				t.Fatalf("link href %q: %d elements in #wizard have id %q, want 1", href, dest.Length(), id)
-			}
-			if dest.Closest(".error-summary").Length() != 0 {
-				t.Errorf("link href %q points into the error summary itself", href)
-			}
-		})
+		}
+	}
+}
+
+func testLinesErrorLink(t *testing.T, msg string, lines bool, wantHref string, hx bool) {
+	e := newFormEnv(t, allRights...)
+	rec := sampleRecord()
+	if !lines {
+		rec.Lines = nil
+	} else if len(rec.Lines) == 0 {
+		t.Fatal("sampleRecord has no lines")
+	}
+	docscreentest.Seed(e.docs, sampleInfo(42, doctype.StateDraft), rec)
+	invalid := statusErr{status: http.StatusUnprocessableEntity, msg: "Fix the highlighted fields and save again.",
+		fields: []doctype.FieldError{{Field: "lines", Line: 0, Message: msg}}}
+	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSubmit, doc.Result{}, invalid)
+
+	var hdr []string
+	if hx {
+		hdr = []string{"HX-Request", "true"}
+	}
+	res := e.post(t, doc42+"/submit", nil, hdr...)
+	if res.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body %.300s", res.Code, res.Body)
+	}
+	page := uitest.Doc(t, res)
+	if got := norm(page.Find("h1#step-title").Text()); got != "Items" {
+		t.Errorf("heading = %q, want Items", got)
+	}
+	link := page.Find(".error-summary a").FilterFunction(func(_ int, s *goquery.Selection) bool {
+		return norm(s.Text()) == msg
+	})
+	if link.Length() != 1 {
+		t.Fatalf("error summary has %d links reading %q, want 1", link.Length(), msg)
+	}
+	href, _ := link.Attr("href")
+	if href != wantHref {
+		t.Errorf("link href = %q, want %q", href, wantHref)
+	}
+	id, ok := strings.CutPrefix(href, "#")
+	if !ok || id == "" {
+		t.Fatalf("link href = %q, want a #fragment", href)
+	}
+	dest := page.Find("#wizard").Find(`[id="` + id + `"]`)
+	if dest.Length() != 1 {
+		t.Fatalf("link href %q: %d elements in #wizard have id %q, want 1", href, dest.Length(), id)
+	}
+	if dest.Closest(".error-summary").Length() != 0 {
+		t.Errorf("link href %q points into the error summary itself", href)
 	}
 }
