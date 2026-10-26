@@ -518,7 +518,7 @@ func TestAddress_UpdateRefusesPrimaryOnDisabled(t *testing.T) {
 
 			in.PrimaryBilling, in.PrimaryShipping = billing, !billing
 			_, err := s.Update(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, in)
-			addrWantHas(t, err, m5EnableFirstMsg)
+			m5WantField(t, err, "disabled", m5EnableFirstMsg)
 			if a := addrGet(t, env.DB, s, id); a.PrimaryBilling || a.PrimaryShipping || !a.Disabled {
 				t.Errorf("after refusal: %s {PrimaryBilling %v, PrimaryShipping %v, Disabled %v}; want {false, false, true}",
 					in.Title, a.PrimaryBilling, a.PrimaryShipping, a.Disabled)
@@ -531,34 +531,169 @@ func TestAddress_UpdateRefusesPrimaryOnDisabled(t *testing.T) {
 }
 
 // TestAddress_DisabledNotPromotedAutomatically pins CD-180 D2 on the
-// first-of-type promotion: ticking Shipping on a disabled address of a party
-// with no shipping address saves without making it primary shipping.
+// first-of-type promotion. Shipping: ticking Shipping on a disabled address
+// of a party with no shipping address saves without making it primary
+// shipping. Billing: disabling an Unregistered party's primary billing
+// address clears the flag and promotes nothing, and a later edit of the
+// disabled address saves without making it primary billing again.
 func TestAddress_DisabledNotPromotedAutomatically(t *testing.T) {
+	t.Run("shipping", func(t *testing.T) {
+		env := msttest.New(t)
+		ctx := context.Background()
+		s := address.New(env.Kit)
+		corom := addrParty(t, env, addrCoromCode, addrCoromName, "", gstin.Unregistered)
+		addrCreate(t, env, s, addrChennai(corom))
+		godown := addrChennai(corom)
+		godown.Title, godown.Line1 = "Chennai godown", "8 Ambattur Industrial Estate"
+		id := addrCreate(t, env, s, godown)
+		if a := addrGet(t, env.DB, s, id); a.PrimaryBilling {
+			t.Fatal("Chennai godown: PrimaryBilling = true; want false (second billing address)")
+		}
+		if err := s.SetDisabled(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, true); err != nil {
+			t.Fatalf("SetDisabled(Chennai godown) = %v; want nil", err)
+		}
+
+		godown.IsShipping = true
+		if _, err := s.Update(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, godown); err != nil {
+			t.Fatalf("Update(disabled Chennai godown, tick Shipping) = %v; want nil", err)
+		}
+		a := addrGet(t, env.DB, s, id)
+		if !a.IsShipping || a.PrimaryShipping || a.PrimaryBilling || !a.Disabled {
+			t.Errorf("Chennai godown {IsShipping %v, PrimaryShipping %v, PrimaryBilling %v, Disabled %v}; want {true, false, false, true}",
+				a.IsShipping, a.PrimaryShipping, a.PrimaryBilling, a.Disabled)
+		}
+		m5HoldsAll(t, env, "after the update")
+	})
+	t.Run("billing", func(t *testing.T) {
+		env := msttest.New(t)
+		ctx := context.Background()
+		s := address.New(env.Kit)
+		corom := addrParty(t, env, addrCoromCode, addrCoromName, "", gstin.Unregistered)
+		chennaiIn := addrChennai(corom)
+		chennai := addrCreate(t, env, s, chennaiIn)
+		godownIn := addrChennai(corom)
+		godownIn.Title, godownIn.Line1 = "Chennai godown", "8 Ambattur Industrial Estate"
+		godown := addrCreate(t, env, s, godownIn)
+		if !addrGet(t, env.DB, s, chennai).PrimaryBilling || addrGet(t, env.DB, s, godown).PrimaryBilling {
+			t.Fatal("want Chennai primary billing and Chennai godown not (second billing address)")
+		}
+
+		if err := s.SetDisabled(ctx, env.Kavya, chennai, addrGet(t, env.DB, s, chennai).Version, true); err != nil {
+			t.Fatalf("SetDisabled(Chennai, COROM Unregistered) = %v; want nil", err)
+		}
+		if a := addrGet(t, env.DB, s, chennai); a.PrimaryBilling || !a.Disabled {
+			t.Errorf("after disable: Chennai {PrimaryBilling %v, Disabled %v}; want {false, true} (flag cleared)", a.PrimaryBilling, a.Disabled)
+		}
+		if addrGet(t, env.DB, s, godown).PrimaryBilling {
+			t.Error("after disable: Chennai godown PrimaryBilling = true; want false (nothing promoted)")
+		}
+		m5HoldsAll(t, env, "after disabling Chennai")
+
+		chennaiIn.Line2 = "Near Kathipara Junction"
+		if _, err := s.Update(ctx, env.Kavya, chennai, addrGet(t, env.DB, s, chennai).Version, chennaiIn); err != nil {
+			t.Fatalf("Update(disabled Chennai, change Line2) = %v; want nil", err)
+		}
+		a := addrGet(t, env.DB, s, chennai)
+		if a.Line2 != chennaiIn.Line2 || a.PrimaryBilling || !a.Disabled {
+			t.Errorf("Chennai {Line2 %q, PrimaryBilling %v, Disabled %v}; want {%q, false, true}",
+				a.Line2, a.PrimaryBilling, a.Disabled, chennaiIn.Line2)
+		}
+		if addrGet(t, env.DB, s, godown).PrimaryBilling {
+			t.Error("after the update: Chennai godown PrimaryBilling = true; want false (nothing promoted)")
+		}
+		if n := addrPrimaryCount(t, env.DB, corom, "is_primary_billing"); n != 0 {
+			t.Errorf("after the update: COROM has %d primary billing addresses; want 0", n)
+		}
+		m5HoldsAll(t, env, "after the update")
+	})
+}
+
+// m5Branch sets up the company with one branch, PUNE, and returns its id.
+func m5Branch(t *testing.T, env *msttest.Env) int64 {
+	t.Helper()
+	ctx := context.Background()
+	cs := company.New(env.Kit)
+	if err := cs.SaveCompany(ctx, env.Kavya, company.CompanyInput{LegalName: "Vardhan Infra Projects Pvt Ltd", PAN: "AAFCV2449G"}, 0); err != nil {
+		t.Fatalf("SaveCompany: %v", err)
+	}
+	b, err := cs.Create(ctx, env.Kavya, company.BranchInput{Code: "PUNE", Name: "Pune Works", StateCode: "27", GSTIN: "27AAFCV2449G1Z7", IsHeadOffice: true})
+	if err != nil {
+		t.Fatalf("create branch PUNE: %v", err)
+	}
+	return b.ID
+}
+
+// TestAddress_BranchDisabledNeverPrimary pins CD-180 D2 on branch addresses,
+// where the party post-state check doesn't run: SetPrimary and Update asking
+// PrimaryBilling or PrimaryShipping on a disabled branch address are refused
+// on disabled, and the first-of-type promotion skips a disabled one.
+func TestAddress_BranchDisabledNeverPrimary(t *testing.T) {
 	env := msttest.New(t)
 	ctx := context.Background()
 	s := address.New(env.Kit)
-	corom := addrParty(t, env, addrCoromCode, addrCoromName, "", gstin.Unregistered)
-	addrCreate(t, env, s, addrChennai(corom))
-	godown := addrChennai(corom)
-	godown.Title, godown.Line1 = "Chennai godown", "8 Ambattur Industrial Estate"
-	id := addrCreate(t, env, s, godown)
-	if a := addrGet(t, env.DB, s, id); a.PrimaryBilling {
-		t.Fatal("Chennai godown: PrimaryBilling = true; want false (second billing address)")
+	branch := m5Branch(t, env)
+	worksIn := address.Input{BranchID: branch, Title: "Pune works", Line1: "Plot 7, Chakan MIDC", City: "Pune",
+		StateCode: "27", Country: "India", Pincode: "410501", IsBilling: true, IsShipping: true}
+	godownIn := worksIn
+	godownIn.Title, godownIn.Line1, godownIn.Pincode = "Pune godown", "Gala 3, Bhosari MIDC", "411026"
+	works := addrCreate(t, env, s, worksIn)
+	godown := addrCreate(t, env, s, godownIn)
+	if a := addrGet(t, env.DB, s, works); !a.PrimaryBilling || !a.PrimaryShipping {
+		t.Fatalf("Pune works {PrimaryBilling %v, PrimaryShipping %v}; want {true, true} (first of each type)", a.PrimaryBilling, a.PrimaryShipping)
 	}
-	if err := s.SetDisabled(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, true); err != nil {
-		t.Fatalf("SetDisabled(Chennai godown) = %v; want nil", err)
+	if err := s.SetDisabled(ctx, env.Kavya, godown, addrGet(t, env.DB, s, godown).Version, true); err != nil {
+		t.Fatalf("SetDisabled(Pune godown) = %v; want nil (not primary)", err)
 	}
 
-	godown.IsShipping = true
-	if _, err := s.Update(ctx, env.Kavya, id, addrGet(t, env.DB, s, id).Version, godown); err != nil {
-		t.Fatalf("Update(disabled Chennai godown, tick Shipping) = %v; want nil", err)
+	// want checks both addresses' primary flags and that no disabled
+	// address is primary.
+	want := func(when string, worksPrimary bool) {
+		t.Helper()
+		if a := addrGet(t, env.DB, s, godown); a.PrimaryBilling || a.PrimaryShipping || !a.Disabled {
+			t.Errorf("%s: Pune godown {PrimaryBilling %v, PrimaryShipping %v, Disabled %v}; want {false, false, true}",
+				when, a.PrimaryBilling, a.PrimaryShipping, a.Disabled)
+		}
+		if a := addrGet(t, env.DB, s, works); a.PrimaryBilling != worksPrimary || a.PrimaryShipping != worksPrimary {
+			t.Errorf("%s: Pune works {PrimaryBilling %v, PrimaryShipping %v}; want {%v, %v}",
+				when, a.PrimaryBilling, a.PrimaryShipping, worksPrimary, worksPrimary)
+		}
+		m5HoldsAll(t, env, when)
 	}
-	a := addrGet(t, env.DB, s, id)
-	if !a.IsShipping || a.PrimaryShipping || a.PrimaryBilling || !a.Disabled {
-		t.Errorf("Chennai godown {IsShipping %v, PrimaryShipping %v, PrimaryBilling %v, Disabled %v}; want {true, false, false, true}",
-			a.IsShipping, a.PrimaryShipping, a.PrimaryBilling, a.Disabled)
+
+	for _, billing := range []bool{true, false} {
+		err := addrSetPrimary(env, s, godown, billing, addrGet(t, env.DB, s, godown).Version)
+		m5WantField(t, err, "disabled", m5EnableFirstMsg)
+		want(fmt.Sprintf("after SetPrimary(disabled Pune godown, billing %v)", billing), true)
+
+		in := godownIn
+		in.PrimaryBilling, in.PrimaryShipping = billing, !billing
+		_, err = s.Update(ctx, env.Kavya, godown, addrGet(t, env.DB, s, godown).Version, in)
+		m5WantField(t, err, "disabled", m5EnableFirstMsg)
+		want(fmt.Sprintf("after Update(disabled Pune godown, PrimaryBilling %v, PrimaryShipping %v)", billing, !billing), true)
 	}
-	m5HoldsAll(t, env, "after the update")
+
+	if err := s.SetDisabled(ctx, env.Kavya, works, addrGet(t, env.DB, s, works).Version, true); err != nil {
+		t.Fatalf("SetDisabled(Pune works) = %v; want nil", err)
+	}
+	if a := addrGet(t, env.DB, s, works); !a.Disabled {
+		t.Error("after SetDisabled: Pune works Disabled = false; want true")
+	}
+	want("after disabling Pune works", false)
+
+	godownIn.Line2 = "Behind the weighbridge"
+	if _, err := s.Update(ctx, env.Kavya, godown, addrGet(t, env.DB, s, godown).Version, godownIn); err != nil {
+		t.Fatalf("Update(disabled Pune godown, change Line2) = %v; want nil", err)
+	}
+	if a := addrGet(t, env.DB, s, godown); a.Line2 != godownIn.Line2 {
+		t.Errorf("after Update: Pune godown Line2 = %q; want %q", a.Line2, godownIn.Line2)
+	}
+	want("after Update(disabled Pune godown) with no primary of either type", false)
+
+	worksIn.Line2 = "Gate 2"
+	if _, err := s.Update(ctx, env.Kavya, works, addrGet(t, env.DB, s, works).Version, worksIn); err != nil {
+		t.Fatalf("Update(disabled Pune works, change Line2) = %v; want nil", err)
+	}
+	want("after Update(disabled Pune works) with no primary of either type", false)
 }
 
 // TestAddress_StaleVersionBeforeM5 pins CD-180 D4: SetDisabled and Delete

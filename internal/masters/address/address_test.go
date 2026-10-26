@@ -562,7 +562,7 @@ func TestAddress_SetPrimaryRefusesDisabled(t *testing.T) {
 	}
 
 	err := addrSetPrimary(env, s, puneID, true, addrGet(t, env.DB, s, puneID).Version)
-	addrWantHas(t, err, msg)
+	m5WantField(t, err, "disabled", msg)
 	if addrGet(t, env.DB, s, puneID).PrimaryBilling {
 		t.Error("after refusal: Pune PrimaryBilling = true; want false")
 	}

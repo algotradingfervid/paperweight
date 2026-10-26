@@ -152,28 +152,57 @@ func TestParty_PANMatchesAddressGSTIN(t *testing.T) {
 	}
 }
 
-// TestParty_BlankCategoryGuessedFromPrimaryBilling pins M5 / MST-035: a party
-// saved with a blank category takes the category guessed from its primary
-// billing address's GSTIN (a blank category is not "keep the old one").
+// TestParty_BlankCategoryGuessedFromPrimaryBilling pins M5 / MST-035 on a
+// party update with a blank category (AD-5 ruling): the category is guessed
+// from the primary billing address's GSTIN with the stored category as the
+// current one, so a stored Composition or SEZ is kept for a regular-pattern
+// GSTIN, and a stored Unregistered becomes Registered Regular.
 // A party without addresses keeps its category (TestParty_BlankCategoryKeptOnUpdate).
 func TestParty_BlankCategoryGuessedFromPrimaryBilling(t *testing.T) {
-	env := msttest.New(t)
-	ctx := context.Background()
-	s := address.New(env.Kit)
-	ps := party.New(env.Kit)
-	shree := addrParty(t, env, addrShreeCode, addrShreeName, addrShreePAN, gstin.Composition)
-	addrCreate(t, env, s, addrMumbai(shree))
-	before := addrPartyGet(t, env.DB, ps, shree)
-	if before.GSTCategory != gstin.Composition {
-		t.Fatalf("after Mumbai address: GSTCategory = %q; want %q (a user's registered category is kept)", before.GSTCategory, gstin.Composition)
-	}
+	for _, tc := range []struct {
+		stored, want gstin.Category
+	}{
+		{gstin.Composition, gstin.Composition},
+		{gstin.SEZ, gstin.SEZ},
+		{gstin.Unregistered, gstin.Regular},
+	} {
+		t.Run(string(tc.stored), func(t *testing.T) {
+			env := msttest.New(t)
+			ctx := context.Background()
+			s := address.New(env.Kit)
+			ps := party.New(env.Kit)
+			cat := tc.stored
+			if cat == gstin.Unregistered {
+				cat = gstin.Regular
+			}
+			shree := addrParty(t, env, addrShreeCode, addrShreeName, addrShreePAN, cat)
+			addrCreate(t, env, s, addrMumbai(shree))
+			if cat != tc.stored {
+				// No public write leaves an Unregistered party with a GSTIN
+				// on its primary billing address (MST-034, MST-049), so the
+				// stored category is set directly.
+				if err := env.DB.Write(ctx, func(tx *db.Tx) error {
+					_, err := tx.SQL().ExecContext(ctx, "UPDATE party SET gst_category = ? WHERE id = ?", string(tc.stored), shree)
+					return err
+				}); err != nil {
+					t.Fatalf("set SHREE category %s: %v", tc.stored, err)
+				}
+			}
+			before := addrPartyGet(t, env.DB, ps, shree)
+			if before.GSTCategory != tc.stored {
+				t.Fatalf("after Mumbai address: GSTCategory = %q; want %q", before.GSTCategory, tc.stored)
+			}
 
-	in := party.Input{Code: addrShreeCode, Name: addrShreeName, IsVendor: true, PAN: addrShreePAN}
-	if _, err := ps.Update(ctx, env.Kavya, shree, before.Version, in); err != nil {
-		t.Fatalf("Update(SHREE, blank category) = %v; want nil", err)
-	}
-	if p := addrPartyGet(t, env.DB, ps, shree); p.GSTCategory != gstin.Regular {
-		t.Errorf("after Update(blank category): GSTCategory = %q; want %q (guessed from %s)", p.GSTCategory, gstin.Regular, addrMumbaiGSTIN)
+			in := party.Input{Code: addrShreeCode, Name: addrShreeName, IsVendor: true, PAN: addrShreePAN}
+			if _, err := ps.Update(ctx, env.Kavya, shree, before.Version, in); err != nil {
+				t.Fatalf("Update(SHREE %s, blank category) = %v; want nil", tc.stored, err)
+			}
+			if p := addrPartyGet(t, env.DB, ps, shree); p.GSTCategory != tc.want {
+				t.Errorf("after Update(blank category): GSTCategory = %q; want %q (stored %q, primary billing %s)",
+					p.GSTCategory, tc.want, tc.stored, addrMumbaiGSTIN)
+			}
+			addrM5Holds(t, env, "after the update")
+		})
 	}
 }
 
