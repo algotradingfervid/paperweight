@@ -132,3 +132,4 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Hand idle workers to whatever is unblocked: contract suites, plan checks, tooling. Don't hold slots for a session whose lanes run one task at a time (CD-182).
 - An AD session can't resume finished crew workers ("No transcript found"); fix loops brief a fresh worker with the findings and exact scope.
 - macOS has no `timeout` command.
+- AD session transcripts in the worktree folders did not survive the overnight pause (only their tool-results folders remained), so `claude --resume` can't bring an AD back. Before any pause, each AD writes its full resume steps to `.work/ad-tasks.md`; a restart is a fresh AD session briefed from that file and PROGRESS "RESUME HERE" (26 Oct).
