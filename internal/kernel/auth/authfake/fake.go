@@ -175,7 +175,10 @@ func (f *Fake) UseDirectory(d auth.Directory) {
 }
 
 // AddUser adds or replaces a user; a zero Version starts at 1, as a new
-// user's does in the real service (CD-189).
+// user's does in the real service (CD-189). Only DisableUser and EnableUser
+// move Version; the seeding helpers AddRole, RemoveRole and Restrict don't,
+// unlike the real UpdateUser and ChangeRestrictions, so a test of "an admin
+// edited the user" uses disable/enable or the real service.
 func (f *Fake) AddUser(info auth.UserInfo) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -203,6 +203,7 @@ func (a *Auth) setEnabled(u auth.UserID, enabled bool) error {
 		return fmt.Errorf("fixturetest.Auth: no user %d", u)
 	}
 	info.Enabled = enabled
+	info.Version++ // the real SetUserEnabled bumps users.version (CD-189)
 	a.Users[u] = info
 	return nil
 }
