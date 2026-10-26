@@ -3,7 +3,6 @@ package docfake
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"slices"
 	"sync"
@@ -155,10 +154,6 @@ func copyRecord(r doc.Record) doc.Record {
 	return r
 }
 
-func notFound(dt string, id int64) error {
-	return fmt.Errorf("docfake: %s %d: %w", dt, id, doctype.ErrNotFound)
-}
-
 // Do records the call and returns the SetResult value, otherwise errs.ErrNotImplemented.
 func (f *Fake) Do(ctx context.Context, p auth.Principal, dt string, id int64, a doc.Action, in doc.ActionInput) (doc.Result, error) {
 	f.mu.Lock()
@@ -191,26 +186,28 @@ func (f *Fake) References(ctx context.Context, tx *db.Tx, table string, id int64
 	return slices.Clone(refs[:max(0, min(limit, len(refs)))]), nil
 }
 
-// Load returns a copy of the stored Record with the latest Info.
+// Load returns a copy of the stored Record with the latest Info; a missing
+// one is the engine's doc.Gone error.
 func (f *Fake) Load(ctx context.Context, tx *db.Tx, dt string, id int64) (doc.Record, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	k := docKey{dt, id}
 	r, ok := f.records[k]
 	if !ok {
-		return doc.Record{}, notFound(dt, id)
+		return doc.Record{}, doc.Gone()
 	}
 	r = copyRecord(r)
 	r.Info = copyInfo(f.infos[k])
 	return r, nil
 }
 
+// Info returns the stored Info; a missing one is the engine's doc.Gone error.
 func (f *Fake) Info(ctx context.Context, tx *db.Tx, dt string, id int64) (doctype.Info, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	info, ok := f.infos[docKey{dt, id}]
 	if !ok {
-		return doctype.Info{}, notFound(dt, id)
+		return doctype.Info{}, doc.Gone()
 	}
 	return copyInfo(info), nil
 }
