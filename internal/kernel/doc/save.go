@@ -28,7 +28,18 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	for i, l := range n.Lines {
 		d.Lines = append(d.Lines, Line{LineNo: i + 1, Values: l.Values})
 	}
-	if err := e.Auth.Can(ctx, p, dt.Name, "create", recordRef(dt, d)); err != nil {
+	// A restricted user's draft with its dimension empty would be invisible
+	// to them (a 404); it gets the Required errors instead, after a check of
+	// the right alone, and is never written (CD-178).
+	requiredErrs, err := e.restrictedRequired(ctx, tx, p, dt, &n)
+	if err != nil {
+		return Result{}, err
+	}
+	ref := recordRef(dt, d)
+	if len(requiredErrs) > 0 {
+		ref = nil
+	}
+	if err := e.Auth.Can(ctx, p, dt.Name, "create", ref); err != nil {
 		return Result{}, err
 	}
 	if err := e.checkRestrictions(ctx, tx, p, dt, &n); err != nil {
@@ -39,7 +50,7 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	if n.err != nil {
 		return Result{}, n.err
 	}
-	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs))
+	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs, requiredErrs))
 	if len(parseErrs) > 0 || len(readOnlyErrs) > 0 || missingLink(dt, &n) {
 		return Result{}, invalid(errs) // nothing written: a foreign key would fail
 	}
@@ -99,10 +110,14 @@ func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocT
 	if n.err != nil {
 		return Result{}, n.err
 	}
+	requiredErrs, err := e.restrictedRequired(ctx, tx, p, dt, &n)
+	if err != nil {
+		return Result{}, err
+	}
 	if pos := foreignLine(d, &n); pos > 0 {
 		return Result{}, Refused(fmt.Sprintf(msgForeignLine, pos))
 	}
-	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs))
+	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs, requiredErrs))
 	if len(parseErrs) > 0 || len(readOnlyErrs) > 0 || missingLink(dt, &n) {
 		return Result{}, invalid(errs) // nothing written: a foreign key would fail
 	}

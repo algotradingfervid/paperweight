@@ -220,27 +220,29 @@ func TestDoc_UnknownDocType(t *testing.T) {
 
 // Director carry-over (no DOC case ID): normalize's unreadable-value errors
 // and checkFields' errors are merged by position (header in field order, then
-// each line in field order), not appended as two lists.
+// each line in field order), not appended as two lists. CD-178: a draft
+// create skips Required, so the empty order_date and item_id give no error;
+// the checkFields errors here are MaxLen and Positive.
 func TestDoc_Create_FieldErrorsInPositionOrder(t *testing.T) {
 	h := fixturetest.New(t)
 	in := doc.ActionInput{
 		Values: map[string]string{
 			"supplier_id": fmt.Sprint(h.M.Party["SHREE"]),
-			"credit_days": "3O", // unreadable (normalize); order_date is missing (checkFields)
+			"remarks":     strings.Repeat("r", 501), // too long (checkFields); order_date is missing (no error on a draft)
+			"credit_days": "3O",                     // unreadable (normalize)
 		},
 		Lines: []map[string]string{
-			{"item_id": "", "qty": "12.5.3"}, // item required (checkFields), qty unreadable (normalize)
-			{"item_id": "", "qty": "5.000"},  // item required (checkFields)
+			{"item_id": "", "qty": "12.5.3"}, // item missing (no error on a draft), qty unreadable (normalize)
+			{"item_id": "", "qty": "0"},      // item missing (no error on a draft), qty not positive (checkFields)
 		},
 	}
 	_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, 0, doc.ActionSave, in)
 	de := wantDocErr(t, err, doc.KindInvalid, "")
 	want := []doc.FieldError{
-		{Field: "order_date", Message: "Order date is required."},
+		{Field: "remarks", Message: "Remarks can be at most 500 characters."},
 		{Field: "credit_days", Message: "Credit days isn't a valid value. Check it and try again."},
-		{Field: "item_id", Line: 1, Message: "Line 1: Item is required."},
 		{Field: "qty", Line: 1, Message: "Line 1: Quantity isn't a valid value. Check it and try again."},
-		{Field: "item_id", Line: 2, Message: "Line 2: Item is required."},
+		{Field: "qty", Line: 2, Message: "Line 2: Quantity must be more than 0."},
 	}
 	if diff := diffOf(want, de.Fields); diff != "" {
 		t.Errorf("Fields (want, got):\n%s", diff)

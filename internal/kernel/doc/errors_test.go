@@ -41,9 +41,11 @@ func lkHTTP(t *testing.T, err error, status int, msg string) doctype.HTTPError {
 func TestDoc_Errors_HTTPStatus(t *testing.T) {
 	t.Run("missing required field is 422 with field errors", func(t *testing.T) {
 		h := fixturetest.New(t)
-		_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, 0, doc.ActionSave, doc.ActionInput{Values: map[string]string{
+		// CD-178: the draft saves without a supplier; submit reports it.
+		res := h.MustDo(t, t.Context(), h.Priya, fixture.Order, 0, doc.ActionSave, doc.ActionInput{Values: map[string]string{
 			"project_id": lkID(h.M.Project["PRJ-METRO"]), "order_date": "2026-10-24", "amount": "0",
 		}})
+		_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
 		he := lkHTTP(t, err, 422, lkMsgFixFields)
 		fes := he.FieldErrors()
 		if len(fes) == 0 {

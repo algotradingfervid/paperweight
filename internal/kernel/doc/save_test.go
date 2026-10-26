@@ -151,7 +151,9 @@ func TestDoc_Save_IgnoresSystemFields(t *testing.T) {
 	}
 }
 
-// DOC-026
+// DOC-026. CD-178: a draft save skips Required, so on a save the core error
+// merged with the hook's is a non-Required one (credit_days out of range);
+// the missing supplier is merged with the hook's error on submit.
 func TestDoc_Validate_HookErrorsMerged(t *testing.T) {
 	h := fixturetest.New(t)
 	res := h.NewOrder(t, h.Priya, fixturetest.OL{Item: "MS-ANGLE-50", Qty: "10.000", Rate: "5.0000"})
@@ -162,27 +164,58 @@ func TestDoc_Validate_HookErrorsMerged(t *testing.T) {
 	ctx := fixture.WithProbe(t.Context(), probe)
 	in := h.In(before)
 	in.Values["supplier_id"] = ""
+	in.Values["credit_days"] = "400"
 	_, err := h.Do(t, ctx, h.Priya, fixture.Order, res.ID, doc.ActionSave, in)
 	de := wantDocErr(t, err, doc.KindInvalid, "Fix the highlighted fields and save again.")
 	want := []doc.FieldError{
-		{Field: "supplier_id", Line: 0, Message: "Supplier is required."},
+		{Field: "credit_days", Line: 0, Message: "Credit days must be between 0 and 365."},
 		{Field: "rate", Line: 1, Message: "Line 1: Rate must be more than 0."},
 	}
 	if diff := diffOf(want, de.Fields); diff != "" {
-		t.Errorf("Fields (want, got):\n%s", diff)
+		t.Errorf("save Fields (want, got):\n%s", diff)
 	}
 	var paths []string
 	for _, fe := range de.FieldErrors() {
 		paths = append(paths, fe.Path())
 	}
-	if diff := diffOf([]string{"supplier_id", "lines[1].rate"}, paths); diff != "" {
-		t.Errorf("paths (want, got):\n%s", diff)
+	if diff := diffOf([]string{"credit_days", "lines[1].rate"}, paths); diff != "" {
+		t.Errorf("save paths (want, got):\n%s", diff)
 	}
 	if diff := diffOf(before, loadDoc(t, h, fixture.Order, res.ID)); diff != "" {
 		t.Errorf("document changed by a failed save (before, after):\n%s", diff)
 	}
 	if n := h.AuditCount(t); n != count {
 		t.Errorf("AuditCount = %d, want %d", n, count)
+	}
+
+	// Submit: the draft saved without a supplier (CD-178), then the hook's
+	// error comes back together with the Required one.
+	blank := h.In(before)
+	blank.Values["supplier_id"] = ""
+	saved := saveDo(t, h, h.Priya, fixture.Order, res.ID, blank)
+	draft := loadDoc(t, h, fixture.Order, res.ID)
+	count = h.AuditCount(t)
+	_, err = h.Do(t, ctx, h.Priya, fixture.Order, res.ID, doc.ActionSubmit, doc.ActionInput{Version: saved.Version})
+	de = wantDocErr(t, err, doc.KindInvalid, "Fix the highlighted fields and save again.")
+	want = []doc.FieldError{
+		{Field: "supplier_id", Line: 0, Message: "Supplier is required."},
+		{Field: "rate", Line: 1, Message: "Line 1: Rate must be more than 0."},
+	}
+	if diff := diffOf(want, de.Fields); diff != "" {
+		t.Errorf("submit Fields (want, got):\n%s", diff)
+	}
+	paths = nil
+	for _, fe := range de.FieldErrors() {
+		paths = append(paths, fe.Path())
+	}
+	if diff := diffOf([]string{"supplier_id", "lines[1].rate"}, paths); diff != "" {
+		t.Errorf("submit paths (want, got):\n%s", diff)
+	}
+	if diff := diffOf(draft, loadDoc(t, h, fixture.Order, res.ID)); diff != "" {
+		t.Errorf("document changed by a failed submit (before, after):\n%s", diff)
+	}
+	if n := h.AuditCount(t); n != count {
+		t.Errorf("AuditCount = %d after a failed submit, want %d", n, count)
 	}
 }
 
@@ -202,8 +235,14 @@ func TestDoc_Validate_FailureWritesNothing(t *testing.T) {
 	in = h.In(d)
 	in.Values["supplier_id"] = fmt.Sprint(h.M.Party["BHARAT"])
 	in.Values["order_date"] = ""
+	// CD-178: the blank order_date alone no longer fails a draft save; the
+	// out-of-range credit_days does, and is the only error.
+	in.Values["credit_days"] = "400"
 	_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, res.ID, doc.ActionSave, in)
-	_ = wantDocErr(t, err, doc.KindInvalid, "")
+	de := wantDocErr(t, err, doc.KindInvalid, "")
+	if diff := diffOf([]doc.FieldError{{Field: "credit_days", Message: "Credit days must be between 0 and 365."}}, de.Fields); diff != "" {
+		t.Errorf("Fields (want, got):\n%s", diff)
+	}
 
 	after := loadDoc(t, h, fixture.Order, res.ID)
 	if got := after.Header["supplier_id"]; got != any(h.M.Party["SHREE"]) {
