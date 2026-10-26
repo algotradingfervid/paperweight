@@ -2,7 +2,7 @@
 
 GOLANGCI_LINT := bin/tools/golangci-lint
 
-.PHONY: generate build test e2e lint checkids ci
+.PHONY: generate build test e2e lint checkids covertouched ci
 
 # CD-45: go generate (CSS bundle and icons), then sqlc for every sqlc.yaml, then templ.
 # Generated files are committed.
@@ -31,6 +31,17 @@ lint:
 checkids:
 	@test -n "$(AREA)" || { echo "AREA is not set. Run: make checkids AREA=<AREA>"; exit 1; }
 	go run ./scripts/checktestids $(AREA) --exclude-level e2e
+
+# Touched-line coverage (CD-185). Usage: make covertouched BASE=<rev> PKGS=<pkgs>
+# -coverpkg takes the PKGS patterns comma-separated, so each package's code
+# counts as covered by any of the PKGS tests.
+comma := ,
+space := $(subst ,, )
+covertouched:
+	@test -n "$(BASE)" -a -n "$(PKGS)" || { echo "Run: make covertouched BASE=<rev> PKGS=./internal/<pkg>/..."; exit 1; }
+	@mkdir -p .work
+	go test -count=1 -coverpkg=$(subst $(space),$(comma),$(strip $(PKGS))) -coverprofile=.work/covertouched.out $(PKGS)
+	go run ./scripts/covertouched -base $(BASE) -profile .work/covertouched.out
 
 ci:
 	$(MAKE) generate
