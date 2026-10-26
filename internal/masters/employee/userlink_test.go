@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand/v2"
 	"strings"
 	"testing"
@@ -389,18 +390,27 @@ func TestEmployee_SetDisabledNoopChecksVersionAndRights(t *testing.T) {
 }
 
 // TestEmployee_UserLinkPropertyRandomWrites runs random public writes over
-// the fixture employees and users (fixed seed) and checks the user-link
-// invariants after every successful write, and that a refused write changes
-// nothing (CD-181).
+// the fixture employees and users (fixed seed), mixed with an Administrator
+// disabling or enabling a random user through auth.Service, and checks the
+// CD-185 user-link invariants after every step:
 //
-// Invariant (ii) exempts an employee created with status Left that has not
-// been Active since: CD-181 says such a create never touches users, so its
-// unlinked, enabled user stays enabled (TestEmployee_CreateLeftLeavesUsersAlone).
-func TestEmployee_UserLinkPropertyRandomWrites(t *testing.T) { // MST-111, MST-112, MST-119, CD-181
+//   - at most one Active employee per user (MST-111);
+//   - user_disabled_on_leave set ⇒ the employee is Left and has a user;
+//   - only the written employee's flag changes; a create never sets it; a
+//     leave sets it exactly when it found the user enabled, and disables the
+//     user; a re-join clears it and leaves the user enabled;
+//   - a user goes enabled → disabled only by the Administrator or by the
+//     written employee leaving, and disabled → enabled only by the
+//     Administrator or by the written employee re-joining with its flag set;
+//   - a re-join whose user is disabled while the flag is clear is refused;
+//   - an Active employee's user is disabled only when the Administrator
+//     disabled it (CD-185 allows that; nothing else may);
+//   - a refusal is a *mstkit.ValidationError and changes nothing.
+func TestEmployee_UserLinkPropertyRandomWrites(t *testing.T) { // MST-111, MST-112, MST-119, CD-185
 	ctx := context.Background()
 	w := newWorld(t)
 	w.seedFixtureEmployees(t)
-	rng := rand.New(rand.NewPCG(14, 181))
+	rng := rand.New(rand.NewPCG(14, 185))
 
 	// EMP-001 and EMP-006 hold the Administrator's and Kavya's users; a Left
 	// save would disable the acting user, so they and those users stay out.
@@ -409,12 +419,21 @@ func TestEmployee_UserLinkPropertyRandomWrites(t *testing.T) { // MST-111, MST-1
 		pool = append(pool, w.ids[c])
 	}
 	users := []auth.UserID{0, 2, 3, 4, 5, 7, 8, 999}
+	adminUsers := []auth.UserID{2, 3, 4, 5, 7, 8}
 	relieving := []types.Date{date(2025, time.January, 31), date(2026, time.March, 31), date(2026, time.October, 24)}
-	createdLeft := map[int64]bool{}
+	byAdmin := map[auth.UserID]bool{} // disabled by the Administrator's last change
 	var steps []string
 	failf := func(format string, args ...any) {
 		t.Helper()
 		t.Fatalf("%s\nsteps:\n%s", fmt.Sprintf(format, args...), strings.Join(steps, "\n"))
+	}
+	flagsNow := func() map[int64]bool {
+		t.Helper()
+		f, err := w.leaveFlags()
+		if err != nil {
+			failf("read user_disabled_on_leave: %v (CD-185 column)", err)
+		}
+		return f
 	}
 	pickManager := func(s snap) int64 {
 		if rng.IntN(3) == 0 {
@@ -435,14 +454,19 @@ func TestEmployee_UserLinkPropertyRandomWrites(t *testing.T) { // MST-111, MST-1
 		}
 	}
 
-	const n = 300
-	var ok [3]int
+	const n = 800
+	var ok [4]int
+	var bypassRefused, flagRejoins, leavesFound int
 	for step := range n {
-		before := w.snapshot(t)
-		var written int64
+		before, bflags := w.snapshot(t), flagsNow()
+		var written int64 // the employee written (0 for the Administrator step)
+		var created bool  // written is a new employee
+		var leaving, rejoining bool
+		var adminUser auth.UserID
+		var adminEnable bool
 		var desc string
 		var err error
-		op := rng.IntN(3)
+		op := []int{0, 0, 1, 1, 1, 1, 2, 2, 3}[rng.IntN(9)] // Create, Update, SetDisabled, Administrator
 		switch op {
 		case 0: // Create
 			in := w.input(fmt.Sprintf("EMP-%03d", 100+step), "Temp Staff")
@@ -451,11 +475,8 @@ func TestEmployee_UserLinkPropertyRandomWrites(t *testing.T) { // MST-111, MST-1
 			desc = fmt.Sprintf("Create(%s, %s, user %d, manager %d, relieving %v)", in.Code, in.Status, in.UserID, in.ManagerID, in.Relieving)
 			var s mstkit.Saved
 			if s, err = w.svc.Create(ctx, w.env.Kavya, in); err == nil {
-				written = s.ID
+				written, created = s.ID, true
 				pool = append(pool, s.ID)
-				if in.Status == employee.Left {
-					createdLeft[s.ID] = true
-				}
 			}
 		case 1: // Update
 			id := pool[rng.IntN(len(pool))]
@@ -482,65 +503,143 @@ func TestEmployee_UserLinkPropertyRandomWrites(t *testing.T) { // MST-111, MST-1
 					what = append(what, fmt.Sprintf("manager %d", in.ManagerID))
 				}
 			}
-			desc = fmt.Sprintf("Update(%s %s user %d → %s)", e.Code, e.Status, e.UserID, strings.Join(what, ", "))
+			desc = fmt.Sprintf("Update(%s %s user %d flag %v → %s)", e.Code, e.Status, e.UserID, bflags[id], strings.Join(what, ", "))
 			written = id
+			leaving = e.Status == employee.Active && in.Status == employee.Left
+			rejoining = e.Status == employee.Left && in.Status == employee.Active
+			if rejoining && in.UserID == e.UserID && e.UserID != 0 && !bflags[id] && !before.enabled[e.UserID] {
+				desc += " [bypass]"
+			}
 			_, err = w.svc.Update(ctx, w.env.Kavya, id, e.Version, in)
 		case 2: // SetDisabled
 			id := pool[rng.IntN(len(pool))]
 			e := w.get(t, id)
 			disabled := rng.IntN(2) == 0
-			desc = fmt.Sprintf("SetDisabled(%s %s user %d, %v)", e.Code, e.Status, e.UserID, disabled)
+			desc = fmt.Sprintf("SetDisabled(%s %s user %d flag %v, %v)", e.Code, e.Status, e.UserID, bflags[id], disabled)
 			written = id
+			leaving = e.Status == employee.Active && disabled
+			rejoining = e.Status == employee.Left && !disabled
+			if rejoining && e.UserID != 0 && !bflags[id] && !before.enabled[e.UserID] {
+				desc += " [bypass]"
+			}
 			err = w.svc.SetDisabled(ctx, w.env.Kavya, id, e.Version, disabled)
+		case 3: // the Administrator disables or enables a user (auth.Service)
+			adminUser, adminEnable = adminUsers[rng.IntN(len(adminUsers))], rng.IntN(2) == 0
+			desc = fmt.Sprintf("Administrator sets user %d enabled = %v", adminUser, adminEnable)
+			w.adminSetEnabled(t, adminUser, adminEnable)
 		}
-		after := w.snapshot(t)
+		after, aflags := w.snapshot(t), flagsNow()
 		steps = append(steps, fmt.Sprintf("%3d %s → err %v", step, desc, err))
+		bypass := strings.HasSuffix(desc, "[bypass]")
 
 		if err != nil {
 			var ve *mstkit.ValidationError
 			if !errors.As(err, &ve) {
 				failf("step %d: %s refused with %T %v; want a *mstkit.ValidationError", step, desc, err, err)
 			}
-			if after.dump != before.dump {
-				failf("step %d: refused %s changed state:\nbefore\n%s\nafter\n%s", step, desc, before.dump, after.dump)
+			if after.dump != before.dump || !maps.Equal(aflags, bflags) {
+				failf("step %d: refused %s changed state:\nbefore\n%s%v\nafter\n%s%v", step, desc, before.dump, bflags, after.dump, aflags)
+			}
+			if bypass {
+				bypassRefused++
 			}
 			continue
 		}
+		if bypass {
+			failf("step %d: %s saved; want refused: its user is disabled and the flag is clear (CD-185)", step, desc)
+		}
 		ok[op]++
+
+		// Flags: set only on a Left employee with a user; only the written
+		// employee's changes, as its transition says.
+		for _, id := range after.ids {
+			e := after.emps[id]
+			if aflags[id] && (e.status != employee.Left || e.user == 0) {
+				failf("step %d: %s has user_disabled_on_leave set but is {%s, user %d}", step, e.code, e.status, e.user)
+			}
+			if id == written {
+				continue
+			}
+			if aflags[id] != bflags[id] {
+				failf("step %d: %s changed %s's user_disabled_on_leave %v → %v", step, desc, e.code, bflags[id], aflags[id])
+			}
+		}
+		if op == 3 && !maps.Equal(after.emps, before.emps) {
+			failf("step %d: %s changed employee rows:\nbefore\n%s\nafter\n%s", step, desc, before.dump, after.dump)
+		}
+		var wu auth.UserID
+		if written != 0 {
+			wu = after.emps[written].user
+			got := aflags[written]
+			switch {
+			case created:
+				if got {
+					failf("step %d: %s set user_disabled_on_leave on create", step, desc)
+				}
+			case leaving:
+				if want := wu != 0 && before.enabled[wu]; got != want {
+					failf("step %d: %s left with user %d enabled = %v; user_disabled_on_leave = %v, want %v", step, desc, wu, before.enabled[wu], got, want)
+				}
+				if wu != 0 && after.enabled[wu] {
+					failf("step %d: %s left; its user %d is still enabled", step, desc, wu)
+				}
+				if got {
+					leavesFound++
+				}
+			case rejoining:
+				if got {
+					failf("step %d: %s re-joined; user_disabled_on_leave still set", step, desc)
+				}
+				if wu != 0 && !after.enabled[wu] {
+					failf("step %d: %s re-joined; its user %d is disabled", step, desc, wu)
+				}
+				if bflags[written] {
+					flagRejoins++
+				}
+			default:
+				if got != bflags[written] {
+					failf("step %d: %s changed user_disabled_on_leave %v → %v without a status change", step, desc, bflags[written], got)
+				}
+			}
+		}
+
+		// Users: who may disable or enable whom.
+		for u, en := range before.enabled {
+			switch {
+			case en && !after.enabled[u]:
+				byAdminStep, byLeave := op == 3 && u == adminUser && !adminEnable, leaving && u == wu
+				if !byAdminStep && !byLeave {
+					failf("step %d: user %d was disabled by %s", step, u, desc)
+				}
+				byAdmin[u] = op == 3
+			case !en && after.enabled[u]:
+				byAdminStep, byRejoin := op == 3 && u == adminUser && adminEnable, rejoining && u == wu && bflags[written]
+				if !byAdminStep && !byRejoin {
+					failf("step %d: user %d was enabled by %s (only the Administrator, or a re-join whose flag was set)", step, u, desc)
+				}
+				delete(byAdmin, u)
+			}
+		}
+
 		activeBy := map[auth.UserID]int64{}
 		for _, id := range after.ids {
 			e := after.emps[id]
-			if e.status == employee.Active {
-				delete(createdLeft, id)
-			}
 			if e.status != employee.Active || e.user == 0 {
 				continue
 			}
-			if other, dup := activeBy[e.user]; dup { // (iii)
+			if other, dup := activeBy[e.user]; dup {
 				failf("step %d: user %d linked to active %s and %s", step, e.user, after.emps[other].code, e.code)
 			}
 			activeBy[e.user] = id
-			if !after.enabled[e.user] { // (i)
-				failf("step %d: active %s has disabled user %d", step, e.code, e.user)
-			}
-		}
-		for _, id := range after.ids { // (ii)
-			e := after.emps[id]
-			if e.status != employee.Left || e.user == 0 || !after.enabled[e.user] || createdLeft[id] {
-				continue
-			}
-			if _, linked := activeBy[e.user]; !linked {
-				failf("step %d: Left %s's user %d is enabled and linked to no active employee", step, e.code, e.user)
-			}
-		}
-		for u, en := range before.enabled { // (iv)
-			if !en && after.enabled[u] && after.emps[written].user != u {
-				failf("step %d: user %d was disabled and is not %s's, but %s enabled it", step, u, after.emps[written].code, desc)
+			if !after.enabled[e.user] && !byAdmin[e.user] {
+				failf("step %d: active %s has user %d, disabled but not by the Administrator", step, e.code, e.user)
 			}
 		}
 	}
-	if ok[0] == 0 || ok[1] == 0 || ok[2] == 0 {
-		failf("successful writes {Create %d, Update %d, SetDisabled %d}; want at least one of each", ok[0], ok[1], ok[2])
+	t.Logf("%d steps: successful Create %d, Update %d, SetDisabled %d, Administrator %d; leaves that set the flag %d, re-joins with the flag set %d, bypass re-joins refused %d",
+		n, ok[0], ok[1], ok[2], ok[3], leavesFound, flagRejoins, bypassRefused)
+	if ok[0] == 0 || ok[1] == 0 || ok[2] == 0 || ok[3] == 0 || leavesFound == 0 || flagRejoins == 0 || bypassRefused == 0 {
+		failf("coverage: successful {Create %d, Update %d, SetDisabled %d, Administrator %d}, flag-setting leaves %d, flag re-joins %d, bypass refusals %d; want at least one of each",
+			ok[0], ok[1], ok[2], ok[3], leavesFound, flagRejoins, bypassRefused)
 	}
-	t.Logf("%d steps: successful Create %d, Update %d, SetDisabled %d", n, ok[0], ok[1], ok[2])
 }
