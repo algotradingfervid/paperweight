@@ -94,10 +94,9 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 ## 8. Invariants across records
 
 - An invariant between two records is enforced by one post-state check that reads the whole affected state inside the write and runs last in every write path of both sides, plus a property test over random write sequences. Per-path preconditions alone missed sibling paths in four tasks; WP2 Task 6 needed three attempts (CD-180).
-- When a state needs history to be checked ("re-enable only the user this leave disabled"), store that history in a column; don't infer it from the current link (CD-185).
+- When a state needs history to be checked ("re-enable only the user this leave disabled"), store that history in a column; don't infer it from the current link (CD-185), and when the history is another package's state, store its version (CD-189).
 - A disabled record is never primary or default; disabling one clears the flag and promotes nothing (CD-180).
 - Master-to-master references are checked by the master's delete, since `doc.References` covers documents only (CD-167).
-
 - A rule on both owner kinds (party/branch) or both types (billing/shipping) needs a test for each half; a post-state backstop that skips one owner kind doesn't cover it (WP2 Task 6).
 - Don't store another package's state as a flag ("we disabled this user"): it goes stale when the owner changes it. Store the owner's version at that moment and compare it inside the write (CD-189).
 
@@ -123,7 +122,6 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Page tests compare the page text (goquery), not raw bytes (CD-148).
 - `go test` without `-count=1` uses the cache; hand-ins use `-count=1`.
 - Invisible characters (NBSP, BOM) go behind a named constant written as an escape; the Write and Bash tools turn ` ` and `﻿` escapes into real bytes.
-
 - A guard put on a shared helper also goes on every duplicated call path; a test-local copy of `visit()` skipped the browser step deadlines (UI Task 17).
 - When a fake becomes faithful, tests in other packages that asserted the old fake's output fail on merge; run `make ci` after each contract-suite merge (CD-188).
 
