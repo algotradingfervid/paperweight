@@ -2,7 +2,6 @@ package docscreen_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -24,14 +24,14 @@ import (
 // A POST under More actions saves with the version the page rendered, like
 // the bar's hidden forms (CD-94).
 func TestActions_MoreActionsPostsCarryVersion(t *testing.T) {
-	const blocked = "You submitted this, so someone else must approve it."
+	const blocked = "You can't approve your own Sample Order. Ask another Purchase Manager to approve it."
 	const version = 5
 	for _, c := range []struct {
 		name  string
 		block error
 	}{
 		{"approver who also holds submit", nil},
-		{"self-approval-blocked submitter", errors.New(blocked)},
+		{"self-approval-blocked submitter", &approval.UserError{Kind: approval.ErrSelfApproval, Msg: blocked}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			e := newDocEnv(t, allRights...)
