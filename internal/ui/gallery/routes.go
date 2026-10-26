@@ -299,7 +299,7 @@ func Screens(base string) []screens.Screen {
 }
 
 // run is a Setup that evaluates js and waits until done is true and until
-// CSS animations have ended (axe reads colours mid-fade otherwise).
+// CSS transitions have ended (axe reads colours mid-fade otherwise).
 func run(js, done string) func(context.Context) error {
 	return func(ctx context.Context) error {
 		return chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](js), settled(done))

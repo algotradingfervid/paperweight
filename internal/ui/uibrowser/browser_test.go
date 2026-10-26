@@ -49,7 +49,7 @@ func TestBrowserHelpers_CatchBadPage(t *testing.T) {
 			t.Errorf("SmallTargets(/good@%d) = %q, %v; want none", w, small, err)
 		}
 	}
-	if vs, err := Axe(ctx); err != nil || len(vs) == 0 {
+	if vs, err := withDeadline(ctx, AxeTimeout, "axe /good", Axe); err != nil || len(vs) == 0 {
 		t.Errorf("Axe(/good) = %+v, %v; want violations (no lang, no title)", vs, err)
 	}
 	if p := csp(); len(p) != 0 {

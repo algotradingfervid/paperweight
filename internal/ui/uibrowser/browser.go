@@ -97,6 +97,17 @@ func SmallTargets(ctx context.Context) ([]string, error) {
 	})
 }
 
+// setup runs s.Setup, if there is one, on the page open at url.
+func setup(ctx context.Context, s screens.Screen, url string) error {
+	if s.Setup == nil {
+		return nil
+	}
+	_, err := withDeadline(ctx, StepTimeout, "setup "+url, func(ctx context.Context) (struct{}, error) {
+		return struct{}{}, s.Setup(ctx)
+	})
+	return err
+}
+
 // CSPProblems subscribes to the browser log. The returned func lists the
 // security and Content Security Policy entries seen since its previous call.
 func CSPProblems(ctx context.Context) func() []string {
@@ -147,13 +158,9 @@ func Check(t *testing.T, ctx context.Context, s screens.Screen, base string) {
 			t.Errorf("%s@%d: %v", s.Name, w, err)
 			continue
 		}
-		if s.Setup != nil {
-			if _, err := withDeadline(ctx, StepTimeout, "setup "+url, func(ctx context.Context) (struct{}, error) {
-				return struct{}{}, s.Setup(ctx)
-			}); err != nil {
-				t.Errorf("%s@%d: setup: %v", s.Name, w, err)
-				continue
-			}
+		if err := setup(ctx, s, url); err != nil {
+			t.Errorf("%s@%d: setup: %v", s.Name, w, err)
+			continue
 		}
 		report(t, ctx, s.Name, w, url, "overflow", Overflow)
 		if w == 360 {

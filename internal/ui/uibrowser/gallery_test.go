@@ -168,7 +168,9 @@ func do(t *testing.T, ctx context.Context, what string, steps ...chromedp.Action
 // waitFor polls the JavaScript predicate expr until it is true.
 func waitFor(t *testing.T, ctx context.Context, what, expr string) {
 	t.Helper()
-	if _, err := chromedp.Run(ctx, chromedp.Poll[chromedp.Void](expr, chromedp.WithPollingTimeout(5*time.Second))); err != nil {
+	sctx, cancel := step(ctx)
+	defer cancel()
+	if _, err := chromedp.Run(sctx, chromedp.Poll[chromedp.Void](expr, chromedp.WithPollingTimeout(5*time.Second))); err != nil {
 		t.Fatalf("waiting for %s: %v", what, err)
 	}
 }
@@ -214,11 +216,9 @@ func visit(t *testing.T, ctx context.Context, base string, s screens.Screen, w i
 		t.Errorf("%s@%d: %s has no main#main", s.Name, w, u)
 		return false
 	}
-	if s.Setup != nil {
-		if err := s.Setup(ctx); err != nil {
-			t.Errorf("%s@%d: setup: %v", s.Name, w, err)
-			return false
-		}
+	if err := setup(ctx, s, u); err != nil {
+		t.Errorf("%s@%d: setup: %v", s.Name, w, err)
+		return false
 	}
 	return true
 }
@@ -294,9 +294,9 @@ func TestGalleryBrowser_Axe(t *testing.T) {
 			if !visit(t, ctx, g.URL, s, w, "") {
 				continue
 			}
-			vs, err := Axe(ctx)
+			vs, err := withDeadline(ctx, AxeTimeout, "axe "+g.URL+s.URL, Axe)
 			if err != nil {
-				t.Errorf("%s@%d: axe: %v", s.Name, w, err)
+				t.Errorf("%s@%d: %v", s.Name, w, err)
 			}
 			for _, v := range vs {
 				t.Errorf("%s@%d: axe %s: %s: %s", s.Name, w, v.ID, v.Help, strings.Join(v.Nodes, ", "))
