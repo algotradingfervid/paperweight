@@ -228,7 +228,8 @@ func outside(ids, allowed []int64) bool {
 
 // docType returns the registered DocType, or for a name that isn't
 // registered a stand-in with the name as its labels and no columns, and
-// false.
+// false. Team scope and own-by-employee need a registered DocType with an
+// EmployeeField.
 func docType(name string) (*doctype.DocType, bool) {
 	if dt, ok := doctype.Lookup(name); ok {
 		return dt, true
