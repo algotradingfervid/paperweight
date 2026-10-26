@@ -24,7 +24,7 @@ import (
 )
 
 // The engine driver (Task 12b): Env's actions run the real doc.Engine over
-// internal/fixture's DocTypes with the real naming.Service, filesfake and
+// internal/fixture's DocTypes with the real naming.Service, filesfake.NewWith and
 // audit.Default. APR_DRIVER=ref selects the reference driver in env.go.
 
 // useEngine reports whether APR_DRIVER selects the engine driver (the default).
@@ -67,8 +67,16 @@ func (e *Env) setupEngine(t testing.TB) {
 func (e *Env) engine(svc approval.Service) doc.Engine {
 	return doc.NewEngine(doc.Deps{
 		DB: e.DB, Clock: e.Clock, Auth: e.Auth, Naming: e.namer, Approval: svc,
-		Files: filesfake.New(e.Clock), Audit: e.Audit,
+		Files: filesfake.NewWith(e.Clock, e.Auth, engineInfo{e}), Audit: e.Audit,
 	})
+}
+
+// engineInfo is e.eng as files' InfoSource, read at call time: the engine
+// that serves Info is built after its own Files.
+type engineInfo struct{ e *Env }
+
+func (i engineInfo) Info(ctx context.Context, tx *db.Tx, dt string, id int64) (doctype.Info, error) {
+	return i.e.eng.Info(ctx, tx, dt, id)
 }
 
 // failAfterRecord is APR with an error after a successful Record, so the
