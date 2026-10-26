@@ -1,7 +1,7 @@
 // Package employee is the Employee master (MST Task 14): a code, a branch, an
 // optional user and reporting manager, dates and a status, Active or Left.
 // disabled mirrors status = 'Left'. Leaving disables the linked user and
-// re-joining enables it (MST-119). Directory implements auth.Directory (M10).
+// re-joining enables it when that leave disabled it (MST-119, CD-185). Directory implements auth.Directory (M10).
 package employee
 
 import (
@@ -109,6 +109,8 @@ type Employee struct {
 	Status     Status
 	Disabled   bool
 	Version    int
+
+	leaveFlag bool // user_disabled_on_leave: this employee's leave disabled its user (CD-185)
 }
 
 // Input is what Create and Update accept.
@@ -238,10 +240,11 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 		if user, ok, err = s.env.Auth.User(ctx, tx, in.UserID); err != nil {
 			return err
 		}
-		// MST-112 on an Active save that sets or changes the link; a re-join
-		// keeps the user that leaving disabled (CD-181).
+		// MST-112 on an Active save that sets or changes the link, and on a
+		// re-join whose leave didn't disable the user (CD-181, CD-185).
 		linking := in.Status == Active && (old == nil || old.UserID != in.UserID)
-		if !ok || (linking && !user.Enabled) {
+		rejoin := old != nil && old.Status == Left && in.Status == Active && !old.leaveFlag
+		if !ok || ((linking || rejoin) && !user.Enabled) {
 			es.Add("user_id", msgNoUser)
 		}
 	}
@@ -286,50 +289,34 @@ func checkUnlinked(ctx context.Context, tx *db.Tx, id int64, u auth.UserID, user
 	return nil
 }
 
-// checkUserLink is the post-state check (CD-180's pattern, CD-181), called
-// last by every write inside its tx: an Active employee's user exists, is
-// enabled and is linked to no other Active employee.
-func (s *Service) checkUserLink(ctx context.Context, tx *db.Tx, id int64) error {
-	e, err := s.Get(ctx, tx, id)
-	if err != nil {
-		return err
-	}
-	if e.Status != Active || e.UserID == 0 {
-		return nil
-	}
-	user, ok, err := s.env.Auth.User(ctx, tx, e.UserID)
-	if err != nil {
-		return err
-	}
-	if !ok || !user.Enabled {
-		return fieldErr("user_id", msgNoUser)
-	}
-	return checkUnlinked(ctx, tx, id, e.UserID, user)
-}
-
 func fieldErr(field, msg string) error {
 	var es mstkit.Errors
 	es.Add(field, msg)
 	return es.Err()
 }
 
-// syncUser disables the employee's user when it leaves and re-enables it on
-// re-join (MST-119), in the same tx. user_id can't change in either save
-// (CD-181), so re-joining enables the user that leaving disabled.
-func (s *Service) syncUser(ctx context.Context, tx *db.Tx, old Employee, in Input) error {
-	u := old.UserID
-	if u == 0 || old.Status == in.Status {
-		return nil
+// leaveFlag is user_disabled_on_leave after the save (CD-185): a leave sets it
+// when the user is enabled, a re-join clears it, other saves keep it. user_id
+// can't change in either save (CD-181).
+func (s *Service) leaveFlag(ctx context.Context, tx *db.Tx, old Employee, in Input) (bool, error) {
+	if old.Status == in.Status {
+		return old.leaveFlag, nil
 	}
-	user, ok, err := s.env.Auth.User(ctx, tx, u)
-	if err != nil || !ok {
-		return err
+	if in.Status == Active || old.UserID == 0 {
+		return false, nil
 	}
+	user, _, err := s.env.Auth.User(ctx, tx, old.UserID)
+	return user.Enabled, err
+}
+
+// syncUser disables the employee's user when its leave sets the flag and
+// re-enables it when a re-join clears the flag (MST-119, CD-185), in the same tx.
+func (s *Service) syncUser(ctx context.Context, tx *db.Tx, old Employee, in Input, flag bool) error {
 	switch {
-	case in.Status == Left && user.Enabled:
-		return s.env.Auth.DisableUser(ctx, tx, u, "Employee "+in.Code+" has left.")
-	case in.Status == Active && !user.Enabled:
-		return s.env.Auth.EnableUser(ctx, tx, u)
+	case flag && !old.leaveFlag:
+		return s.env.Auth.DisableUser(ctx, tx, old.UserID, "Employee "+in.Code+" has left.")
+	case old.leaveFlag && !flag:
+		return s.env.Auth.EnableUser(ctx, tx, old.UserID)
 	}
 	return nil
 }
@@ -370,11 +357,8 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	// A create never enables or disables a user nor sets the leave flag (CD-181, CD-185).
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "create", nil, auditFields(fromInput(in))); err != nil {
-		return mstkit.Saved{}, err
-	}
-	// A create never enables or disables a user (CD-181).
-	if err := s.checkUserLink(ctx, tx, id); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: 1}, nil
@@ -419,29 +403,23 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
-	n, err := dbq.New(tx.SQL()).UpdateEmployee(ctx, dbq.UpdateEmployeeParams{
-		Code: in.Code, Name: in.Name, BranchID: in.BranchID, UserID: nullID(int64(in.UserID)), ManagerID: nullID(in.ManagerID),
-		JoiningDate: in.Joining.ISO(), BirthDate: nullDate(in.Birth), RelievingDate: nullDate(in.Relieving),
-		Status: string(in.Status), Disabled: flag(in.Status == Left),
-		UpdatedAt: types.TimestampOf(s.env.Clock.Now()).String(), UpdatedBy: userID(p), ID: id, Version: int64(version),
-	})
+	leaveFlag, err := s.leaveFlag(ctx, tx, old, in)
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if n == 0 {
-		// The row moved off the posted version: CheckVersion names the stale case.
-		if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
-			return mstkit.Saved{}, err
-		}
-		return mstkit.Saved{}, doctype.ErrNotFound
+	// CheckVersion above ran in this tx, so the version condition always matches.
+	if err := dbq.New(tx.SQL()).UpdateEmployee(ctx, dbq.UpdateEmployeeParams{
+		Code: in.Code, Name: in.Name, BranchID: in.BranchID, UserID: nullID(int64(in.UserID)), ManagerID: nullID(in.ManagerID),
+		JoiningDate: in.Joining.ISO(), BirthDate: nullDate(in.Birth), RelievingDate: nullDate(in.Relieving),
+		Status: string(in.Status), Disabled: flag(in.Status == Left), UserDisabledOnLeave: flag(leaveFlag),
+		UpdatedAt: types.TimestampOf(s.env.Clock.Now()).String(), UpdatedBy: userID(p), ID: id, Version: int64(version),
+	}); err != nil {
+		return mstkit.Saved{}, err
 	}
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", auditFields(old), auditFields(fromInput(in))); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.syncUser(ctx, tx, old, in); err != nil {
-		return mstkit.Saved{}, err
-	}
-	if err := s.checkUserLink(ctx, tx, id); err != nil {
+	if err := s.syncUser(ctx, tx, old, in, leaveFlag); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: old.Version + 1}, nil
@@ -456,8 +434,7 @@ func (s *Service) SetDisabled(ctx context.Context, p auth.Principal, id int64, v
 
 // SetDisabledTx is SetDisabled inside tx. disabled mirrors status, so it is a
 // status change to Left (disabled) or Active through UpdateTx, with every
-// status rule (MST-111, MST-117, MST-118, MST-119) and UpdateTx's
-// checkUserLink. A row already in the requested state is left alone, after
+// status rule (MST-111, MST-112, MST-117, MST-118, MST-119, CD-185). A row already in the requested state is left alone, after
 // the rights and version checks (CD-181). Re-joining clears the relieving date.
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
@@ -531,6 +508,7 @@ func fromRow(r dbq.GetEmployeeRow) (Employee, error) {
 		ID: r.ID, Code: r.Code, Name: r.Name, BranchID: r.BranchID,
 		UserID: auth.UserID(r.UserID.Int64), ManagerID: r.ManagerID.Int64,
 		Status: Status(r.Status), Disabled: r.Disabled != 0, Version: int(r.Version),
+		leaveFlag: r.UserDisabledOnLeave != 0,
 	}
 	var err error
 	if e.Joining, err = types.DateFromISO(r.JoiningDate); err != nil {
