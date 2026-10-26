@@ -54,7 +54,9 @@ CREATE TABLE contact (
     updated_by  INTEGER,
     CHECK ((party_id IS NULL) <> (branch_id IS NULL))
 );
+-- One primary contact per party and per branch (MST-066, CD-190).
 CREATE UNIQUE INDEX contact_party_primary ON contact (party_id) WHERE is_primary = 1;
+CREATE UNIQUE INDEX contact_branch_primary ON contact (branch_id) WHERE is_primary = 1;
 
 CREATE TABLE contact_email (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
