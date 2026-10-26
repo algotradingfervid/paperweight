@@ -44,6 +44,13 @@ func TestMasters_ServicesDoNotImportUI(t *testing.T) {
 		if hasWebElement(pkg) {
 			continue
 		}
+		// Ruling (AD, MST-22): allmasters must import every <pkg>/web package
+		// to mount the screens (CD-89; TestMasters_RoutesUseWebSubpackages), so
+		// its transitive deps reach internal/ui by design. Exempt only this
+		// import path; its subpackages stay in the walk.
+		if pkg == module+"/internal/masters/allmasters" {
+			continue
+		}
 		checked = append(checked, pkg)
 		for _, dep := range strings.Fields(deps) {
 			if isUI(dep) {
