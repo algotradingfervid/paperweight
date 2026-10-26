@@ -14,6 +14,7 @@ import (
 type fakeSetup struct {
 	f     *authfake.Fake
 	d     *db.DB
+	dir   *authfake.Directory
 	next  auth.UserID
 	admin *auth.Principal
 }
@@ -55,11 +56,15 @@ func (s *fakeSetup) Restrict(t *testing.T, u auth.UserID, projects, sites []int6
 
 func (s *fakeSetup) DB() *db.DB { return s.d }
 
+func (s *fakeSetup) Directory() *authfake.Directory { return s.dir }
+
 // WP3 Task 1 (CD-182): authfake passes the same contract suite as the real
 // service, so tests written against it stay trustworthy.
 func TestContract_Authfake(t *testing.T) {
 	authtest.Run(t, func(t *testing.T) (auth.Service, authtest.Setup) {
 		f := authfake.New()
-		return f, &fakeSetup{f: f, d: authtest.NewWorld(t).DB, next: 100}
+		dir := authfake.NewDirectory()
+		f.UseDirectory(dir)
+		return f, &fakeSetup{f: f, d: authtest.NewWorld(t).DB, dir: dir, next: 100}
 	})
 }

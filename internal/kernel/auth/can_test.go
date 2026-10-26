@@ -396,6 +396,9 @@ func TestAuthfake_MatchesReal(t *testing.T) {
 			}
 			f.AddRole(w.Users["admin@vardhan.test"], auth.RoleAdministrator)
 		}, nil},
+		{"Administrator role alone, no grants (CD-182)", "admin@vardhan.test", func(t *testing.T, w *authtest.World, f *authfake.Fake) {
+			f.AddRole(w.Users["admin@vardhan.test"], auth.RoleAdministrator)
+		}, nil},
 		{"disabled user (CD-86)", "old@vardhan.test", func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
 			u := w.Users["old@vardhan.test"]

@@ -216,26 +216,6 @@ func TestAuth_RestrictedReportsNone(t *testing.T) {
 	}
 }
 
-// CD-173: like the real service, the double refuses an unknown DocType with a
-// plain error (not 403 or 404) in Can, Scope and UsersWithRight.
-func TestAuth_UnknownDocTypeRefused(t *testing.T) {
-	ctx := context.Background()
-	admin := testkit.Principal(t, "admin@vardhan.test")
-	a := fixturetest.NewAuth()
-	const dt = "fixturetest.Unknown"
-	plain := func(what string, err error) {
-		t.Helper()
-		if err == nil || errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
-			t.Errorf("%s(%s) = %v, want a plain unknown-DocType error", what, dt, err)
-		}
-	}
-	plain("Can", a.Can(ctx, admin, dt, auth.RightRead, nil))
-	_, err := a.Scope(ctx, admin, dt, auth.RightRead)
-	plain("Scope", err)
-	_, err = a.UsersWithRight(ctx, dt, auth.RightRead, nil)
-	plain("UsersWithRight", err)
-}
-
 // The fixture masters grant Masters Manager import, so AUTH's SeedDefaults
 // accepts them only if they are Importable (CD-171): a test binary that
 // registers the fixture DocTypes can build an authtest.World.

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authtest"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
@@ -92,6 +93,8 @@ func (s *realSetup) Restrict(t *testing.T, u auth.UserID, projects, sites []int6
 }
 
 func (s *realSetup) DB() *db.DB { return s.w.DB }
+
+func (s *realSetup) Directory() *authfake.Directory { return s.w.Dir }
 
 // WP3 Task 1 (CD-182): the real service passes the auth contract suite.
 func TestContract_Auth(t *testing.T) {

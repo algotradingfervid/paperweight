@@ -227,12 +227,13 @@ func outside(ids, allowed []int64) bool {
 }
 
 // docType returns the registered DocType, or for a name that isn't
-// registered a stand-in with the name as its labels and no columns.
-func docType(name string) *doctype.DocType {
+// registered a stand-in with the name as its labels and no columns, and
+// false.
+func docType(name string) (*doctype.DocType, bool) {
 	if dt, ok := doctype.Lookup(name); ok {
-		return dt
+		return dt, true
 	}
-	return &doctype.DocType{Name: name, Label: name, PluralLabel: name}
+	return &doctype.DocType{Name: name, Label: name, PluralLabel: name}, false
 }
 
 // accessLocked returns what the real service decides p's r on name from:
@@ -276,18 +277,22 @@ func withEmployee(ctx context.Context, dir auth.Directory, acc *auth.Access) err
 }
 
 // Can decides like the real service through auth.Access.Can; a Hide record
-// is also not found for anyone who can read the DocType.
+// is also not found for anyone who can read the DocType, and so is a record
+// of an unregistered DocType with an id outside the Restrict lists.
 func (f *Fake) Can(ctx context.Context, p auth.Principal, doctype string, r auth.Right, rec *auth.RecordRef) error {
 	if inapplicable(doctype, r) {
 		return denied(doctype, r)
 	}
-	dt := docType(doctype)
+	dt, registered := docType(doctype)
 	f.mu.Lock()
 	acc := f.accessLocked(p, doctype, r)
 	hidden := rec != nil && f.hidden[record{doctype, rec.ID}]
 	dir := f.dir
 	f.mu.Unlock()
 
+	if !registered && rec != nil && (outside(rec.ProjectIDs, acc.Allowed[auth.DimProject]) || outside(rec.SiteIDs, acc.Allowed[auth.DimSite])) {
+		hidden = true
+	}
 	if hidden && acc.Read != "" {
 		return auth.ErrNotFound
 	}
@@ -300,15 +305,17 @@ func (f *Fake) Can(ctx context.Context, p auth.Principal, doctype string, r auth
 }
 
 // Scope builds the real service's filter through auth.Access.Scope, or
-// returns the SetScope Predicate for doctype once the grants allow it.
+// returns the SetScope Predicate for doctype (empty for an unregistered
+// DocType, which has no table) once the grants allow it.
 func (f *Fake) Scope(ctx context.Context, p auth.Principal, doctype string, r auth.Right) (auth.Predicate, error) {
 	if inapplicable(doctype, r) {
 		return auth.Predicate{}, denied(doctype, r)
 	}
-	dt := docType(doctype)
+	dt, registered := docType(doctype)
 	f.mu.Lock()
 	acc := f.accessLocked(p, doctype, r)
 	set, isSet := f.scopes[doctype]
+	isSet = isSet || !registered
 	dir := f.dir
 	f.mu.Unlock()
 
@@ -379,11 +386,12 @@ func valueError(ctx context.Context, dir auth.Directory, d auth.Dimension, ids [
 	return &auth.ValueError{Dim: d, Allowed: codes}
 }
 
+// CheckLink refuses a Hide record, or a target p can't read (the
+// Administrator reads every DocType, as in Can).
 func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, id int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	_, canRead := f.scopeLocked(p, target, auth.RightRead)
-	if f.hidden[record{target, id}] || !canRead {
+	if f.hidden[record{target, id}] || f.accessLocked(p, target, auth.RightRead).Read == "" {
 		label := target
 		if dt, ok := doctype.Lookup(target); ok {
 			label = dt.Label

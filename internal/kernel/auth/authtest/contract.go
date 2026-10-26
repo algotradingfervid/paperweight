@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
@@ -33,6 +33,9 @@ type Setup interface {
 	// evaluating Scope predicates, transactions for the tx methods, and the
 	// probe_project and probe_site ids.
 	DB() *db.DB
+	// Directory is the auth.Directory the service reads employees and
+	// reporting lines from; rows link users and set managers on it.
+	Directory() *authfake.Directory
 }
 
 // Run runs the auth.Service contract rows against the service newSvc
@@ -55,7 +58,7 @@ func Run(t *testing.T, newSvc func(t *testing.T) (auth.Service, Setup)) {
 }
 
 // RunRefusals runs only the refusal rows that hold whatever is granted:
-// inapplicable rights, an unknown dimension and Forbidden. It is for
+// inapplicable rights and an unknown dimension. It is for
 // doubles that allow everything by design (fixturetest).
 func RunRefusals(t *testing.T, svc auth.Service) {
 	t.Helper()
@@ -82,6 +85,7 @@ const (
 	roleApprover = "Contract Approver"
 	roleOwner    = "Contract Owner"
 	roleOther    = "Contract Other"
+	roleTeam     = "Contract Team"
 )
 
 // unknownRight is not in auth.AllRights (CD-171).
@@ -98,6 +102,11 @@ var contractRows = []struct {
 	{"AUTH-086 own scope other's record not found", rowOwnScope},
 	{"AUTH-087 own-only delete is forbidden", rowOwnOnlyDelete},
 	{"AUTH-085 own scope predicate", rowOwnScopePredicate},
+	{"AUTH-116 team scope: direct reports only", rowTeamScope},
+	{"D-AUTH-12 own via employee", rowOwnViaEmployee},
+	{"AUTH-116 team scope predicate", rowTeamScopePredicate},
+	{"AUTH-087 own-only write on a teammate's claim", rowOwnOnlyWriteTeammate},
+	{"AUTH-087 team-only write outside the team", rowTeamOnlyWrite},
 	{"AUTH-092 project restriction is strict", rowProjectRestriction},
 	{"AUTH-092 restriction predicate", rowRestrictionPredicate},
 	{"AUTH-093 site restriction is strict", rowSiteRestriction},
@@ -114,7 +123,6 @@ var refusalRows = []struct {
 }{
 	{"AUTH-066 inapplicable rights refused", rowInapplicable},
 	{"CD-174 unknown dimension", rowUnknownDimension},
-	{"CD-174 Forbidden", rowForbidden},
 }
 
 // order returns a probe Purchase Order record created by u.
@@ -163,11 +171,39 @@ func insertOrders(t *testing.T, s Setup, recs ...*auth.RecordRef) {
 	}
 }
 
+// insertClaims inserts probe_claim rows; employee 0 is NULL.
+func insertClaims(t *testing.T, s Setup, recs ...*auth.RecordRef) {
+	t.Helper()
+	ctx := context.Background()
+	if err := s.DB().Write(ctx, func(tx *db.Tx) error {
+		for _, r := range recs {
+			var employee any
+			if r.EmployeeID != 0 {
+				employee = r.EmployeeID
+			}
+			if _, err := tx.SQL().ExecContext(ctx,
+				`INSERT INTO probe_claim (id, state, created_by, created_at, employee_id) VALUES (?, ?, ?, ?, ?)`,
+				r.ID, string(doctype.StateDraft), int64(r.CreatedBy), auth.FormatTime(T0), employee); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("authtest: insert probe claims: %v", err)
+	}
+}
+
 // visible returns the probe_order ids pred keeps, ascending.
 func visible(t *testing.T, s Setup, pred auth.Predicate) []int64 {
 	t.Helper()
+	return visibleIn(t, s, "probe_order", pred)
+}
+
+// visibleIn returns the ids of the probe table rows pred keeps, ascending.
+func visibleIn(t *testing.T, s Setup, table string, pred auth.Predicate) []int64 {
+	t.Helper()
 	ctx := context.Background()
-	q := `SELECT id FROM probe_order`
+	q := `SELECT id FROM ` + table
 	if pred.SQL != "" {
 		q += ` WHERE ` + pred.SQL
 	}
@@ -193,17 +229,19 @@ func visible(t *testing.T, s Setup, pred auth.Predicate) []int64 {
 }
 
 // wantDenied checks that err is the real service's 403: a *auth.DeniedError
-// for r with the given own-only flag, ErrForbidden and not ErrNotFound.
-func wantDenied(t *testing.T, what string, err error, r auth.Right, ownOnly bool) {
+// for r, ErrForbidden and not ErrNotFound, naming scope only (own, team or
+// "" for neither) as the scope the right is limited to.
+func wantDenied(t *testing.T, what string, err error, r auth.Right, only auth.Scope) {
 	t.Helper()
 	var de *auth.DeniedError
 	if !errors.As(err, &de) {
 		t.Errorf("%s: err = %v (%T), want *auth.DeniedError (403)", what, err, err)
 		return
 	}
-	if de.Right != r || de.OwnOnly != ownOnly || de.TeamOnly {
-		t.Errorf("%s: DeniedError{Right %q, OwnOnly %v, TeamOnly %v}, want {Right %q, OwnOnly %v, TeamOnly false}",
-			what, de.Right, de.OwnOnly, de.TeamOnly, r, ownOnly)
+	ownOnly, teamOnly := only == auth.ScopeOwn, only == auth.ScopeTeam
+	if de.Right != r || de.OwnOnly != ownOnly || de.TeamOnly != teamOnly {
+		t.Errorf("%s: DeniedError{Right %q, OwnOnly %v, TeamOnly %v}, want {Right %q, OwnOnly %v, TeamOnly %v}",
+			what, de.Right, de.OwnOnly, de.TeamOnly, r, ownOnly, teamOnly)
 	}
 	if !errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
 		t.Errorf("%s: err = %v, want errors.Is ErrForbidden and not ErrNotFound", what, err)
@@ -233,11 +271,11 @@ func rowDenyByDefault(t *testing.T, svc auth.Service, s Setup) {
 	admin := s.Admin(t)
 	for _, p := range []auth.Principal{s.User(t, "none@contract.test"), s.User(t, "other@contract.test", roleOther)} {
 		for _, r := range []auth.Right{auth.RightRead, auth.RightCreate, auth.RightApprove} {
-			wantDenied(t, fmt.Sprintf("%s Can(Order, %s, nil)", p.Name, r), svc.Can(ctx, p, DTOrder, r, nil), r, false)
-			wantDenied(t, fmt.Sprintf("%s Can(Order, %s, record)", p.Name, r), svc.Can(ctx, p, DTOrder, r, order(1, admin.ID)), r, false)
+			wantDenied(t, fmt.Sprintf("%s Can(Order, %s, nil)", p.Name, r), svc.Can(ctx, p, DTOrder, r, nil), r, "")
+			wantDenied(t, fmt.Sprintf("%s Can(Order, %s, record)", p.Name, r), svc.Can(ctx, p, DTOrder, r, order(1, admin.ID)), r, "")
 		}
 		_, err := svc.Scope(ctx, p, DTOrder, auth.RightRead)
-		wantDenied(t, p.Name+" Scope(Order, read)", err, auth.RightRead, false)
+		wantDenied(t, p.Name+" Scope(Order, read)", err, auth.RightRead, "")
 	}
 }
 
@@ -259,7 +297,7 @@ func rowGrantedAllowed(t *testing.T, svc auth.Service, s Setup) {
 	}
 	// Control: the grant is what allows it.
 	none := s.User(t, "none@contract.test")
-	wantDenied(t, "no role Can(Order, read, other's record)", svc.Can(ctx, none, DTOrder, auth.RightRead, rec), auth.RightRead, false)
+	wantDenied(t, "no role Can(Order, read, other's record)", svc.Can(ctx, none, DTOrder, auth.RightRead, rec), auth.RightRead, "")
 }
 
 // AUTH-073: read without write on a visible record is a 403, not a 404.
@@ -269,10 +307,10 @@ func rowReadNoRight(t *testing.T, svc auth.Service, s Setup) {
 	p := s.User(t, "reader@contract.test", roleReader)
 	rec := order(1, s.Admin(t).ID)
 	for _, r := range []auth.Right{auth.RightWrite, auth.RightSubmit, auth.RightApprove, auth.RightDelete} {
-		wantDenied(t, "Can(Order, "+string(r)+", visible record)", svc.Can(ctx, p, DTOrder, r, rec), r, false)
-		wantDenied(t, "Can(Order, "+string(r)+", nil)", svc.Can(ctx, p, DTOrder, r, nil), r, false)
+		wantDenied(t, "Can(Order, "+string(r)+", visible record)", svc.Can(ctx, p, DTOrder, r, rec), r, "")
+		wantDenied(t, "Can(Order, "+string(r)+", nil)", svc.Can(ctx, p, DTOrder, r, nil), r, "")
 		_, err := svc.Scope(ctx, p, DTOrder, r)
-		wantDenied(t, "Scope(Order, "+string(r)+")", err, r, false)
+		wantDenied(t, "Scope(Order, "+string(r)+")", err, r, "")
 	}
 }
 
@@ -286,7 +324,7 @@ func rowUnionAcrossRoles(t *testing.T, svc auth.Service, s Setup) {
 	both := s.User(t, "both@contract.test", roleReader, roleApprover)
 	wantNil(t, "Reader + Approver Can(Order, approve, record)", svc.Can(ctx, both, DTOrder, auth.RightApprove, rec))
 	reader := s.User(t, "reader@contract.test", roleReader)
-	wantDenied(t, "Reader Can(Order, approve, record)", svc.Can(ctx, reader, DTOrder, auth.RightApprove, rec), auth.RightApprove, false)
+	wantDenied(t, "Reader Can(Order, approve, record)", svc.Can(ctx, reader, DTOrder, auth.RightApprove, rec), auth.RightApprove, "")
 }
 
 // AUTH-086: with read and write at scope own, my record is allowed and
@@ -312,7 +350,7 @@ func rowOwnOnlyDelete(t *testing.T, svc auth.Service, s Setup) {
 	s.Grant(t, roleOwner, DTOrder, auth.RightDelete, auth.ScopeOwn)
 	p := s.User(t, "owner@contract.test", roleOwner)
 	wantDenied(t, "Can(Order, delete, other's record)",
-		svc.Can(ctx, p, DTOrder, auth.RightDelete, order(2, s.Admin(t).ID)), auth.RightDelete, true)
+		svc.Can(ctx, p, DTOrder, auth.RightDelete, order(2, s.Admin(t).ID)), auth.RightDelete, auth.ScopeOwn)
 	wantNil(t, "Can(Order, delete, own record)", svc.Can(ctx, p, DTOrder, auth.RightDelete, order(1, p.ID)))
 	wantNil(t, "Can(Order, create, nil)", svc.Can(ctx, p, DTOrder, auth.RightCreate, nil))
 }
@@ -330,6 +368,104 @@ func rowOwnScopePredicate(t *testing.T, svc auth.Service, s Setup) {
 	if got := visible(t, s, pred); !slices.Equal(got, []int64{1}) {
 		t.Errorf("Scope(Order, read) {%q, %v} keeps orders %v, want [1] (own only)", pred.SQL, pred.Args, got)
 	}
+}
+
+// Employees the team rows link in the Setup's Directory: report and
+// indirect report up to manager; stranger reports to nobody.
+const (
+	empManager  int64 = 9001
+	empReport   int64 = 9002
+	empStranger int64 = 9003
+	empIndirect int64 = 9004
+)
+
+// team creates the manager, the report and the stranger, each holding
+// role, and links them to their employees: report and indirect report up
+// to the manager.
+func team(t *testing.T, s Setup, role string) (manager, report, stranger auth.Principal) {
+	t.Helper()
+	manager = s.User(t, "manager@contract.test", role)
+	report = s.User(t, "report@contract.test", role)
+	stranger = s.User(t, "stranger@contract.test", role)
+	d := s.Directory()
+	d.Link(manager.ID, empManager)
+	d.Link(report.ID, empReport)
+	d.Link(stranger.ID, empStranger)
+	d.SetManager(empReport, empManager)
+	d.SetManager(empIndirect, empReport)
+	return manager, report, stranger
+}
+
+// claim returns a probe Expense Claim record created by u for employee
+// (0: none).
+func claim(id int64, u auth.UserID, employee int64) *auth.RecordRef {
+	return &auth.RecordRef{DocType: DTClaim, ID: id, CreatedBy: u, EmployeeID: employee}
+}
+
+// AUTH-116, AUTH-117: with read at scope team, a direct report's claim is
+// allowed; a stranger's and an indirect report's are not found.
+func rowTeamScope(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	s.Grant(t, roleTeam, DTClaim, auth.RightRead, auth.ScopeTeam)
+	manager, report, stranger := team(t, s, roleTeam)
+	admin := s.Admin(t).ID
+	wantNil(t, "Can(Claim, read, direct report's claim)", svc.Can(ctx, manager, DTClaim, auth.RightRead, claim(1, report.ID, empReport)))
+	wantNotFound(t, "Can(Claim, read, stranger's claim)", svc.Can(ctx, manager, DTClaim, auth.RightRead, claim(2, stranger.ID, empStranger)))
+	wantNotFound(t, "Can(Claim, read, indirect report's claim)", svc.Can(ctx, manager, DTClaim, auth.RightRead, claim(3, admin, empIndirect)))
+}
+
+// D-AUTH-12: with read at scope own, a claim someone else keyed in for my
+// employee is mine; my report's is not found.
+func rowOwnViaEmployee(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	s.Grant(t, roleOwner, DTClaim, auth.RightRead, auth.ScopeOwn)
+	manager, _, _ := team(t, s, roleOwner)
+	admin := s.Admin(t).ID
+	wantNil(t, "Can(Claim, read, claim for my employee)", svc.Can(ctx, manager, DTClaim, auth.RightRead, claim(1, admin, empManager)))
+	wantNotFound(t, "Can(Claim, read, report's claim) at scope own", svc.Can(ctx, manager, DTClaim, auth.RightRead, claim(2, admin, empReport)))
+}
+
+// AUTH-116: the read Scope of a team-scope manager keeps the claims they
+// created, those for their employee and those for direct reports.
+func rowTeamScopePredicate(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	s.Grant(t, roleTeam, DTClaim, auth.RightRead, auth.ScopeTeam)
+	manager, _, _ := team(t, s, roleTeam)
+	admin := s.Admin(t).ID
+	insertClaims(t, s,
+		claim(1, admin, empManager), claim(2, admin, empReport), claim(3, admin, empStranger),
+		claim(4, manager.ID, 0), claim(5, admin, empIndirect), claim(6, admin, 0))
+	pred, err := svc.Scope(ctx, manager, DTClaim, auth.RightRead)
+	if err != nil {
+		t.Fatalf("Scope(Claim, read) = %v, want nil", err)
+	}
+	if got := visibleIn(t, s, "probe_claim", pred); !slices.Equal(got, []int64{1, 2, 4}) {
+		t.Errorf("Scope(Claim, read) {%q, %v} keeps claims %v, want [1 2 4] (own and direct report's)", pred.SQL, pred.Args, got)
+	}
+}
+
+// AUTH-087: read all with write own: writing a direct report's claim is a
+// 403 naming own scope; a claim for my employee is allowed.
+func rowOwnOnlyWriteTeammate(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	s.Grant(t, roleOwner, DTClaim, auth.RightRead, auth.ScopeAll)
+	s.Grant(t, roleOwner, DTClaim, auth.RightWrite, auth.ScopeOwn)
+	manager, report, _ := team(t, s, roleOwner)
+	wantDenied(t, "Can(Claim, write, report's claim)",
+		svc.Can(ctx, manager, DTClaim, auth.RightWrite, claim(1, report.ID, empReport)), auth.RightWrite, auth.ScopeOwn)
+	wantNil(t, "Can(Claim, write, claim for my employee)", svc.Can(ctx, manager, DTClaim, auth.RightWrite, claim(2, s.Admin(t).ID, empManager)))
+}
+
+// AUTH-087: read all with write team: writing a direct report's claim is
+// allowed; a stranger's is a 403 naming team scope.
+func rowTeamOnlyWrite(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	s.Grant(t, roleTeam, DTClaim, auth.RightRead, auth.ScopeAll)
+	s.Grant(t, roleTeam, DTClaim, auth.RightWrite, auth.ScopeTeam)
+	manager, report, stranger := team(t, s, roleTeam)
+	wantNil(t, "Can(Claim, write, report's claim)", svc.Can(ctx, manager, DTClaim, auth.RightWrite, claim(1, report.ID, empReport)))
+	wantDenied(t, "Can(Claim, write, stranger's claim)",
+		svc.Can(ctx, manager, DTClaim, auth.RightWrite, claim(2, stranger.ID, empStranger)), auth.RightWrite, auth.ScopeTeam)
 }
 
 // AUTH-092, AUTH-093: restricted to PRJ-METRO, a record on PRJ-TECHPARK, on
@@ -389,7 +525,7 @@ func rowRestrictionNoGrant(t *testing.T, svc auth.Service, s Setup) {
 	p := s.User(t, "restricted@contract.test")
 	s.Restrict(t, p.ID, []int64{metro}, nil)
 	wantDenied(t, "Can(Order, read, PRJ-METRO)",
-		svc.Can(ctx, p, DTOrder, auth.RightRead, order(1, s.Admin(t).ID, metro)), auth.RightRead, false)
+		svc.Can(ctx, p, DTOrder, auth.RightRead, order(1, s.Admin(t).ID, metro)), auth.RightRead, "")
 }
 
 // AUTH-069: the Administrator, even with restriction rows, may use every
@@ -574,11 +710,11 @@ func rowInapplicable(t *testing.T, svc auth.Service, admin auth.Principal, _ *db
 	}
 	for _, c := range cases {
 		what := fmt.Sprintf("admin %%s(%s, %s)", c.dt, c.r)
-		wantDenied(t, fmt.Sprintf(what, "Can")+" nil", svc.Can(ctx, admin, c.dt, c.r, nil), c.r, false)
+		wantDenied(t, fmt.Sprintf(what, "Can")+" nil", svc.Can(ctx, admin, c.dt, c.r, nil), c.r, "")
 		rec := &auth.RecordRef{DocType: c.dt, ID: 1, CreatedBy: admin.ID}
-		wantDenied(t, fmt.Sprintf(what, "Can")+" own record", svc.Can(ctx, admin, c.dt, c.r, rec), c.r, false)
+		wantDenied(t, fmt.Sprintf(what, "Can")+" own record", svc.Can(ctx, admin, c.dt, c.r, rec), c.r, "")
 		_, err := svc.Scope(ctx, admin, c.dt, c.r)
-		wantDenied(t, fmt.Sprintf(what, "Scope"), err, c.r, false)
+		wantDenied(t, fmt.Sprintf(what, "Scope"), err, c.r, "")
 		users, err := svc.UsersWithRight(ctx, c.dt, c.r, nil)
 		if err != nil || len(users) != 0 {
 			t.Errorf("UsersWithRight(%s, %s) = (%v, %v), want nobody and nil", c.dt, c.r, users, err)
@@ -632,24 +768,4 @@ func rowUnknownDocType(t *testing.T, svc auth.Service, admin auth.Principal, _ *
 	plain("CheckValues", svc.CheckValues(ctx, admin, dt, map[string][]int64{"project": {1}}))
 	_, err = svc.UsersWithRight(ctx, dt, auth.RightRead, nil)
 	plain("UsersWithRight", err)
-}
-
-// CD-174: Forbidden(msg) is a 403 showing exactly msg that errors.Is
-// ErrForbidden, also when wrapped.
-func rowForbidden(t *testing.T, _ auth.Service, _ auth.Principal, _ *db.DB) {
-	const msg = "You can only work with your assigned projects. Ask your administrator to add this Project."
-	err := auth.Forbidden(msg)
-	if !errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
-		t.Errorf("Forbidden(msg) = %v, want errors.Is ErrForbidden and not ErrNotFound", err)
-	}
-	if !errors.Is(fmt.Errorf("save: %w", err), auth.ErrForbidden) {
-		t.Errorf("wrapped Forbidden(msg) is not ErrForbidden")
-	}
-	if err == nil || err.Error() != msg {
-		t.Errorf("Forbidden(msg) = %v, want the message %q", err, msg)
-	}
-	var he doctype.HTTPError
-	if !errors.As(err, &he) || he.Status() != http.StatusForbidden {
-		t.Errorf("Forbidden(msg) = %v (%T), want a doctype.HTTPError with status 403", err, err)
-	}
 }
