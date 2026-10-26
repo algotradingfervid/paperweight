@@ -80,6 +80,9 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-UI | Batched review Tasks 4, 6, 7 | Light | crew-reviewer opus | 16:38 | 16:44 | 1 | 0/1/5 (Task 6 flash→Banner; fixes in 6-fix) | — |
 | DOC (head) | CD-178 Required on submit (lane/doc-required) | High | crew-test-writer, crew-implementer, crew-reviewer | 25 Oct | 26 Oct | 2 | 0/2/1 (majors fixed: restricted check before Can, real-service test) | d3db7be tests, 215cb17, 5f26884, merge 1c6cd12 |
 | WP3 (AD-4) | T1 FILE contract suite (wp3/contract-files) | High | crew-test-writer, crew-implementer, crew-reviewer | 25 Oct | 26 Oct | 2 | 0/2/3 (majors proven by mutation) | 66b1615, fae1db7, merge 1bd5aea |
+| WP3 (AD-4) | T1 DOC contract suite (wp3/contract-doc), CD-186 | High | crew-test-writer, crew-implementer, crew-reviewer | 25 Oct | 26 Oct | 2 | review CHANGES → CD-186; re-review APPROVE | squash 4a5e9db |
+| tooling (AD-5) | covertouched (lane/masters-covertouched) | Standard | crew-implementer ×2, crew-reviewer ×2 | 25 Oct | 26 Oct | 2 | 0/2/4 (all fixed) | squash 53e2ffc |
+| WP1-UI (AD-2) | UI-M2: Tasks 14, 17 and WP1-UI complete | Light/Standard | crew-implementer, crew-reviewer | 25 Oct | 26 Oct | 2 (Task 14) | Task 14 re-check APPROVE; Task 17 deadlines fixed | merge 9015065; head test fix after CD-186 |
 | WP1-UI | gofmt contrast_test.go (lint-only, AD) | — | AD-2 | 16:41 | 16:41 | — | — | 4728966 |
 | WP1-UI | 6/7 review fixes (wp/ui) | Light | crew-implementer opus | 16:44 | 16:48 | 1 | — (re-check pending) | 17a4eb8 |
 | WP1-UI | 8-fix ActionBar via Button (lane/ui-8b) | Light | crew-implementer opus | 16:44 | 16:46 | 1 | — | 5a61281, merge 11eb207 |
@@ -238,7 +241,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55, owner's battery)
 
-On main (every merge `make ci` green): NUM, NAM, APR, DOC, FILE complete; AUTH done except Task 20 (waits for UI-M2); UI-M1; WP2 part 1 (Tasks 1–5, 8–11); WP3 early deploy files.
+On main (every merge `make ci` green): NUM, NAM, APR, DOC, FILE, UI complete (UI-M2 26 Oct); AUTH done except Task 20 (now unblocked); WP3 T1 suites for FILE and DOC; covertouched tooling; WP2 part 1 (Tasks 1–5, 8–11); WP3 early deploy files.
 
 In flight when paused (all paused cleanly: no workers running, every uncommitted change committed as `wip` on its own branch, nothing merged half-done):
 - **Head director:** CD-178 merged to main 26 Oct (1c6cd12, `make ci` green; re-check APPROVE, both majors proven by mutation). The SeedDefaults "Import does not apply to Item" issue is with AD-1. Next for the head: WP3 Tasks 2–6 once every WP is merged. Open CROSS-WP from FILE's suite: `internal/contracts_test.go:59,573` (head) and `approvaltest/engine.go:70` (AD-3) still use the lenient `filesfake.New()`; move them to `filesfake.NewWith(c, authfake, docfake)` or the real Store.
