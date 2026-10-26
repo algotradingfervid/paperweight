@@ -170,23 +170,17 @@ func ref(id int64) *auth.RecordRef {
 	return &auth.RecordRef{DocType: DocType, ID: id, ProjectIDs: []int64{id}}
 }
 
-// restrictedError is CD-172's 403: a user restricted on Project can't create one.
-type restrictedError struct{}
-
-func (*restrictedError) Error() string                     { return msgRestrict }
-func (*restrictedError) Is(target error) bool              { return target == auth.ErrForbidden }
-func (*restrictedError) Status() int                       { return 403 }
-func (*restrictedError) FieldErrors() []doctype.FieldError { return nil }
-
-// checkUnrestricted refuses a principal restricted on Project (CD-172): no
-// project id, here 0, passes a project restriction.
-func (s *Service) checkUnrestricted(ctx context.Context, p auth.Principal) error {
-	err := s.env.Auth.CheckValues(ctx, p, DocType, map[string][]int64{"id": {0}})
-	var ve *auth.ValueError
-	if errors.As(err, &ve) {
-		return &restrictedError{}
+// checkUnrestricted refuses a principal restricted on Project (CD-172),
+// reading inside tx (CD-174).
+func (s *Service) checkUnrestricted(ctx context.Context, tx *db.Tx, p auth.Principal) error {
+	restricted, err := s.env.Auth.Restricted(ctx, tx, p, string(auth.DimProject))
+	if err != nil {
+		return err
 	}
-	return err
+	if restricted {
+		return auth.Forbidden(msgRestrict)
+	}
+	return nil
 }
 
 func userID(p auth.Principal) sql.NullInt64 {
@@ -241,7 +235,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkUnrestricted(ctx, p); err != nil {
+	if err := s.checkUnrestricted(ctx, tx, p); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)
