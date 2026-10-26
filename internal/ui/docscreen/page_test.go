@@ -252,8 +252,8 @@ func TestDocPage_HiddenRecordIs404(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("missing record: status = %d, want 404", rec.Code)
 	}
-	if text := uitest.Doc(t, rec).Text(); !strings.Contains(text, doctype.ErrNotFound.Error()) {
-		t.Errorf("missing record: body lacks %q", doctype.ErrNotFound.Error())
+	if text := uitest.Doc(t, rec).Text(); !strings.Contains(text, doc.Gone().Message) {
+		t.Errorf("missing record: body lacks DOC's text %q", doc.Gone().Message)
 	}
 }
 
