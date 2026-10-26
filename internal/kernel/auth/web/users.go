@@ -3,6 +3,7 @@ package authweb
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/a-h/templ"
@@ -105,7 +106,11 @@ func (s *Server) showUser(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	s.render(w, r, s.v.User(UserPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Version: version, User: u}))
+	page := UserPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Version: version, User: u}
+	if slices.Contains(p.Roles, auth.RoleAdministrator) {
+		page.AccessURL = accessPath(id)
+	}
+	s.render(w, r, s.v.User(page))
 }
 
 func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +241,13 @@ func (s *Server) changeRestrictions(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	redirect(w, r, userPath(id))
+	u, _, _, err := s.a.UserForEdit(ctx, p, id)
+	if err != nil {
+		s.WriteError(w, r, err)
+		return
+	}
+	web.Flash(ctx, "success", "Site and project access for "+u.Name+" saved.")
+	redirect(w, r, accessPath(id))
 }
 
 func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {

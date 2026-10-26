@@ -63,12 +63,14 @@ type UsersPage struct {
 }
 
 // UserPage shows one user. Version is the user's version, posted back as the
-// hidden version field (CD-94).
+// hidden version field (CD-94). AccessURL, set for an Administrator, links
+// the user's "Site and project access" page.
 type UserPage struct {
 	CSRF, Error string
 	Warnings    []string
 	User        auth.UserInfo
 	Version     int64
+	AccessURL   string
 }
 
 // RolesPage lists the roles and shows the rights matrix of every DocType.

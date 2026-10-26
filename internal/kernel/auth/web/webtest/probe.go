@@ -29,6 +29,16 @@ var probeSlugs = []struct{ slug, doctype string }{
 	{"item", authtest.DTItem}, {"party", authtest.DTParty}, {"site", authtest.DTSite}, {"project", authtest.DTProject},
 }
 
+// pickerURL is Config.PickerURL: the probe's /{slug}/picker for dt.
+func pickerURL(dt *doctype.DocType) string {
+	for _, s := range probeSlugs {
+		if s.doctype == dt.Name {
+			return "/" + s.slug + "/picker"
+		}
+	}
+	return ""
+}
+
 // probeActions are the lifecycle actions behind POST /{s}/{id}/{action}.
 var probeActions = []doctype.Action{
 	doctype.ActionSubmit, doctype.ActionWithdraw, doctype.ActionApprove, doctype.ActionReject,

@@ -1,0 +1,71 @@
+package authscreens
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// AccessPage is one user's "Site and project access" page (Task 20). Post is
+// the restrictions URL every form posts to with Version (CD-146); PickerURL
+// is each dimension's master picker search URL.
+type AccessPage struct {
+	User      auth.UserInfo
+	Version   int64
+	Post      string
+	Values    map[auth.Dimension][]auth.Restriction
+	PickerURL map[auth.Dimension]string
+}
+
+// accessSection is the wording of one dimension's section.
+type accessSection struct {
+	Dim              auth.Dimension
+	Title, None, Add string
+}
+
+var accessSections = []accessSection{
+	{Dim: auth.DimSite, Title: "Sites", None: "All sites (no restriction)", Add: "Add a site"},
+	{Dim: auth.DimProject, Title: "Projects", None: "All projects (no restriction)", Add: "Add a project"},
+}
+
+// Access shows, per dimension, a Card with "Remove" for each allowed value
+// (or the no-restriction text) and a Picker that adds one.
+templ Access(p AccessPage) {
+	@uilayout.Page(uilayout.PageOpts{Title: "Site and project access", Back: &components.Link{Label: p.User.Name, Href: "/users/" + strconv.FormatInt(int64(p.User.ID), 10)}}) {
+		<p>{ p.User.Name } · { p.User.Email }</p>
+		for _, s := range accessSections {
+			<section class="stack">
+				<h2>{ s.Title }</h2>
+				if len(p.Values[s.Dim]) == 0 {
+					<p>{ s.None }</p>
+				}
+				for _, v := range p.Values[s.Dim] {
+					@components.Card("", nil) {
+						<p>{ v.Label }</p>
+						@components.Form(components.FormProps{Action: p.Post}) {
+							@accessHidden(s.Dim, p.Version)
+							<input type="hidden" name="remove" value={ strconv.FormatInt(v.ID, 10) }/>
+							@components.Button(components.ButtonProps{Label: "Remove", AriaLabel: "Remove " + v.Label, Type: "submit", Variant: components.Secondary})
+						}
+					}
+				}
+				@components.Form(components.FormProps{Action: p.Post}) {
+					@accessHidden(s.Dim, p.Version)
+					@components.Picker(components.PickerProps{
+						Field:     components.FieldProps{ID: components.FieldID("add-" + string(s.Dim)), Label: s.Add},
+						SearchURL: p.PickerURL[s.Dim], HiddenName: "add", ListboxID: components.FieldID("add-" + string(s.Dim)) + "-results",
+					})
+					@components.Button(components.ButtonProps{Label: "Add", Type: "submit"})
+				}
+			</section>
+		}
+	}
+}
+
+// accessHidden is the dimension and version every access form posts.
+templ accessHidden(dim auth.Dimension, version int64) {
+	<input type="hidden" name="dimension" value={ string(dim) }/>
+	<input type="hidden" name="version" value={ strconv.FormatInt(version, 10) }/>
+}
