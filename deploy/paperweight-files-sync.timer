@@ -1,0 +1,11 @@
+# Runs paperweight-files-sync.service hourly, and at boot if a run was missed.
+[Unit]
+Description=Hourly Paperweight files backup
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target
