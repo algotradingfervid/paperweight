@@ -87,7 +87,7 @@ templ rulePage(f ruleForm, docTypes []components.Option) {
 	@components.ErrorSummary(f.summary())
 	@components.Form(components.FormProps{Action: f.action()}) {
 		if f.ID != 0 {
-			<input type="hidden" name="version" value={ strconv.FormatInt(f.Version, 10) }/>
+			@components.Hidden("version", strconv.FormatInt(f.Version, 10))
 		}
 		@components.Select(components.FieldProps{ID: components.FieldID("doctype"), Name: "doctype", Label: "Document type", Value: f.DocType, Error: f.errFor("doctype")}, docTypes)
 		@components.MoneyInput(components.FieldProps{ID: components.FieldID("from_amount"), Name: "from_amount", Label: "From amount", Hint: "Documents of this amount or more need approval.", Value: f.FromAmount, Error: f.errFor("from_amount")})

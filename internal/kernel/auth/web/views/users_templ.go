@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
 )
 
 func (Default) Users(p authweb.UsersPage) templ.Component {
@@ -63,7 +64,7 @@ func users(p authweb.UsersPage) templ.Component {
 				var templ_7745c5c3_Var3 templ.SafeURL
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/users/%d", u.ID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/users.templ`, Line: 17, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/users.templ`, Line: 18, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -76,7 +77,7 @@ func users(p authweb.UsersPage) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(u.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/users.templ`, Line: 17, Col: 74}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/users.templ`, Line: 18, Col: 74}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -89,7 +90,7 @@ func users(p authweb.UsersPage) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/users.templ`, Line: 17, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/views/users.templ`, Line: 18, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -106,7 +107,7 @@ func users(p authweb.UsersPage) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("Users", p.CSRF, p.Error, p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = page(uilayout.PageOpts{Title: "Users"}, p.CSRF, p.Error, "main", p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

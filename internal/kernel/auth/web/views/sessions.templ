@@ -29,19 +29,17 @@ templ sessions(p authweb.SessionsPage) {
 						if s.Current {
 							<p>This session</p>
 						} else {
-							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/account/sessions/%d/revoke", s.ID)) }>
-								<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+							@components.Form(components.FormProps{Action: fmt.Sprintf("/account/sessions/%d/revoke", s.ID), CSRF: p.CSRF}) {
 								@components.Button(components.ButtonProps{Label: "End session", Busy: "Ending…"})
-							</form>
+							}
 						}
 					}
 				</li>
 			}
 		</ul>
-		<form method="post" action="/account/sessions/revoke-others">
-			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+		@components.Form(components.FormProps{Action: "/account/sessions/revoke-others", CSRF: p.CSRF}) {
 			@components.Button(components.ButtonProps{Label: "End all other sessions", Busy: "Ending…"})
-		</form>
+		}
 	}
 }
 

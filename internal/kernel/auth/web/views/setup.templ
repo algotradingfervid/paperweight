@@ -14,13 +14,14 @@ func (Default) Setup(p authweb.SetupPage) templ.Component {
 // fields.
 templ setup(p authweb.SetupPage) {
 	@page(uilayout.PageOpts{Title: "Set up", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, components.FieldID("email"), p.Warnings) {
-		<form method="post" action="/setup" class="stack">
-			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
-			@passwordRules(false)
-			@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Value: p.Email, Attrs: required}, "username")
-			@components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "Name", Value: p.Name, Attrs: required})
-			@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: required}, "new-password")
-			@components.Button(components.ButtonProps{Label: "Create administrator", Busy: "Creating…", Variant: components.Primary})
-		</form>
+		@components.Form(components.FormProps{Action: "/setup", CSRF: p.CSRF}) {
+			<div class="stack">
+				@passwordRules(false)
+				@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Value: p.Email, Attrs: required}, "username")
+				@components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "Name", Value: p.Name, Attrs: required})
+				@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: required}, "new-password")
+				@components.Button(components.ButtonProps{Label: "Create administrator", Busy: "Creating…", Variant: components.Primary})
+			</div>
+		}
 	}
 }

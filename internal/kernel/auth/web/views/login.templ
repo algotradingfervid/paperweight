@@ -14,14 +14,15 @@ func (Default) Login(p authweb.LoginPage) templ.Component {
 // attempt, so a wrong password and an unknown email answer alike (AUTH-004).
 templ login(p authweb.LoginPage) {
 	@page(uilayout.PageOpts{Title: "Sign in", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, components.FieldID("email"), p.Warnings) {
-		<form method="post" action="/signin" class="stack">
-			<input type="hidden" name="csrf_token" value={ p.CSRF }/>
+		@components.Form(components.FormProps{Action: "/signin", CSRF: p.CSRF}) {
 			if p.Next != "" {
-				<input type="hidden" name="next" value={ p.Next }/>
+				@components.Hidden("next", p.Next)
 			}
-			@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Attrs: required}, "username")
-			@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: required}, "current-password")
-			@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
-		</form>
+			<div class="stack">
+				@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Attrs: required}, "username")
+				@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: required}, "current-password")
+				@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
+			</div>
+		}
 	}
 }
