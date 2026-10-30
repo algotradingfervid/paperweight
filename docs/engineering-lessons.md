@@ -171,3 +171,4 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - A label that names another record (a code, number or name) needs a read check in the same read, on every path that shows it: link inputs (CD-233), refusals (CD-240) and History roll-up rows (CD-247). It has slipped three times.
 - A test-local copy of a registered DocType is a lenient double, even inside e2e (third time: CD-125, CD-162, e2e.ListOrder). Declare what the test needs on the real fixture DocType instead.
 - After moving a test to a new target by ruling, prove its setup still decides the outcome: delete the setup call in a scratch copy and watch the test fail (a moved CD-125 row left Hide doing nothing; CD-248).
+- A new control on an existing page: check the page-wide tests (ReadOnlyOutsideDraft, CSP, UI lint, JS budget) while writing the tests, not at hand-in (CD-249).
