@@ -24,7 +24,7 @@ func claimDocType() doctype.DocType {
 			"Director": rights("all", "read", "approve", "print", "export"),
 		},
 		Fields: []doctype.Field{
-			// A testkit_employee id; no master link in Wave 1.
+			// An employee id; no master link in Wave 1.
 			{Name: "employee_id", Label: "Employee", Type: doctype.Int, Required: true, ListPriority: 1},
 			{Name: "claim_date", Label: "Claim date", Type: doctype.Date, Required: true, ListPriority: 4},
 			{Name: "total", Label: "Total", Type: doctype.Money, ReadOnly: true, ListPriority: 2}, // CD-79

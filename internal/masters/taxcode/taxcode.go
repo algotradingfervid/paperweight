@@ -43,6 +43,9 @@ const (
 	msgTreatment   = "Treatment must be Taxable, Nil-Rated, Exempted, Non-GST or Zero-Rated."
 	msgTaxableZero = "A Taxable tax code needs a GST rate above 0. Use Nil-Rated or Exempted for 0%."
 	msgNotNotified = "GST rate %s%% is not a notified rate. Use one of 0.1, 0.25, 1, 1.5, 3, 5, 6, 7.5, 12, 18, 28, 40."
+
+	msgRateLocked      = "Rate can't change after this tax code is used. Disable it and create a new one."
+	msgTreatmentLocked = "Treatment can't change after this tax code is used. Disable it and create a new one."
 )
 
 func init() {
@@ -181,8 +184,9 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 	return saved, err
 }
 
-// UpdateTx is Update inside tx. The UPDATE is conditional on the posted
-// version (CD-94).
+// UpdateTx is Update inside tx. The rate and treatment are locked once a
+// document outside draft uses the tax code (MST-099, CD-199). The UPDATE is
+// conditional on the posted version (CD-94).
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
@@ -199,6 +203,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
+		return mstkit.Saved{}, err
+	}
+	if err := s.checkLocks(ctx, tx, old, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
@@ -220,6 +227,27 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: version + 1}, nil
+}
+
+// checkLocks refuses a changed rate or treatment on a tax code in use. The
+// treatment is compared itself: Exempted to Nil-Rated keeps rate 0.
+func (s *Service) checkLocks(ctx context.Context, tx *db.Tx, old TaxCode, in Input) error {
+	rate, treatment := in.Rate != old.Rate, in.Treatment != old.Treatment
+	if !rate && !treatment {
+		return nil
+	}
+	_, used, err := s.env.UsedOutsideDrafts(ctx, tx, Kind.Table, old.ID)
+	if err != nil || !used {
+		return err
+	}
+	var es mstkit.Errors
+	if rate {
+		es.Add("rate", msgRateLocked)
+	}
+	if treatment {
+		es.Add("treatment", msgTreatmentLocked)
+	}
+	return es.Err()
 }
 
 // SetDisabled disables or enables the tax code.

@@ -27,6 +27,13 @@ const (
 	msgLastBranch    = "At least one branch must stay enabled."
 )
 
+// owned are the branch's own rows, deleted with it. The kinds are literal
+// because company must not import address (M4).
+var owned = []mstkit.Child{
+	{Kind: mstkit.Kind{DocType: "Address", Label: "Address", Table: "address"}, FKColumn: "branch_id"},
+	{Kind: mstkit.Kind{DocType: "Contact", Label: "Contact", Table: "contact"}, FKColumn: "branch_id"},
+}
+
 func init() {
 	mstkit.RegisterMaster(doctype.DocType{
 		Name:         DocType,
@@ -206,8 +213,8 @@ func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal
 	return s.env.SetDisabledTx(ctx, tx, p, Kind, id, version, disabled)
 }
 
-// DeleteTx deletes an unreferenced branch; the last enabled branch can't go
-// (MST-027).
+// DeleteTx deletes an unreferenced branch and its own addresses and contacts;
+// the last enabled branch can't go (MST-027).
 func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int) error {
 	cur, err := s.can(ctx, tx, p, id, auth.RightDelete)
 	if err != nil {
@@ -221,7 +228,7 @@ func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 			return err
 		}
 	}
-	return s.env.DeleteTx(ctx, tx, p, Kind, id, version)
+	return s.env.DeleteTx(ctx, tx, p, Kind, id, version, owned...)
 }
 
 // Get returns the branch with id, or doctype.ErrNotFound.

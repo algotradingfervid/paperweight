@@ -464,6 +464,109 @@ func TestKit_DeleteRefusedWhenReferenced(t *testing.T) {
 	})
 }
 
+// note is a test master with no code that links to kit.Thing, as Address
+// links to Branch. Its table exists only in the tests below.
+var (
+	note         = mstkit.Kind{DocType: "kit.Note", Label: "Note", Table: "kit_note"}
+	thing        = mstkit.Kind{DocType: "kit.Thing", Label: "Thing", Table: "kit_thing", HasCode: true}
+	registerNote sync.Once // doctype.Register panics on a duplicate (-count > 1)
+	errNote      = errors.New("note lookup failed")
+)
+
+const kitNoteDDL = `CREATE TABLE kit_note (
+	id INTEGER PRIMARY KEY,
+	name TEXT NOT NULL,
+	disabled INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0,1)),
+	thing_id INTEGER NOT NULL REFERENCES kit_thing(id) ON DELETE CASCADE
+)`
+
+// noteKit registers kit.Note; the lookup fails for the note named "broken".
+func noteKit(t *testing.T) *kit {
+	t.Helper()
+	registerKitThing()
+	registerNote.Do(func() {
+		standard := mstkit.StandardLookup(note)
+		mstkit.RegisterMaster(doctype.DocType{
+			Name: note.DocType, Label: note.Label, PluralLabel: "Notes", Table: note.Table,
+			Fields: []doctype.Field{
+				{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
+				{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check},
+				{Name: "thing_id", Label: "Thing", Column: "thing_id", Type: doctype.Link, Link: thing.DocType},
+			},
+		}, mstkit.LookupFunc(func(ctx context.Context, tx *db.Tx, id int64) (doctype.MasterInfo, bool, error) {
+			info, ok, err := standard.Lookup(ctx, tx, id)
+			if info.Name == "broken" {
+				return doctype.MasterInfo{}, false, errNote
+			}
+			return info, ok, err
+		}))
+	})
+	return newKit(t)
+}
+
+func (k *kit) insertNote(t *testing.T, thingID int64, name string) {
+	t.Helper()
+	k.write(t, func(tx *db.Tx) error {
+		ctx := context.Background()
+		if _, err := tx.SQL().ExecContext(ctx, kitNoteDDL); err != nil {
+			return err
+		}
+		_, err := tx.SQL().ExecContext(ctx, `INSERT INTO kit_note (name, thing_id) VALUES (?, ?)`, name, thingID)
+		return err
+	})
+}
+
+// TestKit_DeleteNamesCodelessMaster has no case ID (CD-167, CD-68): a linking
+// master with no code shows its name.
+func TestKit_DeleteNamesCodelessMaster(t *testing.T) {
+	k := noteKit(t)
+	ctx := context.Background()
+	id := k.insertThing(t, "V-SHARMA", "Sharma Steel Traders")
+	k.insertNote(t, id, "Mumbai Office")
+	const msg = "Cannot delete Thing V-SHARMA: it is used in Note Mumbai Office. Disable it instead."
+	err := k.db.Write(ctx, func(tx *db.Tx) error {
+		return k.env.DeleteTx(ctx, tx, k.kavya, thing, id, 1)
+	})
+	var refused *mstkit.DeleteRefusedError
+	if !errors.As(err, &refused) || err.Error() != msg {
+		t.Fatalf("DeleteTx = %v; want *DeleteRefusedError %q", err, msg)
+	}
+	// As a child kind the same row doesn't block: it goes with the master.
+	k.write(t, func(tx *db.Tx) error {
+		return k.env.DeleteTx(ctx, tx, k.kavya, thing, id, 1, mstkit.Child{Kind: note, FKColumn: "thing_id"})
+	})
+	if _, _, ok := k.thing(t, id); ok {
+		t.Error("row still exists after DeleteTx with its notes as children")
+	}
+}
+
+// TestKit_DeleteScanErrors: a failed read in the scan fails the delete; it is
+// never read as "no reference".
+func TestKit_DeleteScanErrors(t *testing.T) {
+	ctx := context.Background()
+	t.Run("query", func(t *testing.T) {
+		k := noteKit(t) // no kit_note table
+		id := k.insertThing(t, "V-SHARMA", "Sharma Steel Traders")
+		err := k.db.Write(ctx, func(tx *db.Tx) error {
+			return k.env.DeleteTx(ctx, tx, k.kavya, thing, id, 1)
+		})
+		if err == nil || !strings.Contains(err.Error(), "kit_note") {
+			t.Errorf("DeleteTx = %v; want the scan's missing-table error", err)
+		}
+	})
+	t.Run("lookup", func(t *testing.T) {
+		k := noteKit(t)
+		id := k.insertThing(t, "V-SHARMA", "Sharma Steel Traders")
+		k.insertNote(t, id, "broken")
+		err := k.db.Write(ctx, func(tx *db.Tx) error {
+			return k.env.DeleteTx(ctx, tx, k.kavya, thing, id, 1)
+		})
+		if !errors.Is(err, errNote) {
+			t.Errorf("DeleteTx = %v; want %v", err, errNote)
+		}
+	})
+}
+
 func TestKit_UsedOutsideDrafts(t *testing.T) {
 	k := newKit(t)
 	ctx := context.Background()

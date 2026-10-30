@@ -16,10 +16,9 @@ import (
 )
 
 const (
-	// msgDeleteReportee is mstkit's refusal (MST-014) when the FK stops the
-	// delete: DOC's References lists documents only, so a reportee shows as
-	// "another record".
-	msgDeleteReportee = "Cannot delete Employee EMP-004: it is used in another record. Disable it instead."
+	// msgDeleteReportee is mstkit's refusal (MST-014): its scan of master Link
+	// fields names the reportee (CD-167).
+	msgDeleteReportee = "Cannot delete Employee EMP-004: it is used in Employee EMP-007. Disable it instead."
 	// msgDeleteDenied is auth.DeniedError for a user without the delete right.
 	msgDeleteDenied = "You don't have permission to delete Employee. Ask your administrator for a role that allows it."
 	// msgCodeTaken is mstkit.CheckCodeFree for EMP-004 (Priya Shah).

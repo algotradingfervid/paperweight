@@ -8,6 +8,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/expensetype"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/masters/msttest"
+	"github.com/vardhan/internaltools/internal/masters/taxcode"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
@@ -168,5 +169,67 @@ func TestExpenseType_DefaultHSN(t *testing.T) { // MST-122
 		return nil
 	}); err != nil {
 		t.Fatalf("read TRAVEL: %v", err)
+	}
+}
+
+// TestExpenseType_DefaultTaxCode has no case ID of its own: MST-074's rule on
+// an expense type's default tax code, on create and update.
+func TestExpenseType_DefaultTaxCode(t *testing.T) {
+	env := msttest.New(t)
+	ctx := context.Background()
+	svc := expensetype.New(env.Kit)
+	taxes := taxcode.New(env.Kit)
+
+	var gst18 taxcode.TaxCode
+	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
+		var ok bool
+		var err error
+		gst18, ok, err = taxes.ByCode(ctx, tx, "GST18")
+		if err == nil && !ok {
+			t.Fatal("tax code GST18 not found")
+		}
+		return err
+	}); err != nil {
+		t.Fatalf("ByCode(GST18): %v", err)
+	}
+
+	// While GST18 is enabled the expense type saves with it.
+	in := expensetype.Input{Code: "TRAVEL", Name: "Local travel", DefaultTaxCodeID: gst18.ID}
+	saved, err := svc.Create(ctx, env.Kavya, in)
+	if err != nil {
+		t.Fatalf("Create(TRAVEL, GST18 enabled): %v", err)
+	}
+	plain, err := svc.Create(ctx, env.Kavya, expensetype.Input{Code: "FOOD", Name: "Food"})
+	if err != nil {
+		t.Fatalf("Create(FOOD): %v", err)
+	}
+
+	const missing = int64(999999)
+	const notFound = "Tax code not found. Pick one from the list."
+	_, err = svc.Create(ctx, env.Kavya, expensetype.Input{Code: "FUEL", Name: "Fuel", DefaultTaxCodeID: missing})
+	wantOnlyMessage(t, "Create(missing tax code)", err, notFound)
+	_, err = svc.Update(ctx, env.Kavya, plain.ID, plain.Version, expensetype.Input{Code: "FOOD", Name: "Food", DefaultTaxCodeID: missing})
+	wantOnlyMessage(t, "Update(missing tax code)", err, notFound)
+
+	if err := taxes.SetDisabled(ctx, env.Kavya, gst18.ID, gst18.Version, true); err != nil {
+		t.Fatalf("disable GST18: %v", err)
+	}
+	const disabled = "Tax code GST18 is disabled. Pick another tax code."
+	_, err = svc.Create(ctx, env.Kavya, expensetype.Input{Code: "FUEL", Name: "Fuel", DefaultTaxCodeID: gst18.ID})
+	wantOnlyMessage(t, "Create(GST18 disabled)", err, disabled)
+	_, err = svc.Update(ctx, env.Kavya, plain.ID, plain.Version, expensetype.Input{Code: "FOOD", Name: "Food", DefaultTaxCodeID: gst18.ID})
+	wantOnlyMessage(t, "Update(GST18 disabled)", err, disabled)
+
+	if n := countExpenseTypes(t, env.DB); n != 2 {
+		t.Errorf("expense_type rows after the refusals = %d; want 2", n)
+	}
+	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
+		got, err := svc.Get(ctx, tx, saved.ID)
+		if err == nil && got.DefaultTaxCodeID != gst18.ID {
+			t.Errorf("TRAVEL's default tax code = %d; want GST18 %d", got.DefaultTaxCodeID, gst18.ID)
+		}
+		return err
+	}); err != nil {
+		t.Fatalf("Get(TRAVEL): %v", err)
 	}
 }

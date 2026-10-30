@@ -331,6 +331,19 @@ func TestWorld_Refs(t *testing.T) {
 	}
 }
 
+// TestWorld_LinksEmployees (CD-199 item 4): the World has users, so every
+// fixture employee points at its user in the real table.
+func TestWorld_LinksEmployees(t *testing.T) {
+	w := authtest.NewWorld(t)
+	var linked int
+	if err := w.DB.SQL().QueryRowContext(t.Context(), `SELECT count(user_id) FROM employee`).Scan(&linked); err != nil {
+		t.Fatalf("count linked employees: %v", err)
+	}
+	if linked != 8 {
+		t.Errorf("linked employees = %d; want 8", linked)
+	}
+}
+
 // TestWorld_DefaultRightsMatchFixtures ties the probe DocTypes' DefaultRights
 // to testkit.Fixtures.Rights: fixture.Order → Order, fixture.Receipt →
 // Receipt, Expense Claim and fixture.Claim → Claim (the fixture.Claim twin

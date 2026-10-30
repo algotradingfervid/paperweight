@@ -7,49 +7,55 @@ import "github.com/vardhan/internaltools/internal/types"
 // document first, then this file.
 
 // Fixtures holds every canonical fixture value. Seed fills in the database
-// ids of employees, projects and sites.
+// ids of every master.
 type Fixtures struct {
-	Company       FixtureCompany
-	Branches      []FixtureBranch
-	Parties       []FixtureParty
-	InvalidGSTIN  string // invalid-checksum GSTIN used in negative tests
-	Items         []FixtureItem
-	Units         []FixtureUnit
-	TaxCodes      []FixtureTaxCode
-	Projects      []FixtureProject
-	Sites         []FixtureSite
-	ExpenseTypes  []string
-	Roles         []string // canonical roles
-	Users         []FixtureUser
-	Password      string // test password for all fixture users
-	Restrictions  []FixtureRestriction
-	Employees     []FixtureEmployee
-	Rights        []FixtureRight
-	ApprovalRules []FixtureApprovalRule
-	Numbering     []FixtureNumbering
-	ReferencePO   FixtureReferencePO
+	Company        FixtureCompany
+	Branches       []FixtureBranch
+	Parties        []FixtureParty
+	InvalidGSTIN   string // invalid-checksum GSTIN used in negative tests
+	Items          []FixtureItem
+	Units          []FixtureUnit
+	TaxCodes       []FixtureTaxCode
+	Projects       []FixtureProject
+	Sites          []FixtureSite
+	ExpenseTypes   []string
+	ExpenseTypeIDs map[string]int64 // by code; Seed fills it in
+	Roles          []string         // canonical roles
+	Users          []FixtureUser
+	Password       string // test password for all fixture users
+	Restrictions   []FixtureRestriction
+	Employees      []FixtureEmployee
+	Rights         []FixtureRight
+	ApprovalRules  []FixtureApprovalRule
+	Numbering      []FixtureNumbering
+	ReferencePO    FixtureReferencePO
 }
 
 type FixtureCompany struct {
+	ID             int64
 	LegalName, PAN string
 }
 
 type FixtureBranch struct {
+	ID, AddressID                       int64 // AddressID is the branch's own address
 	Code, Name, State, StateCode, GSTIN string
 	HeadOffice                          bool
 }
 
 type FixtureParty struct {
+	ID                           int64
 	Code, Name, PAN, GSTCategory string // PAN "" when the party has none
 	Addresses                    []FixtureAddress
 }
 
 type FixtureAddress struct {
+	ID             int64
 	Place, GSTIN   string // GSTIN "" when unregistered
 	PrimaryBilling bool
 }
 
 type FixtureItem struct {
+	ID                    int64
 	Code, Name, Type, HSN string // HSN holds the SAC for services
 	StockUoM              string // display label as in 00-fixtures.md (kg, Nos); the unit code is in Units
 	StockWhole            bool   // stock UoM is whole-number
@@ -59,11 +65,13 @@ type FixtureItem struct {
 }
 
 type FixtureUnit struct {
+	ID        int64
 	Code, UQC string
 	Whole     bool
 }
 
 type FixtureTaxCode struct {
+	ID       int64
 	Category string // Taxable, Nil-Rated, Exempted, Non-GST
 	Percent  types.Percent
 }
@@ -138,6 +146,9 @@ type FixturePOLine struct {
 }
 
 var allRights = []string{"read", "create", "write", "submit", "cancel", "amend", "delete", "approve", "print", "export", "import"}
+
+// Canonical returns the fixture values with no database ids (CD-199).
+func Canonical() Fixtures { return canonical() }
 
 func canonical() Fixtures {
 	return Fixtures{

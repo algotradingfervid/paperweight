@@ -11,32 +11,42 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
+	"github.com/vardhan/internaltools/internal/kernel/files/filesfake"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
+	"github.com/vardhan/internaltools/internal/masters/mstfixture/migrations"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
 )
 
-// Env is a migrated, seeded database and a mstkit.Env over it.
+// Env is a migrated database with the fixture users and a mstkit.Env over it.
+// Fx holds the canonical fixtures, with the ids SeedMasters will produce.
 type Env struct {
 	DB    *db.DB
 	Kit   mstkit.Env
 	Clock *clock.Fixed
+	Fx    testkit.Fixtures
 
 	Admin, Kavya, Priya, Ravi auth.Principal
+
+	auth *auth.Auth
 }
+
+// orderDocType is mstfixture.DocType; mstfixture imports this package.
+const orderDocType = "mst.Order"
 
 // engineRef lets AUTH use the engine as its Refs and Info before the engine,
 // which needs AUTH, exists.
 type engineRef struct{ doc.Engine }
 
-// New returns an Env: testkit.NewDB and Seed, the fixture users and roles,
-// AUTH's default rights, then through the matrix every applicable right on
-// every registered master for Masters Manager (Kavya) and read only for
-// Purchase User (Priya). Register test masters before calling it. The
-// fixtures' user restrictions are applied through AUTH, as in AUTH's test
-// world.
+// New returns an Env: testkit.NewDB with mstfixture's tables (Engine.References
+// scans every registered document table, so every binary needs them, CD-199),
+// the fixture users and roles, mst.Order's number series, AUTH's default
+// rights, then through the matrix every applicable right on every registered
+// master for Masters Manager (Kavya) and read only for Purchase User (Priya).
+// Register test masters before calling it. The fixtures' user restrictions
+// need the real projects and sites, so SeedMasters applies them.
 //
 // Rights are granted for tests (Kavya every applicable right, Priya read;
 // plan Task 1), not production DefaultRights (M1), which
@@ -45,24 +55,34 @@ func New(t testing.TB) *Env {
 	t.Helper()
 	ctx := context.Background()
 	d := testkit.NewDB(t)
-	fx := testkit.Seed(t, d)
+	if err := db.Migrate(ctx, d, migrations.FS, "goose_mstfixture"); err != nil {
+		t.Fatalf("msttest.New: mstfixture migrations: %v", err)
+	}
+	fx := testkit.Canonical()
+	numberFixtures(&fx)
 	clk := testkit.Clock()
 	insertUsers(t, d, fx)
 
 	refs := &engineRef{}
 	a := auth.New(auth.Deps{DB: d, Clock: clk, Directory: testkit.Directory(fx), Audit: audit.Default, Refs: refs, Info: refs})
+	namer := naming.New(d, clk, a, audit.Default)
 	refs.Engine = doc.NewEngine(doc.Deps{
-		DB: d, Clock: clk, Auth: a, Naming: naming.New(d, clk, a, audit.Default), Audit: audit.Default,
+		DB: d, Clock: clk, Auth: a, Naming: namer, Files: filesfake.NewWith(clk, a, refs), Audit: audit.Default,
 	})
+	if err := namer.EnsureSeries(ctx, orderDocType, "Purchase Order", "PO/{FY}/{#####}"); err != nil {
+		t.Fatalf("msttest.New: EnsureSeries: %v", err)
+	}
 
 	e := &Env{
 		DB:    d,
 		Kit:   mstkit.Env{DB: d, Auth: a, Engine: refs.Engine, Auditor: audit.Default, Clock: clk},
 		Clock: clk,
+		Fx:    fx,
 		Admin: testkit.Principal(t, "admin@vardhan.test"),
 		Kavya: testkit.Principal(t, "kavya@vardhan.test"),
 		Priya: testkit.Principal(t, "priya@vardhan.test"),
 		Ravi:  testkit.Principal(t, "ravi@vardhan.test"),
+		auth:  a,
 	}
 	if err := a.SeedDefaults(ctx, auth.SeedOptions{LinkedMasterRead: true}); err != nil {
 		t.Fatalf("msttest.New: SeedDefaults: %v", err)
@@ -86,8 +106,25 @@ func New(t testing.TB) *Env {
 			}
 		}
 	}
-	restrict(t, a, e.Admin, fx)
 	return e
+}
+
+// numberFixtures gives employees, projects and sites the ids SeedMasters
+// produces (fixture order from 1), which AUTH's Directory fake needs before
+// the rows exist.
+func numberFixtures(fx *testkit.Fixtures) {
+	projects := map[string]int64{}
+	for i := range fx.Projects {
+		fx.Projects[i].ID = int64(i + 1)
+		projects[fx.Projects[i].Code] = fx.Projects[i].ID
+	}
+	for i := range fx.Sites {
+		fx.Sites[i].ID = int64(i + 1)
+		fx.Sites[i].ProjectID = projects[fx.Sites[i].ProjectCode]
+	}
+	for i := range fx.Employees {
+		fx.Employees[i].ID = int64(i + 1)
+	}
 }
 
 // restrict applies the fixtures' user restrictions with ids from the fixtures.
@@ -109,7 +146,7 @@ func restrict(t testing.TB, a *auth.Auth, admin auth.Principal, fx testkit.Fixtu
 		for _, c := range codes {
 			id, ok := m[c]
 			if !ok {
-				t.Fatalf("msttest.New: restriction code %q not in the fixtures", c)
+				t.Fatalf("msttest.SeedMasters: restriction code %q not in the fixtures", c)
 			}
 			out = append(out, id)
 		}
@@ -118,7 +155,7 @@ func restrict(t testing.TB, a *auth.Auth, admin auth.Principal, fx testkit.Fixtu
 	for _, r := range fx.Restrictions {
 		u, ok := users[r.Email]
 		if !ok {
-			t.Fatalf("msttest.New: restriction for unknown user %q", r.Email)
+			t.Fatalf("msttest.SeedMasters: restriction for unknown user %q", r.Email)
 		}
 		for dim, ids := range map[auth.Dimension][]int64{
 			auth.DimProject: resolve(projects, r.ProjectCodes),
@@ -128,7 +165,7 @@ func restrict(t testing.TB, a *auth.Auth, admin auth.Principal, fx testkit.Fixtu
 				continue
 			}
 			if err := a.ChangeRestrictions(ctx, admin, u, dim, ids, nil, nil); err != nil {
-				t.Fatalf("msttest.New: restrict %s on %s: %v", r.Email, dim, err)
+				t.Fatalf("msttest.SeedMasters: restrict %s on %s: %v", r.Email, dim, err)
 			}
 		}
 	}

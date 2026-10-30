@@ -34,10 +34,7 @@
 //	                             TextInput, CodeInput, Select, Checkboxes, Textarea,
 //	                             NumberInput, QtyInput, PercentInput, Card, SummaryList,
 //	                             Banner, Toast, Dialog; screens.Register
-//	Test kit                     testkit.NewDB, Clock, Principal, Seed, Directory
-//	testkit_* users (Task 23)    internal/testkit/migrations/09001_testkit_minimal_masters.sql,
-//	                             internal/testkit/seed.go, internal/testkit/testkit_test.go,
-//	                             internal/fixture/claim.go, internal/kernel/doc/load_test.go
+//	Test kit                     testkit.NewDB, Clock, Principal, Seed, LinkEmployees, Directory
 package mstkit
 
 import (

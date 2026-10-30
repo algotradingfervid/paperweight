@@ -11,7 +11,6 @@ import (
 
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/testkit/migrations"
 	appmigrations "github.com/vardhan/internaltools/migrations"
 )
 
@@ -21,9 +20,8 @@ var (
 )
 
 // NewDB creates app.db in a temp dir, opens it with the default busy
-// timeout, applies the production migrations (table goose_db_version) and
-// then the test-only ones (table goose_testkit). Cleanup closes the database
-// and deletes the temp dir.
+// timeout and applies the production migrations (table goose_db_version), the
+// master tables included. Cleanup closes the database and deletes the temp dir.
 func NewDB(t testing.TB) *db.DB {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "app.db")
@@ -42,11 +40,7 @@ func NewDB(t testing.TB) *db.DB {
 			t.Errorf("testkit.NewDB: close %s: %v", path, err)
 		}
 	})
-	ctx := context.Background()
-	if err := db.Migrate(ctx, d, appmigrations.FS, "goose_db_version"); err != nil {
-		t.Fatalf("testkit.NewDB: %v", err)
-	}
-	if err := db.Migrate(ctx, d, migrations.FS, "goose_testkit"); err != nil {
+	if err := db.Migrate(context.Background(), d, appmigrations.FS, "goose_db_version"); err != nil {
 		t.Fatalf("testkit.NewDB: %v", err)
 	}
 	return d
