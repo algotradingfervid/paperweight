@@ -173,7 +173,7 @@ The kernel's state machine, with `submit` going straight to `approved`.
 
 ## 8. Links to masters
 
-Everything comes from the PO. The GRN's own picker is the PO: approved, not closed, visible to this user, with pending above 0 by default. `Show fully received orders` widens it, because another truck can still arrive and over-delivery only warns (CD-234). The module's first step runs `auth.CheckLinkTx` before `Engine.Do`, so a posted foreign PO gets AUTH-101's refusal, not the 404 that `create` would give (`You can't use Purchase Order PO/26-27/00030. It isn't available to you.`). A party link named `vendor_id` means MST-043 sees the GRN. Masters disabled after the PO are not re-checked, because goods on a truck must still be receivable after someone disables the item [Assumption]. The field types in §3.1 make this hold with no kernel change.
+Everything comes from the PO. The GRN's own picker is the PO: approved, not closed, visible to this user, with pending above 0 by default. `Show fully received orders` widens it, because another truck can still arrive and over-delivery only warns (CD-234). The module's first step runs `auth.CheckLinkTx` before `Engine.Do`, so a posted foreign PO gets AUTH-101's refusal, not the 404 that `create` would give (`You can't use this Purchase Order. It isn't available to you.`, CD-240). A party link named `vendor_id` means MST-043 sees the GRN. Masters disabled after the PO are not re-checked, because goods on a truck must still be receivable after someone disables the item [Assumption]. The field types in §3.1 make this hold with no kernel change.
 
 ## 9. Print
 
