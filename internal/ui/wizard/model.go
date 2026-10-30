@@ -47,7 +47,8 @@ const (
 // ("" = "#wizard"; a form whose response leaves the wizard names #main),
 // and After renders after
 // the step form, inside #wizard, for content holding forms of its own
-// (forms can't nest). LastLabel replaces the mode's required last step label
+// (forms can't nest). Below renders after the action bar, last in #wizard and
+// outside the step form, so Enter in a field can't press it. LastLabel replaces the mode's required last step label
 // for a wizard that ends in something else (the master import ends in
 // "Import", design-system §8.7).
 type Model struct {
@@ -62,7 +63,7 @@ type Model struct {
 	Stored                             []string // a draft's stored problems: shown, but no failed step
 	Conflict, ReloadURL                string
 	Action, Target                     string
-	After                              templ.Component
+	After, Below                       templ.Component
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9-]+$`)

@@ -58,6 +58,12 @@ templ recordPage(v recordView) {
 					})
 				}
 			}
+		} else if len(v.Cards) > 0 {
+			for _, c := range v.Cards {
+				@components.Card(c.Title, c.Change) {
+					@components.SummaryList(c.Pairs)
+				}
+			}
 		} else if v.CanWrite {
 			@components.Form(components.FormProps{Action: v.Action}) {
 				if v.ID != 0 {

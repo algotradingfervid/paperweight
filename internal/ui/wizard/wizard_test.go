@@ -198,6 +198,37 @@ func TestFrame_MasterModeHasNoVersionOrFinishLater(t *testing.T) {
 	}
 }
 
+// Below comes last in #wizard, after the action bar and outside the step form,
+// with or without After.
+func TestFrame_BelowFollowsTheBar(t *testing.T) {
+	below := templ.Raw(`<p id="below">x</p>`)
+	for name, after := range map[string]templ.Component{"no After": nil, "After": templ.Raw(`<p id="after">y</p>`)} {
+		t.Run(name, func(t *testing.T) {
+			m := docModel()
+			m.Mode, m.After, m.Below = wizard.Master, after, below
+			m.Steps[len(m.Steps)-1].Label = "Check and save"
+			doc := renderFrame(t, m, wizard.Bar{})
+			if doc.Find("#wizard-form #below").Length() != 0 {
+				t.Errorf("Below is inside the step form")
+			}
+			if doc.Find("#wizard > #below:last-child").Length() != 1 {
+				html, _ := doc.Find("#wizard").Html()
+				t.Errorf("Below isn't last in #wizard: %s", html)
+			}
+		})
+	}
+}
+
+// Without Below the frame ends as before.
+func TestFrame_NoBelow(t *testing.T) {
+	m := docModel()
+	m.Mode = wizard.Master
+	m.Steps[len(m.Steps)-1].Label = "Check and save"
+	if doc := renderFrame(t, m, wizard.Bar{}); doc.Find("#below").Length() != 0 {
+		t.Errorf("a frame without Below shows it")
+	}
+}
+
 func TestFrame_WarningsBanner(t *testing.T) {
 	m := docModel()
 	m.Warnings = []string{"CEMENT-OPC OPC Cement 53 Grade is marked inactive."}

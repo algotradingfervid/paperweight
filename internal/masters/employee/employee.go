@@ -44,12 +44,16 @@ const (
 	msgJoining         = "Date of joining is required."   // MST-109
 	msgBirthFuture     = "Date of birth can't be in the future."
 	msgRelievingBefore = "Relieving date can't be before date of joining."
-	msgEnterRelieving  = "Enter the relieving date."                            // MST-118
-	msgSelfManager     = "An employee can't report to themselves."              // MST-113
-	msgNoBranch        = "Branch not found. Pick one from the list."            // CD-170
-	msgNoManager       = "Reporting manager not found. Pick one from the list." // CD-170
-	MsgNoUser          = "Pick an existing, enabled user."                      // MST-112
-	msgSeparateSaves   = "Change the user and the status in separate saves."    // MST-119
+	msgEnterRelieving  = "Enter the relieving date."                         // MST-118
+	msgSelfManager     = "An employee can't report to themselves."           // MST-113
+	msgSeparateSaves   = "Change the user and the status in separate saves." // MST-119
+)
+
+// Refusals the screens show too (CD-212).
+const (
+	MsgBranchNotFound  = "Branch not found. Pick one from the list."            // CD-170
+	MsgManagerNotFound = "Reporting manager not found. Pick one from the list." // CD-170
+	MsgNoUser          = "Pick an existing, enabled user."                      // MST-112, CD-218
 )
 
 func init() {
@@ -225,7 +229,7 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 		b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
-			es.Add("branch_id", msgNoBranch)
+			es.Add("branch_id", MsgBranchNotFound)
 		case err != nil:
 			return err
 		case b.Disabled:
@@ -236,7 +240,7 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 		m, err := s.Get(ctx, tx, in.ManagerID)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
-			es.Add("manager_id", msgNoManager)
+			es.Add("manager_id", MsgManagerNotFound)
 		case err != nil:
 			return err
 		case m.Status == Left && in.Status == Active: // MST-116 applies to active employees

@@ -67,7 +67,7 @@ func titleLine(m Model) string {
 // Frame is one wizard step, swapped whole as #wizard: title line, stepper,
 // conflict banner, error summary, warnings, the step heading, the step
 // form around children and the action bar, or, with m.After, the form,
-// m.After and then the bar posting the form from outside. In Document mode the
+// m.After and then the bar posting the form from outside; then m.Below. In Document mode the
 // form holds the page's one #doc-version (CD-95). Focus goes to the heading unless errors or a
 // conflict are shown; on a conflict without errors the banner's wrapper
 // takes focus.
@@ -256,6 +256,12 @@ func Frame(m Model, bar Bar) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
+		if m.Below != nil {
+			templ_7745c5c3_Err = m.Below.Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -295,7 +301,7 @@ func DocVersion(version int, oob bool) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(version))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 108, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 111, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
@@ -313,7 +319,7 @@ func DocVersion(version int, oob bool) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(version))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 110, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 113, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {

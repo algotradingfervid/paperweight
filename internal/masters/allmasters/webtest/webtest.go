@@ -8,6 +8,7 @@
 package webtest
 
 import (
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -98,6 +99,61 @@ func (h *Harness) Post(t testing.TB, p auth.Principal, target string, form url.V
 		form = url.Values{}
 	}
 	return h.do(t, p, http.MethodPost, target, form, false, nil)
+}
+
+// Browser is one browser's cookie jar: its requests carry the session the
+// earlier ones set, which a wizard's step values live in (CD-50).
+type Browser struct {
+	h       *Harness
+	p       auth.Principal
+	cookies map[string]*http.Cookie
+}
+
+// Browser is a new browser with no cookies, signed in as p.
+func (h *Harness) Browser(p auth.Principal) *Browser {
+	return &Browser{h: h, p: p, cookies: map[string]*http.Cookie{}}
+}
+
+// As is the same browser, with its cookies, signed in as p.
+func (b *Browser) As(p auth.Principal) *Browser {
+	return &Browser{h: b.h, p: p, cookies: b.cookies}
+}
+
+// Clone is a second tab: the same session, with cookies of its own, so two tabs
+// can post at once.
+func (b *Browser) Clone() *Browser {
+	return &Browser{h: b.h, p: b.p, cookies: maps.Clone(b.cookies)}
+}
+
+// Get sends a full-page GET.
+func (b *Browser) Get(t testing.TB, target string) Response {
+	t.Helper()
+	return b.send(t, http.MethodGet, target, nil, false)
+}
+
+// Post sends form as a full-page (no-JS) submit.
+func (b *Browser) Post(t testing.TB, target string, form url.Values) Response {
+	t.Helper()
+	return b.send(t, http.MethodPost, target, form, false)
+}
+
+// PostHTMX sends form with HX-Request: true, as the wizard's forms do.
+func (b *Browser) PostHTMX(t testing.TB, target string, form url.Values) Response {
+	t.Helper()
+	return b.send(t, http.MethodPost, target, form, true)
+}
+
+func (b *Browser) send(t testing.TB, method, target string, form url.Values, htmx bool) Response {
+	t.Helper()
+	jar := make([]*http.Cookie, 0, len(b.cookies))
+	for _, c := range b.cookies {
+		jar = append(jar, c)
+	}
+	r := b.h.do(t, b.p, method, target, form, htmx, jar)
+	for _, c := range (&http.Response{Header: r.Header}).Cookies() {
+		b.cookies[c.Name] = c
+	}
+	return r
 }
 
 func (h *Harness) do(t testing.TB, p auth.Principal, method, target string, form url.Values, htmx bool, cookies []*http.Cookie) Response {

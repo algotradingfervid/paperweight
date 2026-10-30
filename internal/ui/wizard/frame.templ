@@ -59,7 +59,7 @@ func titleLine(m Model) string {
 // Frame is one wizard step, swapped whole as #wizard: title line, stepper,
 // conflict banner, error summary, warnings, the step heading, the step
 // form around children and the action bar, or, with m.After, the form,
-// m.After and then the bar posting the form from outside. In Document mode the
+// m.After and then the bar posting the form from outside; then m.Below. In Document mode the
 // form holds the page's one #doc-version (CD-95). Focus goes to the heading unless errors or a
 // conflict are shown; on a conflict without errors the banner's wrapper
 // takes focus.
@@ -97,6 +97,9 @@ templ Frame(m Model, bar Bar) {
 		if m.After != nil {
 			@m.After
 			@components.ActionBar(bar.props(m))
+		}
+		if m.Below != nil {
+			@m.Below
 		}
 	</div>
 }
