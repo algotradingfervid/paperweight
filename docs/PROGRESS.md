@@ -243,6 +243,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | CD-189 UserInfo.Version | High | crew-implementer ×2, crew-reviewer (AD-1) | 26 Oct | 26 Oct | 2 | 0/1/1 | 0cf537e |
 | WP3 | CD-191 contracts_test off lenient filesfake.New() | Standard | crew-implementer (AD-4) | 26 Oct | 26 Oct | 1 | 0/0/0 | b2f41da |
 | Merges | Four MERGE-READYs held undelivered since 26 Oct merged in order; `make ci` green after each; main feb67ba | — | director | | 30 Oct | — | — | — |
+| WP1-AUTH | 20 access screen (CD-194) | High | crew-implementer ×4, crew-reviewer ×3 (AD-1) | 26 Oct | 30 Oct | 3 | 0/1/6, 0/1/6, APPROVE | lane/auth-20 9a97448 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
