@@ -275,6 +275,7 @@ type MasterLookup interface {
 type DocType struct {
 	Name, Label, PluralLabel, Table, LinesTable string // CD-35
 	Series string; Submittable, Approvable, Printable, Importable, HasRoundedTotal bool
+	Attachable bool // CD-241, CD-251: document page and check step show the Attachments section
 	Fields []Field; SearchFields []string; DefaultSort []SortKey
 	Links []LinkSpec; RollUps []RollUp
 	OwnerField, EmployeeField string; ProjectFields, SiteFields []string // CD-09 (line columns as "lines.col")

@@ -175,3 +175,5 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Shared test helpers (testkit, fixture) take UI values as parameters and never import a UI package (CD-89, CD-250).
 - After merging main into a lane, run `make ci` there before review: a lane test still quoted text CD-240 had changed on main.
 - A MERGE-READY claimed on `make ci` alone missed browser-test breaks caused by another lane (3c prefill vs 4a flows): run `make e2e` on the merged head before every MERGE-READY touching UI, auth or app.
+- A browser assertion the browser makes true by default proves nothing (EXIF natural size; computed `image-orientation: from-image` is CSS's initial value). Delete the code under test in a scratch copy and check the test fails (CD-251).
+- The Tailwind binary hangs inside the agent sandbox, so UI root tests time out at 10 minutes. Directors run `make generate` and internal/ui tests from their own session (31 Oct).
