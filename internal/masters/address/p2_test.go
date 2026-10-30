@@ -291,6 +291,28 @@ func TestParty_SamePANOrNameWarns(t *testing.T) { // MST-045
 		}
 	})
 
+	t.Run("another field of a party that shares name and PAN", func(t *testing.T) {
+		env := msttest.New(t)
+		msttest.SeedMasters(t, env)
+		ps := party.New(env.Kit)
+		in := party.Input{Code: "SHREE-TWO", Name: addrShreeName, IsVendor: true, PAN: addrShreePAN}
+		saved, err := ps.Create(ctx, env.Kavya, in)
+		if err != nil {
+			t.Fatalf("party Create: %v", err)
+		}
+		if len(saved.Warnings) != 2 {
+			t.Fatalf("Create Warnings = %q; want the name and the PAN", saved.Warnings)
+		}
+		in.IsCustomer = true
+		upd, err := ps.Update(ctx, env.Kavya, saved.ID, saved.Version, in)
+		if err != nil {
+			t.Fatalf("party Update: %v", err)
+		}
+		if len(upd.Warnings) != 0 || upd.Version != saved.Version+1 {
+			t.Errorf("Update = {Warnings %q, Version %d}; want {none, %d}", upd.Warnings, upd.Version, saved.Version+1)
+		}
+	})
+
 	t.Run("rename onto another party in another case", func(t *testing.T) {
 		env := msttest.New(t)
 		msttest.SeedMasters(t, env)
@@ -401,12 +423,24 @@ func TestParty_DefaultPaymentTermsChecked(t *testing.T) {
 	in.DefaultPaymentTermsID = noTerms
 	_, err = ps.Update(ctx, env.Kavya, saved.ID, saved.Version, in)
 	m5WantField(t, err, field, notFound)
+	in.DefaultPaymentTermsID = terms.ID
 
 	if err := ts.SetDisabled(ctx, env.Kavya, terms.ID, terms.Version, true); err != nil {
 		t.Fatalf("disable NET30: %v", err)
 	}
+	// A stale page gets the conflict, not the link error (CD-180 D4).
+	_, err = ps.Update(ctx, env.Kavya, saved.ID, saved.Version+5, in)
+	var he doctype.HTTPError
+	if !errors.As(err, &he) || he.Status() != 409 {
+		t.Errorf("stale save = %v; want a 409", err)
+	}
+
+	// A save that changes nothing is refused once the stored terms went off.
+	_, err = ps.Update(ctx, env.Kavya, saved.ID, saved.Version, in)
+	m5WantField(t, err, field, disabledMsg)
+
 	// An edit of another field with the stored link is refused too.
-	in.DefaultPaymentTermsID, in.Name = terms.ID, "Terms Ltd Renamed"
+	in.Name = "Terms Ltd Renamed"
 	_, err = ps.Update(ctx, env.Kavya, saved.ID, saved.Version, in)
 	m5WantField(t, err, field, disabledMsg)
 	if got := addrPartyGet(t, env.DB, ps, saved.ID); got.Name != "Terms Ltd" || got.Version != saved.Version {

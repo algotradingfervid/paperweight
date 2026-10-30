@@ -277,8 +277,9 @@ type saveTarget[I any] struct {
 	id             int64
 	load           func(context.Context, *db.Tx) (I, error)
 	update         func(context.Context, auth.Principal, int64, int, I) (mstkit.Saved, error)
-	untidy         func(*I)  // the same values as a person might type them
-	edits          []edit[I] // one for every stored field and line, in order
+	untidy         func(*I)                         // the same values as a person might type them
+	edits          []edit[I]                        // one for every stored field and line, in order
+	beforeEdit     func(t *testing.T, field string) // optional: what one edit needs elsewhere
 }
 
 func (c saveTarget[I]) stored(t *testing.T, env *msttest.Env) I {
@@ -321,6 +322,9 @@ func (c saveTarget[I]) run(env *msttest.Env) func(*testing.T) {
 		}
 		for _, e := range c.edits {
 			t.Run(e.field, func(t *testing.T) {
+				if c.beforeEdit != nil {
+					c.beforeEdit(t, e.field)
+				}
 				env.Clock.Advance(time.Hour)
 				before := readRow(t, env, c.table, c.id)
 				entries := len(auditEntries(t, env, c.docType, c.id))
@@ -346,11 +350,11 @@ func (c saveTarget[I]) run(env *msttest.Env) func(*testing.T) {
 
 func untidyCode(code *string) { *code = " " + strings.ToLower(*code) + " " }
 
-// companyTarget runs with no branch GSTIN left, so the PAN can change
-// (MST-023).
+// companyTarget clears the branch GSTINs for its pan edit only, so the PAN can
+// change (MST-023) and the no-op tabs still run with them in place.
 func companyTarget(env *msttest.Env, m msttest.Masters, svc *allmasters.Services) func(*testing.T) {
 	const id = 1
-	run := saveTarget[company.CompanyInput]{
+	return saveTarget[company.CompanyInput]{
 		table: "company", docType: company.CompanyDocType, id: id,
 		load: func(ctx context.Context, tx *db.Tx) (company.CompanyInput, error) {
 			c, _, err := svc.Company.Company(ctx, tx)
@@ -373,24 +377,25 @@ func companyTarget(env *msttest.Env, m msttest.Masters, svc *allmasters.Services
 			{"name", func(in *company.CompanyInput) { in.LegalName = "Vardhan Infra Limited" }},
 			{"pan", func(in *company.CompanyInput) { in.PAN = "AAFCV2449H" }},
 		},
-	}.run(env)
-	return func(t *testing.T) {
-		ctx := context.Background()
-		for _, code := range []string{"PUNE", "BLR"} {
-			var b company.Branch
-			read(t, env, func(ctx context.Context, tx *db.Tx) error {
-				var err error
-				b, err = svc.Company.Get(ctx, tx, m.Branches[code])
-				return err
-			})
-			if _, err := svc.Company.Update(ctx, env.Kavya, b.ID, b.Version, company.BranchInput{
-				Code: b.Code, Name: b.Name, StateCode: b.StateCode, IsHeadOffice: b.IsHeadOffice,
-			}); err != nil {
-				t.Fatalf("clear %s GSTIN: %v", code, err)
+		beforeEdit: func(t *testing.T, field string) {
+			if field != "pan" {
+				return
 			}
-		}
-		run(t)
-	}
+			for _, code := range []string{"PUNE", "BLR"} {
+				var b company.Branch
+				read(t, env, func(ctx context.Context, tx *db.Tx) error {
+					var err error
+					b, err = svc.Company.Get(ctx, tx, m.Branches[code])
+					return err
+				})
+				if _, err := svc.Company.Update(context.Background(), env.Kavya, b.ID, b.Version, company.BranchInput{
+					Code: b.Code, Name: b.Name, StateCode: b.StateCode, IsHeadOffice: b.IsHeadOffice,
+				}); err != nil {
+					t.Fatalf("clear %s GSTIN: %v", code, err)
+				}
+			}
+		},
+	}.run(env)
 }
 
 // branchTarget is a new head office with no addresses, so its state can change
@@ -527,6 +532,22 @@ func addressTarget(t *testing.T, env *msttest.Env, svc *allmasters.Services) fun
 			{"is_billing", func(in *address.Input) { in.IsBilling, in.PrimaryBilling, in.IsShipping = false, false, true }},
 			{"country", func(in *address.Input) { in.Country, in.StateCode, in.Pincode = "Singapore", "", "118524" }},
 			{"gstin", func(in *address.Input) { in.GSTIN = "9917SGP29001OST" }},
+		},
+	}.run(env)
+}
+
+// branchAddressTarget is a branch's own address: no party rule applies, and a
+// save that changes nothing writes nothing here too.
+func branchAddressTarget(env *msttest.Env, m msttest.Masters, svc *allmasters.Services) func(*testing.T) {
+	id := m.BranchAddresses["PUNE"]
+	return saveTarget[address.Input]{
+		table: "address", docType: address.DocType, id: id,
+		load:   addressLoad(svc, id),
+		update: svc.Address.Update,
+		untidy: func(in *address.Input) { in.Title, in.City, in.PartyID, in.BranchID = " "+in.Title, in.City+" ", 0, 0 },
+		edits: []edit[address.Input]{
+			{"title", func(in *address.Input) { in.Title = "Works" }},
+			{"pincode", func(in *address.Input) { in.Pincode = "411026" }},
 		},
 	}.run(env)
 }
@@ -817,6 +838,7 @@ func TestMaster_NoOpSave(t *testing.T) {
 		{"Payment Terms", termsTarget(t, env, svc)},
 		{"Party", partyTarget(t, env, svc, terms.ID)},
 		{"Address", addressTarget(t, env, svc)},
+		{"Branch Address", branchAddressTarget(env, m, svc)},
 		{"Contact", contactTarget(t, env, svc, branch.ID)},
 		{"UoM", uomTarget(t, env, svc)},
 		{"Tax Code", taxTarget(t, env, svc)},
@@ -907,6 +929,36 @@ func TestMaster_NoOpSaveStillChecksState(t *testing.T) {
 			t.Errorf("save = %v; want %q on is_billing", err, msgEnableAddress)
 		}
 		wantNoSaved(t, saved)
+	})
+	t.Run("Branch", func(t *testing.T) { // MST-029 on the stored address
+		var b company.Branch
+		read(t, env, func(ctx context.Context, tx *db.Tx) error {
+			var err error
+			b, err = svc.Company.Get(ctx, tx, m.Branches["BLR"])
+			return err
+		})
+		sqlExec(t, env, `UPDATE address SET state_code = '27' WHERE id = ?`, m.BranchAddresses["BLR"])
+		saved, err := svc.Company.Update(ctx, env.Kavya, b.ID, b.Version, company.BranchInput{
+			Code: b.Code, Name: b.Name, StateCode: b.StateCode, GSTIN: b.GSTIN, IsHeadOffice: b.IsHeadOffice,
+		})
+		if !hasFieldError(err, doctype.FieldError{Field: "state_code", Message: company.MsgAddressState}) {
+			t.Errorf("save = %v; want %q on state_code", err, company.MsgAddressState)
+		}
+		wantNoSaved(t, saved)
+	})
+	t.Run("Company", func(t *testing.T) { // MST-023 on the stored branch GSTIN
+		sqlExec(t, env, `UPDATE branch SET gstin = '27AABCS1429B1ZU' WHERE id = ?`, m.Branches["BLR"])
+		var c company.Company
+		read(t, env, func(ctx context.Context, tx *db.Tx) error {
+			var err error
+			c, _, err = svc.Company.Company(ctx, tx)
+			return err
+		})
+		err := svc.Company.SaveCompany(ctx, env.Kavya, company.CompanyInput{LegalName: c.LegalName, PAN: c.PAN}, c.Version)
+		want := "GSTIN 27AABCS1429B1ZU belongs to PAN AABCS1429B, not the company PAN " + c.PAN + "."
+		if !hasFieldError(err, doctype.FieldError{Field: "pan", Message: want}) {
+			t.Errorf("save = %v; want %q on pan", err, want)
+		}
 	})
 	t.Run("Contact", func(t *testing.T) {
 		owner := m.Parties["BHARAT"]
