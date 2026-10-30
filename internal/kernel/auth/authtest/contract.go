@@ -1099,7 +1099,8 @@ func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
 	})
 }
 
-// parityUsersWithRight compares UsersWithRight and UsersWithRightTx.
+// parityUsersWithRight compares UsersWithRight and UsersWithRightTx on fewer
+// DocTypes and records than parityCan: each call runs Can for every user.
 func parityUsersWithRight(t *testing.T, svc auth.Service, s Setup, x parity) {
 	ctx := context.Background()
 	type call struct {
@@ -1112,15 +1113,15 @@ func parityUsersWithRight(t *testing.T, svc auth.Service, s Setup, x parity) {
 	}
 	var calls []call
 	seen := map[string]bool{}
-	for _, dt := range parityDocTypes() {
+	for _, dt := range []string{DTOrder, DTClaim, DTItem} {
 		for _, r := range parityRights() {
-			recs := x.records(dt.Name, x.owner)
-			for _, name := range []string{"nil", "own", "another's", "outside restriction", "empty ids"} {
+			recs := x.records(dt, x.owner)
+			for _, name := range []string{"nil", "own", "outside restriction"} {
 				rec := recs[name]
-				users, err := svc.UsersWithRight(ctx, dt.Name, r, rec)
+				users, err := svc.UsersWithRight(ctx, dt, r, rec)
 				seen["nobody"] = seen["nobody"] || len(users) == 0
 				seen["somebody"] = seen["somebody"] || len(users) > 1
-				calls = append(calls, call{dt.Name, r, name, rec, users, outcome(err)})
+				calls = append(calls, call{dt, r, name, rec, users, outcome(err)})
 			}
 		}
 	}

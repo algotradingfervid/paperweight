@@ -162,11 +162,11 @@ func canWithoutReads(p Principal, doctypeName string, r Right) (dt *doctype.DocT
 
 // can reads the grants, the employee and the restrictions in tx and decides.
 func (a *Auth) can(ctx context.Context, tx *db.Tx, p Principal, dt *doctype.DocType, r Right, rec *RecordRef) error {
-	readScope, err := a.grantTx(ctx, tx, p.Roles, dt.Name, RightRead)
+	readScope, err := a.grant(ctx, tx, p.Roles, dt.Name, RightRead)
 	if err != nil {
 		return err
 	}
-	rScope, err := a.grantTx(ctx, tx, p.Roles, dt.Name, r)
+	rScope, err := a.grant(ctx, tx, p.Roles, dt.Name, r)
 	if err != nil {
 		return err
 	}
@@ -292,6 +292,7 @@ func (a *Auth) UsersWithRight(ctx context.Context, doctypeName string, r Right, 
 
 // UsersWithRightTx is UsersWithRight inside the caller's transaction (CD-213).
 func (a *Auth) UsersWithRightTx(ctx context.Context, tx *db.Tx, doctypeName string, r Right, rec *RecordRef) ([]UserID, error) {
+	// An unknown DocType is refused even with no users: the loop would never reach CanTx.
 	if _, err := lookup(doctypeName); err != nil {
 		return nil, err
 	}

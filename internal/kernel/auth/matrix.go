@@ -382,20 +382,9 @@ type matrixCache struct {
 	m       matrix
 }
 
-// grant is grantTx in its own read; only export_test.go's Grant calls it.
-func (a *Auth) grant(ctx context.Context, roles []string, doctypeName string, r Right) (Scope, error) {
-	var s Scope
-	err := a.db.Read(ctx, func(tx *db.Tx) error {
-		var err error
-		s, err = a.grantTx(ctx, tx, roles, doctypeName, r)
-		return err
-	})
-	return s, err
-}
-
-// grantTx returns the widest scope any of roles holds for r on doctype ("" =
+// grant returns the widest scope any of roles holds for r on doctype ("" =
 // none), read in tx. The matrix is cached by perm_version, read once per call.
-func (a *Auth) grantTx(ctx context.Context, tx *db.Tx, roles []string, doctypeName string, r Right) (Scope, error) {
+func (a *Auth) grant(ctx context.Context, tx *db.Tx, roles []string, doctypeName string, r Right) (Scope, error) {
 	m, err := a.loadMatrix(ctx, tx)
 	if err != nil {
 		return "", err

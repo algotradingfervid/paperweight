@@ -27,11 +27,11 @@ func (a *Auth) Scope(ctx context.Context, p Principal, doctypeName string, r Rig
 	}
 	var acc Access
 	if err := a.db.Read(ctx, func(tx *db.Tx) error {
-		readScope, err := a.grantTx(ctx, tx, p.Roles, dt.Name, RightRead)
+		readScope, err := a.grant(ctx, tx, p.Roles, dt.Name, RightRead)
 		if err != nil {
 			return err
 		}
-		rScope, err := a.grantTx(ctx, tx, p.Roles, dt.Name, r)
+		rScope, err := a.grant(ctx, tx, p.Roles, dt.Name, r)
 		if err != nil {
 			return err
 		}

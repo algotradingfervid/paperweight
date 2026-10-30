@@ -10,8 +10,8 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-// Auth is an auth.Service for list tests: Can denies the rights in Deny with
-// AUTH's message, Scope returns Pred, and both record the right in Calls.
+// Auth is an auth.Service for list tests: Can and CanTx deny the rights in Deny
+// with AUTH's message, Scope returns Pred, and all record the right in Calls.
 // Every other method comes from authfake.New().
 type Auth struct {
 	auth.Service
