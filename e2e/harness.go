@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
 
@@ -456,6 +458,28 @@ func (s *Session) Press(label string) {
 		s.t.Fatalf("button %q went away\n%s", label, s.page())
 	}
 	s.Do("press "+label, chromedp.MouseClickXY(at[0], at[1]))
+}
+
+// SetFile picks path on the file input sel selects, as a user's choice does
+// (the input's change event fires). Like a user it waits for the page to
+// settle (htmx processes swapped-in forms when the swap settles) and brings
+// the control into view first. It finds the input by script, because
+// chromedp's own node tree is stale after an htmx swap (see Press).
+func (s *Session) SetFile(sel, path string) {
+	s.t.Helper()
+	s.Until("the page to settle", `document.readyState === "complete" && !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling")`)
+	s.Do("set a file on "+sel, chromedp.Func(func(ctx context.Context, _ *chromedp.Target) error {
+		find := `(() => { const e = document.querySelector(` + strconv.Quote(sel) + `); e?.scrollIntoView({block: "center", behavior: "instant"}); return e; })()`
+		res, err := chromedp.Call(ctx, runtime.Evaluate, runtime.EvaluateParams{Expression: find})
+		if err != nil {
+			return err
+		}
+		if res.Result == nil || res.Result.ObjectID == "" {
+			return fmt.Errorf("no element %s", sel)
+		}
+		_, err = chromedp.Call(ctx, dom.SetFileInputFiles, dom.SetFileInputFilesParams{Files: []string{path}, ObjectID: res.Result.ObjectID})
+		return err
+	}))
 }
 
 // Back is the browser's Back button. chromedp.NavigateBack waits for a load

@@ -49,14 +49,23 @@ on("htmx:xhr:progress", (b, e, up, p) => {
 });
 
 // htmx 2 fires htmx:afterRequest before htmx:sendError, so this also clears
-// a dropped upload.
+// a dropped upload. A refresh reloads at the upload's fragment, so the
+// browser keeps the scroll and a heading's autofocus doesn't move the page.
+// Otherwise the input used is emptied, so picking the same file again (after
+// a dropped connection) is a change, and gets focus back.
 on("htmx:afterRequest", (b, e, up, p, s) => {
   p.hidden = true;
   p.value = 0;
   s.textContent = "";
   const i = used.get(b);
   used.delete(b);
-  if (i && i.isConnected && e.detail.xhr.getResponseHeader("HX-Refresh") !== "true") i.focus();
+  if (e.detail.xhr.getResponseHeader("HX-Refresh") === "true") {
+    history.replaceState(null, "", "#" + b.id);
+    location.reload();
+  } else if (i && i.isConnected) {
+    i.value = "";
+    i.focus();
+  }
 });
 
 on("htmx:sendError", (b, e, up, p, s) => {
