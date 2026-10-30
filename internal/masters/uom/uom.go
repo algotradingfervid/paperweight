@@ -167,13 +167,16 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before := auditFields(Input{Code: old.Code, Name: old.Name, UQC: old.UQC, WholeNumber: old.WholeNumber})
+	if mstkit.Unchanged(before, auditFields(in)) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	if err := dbq.New(tx.SQL()).UpdateUoM(ctx, dbq.UpdateUoMParams{
 		Code: in.Code, Name: in.Name, Uqc: in.UQC, WholeNumber: flag(in.WholeNumber),
 		UpdatedAt: types.TimestampOf(s.env.Clock.Now()).String(), UpdatedBy: userID(p), ID: id, Version: int64(version),
 	}); err != nil {
 		return mstkit.Saved{}, err
 	}
-	before := auditFields(Input{Code: old.Code, Name: old.Name, UQC: old.UQC, WholeNumber: old.WholeNumber})
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, auditFields(in)); err != nil {
 		return mstkit.Saved{}, err
 	}

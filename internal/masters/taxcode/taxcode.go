@@ -211,6 +211,10 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before := auditFields(Input{Code: old.Code, Name: old.Name, Treatment: old.Treatment, Rate: old.Rate})
+	if mstkit.Unchanged(before, auditFields(in)) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	n, err := dbq.New(tx.SQL()).UpdateTaxCode(ctx, dbq.UpdateTaxCodeParams{
 		Code: in.Code, Name: in.Name, Treatment: string(in.Treatment), Rate: int64(in.Rate),
 		UpdatedAt: types.TimestampOf(s.env.Clock.Now()).String(), UpdatedBy: userID(p), ID: id, Version: int64(version),
@@ -222,7 +226,6 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		// CheckVersion passed inside BEGIN IMMEDIATE, so this can't happen.
 		return mstkit.Saved{}, fmt.Errorf("update tax code %d: no row changed", id)
 	}
-	before := auditFields(Input{Code: old.Code, Name: old.Name, Treatment: old.Treatment, Rate: old.Rate})
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, auditFields(in)); err != nil {
 		return mstkit.Saved{}, err
 	}

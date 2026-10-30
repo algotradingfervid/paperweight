@@ -241,6 +241,13 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before, after := auditFields(old), auditFields(fromInput(in))
+	if mstkit.Unchanged(before, after) {
+		if err := s.CheckGST(ctx, tx, id, "gst_category"); err != nil {
+			return mstkit.Saved{}, err
+		}
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	n, err := dbq.New(tx.SQL()).UpdateParty(ctx, dbq.UpdatePartyParams{
 		Code: in.Code, Name: in.Name, IsVendor: flag(in.IsVendor), IsCustomer: flag(in.IsCustomer),
 		Pan: in.PAN, GstCategory: string(in.GSTCategory), DefaultPaymentTermsID: termsID(in.DefaultPaymentTermsID),
@@ -256,7 +263,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		}
 		return mstkit.Saved{}, doctype.ErrNotFound
 	}
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", auditFields(old), auditFields(fromInput(in))); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.CheckGST(ctx, tx, id, "gst_category"); err != nil {

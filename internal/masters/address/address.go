@@ -289,6 +289,13 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.checkOwner(ctx, tx, p, in, false); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before, after := auditFields(old), auditFields(fromInput(in))
+	if mstkit.Unchanged(before, after) {
+		if err := s.checkGST(ctx, tx, in.PartyID); err != nil {
+			return mstkit.Saved{}, err
+		}
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	if err := s.clearPrimaries(ctx, tx, p, billingOthers, shippingOthers); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -308,7 +315,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		}
 		return mstkit.Saved{}, doctype.ErrNotFound
 	}
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", auditFields(old), auditFields(fromInput(in))); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.checkGST(ctx, tx, in.PartyID); err != nil {

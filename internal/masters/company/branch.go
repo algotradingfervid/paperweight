@@ -179,6 +179,10 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, cur.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before := inputFields(BranchInput{Code: cur.Code, Name: cur.Name, StateCode: cur.StateCode, GSTIN: cur.GSTIN, IsHeadOffice: cur.IsHeadOffice})
+	if mstkit.Unchanged(before, inputFields(in)) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	if err := s.moveHeadOffice(ctx, tx, p, in, id); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -188,7 +192,6 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	}); err != nil {
 		return mstkit.Saved{}, err
 	}
-	before := inputFields(BranchInput{Code: cur.Code, Name: cur.Name, StateCode: cur.StateCode, GSTIN: cur.GSTIN, IsHeadOffice: cur.IsHeadOffice})
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, inputFields(in)); err != nil {
 		return mstkit.Saved{}, err
 	}

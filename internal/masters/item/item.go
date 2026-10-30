@@ -278,6 +278,23 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	beforeConv, err := s.conversionsText(ctx, tx, oldConv)
+	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	afterConv, err := s.conversionsText(ctx, tx, in.Conversions)
+	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	before := auditFields(Input{
+		Code: old.Code, Name: old.Name, Type: old.Type, HSNSAC: old.HSNSAC,
+		StockUoMID: old.StockUoMID, PurchaseUoMID: old.PurchaseUoMID, DefaultTaxCodeID: old.DefaultTaxCodeID,
+		IsStock: old.IsStock, StandardRate: old.StandardRate,
+	}, beforeConv)
+	after := auditFields(in, afterConv)
+	if mstkit.Unchanged(before, after) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	n, err := dbq.New(tx.SQL()).UpdateItem(ctx, dbq.UpdateItemParams{
 		Code: in.Code, Name: in.Name, ItemType: string(in.Type), HsnSac: in.HSNSAC,
 		StockUomID: in.StockUoMID, PurchaseUomID: in.PurchaseUoMID, DefaultTaxCodeID: nullID(in.DefaultTaxCodeID),
@@ -294,20 +311,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := writeConversions(ctx, tx, id, in.Conversions); err != nil {
 		return mstkit.Saved{}, err
 	}
-	beforeConv, err := s.conversionsText(ctx, tx, oldConv)
-	if err != nil {
-		return mstkit.Saved{}, err
-	}
-	afterConv, err := s.conversionsText(ctx, tx, in.Conversions)
-	if err != nil {
-		return mstkit.Saved{}, err
-	}
-	before := auditFields(Input{
-		Code: old.Code, Name: old.Name, Type: old.Type, HSNSAC: old.HSNSAC,
-		StockUoMID: old.StockUoMID, PurchaseUoMID: old.PurchaseUoMID, DefaultTaxCodeID: old.DefaultTaxCodeID,
-		IsStock: old.IsStock, StandardRate: old.StandardRate,
-	}, beforeConv)
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, auditFields(in, afterConv)); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: version + 1, Warnings: warnings}, nil

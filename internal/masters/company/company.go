@@ -131,13 +131,16 @@ func (s *Service) SaveCompanyTx(ctx context.Context, tx *db.Tx, p auth.Principal
 	if err := mstkit.CheckVersion(ctx, tx, CompanyKind, companyID, version); err != nil {
 		return err
 	}
+	before := map[string]string{"name": cur.LegalName, "pan": cur.PAN}
+	if mstkit.Unchanged(before, after) {
+		return nil
+	}
 	if err := q.UpdateCompany(ctx, dbq.UpdateCompanyParams{
 		Name: in.LegalName, Pan: in.PAN, UpdatedAt: now, UpdatedBy: by, Version: int64(version),
 	}); err != nil {
 		return err
 	}
-	return s.env.Audit(ctx, tx, p, CompanyKind, companyID, "save",
-		map[string]string{"name": cur.LegalName, "pan": cur.PAN}, after)
+	return s.env.Audit(ctx, tx, p, CompanyKind, companyID, "save", before, after)
 }
 
 // DeleteCompanyTx always refuses: the install keeps its one company

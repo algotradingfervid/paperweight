@@ -429,7 +429,7 @@ func TestContact_Audited(t *testing.T) {
 			set("emails", "", "ravi@shreesteel.test (primary), accounts@shreesteel.test"),
 			set("first_name", "", "Ravi"), set("is_primary", "", "false"), set("last_name", "", "Sharma"),
 			set("middle_name", "", "K"), set("party_id", "", shreeID),
-			set("phones", "", "+919820012345 (primary), 022 2345 6789"),
+			set("phones", "", "+919820012345 (mobile) (primary), 022 2345 6789"),
 		}},
 		{Action: "save", Changes: []audit.Change{
 			set("emails", "ravi@shreesteel.test (primary), accounts@shreesteel.test", "ravi@shreesteel.test (primary)"),

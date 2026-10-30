@@ -295,12 +295,19 @@ func (s *Service) UpdateContactTx(ctx context.Context, tx *db.Tx, p auth.Princip
 		es.Add("disabled", msgContactEnable)
 		return mstkit.Saved{}, es.Err()
 	}
+	c := contactFromInput(in)
+	before, after := contactAuditFields(old), contactAuditFields(c)
+	if mstkit.Unchanged(before, after) {
+		if err := checkContacts(ctx, tx, in.PartyID, in.BranchID); err != nil {
+			return mstkit.Saved{}, err
+		}
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	if in.Primary {
 		if err := s.clearOtherPrimaryContacts(ctx, tx, p, in.PartyID, in.BranchID, id); err != nil {
 			return mstkit.Saved{}, err
 		}
 	}
-	c := contactFromInput(in)
 	q := dbq.New(tx.SQL())
 	if err := q.UpdateContact(ctx, dbq.UpdateContactParams{
 		Name: FullName(c), FirstName: in.FirstName, MiddleName: in.MiddleName, LastName: in.LastName, IsPrimary: flag(in.Primary),
@@ -317,7 +324,7 @@ func (s *Service) UpdateContactTx(ctx context.Context, tx *db.Tx, p auth.Princip
 	if err := insertContactLists(ctx, tx, id, in); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.env.Audit(ctx, tx, p, ContactKind, id, "save", contactAuditFields(old), contactAuditFields(c)); err != nil {
+	if err := s.env.Audit(ctx, tx, p, ContactKind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := checkContacts(ctx, tx, in.PartyID, in.BranchID); err != nil {
@@ -573,7 +580,7 @@ func contactFromInput(in ContactInput) Contact {
 }
 
 // contactAuditFields is the contact as audited; emails and phones are listed
-// in order, the primary one marked.
+// in order, the primary one and mobile numbers marked.
 func contactAuditFields(c Contact) map[string]string {
 	id := func(v int64) string {
 		if v == 0 {
@@ -586,7 +593,11 @@ func contactAuditFields(c Contact) map[string]string {
 		emails = append(emails, listEntry(e.Email, e.Primary))
 	}
 	for _, ph := range c.Phones {
-		phones = append(phones, listEntry(ph.Number, ph.Primary))
+		number := ph.Number
+		if ph.Mobile {
+			number += " (mobile)"
+		}
+		phones = append(phones, listEntry(number, ph.Primary))
 	}
 	return map[string]string{
 		"party_id": id(c.PartyID), "branch_id": id(c.BranchID),

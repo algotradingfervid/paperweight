@@ -273,6 +273,10 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before, after := auditFields(old), auditFields(fromInput(in))
+	if mstkit.Unchanged(before, after) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	n, err := dbq.New(tx.SQL()).UpdateSite(ctx, dbq.UpdateSiteParams{
 		Code: in.Code, Name: in.Name, BranchID: in.BranchID, ProjectID: nullID(in.ProjectID), Type: string(in.Type),
 		UpdatedAt: types.TimestampOf(s.env.Clock.Now()).String(), UpdatedBy: userID(p), ID: id, Version: int64(version),
@@ -287,7 +291,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		}
 		return mstkit.Saved{}, doctype.ErrNotFound
 	}
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", auditFields(old), auditFields(fromInput(in))); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: old.Version + 1}, nil
