@@ -57,10 +57,10 @@ func Run(t *testing.T, newSvc func(t *testing.T) (auth.Service, Setup)) {
 	}
 }
 
-// RunRefusals runs only the refusal rows that hold whatever is granted:
-// inapplicable rights and an unknown dimension. It is for
-// doubles that allow everything by design (fixturetest).
-func RunRefusals(t *testing.T, svc auth.Service) {
+// RunRefusals runs only the rows that hold whatever is granted: inapplicable
+// rights, an unknown dimension and CD-199's UserByEmail, whose users add
+// creates. It is for doubles that allow everything by design (fixturetest).
+func RunRefusals(t *testing.T, svc auth.Service, add func(email string) auth.Principal) {
 	t.Helper()
 	RegisterDocTypes()
 	admin := auth.Principal{ID: 1, Name: "Anil Kapoor", Roles: []string{auth.RoleAdministrator}}
@@ -68,6 +68,7 @@ func RunRefusals(t *testing.T, svc auth.Service) {
 	for _, row := range refusalRows {
 		t.Run(row.name, func(t *testing.T) { row.run(t, svc, admin, d) })
 	}
+	t.Run("CD-199 UserByEmail", func(t *testing.T) { checkUserByEmail(t, svc, d, add) })
 	RunUnknownDocType(t, svc, admin)
 }
 
@@ -115,6 +116,7 @@ var contractRows = []struct {
 	{"AUTH-042 disabled user refused", rowDisabledUser},
 	{"AUTH-116 UsersWithRight", rowUsersWithRight},
 	{"CD-174 Restricted", rowRestricted},
+	{"CD-199 UserByEmail", rowUserByEmail},
 }
 
 var refusalRows = []struct {
@@ -601,6 +603,81 @@ func rowDisabledUser(t *testing.T, svc auth.Service, s Setup) {
 
 	err := write(func(tx *db.Tx) error { return svc.DisableUser(ctx, tx, 99999, "left") })
 	wantNotFound(t, "DisableUser(99999)", err)
+}
+
+// CD-199: UserByEmail finds a user by normalised email in the caller's tx,
+// as User does by id. Doubles run this with a blank-email user seeded, which
+// the real service can't hold, and must not match it.
+func rowUserByEmail(t *testing.T, svc auth.Service, s Setup) {
+	checkUserByEmail(t, svc, s.DB(), func(email string) auth.Principal { return s.User(t, email) })
+}
+
+func checkUserByEmail(t *testing.T, svc auth.Service, d *db.DB, add func(email string) auth.Principal) {
+	ctx := context.Background()
+	const email = "kiran@contract.test"
+	kiran := add(email)
+	wrongCase := add("Wrong.Case@Contract.Test") // only doubles keep the case
+
+	byEmail := func(email string) (auth.UserInfo, bool) {
+		t.Helper()
+		var info auth.UserInfo
+		var ok bool
+		if err := d.Read(ctx, func(tx *db.Tx) error {
+			var err error
+			info, ok, err = svc.UserByEmail(ctx, tx, email)
+			return err
+		}); err != nil {
+			t.Fatalf("UserByEmail(%q): %v", email, err)
+		}
+		return info, ok
+	}
+	byID := func(u auth.UserID) auth.UserInfo {
+		t.Helper()
+		var info auth.UserInfo
+		var ok bool
+		if err := d.Read(ctx, func(tx *db.Tx) error {
+			var err error
+			info, ok, err = svc.User(ctx, tx, u)
+			return err
+		}); err != nil || !ok {
+			t.Fatalf("User(%d) = (_, %v, %v), want found", u, ok, err)
+		}
+		return info
+	}
+	found := func(email string, want auth.UserInfo) {
+		t.Helper()
+		if got, ok := byEmail(email); !ok || got != want {
+			t.Errorf("UserByEmail(%q) = (%+v, %v), want (%+v, true)", email, got, ok, want)
+		}
+	}
+
+	want := auth.UserInfo{ID: kiran.ID, Email: email, Name: email, Enabled: true, Version: byID(kiran.ID).Version}
+	found(email, want)
+	found("  KIRAN@Contract.Test\t", want)
+	found("wrong.case@contract.test", byID(wrongCase.ID))
+	found(" WRONG.CASE@contract.test ", byID(wrongCase.ID))
+
+	for _, none := range []string{"nobody@contract.test", "", "   "} {
+		if got, ok := byEmail(none); ok || got != (auth.UserInfo{}) {
+			t.Errorf("UserByEmail(%q) = (%+v, %v), want (zero, false)", none, got, ok)
+		}
+	}
+
+	want.Enabled = false
+	want.Version++
+	if err := d.Write(ctx, func(tx *db.Tx) error {
+		if err := svc.DisableUser(ctx, tx, kiran.ID, "left"); err != nil {
+			return err
+		}
+		got, ok, err := svc.UserByEmail(ctx, tx, email)
+		if err == nil && (!ok || got != want) {
+			t.Errorf("UserByEmail in the disabling tx = (%+v, %v), want (%+v, true)", got, ok, want)
+		}
+		return err
+	}); err != nil {
+		t.Fatalf("disable: %v", err)
+	}
+	found(email, want)
 }
 
 // AUTH-116, AUTH-120: UsersWithRight lists the enabled users Can allows,
