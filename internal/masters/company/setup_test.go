@@ -10,7 +10,10 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-const panRequiredMsg = "PAN is required."
+const (
+	panRequiredMsg = "PAN is required."
+	zeroWidthSpace = string(rune(0x200B))
+)
 
 // setup runs SetupTx in db.Write and returns its error.
 func setup(d *db.DB, s *company.Service, p auth.Principal, in company.SetupInput) error {
@@ -154,6 +157,41 @@ func TestCompany_PANRequired(t *testing.T) { // CD-165: a direct save, as setup
 	})
 	wantFieldError(t, err, "pan", panRequiredMsg)
 	wantNothingStored(t, u)
+}
+
+// A PAN field holding only what Normalize removes counts as blank, so the PAN
+// comes from the GSTIN.
+func TestSetup_InvisiblePANIsBlank(t *testing.T) { // CD-165
+	for name, pan := range map[string]string{"spaces": "   ", "zero-width space": zeroWidthSpace} {
+		t.Run(name, func(t *testing.T) {
+			u := newUnit(t)
+			err := setup(u.db, u.svc, u.kavya, company.SetupInput{
+				LegalName: legalName, StateCode: "27", GSTIN: puneGSTIN, PAN: pan, BranchCode: "PUNE",
+			})
+			if err != nil {
+				t.Fatalf("SetupTx: %v", err)
+			}
+			if c, ok := readCompany(t, u.db, u.svc); !ok || c.PAN != companyPAN {
+				t.Errorf("Company() = %+v, %v; want PAN %s", c, ok, companyPAN)
+			}
+		})
+	}
+}
+
+func TestSetup_LowerCaseGSTIN(t *testing.T) { // CD-165, MST-030
+	u := newUnit(t)
+	err := setup(u.db, u.svc, u.kavya, company.SetupInput{
+		LegalName: legalName, StateCode: "27", GSTIN: "27aafcv2449g1z7", BranchCode: "PUNE",
+	})
+	if err != nil {
+		t.Fatalf("SetupTx: %v", err)
+	}
+	if c, ok := readCompany(t, u.db, u.svc); !ok || c.PAN != companyPAN {
+		t.Errorf("Company() = %+v, %v; want PAN %s", c, ok, companyPAN)
+	}
+	if b := readBranch(t, u.db, u.svc, "PUNE"); b.GSTIN != puneGSTIN {
+		t.Errorf("branch GSTIN = %q; want %s", b.GSTIN, puneGSTIN)
+	}
 }
 
 func TestSetup_TypedPANMustMatchGSTIN(t *testing.T) { // CD-165, MST-023

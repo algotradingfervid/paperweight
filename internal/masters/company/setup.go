@@ -29,7 +29,7 @@ func (s *Service) SetupTx(ctx context.Context, tx *db.Tx, p auth.Principal, in S
 	if err != nil {
 		return err
 	}
-	pan := strings.TrimSpace(in.PAN)
+	pan := gstin.Normalize(in.PAN)
 	if pan == "" {
 		pan = gstin.PANFromGSTIN(branch.GSTIN)
 	}
