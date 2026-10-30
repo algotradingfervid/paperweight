@@ -63,9 +63,9 @@ type pgOps struct {
 	deleteTx      func(ctx context.Context, tx *db.Tx, p auth.Principal, s mstkit.Saved) error
 }
 
-// pgMaster is one master. base is its screens' path; "" means they aren't on
-// this branch (Party, Address and Contact, AD-2's lane), so the kernel's list
-// and export are called directly.
+// pgMaster is one master. base is its screens' path; "" means it has no list
+// or record pages of its own (Address and Contact nest under a party), so the
+// kernel's list and export are called directly.
 type pgMaster struct {
 	k    mstkit.Kind
 	base string
@@ -108,7 +108,7 @@ func pgOf[In any](k mstkit.Kind, base string, svc func(*nsWorld) nsService[In], 
 
 func pgMasters() []pgMaster {
 	return []pgMaster{
-		pgOf(party.Kind, "", func(w *nsWorld) nsService[party.Input] { return w.svc.Party }, nsPartyInput),
+		pgOf(party.Kind, "/m/party", func(w *nsWorld) nsService[party.Input] { return w.svc.Party }, nsPartyInput),
 		pgOf(address.Kind, "", func(w *nsWorld) nsService[address.Input] { return w.svc.Address }, nsAddressInput),
 		pgOf(address.ContactKind, "", func(w *nsWorld) nsService[address.ContactInput] { return nsContacts{w.svc.Address} }, nsContactInput),
 		pgOf(company.Kind, "/m/branch", func(w *nsWorld) nsService[company.BranchInput] { return w.svc.Company }, nsBranchInput),

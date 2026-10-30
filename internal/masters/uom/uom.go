@@ -41,7 +41,7 @@ func init() {
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, ListPriority: 3},
 		},
 		SearchFields: []string{"code", "name"},
-		DefaultSort:  []doctype.SortKey{{Field: "name"}, {Field: "id"}},
+		DefaultSort:  []doctype.SortKey{{Field: "name"}},
 	}, mstkit.StandardLookup(Kind))
 }
 
