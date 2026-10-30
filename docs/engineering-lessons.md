@@ -141,6 +141,8 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Inside `db.Write` or an open read tx, never call anything that takes its own connection: a `files.Service.List` inside `db.Write` stalled every writer for about 5 s. Read with the caller's tx.
 - Concurrency tests run as a non-admin user: `Can` returns early for an Administrator, which hid a second connection in every record-level write (CD-213).
 - A test that identifies a code path by its text stops proving anything once two paths share that text: assert something only that path does.
+- Moving data out of a loop moves it out of every check that loop fed: `Check` over `dt.Fields` lost ImportOnly fields until the rule read `ImportFields()`.
+- Check every test literal that enters a validated API (page size, template, code) against that validator first; a forwarding wrapper's test asserts every argument arrives, not only the result.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
