@@ -1,6 +1,6 @@
 # Module spec: Expense Claim and Employee Advance
 
-Version 0.2 · 30 October 2026 · Status: draft for owner review, revised for CD-234 · Author: AD-6
+Version 0.3 · 30 October 2026 · Status: draft for owner review, revised for CD-234 and a builder check · Author: AD-6
 
 Follows the Purchase Order spec (`docs/specs/2026-10-30-module-purchase-order-spec.md`), whose §14 shared decisions, §12 cutover plan and §17 sources apply here. Marks **(CD-234)**, **[Assumption]** and **CA** mean the same as there. This module depends on no other module, so it can run beside the PO.
 
@@ -14,8 +14,8 @@ Deepak takes an advance before a site trip, photographs each receipt, types the 
 
 | | Approach | For | Against |
 |---|---|---|---|
-| **A (recommended)** | A line stores the attachment's SHA-256; the file stays attached to the claim | No kernel change. `files.CopyAll` on amend gives new ids but the same hash, so the link survives. Also finds a receipt used twice | Reading attachments in a write needs one small tx method |
-| B | A line stores the attachment id | Obvious | Amend copies files under new ids, so every line would need remapping |
+| **A (recommended)** | A line stores the attachment's SHA-256; the file stays attached to the claim | `files.CopyAll` on amend gives new ids but the same hash, so the link survives (FILE-043). Also finds a receipt used twice | Reading attachments in a write needs one small tx method, and FILE-045 was written for ids |
+| B | A line stores the attachment id, as FILE-045 and `files.CheckReceipt` assume | Already in FILE | Amend copies files under new ids, so every line would need remapping, and no hook runs on amend |
 | C | Each line is its own attachment parent | Clean model | Lines have no rights or lifecycle of their own; a kernel change |
 
 **Three ways to settle an advance against a claim.**
@@ -55,10 +55,10 @@ Deepak takes an advance before a site trip, photographs each receipt, types the 
 | Field | Label | Type | Rule |
 |---|---|---|---|
 | `number` | Claim number | Text, read-only | List priority 1 |
-| `employee_id` | Employee | Link Employee | Blank defaults in `Validate` to the creator's employee (`auth.Directory.EmployeeForUser`). Shown only to an Administrator, through `HideField`. Anyone else naming another employee is refused. Left employee: MST-120's text |
+| `employee_id` | Employee | Link Employee, `AllowBlocked` | Blank defaults in `Validate` to the creator's employee (`auth.Directory.EmployeeForUser`). Shown only to an Administrator, through `HideField`, who types an employee code (`employee.ByCode`), because the picker hides leavers. Anyone else naming another employee is refused |
 | `claim_date` | Claim date | Date | Required, default today. Not in the future. Sets the FY and is the lock date |
 | `purpose` | Purpose | Text, max 140 | Required at submit. "Pune Metro site visit" |
-| `advance_id` | Advance | Link `expense.Advance` | Optional. This employee's approved advance with something left. Shown as radios through `StepBody`, because `/pick/{Link}` can't filter |
+| `advance_id` | Advance | Link `expense.Advance` | Optional. This employee's approved advance with something left. Shown as radios through `StepBody`, because `/pick/{Link}` can't filter. The claimant must be able to read it, or AUTH's `LinkError` answers first (CD-70) |
 | `less_advance` | Less advance | Money | Default 0. Requires `advance_id`. Blank with an advance chosen defaults to the smaller of what's left and the total |
 | `total` | Total | Money, read-only | Sum of line amounts. List priority 2 |
 | `net_payable` | To pay | Money, read-only | Total − less advance |
@@ -68,7 +68,9 @@ Deepak takes an advance before a site trip, photographs each receipt, types the 
 
 `Hooks.Amount` is `total`, not `net_payable`: the approver approves the spending. `Hooks.Date` is `claim_date`.
 
-`employee_id` is compared with `created_by`, which `Validate` reads, because hooks get no principal. A claim may name another employee only if the creator holds the Administrator role (`auth.HasRoleTx`, CD-221). That supports back-entry. Self-approval still holds, because eligibility excludes requester, creator and claimant (`approval.own`).
+Hooks get no principal, so while the state is `draft`, `Validate` compares `employee_id` with the employee of `updated_by`, which is set before it runs (`internal/kernel/doc/save.go`). `created_by` wouldn't do: Deepak can edit a draft an Administrator entered for him. Only an updater holding the Administrator role (`auth.HasRoleTx`, CD-221) may name another employee. That supports back-entry. Pending and later states skip the check, so a role change can't stop an approval. Self-approval still holds, because eligibility excludes requester, creator and claimant (`approval.own`).
+
+**Leavers.** The master blocks a Left employee on save, submit and approve (CD-179). That would strand a leaver's pending claim, stop its revise, and stop back-entry for staff who left during the year. So `employee_id` sets a new additive `Field.AllowBlocked`, which skips `Blocked` but not `Disabled` (§15 item 7). New claims by Left employees can't happen in normal use, since leaving disables the user.
 
 Snapshots: `snap_employee_name`, `snap_employee_code`. `doc.partyOf` follows `EmployeeField`, so inbox cards show the employee.
 
@@ -98,9 +100,10 @@ No `uom.RegisterQtyUse`: the table has no UoM column.
 ### 3.3 Receipts
 
 - The line page uploads through `files` (one file per request, CD-133). `Spool` then `Attach` give a `Meta` with the SHA-256, which goes in `receipt_sha256`.
-- `Validate` checks the hash is among this claim's attachments, through a new `(*files.Store).ListTx(ctx, tx, parent)` that reads in the caller's transaction (CD-209's rule).
-- Attachment policy for `expense.Claim`: default types, `MaxCount: 100` instead of 20, because a claim may hold a receipt per line [Assumption]. A claim needing more goes in two claims.
-- Removing a file on a draft clears the line's hash on the next save, and the line then needs a reason or a new photo.
+- `Validate` checks the hash is among this claim's attachments, through a new `(*files.Store).ListTx(ctx, tx, parent)` that reads in the caller's transaction (CD-209's rule). A hash that isn't there gets FILE-045's text with this line's number (`The receipt on line {n} belongs to another document. Attach it to this expense first.`). `files.CheckReceipt` isn't used.
+- One bill covering two lines: the store refuses identical bytes on one parent (`AttachLimits`), so the line page offers `Same receipt as line {n}`, and both lines hold the same hash.
+- A `files.RemoveGuard` for `expense.Claim` finds a line holding the attachment's hash and refuses with FILE-046's text, in draft and rejected states alike. The user clears the receipt on the line, then removes the file.
+- Attachment policy for `expense.Claim`: default types, `MaxCount: 100` instead of 20, because a claim may hold a receipt per line [Assumption]. A claim needing more goes in two claims. The limit message becomes `A document can have at most {n} attachments. Remove one first.`, the same text at 20 (§15 item 2).
 - Print: `HasReceipt` is true when the hash is found.
 
 ## 4. Employee Advance (CD-234)
@@ -120,11 +123,11 @@ It has a lines table because `checkFields` refuses a submit with no lines on eve
 | Case | What happens |
 |---|---|
 | Claim uses an advance | At submit, `BeforeSubmit` reads inside the transaction (CD-94): the advance belongs to this employee, it's approved, and `less_advance` is no more than what's left, counting other approved and closed claims |
-| Claim approved | `ApplyEffects` recomputes `used_amount` as the sum over approved and closed claims naming this advance, bumps the advance's `version` and writes an audit entry caused by the claim. Recompute, never increment (D-DOC-13) |
-| Claim cancelled | `ReverseEffects` recomputes the same way |
+| Claim approved | `ApplyEffects` recomputes `used_amount` as the sum over approved and closed claims naming this advance and bumps the advance's `version`. It writes an audit entry with action `effect`, `By` the claim's `updated_by`, and `CausedBy` the claim with action `approve`, since a hook can't tell submit from approve. Recompute, never increment (D-DOC-13) |
+| Claim cancelled | `ReverseEffects` recomputes the same way, with cause `cancel` |
 | Claim spends more than the advance | `net_payable` is the balance owed to the employee |
 | Claim spends less | `left_amount` stays on the advance for the next claim |
-| Nothing more to come | **Close** the advance with a reason, for example `₹2,000 returned by NEFT 1234 on 30-11-2026`. A closed advance can't be picked again (DOC-017). The app holds the note, not a payment record |
+| Nothing more to come | **Close** the advance with a reason, for example `₹2,000 returned by NEFT 1234 on 30-11-2026`. A closed advance can't be picked again (DOC-017). The app holds the note, not a payment record. Close has no hook, so a claim pending on the advance isn't checked: its approve then fails with DOC-017's text, and the approver rejects it |
 | Advance not paid out | Cancel it with a reason |
 
 A `less_advance` of 0 with an advance named is refused, so a claim can't block an advance's cancel for nothing.
@@ -145,10 +148,10 @@ Required at submit (CD-178). `Validate` reads inside the transaction, computes t
 | Less advance with no advance | `Choose the advance to set this against.` | Save |
 | Advance named, less advance 0 | `Enter the amount to set against {advance}, or remove the advance.` | Submit |
 | Less advance above total | `Less advance can't be more than the total.` | Save |
-| Advance of another employee | `{advance} belongs to another employee.` | Save |
+| Advance of another employee, readable by this user (a manager's team, a Director) | `{advance} belongs to another employee.` An unreadable advance gets AUTH's link refusal first | Save |
 | Less advance above what's left | `Less advance can't be more than the ₹{x} left on {advance}.` | Submit, Approve |
 | No receipt, no reason | `Row {n}: Add a receipt or say why there isn't one.` | Submit |
-| Receipt hash not on this claim | `Row {n}: Receipt not found. Add the photo again.` | Save |
+| Receipt hash not on this claim | FILE-045's text (§3.3) | Save |
 | Ticked with no GSTIN | `Row {n}: Supplier GSTIN is required for a bill in the company GSTIN.` | Submit |
 | Ticked with no invoice no. | `Row {n}: Invoice no. is required for a bill in the company GSTIN.` | Submit |
 | Bad GSTIN | MST-031's text with `Row {n}: ` (CD-38) | Save |
@@ -175,6 +178,8 @@ Odoo's duplicate checks work the same way and are soft there too. A cancelled cl
 **Close needs a new owner.** There's no Accounts role (CD-234), and the kernel gives `close` to the `submit` right (R4), so every employee could close their own claim. This spec proposes `doctype.DocType.CloseRight string`: `""` means `submit` as today, `"none"` means no close, otherwise a right name. Claims and Advances set `"cancel"`. Cancel is held by Director and Administrator, so one role does both. GRN sets `"none"`.
 
 **Close is optional.** It's the app's only "done" state for a claim, and CD-234 tracks no payments. A closed claim can't be cancelled or amended (R6). A claim left approved forever is harmless. The page shows the kernel's words: button `Close`, field `Reason for closing`, hint `For example how it was paid`.
+
+**The Director's own claims.** Director Meena has no manager, and the fallback rule excludes the claimant, so with one Director her submit is refused (D-APR-08). Drafted: the Director's own expenses stay outside the app, and Director doesn't hold the Employee role [Assumption]. Owner question in §16.
 
 The approver can't change an amount. A claim with one wrong line goes back with a reason, and revise puts it in draft, then through approval again (D-APR-11). A claim pending when the manager leaves shows on the stuck list (APR-043).
 
@@ -264,11 +269,12 @@ PO spec §12 applies.
 ## 15. Proposed changes for the head
 
 1. **`doctype.DocType.CloseRight`** (§6). Additive across DOC, `auth` and `authfake` with parity rows, and `docscreen`'s button and reason page. Core spec R4 gains a line. It replaces GRN spec §14 item 4's flag.
-2. **`(*files.Store).ListTx`** (§3.3), per CD-209.
+2. **FILE:** `(*files.Store).ListTx` per CD-209; `msgLimit` takes `pol.MaxCount`; FILE-045 and FILE-046 gain hash wording; the claim's policy and `RemoveGuard` go in `files.New`'s wiring. `filesfake` stays on DefaultPolicy, so EXP-010 runs on the real store.
 3. **`00-fixtures.md`:** Employee gains `amend` and `delete` (own) on Expense Claim; Director gains `cancel`; Employee Advance rows.
 4. **`print.ExpenseDoc`** additive fields, and a new `AdvanceDocument`.
 5. **`docscreen` module hooks:** this spec uses `StepBody`, `StepPost`, `CheckExtra`, `PageExtra` and `HideField` from PO spec §15 item 11.
 6. **Series `EA/{FY}/{#####}`** joins `00-fixtures.md`'s numbering table.
+7. **`doctype.Field.AllowBlocked bool`** (§3.1): DOC's master check ignores `MasterInfo.Blocked` for that field.
 
 ## 16. Open points for owner review
 
@@ -278,6 +284,7 @@ Follow-up questions went to the head with this revision:
 |---|---|
 | Who closes and cancels claims and advances? | Director and Administrator |
 | Who enters other people's claims during back-entry? | Administrator only |
+| Whose claims can the top person's approve? | Their own expenses stay outside the app (§6) |
 
 **My other assumptions, for review.**
 - Claims aren't restricted by project or site.
@@ -293,13 +300,13 @@ Fixtures: `00-fixtures.md`, `TRAVEL`, `FOOD`, `FUEL`, `LODGING`, `SITE-MISC`. Ad
 
 | ID | Behaviour | Go test | P | Level |
 |---|---|---|---|---|
-| EXP-001 | Blank employee defaults to the creator's; own-scope user naming another is refused | `TestExp_EmployeeRules` | P1 | integration |
+| EXP-001 | Blank employee defaults to the creator's; own-scope user naming another is refused, also when editing a draft an Administrator entered | `TestExp_EmployeeRules` | P1 | integration |
 | EXP-002 | Administrator enters for another employee; claimant still can't approve it | `TestExp_AdminEntersForOther` | P1 | integration |
-| EXP-003 | No linked employee refused; Left employee refused | `TestExp_EmployeeRequired` | P1 | integration |
+| EXP-003 | No linked employee refused; a leaver's pending claim approves and revises; an Administrator back-enters for a leaver | `TestExp_EmployeeAndLeavers` | P1 | integration |
 | EXP-004 | Total, to pay and period computed from lines | `TestExp_Totals` | P1 | unit |
 | EXP-005 | Date rules: future claim, future line, line after claim; past dates pass | `TestExp_DateRules` | P1 | unit |
 | EXP-006 | No receipt and no reason refused at submit, passes on a draft | `TestExp_ReceiptOrReason` | P1 | integration |
-| EXP-007 | Hash not on this claim refused | `TestExp_ForeignReceipt` | P1 | integration |
+| EXP-007 | Hash not on this claim refused with FILE-045's text; used receipt can't be removed (FILE-046), on draft and rejected; one bill on two lines | `TestExp_ReceiptLinks` | P1 | integration |
 | EXP-008 | Amend keeps each line's receipt link after `CopyAll` | `TestExp_AmendKeepsReceipts` | P1 | integration |
 | EXP-009 | `ListTx` takes no second connection (nestcheck gate) | `TestExp_ReceiptCheckSameTx` | P1 | integration |
 | EXP-010 | 21 receipts accepted under the claim policy; 101 refused | `TestExp_ReceiptPolicy` | P1 | integration |
@@ -322,7 +329,7 @@ Fixtures: `00-fixtures.md`, `TRAVEL`, `FOOD`, `FUEL`, `LODGING`, `SITE-MISC`. Ad
 | EXP-027 | Two claims approved together can't overspend one advance (real engine, non-admin) | `TestAdv_ConcurrentClaims` | P1 | integration |
 | EXP-028 | Cancelling a claim restores what's left; used is recomputed | `TestAdv_CancelRestores` | P1 | integration |
 | EXP-029 | Advance cancel blocked by a live claim | `TestAdv_CancelBlocked` | P1 | integration |
-| EXP-030 | Closed advance can't be picked; another employee's is refused | `TestAdv_Sources` | P1 | integration |
+| EXP-030 | Closed advance can't be picked; another employee's is refused, with its text if readable and AUTH's if not | `TestAdv_Sources` | P1 | integration |
 | EXP-031 | Advance rights match §11; close refused for the employee | `TestAdv_Rights` | P1 | integration |
 | EXP-032 | Print goldens: claim with less advance and words on to-pay; advance | `TestExp_PrintGolden` | P1 | integration (golden file) |
 | EXP-033 | Print needs `print`; a team member can't print a colleague's | `TestExp_PrintRights` | P1 | integration |
