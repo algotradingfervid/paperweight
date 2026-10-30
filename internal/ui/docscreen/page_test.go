@@ -15,7 +15,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/alexedwards/scs/v2"
 
-	"github.com/vardhan/internaltools/internal/kernel/approval/approvalfake"
+	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
@@ -41,18 +41,14 @@ var ravi = auth.Principal{ID: 3, Name: "Ravi Kulkarni"}
 // allRights is every right the document page asks about, plus read.
 var allRights = []auth.Right{"read", "write", "submit", "approve", "cancel", "amend", "delete", "print"}
 
-// approver wraps approvalfake so a test can make CheckApprover refuse with
-// APR's own wording.
-type approver struct {
-	*approvalfake.Fake
-	block error
-}
+// The real APR service is what production passes as Deps.Approval.
+var _ docscreen.Approver = approval.Service(nil)
 
-func (a *approver) CheckApprover(ctx context.Context, tx *db.Tx, p auth.Principal, name string, id int64) error {
-	if a.block != nil {
-		return a.block
-	}
-	return a.Fake.CheckApprover(ctx, tx, p, name, id)
+// approver returns the error the test sets in block; nil allows (CD-193).
+type approver struct{ block error }
+
+func (a *approver) CheckApprover(context.Context, *db.Tx, auth.Principal, string, int64) error {
+	return a.block
 }
 
 // docEnv is the document-page harness: WP0's router with a session manager
@@ -80,7 +76,7 @@ func newDocEnv(t *testing.T, rights ...auth.Right) *docEnv {
 	e := &docEnv{
 		docs:    docfake.New(),
 		az:      authfake.New(),
-		apr:     &approver{Fake: approvalfake.New()},
+		apr:     &approver{},
 		extras:  docscreentest.NewExtras(),
 		db:      &docscreentest.Reader{},
 		as:      priya,
@@ -90,7 +86,6 @@ func newDocEnv(t *testing.T, rights ...auth.Right) *docEnv {
 		e.az.Grant("Buyer", docscreentest.Sample, r, auth.ScopeAll)
 	}
 	e.az.AddRole(priya.ID, "Buyer")
-	e.apr.AllowApprover(priya.ID)
 	e.d = docscreen.Deps{
 		DB:        e.db,
 		Engine:    e.docs,

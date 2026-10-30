@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vardhan/internaltools/internal/kernel/approval/approvalfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doc/docfake"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/brand"
+	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -122,7 +122,7 @@ func docDeps() docscreen.Deps {
 		DB:        &docscreentest.Reader{},
 		Engine:    docs,
 		Auth:      az,
-		Approval:  approvalfake.New(),
+		Approval:  allowAll{},
 		Lister:    searchLister{rows},
 		Extras:    docscreentest.NewExtras(),
 		Principal: func(*http.Request) (auth.Principal, bool) { return priya, true },
@@ -130,6 +130,13 @@ func docDeps() docscreen.Deps {
 		InboxURL:  "/approvals",
 		PrintURL:  func(name string, id int64) string { return "/print/" + name + "/" + strconv.FormatInt(id, 10) },
 	}
+}
+
+// allowAll lets everyone approve: the gallery shows no APR refusal.
+type allowAll struct{}
+
+func (allowAll) CheckApprover(context.Context, *db.Tx, auth.Principal, string, int64) error {
+	return nil
 }
 
 // searchLister lists the seeded rows whose display or party contains the
