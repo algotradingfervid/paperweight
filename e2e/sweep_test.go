@@ -251,7 +251,7 @@ type pageFacts struct {
 }
 
 // expectedStatus are the screens that aren't a 200.
-var expectedStatus = map[string]int{"not found": 404, "refused": 403}
+var expectedStatus = map[string]int{"not found": 404, "unknown path": 404, "unknown path signed out": 404, "refused": 403}
 
 // answersNoPage fetches url in the signed-in browser and says what's wrong if
 // the answer isn't status want or is a whole page.

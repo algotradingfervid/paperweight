@@ -610,6 +610,71 @@ func TestApp_FilesPrefixNotFound(t *testing.T) {
 	}
 }
 
+// CD-250: a path no route matches gets the app's own 404 page, and a method
+// a route doesn't take its own 405, never chi's plain text.
+func TestApp_UnknownPath(t *testing.T) {
+	const (
+		unknown   = "/no/such/page"
+		msg405    = "This page doesn't take that kind of request. Go back and try again."
+		shellLink = `nav[aria-label="Main"] a[href="/approvals"]`
+	)
+	w := newWorld(t)
+	w.firstAdmin()
+	b := w.signedIn(adminEmail)
+	heading := func(r *response) string { return strings.TrimSpace(r.doc.Find("h1").First().Text()) }
+
+	r := b.get(unknown)
+	if r.status != http.StatusNotFound || heading(r) != auth.MsgNotFound {
+		t.Errorf("signed-in GET %s = %d h1 %q, want 404 %q", unknown, r.status, heading(r), auth.MsgNotFound)
+	}
+	if r.doc.Find(shellLink).Length() == 0 {
+		t.Errorf("signed-in GET %s has no shell navigation", unknown)
+	}
+	if r.header.Get("Content-Security-Policy") == "" || r.header.Get("Cache-Control") != "private, no-store" {
+		t.Errorf("signed-in GET %s: CSP %q, Cache-Control %q, want both set (CD-225)", unknown, r.header.Get("Content-Security-Policy"), r.header.Get("Cache-Control"))
+	}
+
+	// A history restore needs the whole page; any other htmx request the notice.
+	restore := b.do(http.MethodGet, unknown, nil, "", map[string]string{"HX-Request": "true", "HX-History-Restore-Request": "true"})
+	if restore.status != http.StatusNotFound || heading(restore) != auth.MsgNotFound {
+		t.Errorf("history-restore GET %s = %d h1 %q, want 404 page", unknown, restore.status, heading(restore))
+	}
+	hx := b.do(http.MethodGet, unknown, nil, "", map[string]string{"HX-Request": "true"})
+	if got := noticeText(t, hx.header.Get("HX-Trigger")); hx.status != http.StatusNotFound || got != auth.MsgNotFound || hx.body != "" {
+		t.Errorf("htmx GET %s = %d notice %q body %q, want 404 notice %q, no body", unknown, hx.status, got, hx.body, auth.MsgNotFound)
+	}
+	post := b.post(unknown, url.Values{})
+	if post.status != http.StatusNotFound || post.alert() != auth.MsgNotFound || post.doc.Find(shellLink).Length() != 0 {
+		t.Errorf("POST %s = %d alert %q, want the plain 404 page %q", unknown, post.status, post.alert(), auth.MsgNotFound)
+	}
+
+	// Signed out: no route means no guard, so the public 404 page, never a
+	// redirect to /signin (AUTH-112's guest GET /api/po/1 is 404).
+	guest := w.browser().get(unknown)
+	if guest.status != http.StatusNotFound || heading(guest) != auth.MsgNotFound || guest.doc.Find(shellLink).Length() != 0 {
+		t.Errorf("signed-out GET %s = %d h1 %q, want 404 %q with no navigation", unknown, guest.status, heading(guest), auth.MsgNotFound)
+	}
+	if got := guest.header.Get("Cache-Control"); got == "private, no-store" {
+		t.Errorf("signed-out GET %s: Cache-Control %q, want no signed-in header", unknown, got)
+	}
+
+	// The files router keeps its own plain 404.
+	f := b.get("/files/no/such")
+	if f.status != http.StatusNotFound || !strings.HasPrefix(f.header.Get("Content-Type"), "text/plain") || strings.TrimSpace(f.body) != files.MsgNotFound {
+		t.Errorf("GET /files/no/such = %d %q %q, want plain 404 %q", f.status, f.header.Get("Content-Type"), f.body, files.MsgNotFound)
+	}
+
+	// A known path with a method it doesn't take stays 405, with Allow.
+	put := b.do(http.MethodPut, "/approvals", nil, "", map[string]string{"X-CSRF-Token": b.csrf})
+	if put.status != http.StatusMethodNotAllowed || put.alert() != msg405 || put.header.Get("Allow") != http.MethodGet {
+		t.Errorf("PUT /approvals = %d alert %q Allow %q, want 405 %q Allow GET", put.status, put.alert(), put.header.Get("Allow"), msg405)
+	}
+	get := b.get("/ui/validate/date")
+	if get.status != http.StatusMethodNotAllowed || heading(get) != msg405 || get.doc.Find(shellLink).Length() == 0 {
+		t.Errorf("GET /ui/validate/date = %d h1 %q, want the 405 page %q in the shell", get.status, heading(get), msg405)
+	}
+}
+
 // namingweb, approval web and their guards.
 func TestApp_AreaScreensMounted(t *testing.T) {
 	w := newWorld(t)
