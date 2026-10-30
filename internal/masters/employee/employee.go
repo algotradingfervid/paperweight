@@ -213,12 +213,12 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 	if old != nil {
 		id = old.ID
 	}
-	if in.ManagerID != 0 && in.ManagerID == id {
-		return fieldErr("manager_id", msgSelfManager)
-	}
 	leaving := old != nil && old.Status == Active && in.Status == Left
 	keepsBranch := leaving && in.BranchID == old.BranchID
 	keepsManager := leaving && in.ManagerID == old.ManagerID
+	if in.ManagerID != 0 && in.ManagerID == id && !keepsManager {
+		return fieldErr("manager_id", msgSelfManager)
+	}
 	var es mstkit.Errors
 	if !keepsBranch {
 		b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
@@ -280,8 +280,10 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 		if err != nil {
 			return err
 		}
-		if len(reps) > 0 {
-			return fieldErr("status", reps[0].Code+" ("+reps[0].Name+") still reports to "+in.Code+". Move them to another manager first.")
+		for _, r := range reps {
+			if r.ID != id { // a stored manager_id = id isn't a report (CD-204)
+				return fieldErr("status", r.Code+" ("+r.Name+") still reports to "+in.Code+". Move them to another manager first.")
+			}
 		}
 	}
 	return nil

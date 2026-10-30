@@ -15,6 +15,7 @@ import (
 const (
 	msgMeenaLeft   = "Reporting manager EMP-002 has left. Pick an active manager."                         // MST-116
 	msgDeepakStays = "EMP-007 (Deepak Nair) still reports to EMP-004. Move them to another manager first." // MST-117
+	msgAshaStays   = "EMP-009 (Asha Menon) still reports to EMP-007. Move them to another manager first."  // MST-117
 	msgLoopTwo     = "This would make a reporting loop (EMP-002 → EMP-003 → EMP-002). Pick another manager."
 )
 
@@ -169,7 +170,9 @@ func TestEmployee_LeaveUnderLeftManager(t *testing.T) {
 // TestEmployee_LeaveInsideExistingLoop (CD-204 item 1): the loop walk is the
 // unchanged-manager check that can refuse a leave. The service never saves a
 // loop (MST-114), so one is written directly; EMP-002 is Left so that MST-117
-// doesn't refuse first.
+// doesn't refuse first. A stored manager_id = id passes the self-manager check
+// (MST-113) too, and an employee isn't their own report (MST-117); a real
+// report still refuses, even with a code after the employee's own.
 func TestEmployee_LeaveInsideExistingLoop(t *testing.T) {
 	for _, path := range leavePaths {
 		t.Run(path.name, func(t *testing.T) {
@@ -181,6 +184,32 @@ func TestEmployee_LeaveInsideExistingLoop(t *testing.T) {
 				t.Fatalf("EMP-007 leaves inside a loop: %v; want saved", err)
 			}
 			w.wantLeft(t, deepak)
+		})
+		t.Run(path.name+" self row", func(t *testing.T) {
+			w := newWorld(t)
+			deepak := w.leaver(t, w.branchID)
+			w.exec(t, `UPDATE employee SET manager_id = id WHERE id = ?`, w.ids["EMP-007"])
+			in := w.ins["EMP-007"]
+			in.ManagerID = w.ids["EMP-007"]
+			w.ins["EMP-007"] = in
+
+			if err := path.leave(t, w, "EMP-007"); err != nil {
+				t.Fatalf("EMP-007 leaves with manager_id = id: %v; want saved", err)
+			}
+			w.wantLeft(t, deepak)
+		})
+		t.Run(path.name+" self row with a report", func(t *testing.T) {
+			w := newWorld(t)
+			deepak := w.leaver(t, w.branchID)
+			report := w.input("EMP-009", "Asha Menon")
+			report.ManagerID = w.ids["EMP-007"]
+			w.create(t, report)
+			w.exec(t, `UPDATE employee SET manager_id = id WHERE id = ?`, w.ids["EMP-007"])
+			in := w.ins["EMP-007"]
+			in.ManagerID = w.ids["EMP-007"]
+			w.ins["EMP-007"] = in
+
+			w.wantRefused(t, "EMP-007", deepak, msgAshaStays, func() error { return path.leave(t, w, "EMP-007") })
 		})
 	}
 }
