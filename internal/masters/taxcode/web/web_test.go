@@ -24,7 +24,7 @@ import (
 
 // Screens under test (MST Task 22): /m/tax-code list, /new, /{id}, POST /{id}
 // with version, /{id}/disable, /{id}/enable, /{id}/delete and the picker
-// /m/tax-code/pick?q=. The ten tax codes are seeded by migration 01301.
+// /pick/Tax%20Code?q= (CD-195). The ten tax codes are seeded by migration 01301.
 const (
 	msgNotNotified = "GST rate 10% is not a notified rate. Use one of 0.1, 0.25, 1, 1.5, 3, 5, 6, 7.5, 12, 18, 28, 40." // MST-096
 	msgTaxableZero = "A Taxable tax code needs a GST rate above 0. Use Nil-Rated or Exempted for 0%."                   // MST-094
@@ -234,7 +234,7 @@ func TestScreens_TaxCodePicker(t *testing.T) {
 	kavya := w.h.Env.Kavya
 	gst12, gst18, exempt := w.mustGet(t, "GST12"), w.mustGet(t, "GST18"), w.mustGet(t, "EXEMPT")
 
-	rows := w.h.GetHTMX(t, kavya, "/m/tax-code/pick?q=Exempt")
+	rows := w.h.GetHTMX(t, kavya, "/pick/Tax%20Code?q=Exempt")
 	webtest.WantStatus(t, rows, http.StatusOK)
 	got := rows.PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(exempt.ID, 10) || !strings.Contains(got[0].Text, "EXEMPT Exempted") {
@@ -242,7 +242,7 @@ func TestScreens_TaxCodePicker(t *testing.T) {
 	}
 
 	// q=GST1 matches the codes GST12 and GST18, both shown "{Code} {Name}".
-	got = w.h.GetHTMX(t, kavya, "/m/tax-code/pick?q=GST1").PickRows()
+	got = w.h.GetHTMX(t, kavya, "/pick/Tax%20Code?q=GST1").PickRows()
 	if len(got) != 2 || got[0].Value != strconv.FormatInt(gst12.ID, 10) || !strings.Contains(got[0].Text, "GST12 GST 12%") ||
 		got[1].Value != strconv.FormatInt(gst18.ID, 10) || !strings.Contains(got[1].Text, "GST18 GST 18%") {
 		t.Errorf("pick?q=GST1 = %v; want GST12 \"GST 12%%\" then GST18 \"GST 18%%\"", got)
@@ -251,7 +251,7 @@ func TestScreens_TaxCodePicker(t *testing.T) {
 	if err := w.svc.SetDisabled(context.Background(), kavya, gst12.ID, gst12.Version, true); err != nil {
 		t.Fatal(err)
 	}
-	got = w.h.GetHTMX(t, kavya, "/m/tax-code/pick?q=GST1").PickRows()
+	got = w.h.GetHTMX(t, kavya, "/pick/Tax%20Code?q=GST1").PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(gst18.ID, 10) {
 		t.Errorf("pick?q=GST1 after disabling GST12 = %v; want only GST18", got)
 	}
