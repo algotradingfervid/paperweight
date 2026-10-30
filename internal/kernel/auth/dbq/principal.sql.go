@@ -28,7 +28,7 @@ func (q *Queries) CountUserRole(ctx context.Context, arg CountUserRoleParams) (i
 }
 
 const getPrincipalUser = `-- name: GetPrincipalUser :one
-SELECT id, email, name, enabled, must_change_password FROM users WHERE id = ?
+SELECT id, email, name, enabled, must_change_password, version FROM users WHERE id = ?
 `
 
 type GetPrincipalUserRow struct {
@@ -37,6 +37,7 @@ type GetPrincipalUserRow struct {
 	Name               string
 	Enabled            int64
 	MustChangePassword int64
+	Version            int64
 }
 
 func (q *Queries) GetPrincipalUser(ctx context.Context, id int64) (GetPrincipalUserRow, error) {
@@ -48,6 +49,7 @@ func (q *Queries) GetPrincipalUser(ctx context.Context, id int64) (GetPrincipalU
 		&i.Name,
 		&i.Enabled,
 		&i.MustChangePassword,
+		&i.Version,
 	)
 	return i, err
 }

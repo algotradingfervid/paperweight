@@ -1,5 +1,5 @@
 -- name: GetPrincipalUser :one
-SELECT id, email, name, enabled, must_change_password FROM users WHERE id = ?;
+SELECT id, email, name, enabled, must_change_password, version FROM users WHERE id = ?;
 
 -- name: ListPrincipalRoles :many
 SELECT r.name FROM user_roles ur

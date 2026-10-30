@@ -306,13 +306,13 @@ func TestService_User(t *testing.T) {
 	}
 
 	info, ok, err := user(4)
-	want := auth.UserInfo{ID: 4, Email: "priya@vardhan.test", Name: "Priya Shah", Enabled: true}
+	want := auth.UserInfo{ID: 4, Email: "priya@vardhan.test", Name: "Priya Shah", Enabled: true, Version: 1}
 	if err != nil || !ok || !reflect.DeepEqual(info, want) {
 		t.Errorf("User(4) = %+v, %v, %v; want %+v, true, nil", info, ok, err, want)
 	}
 
 	info, ok, err = user(8)
-	want = auth.UserInfo{ID: 8, Email: "old@vardhan.test", Name: "Former Staff", Enabled: false}
+	want = auth.UserInfo{ID: 8, Email: "old@vardhan.test", Name: "Former Staff", Enabled: false, Version: 1}
 	if err != nil || !ok || !reflect.DeepEqual(info, want) {
 		t.Errorf("User(8) = %+v, %v, %v; want %+v, true, nil", info, ok, err, want)
 	}

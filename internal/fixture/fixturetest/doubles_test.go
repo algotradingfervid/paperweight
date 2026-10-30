@@ -225,3 +225,32 @@ func TestFixtureDocTypes_SeedDefaults(t *testing.T) {
 	}
 	authtest.NewWorld(t)
 }
+
+func TestAuth_DisableAndEnableBumpVersion(t *testing.T) {
+	ctx := context.Background()
+	a := fixturetest.NewAuth()
+	const priya = auth.UserID(4)
+	version := func() int {
+		t.Helper()
+		info, ok, err := a.User(ctx, nil, priya)
+		if err != nil || !ok {
+			t.Fatalf("User(priya) = (_, %v, %v), want found", ok, err)
+		}
+		return info.Version
+	}
+	if got := version(); got != 1 {
+		t.Fatalf("Version after NewAuth = %d, want 1", got)
+	}
+	if err := a.DisableUser(ctx, nil, priya, "test"); err != nil {
+		t.Fatalf("DisableUser: %v", err)
+	}
+	if got := version(); got != 2 {
+		t.Errorf("Version after DisableUser = %d, want 2", got)
+	}
+	if err := a.EnableUser(ctx, nil, priya); err != nil {
+		t.Fatalf("EnableUser: %v", err)
+	}
+	if got := version(); got != 3 {
+		t.Errorf("Version after EnableUser = %d, want 3", got)
+	}
+}

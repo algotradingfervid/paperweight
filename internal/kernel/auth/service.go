@@ -55,7 +55,7 @@ func (a *Auth) User(ctx context.Context, tx *db.Tx, u UserID) (UserInfo, bool, e
 	if err != nil {
 		return UserInfo{}, false, err
 	}
-	return UserInfo{ID: u, Email: row.Email, Name: row.Name, Enabled: row.Enabled != 0}, true, nil
+	return UserInfo{ID: u, Email: row.Email, Name: row.Name, Enabled: row.Enabled != 0, Version: int(row.Version)}, true, nil
 }
 
 // HasRole reports whether u holds role.
