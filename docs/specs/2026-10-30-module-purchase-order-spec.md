@@ -1,12 +1,12 @@
 # Module spec: Purchase Order
 
-Version 0.1 · 30 October 2026 · Status: draft for owner review · Author: AD-6
+Version 0.2 · 30 October 2026 · Status: draft for owner review, revised for CD-234 · Author: AD-6
 
-Builds on the core platform spec, the design system, the decision log (to CD-229) and `docs/tests/core/`. Where this spec names a kernel rule it does not restate it. Goods Receipt and Expense specs follow and depend on the shared decisions in §14.
+Builds on the core platform spec, the design system, the decision log (to CD-229) and `docs/tests/core/`. Where this spec names a kernel rule it does not restate it. Goods Receipt and Expense specs depend on the shared decisions in §14 and the cutover plan in §12.
 
 **How to read the marks.**
-- **[Assumption Qn]**: drafted on the recommended answer to owner question n, sent to the head on 30 October. If the owner answers differently, §16 says what changes.
-- **[Assumption]**: a default of mine with no owner question yet; listed in §16 for review.
+- **(CD-234)**: the owner's answer of 30 October.
+- **[Assumption]**: a default of mine, listed in §16 for review.
 - **CA**: "check with your CA". Facts are from the research of 30 October (sources in §17). They are not legal advice, and the app never decides tax treatment.
 
 ---
@@ -31,7 +31,7 @@ Priya raises a purchase order, it gets approved, a numbered PO goes to the vendo
 - Purchase requests, RFQs, supplier quotation comparison.
 - Rate contracts or blanket POs.
 - Stock ledger, stock value, reorder levels.
-- Vendor bills, payments, vendor ledger: Zoho Books keeps these (CD-228: staff re-key).
+- Vendor bills, payments, vendor ledger: your accounting system keeps these. Staff re-key entries, and the app tracks nothing about that (CD-228, CD-234).
 - Sending a PO from the app. The user prints or saves a PDF (D-FILE-10) and sends it.
 - Editing an approved PO (R7), reopening a closed one (R6), header-level discount (`07-numbers-lists.md` deferred table).
 - GST filing, TDS computation, self-invoices and payment vouchers for reverse charge (CD-228).
@@ -51,7 +51,7 @@ Every money, quantity and rate is a kernel fixed-point type. Field names are uni
 | `number` | PO number | Text, read-only (CD-144) | List priority 1 |
 | `vendor_id` | Vendor | Link Party | Required. Vendor role (`party.CheckRole`). The name is what MST-043 reads (CD-216 item 8) |
 | `vendor_address_id` | Vendor address | Link Address | Default the party's primary billing address; must belong to the vendor (CD-176). Step `terms`, shown as radios of this vendor's addresses by a module hook (§15 item 11), because `/pick/{Link}` can't filter by vendor |
-| `site_id` | Deliver to | Link Site | Required [Assumption Q10] |
+| `site_id` | Deliver to | Link Site | Required (CD-234) |
 | `branch_id` | Billed to | Link Branch, read-only | Copied from the site's branch in `Validate` |
 | `project_id` | Project | Link Project | Required [Assumption]: a blank project hides the PO from project-restricted users (AUTH-093), and CD-178 keeps a Required restricted field required on drafts. Stock buys use a general project. `Validate` fills a blank from the site's project for an unrestricted user; a restricted user gets `Project is required.` first (CD-178 runs before `Validate`) and picks it |
 | `order_date` | Order date | Date | Required, default today. Not in the future. Sets the FY of the number (D-NAM-04) |
@@ -104,7 +104,7 @@ Line snapshot columns: `snap_item_code`, `snap_item_name`, `snap_uom_code`, `sna
 
 | Condition | Message | When |
 |---|---|---|
-| Order date after today | `Order date can't be in the future.` | Save |
+| Order date after today | `Order date can't be in the future.` Past dates are always allowed, so back-entry works (§12) | Save |
 | Required-by before order date | `Required by can't be before the order date.` | Save |
 | Site's project differs from the PO's project | `Site {code} is on project {code}. Pick that project or another site.` | Save |
 | Overseas vendor | `Overseas vendors aren't supported on purchase orders yet.` | Save |
@@ -168,13 +168,13 @@ Close means "nothing more is coming". After close, pending shows 0 in reports, n
 
 | Item | Decision | CA |
 |---|---|---|
-| Place of supply | Computed. Supplier state from the GSTIN or address (NUM-038). Place state from the delivery site's branch (`snap_place_state`), which assumes a site is in its branch's state [Assumption Q6]. `gstcalc.IsInterStateSupply` decides | CA: the legal test is supplier location against place of supply (IGST s.8), and goods are supplied where movement ends (s.10(1)(a)) |
+| Place of supply | Computed. Supplier state from the GSTIN or address (NUM-038). Place state from the delivery site's branch (`snap_place_state`), which assumes a site is in its branch's state (CD-234). `gstcalc.IsInterStateSupply` decides | CA: the legal test is supplier location against place of supply (IGST s.8), and goods are supplied where movement ends (s.10(1)(a)) |
 | Place-of-supply reason (CD-200 moved it here) | New `gstcalc.PlaceReason(category, supplierName, supplierState, placeState string) string`, shown on the check page and the document page, printed on the PO. Texts in §7.1 | |
-| Vendor invoice no., IRN, e-way bill | Not on the PO. Those arrive with the goods; see the GRN spec [Assumption Q4] | |
-| Reverse charge | A tick on the PO, off by default, chosen by the buyer. Never worked out by the app. Tax is computed and shown, marked as payable by the buyer, and left out of the grand total. Self-invoice and payment voucher stay in Zoho [Assumption Q4] | CA: whether it applies depends on the service and the supplier's status (Notification 13/2017-CT(R), as amended) |
-| TDS | Not in the app. A PO is neither a credit nor a payment, so it isn't the point of deduction; rate depends on payee and nature of payment [Assumption Q4] | CA: Income-tax Act 2025 s.393 |
+| Vendor invoice no., IRN, e-way bill | Not on the PO. Those arrive with the goods; see the GRN spec (CD-234) | |
+| Reverse charge | A tick on the PO, off by default, chosen by the buyer. Never worked out by the app. Tax is computed and shown, marked as payable by the buyer, and left out of the grand total. Self-invoice and payment voucher stay in your accounting system (CD-234) | CA: whether it applies depends on the service and the supplier's status (Notification 13/2017-CT(R), as amended) |
+| TDS | Not in the app. A PO is neither a credit nor a payment, so it isn't the point of deduction; rate depends on payee and nature of payment (CD-234) | CA: Income-tax Act 2025 s.393 |
 | GST TDS (s.51) | Nothing to do: a private company is not a deductor | CA to confirm |
-| Blocked credit (s.17(5)) | Not on the PO. Zoho decides credit | |
+| Blocked credit (s.17(5)) | Not on the PO. Credit is decided in your accounting system | |
 
 **Reverse charge on the check page and print:** `Reverse charge applies. GST of ₹{x} is payable by us, not to the vendor.`
 
@@ -223,7 +223,6 @@ Production `DefaultRights`, matching `00-fixtures.md`:
 | Purchase Manager | read, approve, cancel, print, export (all) |
 | Director | read, approve, print, export (all) |
 | Stores | read (all) |
-| Accounts (new, [Assumption Q11]) | read, print, export (all) |
 | Administrator | every applicable right |
 
 - Restrictions apply through `ProjectFields` and `SiteFields`, so Priya sees only PRJ-METRO POs and Suresh only his sites'. Both dimensions apply together (AUTH-095).
@@ -249,29 +248,41 @@ New screens need a UX design document and owner approval before plan tasks (CD-9
 
 ## 12. Cutover plan
 
-Owner decisions: go live as soon as the modules are ready (CD-228). This plan covers all three modules. Assumptions Q2 and Q3 apply: re-enter open POs; continue numbers.
+Owner decisions: go live as soon as the modules are ready (CD-228). Open POs are on paper or email. The year's back-dated data goes in first, and then the app goes live (CD-234). This plan covers all three modules.
 
 **Why not type received quantities into `received_qty`.** The roll-up recomputes that column as a sum over GRN lines (D-DOC-13), so the first real GRN would wipe an imported value. ERPNext has the same hazard and none of the three systems studied has a coded answer. That's why `already_received` is a separate, plain field added into pending.
+
+**What makes back-entry work with no kernel change**
+
+| Concern | How it works |
+|---|---|
+| Dates | Only future dates are refused. Number, FY and print follow the document's own date (D-NAM-04). Nothing compares a date with today beyond that |
+| Numbering | The FY in the number comes from the document date, so a date before 1 April 2026 gets a `25-26` prefix with its own counter. Numbers follow entry order, not date order |
+| Approvals | **No approval rules exist during back-entry** [Assumption]. With no rule, submit goes straight to approved and numbers the document (F5), so nobody re-approves a year of history. Rules go in on go-live day. Print shows the person who entered it as the approver, and the audit shows the real entry time |
+| Period lock | Off by default (§14.2) |
+| Receipts on old claims | The reason field takes `Paper file` where no photo exists |
 
 **Steps**
 
 | When | Step | Who |
 |---|---|---|
-| Before go-live | Run the masters CSV import (vendors, items, tax codes, projects, sites, employees); check with the dry run | Kavya |
-| Before go-live | Enter production approval rules; link each user to an employee; assign roles and restrictions | Anil |
-| Before go-live | `app admin create` before ports open (CD-228); restore drill against S3 (CD-226) | Owner with Claude Code |
-| Before go-live | Set `Locked up to` if used, with the CA | Owner |
-| Cut-off, evening before | Stop new POs, GRNs and claims on the old system. List every open PO with pending by line | Priya, Suresh |
-| Go-live day | Admin sets each series' last number used (NAM-056): `PO/26-27/` to the last PO issued; `GR/26-27/` and `EX/26-27/` the same, or 0 if none (NAM-057 refuses a lower number) | Anil |
-| Go-live day | Re-enter each open PO. Order date is go-live day, so a filed period is never touched. Full original quantities and rates, `Already received` per line, Earlier PO no. and date. Normal approval, so a person checks each one and the audit trail is honest | Priya, Ravi |
-| Go-live day | Goods arriving for an old PO are received in the app against its new PO | Suresh |
-| After go-live | Old system read-only. Claims in flight finish on the old route; only new claims enter the app | Everyone |
+| Set-up | Masters CSV import, checked with the dry run | Masters Manager |
+| Set-up | Link each user to an employee; assign roles and restrictions. **No approval rules yet** | Administrator |
+| Set-up | `app admin create` before ports open (CD-228); restore drill against S3 (CD-226) | Owner with Claude Code |
+| Set-up | Set each series' last number used (NAM-056): `PO/26-27/` to the last paper PO, `GR/26-27/` and `EX/26-27/` the same, or 0 if none. Any earlier FY entered needs its own prefix set (NAM-057 refuses a lower number) | Administrator |
+| Back-entry | Enter the year's POs with their real dates. The paper number goes in `Earlier PO no.`. Enter GRNs against them with real dates, and claims and advances (Expense spec §3.1 for entering on someone's behalf) | Purchase User, Stores, Administrator |
+| Back-entry | An open PO with goods already received: either enter its GRNs, or fill `Already received` per line. Never both, or the goods count twice | Purchase User |
+| Back-entry | Check each PO's pending against the paper, using the pending items report | Purchase User |
+| Go-live day | Enter production approval rules. From this moment every new document follows them | Administrator |
+| Go-live day | Paper stops. New POs, GRNs and claims go in the app | Everyone |
+| After go-live | The Administrator may turn on the period lock (§14.2) | Administrator |
 | FY rollover | The first PO dated 1 April uses a new prefix and starts at 1 (NAM-059 can preset) | Automatic |
 
 **Consequences to accept.**
 - The printed number on a re-entered PO is new. The vendor has the old number, so the print shows `Earlier PO no.`.
-- Approvers re-approve open POs once. Fifty POs is an afternoon; if the answer to Q1 is much larger, Q2 option C comes back.
-- Closed old POs are not brought in. They stay wherever they are kept now. CA: GST records must be kept 72 months from the annual return's due date (CGST s.36).
+- App numbers don't follow date order in the back-entered range, so a list sorted by date shows numbers out of order. Nothing depends on that order.
+- Anything submitted during back-entry is approved at once. Keep the window short, and don't start real new work until the rules are in.
+- Paper stays where it is. CA: GST records must be kept 72 months from the annual return's due date (CGST s.36).
 
 **Abort.** Until the first real PO goes to a vendor, the database can be deleted and the cutover rerun. After that, fix forward through cancel and amend.
 
@@ -281,42 +292,36 @@ The generic list and CSV export cover the PO register, with `export` right and s
 
 **Pending items** (`/reports/purchase/pending`, CSV at `…/export.csv`). One row per PO line with pending above 0, on approved POs. Columns: PO number, order date, required by, vendor, project, site, item code, item name, ordered, received (including already received), pending, UoM, net rate, pending value. Overdue rows (required-by before today) carry the word `Overdue`, not just colour. Filters: vendor, project, site, item, overdue only. Guarded by `read` with the export right checked in the handler; rows use `Scope`, so restrictions apply and it can't widen access (AUTH-110).
 
-Line-level export of every PO is also needed for Zoho re-keying if Q11 option B is chosen; otherwise not.
-
 Out for v1: spend analysis, vendor performance, delay reports. All of them can be done from the CSV.
 
 ## 14. Shared decisions (apply to PO, GRN and Expense)
 
 ### 14.1 Settings
 
-A single-row `business_settings` table in `modkit`, one Administrator-only page, every change audited, with a `version` posted by the page (CD-94). Fields: `locked_up_to` Date; `over_receipt_pct` Percent; `default_po_terms` Text; `mileage_rate` Rate. Refusals use the existing admin wording.
+A single-row `business_settings` table in `modkit`, one Administrator-only page, every change audited, with a `version` posted by the page (CD-94). Fields: `locked_up_to` Date, blank by default; `default_po_terms` Text. Administrator is the role the owner calls Super admin (head, 30 October).
 
-### 14.2 Period lock [Assumption Q12]
+### 14.2 Period lock (CD-234)
 
-- One `Locked up to` date. CA chooses it, for example the last filed GSTR-3B. There is no legal "locked period" for purchase documents; statutory cut-offs such as 30 November (CGST s.16(4)) are anchors only.
-- GRN and Expense documents dated on or before it can't be submitted, approved or cancelled. Marking a claim paid stays allowed, because payment often follows the filing. The check is `modkit.CheckNotLocked(ctx, tx, date)`, called from `BeforeSubmit` and `ReverseEffects`, inside the transaction, so it needs no kernel change.
-- Message: `{Label} {number} is dated {date}, which is locked. Books are closed up to {lock date}.`
-- POs are exempt: not tax documents, and cancelling one doesn't touch the books. ERPNext's default closed-documents list excludes Purchase Order too.
-- Administrators can move the date, in both directions, audited. No role bypasses it while it stands. ERPNext's Company freeze has an exempt role; left out here because a 20-person company has one Administrator who can move the date.
+- Off by default: `locked_up_to` is blank. The year's back-dated data goes in first (§12).
+- An Administrator locks a period by setting the date and unlocks it by moving the date back or clearing it. Both are audited. One date covers everything on or before it, so unlocking one month in the middle of a year isn't possible without unlocking what follows [Assumption].
+- GRN, Expense Claim and Employee Advance documents dated on or before it can't be submitted, approved or cancelled. Close stays allowed. The check is `modkit.CheckNotLocked(ctx, tx, date)`, called from `BeforeSubmit` and `ReverseEffects`, inside the transaction, so it needs no kernel change.
+- Message: `{Label} {number} is dated {date}, which is locked. The period is locked up to {lock date}.`
+- POs are exempt: they aren't tax documents, and ERPNext's default closed-documents list excludes Purchase Order too.
+- No role bypasses a lock while it stands, because the Administrator can move the date.
+- CA chooses the date, for example the last filed GSTR-3B. There's no legal "locked period" for purchase documents; statutory cut-offs such as 30 November (CGST s.16(4)) are anchors only.
 
-### 14.3 Approver notifications [Assumption Q13]
+### 14.3 Reminders (CD-234)
 
-Replaces D-APR-13's "email later" with a narrow first step, and spec §11's later list loses that line.
+In-app only. No email, so D-APR-13 stands.
 
-- **Mechanism.** A job in the binary every 15 minutes (spec §7's scheduled jobs). It reads open approval requests through a new read-only `approval.OpenRequests(ctx)` and a small `notify_log` table, and sends through Go's `net/smtp`. No new Go dependency. No hook in APR or DOC, so a mail failure can never block an approval.
-- **Sends.**
-  1. On submit (next run): to the eligible approvers, from the request's snapshot (D-APR-09).
-  2. Each working morning, 09:30 IST: one digest to each approver with anything waiting more than a day.
-  3. After 3 days waiting: one note to the requester and Administrators. Odoo's 12-hour throttle shows why batching matters.
-- **Content.** Document label, type, amount, requester, a link to the sign-in-protected page. No lines, attachments or vendor details: the app is on the public internet with no 2FA (CD-228).
-- **Off switch.** SMTP settings come from environment variables; unset means off, and the in-app inbox still works. A failed send is logged and retried at the next run.
-- **Disabled users, no email address, approver changed:** skipped; the stuck-approvals list (APR-043) stays the backstop.
-- **Delegation.** Out of scope. Neither ERPNext nor Odoo has out-of-office delegation; an Administrator changes the rule.
-- If the owner picks Q13 B: the job is dropped, and My Requests gets `Waiting 3 days` plus an Administrator list of overdue requests.
+- **My requests** shows `Waiting {n} days` on a pending request from the third day, using `approval.RequestItem`'s submitted time.
+- **Overdue approvals**: a new Administrator page beside Stuck approvals, listing requests open more than 3 days, oldest first, with who can approve. `(*Approvals).Overdue(ctx, p)` is additive; its refusal for a non-administrator gets its own message: `You don't have permission to see overdue approvals. Ask an Administrator.` (CD-152's rule).
+- 3 days is a constant [Assumption]. Calendar days, because the app has no holiday list.
+- An approver who never opens the app is still not told; the requester and Administrator see it and act. That's the known cost of this choice.
 
-### 14.4 Entered in Zoho [Assumption Q11]
+### 14.4 No accounting tracking (CD-234)
 
-No studied system has an exported flag, so this is ours: a `books_entry` table in `modkit` (doctype, doc_id, entered_by, entered_at, reference, optional). One row per document, written by `modkit.MarkEntered` through `db.Write` with an audit entry, kept apart from the approved document so R7 holds. Cancelling a document that has an entry warns `This was entered in Zoho as {ref}. Reverse it there too.` and does not block. POs carry no mark under Q11 A. The GRN and Expense specs carry the screens.
+The app holds no `Entered` mark, no Accounts role, and no payment record. Staff re-key from the reports in each spec. Nothing stops an entry being keyed twice in your accounting system.
 
 ### 14.5 Package and data conventions
 
@@ -335,26 +340,21 @@ I don't edit the core spec or the decision log. Proposed CD entries:
 4. **Design-system §8.3** place-of-supply wording changes to §7.1.
 5. **`print.TradeDoc`** gains the additive fields in §9.
 6. **`gstcalc.PlaceReason`** (NUM, additive), which CD-200 deferred to the first module with GST lines.
-7. **Role `Accounts`** joins the canonical roles (`00-fixtures.md`, seeding), if Q11 A stands.
-8. **D-APR-13 and spec §11** change per §14.3, if Q13 A stands; `approval.OpenRequests` is additive.
+7. **Approval additions** (additive): `(*Approvals).Overdue`, waiting days on My requests, and the Overdue approvals page.
+8. **Amend runs `Validate`.** `amend` copies only stored fields and calls no hook (`internal/kernel/doc/terminal.go`), so a new draft has no snapshots until its next save, and it opens on the check page. Proposal: `amend` calls `Hooks.Validate` once after the copy and ignores its errors, since a draft may hold problems. Every module with snapshots needs it.
 9. **Spec §1 and §11 and BRIEF** still say Zoho sync is the first module after Expenses; CD-228 says it's decided after the modules are in use.
 10. **`docs/ux/` design documents** for PO, GRN and Expense: one `crew-ux-designer` task per module once these specs are approved.
-11. **`docscreen` module hooks (additive, UI's code, in MOD-0).** `docscreen.Deps.Modules map[string]docscreen.Module`, each optional: `StepBody(slug)` (a step the module renders, inside docscreen's frame, version and navigation), `CheckExtra` (place reason, reverse-charge note), `PageExtra` (pending column, linked GRNs, bill panel), `ReasonNote(action)` (close warning, Zoho warning), `HideField` (`already_received`, earlier-PO fields until wanted). Modules without an entry behave as today.
+11. **`docscreen` module hooks (additive, UI's code, in MOD-0).** `docscreen.Deps.Modules map[string]docscreen.Module`, each optional: `StepBody(slug)` and `StepPost(slug)` (a step the module renders and saves through `Engine.Do`, inside docscreen's frame, version and navigation; a module's first step may create the draft with lines), `CheckExtra` (place reason, reverse-charge note), `PageExtra` (pending column, linked GRNs, bill panel, over-delivery note), `ReasonNote(action)` (close warning), `HideField` (`already_received`, earlier-PO fields until wanted). Modules without an entry behave as today.
 12. **Fixture seed.** Decide whether `00-fixtures.md` moves `amend` for Purchase Order to Purchase User to match §10, or the seed stays and only production `DefaultRights` differ. I recommend moving it, so tests and production agree.
 
 ## 16. Open points for owner review
 
-**Waiting on the batched questions.** If the answer differs from the recommendation:
+The owner answered the first batch (CD-234). Follow-up questions went to the head with this revision:
 
-| Q | Changes |
+| Question | Drafted as |
 |---|---|
-| Q1, Q2 | B removes `already_received` and the earlier-PO fields. C adds a loader and needs a kernel approval bypass |
-| Q3 | B needs a new template, since a prefix clash would be possible |
-| Q4 | B adds IRN and TDS fields on the GRN. C drops them. The PO changes only in the reverse-charge tick |
-| Q6 | B adds an optional state to Site (an MST change); `snap_place_state` reads it |
-| Q10 | B moves `site_id` to lines, and pending and GRN selection change substantially |
-| Q11 | B needs a line-level PO export and the mark on POs |
-| Q12, Q13 | §14.2 or §14.3 as stated there |
+| Back-entry approvals | No rules until go-live day (§12) |
+| Numbers on back-entered POs | Continue from the last paper number (CD-234), with the paper number in `Earlier PO no.` |
 
 **My other assumptions, for review.**
 - Project is required on every PO; stock buys use a general project.
@@ -363,6 +363,8 @@ I don't edit the core spec or the decision log. Proposed CD entries:
 - Rates on a PO have no approval check against the item's standard rate.
 - Purchase User amends, not Purchase Manager (§10).
 - A PO below every approval rule is approved by the person who raised it.
+- One lock date, not a list of periods (§14.2).
+- 3 calendar days before a request counts as overdue.
 
 ## 17. Sources
 
@@ -374,7 +376,7 @@ I don't edit the core spec or the decision log. Proposed CD entries:
 
 ## 18. Test plan
 
-Module cases follow `docs/tests/core` style: one Go test per id, P1 must pass before go-live. Full Given/When/Then text goes in the test file once this spec is approved. Fixtures: `00-fixtures.md`, plus `Accounts` role user `asha@vardhan.test` [Assumption Q11]. The reference PO gives the worked numbers: taxable ₹79,800.00, CGST and SGST ₹7,182.00 each, grand total ₹94,164.00.
+Module cases follow `docs/tests/core` style: one Go test per id, P1 must pass before go-live. Full Given/When/Then text goes in the test file once this spec is approved. Fixtures: `00-fixtures.md`. The reference PO gives the worked numbers: taxable ₹79,800.00, CGST and SGST ₹7,182.00 each, grand total ₹94,164.00.
 
 | ID | Behaviour | Go test | P | Level |
 |---|---|---|---|---|
@@ -418,10 +420,12 @@ Module cases follow `docs/tests/core` style: one Go test per id, P1 must pass be
 | PO-038 | Pending report CSV needs `export` (CD-145) | `TestPO_PendingExportRight` | P1 | integration |
 | PO-039 | Settings: only Administrator, audited, stale refused | `TestSettings_AdminOnlyAudited` | P1 | integration |
 | PO-040 | Cutover: counter set to 437 gives first number 00438; lower refused | `TestPO_CutoverCounter` | P1 | integration |
+| PO-046 | Back-entry: a PO dated 15-04-2026 with no rules is approved on submit, FY 26-27; dated 31-03-2026 takes prefix 25-26 and its own counter | `TestPO_BackEntry` | P1 | integration |
+| PO-047 | Amend produces a draft with snapshots filled | `TestPO_AmendFillsSnapshots` | P1 | integration |
 | PO-041 | Default rights match `00-fixtures.md` for every role | `TestPO_DefaultRights` | P1 | unit |
-| PO-042 | Notification job: one mail per stage, none after decision, failure doesn't touch the request | `TestNotify_Stages` | P1 | integration |
-| PO-043 | Notification content has no lines, vendor or attachments | `TestNotify_ContentLimited` | P1 | unit |
-| PO-044 | Random lifecycle with GRN sequences keeps pending and status consistent | `FuzzPO_ReceiptInvariants` | P1 | unit (fuzz) |
+| PO-042 | `Waiting 3 days` appears on My requests on day 3, not day 2, and goes on decision | `TestApprovalWaiting_Days` | P1 | integration |
+| PO-043 | Overdue approvals: Administrator only, own refusal text, oldest first | `TestApprovalOverdue_List` | P1 | integration |
+| PO-044 | Random lifecycle with GRN sequences, over-delivery included: pending never below 0, status matches | `FuzzPO_ReceiptInvariants` | P1 | unit (fuzz) |
 | PO-045 | Full PO flow on a phone width, with overflow check | `TestE2E_PurchaseOrderFlow` | P1 | e2e |
 
 **Which WP runs what.** PO-025, PO-031, PO-033 and PO-044 need a real GRN. They are MOD-GRN's exit criteria, as CD-40 did for cases needing another WP. MOD-PO's own exit is every other P1 case. No test-local stand-in for the GRN (lenient doubles, CD-125).
@@ -434,12 +438,11 @@ Gates are milestones on `main`. All WPs follow the execution protocol; High tier
 
 | Stage | Package | Owns | Depends on | Parallel with |
 |---|---|---|---|---|
-| 0 | **MOD-0** shared | `internal/modules/modkit`, settings page, `gstcalc.PlaceReason`, `print.TradeDoc` additions, `docscreen` module hooks (§15 item 11), role seed, checker, import table | `core-v1` wiring (WP3 Task 2) | none |
+| 0 | **MOD-0** shared | `internal/modules/modkit`, settings page, `gstcalc.PlaceReason`, `print.TradeDoc` additions, `docscreen` module hooks (§15 item 11), amend calling `Validate`, `CloseRight` (Expense spec §14), overdue approvals, checker, import table | `core-v1` wiring (WP3 Task 2) | none |
 | 1 | **MOD-PO** | `internal/modules/purchase` | MOD-0 | MOD-EXP |
 | 2 | **MOD-GRN** | `internal/modules/goodsreceipt` | MOD-PO tasks 1 to 3 | MOD-EXP |
 | 1 | **MOD-EXP** | `internal/modules/expense` | MOD-0 | MOD-PO, MOD-GRN |
-| 4 | **MOD-NOTIFY** | notification job | MOD-0, APR, and the binary's job runner (spec §7; not on `main` yet, WP3) | Any |
-| 5 | **MOD-CUT** | cutover runbook, go-live rehearsal on a copy | All | none |
+| 4 | **MOD-CUT** | back-entry runbook, go-live rehearsal on a copy | All | none |
 
 **MOD-PO tasks.**
 
