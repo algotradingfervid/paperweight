@@ -1,0 +1,7 @@
+Code,Name,Branch,User Email,Reporting manager,Date of joining,Date of birth,Status,Relieving date
+EMP-101,Anil Kapoor,PUNE,admin@vardhan.test,,01-04-2020,12-05-1975,Active,
+EMP-102,Meena Iyer,PUNE,meena@vardhan.test,EMP-101,01-04-2020,23-09-1978,Active,
+EMP-103,Ravi Kulkarni,PUNE,ravi@vardhan.test,EMP-102,15-07-2021,02-11-1984,Active,
+EMP-104,Priya Shah,BLR,priya@vardhan.test,EMP-103,10-01-2022,,Active,
+EMP-105,Imran Shaikh,BLR,,EMP-103,03-06-2024,,Active,
+EMP-106,Lata Deshmukh,PUNE,,EMP-102,01-04-2021,,Left,31-03-2026

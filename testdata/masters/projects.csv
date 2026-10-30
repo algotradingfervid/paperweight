@@ -1,0 +1,4 @@
+Code,Name,Branch,Customer,Start date,End date,Status,Disabled
+PRJ-METRO,Pune Metro Depot,PUNE,CUST-SAMPLE,01-04-2026,31-03-2028,Open,No
+PRJ-TECHPARK,Whitefield Tech Park,BLR,,15-06-2025,,On Hold,No
+PRJ-HOSTEL,Labour Hostel Block,PUNE,CUST-SAMPLE,2025-01-10,2026-03-31,Completed,No
