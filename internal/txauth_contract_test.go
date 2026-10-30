@@ -28,7 +28,8 @@ var plainAuthTwins = map[string]string{
 }
 
 // authService supplies each read's argument count, so the rule follows the
-// interface; a call with another count (auth.Access.Can) is a different method.
+// interface; a call with another count (auth.Access.Can) passes as a different
+// method.
 var authService = reflect.TypeFor[auth.Service]()
 
 // Floors for the real tree: a walk or a type match that stops finding anything
@@ -61,9 +62,10 @@ func txParamTypes(file *ast.File) map[string]bool {
 }
 
 // plainAuthCalls returns the number of tx scopes in the file and one failure
-// for each plain auth read, called or taken as a method value, and each nested
-// Read or Write, inside a tx scope: the body of a func or func literal with a
-// tx parameter (see txParamTypes), nested literals included. Inspect runs in
+// for each plain auth read, called or taken as a method value, and each Read or
+// Write given a tx func literal, inside a tx scope: the body of a func or func
+// literal with a tx parameter (see txParamTypes), nested literals included.
+// Inspect runs in
 // source order, so a node is inside a scope exactly when it starts before the
 // scope's end.
 func plainAuthCalls(filename, src string) ([]string, int, error) {
@@ -131,7 +133,9 @@ func plainAuthCalls(filename, src string) ([]string, int, error) {
 // a helper taking no tx parameter that is called from a scope is not followed,
 // nor is a closure with no tx parameter defined outside the scope and called
 // inside it. A tx held in a struct field or a named type, or a dot import of
-// db, makes no scope.
+// db, makes no scope. A call whose argument count differs from the interface's
+// is not seen, so s.Auth.Can(f()) and auth.Service.Can(svc, ...) pass, as does
+// Read or Write given a named func.
 func TestContracts_NoPlainAuthReadInsideTx(t *testing.T) {
 	for plain, twin := range plainAuthTwins {
 		for _, name := range []string{plain, twin} {
