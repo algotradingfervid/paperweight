@@ -492,9 +492,9 @@ func (s records) setPrimaryAddress(pages mstweb.Pages) mstweb.HandlerFunc {
 }
 
 // setPrimaryContact makes the contact the party's primary. The service words an
-// unknown contact and another party's, so there is no 404 here; it takes no
-// version, so a row that is the party's has the posted one checked first, in
-// the same write (CD-94).
+// unknown contact and another party's, which are 404 only to a user with own
+// scope; it takes no version, so a row that is the party's has its right, then
+// the posted version, checked first, in the same write (CD-94).
 func (s records) setPrimaryContact(pages mstweb.Pages) mstweb.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
 		ctx := r.Context()
