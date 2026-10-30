@@ -78,7 +78,7 @@ func TestRoutes_RegistersImporters(t *testing.T) {
 // Tasks 20 and 21 take a DocType off this list as its RowFunc is built.
 func TestImporters_StubsSayNotImplemented(t *testing.T) {
 	all := allImporters()
-	for _, name := range importedMasters {
+	for _, name := range []string{party.DocType, address.DocType, address.ContactDocType} {
 		_, _, err := all[name](nil, context.Background(), nil, auth.Principal{}, nil)
 		if err == nil || !strings.Contains(err.Error(), "not implemented") {
 			t.Errorf("%s: err = %v, want not implemented", name, err)

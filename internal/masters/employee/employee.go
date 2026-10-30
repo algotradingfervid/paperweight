@@ -48,7 +48,7 @@ const (
 	msgSelfManager     = "An employee can't report to themselves."              // MST-113
 	msgNoBranch        = "Branch not found. Pick one from the list."            // CD-170
 	msgNoManager       = "Reporting manager not found. Pick one from the list." // CD-170
-	msgNoUser          = "Pick an existing, enabled user."                      // MST-112
+	MsgNoUser          = "Pick an existing, enabled user."                      // MST-112
 	msgSeparateSaves   = "Change the user and the status in separate saves."    // MST-119
 )
 
@@ -256,7 +256,7 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 		staleRejoin := old != nil && old.Status == Left && in.Status == Active &&
 			old.leaveVersion != sql.NullInt64{Int64: int64(user.Version), Valid: true}
 		if !ok || ((linking || staleRejoin) && !user.Enabled) {
-			es.Add("user_id", msgNoUser)
+			es.Add("user_id", MsgNoUser)
 		}
 	}
 	if in.Birth != (types.Date{}) && in.Birth.Compare(s.env.Today()) > 0 {
