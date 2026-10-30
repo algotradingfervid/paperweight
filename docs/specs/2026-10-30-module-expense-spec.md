@@ -1,6 +1,6 @@
 # Module spec: Expense Claim and Employee Advance
 
-Version 0.4 · 30 October 2026 · Status: for owner review, with CD-234 and CD-235 applied · Author: AD-6
+Version 0.5 · 30 October 2026 · Status: for owner review, with CD-234, CD-235 and CD-237 applied · Author: AD-6
 
 Follows the Purchase Order spec (`docs/specs/2026-10-30-module-purchase-order-spec.md`), whose §14 shared decisions, §12 cutover plan and §17 sources apply here. Marks **(CD-234)**, **[Assumption]** and **CA** mean the same as there. This module depends on no other module, so it can run beside the PO.
 
@@ -55,10 +55,10 @@ Deepak takes an advance before a site trip, photographs each receipt, types the 
 | Field | Label | Type | Rule |
 |---|---|---|---|
 | `number` | Claim number | Text, read-only | List priority 1 |
-| `employee_id` | Employee | Link Employee, `AllowBlocked` | Blank defaults in `Validate` to the creator's employee (`auth.Directory.EmployeeForUser`). Shown only to an Administrator, through `HideField`, who types an employee code (`employee.ByCode`), because the picker hides leavers. Anyone else naming another employee is refused |
+| `employee_id` | Employee | Link Employee, `AllowBlocked` | Blank defaults in `Validate` to the creator's employee (`auth.Directory.EmployeeForUser`). Shown only to an Administrator, through `Hide`, who types an employee code (`employee.ByCode`), because the picker hides leavers. Anyone else naming another employee is refused |
 | `claim_date` | Claim date | Date | Required, default today. Not in the future. Sets the FY and is the lock date |
 | `purpose` | Purpose | Text, max 140 | Required at submit. "Pune Metro site visit" |
-| `advance_id` | Advance | Link `expense.Advance` | Optional. This employee's approved advance with something left. Shown as radios through `StepBody`, because `/pick/{Link}` can't filter. The claimant must be able to read it, or AUTH's `LinkError` answers first (CD-70) |
+| `advance_id` | Advance | Link `expense.Advance` | Optional. This employee's approved advance with something left. Shown as radios through a custom step, because `/pick/{Link}` can't filter. The claimant must be able to read it, or AUTH's `LinkError` answers first (CD-70) |
 | `less_advance` | Less advance | Money | Default 0. Requires `advance_id`. Blank with an advance chosen defaults to the smaller of what's left and the total |
 | `total` | Total | Money, read-only | Sum of line amounts. List priority 2 |
 | `net_payable` | To pay | Money, read-only | Total − less advance |
@@ -159,7 +159,7 @@ Required at submit (CD-178). `Validate` reads inside the transaction, computes t
 
 An advance's employee and date rules use the same text, with `Advance date` as the label and `advances` for `claims`.
 
-**Warnings, never refusals.** Shown on the check and approval pages through `CheckExtra`:
+**Warnings, never refusals.** Shown on the check and approval pages through `Module.Check`:
 - Same receipt hash on another live claim: `Row {n}: This receipt is also on {claim}.`
 - Same employee, date, type and amount on another live claim: `Row {n}: This looks the same as a line on {claim}.`
 
@@ -179,7 +179,7 @@ Odoo's duplicate checks work the same way and are soft there too. A cancelled cl
 
 **Close is optional.** It's the app's only "done" state for a claim, and CD-234 tracks no payments. A closed claim can't be cancelled or amended (R6). A claim left approved forever is harmless. The page shows the kernel's words: button `Close`, field `Reason for closing`, hint `For example how it was paid`.
 
-**Fallback approver (owner's answer, 30 October).** The Director keeps the Employee role and files claims in the app. Someone else must approve them, so:
+**Fallback approver (owner's answer, relayed 30 October; the role itself awaits the owner's confirmation, CD-236).** The Director keeps the Employee role and files claims in the app. Someone else must approve them, so:
 
 - A rule has one fallback role (`approval.Rule.FallbackRole`). A new canonical role, **Fallback Approver**, holds read and approve (all) on Expense Claim and Employee Advance, and nothing else. A second Director also works, but the Director role carries PO approval and cancel rights, which this person may not need.
 - The owner gives Fallback Approver to the Director and to at least one other person. That person may be the Administrator, who still needs the role, because eligibility goes by role (`holdsAny`), not by right alone.
@@ -195,9 +195,11 @@ Odoo's duplicate checks work the same way and are soft there too. A cancelled cl
 
 The fallback role is an approver role on the rule, so its holders can act on any claim and read them all. Accepted: it is the same reach the Director already has.
 
-**When the second person leaves.** A disabled user is never eligible (D-APR-18). A pending claim with nobody left shows on Stuck approvals (APR-043), and it moves once another person gets the role. Withdrawing also works. The go-live check confirms two active holders.
+**When the second person leaves.** A disabled user is never eligible (D-APR-18). The Director's own pending claim then has nobody, so it shows on Stuck approvals (APR-043) until another person gets the role. Withdrawing also works. Other claims are unaffected, because the Director still holds the role. The go-live check confirms two active holders.
 
-The approver can't change an amount. A claim with one wrong line goes back with a reason, and revise puts it in draft, then through approval again (D-APR-11). A claim pending when the manager leaves shows on the stuck list (APR-043).
+**One edge.** An Administrator who is the second holder can't approve a Director's claim they entered themselves, because the creator is excluded. The Director files their own.
+
+The approver can't change an amount. A claim with one wrong line goes back with a reason, and revise puts it in draft, then through approval again (D-APR-11). A claim pending when the manager leaves stays approvable, because the fallback role is on the request (`approverRoles`).
 
 ## 7. Numbering
 
@@ -219,7 +221,7 @@ The approver can't change an amount. A claim with one wrong line goes back with 
 
 | Link | Rule |
 |---|---|
-| `employee_id` | A Left employee can't raise a claim or advance (MST-120) |
+| `employee_id` | Leavers stay usable through `AllowBlocked` (§3.1); only an Administrator can name one |
 | `expense_type_id` | Enabled. `expensetype.Defaults` gives HSN and tax code, 0 for a disabled tax code (CD-216 item 4) |
 | `project_id`, `site_id` | Enabled. Pickers respect restrictions, so Priya tags only her project. Scope on the claim itself isn't affected |
 | `tax_code_id` | Enabled when set |
@@ -250,7 +252,7 @@ Both DocTypes:
 
 ## 12. Screens
 
-UX design and approval first (CD-97). Everyone files these on a phone, so 360 px comes first. Steps from `docscreen.FormSteps`: Claim details → Expenses → Check and submit, as in design-system §8.7. The `Items` step is relabelled `Expenses` through `StepBody`.
+UX design and approval first (CD-97). Everyone files these on a phone, so 360 px comes first. Steps from `docscreen.FormSteps`: Claim details → Expenses → Check and submit, as in design-system §8.7. The `Items` step is relabelled `Expenses` through a custom step.
 
 | Screen | Notes |
 |---|---|
@@ -286,17 +288,17 @@ PO spec §12 applies.
 
 ## 15. Proposed changes for the head
 
-1. **`doctype.DocType.CloseRight`** (§6). Additive across DOC, `auth` and `authfake` with parity rows, and `docscreen`'s button and reason page. Core spec R4 gains a line. It replaces GRN spec §14 item 4's flag.
-2. **FILE:** `(*files.Store).ListTx` per CD-209; `msgLimit` takes `pol.MaxCount`; FILE-045 and FILE-046 gain hash wording; the claim's policy and `RemoveGuard` go in `files.New`'s wiring. `filesfake` stays on DefaultPolicy, so EXP-010 runs on the real store.
-3. **`00-fixtures.md`:** Employee gains `amend` and `delete` (own) on Expense Claim; Director gains `cancel` and Meena gains Employee; new canonical role Fallback Approver and a second holder; the fallback rows move to it; Employee Advance rows. Fixture tests using Director as the fallback need a look (`fixture.Claim`).
+1. **`doctype.DocType.CloseRight`** (§6). Additive across DOC, `auth` and `authfake` with parity rows, and `docscreen`'s button and reason page. Core spec R4 gains a line.
+2. **FILE:** in MOD-0, `(*files.Store).ListTx` per CD-209, `msgLimit` takes `pol.MaxCount`, and FILE-045 and FILE-046 gain hash wording. In MOD-EXP, the claim's policy and `RemoveGuard` go in `files.New`'s wiring. `filesfake` stays on DefaultPolicy, so EXP-010 runs on the real store.
+3. **`00-fixtures.md`:** the `expense.Claim` and `expense.Advance` rows only: Employee gains `amend` and `delete` (own); Director gains `cancel`; new canonical role Fallback Approver with no fixture user, since EXP tests give it to Meena and Kavya in setup; Employee Advance rows. `fixture.Claim`'s Director fallback stays, so existing approval tests don't move. Meena gains Employee in EXP test setup, for the same reason.
 4. **`print.ExpenseDoc`** additive fields, and a new `AdvanceDocument`.
-5. **`docscreen` module hooks:** this spec uses `StepBody`, `StepPost`, `CheckExtra`, `PageExtra` and `HideField` from PO spec §15 item 11.
+5. **`docscreen` module hooks:** this spec uses `Steps`, `Line`, `LineCard`, `CardsOnly`, `Hide`, `Check` and `Page` from the hooks spec, whose §3 is authoritative.
 6. **Series `EA/{FY}/{#####}`** joins `00-fixtures.md`'s numbering table.
 7. **`doctype.Field.AllowBlocked bool`** (§3.1): DOC's master check ignores `MasterInfo.Blocked` for that field.
 
 ## 16. Open points for owner review
 
-The owner has answered both batches (CD-234, CD-235, and the fallback answer in §6, which still needs its CD line).
+The owner has answered both batches (CD-234, CD-235). CD-236 still marks the Fallback Approver role as proposed, so §6 stands until the owner confirms it.
 
 **My other assumptions, for review.**
 - Claims aren't restricted by project or site.
@@ -330,14 +332,14 @@ Fixtures: `00-fixtures.md`, `TRAVEL`, `FOOD`, `FUEL`, `LODGING`, `SITE-MISC`. Ad
 | EXP-016 | No manager falls back to Fallback Approver | `TestExp_Fallback` | P1 | integration |
 | EXP-039 | Director's claim goes to the other Fallback Approver and not to the Director | `TestExp_DirectorClaim` | P1 | integration |
 | EXP-040 | Claim from the only active Fallback Approver is refused with APR's text; the draft stays; a second holder lets it submit | `TestExp_OnlyFallback` | P1 | integration |
-| EXP-041 | Second holder disabled while pending: claim on Stuck approvals, moves when the role is given | `TestExp_FallbackLeaves` | P1 | integration |
+| EXP-041 | Second holder disabled while the Director's claim is pending: on Stuck approvals, moves when the role is given; another employee's claim is unaffected | `TestExp_FallbackLeaves` | P1 | integration |
 | EXP-017 | Project-restricted Priya sees and approves Deepak's no-project claim, on the real `auth.Service` | `TestExp_RestrictedManagerReal` | P1 | integration |
 | EXP-018 | Other teams' claims are 404; own scope on list and export | `TestExp_TeamScopeReal` | P1 | integration |
 | EXP-019 | Reject needs a reason; revise and resubmit | `TestExp_RejectRevise` | P1 | integration |
 | EXP-020 | Employee can't close their own claim: 403, on the real service and `authfake` | `TestExp_CloseRight` | P1 | integration |
 | EXP-021 | Director closes; a closed claim can't be cancelled or amended | `TestExp_ClosedIsFinal` | P1 | integration |
 | EXP-022 | `CloseRight` parity: every value on real service and fake | `TestDocType_CloseRightParity` | P1 | integration |
-| EXP-023 | Lock off by default; on, it refuses submit, approve and cancel by claim date; close passes | `TestExp_PeriodLock` | P1 | integration |
+| EXP-023 | Lock off by default; on, it refuses submit, approve and cancel by date, for a claim and for an advance; close passes | `TestExp_PeriodLock` | P1 | integration |
 | EXP-024 | Advance lifecycle: request, approve, number `EA/26-27/00001` | `TestAdv_Lifecycle` | P1 | integration |
 | EXP-025 | Advance of ₹10,000, claim ₹6,000 sets ₹6,000: used 6,000, left 4,000, to pay 0 | `TestAdv_ClaimBelowAdvance` | P1 | integration |
 | EXP-026 | Advance of ₹10,000, claim ₹12,000 sets ₹10,000: to pay ₹2,000 | `TestAdv_ClaimAboveAdvance` | P1 | integration |
@@ -369,5 +371,5 @@ MOD-EXP starts after MOD-0 and runs beside MOD-PO. `CloseRight` is in MOD-0.
 | 5 | Lock and duplicate warnings | Standard | D |
 | 6 | Prints and goldens | Standard | E |
 | 7 | Reports and CSV | Standard | F |
-| 8 | Wizards, line page, check page, after UX approval | Standard | G |
+| 8 | Wizards, line page, check page, claim policy and `RemoveGuard` wiring, after UX approval | Standard | G |
 | 9 | End-to-end and overflow | Standard | Last |

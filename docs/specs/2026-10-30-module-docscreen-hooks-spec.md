@@ -1,6 +1,6 @@
 # Module spec: docscreen module hooks
 
-Version 0.2 · 30 October 2026 · Status: draft for the head's ruling, after a builder check against `main` · Author: AD-6
+Version 0.3 · 30 October 2026 · Status: accepted in principle (CD-237) · Author: AD-6
 
 The design pass the head asked for on PO spec §15 item 11. It covers what `internal/ui/docscreen` must offer so the Purchase Order, GRN, Expense Claim and Employee Advance screens can be built without forking the generic document screens. It was read against `docscreen` on `main` at b1612b2. It changes no behaviour for a DocType with no hooks. Screen design stays with the UX documents (CD-97); this spec is about seams, not layouts.
 
@@ -175,11 +175,11 @@ Bill details and receipt upload are outside `/doc/`. They live under `/modules/<
 
 A test-only `docscreentest.Hooked` DocType exercises every hook, on the real engine and real AUTH: no lenient double (CD-125). The overflow sweep needs three small changes. `Screens` hard-codes the `details` slug, so its 422 and 409 variants take the first step's slug. Every caller passes Sample today, so each module calls `Screens` with its own DocType and ids. `screens.Uncovered` matches route patterns only, so a new `TestModule_EveryDocTypeSwept` fails a registered document DocType missing from the sweep. Each module adds its `/modules/…` screens, and the gallery gets one hooked sample.
 
-## 7. Questions for the head
+## 7. Rulings
 
-1. **Who builds it.** `internal/ui` is AD-2's area. I recommend one MOD-0 task, High tier, after WP3 Task 2 has settled `Deps` wiring, with AD-2 or a fresh AD.
-2. **Import guard.** `importRule` refuses non-kernel packages, and nothing guards `internal/modules`. Spec §4.2 rule 5 needs `modules/*/web` added, and MOD-0 needs a contract test: service packages import no `internal/ui`, `web` packages may, and a module imports only earlier modules. This needs a CD line.
-3. **Route prefix.** `/modules/<module>/…` is my default. Any other prefix is fine as long as it stays off `/doc/`.
+1. **Builder.** A fresh AD builds MOD-0 after WP3 Task 5 and the owner's review, with a plan check against `main` first (CD-237).
+2. **Import guard.** Accepted (CD-237). `importRule` refuses non-kernel packages, and nothing guards `internal/modules`, so spec §4.2 rule 5 gains `modules/*/web`, and MOD-0 adds a contract test: service packages import no `internal/ui`, `web` packages may, and a module imports only earlier modules.
+3. **Route prefix.** `/modules/<module>/…`, accepted (CD-237).
 
 ## 8. Work outline (MOD-0)
 

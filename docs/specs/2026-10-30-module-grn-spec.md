@@ -1,6 +1,6 @@
 # Module spec: Goods Receipt (GRN)
 
-Version 0.3 · 30 October 2026 · Status: for owner review, with CD-234 and CD-235 applied · Author: AD-6
+Version 0.4 · 30 October 2026 · Status: for owner review, with CD-234, CD-235 and CD-237 applied · Author: AD-6
 
 Follows the Purchase Order spec (`docs/specs/2026-10-30-module-purchase-order-spec.md`), whose §14 shared decisions, §12 cutover plan and §17 sources apply here. Marks **(CD-234)**, **[Assumption]** and **CA** mean the same as there.
 
@@ -127,7 +127,7 @@ Source-state wording is DOC's: DOC-017, DOC-038, `msgSourcePending` and so on (C
 
 **Over-delivery warns only (CD-234).** Nothing refuses it, so there is no allowance setting and no quantity invariant.
 
-- On the Received quantities step, the check page and the document page: `Row {n}: Received {x} is more than the {y} pending on {PO number}.`, through `CheckExtra` and `PageExtra`.
+- On the Received quantities step, the check page and the document page: `Row {n}: Accepted {x} is more than the {y} pending on {PO number}.`, through `Module.Check` and `Module.Page`. It compares accepted, so goods rejected at the gate never trigger it.
 - Pending is computed with `already_received`, accepted on other approved or closed GRNs, and this GRN's accepted.
 - The PO's pending floors at 0, its `received_qty` can exceed `qty`, and the document page shows `Over by {x}`.
 - A receipt date before the PO's order date also warns, not refuses, because back-entered paper can run that way (`Receipt date is before the order date {date}.`) [Assumption].
@@ -173,7 +173,7 @@ The kernel's state machine, with `submit` going straight to `approved`.
 
 ## 8. Links to masters
 
-Everything comes from the PO. The GRN's own picker is the PO: approved, not closed, pending above 0, visible to this user. The module's first step runs `auth.CheckLinkTx` before `Engine.Do`, so a posted foreign PO gets AUTH-101's refusal, not the 404 that `create` would give (`You can't use Purchase Order PO/26-27/00030. It isn't available to you.`). A party link named `vendor_id` means MST-043 sees the GRN. Masters disabled after the PO are not re-checked, because goods on a truck must still be receivable after someone disables the item [Assumption]. The field types in §3.1 make this hold with no kernel change.
+Everything comes from the PO. The GRN's own picker is the PO: approved, not closed, visible to this user, with pending above 0 by default. `Show fully received orders` widens it, because another truck can still arrive and over-delivery only warns (CD-234). The module's first step runs `auth.CheckLinkTx` before `Engine.Do`, so a posted foreign PO gets AUTH-101's refusal, not the 404 that `create` would give (`You can't use Purchase Order PO/26-27/00030. It isn't available to you.`). A party link named `vendor_id` means MST-043 sees the GRN. Masters disabled after the PO are not re-checked, because goods on a truck must still be receivable after someone disables the item [Assumption]. The field types in §3.1 make this hold with no kernel change.
 
 ## 9. Print
 
@@ -199,9 +199,9 @@ UX design and approval come first (CD-97). Phone first, no new component expecte
 
 | Step | Content |
 |---|---|
-| 1 Choose PO | Picker: approved, pending, my sites. Row shows PO number, vendor, site, pending lines. One visible PO preselects. Receipt date. `StepPost` creates the draft with one line per PO line with pending above 0 |
+| 1 Choose PO | Picker: approved, my sites, pending by default (§8). Row shows PO number, vendor, site, pending lines. One visible PO preselects. Receipt date. Its `Save` creates the draft with one line per PO line with pending above 0, or no lines for a fully received PO |
 | 2 Delivery details | Challan no., challan date, vehicle, transporter, e-way bill no., photos with `Take photo`. Service-only GRN: `Nothing needed here` except photos, since steps are fixed |
-| 3 Received quantities | One card per PO line: item, `Ordered 1,200 · Pending 400 kg`, `Received now` prefilled with pending. `Receive all pending` and `Clear all`. A line cleared to 0 is left out (§3.2). A `Some rejected` disclosure reveals Rejected and reason. More than pending shows the warning in §4 |
+| 3 Received quantities | One card for every PO line, including fully received ones: item, `Ordered 1,200 · Pending 400 kg`, `Received now` prefilled with pending, which is blank at pending 0. `Receive all pending` and `Clear all`. A line cleared to 0 is left out (§3.2). A `Some rejected` disclosure reveals Rejected and reason. More than pending shows the warning in §4 |
 | 4 Check and submit | Lines, accepted value, photos, `Submit` |
 
 **Document page** adds the Bill details panel (read for all, form for those with write) and a link to the PO.
@@ -226,13 +226,13 @@ PO spec §12 applies. GRN-specific points:
 
 ## 14. Proposed changes for the head
 
-Rulings of 30 October: the `Int` columns with a module handler running `CheckLinkTx` are accepted, and `CloseRight` is accepted for MOD-0. Hooks await the design pass.
+Rulings of 30 October: the `Int` columns with a module handler running `CheckLinkTx`, `CloseRight` and the hooks (CD-237) are accepted for MOD-0.
 
-1. **Module hooks.** Steps 1 and 3 here aren't field forms, so this spec uses `StepBody`, `PageExtra` and `ReasonNote` from PO spec §15 item 11. Design-system §8.7's GRN step order changes to §11's.
+1. **Module hooks.** Steps 1 and 3 here aren't field forms, so this spec uses `Steps`, `Page`, `Reason` and `NoLinePages` from the hooks spec, whose §3 is authoritative. Design-system §8.7's GRN step order changes to §11's.
 2. **`print.GRNDoc` and `GRNLine`** gain the additive fields in §9.
 3. **No change, for the record.** `doc.partyOf` shows the first `Required` master link, so a GRN's `Info.Party` is empty. The list shows the vendor column, and a GRN is in the inbox only if an owner adds a rule. Accepted.
-4. **`doctype.DocType.CloseRight`.** The action list would offer Close on a GRN, where it means nothing. GRN sets `"none"`, using the field proposed in Expense spec §14 item 1.
-5. **Module first step.** `StepPost` on the first step must be able to create the draft (PO spec §15 item 11), since `newPost` sends Values only.
+4. **`doctype.DocType.CloseRight`.** The action list would offer Close on a GRN, where it means nothing. GRN sets `"none"`, using the field in Expense spec §15 item 1.
+5. **Module first step.** A custom first step creates the draft with lines (hooks spec §4.1).
 
 ## 15. Open points for owner review
 
@@ -251,7 +251,7 @@ Fixtures: `00-fixtures.md`, the reference PO.
 
 | ID | Behaviour | Go test | P | Level |
 |---|---|---|---|---|
-| GRN-001 | Only approved, visible, pending POs are in the picker | `TestGRN_POPicker` | P1 | integration |
+| GRN-001 | Only approved, visible POs are in the picker; fully received ones only when widened | `TestGRN_POPicker` | P1 | integration |
 | GRN-002 | Posted PO on another site: AUTH-101's 403, on the real `auth.Service` | `TestGRN_PONotVisibleReal` | P1 | integration |
 | GRN-003 | Draft copies vendor, site, project and lines from the PO | `TestGRN_CopiesFromPO` | P1 | integration |
 | GRN-004 | Changing the PO on a draft with lines is refused | `TestGRN_POFixedOnceLines` | P1 | unit |
@@ -263,8 +263,8 @@ Fixtures: `00-fixtures.md`, the reference PO.
 | GRN-010 | Submit with no rule: approved and numbered `GR/26-27/00001` | `TestGRN_SubmitApproves` | P1 | integration |
 | GRN-011 | Partial receipts: PO pending and status step through part to full | `TestGRN_PartialReceipts` | P1 | integration |
 | GRN-012 | Rejected quantity stays pending on the PO | `TestGRN_RejectedStaysPending` | P1 | integration |
-| GRN-013 | Accepted above pending warns on the step, check and document pages, and submits | `TestGRN_OverDeliveryWarns` | P1 | integration |
-| GRN-014 | Over-delivery: PO pending floors at 0, `Over by` shows, status is `fully_received` | `TestGRN_OverDeliveryPO` | P1 | integration |
+| GRN-013 | Accepted above pending warns on the step, check and document pages, and submits; received above pending with the excess rejected doesn't warn | `TestGRN_OverDeliveryWarns` | P1 | integration |
+| GRN-014 | Over-delivery: PO pending floors at 0, `Over by` shows, status is `fully_received`; a GRN against a fully received PO works | `TestGRN_OverDeliveryPO` | P1 | integration |
 | GRN-015 | Two concurrent GRNs both pass; roll-up equals their sum (real engine, non-admin user) | `TestGRN_ConcurrentReceipts` | P1 | integration |
 | GRN-016 | Already received counts toward pending and the warning | `TestGRN_AlreadyReceivedCounts` | P1 | integration |
 | GRN-017 | Whole-number UoM refuses a fraction; both `RegisterQtyUse` calls wired | `TestGRN_WholeNumber` | P1 | integration |

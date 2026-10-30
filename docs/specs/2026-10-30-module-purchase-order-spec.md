@@ -1,6 +1,6 @@
 # Module spec: Purchase Order
 
-Version 0.3 · 30 October 2026 · Status: for owner review, with CD-234 and CD-235 applied · Author: AD-6
+Version 0.4 · 30 October 2026 · Status: for owner review, with CD-234, CD-235 and CD-237 applied · Author: AD-6
 
 Builds on the core platform spec, the design system, the decision log (to CD-229) and `docs/tests/core/`. Where this spec names a kernel rule it does not restate it. Goods Receipt and Expense specs depend on the shared decisions in §14 and the cutover plan in §12.
 
@@ -50,7 +50,7 @@ Every money, quantity and rate is a kernel fixed-point type. Field names are uni
 |---|---|---|---|
 | `number` | PO number | Text, read-only (CD-144) | List priority 1 |
 | `vendor_id` | Vendor | Link Party | Required. Vendor role (`party.CheckRole`). The name is what MST-043 reads (CD-216 item 8) |
-| `vendor_address_id` | Vendor address | Link Address | Default the party's primary billing address; must belong to the vendor (CD-176). Step `terms`, shown as radios of this vendor's addresses by a module hook (§15 item 11), because `/pick/{Link}` can't filter by vendor |
+| `vendor_address_id` | Vendor address | Link Address | Default the party's primary billing address; must belong to the vendor (CD-176). Step `terms`, shown as radios of this vendor's addresses by a custom step (§15 item 11), because `/pick/{Link}` can't filter by vendor |
 | `site_id` | Deliver to | Link Site | Required (CD-234) |
 | `branch_id` | Billed to | Link Branch, read-only | Copied from the site's branch in `Validate` |
 | `project_id` | Project | Link Project | Required [Assumption]: a blank project hides the PO from project-restricted users (AUTH-093), and CD-178 keeps a Required restricted field required on drafts. Stock buys use a general project. `Validate` fills a blank from the site's project for an unrestricted user; a restricted user gets `Project is required.` first (CD-178 runs before `Validate`) and picks it |
@@ -89,7 +89,7 @@ Snapshot columns, not Fields, written in `Validate` while draft (D-MST-03): `sna
 | `hsn_sac` | HSN/SAC | Text | Default from the item; editable, validated by item rules |
 | `amount` | Amount | Money, read-only | `gstcalc.LineAmount(qty, rate)` |
 | `cgst`, `sgst`, `igst` | | Money, read-only | Per line (D-NUM-08) |
-| `already_received` | Already received | Qty | Default 0. Not negative, not above `qty`. Cutover only: copies through amend, and is shown only when `earlier_po_no` is set (§12) |
+| `already_received` | Already received | Qty | Default 0. Not negative. Above `qty` warns only (CD-234): `Row {n}: Already received is more than the quantity.` Cutover only: copies through amend, and is shown only when `earlier_po_no` is set (§12) |
 | `received_qty` | Received | Qty, `RollUp` | Sum of accepted quantities on approved and closed GRN lines |
 
 `uom.RegisterQtyUse` is called from the package `init` with `purchase_order_line`, `parent_id`, `uom_id`, `qty`.
@@ -110,7 +110,6 @@ Line snapshot columns: `snap_item_code`, `snap_item_name`, `snap_uom_code`, `sna
 | Overseas vendor | `Overseas vendors aren't supported on purchase orders yet.` | Save |
 | Vendor's state unknown | NUM-038's text | Save |
 | Branch's state unknown | NUM-039's text | Save |
-| Already received above quantity | `Row {n}: Already received can't be more than the quantity.` | Save |
 | Earlier PO no. blank while a line has Already received | `Earlier PO no. is required when a line has Already received.` | Save |
 | Earlier PO date with no Earlier PO no. | `Earlier PO no. is required with an earlier PO date.` | Save |
 | Tax code disabled | CD-170 pattern | Save |
@@ -258,7 +257,7 @@ Owner decisions: go live as soon as the modules are ready (CD-228). Open POs are
 |---|---|
 | Dates | Only future dates are refused. Number, FY and print follow the document's own date (D-NAM-04). Nothing compares a date with today beyond that |
 | Numbering | The FY in the number comes from the document date, so a date before 1 April 2026 gets a `25-26` prefix with its own counter. Numbers follow entry order, not date order |
-| Approvals | **No approval rules exist during back-entry** (CD-235). With no rule, submit goes straight to approved and numbers the document (F5), so nobody re-approves a year of history. Rules go in on go-live day. Print shows the person who entered it as the approver, and the audit shows the real entry time |
+| Approvals | **No approval rules exist during back-entry** (CD-235). With no rule, submit goes straight to approved and numbers the document (F5), so nobody re-approves a year of history. Rules go in on go-live day. Print's approved-by line reads the approval history's no-rule entry (`approved_no_rule`), since no request exists, so it shows the person who submitted. The audit shows the real entry time |
 | Period lock | Off by default (§14.2) |
 | Receipts on old claims | The reason field takes `Paper file` where no photo exists |
 
@@ -304,8 +303,8 @@ A single-row `business_settings` table in `modkit`, one Administrator-only page,
 
 - Off by default: `locked_up_to` is blank. The year's back-dated data goes in first (§12).
 - An Administrator locks a period by setting the date and unlocks it by moving the date back or clearing it. Both are audited. One date covers everything on or before it, so unlocking one month in the middle of a year isn't possible without unlocking what follows [Assumption].
-- GRN, Expense Claim and Employee Advance documents dated on or before it can't be submitted, approved or cancelled. Close stays allowed. The check is `modkit.CheckNotLocked(ctx, tx, date)`, called from `BeforeSubmit` and `ReverseEffects`, inside the transaction, so it needs no kernel change.
-- Message: `{Label} {number} is dated {date}, which is locked. The period is locked up to {lock date}.`
+- GRN, Expense Claim and Employee Advance documents dated on or before it can't be submitted, approved or cancelled. Close stays allowed. The check is `modkit.CheckNotLocked(ctx, tx, label, display string, date types.Date)`, where `display` is `naming.Label(number, id)`, called from `BeforeSubmit` and `ReverseEffects` inside the transaction, so it needs no kernel change.
+- Message: `{Label} {display} is dated {date}, which is locked. The period is locked up to {lock date}.` A document not yet numbered shows `Draft 42`.
 - POs are exempt: they aren't tax documents, and ERPNext's default closed-documents list excludes Purchase Order too.
 - No role bypasses a lock while it stands, because the Administrator can move the date.
 - CA chooses the date, for example the last filed GSTR-3B. There's no legal "locked period" for purchase documents; statutory cut-offs such as 30 November (CGST s.16(4)) are anchors only.
@@ -328,11 +327,11 @@ The app holds no `Entered` mark, no Accounts role, and no payment record. Staff 
 - `internal/modules/modkit`, `purchase`, `goodsreceipt`, `expense`. Modules import masters and kernel; a module imports only earlier modules (spec §4.2 rule 4): `goodsreceipt → purchase`.
 - Migrations: `10000–10049` modkit, `10050–10199` purchase, `10200–10349` goodsreceipt, `10350–10499` expense.
 - Each module has its own `sqlc.yaml` and `dbq/`.
-- `internal/app` registers routes, approval seeds and series. `EnsureSeries` already runs for every registered series (CD-28).
+- `internal/app` registers routes and hooks. `EnsureSeries` already runs for every registered series (CD-28). Approval rules are never seeded: they are data entered on go-live day (§12).
 
 ## 15. Proposed changes for the head
 
-I don't edit the core spec or the decision log. Rulings of 30 October: items 8 and `CloseRight` and the FILE changes are accepted in principle for MOD-0; item 11 needs its design pass (`docs/specs/2026-10-30-module-docscreen-hooks-spec.md`); moving `amend` is accepted. The rest await the head's ruling with all three specs in. Proposed CD entries:
+I don't edit the core spec or the decision log. Rulings of 30 October: items 8 and `CloseRight`, `AllowBlocked` and the FILE changes are accepted in principle for MOD-0; item 11 is accepted in principle as `docs/specs/2026-10-30-module-docscreen-hooks-spec.md` (CD-237), and that document's §3 is authoritative; item 2's guard and moving `amend` are accepted. The rest await the head's ruling with all three specs in. Proposed CD entries:
 
 1. **Module packages and migration ranges** as §14.5; spec §4.1 gains `internal/modules/`, and §4.5 splits `10000+`.
 2. **Import rule row** for `internal/modules/*` in `TestContracts_KernelImportsFollowTable`, per plan checklist item 8.
@@ -344,7 +343,7 @@ I don't edit the core spec or the decision log. Rulings of 30 October: items 8 a
 8. **Amend runs `Validate`.** `amend` copies only stored fields and calls no hook (`internal/kernel/doc/terminal.go`), so a new draft has no snapshots until its next save, and it opens on the check page. Proposal: `amend` calls `Hooks.Validate` once after the copy and ignores its errors, since a draft may hold problems. Every module with snapshots needs it.
 9. **Spec §1 and §11 and BRIEF** still say Zoho sync is the first module after Expenses; CD-228 says it's decided after the modules are in use.
 10. **`docs/ux/` design documents** for PO, GRN and Expense: one `crew-ux-designer` task per module once these specs are approved.
-11. **`docscreen` module hooks (additive, UI's code, in MOD-0).** `docscreen.Deps.Modules map[string]docscreen.Module`, each optional: `StepBody(slug)` and `StepPost(slug)` (a step the module renders and saves through `Engine.Do`, inside docscreen's frame, version and navigation; a module's first step may create the draft with lines), `CheckExtra` (place reason, reverse-charge note), `PageExtra` (pending column, linked GRNs, bill panel, over-delivery note), `ReasonNote(action)` (close warning), `HideField` (`already_received`, earlier-PO fields until wanted). Modules without an entry behave as today.
+11. **`docscreen` module hooks (additive, in MOD-0).** Specified in `docs/specs/2026-10-30-module-docscreen-hooks-spec.md`. Its §3 is authoritative for names: `Steps`, `Line`, `Hide`, `Check`, `Page`, `Reason`.
 12. **Fixture seed.** `amend` moves as §10 says (ruled). `00-fixtures.md` moves with it, so tests and production agree.
 
 ## 16. Open points for owner review
@@ -406,7 +405,7 @@ Module cases follow `docs/tests/core` style: one Go test per id, P1 must pass be
 | PO-029 | Pending = ordered − already received − received, never below 0 | `TestPO_PendingFormula` | P1 | unit |
 | PO-030 | `RefreshReceiptStatus` gives all three values; already received counts | `TestPO_ReceiptStatus` | P1 | integration |
 | PO-031 | A real GRN doesn't overwrite `already_received` | `TestPO_OpeningSurvivesRollUp` | P1 | integration |
-| PO-032 | Already received above qty refused; needs Earlier PO no. | `TestPO_AlreadyReceivedRules` | P1 | unit |
+| PO-032 | Already received above qty warns and saves; needs Earlier PO no. | `TestPO_AlreadyReceivedRules` | P1 | unit |
 | PO-033 | Closing part-received: pending shows 0, GRN refused with DOC-017's text | `TestPO_CloseStopsReceipts` | P1 | integration |
 | PO-034 | Stale PO page: version conflict on every write (CD-94) | `TestPO_StaleVersion` | P1 | integration |
 | PO-035 | Print golden: letterhead, deliver-to, refs, totals, words | `TestPO_PrintGolden` | P1 | integration (golden file) |
@@ -415,7 +414,7 @@ Module cases follow `docs/tests/core` style: one Go test per id, P1 must pass be
 | PO-038 | Pending report CSV needs `export` (CD-145) | `TestPO_PendingExportRight` | P1 | integration |
 | PO-039 | Settings: only Administrator, audited, stale refused | `TestSettings_AdminOnlyAudited` | P1 | integration |
 | PO-040 | Cutover: counter set to 437 gives first number 00438; lower refused | `TestPO_CutoverCounter` | P1 | integration |
-| PO-046 | Back-entry: a PO dated 15-04-2026 with no rules is approved on submit, FY 26-27; dated 31-03-2026 takes prefix 25-26 and its own counter | `TestPO_BackEntry` | P1 | integration |
+| PO-046 | Back-entry: a PO dated 15-04-2026 with no rules is approved on submit, FY 26-27; dated 31-03-2026 takes prefix 25-26 and its own counter; the print names the submitter as approver | `TestPO_BackEntry` | P1 | integration |
 | PO-047 | Amend produces a draft with snapshots filled | `TestPO_AmendFillsSnapshots` | P1 | integration |
 | PO-041 | Default rights match `00-fixtures.md` for every role | `TestPO_DefaultRights` | P1 | unit |
 | PO-042 | `Waiting 3 days` appears on My requests on day 3, not day 2, and goes on decision | `TestApprovalWaiting_Days` | P1 | integration |
@@ -433,7 +432,7 @@ Gates are milestones on `main`. All WPs follow the execution protocol; High tier
 
 | Stage | Package | Owns | Depends on | Parallel with |
 |---|---|---|---|---|
-| 0 | **MOD-0** shared | `internal/modules/modkit`, settings page, `gstcalc.PlaceReason`, `print.TradeDoc` additions, `docscreen` module hooks (§15 item 11), amend calling `Validate`, `CloseRight` (Expense spec §14), overdue approvals, checker, import table | `core-v1` wiring (WP3 Task 2) | none |
+| 0 | **MOD-0** shared | `internal/modules/modkit`, settings page, `gstcalc.PlaceReason`, `print.TradeDoc` additions, `docscreen` module hooks (§15 item 11), amend calling `Validate`, `CloseRight` and `AllowBlocked` (Expense spec §15), `msgLimit`, overdue approvals, checker, import guard | WP3 Task 5 and the owner's review (CD-237); plan check against `main` first | none |
 | 1 | **MOD-PO** | `internal/modules/purchase` | MOD-0 | MOD-EXP |
 | 2 | **MOD-GRN** | `internal/modules/goodsreceipt` | MOD-PO tasks 1 to 3 | MOD-EXP |
 | 1 | **MOD-EXP** | `internal/modules/expense` | MOD-0 | MOD-PO, MOD-GRN |
