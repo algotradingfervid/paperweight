@@ -42,6 +42,7 @@ func RegisterSample() {
 				{Name: "qty", Label: "Quantity", Type: doctype.Qty, Required: true, OnLine: true},
 				{Name: "rate", Label: "Rate", Type: doctype.Rate, OnLine: true},
 			},
+			SearchFields: []string{"remarks"},
 		})
 	})
 }

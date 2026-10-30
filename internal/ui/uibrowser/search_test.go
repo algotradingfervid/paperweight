@@ -142,7 +142,7 @@ func TestHeaderSearch_EnterOpensTheSearchPage(t *testing.T) {
 		t.Fatalf("header search is %s, want shown", got)
 	}
 	do(t, ctx, "type and press Enter", chromedp.SendKeys(chromedp.CSS(headerSearchInput), "Draft"+kb.Enter))
-	waitFor(t, ctx, "the search page", `location.pathname === "/search" && document.readyState === "complete"`)
+	do(t, ctx, "wait for the search page", chromedp.WaitVisible(chromedp.CSS(`main ul.datalist-rows > li`)))
 	if got := eval[string](t, ctx, `location.search`); got != "?q=Draft" {
 		t.Errorf("location.search = %q, want ?q=Draft", got)
 	}
