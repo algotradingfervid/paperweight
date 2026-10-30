@@ -8,10 +8,12 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -19,7 +21,7 @@ import (
 
 const (
 	ceilingLimit = 1024
-	ceilingText  = "This request is too large."
+	ceilingText  = "Too big for this test."
 	// ceilingReadBuffer is the most a ceiling may read past the limit: one read
 	// of the multipart reader's buffer.
 	ceilingReadBuffer = 4096
@@ -214,6 +216,48 @@ func TestBodyCeiling_EmptyMessagePanicsAtConstruction(t *testing.T) {
 		}
 	}()
 	web.BodyCeiling(ceilingLimit, "")
+}
+
+// An htmx request gets no page: the refusal is an empty body with the message as
+// an HX-Trigger notice.
+func TestBodyCeiling_HTMXRefusalIsANotice(t *testing.T) {
+	reached := false
+	h := web.BodyCeiling(ceilingLimit, ceilingText)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		reached = true
+	}))
+	req, _ := ceilingPost(ceilingLimit+1, true)
+	req.Header.Set("HX-Request", "true")
+
+	rec := serve(t, h, req)
+
+	if reached {
+		t.Error("handler reached")
+	}
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want 413", rec.Code)
+	}
+	if rec.Body.Len() != 0 {
+		t.Errorf("body = %q, want empty", rec.Body.String())
+	}
+	var trig map[string]web.Notice
+	if err := json.Unmarshal([]byte(rec.Header().Get("HX-Trigger")), &trig); err != nil {
+		t.Fatalf("HX-Trigger %q is not JSON: %v", rec.Header().Get("HX-Trigger"), err)
+	}
+	if got := trig["notice"]; got.Level != "error" || got.Text != ceilingText {
+		t.Errorf("notice = %+v, want level \"error\" and text %q", got, ceilingText)
+	}
+}
+
+// The message is HTML-escaped on the full page, as every web.Error message is.
+func TestBodyCeiling_MessageIsEscaped(t *testing.T) {
+	h := web.BodyCeiling(ceilingLimit, "<b>Too big</b>")(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	req, _ := ceilingPost(ceilingLimit+1, true)
+
+	rec := serve(t, h, req)
+
+	if want := `<div role="alert">&lt;b&gt;Too big&lt;/b&gt;</div>`; !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("body %q, want the escaped alert %q", rec.Body.String(), want)
+	}
 }
 
 // One byte is the smallest legal limit.

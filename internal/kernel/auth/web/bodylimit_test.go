@@ -23,7 +23,7 @@ import (
 
 const (
 	p7Limit = 1 << 20
-	p7Text  = "This request is too large."
+	p7Text  = "Too big for the auth test."
 	// p7FileSize is the oversize file part. It must exceed the 32 MiB that
 	// ParseMultipartForm holds in memory, or no temp file would ever appear
 	// and the spool checks below could not fail.
