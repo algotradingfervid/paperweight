@@ -85,7 +85,7 @@ func (s *Service) checkTerms(ctx context.Context, tx *db.Tx, id int64) error {
 	t, err := paymentterms.New(s.env).Get(ctx, tx, id)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("default_payment_terms_id", "Default payment terms not found. Pick one from the list.")
+		es.Add("default_payment_terms_id", "Payment Terms not found. Pick one from the list.")
 	case err != nil:
 		return err
 	case t.Disabled:
