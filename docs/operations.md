@@ -84,6 +84,8 @@ straight after install.
 
 ## Backup and restore
 
+Production backs up to an S3 bucket. Development and testing back up to the local, gitignored `backup/` folder (CD-226).
+
 The database: Litestream streams every change in `app.db` to the bucket.
 
 The uploaded files (`files/`): Litestream does not copy them. The spec (§7) says

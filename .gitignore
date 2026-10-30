@@ -4,6 +4,7 @@
 # Build output, local tools and local data
 /bin
 /data/
+/backup/
 /tmp/
 *.db
 *.db-shm

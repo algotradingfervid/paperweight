@@ -147,6 +147,7 @@ Task 5 (sweep) also does:
 - Sweeps the wizard and section routes `/m/employee/new`, `/new/{step}`, `/{id}/edit/{section}`, and Party's.
 
 Task 6 (release) also does:
+- Adds a development Litestream configuration replicating to the gitignored `backup/` folder, and the restore drill runs against it (CD-226). `deploy/litestream.yml` stays S3 for production; the real-bucket drill is a go-live step.
 - Adds the hourly `files/` sync timer (CD-141) to `deploy/`.
 - Sets Litestream retention explicitly; the value is the owner's recovery target.
 - The restore drill covers `app.db` and `files/` and compares checksums (spec §10.4).
