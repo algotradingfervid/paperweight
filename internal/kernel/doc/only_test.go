@@ -11,6 +11,7 @@ import (
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -395,7 +396,7 @@ func TestDoc_Only_StillRefuses(t *testing.T) {
 		in.Values["remarks"] = "typed"
 		in.Lines[0]["id"] = osMissing
 		_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, d.ID, doc.ActionSave, in)
-		wantDocErr(t, err, doc.KindRefused, "Line 1 doesn't belong to this document. Reload and try again.")
+		fixturetest.ErrIs(t, err, doc.KindRefused, "Line 1 doesn't belong to this document. Reload and try again.")
 		osUnwritten(t, h, d, count)
 	})
 }
@@ -487,6 +488,35 @@ func TestDoc_Only_LineFieldNameIsKnown(t *testing.T) {
 		}
 		fixturetest.Eq(t, res.Problems, []doc.FieldError{{Field: "item_id", Line: 1, Message: lkMsgItemDisabled}})
 	})
+}
+
+// osApproved is an approved order with one line.
+func osApproved(t *testing.T, h *fixturetest.H) doc.Doc {
+	t.Helper()
+	return h.ApprovedOrder(t, fixturetest.OL{Item: "CEMENT-OPC", Qty: "10"})
+}
+
+// osCancel moves order o to cancelled, keeping its number.
+func osCancel(t *testing.T, h *fixturetest.H, o doc.Doc) {
+	t.Helper()
+	h.ForceState(t, fixture.Order, o.ID, doc.StateCancelled, o.Number)
+}
+
+// osSourceCancelled is DOC's error on receipt line n pointing at a cancelled order.
+func osSourceCancelled(n int, number string) doc.FieldError {
+	return doc.FieldError{Field: "order_line_id", Line: n, Message: fmt.Sprintf(
+		"Line %d: %s is cancelled. Remove the line or pick another purchase order.", n, number)}
+}
+
+// osBadReceipt is a draft receipt with both lines on orders since cancelled.
+func osBadReceipt(t *testing.T, h *fixturetest.H) (d doc.Doc, first, second doc.Doc) {
+	t.Helper()
+	first, second = osApproved(t, h), osApproved(t, h)
+	res := h.NewReceipt(t, h.Priya,
+		fixturetest.RL{OrderLineID: first.Lines[0].ID, Qty: "1"}, fixturetest.RL{OrderLineID: second.Lines[0].ID, Qty: "1"})
+	osCancel(t, h, first)
+	osCancel(t, h, second)
+	return loadDoc(t, h, fixture.Receipt, res.ID), first, second
 }
 
 // osDisabledItem is DOC's text for a disabled item on line n.
@@ -725,6 +755,55 @@ func TestDoc_Only_Lines(t *testing.T) {
 			fixturetest.Eq(t, res.Problems, []doc.FieldError{fe})
 		}
 	})
+	t.Run("a changed link to a disabled master refuses", func(t *testing.T) {
+		h := fixturetest.New(t)
+		d := osOrder(t, h)
+		fixture.SetDisabled(t, h.DB, "fixture_item", "BOLT-M12", true)
+		count := h.AuditCount(t)
+		in := osInput(h, d, "lines")
+		in.Lines[1]["item_id"] = lkID(h.M.Item["BOLT-M12"])
+		_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, d.ID, doc.ActionSave, in)
+		osHasField(t, err, doc.FieldError{Field: "item_id", Line: 2, Message: osDisabledItem(2, osBolt)})
+		osUnwritten(t, h, d, count)
+	})
+	t.Run("a duplicate line id refuses", func(t *testing.T) {
+		h := fixturetest.New(t)
+		d := osOrder(t, h)
+		count := h.AuditCount(t)
+		in := osInput(h, d, "lines")
+		in.Lines[1]["id"] = in.Lines[0]["id"]
+		_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, d.ID, doc.ActionSave, in)
+		fixturetest.ErrIs(t, err, doc.KindRefused, "Line 2 doesn't belong to this document. Reload and try again.")
+		osUnwritten(t, h, d, count)
+	})
+	// F1: a stored source error on one line must not hide a changed line's,
+	// whichever comes first.
+	for _, c := range []struct {
+		name          string
+		stale, edited int // 0-based positions of the unchanged bad line and the changed line
+	}{
+		{"a stored source error on line 1 doesn't hide changed line 2", 0, 1},
+		{"a stored source error on line 2 doesn't hide changed line 1", 1, 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			h := fixturetest.New(t)
+			cancelled, good, other := osApproved(t, h), osApproved(t, h), osApproved(t, h)
+			rl := make([]fixturetest.RL, 2)
+			rl[c.stale] = fixturetest.RL{OrderLineID: cancelled.Lines[0].ID, Qty: "1"}
+			rl[c.edited] = fixturetest.RL{OrderLineID: good.Lines[0].ID, Qty: "1"}
+			res := h.NewReceipt(t, h.Priya, rl...)
+			osCancel(t, h, cancelled)
+			osCancel(t, h, other)
+			d := loadDoc(t, h, fixture.Receipt, res.ID)
+			count := h.AuditCount(t)
+
+			in := osInput(h, d, "lines")
+			in.Lines[c.edited]["order_line_id"] = lkID(other.Lines[0].ID)
+			_, err := h.Do(t, t.Context(), h.Priya, fixture.Receipt, d.ID, doc.ActionSave, in)
+			osHasField(t, err, osSourceCancelled(c.edited+1, other.Number))
+			osUnwritten(t, h, d, count)
+		})
+	}
 	t.Run("a bad line can be replaced", func(t *testing.T) {
 		h := fixturetest.New(t)
 		d := osOrder(t, h)
@@ -1144,6 +1223,167 @@ func TestDoc_Problems_WritesNothing(t *testing.T) {
 		}
 		osUnwritten(t, h, d, count)
 	})
+}
+
+// A non-nil empty Only is a scoped save of no field: a step that names none
+// still mustn't fall back to CD-199's full refusal.
+func TestDoc_Only_EmptyIsScoped(t *testing.T) {
+	h := fixturetest.New(t)
+	d := osOrder(t, h)
+	fixture.SetDisabled(t, h.DB, "fixture_party", "RAJKOT", true)
+	in := h.In(d)
+	in.Only = []string{}
+	in.Values["remarks"] = "typed"
+	res, err := h.Do(t, t.Context(), h.Priya, fixture.Order, d.ID, doc.ActionSave, in)
+	if err != nil {
+		t.Fatalf("save with an empty Only: %v, want nil", err)
+	}
+	if res.Version != d.Version+1 {
+		t.Errorf("Result.Version = %d, want %d", res.Version, d.Version+1)
+	}
+	fixturetest.Eq(t, res.Problems, []doc.FieldError{{Field: "supplier_id", Message: lkMsgSupplierDisabled}})
+}
+
+// F1: every line's source problem returns, from a scoped save and from
+// Engine.Problems; checkSources mustn't stop at the first.
+func TestDoc_SourceProblems_AllLines(t *testing.T) {
+	t.Run("Result.Problems", func(t *testing.T) {
+		h := fixturetest.New(t)
+		d, first, second := osBadReceipt(t, h)
+		in := osInput(h, d, "remarks")
+		in.Values["remarks"] = "typed"
+		res, err := h.Do(t, t.Context(), h.Priya, fixture.Receipt, d.ID, doc.ActionSave, in)
+		if err != nil {
+			t.Fatalf("scoped save: %v, want nil", err)
+		}
+		fixturetest.Eq(t, res.Problems, []doc.FieldError{osSourceCancelled(1, first.Number), osSourceCancelled(2, second.Number)})
+	})
+	t.Run("Engine.Problems", func(t *testing.T) {
+		h := fixturetest.New(t)
+		d, first, second := osBadReceipt(t, h)
+		got, err := osProblems(t, h, fixture.Receipt, d.ID)
+		if err != nil {
+			t.Fatalf("Problems: %v", err)
+		}
+		fixturetest.Eq(t, got, []doc.FieldError{osSourceCancelled(1, first.Number), osSourceCancelled(2, second.Number)})
+	})
+}
+
+// An empty Required field is Submit's error, not a stored draft's problem
+// (CD-178): the check page lists those itself.
+func TestDoc_Problems_EmptyRequiredIsNone(t *testing.T) {
+	h := fixturetest.New(t)
+	res := h.NewOrderWith(t, h.Priya, map[string]string{"supplier_id": ""}, fixturetest.OL{Item: "CEMENT-OPC", Qty: "10"})
+	got, err := osProblems(t, h, fixture.Order, res.ID)
+	if err != nil {
+		t.Fatalf("Problems: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("Problems = %#v, want none", got)
+	}
+}
+
+// Problems is in position order across the field and source checks: a source
+// error on line 1 before a field error on line 2.
+func TestDoc_Problems_SortedByPosition(t *testing.T) {
+	h := fixturetest.New(t)
+	cancelled, good := osApproved(t, h), osApproved(t, h)
+	res := h.NewReceipt(t, h.Priya,
+		fixturetest.RL{OrderLineID: cancelled.Lines[0].ID, Qty: "1"}, fixturetest.RL{OrderLineID: good.Lines[0].ID, Qty: "1"})
+	osCancel(t, h, cancelled)
+	h.Exec(t, `UPDATE fixture_receipt_line SET qty = 0 WHERE parent_id = ? AND line_no = 2`, res.ID)
+	got, err := osProblems(t, h, fixture.Receipt, res.ID)
+	if err != nil {
+		t.Fatalf("Problems: %v", err)
+	}
+	fixturetest.Eq(t, got, []doc.FieldError{
+		osSourceCancelled(1, cancelled.Number),
+		{Field: "qty", Line: 2, Message: "Line 2: Quantity must be more than 0."},
+	})
+}
+
+// A failed read is the error, never a partial list. No test double: renaming
+// the table makes the real lookup and the real source read fail.
+func TestDoc_Problems_ReadFailureIsAnError(t *testing.T) {
+	t.Run("master lookup", func(t *testing.T) {
+		h := fixturetest.New(t)
+		d := osOrder(t, h)
+		fixture.SetDisabled(t, h.DB, "fixture_party", "RAJKOT", true) // found before the failure
+		h.Exec(t, `ALTER TABLE fixture_item RENAME TO fixture_item_gone`)
+		got, err := osProblems(t, h, fixture.Order, d.ID)
+		if err == nil || !strings.Contains(err.Error(), "no such table") {
+			t.Errorf("Problems error = %v, want the failed lookup", err)
+		}
+		if got != nil {
+			t.Errorf("Problems = %#v, want no partial list", got)
+		}
+	})
+	t.Run("source read", func(t *testing.T) {
+		h := fixturetest.New(t)
+		o := osApproved(t, h)
+		res := h.NewReceipt(t, h.Priya, fixturetest.RL{OrderLineID: o.Lines[0].ID, Qty: "1"})
+		h.Exec(t, `UPDATE fixture_receipt_line SET qty = 0 WHERE parent_id = ?`, res.ID) // a field problem found first
+		h.Exec(t, `ALTER TABLE fixture_order_line RENAME TO fixture_order_line_gone`)
+		got, err := osProblems(t, h, fixture.Receipt, res.ID)
+		if err == nil || !strings.Contains(err.Error(), "no such table") {
+			t.Errorf("Problems error = %v, want the failed source read", err)
+		}
+		if got != nil {
+			t.Errorf("Problems = %#v, want no partial list", got)
+		}
+	})
+}
+
+// osTwoProjects has two ProjectFields, so a draft with the Required one empty
+// is still visible to a restricted user through the other (auth.recordAllowed
+// hides a record with no project at all). Its tables are made in the test.
+const osTwoProjects = "os.TwoProjects"
+
+var _ = func() bool {
+	doc.Register(doc.DocType{
+		Name: osTwoProjects, Label: "Two projects", PluralLabel: "Two projects",
+		Table: "os_two", LinesTable: "os_two_line", Hooks: p2lHooks{},
+		ProjectFields: []string{"project_id", "alt_project_id"},
+		Fields: []doc.Field{
+			{Name: "project_id", Label: "Project", Type: doc.Link, Link: fixture.Project, Required: true},
+			{Name: "alt_project_id", Label: "Other project", Type: doc.Link, Link: fixture.Project},
+			{Name: "note", Label: "Note", Type: doc.Text},
+		},
+	})
+	return true
+}()
+
+// CD-178 on the no-change path: a scoped save changing nothing, on a visible
+// draft with the Required field empty, still refuses for the restricted user
+// and writes nothing.
+func TestDoc_Only_RestrictedRequiredNoChangeRefuses(t *testing.T) {
+	h := fixturetest.New(t)
+	h.Exec(t, `CREATE TABLE os_two (
+		id INTEGER PRIMARY KEY, number TEXT UNIQUE, state TEXT NOT NULL DEFAULT 'draft',
+		state_reason TEXT NOT NULL DEFAULT '', amended_from_id INTEGER, amendment_root_id INTEGER,
+		amendment_no INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL, created_by INTEGER NOT NULL, updated_at TEXT NOT NULL,
+		updated_by INTEGER NOT NULL, project_id INTEGER, alt_project_id INTEGER, note TEXT NOT NULL DEFAULT '')`)
+	h.Exec(t, `CREATE TABLE os_two_line (id INTEGER PRIMARY KEY, parent_id INTEGER NOT NULL, line_no INTEGER NOT NULL)`)
+	a := authfake.New()
+	a.Allow(h.Priya.ID, osTwoProjects, auth.AllRights...)
+	a.Allow(h.Ravi.ID, osTwoProjects, auth.AllRights...)
+	a.Restrict(h.Priya.ID, []int64{h.M.Project["PRJ-METRO"]}, nil)
+	e := doc.NewEngine(doc.Deps{
+		DB: h.DB, Clock: h.Clock, Auth: a, Naming: h.Naming, Numbers: fixturetest.Numbers(),
+		Approval: h.Approvals, Files: h.Files,
+	})
+	values := map[string]string{"project_id": "", "alt_project_id": lkID(h.M.Project["PRJ-METRO"]), "note": "kept"}
+	res, err := e.Do(t.Context(), h.Ravi, osTwoProjects, 0, doc.ActionSave, doc.ActionInput{Values: values})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	d := loadDoc(t, h, osTwoProjects, res.ID)
+	count := h.AuditCount(t)
+	_, err = e.Do(t.Context(), h.Priya, osTwoProjects, res.ID, doc.ActionSave,
+		doc.ActionInput{Version: res.Version, Values: values, Only: []string{"note"}})
+	osHasField(t, err, doc.FieldError{Field: "project_id", Message: "Project is required."})
+	osUnwritten(t, h, d, count)
 }
 
 // CD-178's exception holds with Only set: a restricted user's save that

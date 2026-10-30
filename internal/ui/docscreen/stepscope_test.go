@@ -34,6 +34,7 @@ import (
 
 const (
 	scopeType     = "docscreentest.StepScope"
+	scopeReqType  = "docscreentest.StepScopeReq"
 	scopePassword = "Correct-Horse-42"
 
 	scopeSupplierMsg = "Supplier RAJKOT Rajkot Castings is disabled. Pick an active supplier, or ask an admin to enable it."
@@ -44,6 +45,15 @@ const (
 )
 
 type scopeHooks struct{ authtest.NopHooks }
+
+// Validate returns the request's Probe.ValidateErrors, so a test sets a hook
+// error on its own environment.
+func (scopeHooks) Validate(ctx context.Context, _ *db.Tx, _ int64) []doctype.FieldError {
+	if p := fixture.ProbeFrom(ctx); p != nil {
+		return slices.Clone(p.ValidateErrors)
+	}
+	return nil
+}
 
 func (scopeHooks) Date(context.Context, *db.Tx, int64) (types.Date, error) {
 	return types.Date{Year: 2026, Month: time.October, Day: 24}, nil
@@ -65,6 +75,17 @@ func registerScope() {
 				{Name: "qty", Label: "Quantity", Type: doctype.Qty, Positive: true, OnLine: true},
 			},
 		})
+		// Two ProjectFields: a draft with the Required step 2 project empty
+		// stays visible to a restricted user through step 1's.
+		doctype.Register(doctype.DocType{
+			Name: scopeReqType, Label: "Step Scope Required", PluralLabel: "Step Scope Required", Table: "stepscope_req", LinesTable: "stepscope_req_line",
+			Submittable: true, Hooks: scopeHooks{}, ProjectFields: []string{"other_project_id", "project_id"},
+			Fields: []doctype.Field{
+				{Name: "other_project_id", Label: "Other project", Type: doctype.Link, Link: fixture.Project},
+				{Name: "project_id", Label: "Project", Type: doctype.Link, Link: fixture.Project, Required: true, Step: "delivery"},
+				{Name: "note", Label: "Note", Type: doctype.Text, OnLine: true},
+			},
+		})
 	})
 }
 
@@ -76,6 +97,8 @@ type scopeEnv struct {
 	fx  *fixturetest.H
 	who auth.Principal
 	id  int64
+	// probe carries hook errors into every request (scopeHooks.Validate).
+	probe *fixture.Probe
 }
 
 func scopeTables(t *testing.T, h *fixturetest.H) {
@@ -86,16 +109,25 @@ func scopeTables(t *testing.T, h *fixturetest.H) {
 		supplier_id INTEGER, project_id INTEGER, ref TEXT NOT NULL DEFAULT '')`)
 	h.Exec(t, `CREATE TABLE stepscope_line (id INTEGER PRIMARY KEY AUTOINCREMENT, parent_id INTEGER NOT NULL, line_no INTEGER NOT NULL,
 		item_id INTEGER, note TEXT NOT NULL DEFAULT '', qty INTEGER)`)
+	h.Exec(t, `CREATE TABLE stepscope_req (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT UNIQUE, state TEXT NOT NULL DEFAULT 'draft',
+		state_reason TEXT NOT NULL DEFAULT '', amended_from_id INTEGER, amendment_root_id INTEGER, amendment_no INTEGER NOT NULL DEFAULT 0,
+		version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, created_by INTEGER NOT NULL, updated_at TEXT NOT NULL, updated_by INTEGER NOT NULL,
+		other_project_id INTEGER, project_id INTEGER)`)
+	h.Exec(t, `CREATE TABLE stepscope_req_line (id INTEGER PRIMARY KEY AUTOINCREMENT, parent_id INTEGER NOT NULL, line_no INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '')`)
 }
 
 // scopeMount points a docscreen harness at h and engine.
 func scopeMount(t *testing.T, h *fixturetest.H, engine doc.Engine, a auth.Service, who auth.Principal) *scopeEnv {
 	t.Helper()
 	e := newFormEnv(t, allRights...)
-	se := &scopeEnv{docEnv: e, fx: h, who: who}
+	se := &scopeEnv{docEnv: e, fx: h, who: who, probe: &fixture.Probe{}}
 	e.d.DB, e.d.Engine, e.d.Auth = h.DB, engine, a
 	e.d.Principal = func(*http.Request) (auth.Principal, bool) { return se.who, true }
 	e.remount()
+	router := e.h
+	e.h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		router.ServeHTTP(w, r.WithContext(fixture.WithProbe(r.Context(), se.probe)))
+	})
 	return se
 }
 
@@ -150,8 +182,10 @@ func newScopeRealEnv(t *testing.T) (se *scopeEnv, open, restricted auth.Principa
 		t.Fatalf("CreateRole: %v", err)
 	}
 	all := map[auth.Right]auth.Scope{"read": auth.ScopeAll, "create": auth.ScopeAll, "write": auth.ScopeAll, "submit": auth.ScopeAll}
-	if err := a.SetRights(ctx, admin, "Scoper", scopeType, all); err != nil {
-		t.Fatalf("SetRights: %v", err)
+	for _, name := range []string{scopeType, scopeReqType} {
+		if err := a.SetRights(ctx, admin, "Scoper", name, all); err != nil {
+			t.Fatalf("SetRights(%s): %v", name, err)
+		}
 	}
 	user := func(email string) auth.UserID {
 		t.Helper()
@@ -1046,5 +1080,305 @@ func TestStepScope_UnknownOnlyNameIs500ByClassify(t *testing.T) {
 	}
 	if pr, ok := docscreen.Classify(err); ok {
 		t.Errorf("Classify(%v) = %+v, true; want false (500)", err, pr)
+	}
+}
+
+const (
+	scopeFormHook = "A form level refusal."
+	scopeLineHook = "Line 2: no field on this error."
+	scopeTooMany  = "A document can have at most 500 lines. Split it into two documents."
+)
+
+// pageText is the whole response's text, for fragments too.
+func pageText(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	return norm(uitest.Doc(t, rec).Text())
+}
+
+// F2: a refusal's own text reaches the user on the line page, the grid, a move
+// and a removal, not just "Fix the highlighted fields".
+func TestStepScope_LineRefusalsShowTheirOwnText(t *testing.T) {
+	for _, msg := range []doctype.FieldError{{Message: scopeFormHook}, {Line: 2, Message: scopeLineHook}} {
+		cases := []struct {
+			name, path string
+			hx         bool
+			edit       bool
+		}{
+			{"line page", "/lines/1", false, true},
+			{"grid", "/lines/1", true, true},
+			{"new line", "/lines/new", false, true},
+			{"move", "/lines/1/move?dir=down", false, false},
+			{"remove", "/lines/1/remove", false, false},
+		}
+		for _, c := range cases {
+			t.Run(c.name+"/line "+strconv.Itoa(msg.Line), func(t *testing.T) {
+				e := newScopeEnv(t)
+				e.probe.ValidateErrors = []doctype.FieldError{msg}
+				form := url.Values{"version": {"1"}}
+				if c.edit {
+					form.Set("item_id", itoa(e.fx.M.Item["CEMENT-OPC"]))
+					form.Set("note", "typed")
+					form.Set("qty", "10")
+				}
+				var hdr []string
+				if c.hx {
+					hdr = []string{"HX-Request", "true"}
+				}
+				rec := e.post(t, e.docURL()+c.path, form, hdr...)
+				if rec.Code != http.StatusUnprocessableEntity {
+					t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+				}
+				if text := pageText(t, rec); !strings.Contains(text, msg.Message) {
+					t.Errorf("page doesn't show %q; text %.600q", msg.Message, text)
+				}
+				if got := e.record(t).Version; got != 1 {
+					t.Errorf("stored version = %d, want 1", got)
+				}
+			})
+		}
+	}
+}
+
+// F2: line 501 through linePost shows DOC's own text.
+func TestStepScope_Line501ShowsItsText(t *testing.T) {
+	e := newScopeEnv(t)
+	in := e.fx.In(e.fx.Load(t, scopeType, e.id))
+	for len(in.Lines) < 500 {
+		in.Lines = append(in.Lines, map[string]string{"item_id": itoa(e.fx.M.Item["WIRE-18G"]), "qty": "1.000"})
+	}
+	saved := e.fx.MustDo(t, t.Context(), e.who, scopeType, e.id, doc.ActionSave, in)
+	rec := e.post(t, e.docURL()+"/lines/new", url.Values{
+		"version": {strconv.Itoa(saved.Version)}, "item_id": {itoa(e.fx.M.Item["WIRE-18G"])}, "qty": {"1"},
+	})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+	}
+	if text := pageText(t, rec); !strings.Contains(text, scopeTooMany) {
+		t.Errorf("page doesn't show %q; text %.600q", scopeTooMany, text)
+	}
+}
+
+// F2: when stepPost's filter leaves no error for this step, the refusal's text
+// still shows. The only such refusal is CD-178's restricted Required error on
+// another step, so this runs on real AUTH, with the Required project on step 2
+// empty and the draft visible through step 1's project. Nothing links to a
+// field that isn't on the page.
+func TestStepScope_RefusalFilteredOffTheStepShowsItsText(t *testing.T) {
+	for _, nav := range []string{"", "back"} {
+		t.Run("nav "+nav, func(t *testing.T) {
+			e, open, restricted := newScopeRealEnv(t)
+			project := itoa(e.fx.M.Project["PRJ-TECHPARK"])
+			res, err := e.d.Engine.Do(t.Context(), open, scopeReqType, 0, doctype.ActionSave, doc.ActionInput{
+				Values: map[string]string{"other_project_id": project},
+			})
+			if err != nil {
+				t.Fatalf("create the draft: %v", err)
+			}
+			e.who = restricted
+			form := url.Values{"version": {strconv.Itoa(res.Version)}, "other_project_id": {project}}
+			if nav != "" {
+				form.Set("nav", nav)
+			}
+			rec := e.post(t, "/doc/"+scopeReqType+"/"+itoa(res.ID)+"/edit/details", form)
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+			}
+			wantHeading(t, rec, "Details")
+			if text := wizardText(t, rec); !strings.Contains(text, "Project is required.") {
+				t.Errorf("step doesn't show the refusal's text; wizard text %q", text)
+			}
+			wantNoDeadLinks(t, rec)
+		})
+	}
+}
+
+// wantNoDeadLinks fails when the error summary links to an id not on the page.
+func wantNoDeadLinks(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	page := uitest.Doc(t, rec)
+	for _, href := range summaryLinks(page) {
+		if page.Find(`[id="`+strings.TrimPrefix(href, "#")+`"]`).Length() == 0 {
+			t.Errorf("error summary links %s, which isn't on the page", href)
+		}
+	}
+}
+
+// F3: a stored problem isn't a failed POST. A GET of its step, and a
+// successful htmx move into it, has a plain title and focuses the heading; the
+// field keeps its inline message and the problem is also listed, in something
+// that doesn't take focus. A 422 keeps the error title and summary focus.
+func TestStepScope_StoredProblemsAreNoFailure(t *testing.T) {
+	wantCalm := func(t *testing.T, rec *httptest.ResponseRecorder, msg string, inline bool) {
+		t.Helper()
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %.300s", rec.Code, rec.Body)
+		}
+		page := uitest.Doc(t, rec)
+		if title := page.Find("title").Text(); strings.HasPrefix(title, "Error: ") {
+			t.Errorf("title = %q, want no Error prefix", title)
+		}
+		focus := page.Find("[autofocus]")
+		if focus.Length() != 1 || !focus.Is("h1#step-title") {
+			html, _ := goquery.OuterHtml(focus)
+			t.Errorf("autofocus on %d elements (%.200s), want only the step heading", focus.Length(), html)
+		}
+		text := wizardText(t, rec)
+		if strings.Contains(norm(focus.Text()), msg) {
+			t.Errorf("the focused element holds %q", msg)
+		}
+		want := 1
+		if inline {
+			want = 2 // the field's own message, and the list or banner
+			fields := page.Find("#wizard .field").FilterFunction(func(_ int, s *goquery.Selection) bool {
+				return strings.Contains(norm(s.Text()), msg)
+			})
+			if fields.Length() != 1 {
+				t.Errorf("%d fields hold %q, want the field's inline message kept", fields.Length(), msg)
+			}
+		}
+		if got := strings.Count(text, msg); got < want {
+			t.Errorf("wizard shows %q %d times, want at least %d; text %q", msg, got, want, text)
+		}
+	}
+	for _, c := range []struct {
+		name, slug, msg string
+		hx, inline      bool
+	}{
+		{name: "GET header step", slug: "details", msg: scopeSupplierMsg, inline: true},
+		{name: "htmx GET header step", slug: "details", msg: scopeSupplierMsg, hx: true, inline: true},
+		{name: "GET items step", slug: "items", msg: scopeItemMsg},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newScopeEnv(t)
+			e.disable(t, "party", "RAJKOT")
+			e.disable(t, "item", "CEMENT-OPC")
+			var hdr []string
+			if c.hx {
+				hdr = []string{"HX-Request", "true"}
+			}
+			wantCalm(t, e.get(t, e.stepURL(c.slug), hdr...), c.msg, c.inline)
+		})
+	}
+	t.Run("htmx Back into the step", func(t *testing.T) {
+		e := newScopeEnv(t)
+		e.disable(t, "party", "RAJKOT")
+		form := e.deliveryForm(1, "typed")
+		form.Set("nav", "back")
+		wantCalm(t, e.post(t, e.stepURL("delivery"), form, "HX-Request", "true"), scopeSupplierMsg, true)
+	})
+	t.Run("a 422 is still a failure", func(t *testing.T) {
+		e := newScopeEnv(t)
+		rec := e.post(t, e.stepURL("delivery"), e.deliveryForm(1, "much-too-long-a-reference"))
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, want 422", rec.Code)
+		}
+		page := uitest.Doc(t, rec)
+		if title := page.Find("title").Text(); !strings.HasPrefix(title, "Error: ") {
+			t.Errorf("title = %q, want the Error prefix", title)
+		}
+		if page.Find(".error-summary[autofocus]").Length() != 1 {
+			t.Error("the 422's error summary doesn't take focus")
+		}
+	})
+}
+
+// A no-lines DocType's notes step names no field and must still save scoped.
+// On docfake, because the real engine treats a DocType with no lines as no
+// document (doctype's IsDocument), so no real save reaches this step.
+func TestStepScope_NotesStepMovesPastAHeaderProblem(t *testing.T) {
+	e := newFormEnv(t, allRights...)
+	docscreentest.Seed(e.docs, draftInfo(claimType, "Expense Claim", 50), doc.Record{Version: 3, Values: map[string]string{"claim_date": "2026-10-24"}})
+	e.docs.SetProblems(claimType, 50, []doctype.FieldError{{Field: "total", Message: "Total isn't right."}})
+	e.docs.SetResult(claimType, 50, doctype.ActionSave, doc.Result{ID: 50, State: doctype.StateDraft, Version: 3}, nil)
+	rec := e.post(t, "/doc/"+claimType+"/50/edit/notes", nil)
+	if got, want := location(t, rec), "/doc/"+claimType+"/50/edit/check"; got != want {
+		t.Errorf("303 to %q, want %q", got, want)
+	}
+	calls := e.docs.Calls()
+	if len(calls) != 1 || calls[0].Input.Only == nil || len(calls[0].Input.Only) != 0 {
+		t.Errorf("engine calls = %+v, want one save with a non-nil empty Only", calls)
+	}
+}
+
+// stepErrors keeps what has no step to show on: a no-field refusal on a step
+// POST, and at Submit a hook error on a name no step owns, on the check step.
+func TestStepScope_ErrorsWithNoStepShow(t *testing.T) {
+	for _, fe := range []doctype.FieldError{{Message: scopeFormHook}, {Line: 2, Message: scopeLineHook}} {
+		t.Run("no-field refusal on a step POST, line "+strconv.Itoa(fe.Line), func(t *testing.T) {
+			e := newScopeEnv(t)
+			e.probe.ValidateErrors = []doctype.FieldError{fe}
+			rec := e.post(t, e.stepURL("delivery"), e.deliveryForm(1, "typed"))
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+			}
+			if text := wizardText(t, rec); !strings.Contains(text, fe.Message) {
+				t.Errorf("wizard doesn't show %q; text %q", fe.Message, text)
+			}
+		})
+	}
+	t.Run("a name no step owns at Submit", func(t *testing.T) {
+		const msg = "The quote has expired."
+		e := newScopeEnv(t)
+		e.probe.ValidateErrors = []doctype.FieldError{{Field: "quote_ref", Message: msg}}
+		rec := e.post(t, e.docURL()+"/submit", url.Values{"version": {"1"}})
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+		}
+		wantHeading(t, rec, "Check and submit")
+		if text := wizardText(t, rec); !strings.Contains(text, msg) {
+			t.Errorf("check step doesn't show %q; text %q", msg, text)
+		}
+	})
+}
+
+// The summary's links land on the page: line errors on the Items step at the
+// line editor, and an error with no field on a header step at the heading.
+func TestStepScope_SummaryLinkTargets(t *testing.T) {
+	t.Run("items step", func(t *testing.T) {
+		e := newScopeEnv(t)
+		e.disable(t, "item", "CEMENT-OPC")
+		rec := e.post(t, e.docURL()+"/submit", url.Values{"version": {"1"}})
+		wantHeading(t, rec, "Items")
+		if got := summaryLinks(uitest.Doc(t, rec)); !slices.Equal(got, []string{"#line-editor"}) {
+			t.Errorf("error summary links = %q, want [#line-editor]", got)
+		}
+		wantNoDeadLinks(t, rec)
+	})
+	for _, c := range []struct {
+		name string
+		fe   doctype.FieldError
+	}{
+		{"no field, line 0", doctype.FieldError{Message: scopeFormHook}},
+		{"no field, line 2", doctype.FieldError{Line: 2, Message: scopeLineHook}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newScopeEnv(t)
+			e.probe.ValidateErrors = []doctype.FieldError{c.fe}
+			rec := e.post(t, e.stepURL("delivery"), e.deliveryForm(1, "typed"))
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+			}
+			if got := summaryLinks(uitest.Doc(t, rec)); !slices.Equal(got, []string{"#step-title"}) {
+				t.Errorf("error summary links = %q, want [#step-title]", got)
+			}
+		})
+	}
+}
+
+// The Items step saves scoped to the lines, so a whole-lines error refuses
+// there. Save returns before Hooks.Validate when nothing changed, and an Items
+// POST changes nothing, so a hook error can't reach this path; DOC's own
+// whole-lines error does, on a draft stored over the limit.
+func TestStepScope_ItemsPostRefusesAWholeLinesError(t *testing.T) {
+	e := newScopeEnv(t)
+	e.fx.Exec(t, `WITH RECURSIVE n(i) AS (SELECT 3 UNION ALL SELECT i + 1 FROM n WHERE i < 501)
+		INSERT INTO stepscope_line (parent_id, line_no, item_id, qty) SELECT ?, i, ?, 1000 FROM n`, e.id, e.fx.M.Item["WIRE-18G"])
+	rec := e.post(t, e.stepURL("items"), url.Values{"version": {"1"}})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+	}
+	wantHeading(t, rec, "Items")
+	if text := wizardText(t, rec); !strings.Contains(text, scopeTooMany) {
+		t.Errorf("Items step doesn't show %q; text %.500q", scopeTooMany, text)
 	}
 }
