@@ -81,6 +81,12 @@ func (s *contractSetup) Hide(_ *testing.T, p auth.Principal, id int64) {
 	s.hidden[contractDoc{p.ID, fixture.Order, id}] = true
 }
 
+func (s *contractSetup) BreakMaster(t *testing.T) doc.FieldError {
+	t.Helper()
+	fixture.SetDisabled(t, s.h.DB, "fixture_party", "SHREE", true)
+	return doc.FieldError{Field: "supplier_id", Message: "Supplier SHREE Shree Steel Traders is disabled. Pick an active supplier, or ask an admin to enable it."}
+}
+
 // Doc reaches state st through the engine's own actions.
 func (s *contractSetup) Doc(t *testing.T, st doc.State) int64 {
 	t.Helper()

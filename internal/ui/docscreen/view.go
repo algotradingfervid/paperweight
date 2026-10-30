@@ -32,7 +32,8 @@ type DocView struct {
 	Origin         Origin
 	History        []HistoryRow
 	Attachments    []components.Attachment
-	Problems       []doctype.FieldError
+	Problems       []doctype.FieldError // missing Required values
+	DraftProblems  []doctype.FieldError // a draft's stored errors, DOC's text (CD-205)
 	Warnings       []string
 }
 
@@ -43,10 +44,11 @@ type LineView struct {
 	Card            components.LineCard
 }
 
-// View reads document id: the record in one read transaction, then Extras,
-// then, for a pending document the user may approve, APR's CheckApprover
-// (CD-52). A missing record, or one p may not read, is doctype.ErrNotFound
-// or AUTH's error (CD-46, CD-76).
+// View reads document id: the record in one read transaction, then, once p
+// may read it, a draft's DOC problems (CD-205), Extras, and, for a pending
+// document the user may approve, APR's CheckApprover (CD-52). A missing
+// record, or one p may not read, is doctype.ErrNotFound or AUTH's error
+// (CD-46, CD-76).
 func (d Deps) View(ctx context.Context, p auth.Principal, name string, id int64) (DocView, error) {
 	dt, ok := doctype.Lookup(name)
 	if !ok {
@@ -66,6 +68,15 @@ func (d Deps) View(ctx context.Context, p auth.Principal, name string, id int64)
 	}
 	if err := d.Auth.Can(ctx, p, name, "read", &v.Record); err != nil {
 		return DocView{}, err
+	}
+	if v.Info.State == doctype.StateDraft {
+		err := d.DB.Read(ctx, func(tx *db.Tx) (err error) {
+			v.DraftProblems, err = d.Engine.Problems(ctx, tx, name, id)
+			return err
+		})
+		if err != nil {
+			return DocView{}, err
+		}
 	}
 	v.PrintURL = d.printURL(name, id)
 	if v.Approval, err = d.Extras.Approval(ctx, p, name, id); err != nil {

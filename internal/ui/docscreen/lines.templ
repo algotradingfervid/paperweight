@@ -31,11 +31,15 @@ templ docTotals(pairs []components.Pair, oob bool) {
 	</div>
 }
 
-// gridItem is a grid row's item cell: the chosen master's summary and its
-// hidden id (CD-139); the item is changed on the line page.
-templ gridItem(label, shown, name, id string) {
-	<p><span class="visually-hidden">{ label + ": " }</span>{ shown }</p>
-	<input type="hidden" name={ name } value={ id }/>
+// gridItem is a grid row's item cell: the chosen master's summary, its error
+// and its hidden value (CD-139); the item is changed on the line page. The
+// div is the one grid cell the summary and the error share.
+templ gridItem(id, label, shown, name, value, errText string) {
+	<div>
+		<p><span class="visually-hidden">{ label + ": " }</span>{ shown }</p>
+		@components.LineGridError(id, errText)
+	</div>
+	<input type="hidden" name={ name } value={ value }/>
 }
 
 // gridResponse is a grid row save's answer: the row for its

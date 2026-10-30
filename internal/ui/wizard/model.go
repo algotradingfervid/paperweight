@@ -56,6 +56,7 @@ type Model struct {
 	Version                            int
 	Errors                             []components.FieldErr
 	Warnings                           []string
+	Stored                             []string // a draft's stored problems: shown, but no failed step
 	Conflict, ReloadURL                string
 	Action, Target                     string
 	After                              templ.Component

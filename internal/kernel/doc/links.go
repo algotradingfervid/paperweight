@@ -130,6 +130,25 @@ func scanHeads(ctx context.Context, tx *db.Tx, q string, args ...any) ([]head, e
 // checkSources checks the source documents of d's LinkSpecs; a nil
 // *FieldError is OK. It stops at the first failure; a read error is returned.
 func (e *engine) checkSources(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) (*FieldError, error) {
+	errs, err := sourceErrors(ctx, tx, dt, d, true)
+	if err != nil || len(errs) == 0 {
+		return nil, err
+	}
+	return &errs[0], nil
+}
+
+// sourceErrors checks the source documents of d's LinkSpecs and returns every
+// failure, or only the first when first is set. A scoped save and Problems
+// need them all: a stored error mustn't hide one in scope (CD-205).
+func sourceErrors(ctx context.Context, tx *db.Tx, dt *DocType, d Doc, first bool) ([]FieldError, error) {
+	var errs []FieldError
+	check := func(t *DocType, field string, line int, v any, label string) (stop bool, err error) {
+		fe, err := checkSource(ctx, tx, t, field, line, v, label)
+		if fe != nil {
+			errs = append(errs, *fe)
+		}
+		return err != nil || (first && fe != nil), err
+	}
 	for _, ls := range dt.Links {
 		t, ok := Lookup(ls.Target)
 		if !ok {
@@ -137,18 +156,18 @@ func (e *engine) checkSources(ctx context.Context, tx *db.Tx, dt *DocType, d Doc
 		}
 		if !ls.OnLine {
 			f, _ := dt.Field(ls.Field)
-			if fe, err := checkSource(ctx, tx, t, ls.Field, 0, d.Header[ls.Field], f.Label); fe != nil || err != nil {
-				return fe, err
+			if stop, err := check(t, ls.Field, 0, d.Header[ls.Field], f.Label); stop {
+				return errs, err
 			}
 			continue
 		}
 		for _, l := range d.Lines {
-			if fe, err := checkSource(ctx, tx, t, ls.Field, l.LineNo, l.Values[ls.Field], t.Label); fe != nil || err != nil {
-				return fe, err
+			if stop, err := check(t, ls.Field, l.LineNo, l.Values[ls.Field], t.Label); stop {
+				return errs, err
 			}
 		}
 	}
-	return nil, nil
+	return errs, nil
 }
 
 // checkSource checks the source of field at line (0 = header): v is a header

@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -45,6 +46,9 @@ type Setup interface {
 	Deny(t *testing.T, p auth.Principal, r auth.Right)
 	// Hide makes document id of DocType invisible to p (outside p's read scope).
 	Hide(t *testing.T, p auth.Principal, id int64)
+	// BreakMaster disables the master a NewInput document links to on a field
+	// other than EditField, and returns the error DOC gives for it (CD-205).
+	BreakMaster(t *testing.T) doc.FieldError
 }
 
 // Reason is a valid reason for reject, cancel and close (3–500 characters).
@@ -53,6 +57,7 @@ const Reason = "Wrong supplier GSTIN"
 // Messages the DOC cases fix (DOC-005, DOC-011, DOC-013, DOC-015, DOC-062,
 // DOC-065, DOC-069). %s is the document's display name.
 const (
+	msgFixFields         = "Fix the highlighted fields and save again."
 	msgStale             = "Someone else changed %s after you opened it. Reload it and make your changes again."
 	msgGone              = "This document no longer exists. It may have been deleted."
 	msgAlreadySubmitted  = "%s has already been submitted."
@@ -114,6 +119,15 @@ var behaviours = []struct {
 	{"DOC-104_HiddenIsNotFound", hiddenNotFound},
 	{"DOC-103_DeniedRightIsForbidden", deniedForbidden},
 	{"DOC-005_RefusedTransitions", refusedTransitions},
+	{"CD-205_ScopedSaveCommitsPastAProblem", scopedSaveCommits},
+	{"CD-205_ScopedSaveRefusesItsOwnFields", scopedSaveRefuses},
+	{"CD-205_UnscopedSaveRefuses", unscopedSaveRefuses},
+	{"CD-205_StaleScopedSaveRefused", staleScopedSave},
+	{"CD-205_UnknownOnlyNameIsInternal", unknownOnlyName},
+	{"CD-205_SubmitIgnoresOnly", submitIgnoresOnly},
+	{"CD-205_ProblemsOfADraft", problemsOfDraft},
+	{"CD-205_ProblemsPastDraftAreNone", problemsPastDraft},
+	{"CD-205_ProblemsMissingIsNotFound", problemsMissing},
 }
 
 type suite struct {
@@ -631,4 +645,154 @@ func refusedTransitions(t *testing.T, c *suite) {
 			c.wantStored(t, id, row.state, version)
 		})
 	}
+}
+
+// problems runs Engine.Problems in a read transaction.
+func (c *suite) problems(t *testing.T, id int64) ([]doc.FieldError, error) {
+	t.Helper()
+	var got []doc.FieldError
+	err := c.s.Read(t.Context(), func(tx *db.Tx) (err error) {
+		got, err = c.e.Problems(t.Context(), tx, c.dt, id)
+		return err
+	})
+	return got, err
+}
+
+// scoped is the stored document with EditField changed, scoped to EditField.
+func (c *suite) scoped(t *testing.T, id int64) (doc.ActionInput, string, string) {
+	t.Helper()
+	in := c.in(t, id)
+	field, value := c.s.EditField()
+	in.Values[field] = value
+	in.Only = []string{field}
+	return in, field, value
+}
+
+// CD-205: an error outside Only doesn't stop the write; it returns in
+// Result.Problems with DOC's text.
+func scopedSaveCommits(t *testing.T, c *suite) {
+	id := c.s.Doc(t, doc.StateDraft)
+	want := c.s.BreakMaster(t)
+	in, field, value := c.scoped(t, id)
+	res := c.mustDo(t, c.s.Owner(), id, doc.ActionSave, in)
+	wantResult(t, res, id, doc.StateDraft, in.Version+1)
+	if len(res.Problems) != 1 || res.Problems[0] != want {
+		t.Errorf("Result.Problems = %+v, want [%+v]", res.Problems, want)
+	}
+	c.wantStored(t, id, doc.StateDraft, in.Version+1)
+	if got := c.mustLoad(t, id).Values[field]; got != value {
+		t.Errorf("after a scoped save Values[%q] = %q, want %q", field, got, value)
+	}
+}
+
+// CD-205: an error on a field in Only refuses as any save does.
+func scopedSaveRefuses(t *testing.T, c *suite) {
+	id := c.s.Doc(t, doc.StateDraft)
+	want := c.s.BreakMaster(t)
+	in := c.in(t, id)
+	in.Only = []string{want.Field}
+	_, err := c.do(t, c.s.Owner(), id, doc.ActionSave, in)
+	wantErr(t, err, doc.KindInvalid, 422, msgFixFields)
+	var de *doc.Error
+	if errors.As(err, &de) && !slices.Contains(de.Fields, want) {
+		t.Errorf("Fields = %+v, want them to hold %+v", de.Fields, want)
+	}
+	c.wantStored(t, id, doc.StateDraft, in.Version)
+}
+
+// CD-199, CD-205: a caller that sets no Only keeps the full refusal.
+func unscopedSaveRefuses(t *testing.T, c *suite) {
+	id := c.s.Doc(t, doc.StateDraft)
+	c.s.BreakMaster(t)
+	in, _, _ := c.scoped(t, id)
+	in.Only = nil
+	_, err := c.do(t, c.s.Owner(), id, doc.ActionSave, in)
+	wantErr(t, err, doc.KindInvalid, 422, msgFixFields)
+	c.wantStored(t, id, doc.StateDraft, in.Version)
+}
+
+// CD-94, CD-205: Only changes no version rule.
+func staleScopedSave(t *testing.T, c *suite) {
+	id := c.s.Doc(t, doc.StateDraft)
+	c.s.BreakMaster(t)
+	in, _, _ := c.scoped(t, id)
+	in.Version--
+	_, err := c.do(t, c.s.Owner(), id, doc.ActionSave, in)
+	wantErr(t, err, doc.KindStale, 409, fmt.Sprintf(msgStale, draftName(id)))
+	c.wantStored(t, id, doc.StateDraft, in.Version+1)
+}
+
+// CD-147, CD-205: an unknown name in Only is a plain internal error.
+func unknownOnlyName(t *testing.T, c *suite) {
+	id := c.s.Doc(t, doc.StateDraft)
+	in, _, _ := c.scoped(t, id)
+	in.Only = []string{"no_such_field"}
+	_, err := c.do(t, c.s.Owner(), id, doc.ActionSave, in)
+	if err == nil {
+		t.Fatal("save with an unknown Only name succeeded, want an internal error")
+	}
+	var he doctype.HTTPError
+	if errors.As(err, &he) {
+		t.Errorf("err = %v carries HTTP status %d, want a plain error", err, he.Status())
+	}
+	c.wantStored(t, id, doc.StateDraft, in.Version)
+}
+
+// CD-205: submit ignores Only, so it stays the gate for every error, and a
+// clean document submits with it set.
+func submitIgnoresOnly(t *testing.T, c *suite) {
+	field, _ := c.s.EditField()
+	clean := c.s.Doc(t, doc.StateDraft)
+	in := c.in(t, clean)
+	in.Only = []string{field}
+	res := c.mustDo(t, c.s.Owner(), clean, doc.ActionSubmit, in)
+	if res.State == doc.StateDraft {
+		t.Errorf("submit with Only left the document in draft: %+v", res)
+	}
+
+	id := c.s.Doc(t, doc.StateDraft)
+	want := c.s.BreakMaster(t)
+	in = c.in(t, id)
+	in.Only = []string{field}
+	_, err := c.do(t, c.s.Owner(), id, doc.ActionSubmit, in)
+	wantErr(t, err, doc.KindInvalid, 422, msgFixFields)
+	var de *doc.Error
+	if errors.As(err, &de) && !slices.Contains(de.Fields, want) {
+		t.Errorf("Fields = %+v, want them to hold %+v", de.Fields, want)
+	}
+	c.wantStored(t, id, doc.StateDraft, in.Version)
+}
+
+// CD-205: Problems lists a stored draft's problems with DOC's text and
+// writes nothing; a clean draft has none.
+func problemsOfDraft(t *testing.T, c *suite) {
+	id := c.s.Doc(t, doc.StateDraft)
+	version := c.mustLoad(t, id).Version
+	got, err := c.problems(t, id)
+	if err != nil || len(got) != 0 {
+		t.Errorf("Problems of a clean draft = (%+v, %v), want none", got, err)
+	}
+	want := c.s.BreakMaster(t)
+	got, err = c.problems(t, id)
+	if err != nil || len(got) != 1 || got[0] != want {
+		t.Errorf("Problems = (%+v, %v), want [%+v]", got, err, want)
+	}
+	c.wantStored(t, id, doc.StateDraft, version)
+}
+
+// CD-205: a document past draft has no draft problems.
+func problemsPastDraft(t *testing.T, c *suite) {
+	id := c.s.Doc(t, doc.StateApproved)
+	c.s.BreakMaster(t)
+	got, err := c.problems(t, id)
+	if err != nil || len(got) != 0 {
+		t.Errorf("Problems of an approved document = (%+v, %v), want none", got, err)
+	}
+}
+
+// CD-205: Problems of a missing document is Load's not-found error.
+func problemsMissing(t *testing.T, c *suite) {
+	_, err := c.problems(t, missingID)
+	wantNotFound(t, "Problems(missing)", err)
+	wantErr(t, err, doc.KindNotFound, 404, msgGone)
 }

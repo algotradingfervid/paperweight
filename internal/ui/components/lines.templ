@@ -146,6 +146,14 @@ templ LineGridRowForm(r LineGridRow) {
 	</form>
 }
 
+// LineGridError is the message of a grid cell with no field around it, in
+// the field's own markup; id is the cell's grid-<no>-<field>.
+templ LineGridError(id, message string) {
+	if message != "" {
+		@fieldMsg(id, message, "")
+	}
+}
+
 // versionInput is a move form's hidden version, when there is one; id
 // lets LineGridVersions replace it.
 templ versionInput(version, id string) {
