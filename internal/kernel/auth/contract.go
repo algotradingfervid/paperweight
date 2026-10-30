@@ -92,6 +92,7 @@ type Service interface {
 	EnableUser(ctx context.Context, tx *db.Tx, u UserID) error
 	Restricted(ctx context.Context, tx *db.Tx, p Principal, dimension string) (bool, error)               // any restriction on dimension? (CD-174)
 	ValueAllowedTx(ctx context.Context, tx *db.Tx, p Principal, dimension string, id int64) (bool, error) // may p use this value of dimension? (CD-216 item 7)
+	DefaultValue(ctx context.Context, p Principal, dim Dimension) (int64, bool, error)                    // p's only allowed value on dim, ok false otherwise (AUTH-100, CD-245)
 }
 
 type Directory interface { // CD-13: implemented by MST, wired by internal/app

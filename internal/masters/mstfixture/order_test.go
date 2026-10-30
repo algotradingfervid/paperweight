@@ -519,9 +519,12 @@ func TestMstFixture_Rights(t *testing.T) {
 	if _, err := mstfixture.Save(ctx, w.env, w.env.Priya, 0, h, lines); err != nil {
 		t.Errorf("Priya Save on PRJ-METRO: %v", err)
 	}
+	// CD-245 (AUTH-099): a create on a disallowed project is AUTH's value
+	// error (403), not the 404 of the proposed record.
 	h.ProjectID = w.m.Projects["PRJ-TECHPARK"]
-	if _, err := mstfixture.Save(ctx, w.env, w.env.Priya, 0, h, lines); !errors.Is(err, doctype.ErrNotFound) {
-		t.Errorf("Priya Save on PRJ-TECHPARK = %v; want doctype.ErrNotFound", err)
+	var ve *auth.ValueError
+	if _, err := mstfixture.Save(ctx, w.env, w.env.Priya, 0, h, lines); !errors.As(err, &ve) || !errors.Is(err, auth.ErrForbidden) {
+		t.Errorf("Priya Save on PRJ-TECHPARK = %v; want auth.ValueError (403)", err)
 	}
 	if _, err := mstfixture.Save(ctx, w.env, w.env.Ravi, 0, h, lines); !errors.Is(err, auth.ErrForbidden) {
 		t.Errorf("Ravi Save = %v; want auth.ErrForbidden", err)

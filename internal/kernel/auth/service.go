@@ -440,12 +440,12 @@ func (a *Auth) AllowedRights(ctx context.Context, p Principal, doctypeName strin
 }
 
 // DefaultValue returns p's only allowed value on dimension dim; ok is false
-// unless exactly one value is allowed (AUTH-100).
+// unless exactly one value is allowed, so always for the Administrator, who
+// is never restricted (AUTH-100, CD-174). An unknown dimension is an error.
 func (a *Auth) DefaultValue(ctx context.Context, p Principal, dim Dimension) (int64, bool, error) {
 	var ids []int64
-	if err := a.db.Read(ctx, func(tx *db.Tx) error {
-		allowed, err := restrictions(ctx, dbq.New(tx.SQL()), p.ID)
-		ids = allowed[dim]
+	if err := a.db.Read(ctx, func(tx *db.Tx) (err error) {
+		ids, err = restrictionList(ctx, tx, p, string(dim))
 		return err
 	}); err != nil {
 		return 0, false, err

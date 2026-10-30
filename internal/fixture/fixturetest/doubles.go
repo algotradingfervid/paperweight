@@ -196,6 +196,12 @@ func (a *Auth) ValueAllowedTx(_ context.Context, _ *db.Tx, _ auth.Principal, dim
 	return err == nil, err
 }
 
+// DefaultValue has no value, as nobody here is restricted, and refuses an
+// unknown dimension like the real service (AUTH-100).
+func (a *Auth) DefaultValue(_ context.Context, _ auth.Principal, dim auth.Dimension) (int64, bool, error) {
+	return 0, false, auth.ValidDimension(string(dim))
+}
+
 // HasRole reads the roles registered with Remember.
 func (a *Auth) HasRole(_ context.Context, u auth.UserID, role string) (bool, error) {
 	a.mu.Lock()
