@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/masters/party/dbq"
@@ -75,14 +76,14 @@ func (s *Service) documentUsing(ctx context.Context, tx *db.Tx, id int64, fields
 	return "", nil
 }
 
-// checkTerms refuses unknown or disabled default payment terms; 0 is none. A
-// link the user can edit is re-checked on every save.
-func (s *Service) checkTerms(ctx context.Context, tx *db.Tx, id int64) error {
+// checkTerms refuses unknown, unreadable (CD-227) or disabled default payment
+// terms; 0 is none. A link the user can edit is re-checked on every save.
+func (s *Service) checkTerms(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) error {
 	if id == 0 {
 		return nil
 	}
 	var es mstkit.Errors
-	t, err := paymentterms.New(s.env).Get(ctx, tx, id)
+	t, err := mstkit.LinkedTx(ctx, tx, s.env, p, paymentterms.Kind, id, paymentterms.New(s.env).Get)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
 		es.Add("default_payment_terms_id", MsgTermsNotFound)

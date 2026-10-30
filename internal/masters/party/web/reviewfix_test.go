@@ -2,12 +2,15 @@ package partyweb_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/allmasters/webtest"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
@@ -16,6 +19,9 @@ import (
 )
 
 // No case ID unless a test names one: what the Task 22 review found.
+
+// msgNoParty is address's text for an owner that isn't there (CD-170, CD-227).
+const msgNoParty = "Party not found. Pick one from the list."
 
 // billBharat is a billing row the save refuses: BHARAT holds its GSTIN.
 var billBharat = row(mumbaiRow, "title", "Bharat", "state_code", "29", "pincode", "560001", "gstin", gstinBharat)
@@ -364,6 +370,88 @@ func TestScreens_RowsOnOwnScope(t *testing.T) {
 				t.Errorf("a row the user didn't create moved: version %d, disabled %v", got, off)
 			}
 		})
+	}
+}
+
+// CD-227, CD-233: an own-scope user posting a party they can't read gets the
+// not-found text with nothing written, whichever way the party is posted. The
+// screens take the owner from the URL: a hidden party there is a 404 that reads
+// as an unknown party's, and one in the form is ignored. The service, which the
+// other master screens and the import reach by id, words it for the owner field.
+func TestScreens_HiddenPartyPostedIsNotFound(t *testing.T) {
+	const unknown = int64(9_999_999)
+	ctx := context.Background()
+	w := newWorld(t)
+	env := w.h.Env
+	all := map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll, auth.RightCreate: auth.ScopeAll, auth.RightWrite: auth.ScopeAll}
+	w.grant(t, "Employee", map[auth.Right]auth.Scope{}, party.DocType, address.DocType, address.ContactDocType)
+	w.grant(t, "Purchase User", all, address.DocType, address.ContactDocType)
+	w.grant(t, "Purchase User", map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeOwn, auth.RightCreate: auth.ScopeOwn}, party.DocType)
+	shree := w.get(t, "SHREE") // Kavya's
+	mine, err := w.parties.Create(ctx, env.Priya, party.Input{Code: "V-MINE", Name: "My Vendor", IsVendor: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := w.h.Browser(env.Priya)
+	posted := func(kv ...string) url.Values {
+		return with(url.Values{"party_id": {strconv.FormatInt(shree.ID, 10)}}, kv...)
+	}
+
+	for _, c := range []struct {
+		name  string
+		url   func(int64) string
+		input url.Values
+		owned string
+	}{
+		{
+			"address", newAddressURL,
+			posted("title", "Posted", "line1", "L1", "city", "Pune", "state_code", "27", "country", "India", "pincode", "411001", "is_shipping", "1"),
+			`SELECT count(*) FROM address WHERE party_id = ? AND title = 'Posted'`,
+		},
+		{"contact", newContactURL, posted("first_name", "Posted"), `SELECT count(*) FROM contact WHERE party_id = ? AND first_name = 'Posted'`},
+	} {
+		before := w.tally(t)
+		hidden := b.Post(t, c.url(shree.ID), c.input)
+		missing := b.Post(t, c.url(unknown), c.input)
+		for _, r := range []webtest.Response{hidden, missing} {
+			webtest.WantStatus(t, r, http.StatusNotFound)
+			webtest.WantText(t, r, auth.MsgNotFound)
+			webtest.WantNoText(t, r, "Shree Steel")
+		}
+		if h1 := hidden.Doc.Find("h1").First().Text(); h1 != missing.Doc.Find("h1").First().Text() {
+			t.Errorf("%s: a hidden party's heading %q differs from an unknown one's", c.name, h1)
+		}
+
+		// In the form it lands nowhere: the row is the URL's party's.
+		webtest.WantRedirect(t, b.Post(t, c.url(mine.ID), c.input), recordURL(mine.ID))
+		if got, off := w.count(t, c.owned, mine.ID), w.count(t, c.owned, shree.ID); got != 1 || off != 0 {
+			t.Errorf("%s: %d rows on the URL's party and %d on the posted one", c.name, got, off)
+		}
+		w.wantTally(t, before.plus(rowsAdded(c.name)))
+	}
+
+	before := w.tally(t)
+	_, err = w.addresses.Create(ctx, env.Priya, address.Input{PartyID: shree.ID, Title: "T", Line1: "L1", City: "Pune", StateCode: "27", IsShipping: true})
+	wantPartyGone(t, err)
+	_, err = w.addresses.CreateContact(ctx, env.Priya, address.ContactInput{PartyID: shree.ID, FirstName: "T"})
+	wantPartyGone(t, err)
+	w.wantTally(t, before)
+}
+
+// rowsAdded is what one saved row of the kind adds to a tally.
+func rowsAdded(kind string) tally {
+	if kind == "address" {
+		return tally{addresses: 1, audits: 1}
+	}
+	return tally{contacts: 1, audits: 1}
+}
+
+// wantPartyGone fails unless err says the owner wasn't found.
+func wantPartyGone(t *testing.T, err error) {
+	t.Helper()
+	var he doctype.HTTPError
+	if !errors.As(err, &he) || len(he.FieldErrors()) != 1 || he.FieldErrors()[0] != (doctype.FieldError{Field: "party_id", Message: msgNoParty}) {
+		t.Errorf("err = %v; want %q on party_id", err, msgNoParty)
 	}
 }
 

@@ -210,10 +210,11 @@ func flag(b bool) int64 {
 // fields first (CD-170), then date of birth against today in IST (Review
 // Focus 4), self-manager (MST-113), the manager's status (MST-116), loops
 // (MST-114), the user's other active employee (MST-111) and reportees of
-// someone leaving (MST-117). A leave skips the branch and loop checks of links
-// it keeps, so neither can hold a leaver's user enabled, and MST-116 never
-// refuses a leave (CD-204). old is nil on create.
-func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input) error {
+// someone leaving (MST-117). A branch or manager p can't read is unknown
+// (CD-227). A leave skips the branch, manager and loop checks of links it
+// keeps, so none can hold a leaver's user enabled, and MST-116 never refuses a
+// leave (CD-204). old is nil on create.
+func (s *Service) check(ctx context.Context, tx *db.Tx, p auth.Principal, old *Employee, in Input) error {
 	var id int64
 	if old != nil {
 		id = old.ID
@@ -226,7 +227,7 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 	}
 	var es mstkit.Errors
 	if !keepsBranch {
-		b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
+		b, err := mstkit.LinkedTx(ctx, tx, s.env, p, company.Kind, in.BranchID, company.New(s.env).Get)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
 			es.Add("branch_id", MsgBranchNotFound)
@@ -236,8 +237,8 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 			es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
 		}
 	}
-	if in.ManagerID != 0 {
-		m, err := s.Get(ctx, tx, in.ManagerID)
+	if in.ManagerID != 0 && !keepsManager {
+		m, err := mstkit.LinkedTx(ctx, tx, s.env, p, Kind, in.ManagerID, s.Get)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
 			es.Add("manager_id", MsgManagerNotFound)
@@ -364,7 +365,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.check(ctx, tx, nil, in); err != nil {
+	if err := s.check(ctx, tx, p, nil, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
@@ -414,7 +415,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if in.UserID != old.UserID && (old.Status != Active || in.Status != Active) {
 		return mstkit.Saved{}, fieldErr("user_id", msgSeparateSaves) // CD-181: the user changes only while Active
 	}
-	if err := s.check(ctx, tx, &old, in); err != nil {
+	if err := s.check(ctx, tx, p, &old, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {

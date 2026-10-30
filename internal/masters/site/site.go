@@ -210,10 +210,11 @@ func userID(p auth.Principal) sql.NullInt64 {
 func nullID(id int64) sql.NullInt64 { return sql.NullInt64{Int64: id, Valid: id != 0} }
 
 // checkLinks refuses an unknown or disabled branch or project and a project of
-// another branch, reading inside tx (CD-94, CD-170, MST-106).
-func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
+// another branch, reading inside tx (CD-94, CD-170, MST-106). A target p can't
+// read is unknown (CD-227).
+func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, p auth.Principal, in Input) error {
 	var es mstkit.Errors
-	b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
+	b, err := mstkit.LinkedTx(ctx, tx, s.env, p, company.Kind, in.BranchID, company.New(s.env).Get)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
 		es.Add("branch_id", MsgBranchNotFound)
@@ -223,7 +224,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 		es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
 	}
 	if in.ProjectID != 0 {
-		pr, err := project.New(s.env).Get(ctx, tx, in.ProjectID)
+		pr, err := mstkit.LinkedTx(ctx, tx, s.env, p, project.Kind, in.ProjectID, project.New(s.env).Get)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
 			es.Add("project_id", MsgProjectNotFound)
@@ -283,7 +284,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in); err != nil {
+	if err := s.checkLinks(ctx, tx, p, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
@@ -333,7 +334,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in); err != nil {
+	if err := s.checkLinks(ctx, tx, p, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {
