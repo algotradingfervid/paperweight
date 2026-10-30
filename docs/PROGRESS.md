@@ -1,6 +1,6 @@
 # Progress
 
-Status on 31 October 2026: **WP0, Wave 1 (NUM, NAM, APR, DOC, FILE, UI, AUTH) and WP2 complete (tag `wp2-masters`). WP3 Tasks 1, 2 and 6 Phase B, and Task 3 parts a and b, are on main; Task 3c, Tasks 4 and 5 and the release are with AD-7; WP3 ends with the tag `core-v1`. Module specs accepted (CD-238). PO is the first module: spec v0.5 adds Purchase Requests, one owner per draft, comments, Mark as sent, Copy, last price and a Purchase home (CD-246, owner review of §16 assumptions pending); plan `docs/superpowers/plans/2026-10-31-mod-po.md` (MOD-0 groundwork + MOD-PO, 31 tasks). GRN and Expense follow PO.** `make ci` green on main, P1 550/556 (the six missing are Task 4 browser tests).
+Status on 31 October 2026: **WP0, Wave 1 (NUM, NAM, APR, DOC, FILE, UI, AUTH) and WP2 complete (tag `wp2-masters`). WP3 Tasks 1, 2 and 6 Phase B, and Task 3 parts a and b, are on main; Task 3c, Tasks 4 and 5 and the release are with AD-7; WP3 ends with the tag `core-v1`. Module specs accepted (CD-238). PO is the first module: spec v0.5 adds Purchase Requests, one owner per draft, comments, Mark as sent, Copy, last price and a Purchase home (CD-246, owner review of §16 assumptions pending); plan `docs/superpowers/plans/2026-10-31-mod-po.md` (MOD-0 groundwork + MOD-PO, 38 tasks; plan-checked, CD-247). GRN and Expense follow PO.** `make ci` green on main, P1 550/556 (the six missing are Task 4 browser tests).
 
 ## Read in this order
 
@@ -263,6 +263,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | WP2 done gate 5075621 (tag wp2-masters), module specs b70be1c; `make ci` green 31 Oct after a disk-full rerun | — | director | | 31 Oct | — | — | — |
 | CD-240 | LinkError names no hidden record (AUTH-101) | Standard | impl opus, rev opus (AD-8) | 31 Oct 00:20 | 01:10 | 1 | 0/0/2 | 3d2cc78 (lane/cd240 8ae6529) |
 | WP3-T4a | e2e harness, six P1 browser ids, the plan's five flows; LinkRead wired | High | AD-7 | 31 Oct | 31 Oct | 2 | fix round APPROVE | fb2ac51 (wp/wp3 cc9e80c); P1 556/556 |
+| CD-240 | Follow-ups: authfake CheckLink not-found parity, LinkError source guard | Standard | impl opus, rev opus (AD-8) | 31 Oct | 31 Oct | 1 + fix | 0/1/2 | 3aebc9b (lane/cd240-followup f8db28a) |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 

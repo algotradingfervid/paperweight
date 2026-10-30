@@ -121,6 +121,7 @@ var contractRows = []struct {
 	{"CD-213 Tx methods match their twins", rowTxParity},
 	{"CD-216 ValueAllowedTx", rowValueAllowedTx},
 	{"AUTH-100 DefaultValue", rowDefaultValue},
+	{"CD-240 link to an unregistered DocType is not found", rowLinkUnknownDocType},
 }
 
 var refusalRows = []struct {
@@ -1109,6 +1110,28 @@ func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
 		for _, c := range calls {
 			if got := outcome(svc.CheckLinkTx(ctx, tx, c.p, c.dt, c.id)); got != c.want {
 				t.Errorf("CheckLinkTx(%s, %s, %d) = %s, want what CheckLink gave: %s", c.p.Name, c.dt, c.id, got, c.want)
+			}
+		}
+	})
+}
+
+// CD-240 follow-up: CheckLink and CheckLinkTx to a DocType that isn't
+// registered answer ErrNotFound with its text, as the real service's Info
+// does, for the Administrator and for a user with no roles.
+func rowLinkUnknownDocType(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	const dt = "authtest.Unknown"
+	want := outcome(auth.ErrNotFound)
+	people := []auth.Principal{s.Admin(t), s.User(t, "none@contract.test")}
+	for _, p := range people {
+		if got := outcome(svc.CheckLink(ctx, p, dt, 1)); got != want {
+			t.Errorf("%s CheckLink(%s, 1) = %s, want %s", p.Name, dt, got, want)
+		}
+	}
+	inTxs(t, s.DB(), func(t *testing.T, tx *db.Tx) {
+		for _, p := range people {
+			if got := outcome(svc.CheckLinkTx(ctx, tx, p, dt, 1)); got != want {
+				t.Errorf("%s CheckLinkTx(%s, 1) = %s, want %s", p.Name, dt, got, want)
 			}
 		}
 	})
