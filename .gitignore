@@ -16,3 +16,6 @@
 .DS_Store
 .idea/
 .vscode/
+
+# Git worktrees (work packages and lanes)
+/.worktrees/

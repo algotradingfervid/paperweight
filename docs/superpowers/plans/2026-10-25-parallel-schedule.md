@@ -6,7 +6,7 @@ Owner request, 25 Oct 2026 (CD-123). Work starts when the packages it needs are 
 
 1. **Gates are packages, not waves.** A task may start when every package it consumes is on `main` at the needed milestone (section 2). The plans' "after Wave 1 merged" lines are replaced by the gates below; nothing else in the plans changes.
 2. **Milestone merges.** An AD sends `MERGE-READY <milestone>` when the milestone's tasks are committed and `make ci` is green on its branch. The head director merges it on its own (one merge at a time, `make ci` on `main`), then tells every AD to rebase. Unfinished parts keep their WP0 stubs (CD-111), so a partial WP is safe on `main`.
-3. **Lanes for tasks in the same Go package.** Two tasks the plan marks parallel but that sit in the same Go package must not share a worktree: one half-written file breaks the other's build and tests. The AD gives the second task a lane: `git worktree add ../it-<wp>-<task> -b lane/<wp>-<task> wp/<wp>`, plus `ln -s ../internaltools/bin ../it-<wp>-<task>/bin`. On approval it commits there and merges the lane into `wp/<wp>`, then removes the worktree. Tasks in different packages share the WP worktree.
+3. **Lanes for tasks in the same Go package.** Two tasks the plan marks parallel but that sit in the same Go package must not share a worktree: one half-written file breaks the other's build and tests. The AD gives the second task a lane: `git worktree add .worktrees/<wp>-<task> -b lane/<wp>-<task> wp/<wp>`, plus `ln -s ../../bin .worktrees/<wp>-<task>/bin`. On approval it commits there and merges the lane into `wp/<wp>`, then removes the worktree. Tasks in different packages share the WP worktree.
 4. **Generated files are regenerated, never merged by hand.** On any conflict in `*_templ.go`, `**/dbq/`, `internal/ui/static/*` or `internal/ui/assets_gen.go`, take either side, run `make generate`, and commit the result. Every UI lane changes the hashed CSS, so this happens on every UI lane merge.
 5. **No UX design gate for core v1.** Protocol §9: the design-system spec is the approved design for core screens (UI, area screens and master screens), so no screen task waits for the owner.
 
@@ -50,7 +50,7 @@ The longest chains are UI (about 10 steps to UI-M2) and AUTH (about 8 steps), so
 | AD-2 | UI | 5 |
 | AD-3 | NUM, NAM, APR | 8 |
 | AD-4 | DOC, FILE | 5 |
-| AD-5 | MST (WP2) and early WP3 work, in `../it-masters` on `wp/masters` | 1 |
+| AD-5 | MST (WP2) and early WP3 work, in `.worktrees/masters` on `wp/masters` | 1 |
 
 Budgets follow each group's peak width (AUTH 4, UI 5, NUM+NAM+APR 3+3+4 trimmed to 8, DOC+FILE 3+4 trimmed to 5). When the three master groups open, the head director moves 3 slots to AD-5 from whichever AD has finished or is idle. An AD with idle workers may lend them: it tells the head director (`ESCALATE <AD> - CROSS-WP: lend N`), and the head director gives the slots to the AD on the longest chain. WP3's late tasks (2–6) are run by the head director once AD-5's work and every WP are merged.
 
