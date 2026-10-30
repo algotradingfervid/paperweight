@@ -1,6 +1,6 @@
 # Progress
 
-Status on 31 October 2026: **WP0, Wave 1 (NUM, NAM, APR, DOC, FILE, UI, AUTH) and WP2 complete (tag `wp2-masters`). WP3 Tasks 1, 2 and 6 Phase B, and Task 3 parts a and b, are on main; Task 3c, Tasks 4 and 5 and the release are with AD-7; WP3 ends with the tag `core-v1`. Module specs accepted (CD-238). PO is the first module: spec v0.5 adds Purchase Requests, one owner per draft, comments, Mark as sent, Copy, last price and a Purchase home (CD-246, owner review of §16 assumptions pending); plan `docs/superpowers/plans/2026-10-31-mod-po.md` (MOD-0 groundwork + MOD-PO, 38 tasks; plan-checked, CD-247). GRN and Expense follow PO.** `make ci` green on main, P1 550/556 (the six missing are Task 4 browser tests).
+Status on 31 October 2026: **core v1 complete, tag `core-v1`.** WP0, WP1 (NUM, NAM, APR, DOC, FILE, UI, AUTH), WP2 masters and WP3 integration are done, plus attachments on document pages (CD-241 to CD-251). Final gate on main: `make ci` and full `make e2e` green, P1 556/556, restore drill passed. Next: the PO, GRN and Expense modules (specs accepted CD-238; PO v0.5 and the MOD-PO plan, CD-246 and CD-247), then the design-language rollout (CD-244).
 
 ## Read in this order
 
@@ -271,6 +271,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | CD-241 | Attachments: B2 Attachable flag, files/web htmx | High | tw, impl, rev opus (AD-8) | 00:52 | 01:13 | 1 | 0/0/3 | lane/wp3-attach |
 | CD-241 | Attachments: B3 components, docscreen panel (CD-249) | High | tw, impl, rev opus (AD-8) | 01:13 | 01:53 | 1 + TEST-DISPUTE | 0/0/5 | lane/wp3-attach |
 | CD-241 | Attachments: B4 e2e | Standard | impl, rev opus (AD-8) | 01:53 | 02:38 | 1 | 0/0/6 | 79b3e08 (lane/wp3-attach 46c2d3f); P1 556/556 |
+| WP3-T6 | Final gate; picker flows follow the prefill (t6d); binary sizes | High | AD-7 | 31 Oct | 31 Oct | 1 | gate passed | 504cc89 (wp/wp3 8a9f26b); make ci, make e2e green; tag core-v1 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
