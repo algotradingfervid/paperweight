@@ -240,7 +240,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | AUTH CD-173 + CD-174 cd10b67; `make ci` green | — | director | | 19:17 | — | — | — |
 | Budgets | WP3 Task 1 split across idle ADs (CD-182): head 2, AD-1 5, AD-2 3, AD-3 3, AD-4 3, AD-5 6, reserve 3 | — | director | | 19:45 | — | — | — |
 
-## RESUME HERE (paused 25 Oct 2026 ~19:55, owner's battery)
+## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
 On main (every merge `make ci` green): NUM, NAM, APR, DOC, FILE, UI complete (UI-M2 26 Oct); AUTH done except Task 20 (now unblocked); WP3 T1 suites for FILE and DOC; covertouched tooling; WP2 part 1 (Tasks 1–5, 8–11); WP3 early deploy files.
 
