@@ -7,10 +7,11 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-// Auth is an auth.Service for list tests: Can denies the rights in Deny with
-// AUTH's message, Scope returns Pred, and both record the right in Calls.
+// Auth is an auth.Service for list tests: Can and CanTx deny the rights in Deny
+// with AUTH's message, Scope returns Pred, and all record the right in Calls.
 // Every other method comes from authfake.New().
 type Auth struct {
 	auth.Service
@@ -32,6 +33,11 @@ func (a *Auth) Can(_ context.Context, _ auth.Principal, dtName string, r auth.Ri
 		return fmt.Errorf("%w: You don't have permission to %s %s. Ask your administrator for a role that allows it.", auth.ErrForbidden, r, label)
 	}
 	return nil
+}
+
+// CanTx is Can: the double has no transactions.
+func (a *Auth) CanTx(ctx context.Context, _ *db.Tx, p auth.Principal, dtName string, r auth.Right, rec *auth.RecordRef) error {
+	return a.Can(ctx, p, dtName, r, rec)
 }
 
 func (a *Auth) Scope(_ context.Context, _ auth.Principal, _ string, r auth.Right) (auth.Predicate, error) {

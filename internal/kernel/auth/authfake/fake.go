@@ -313,6 +313,11 @@ func (f *Fake) Can(ctx context.Context, p auth.Principal, doctype string, r auth
 	return acc.Can(dt, r, rec)
 }
 
+// CanTx is Can: the fake has no transactions.
+func (f *Fake) CanTx(ctx context.Context, _ *db.Tx, p auth.Principal, doctype string, r auth.Right, rec *auth.RecordRef) error {
+	return f.Can(ctx, p, doctype, r, rec)
+}
+
 // Scope builds the real service's filter through auth.Access.Scope, or
 // returns the SetScope Predicate for doctype (empty for an unregistered
 // DocType, which has no table) once the grants allow it.
@@ -369,6 +374,11 @@ func (f *Fake) CheckValues(ctx context.Context, p auth.Principal, name string, v
 	return check(dt.SiteFields, limit.sites, auth.DimSite)
 }
 
+// CheckValuesTx is CheckValues: the fake has no transactions.
+func (f *Fake) CheckValuesTx(ctx context.Context, _ *db.Tx, p auth.Principal, name string, values map[string][]int64) error {
+	return f.CheckValues(ctx, p, name, values)
+}
+
 // valueError lists the allowed codes from dir, sorted (CD-149). Without a
 // Directory the fake has no codes, so it lists the ids as strings, sorted.
 func valueError(ctx context.Context, dir auth.Directory, d auth.Dimension, ids []int64) error {
@@ -408,6 +418,11 @@ func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, i
 		return &auth.LinkError{Label: label, Display: fmt.Sprintf("#%d", id)} // CD-125
 	}
 	return nil
+}
+
+// CheckLinkTx is CheckLink: the fake has no transactions.
+func (f *Fake) CheckLinkTx(ctx context.Context, _ *db.Tx, p auth.Principal, target string, id int64) error {
+	return f.CheckLink(ctx, p, target, id)
 }
 
 // UsersWithRight returns the SetUsers list without disabled users, or like
@@ -456,11 +471,21 @@ func (f *Fake) UsersWithRight(ctx context.Context, doctype string, r auth.Right,
 	return out, nil
 }
 
+// UsersWithRightTx is UsersWithRight: the fake has no transactions.
+func (f *Fake) UsersWithRightTx(ctx context.Context, _ *db.Tx, doctype string, r auth.Right, rec *auth.RecordRef) ([]auth.UserID, error) {
+	return f.UsersWithRight(ctx, doctype, r, rec)
+}
+
 // HasRole reports whether u holds role through AddRole (and not since removed).
 func (f *Fake) HasRole(ctx context.Context, u auth.UserID, role string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.added[u][role], nil
+}
+
+// HasRoleTx is HasRole: the fake has no transactions.
+func (f *Fake) HasRoleTx(ctx context.Context, _ *db.Tx, u auth.UserID, role string) (bool, error) {
+	return f.HasRole(ctx, u, role)
 }
 
 func (f *Fake) User(ctx context.Context, tx *db.Tx, u auth.UserID) (auth.UserInfo, bool, error) {

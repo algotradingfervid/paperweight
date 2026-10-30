@@ -114,7 +114,7 @@ func AttachParent(ctx context.Context, tx *db.Tx, a auth.Service, src doctype.In
 		return doctype.Info{}, parentErr(err)
 	}
 	ref := refFrom(info)
-	if err := a.Can(ctx, p, parent.DocType, "write", &ref); err != nil {
+	if err := a.CanTx(ctx, tx, p, parent.DocType, "write", &ref); err != nil {
 		if errors.Is(err, auth.ErrForbidden) {
 			return doctype.Info{}, &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgForbidden, info.Display), Err: err}
 		}

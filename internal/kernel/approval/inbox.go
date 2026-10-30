@@ -39,7 +39,7 @@ func (a *Approvals) InboxOfType(ctx context.Context, p auth.Principal, doctype s
 				return err
 			}
 			s := snapshotOf(r)
-			holds, err := a.holdsAny(ctx, p.ID, s)
+			holds, err := a.holdsAny(ctx, tx, p.ID, s)
 			if err != nil {
 				return err
 			}
@@ -50,7 +50,7 @@ func (a *Approvals) InboxOfType(ctx context.Context, p auth.Principal, doctype s
 			if !ok {
 				continue
 			}
-			ok, err = a.canApprove(ctx, p, r, s, in)
+			ok, err = a.canApprove(ctx, tx, p, r, s, in)
 			if err != nil {
 				return err
 			}
@@ -141,7 +141,7 @@ func (a *Approvals) Stuck(ctx context.Context, p auth.Principal) ([]StuckItem, e
 			if !ok {
 				continue
 			}
-			users, err := a.eligible(ctx, snapshotOf(r), in)
+			users, err := a.eligible(ctx, tx, snapshotOf(r), in)
 			if err != nil {
 				return err
 			}
@@ -216,14 +216,14 @@ func (a *Approvals) resolve(ctx context.Context, tx *db.Tx, r Request) (doctype.
 // canApprove reports whether p, who holds one of s's approver slots, may
 // approve r's document now: p can read it and is one of its eligible
 // approvers (CD-11, CD-52).
-func (a *Approvals) canApprove(ctx context.Context, p auth.Principal, r Request, s snapshot, in doctype.Info) (bool, error) {
-	if err := a.auth.Can(ctx, p, r.DocType, "read", recordRef(in)); err != nil {
+func (a *Approvals) canApprove(ctx context.Context, tx *db.Tx, p auth.Principal, r Request, s snapshot, in doctype.Info) (bool, error) {
+	if err := a.auth.CanTx(ctx, tx, p, r.DocType, "read", recordRef(in)); err != nil {
 		if errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
-	users, err := a.eligible(ctx, s, in)
+	users, err := a.eligible(ctx, tx, s, in)
 	if err != nil {
 		return false, err
 	}

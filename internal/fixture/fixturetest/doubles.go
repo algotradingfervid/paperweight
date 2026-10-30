@@ -115,6 +115,11 @@ func (a *Auth) Can(ctx context.Context, p auth.Principal, dt string, r auth.Righ
 	return nil
 }
 
+// CanTx is Can: the double has no transactions.
+func (a *Auth) CanTx(ctx context.Context, _ *db.Tx, p auth.Principal, dt string, r auth.Right, rec *auth.RecordRef) error {
+	return a.Can(ctx, p, dt, r, rec)
+}
+
 // Scope refuses like Can, otherwise returns an empty predicate (no filter).
 func (a *Auth) Scope(_ context.Context, _ auth.Principal, dt string, r auth.Right) (auth.Predicate, error) {
 	return auth.Predicate{}, applies(dt, r)
@@ -146,6 +151,11 @@ func (a *Auth) CheckValues(ctx context.Context, _ auth.Principal, dt string, val
 	return nil
 }
 
+// CheckValuesTx is CheckValues: the double has no transactions.
+func (a *Auth) CheckValuesTx(ctx context.Context, _ *db.Tx, p auth.Principal, dt string, values map[string][]int64) error {
+	return a.CheckValues(ctx, p, dt, values)
+}
+
 // CheckLink returns DenyLink's error when set.
 func (a *Auth) CheckLink(ctx context.Context, _ auth.Principal, target string, id int64) error {
 	a.record(ctx, "AUTH.CheckLink:"+target+":"+strconv.FormatInt(id, 10))
@@ -155,6 +165,11 @@ func (a *Auth) CheckLink(ctx context.Context, _ auth.Principal, target string, i
 	return nil
 }
 
+// CheckLinkTx is CheckLink: the double has no transactions.
+func (a *Auth) CheckLinkTx(ctx context.Context, _ *db.Tx, p auth.Principal, target string, id int64) error {
+	return a.CheckLink(ctx, p, target, id)
+}
+
 // UsersWithRight returns no users; an unknown DocType is an error, as in the
 // real service.
 func (a *Auth) UsersWithRight(_ context.Context, dt string, r auth.Right, _ *auth.RecordRef) ([]auth.UserID, error) {
@@ -162,6 +177,11 @@ func (a *Auth) UsersWithRight(_ context.Context, dt string, r auth.Right, _ *aut
 		return nil, err
 	}
 	return nil, nil
+}
+
+// UsersWithRightTx is UsersWithRight: the double has no transactions.
+func (a *Auth) UsersWithRightTx(ctx context.Context, _ *db.Tx, dt string, r auth.Right, rec *auth.RecordRef) ([]auth.UserID, error) {
+	return a.UsersWithRight(ctx, dt, r, rec)
 }
 
 // Restricted reports no restriction on any dimension and refuses an unknown
@@ -175,6 +195,11 @@ func (a *Auth) HasRole(_ context.Context, u auth.UserID, role string) (bool, err
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return slices.Contains(a.roles[u], role), nil
+}
+
+// HasRoleTx is HasRole: the double has no transactions.
+func (a *Auth) HasRoleTx(ctx context.Context, _ *db.Tx, u auth.UserID, role string) (bool, error) {
+	return a.HasRole(ctx, u, role)
 }
 
 // User returns the user from Users.

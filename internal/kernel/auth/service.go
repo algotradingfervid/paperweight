@@ -27,23 +27,30 @@ func (a *Auth) LoadPrincipal(ctx context.Context, u UserID) (Principal, UserStat
 	var p Principal
 	var st UserState
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
-		q := dbq.New(tx.SQL())
-		row, err := q.GetPrincipalUser(ctx, int64(u))
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
-		}
-		if err != nil {
-			return err
-		}
-		roles, err := q.ListPrincipalRoles(ctx, int64(u))
-		if err != nil {
-			return err
-		}
-		p = Principal{ID: u, Name: row.Name, Roles: roles}
-		st = UserState{Email: row.Email, Enabled: row.Enabled != 0, MustChangePassword: row.MustChangePassword != 0}
-		return nil
+		var err error
+		p, st, err = loadPrincipal(ctx, tx, u)
+		return err
 	})
 	return p, st, err
+}
+
+// loadPrincipal is LoadPrincipal inside the caller's transaction.
+func loadPrincipal(ctx context.Context, tx *db.Tx, u UserID) (Principal, UserState, error) {
+	q := dbq.New(tx.SQL())
+	row, err := q.GetPrincipalUser(ctx, int64(u))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Principal{}, UserState{}, ErrNotFound
+	}
+	if err != nil {
+		return Principal{}, UserState{}, err
+	}
+	roles, err := q.ListPrincipalRoles(ctx, int64(u))
+	if err != nil {
+		return Principal{}, UserState{}, err
+	}
+	p := Principal{ID: u, Name: row.Name, Roles: roles}
+	st := UserState{Email: row.Email, Enabled: row.Enabled != 0, MustChangePassword: row.MustChangePassword != 0}
+	return p, st, nil
 }
 
 // User returns u's info; ok is false with a nil error when u does not exist
@@ -74,12 +81,18 @@ func (a *Auth) UserByEmail(ctx context.Context, tx *db.Tx, email string) (UserIn
 
 // HasRole reports whether u holds role.
 func (a *Auth) HasRole(ctx context.Context, u UserID, role string) (bool, error) {
-	var n int64
+	var has bool
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
 		var err error
-		n, err = dbq.New(tx.SQL()).CountUserRole(ctx, dbq.CountUserRoleParams{UserID: int64(u), Role: role})
+		has, err = a.HasRoleTx(ctx, tx, u, role)
 		return err
 	})
+	return has, err
+}
+
+// HasRoleTx is HasRole inside the caller's transaction (CD-213).
+func (a *Auth) HasRoleTx(ctx context.Context, tx *db.Tx, u UserID, role string) (bool, error) {
+	n, err := dbq.New(tx.SQL()).CountUserRole(ctx, dbq.CountUserRoleParams{UserID: int64(u), Role: role})
 	return n > 0, err
 }
 
@@ -113,36 +126,58 @@ func denied(dt *doctype.DocType, r Right) *DeniedError {
 // A record p can't see is ErrNotFound (404); a missing right is a
 // *DeniedError (403).
 func (a *Auth) Can(ctx context.Context, p Principal, doctypeName string, r Right, rec *RecordRef) error {
-	dt, err := lookup(doctypeName)
-	if err != nil {
+	dt, decided, err := canWithoutReads(p, doctypeName, r)
+	if decided {
 		return err
+	}
+	return a.db.Read(ctx, func(tx *db.Tx) error { return a.can(ctx, tx, p, dt, r, rec) })
+}
+
+// CanTx is Can inside the caller's transaction (CD-213).
+func (a *Auth) CanTx(ctx context.Context, tx *db.Tx, p Principal, doctypeName string, r Right, rec *RecordRef) error {
+	dt, decided, err := canWithoutReads(p, doctypeName, r)
+	if decided {
+		return err
+	}
+	return a.can(ctx, tx, p, dt, r, rec)
+}
+
+// canWithoutReads is the part of Can that opens no connection: an unknown
+// DocType, a right that doesn't apply and an Administrator. decided is false
+// with dt set when can has to read the rest. Master Tx methods still on Can
+// rely on an Administrator taking no connection until they move to CanTx.
+func canWithoutReads(p Principal, doctypeName string, r Right) (dt *doctype.DocType, decided bool, err error) {
+	dt, err = lookup(doctypeName)
+	if err != nil {
+		return nil, true, err
 	}
 	if !Applies(dt, r) {
-		return denied(dt, r)
+		return nil, true, denied(dt, r)
 	}
 	if slices.Contains(p.Roles, RoleAdministrator) {
-		return nil
+		return nil, true, nil
 	}
-	readScope, err := a.grant(ctx, p.Roles, dt.Name, RightRead)
+	return dt, false, nil
+}
+
+// can reads the grants, the employee and the restrictions in tx and decides.
+func (a *Auth) can(ctx context.Context, tx *db.Tx, p Principal, dt *doctype.DocType, r Right, rec *RecordRef) error {
+	readScope, err := a.grant(ctx, tx, p.Roles, dt.Name, RightRead)
 	if err != nil {
 		return err
 	}
-	rScope, err := a.grant(ctx, p.Roles, dt.Name, r)
+	rScope, err := a.grant(ctx, tx, p.Roles, dt.Name, r)
 	if err != nil {
 		return err
 	}
 	acc := Access{User: p.ID, Read: readScope, Right: rScope}
 	if readScope != "" && rec != nil {
-		if err := a.db.Read(ctx, func(tx *db.Tx) error {
-			var err error
-			if dt.EmployeeField != "" && rec.EmployeeID != 0 {
-				if acc.Employee, acc.Reports, acc.HasEmployee, err = a.employee(ctx, tx, p.ID); err != nil {
-					return err
-				}
+		if dt.EmployeeField != "" && rec.EmployeeID != 0 {
+			if acc.Employee, acc.Reports, acc.HasEmployee, err = a.employee(ctx, tx, p.ID); err != nil {
+				return err
 			}
-			acc.Allowed, err = restrictions(ctx, dbq.New(tx.SQL()), p.ID)
-			return err
-		}); err != nil {
+		}
+		if acc.Allowed, err = restrictions(ctx, dbq.New(tx.SQL()), p.ID); err != nil {
 			return err
 		}
 	}
@@ -246,24 +281,32 @@ func recordAllowed(dt *doctype.DocType, rec *RecordRef, allowed map[Dimension][]
 
 // UsersWithRight returns the enabled users for whom Can is nil, ascending ID.
 func (a *Auth) UsersWithRight(ctx context.Context, doctypeName string, r Right, rec *RecordRef) ([]UserID, error) {
-	var ids []int64
-	if err := a.db.Read(ctx, func(tx *db.Tx) error {
+	var out []UserID
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
 		var err error
-		ids, err = dbq.New(tx.SQL()).ListEnabledUserIDs(ctx)
+		out, err = a.UsersWithRightTx(ctx, tx, doctypeName, r, rec)
 		return err
-	}); err != nil {
+	})
+	return out, err
+}
+
+// UsersWithRightTx is UsersWithRight inside the caller's transaction (CD-213).
+func (a *Auth) UsersWithRightTx(ctx context.Context, tx *db.Tx, doctypeName string, r Right, rec *RecordRef) ([]UserID, error) {
+	// An unknown DocType is refused even with no users: the loop would never reach CanTx.
+	if _, err := lookup(doctypeName); err != nil {
+		return nil, err
+	}
+	ids, err := dbq.New(tx.SQL()).ListEnabledUserIDs(ctx)
+	if err != nil {
 		return nil, err
 	}
 	var out []UserID
 	for _, id := range ids {
-		p, _, err := a.LoadPrincipal(ctx, UserID(id))
-		if errors.Is(err, ErrNotFound) {
-			continue // deleted since the list was read
-		}
+		p, _, err := loadPrincipal(ctx, tx, UserID(id))
 		if err != nil {
 			return nil, err
 		}
-		err = a.Can(ctx, p, doctypeName, r, rec)
+		err = a.CanTx(ctx, tx, p, doctypeName, r, rec)
 		switch {
 		case err == nil:
 			out = append(out, p.ID)
@@ -278,30 +321,33 @@ func (a *Auth) UsersWithRight(ctx context.Context, doctypeName string, r Right, 
 // CheckValues checks proposed Project and Site IDs, keyed by the DocType's
 // ProjectFields/SiteFields entries, against p's restrictions (CD-12).
 func (a *Auth) CheckValues(ctx context.Context, p Principal, doctypeName string, values map[string][]int64) error {
+	return a.db.Read(ctx, func(tx *db.Tx) error { return a.CheckValuesTx(ctx, tx, p, doctypeName, values) })
+}
+
+// CheckValuesTx is CheckValues inside the caller's transaction (CD-213).
+func (a *Auth) CheckValuesTx(ctx context.Context, tx *db.Tx, p Principal, doctypeName string, values map[string][]int64) error {
 	dt, err := lookup(doctypeName)
 	if err != nil {
 		return err
 	}
-	return a.db.Read(ctx, func(tx *db.Tx) error {
-		allowed, err := restrictions(ctx, dbq.New(tx.SQL()), p.ID)
-		if err != nil {
-			return err
+	allowed, err := restrictions(ctx, dbq.New(tx.SQL()), p.ID)
+	if err != nil {
+		return err
+	}
+	for _, d := range []Dimension{DimProject, DimSite} {
+		allowedIDs, restricted := allowed[d]
+		if !restricted {
+			continue
 		}
-		for _, d := range []Dimension{DimProject, DimSite} {
-			allowedIDs, restricted := allowed[d]
-			if !restricted {
-				continue
-			}
-			for _, f := range dimFields(dt, d) {
-				for _, v := range values[f] {
-					if !slices.Contains(allowedIDs, v) {
-						return a.valueError(ctx, tx, d, allowedIDs)
-					}
+		for _, f := range dimFields(dt, d) {
+			for _, v := range values[f] {
+				if !slices.Contains(allowedIDs, v) {
+					return a.valueError(ctx, tx, d, allowedIDs)
 				}
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 // codes returns the Directory's codes for d's value IDs.
@@ -328,22 +374,23 @@ func (a *Auth) valueError(ctx context.Context, tx *db.Tx, d Dimension, ids []int
 // CheckLink reports whether p may link to target record id (CD-12): missing
 // is ErrNotFound; not readable is a *LinkError.
 func (a *Auth) CheckLink(ctx context.Context, p Principal, target string, id int64) error {
-	var info doctype.Info
-	if err := a.db.Read(ctx, func(tx *db.Tx) error {
-		var err error
-		info, err = a.info.Info(ctx, tx, target, id)
-		return err
-	}); err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return ErrNotFound
-		}
+	return a.db.Read(ctx, func(tx *db.Tx) error { return a.CheckLinkTx(ctx, tx, p, target, id) })
+}
+
+// CheckLinkTx is CheckLink inside the caller's transaction (CD-213).
+func (a *Auth) CheckLinkTx(ctx context.Context, tx *db.Tx, p Principal, target string, id int64) error {
+	info, err := a.info.Info(ctx, tx, target, id)
+	if errors.Is(err, ErrNotFound) {
+		return ErrNotFound
+	}
+	if err != nil {
 		return err
 	}
 	ref := RecordRef{
 		DocType: target, ID: id, CreatedBy: info.CreatedBy, EmployeeID: info.EmployeeID,
 		ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
 	}
-	err := a.Can(ctx, p, target, RightRead, &ref)
+	err = a.CanTx(ctx, tx, p, target, RightRead, &ref)
 	switch {
 	case err == nil:
 		return nil

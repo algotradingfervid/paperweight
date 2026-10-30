@@ -383,9 +383,9 @@ type matrixCache struct {
 }
 
 // grant returns the widest scope any of roles holds for r on doctype ("" =
-// none). The matrix is cached by perm_version, read once per call.
-func (a *Auth) grant(ctx context.Context, roles []string, doctypeName string, r Right) (Scope, error) {
-	m, err := a.loadMatrix(ctx)
+// none), read in tx. The matrix is cached by perm_version, read once per call.
+func (a *Auth) grant(ctx context.Context, tx *db.Tx, roles []string, doctypeName string, r Right) (Scope, error) {
+	m, err := a.loadMatrix(ctx, tx)
 	if err != nil {
 		return "", err
 	}
@@ -396,40 +396,42 @@ func (a *Auth) grant(ctx context.Context, roles []string, doctypeName string, r 
 	return s, nil
 }
 
-func (a *Auth) loadMatrix(ctx context.Context) (matrix, error) {
+func (a *Auth) loadMatrix(ctx context.Context, tx *db.Tx) (matrix, error) {
+	q := dbq.New(tx.SQL())
+	v, err := q.GetPermVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	a.cache.mu.Lock()
 	var m matrix
-	err := a.db.Read(ctx, func(tx *db.Tx) error {
-		q := dbq.New(tx.SQL())
-		v, err := q.GetPermVersion(ctx)
-		if err != nil {
-			return err
+	if a.cache.m != nil && a.cache.version == v {
+		m = a.cache.m
+	}
+	a.cache.mu.Unlock()
+	if m != nil {
+		return m, nil
+	}
+	rows, err := q.ListAllRoleRights(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m = matrix{}
+	for _, row := range rows {
+		if m[row.Role] == nil {
+			m[row.Role] = map[string]map[Right]Scope{}
 		}
-		a.cache.mu.Lock()
-		if a.cache.m != nil && a.cache.version == v {
-			m = a.cache.m
+		if m[row.Role][row.Doctype] == nil {
+			m[row.Role][row.Doctype] = map[Right]Scope{}
 		}
-		a.cache.mu.Unlock()
-		if m != nil {
-			return nil
-		}
-		rows, err := q.ListAllRoleRights(ctx)
-		if err != nil {
-			return err
-		}
-		m = matrix{}
-		for _, row := range rows {
-			if m[row.Role] == nil {
-				m[row.Role] = map[string]map[Right]Scope{}
-			}
-			if m[row.Role][row.Doctype] == nil {
-				m[row.Role][row.Doctype] = map[Right]Scope{}
-			}
-			m[row.Role][row.Doctype][Right(row.RightName)] = Scope(row.Scope)
-		}
+		m[row.Role][row.Doctype][Right(row.RightName)] = Scope(row.Scope)
+	}
+	// A writable tx may hold a perm_version bump that rolls back; the next
+	// committed change reuses that number, so an entry stored here would
+	// answer for it with the wrong grants.
+	if !tx.Writable() {
 		a.cache.mu.Lock()
 		a.cache.version, a.cache.m = v, m
 		a.cache.mu.Unlock()
-		return nil
-	})
-	return m, err
+	}
+	return m, nil
 }

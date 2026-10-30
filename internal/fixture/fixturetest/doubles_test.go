@@ -201,6 +201,15 @@ func TestAuth_HideAndRestrict(t *testing.T) {
 	if !reflect.DeepEqual(probe.Calls, want) {
 		t.Errorf("probe.Calls = %q, want %q", probe.Calls, want)
 	}
+
+	a.Remember(priya)
+	for role, want := range map[string]bool{"Employee": true, "Administrator": false} {
+		has, err := a.HasRole(ctx, priya.ID, role)
+		hasTx, errTx := a.HasRoleTx(ctx, nil, priya.ID, role)
+		if has != want || hasTx != want || err != nil || errTx != nil {
+			t.Errorf("HasRole(priya, %s) = (%v, %v), HasRoleTx = (%v, %v), want both (%v, nil)", role, has, err, hasTx, errTx, want)
+		}
+	}
 }
 
 // CD-174: the double allows everything, so no principal is restricted.

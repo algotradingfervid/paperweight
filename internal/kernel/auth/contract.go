@@ -76,11 +76,16 @@ var (
 
 type Service interface {
 	Can(ctx context.Context, p Principal, doctype string, r Right, rec *RecordRef) error
+	CanTx(ctx context.Context, tx *db.Tx, p Principal, doctype string, r Right, rec *RecordRef) error // Can in the caller's tx (CD-213)
 	Scope(ctx context.Context, p Principal, doctype string, r Right) (Predicate, error)
-	CheckValues(ctx context.Context, p Principal, doctype string, values map[string][]int64) error // proposed link ids vs restrictions (CD-12)
-	CheckLink(ctx context.Context, p Principal, target string, id int64) error                     // linked record visible?
+	CheckValues(ctx context.Context, p Principal, doctype string, values map[string][]int64) error              // proposed link ids vs restrictions (CD-12)
+	CheckValuesTx(ctx context.Context, tx *db.Tx, p Principal, doctype string, values map[string][]int64) error // CheckValues in the caller's tx (CD-213)
+	CheckLink(ctx context.Context, p Principal, target string, id int64) error                                  // linked record visible?
+	CheckLinkTx(ctx context.Context, tx *db.Tx, p Principal, target string, id int64) error                     // CheckLink in the caller's tx (CD-213)
 	UsersWithRight(ctx context.Context, doctype string, r Right, rec *RecordRef) ([]UserID, error)
+	UsersWithRightTx(ctx context.Context, tx *db.Tx, doctype string, r Right, rec *RecordRef) ([]UserID, error) // UsersWithRight in the caller's tx (CD-213)
 	HasRole(ctx context.Context, u UserID, role string) (bool, error)
+	HasRoleTx(ctx context.Context, tx *db.Tx, u UserID, role string) (bool, error) // HasRole in the caller's tx (CD-213)
 	User(ctx context.Context, tx *db.Tx, u UserID) (UserInfo, bool, error)
 	UserByEmail(ctx context.Context, tx *db.Tx, email string) (UserInfo, bool, error) // normalises email; unknown or blank: ok false, nil error; disabled users too (CD-199)
 	DisableUser(ctx context.Context, tx *db.Tx, u UserID, reason string) error

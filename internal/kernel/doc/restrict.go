@@ -12,9 +12,9 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-// checkRestrictions calls Auth.CheckValues and Auth.CheckLink for the proposed
-// values on create and save (CD-70), before any write. AUTH's errors are
-// returned unchanged.
+// checkRestrictions calls Auth.CheckValuesTx and Auth.CheckLinkTx for the
+// proposed values on create and save (CD-70), before any write. AUTH's errors
+// are returned unchanged.
 func (e *engine) checkRestrictions(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, n *normalized) error {
 	proposed := Doc{Header: n.Header}
 	for _, l := range n.Lines {
@@ -27,7 +27,7 @@ func (e *engine) checkRestrictions(ctx context.Context, tx *db.Tx, p auth.Princi
 		}
 	}
 	if len(values) > 0 {
-		if err := e.Auth.CheckValues(ctx, p, dt.Name, values); err != nil {
+		if err := e.Auth.CheckValuesTx(ctx, tx, p, dt.Name, values); err != nil {
 			return err
 		}
 	}
@@ -42,7 +42,7 @@ func (e *engine) checkRestrictions(ctx context.Context, tx *db.Tx, p auth.Princi
 			return nil
 		}
 		checked[t] = true
-		return e.Auth.CheckLink(ctx, p, t.DocType, t.ID)
+		return e.Auth.CheckLinkTx(ctx, tx, p, t.DocType, t.ID)
 	}
 	levels := []Values{n.Header}
 	for _, l := range n.Lines {
@@ -108,8 +108,8 @@ func parentOf(ctx context.Context, tx *db.Tx, target string, id int64) (int64, b
 // restrictedRequired returns the Required errors a draft save keeps (CD-178):
 // an empty Required field in ProjectFields or SiteFields when p is restricted
 // on that dimension (Auth.Restricted, CD-174), since the draft would hide from
-// p (auth.recordAllowed). create calls it before Auth.Can, which would refuse
-// such a draft as not found; save after the pipeline's Can on the stored
+// p (auth.recordAllowed). create calls it before Auth.CanTx, which would refuse
+// such a draft as not found; save after the pipeline's CanTx on the stored
 // record. Either way the save fails and nothing is written.
 func (e *engine) restrictedRequired(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, n *normalized) ([]FieldError, error) {
 	restricted := map[auth.Dimension]bool{}

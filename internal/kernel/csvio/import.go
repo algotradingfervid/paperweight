@@ -92,7 +92,7 @@ func (im *Importer) run(ctx context.Context, p auth.Principal, dt *doctype.DocTy
 	rep := Report{Rows: len(sheet.Rows), Warnings: warns, PluralLabel: dt.PluralLabel, preview: preview}
 	err = im.db.Write(ctx, func(tx *db.Tx) error {
 		denied := false
-		if err := im.auth.Can(ctx, p, dt.Name, "create", nil); errors.Is(err, auth.ErrForbidden) {
+		if err := im.auth.CanTx(ctx, tx, p, dt.Name, "create", nil); errors.Is(err, auth.ErrForbidden) {
 			denied = true
 		} else if err != nil {
 			return err

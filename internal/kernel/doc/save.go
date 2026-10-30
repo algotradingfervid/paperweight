@@ -39,7 +39,7 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	if len(requiredErrs) > 0 {
 		ref = nil
 	}
-	if err := e.Auth.Can(ctx, p, dt.Name, "create", ref); err != nil {
+	if err := e.Auth.CanTx(ctx, tx, p, dt.Name, "create", ref); err != nil {
 		return Result{}, err
 	}
 	if err := e.checkRestrictions(ctx, tx, p, dt, &n); err != nil {

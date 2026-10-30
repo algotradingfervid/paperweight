@@ -53,7 +53,7 @@ func (a *Approvals) Evaluate(ctx context.Context, tx *db.Tx, dt string, id int64
 		Requester:     requester.ID,
 	}
 	s := snapshot{doctype: dt, roles: req.ApproverRoles, manager: manager, allowSelf: matched.AllowSelfApproval, own: own}
-	users, err := a.eligible(ctx, s, in)
+	users, err := a.eligible(ctx, tx, s, in)
 	if err != nil {
 		return Requirement{}, err
 	}
@@ -85,7 +85,7 @@ func (a *Approvals) manager(ctx context.Context, tx *db.Tx, in doctype.Info, own
 	}
 	ref := recordRef(in)
 	for _, right := range []auth.Right{"approve", "read"} {
-		users, err := a.auth.UsersWithRight(ctx, in.DocType, right, ref)
+		users, err := a.auth.UsersWithRightTx(ctx, tx, in.DocType, right, ref)
 		if err != nil || !slices.Contains(users, u) {
 			return 0, err
 		}
