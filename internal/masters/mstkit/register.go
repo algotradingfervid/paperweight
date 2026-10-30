@@ -5,9 +5,18 @@ import (
 	"errors"
 	"slices"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/csvio"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
+
+// A CSV link cell reads its target as a posted link does (CD-232).
+func init() {
+	csvio.SetLinkCheck(func(ctx context.Context, tx *db.Tx, a auth.Service, p auth.Principal, target *doctype.DocType, id int64) error {
+		return Env{Auth: a}.CanLinkTargetTx(ctx, tx, p, target, id)
+	})
+}
 
 // LookupFunc adapts a function to doctype.MasterLookup.
 type LookupFunc func(ctx context.Context, tx *db.Tx, id int64) (doctype.MasterInfo, bool, error)

@@ -150,6 +150,20 @@ type Deps struct {
 	RecordURL func(doctype string, id int64) string // nil → the /doc/ path; WP3 wires masters to /m/
 	ListURL   func(doctype string) string           // nil → the /doc/ path; WP3 wires masters to /m/
 	Parse     map[string]components.ParseFunc // nil → components.NUMParsers(); WP3 adds the code kinds
+	// LinkRead reports whether p may read a posted link's target, inside tx;
+	// doctype.ErrNotFound or auth.ErrForbidden means not. nil reads nothing, so
+	// a posted link shows its raw id (CD-233).
+	LinkRead func(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) error
+
+	stored map[string]string // the record's values, see WithStored
+}
+
+// WithStored is d for a form on a record the user can see, with the record's
+// values in input form. A link still holding its stored value keeps its label
+// without a read check (CD-217, CD-228); any other value is posted.
+func (d Deps) WithStored(values map[string]string) Deps {
+	d.stored = values
+	return d
 }
 
 func (d Deps) principal(r *http.Request) auth.Principal {

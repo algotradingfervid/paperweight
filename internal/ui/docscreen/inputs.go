@@ -2,11 +2,14 @@ package docscreen
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net/url"
 	"strconv"
 
 	"github.com/a-h/templ"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -76,15 +79,28 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 	return components.TextInput(p)
 }
 
+// searchURL is what f's Picker searches; a LinkRole narrows it (CD-218).
+func searchURL(f doctype.Field) string {
+	if f.LinkRole != "" {
+		return "/pick/" + f.Link + "?role=" + url.QueryEscape(f.LinkRole)
+	}
+	return "/pick/" + f.Link
+}
+
 // linkInput is f's Picker. The chosen id is looked up when it renders, so
-// the summary shows the master's "{Code} {Name}" (CD-68).
+// the summary shows the master's "{Code} {Name}" (CD-68). A posted id shows that
+// only if d.LinkRead lets the user read it; otherwise the raw id, as for an id
+// with no record (CD-233).
 func linkInput(f doctype.Field, p components.FieldProps, d Deps) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		pp := components.PickerProps{Field: p, SearchURL: "/pick/" + f.Link, HiddenName: f.Name, ListboxID: p.ID + "-list"}
+		pp := components.PickerProps{Field: p, SearchURL: searchURL(f), HiddenName: f.Name, ListboxID: p.ID + "-list"}
 		if id, err := strconv.ParseInt(p.Value, 10, 64); err == nil {
 			row := components.PickRow{ID: id, Code: p.Value}
 			if dt, ok := doctype.Lookup(f.Link); ok && dt.Master != nil && d.DB != nil {
 				err := d.DB.Read(ctx, func(tx *db.Tx) error {
+					if show, err := d.showsLabel(ctx, tx, dt, p, id); !show {
+						return err
+					}
 					mi, found, err := dt.Master.Lookup(ctx, tx, id)
 					if found {
 						row.Code, row.Name = mi.Code, mi.Name
@@ -99,4 +115,20 @@ func linkInput(f doctype.Field, p components.FieldProps, d Deps) templ.Component
 		}
 		return components.Picker(pp).Render(ctx, w)
 	})
+}
+
+// showsLabel reports whether the link in p may show its target's label.
+func (d Deps) showsLabel(ctx context.Context, tx *db.Tx, target *doctype.DocType, p components.FieldProps, id int64) (bool, error) {
+	if d.stored[p.Name] == p.Value {
+		return true, nil
+	}
+	if d.LinkRead == nil {
+		return false, nil
+	}
+	user, _ := auth.PrincipalFrom(ctx)
+	err := d.LinkRead(ctx, tx, user, target, id)
+	if errors.Is(err, doctype.ErrNotFound) || errors.Is(err, auth.ErrForbidden) {
+		return false, nil
+	}
+	return err == nil, err
 }

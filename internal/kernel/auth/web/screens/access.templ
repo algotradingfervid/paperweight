@@ -69,7 +69,7 @@ templ Access(p AccessPage) {
 						<p>{ v.Label }</p>
 						@components.Form(components.FormProps{Action: p.Post}) {
 							@accessHidden(s.Dim, p.Version)
-							<input type="hidden" name="remove" value={ strconv.FormatInt(v.ID, 10) }/>
+							@components.Hidden("remove", strconv.FormatInt(v.ID, 10))
 							@components.Button(components.ButtonProps{Label: "Remove", AriaLabel: "Remove " + v.Label, Type: "submit", Variant: components.Secondary})
 						}
 					}
@@ -89,6 +89,6 @@ templ Access(p AccessPage) {
 
 // accessHidden is the dimension and version every access form posts.
 templ accessHidden(dim auth.Dimension, version int64) {
-	<input type="hidden" name="dimension" value={ string(dim) }/>
-	<input type="hidden" name="version" value={ strconv.FormatInt(version, 10) }/>
+	@components.Hidden("dimension", string(dim))
+	@components.Hidden("version", strconv.FormatInt(version, 10))
 }

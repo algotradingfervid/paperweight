@@ -5,13 +5,14 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-const testCountSQL = "SELECT count(*) FROM approvals"
+const testApprovedSQL = "SELECT id FROM approvals"
 
 // seed builds a data dir with app.db (three rows) and two files.
 func seed(t *testing.T, dir string) {
@@ -64,9 +65,14 @@ func pair(t *testing.T) (source, restored string) {
 	return source, restored
 }
 
+// run verifies with acknowledgements for ids 1 to committed.
 func run(source, restored string, committed int) (string, error) {
+	var acked []int64
+	for id := 1; id <= committed; id++ {
+		acked = append(acked, int64(id))
+	}
 	var out bytes.Buffer
-	err := verify(context.Background(), &out, source, restored, committed, testCountSQL)
+	err := verify(context.Background(), &out, source, restored, acked, testApprovedSQL)
 	return out.String(), err
 }
 
@@ -107,7 +113,7 @@ func TestVerify_Refuses(t *testing.T) {
 		want      string
 	}{
 		{"count short of committed", 4, nil, "approvals 3/4"},
-		{"count above committed", 2, nil, "approvals 3/2"},
+		{"two more than acknowledged", 1, nil, "approvals 1/1: 2 more"},
 		{"row lost", 3, func(t *testing.T, _, restored string) {
 			exec(t, restored, "DELETE FROM approvals WHERE id = 3")
 		}, "database checksum differs"},
@@ -144,6 +150,80 @@ func TestVerify_Refuses(t *testing.T) {
 			}
 			if _, err := run(source, restored, c.committed); err == nil || !strings.Contains(err.Error(), c.want) {
 				t.Fatalf("verify error = %v, want it to mention %q", err, c.want)
+			}
+		})
+	}
+}
+
+// A kill between a commit and its print leaves one approval nobody heard of.
+func TestVerify_OneUnacknowledgedApprovalInBothDatabases(t *testing.T) {
+	source, restored := pair(t)
+	out, err := run(source, restored, 2)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !strings.HasSuffix(out, "1 more approval committed but not printed, also in the source\napprovals 2/2\n") {
+		t.Fatalf("output = %q", out)
+	}
+}
+
+func TestCheckApprovals(t *testing.T) {
+	cases := []struct {
+		name                    string
+		acked, source, restored []int64
+		wantExtra               int
+		wantErr                 string
+	}{
+		{name: "exact", acked: []int64{1, 2}, source: []int64{1, 2}, restored: []int64{1, 2}},
+		{name: "one committed past the last print", acked: []int64{1, 2}, source: []int64{1, 2, 3}, restored: []int64{1, 2, 3}, wantExtra: 1},
+		{name: "acknowledged row lost", acked: []int64{1, 2}, source: []int64{1, 2}, restored: []int64{1}, wantErr: "approvals 1/2"},
+		{name: "same count, wrong rows", acked: []int64{1, 2}, source: []int64{1, 3}, restored: []int64{1, 3}, wantErr: "approvals 1/2"},
+		{name: "two past the last print", acked: []int64{1}, source: []int64{1, 2, 3}, restored: []int64{1, 2, 3}, wantErr: "approvals 1/1: 2 more"},
+		{name: "extra row not in the source", acked: []int64{1}, source: []int64{1}, restored: []int64{1, 9}, wantErr: "approved ids differ"},
+		{name: "unprinted commit missing from restored", acked: []int64{1}, source: []int64{1, 2}, restored: []int64{1}, wantErr: "approved ids differ"},
+		{name: "same ids in another order", acked: []int64{1, 2}, source: []int64{2, 1}, restored: []int64{1, 2}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			extra, err := checkApprovals(c.acked, c.source, c.restored)
+			if c.wantErr == "" {
+				if err != nil || extra != c.wantExtra {
+					t.Fatalf("checkApprovals = %d, %v; want %d, nil", extra, err, c.wantExtra)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+				t.Fatalf("checkApprovals error = %v, want it to mention %q", err, c.wantErr)
+			}
+		})
+	}
+}
+
+func TestReadAcks(t *testing.T) {
+	cases := []struct {
+		name, body string
+		want       []int64
+		wantErr    string
+	}{
+		{name: "in order", body: "committed 1 7\ncommitted 2 9\n", want: []int64{7, 9}},
+		{name: "none", body: ""},
+		{name: "other text", body: "committed 1 7\ninflight\n", wantErr: "inflight"},
+		{name: "gap in the sequence", body: "committed 1 7\ncommitted 3 9\n", wantErr: "committed 3 9"},
+		{name: "same document twice", body: "committed 1 7\ncommitted 2 7\n", wantErr: "committed 2 7"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "acks")
+			writeFile(t, path, c.body)
+			got, err := readAcks(path)
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("readAcks error = %v, want it to mention %q", err, c.wantErr)
+				}
+				return
+			}
+			if err != nil || !slices.Equal(got, c.want) {
+				t.Fatalf("readAcks = %v, %v; want %v", got, err, c.want)
 			}
 		})
 	}

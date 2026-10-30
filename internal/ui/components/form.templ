@@ -5,10 +5,11 @@ import "github.com/vardhan/internaltools/internal/ui"
 // FormProps describes a form. Method is "post" unless set to "get".
 // DisabledElt is a POST form's hx-disabled-elt (default its first submit,
 // "find button[type=submit]"); a form with buttons outside it posting it
-// through form="…" names them all.
+// through form="…" names them all. CSRF replaces the shell's token on a POST,
+// for a page rendered before sign-in, when the shell has none.
 type FormProps struct {
-	ID, Action, Method, Target, Swap, Trigger, DisabledElt string
-	HX, Multipart                                          bool
+	ID, Action, Method, Target, Swap, Trigger, DisabledElt, CSRF string
+	HX, Multipart                                                bool
 }
 
 func orDefault(s, def string) string {
@@ -64,8 +65,13 @@ templ Form(p FormProps) {
 				}
 			}
 		>
-			<input type="hidden" name="csrf_token" value={ ui.ShellFrom(ctx).CSRF }/>
+			<input type="hidden" name="csrf_token" value={ orDefault(p.CSRF, ui.ShellFrom(ctx).CSRF) }/>
 			{ children... }
 		</form>
 	}
+}
+
+// Hidden is a value a form posts unchanged.
+templ Hidden(name, value string) {
+	<input type="hidden" name={ name } value={ value }/>
 }

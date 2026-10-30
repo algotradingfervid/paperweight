@@ -343,3 +343,35 @@ func TestTextInputs_Variants(t *testing.T) {
 		t.Errorf("pincode inputmode = %q", got)
 	}
 }
+
+func TestForm_CSRFOverridesShell(t *testing.T) {
+	ctx := ui.WithShell(context.Background(), ui.Shell{CSRF: "shell-tok"})
+	token := func(p components.FormProps) string {
+		t.Helper()
+		var b strings.Builder
+		if err := components.Form(p).Render(ctx, &b); err != nil {
+			t.Fatal(err)
+		}
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(b.String()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return doc.Find(`form input[name="csrf_token"]`).AttrOr("value", "")
+	}
+	if got := token(components.FormProps{Action: "/x"}); got != "shell-tok" {
+		t.Errorf("no CSRF prop: token %q, want the shell's", got)
+	}
+	if got := token(components.FormProps{Action: "/x", CSRF: "page-tok"}); got != "page-tok" {
+		t.Errorf("CSRF prop set: token %q, want the prop's", got)
+	}
+}
+
+func TestHidden_NameAndValue(t *testing.T) {
+	in := uitest.Render(t, components.Hidden("version", `3"`)).Find(`input[type="hidden"]`)
+	if in.Length() != 1 {
+		t.Fatalf("want one hidden input, got %d", in.Length())
+	}
+	if n, v := in.AttrOr("name", ""), in.AttrOr("value", ""); n != "version" || v != `3"` {
+		t.Errorf("name %q value %q", n, v)
+	}
+}

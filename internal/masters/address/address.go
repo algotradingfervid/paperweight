@@ -38,6 +38,9 @@ const (
 	msgType     = "Tick Billing, Shipping or both."
 	msgOverseas = "Addresses outside India must have GST category Overseas."
 	msgMoved    = "The owner of an address can't be changed."
+	// CD-170.
+	msgPartyNotFound  = "Party not found. Pick one from the list."
+	msgBranchNotFound = "Branch not found. Pick one from the list."
 	// CD-177 (1) and (3).
 	msgKeepPrimaryBilling = "This is the party's primary billing address. Make another billing address primary first."
 	msgEnableFirst        = "Enable this address before making it primary."
@@ -60,7 +63,7 @@ func init() {
 			{Name: "city", Label: "City", Column: "city", Type: doctype.Text, Required: true, Importable: true, ListPriority: 5},
 			{Name: "state_code", Label: "State", Column: "state_code", Type: doctype.Text, Importable: true},
 			{Name: "country", Label: "Country", Column: "country", Type: doctype.Text, Importable: true},
-			{Name: "pincode", Label: "Pincode", Column: "pincode", Type: doctype.Text, Importable: true, MaxLen: 6},
+			{Name: "pincode", Label: "Pincode", Column: "pincode", Type: doctype.Text, Importable: true},
 			{Name: "gstin", Label: "GSTIN", Column: "gstin", Type: doctype.Text, Importable: true, MaxLen: 15},
 			{Name: "is_billing", Label: "Billing", Column: "is_billing", Type: doctype.Check, Importable: true},
 			{Name: "is_shipping", Label: "Shipping", Column: "is_shipping", Type: doctype.Check, Importable: true},
@@ -148,6 +151,7 @@ func Validate(in Input) (Input, error) {
 	} else {
 		in.StateCode = ""
 		in.Pincode = strings.TrimSpace(in.Pincode)
+		es.CheckLen("pincode", "Pincode", in.Pincode)
 	}
 	if !in.IsBilling && !in.IsShipping {
 		es.Add("is_billing", msgType)
@@ -209,6 +213,9 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	}
 	billingOthers, shippingOthers, err := s.primaries(ctx, tx, &in, 0, false)
 	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	if err := s.checkOwnerReadable(ctx, tx, p, in.PartyID, in.BranchID); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.checkOwner(ctx, tx, p, in, true); err != nil {
@@ -628,6 +635,22 @@ func (s *Service) clearPrimaries(ctx context.Context, tx *db.Tx, p auth.Principa
 	return nil
 }
 
+// checkOwnerReadable refuses an owner p can't read as not found (CD-227). The
+// owner never changes after create, so only a create checks it (CD-216(1)).
+func (s *Service) checkOwnerReadable(ctx context.Context, tx *db.Tx, p auth.Principal, partyID, branchID int64) error {
+	k, id, field, msg := party.Kind, partyID, "party_id", msgPartyNotFound
+	if branchID != 0 {
+		k, id, field, msg = company.Kind, branchID, "branch_id", msgBranchNotFound
+	}
+	err := s.env.CanLinkTx(ctx, tx, p, k, id)
+	if errors.Is(err, doctype.ErrNotFound) {
+		var es mstkit.Errors
+		es.Add(field, msg)
+		return es.Err()
+	}
+	return err
+}
+
 // checkOwner checks the owner link (CD-170; a disabled owner only when
 // creating, since the owner never changes), for a branch its state (MST-029)
 // and, for a party, the GST rules that need the party (M5): Overseas outside
@@ -641,7 +664,7 @@ func (s *Service) checkOwner(ctx context.Context, tx *db.Tx, p auth.Principal, i
 		b, err := s.company.Get(ctx, tx, in.BranchID)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
-			es.Add("branch_id", "Branch not found. Pick one from the list.")
+			es.Add("branch_id", msgBranchNotFound)
 		case err != nil:
 			return err
 		case create && b.Disabled:
@@ -654,7 +677,7 @@ func (s *Service) checkOwner(ctx context.Context, tx *db.Tx, p auth.Principal, i
 	pt, err := s.parties.Get(ctx, tx, in.PartyID)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("party_id", "Party not found. Pick one from the list.")
+		es.Add("party_id", msgPartyNotFound)
 		return es.Err()
 	case err != nil:
 		return err

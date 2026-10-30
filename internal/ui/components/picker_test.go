@@ -159,6 +159,86 @@ func TestPicker_NoVisibleClearWithoutChoice(t *testing.T) {
 	}
 }
 
+// wantLabelledInput checks that the label names the search input and that the
+// input's description holds the error.
+func wantLabelledInput(t *testing.T, doc *goquery.Document) {
+	t.Helper()
+	in := doc.Find(`input[role="combobox"]`)
+	id, _ := in.Attr("id")
+	if forID, _ := doc.Find("label").Attr("for"); id == "" || forID != id {
+		t.Errorf("label for = %q, input id = %q", forID, id)
+	}
+	described := false
+	for ref := range strings.FieldsSeq(in.AttrOr("aria-describedby", "")) {
+		if strings.Contains(doc.Find("#"+ref).Text(), "Item ITEM-1 is disabled.") {
+			described = true
+		}
+	}
+	if !described {
+		t.Errorf("aria-describedby = %q does not reach the message", in.AttrOr("aria-describedby", ""))
+	}
+}
+
+// ErrorSummary links to #Field.ID. With a row chosen the search input is
+// hidden, so the link must land on something visible that can take focus.
+func TestPicker_ErrorLinkTargetWhileChosen(t *testing.T) {
+	p := pickerProps()
+	p.Field.Error = "Item ITEM-1 is disabled."
+	p.Chosen = &components.PickRow{ID: 7, Code: "ITEM-1", Name: "Item one"}
+	doc := uitest.Render(t, components.Picker(p))
+
+	target := doc.Find("#f-item_id")
+	if target.Length() != 1 {
+		t.Fatalf("%d elements have the field's id, want 1", target.Length())
+	}
+	if target.Closest("[hidden]").Length() != 0 {
+		t.Error("the link target is hidden")
+	}
+	if !target.Is(`[tabindex], a[href], button, select, textarea, input:not([type="hidden"])`) {
+		t.Errorf("the link target can't take focus: %s", goquery.NodeName(target))
+	}
+	wantLabelledInput(t, doc)
+	// Landing on the target says what is wrong, as landing on an input does.
+	if got := doc.Find("#" + target.AttrOr("aria-describedby", "none")).Text(); !strings.Contains(got, "Item ITEM-1 is disabled.") {
+		t.Errorf("the link target's aria-describedby = %q does not reach the message", target.AttrOr("aria-describedby", ""))
+	}
+	if got, _ := target.Attr("aria-invalid"); got != "true" {
+		t.Errorf("aria-invalid = %q, want true", got)
+	}
+
+	p.Field.Error = ""
+	if _, invalid := uitest.Render(t, components.Picker(p)).Find("#f-item_id").Attr("aria-invalid"); invalid {
+		t.Error("no error: the picker is marked invalid")
+	}
+}
+
+func TestPicker_ErrorLinkTargetWithoutChoice(t *testing.T) {
+	p := pickerProps()
+	p.Field.Error = "Item ITEM-1 is disabled."
+	doc := uitest.Render(t, components.Picker(p))
+
+	if doc.Find(`input[role="combobox"]#f-item_id`).Length() != 1 {
+		t.Error("nothing chosen: the field's id is not on the search input")
+	}
+	if doc.Find("#f-item_id").Closest("[hidden]").Length() != 0 {
+		t.Error("nothing chosen: the link target is hidden")
+	}
+	wantLabelledInput(t, doc)
+}
+
+func TestPicker_SelectKeepsTheFieldID(t *testing.T) {
+	p := pickerProps()
+	p.Options = []components.Option{{Value: "7", Label: "Item one"}}
+	p.Chosen = &components.PickRow{ID: 7, Code: "ITEM-1", Name: "Item one"}
+	doc := uitest.Render(t, components.Picker(p))
+	if doc.Find("select#f-item_id").Length() != 1 {
+		t.Error("the Select does not carry the field's id")
+	}
+	if forID, _ := doc.Find("label").Attr("for"); forID != "f-item_id" {
+		t.Errorf("label for = %q", forID)
+	}
+}
+
 func TestPickerResults_Max20AndEmpty(t *testing.T) {
 	var rows []components.PickRow
 	for i := range 25 {

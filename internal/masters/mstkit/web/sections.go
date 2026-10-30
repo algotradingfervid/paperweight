@@ -2,7 +2,6 @@ package mstweb
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"net/http"
 	"slices"
@@ -24,6 +23,7 @@ import (
 type sectionCard struct {
 	Title  string
 	Pairs  []components.Pair
+	Rows   [][]components.Pair // a wizard row step's, one summary each
 	Change *components.Link
 }
 
@@ -90,7 +90,7 @@ func (h *handlers[R, In]) section(r *http.Request) (docscreen.FormStep, error) {
 // sectionPage serves a section's form with the stored values, Lookups shown.
 func (h *handlers[R, In]) sectionPage(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
 	ctx := r.Context()
-	id := recordID(r)
+	id := RecordID(r)
 	s, err := h.section(r)
 	if err != nil {
 		return err
@@ -128,12 +128,12 @@ func (h *handlers[R, In]) sectionPage(w http.ResponseWriter, r *http.Request, p 
 // Update refuses it: stored values can't overwrite a newer save.
 func (h *handlers[R, In]) sectionSave(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
 	ctx := r.Context()
-	id := recordID(r)
+	id := RecordID(r)
 	s, err := h.section(r)
 	if err != nil {
 		return err
 	}
-	version, err := postedVersion(r)
+	version, err := PostedVersion(r)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (h *handlers[R, In]) sectionSave(w http.ResponseWriter, r *http.Request, p 
 	if err != nil {
 		return h.sectionRefused(w, r, id, s, rec, f, err)
 	}
-	return done(w, r, h.Copy.Saved, h.recordPath(id), saved.Warnings...)
+	return Done(w, r, h.Copy.Saved, h.recordPath(id), saved.Warnings...)
 }
 
 // rules is Validate's errors for in, none without a Validate.
@@ -185,25 +185,20 @@ func (h *handlers[R, In]) rules(in In) []doctype.FieldError {
 // their fields, the rest (a stale version, a refusal on another section's
 // field) in the banner.
 func (h *handlers[R, In]) sectionRefused(w http.ResponseWriter, r *http.Request, id int64, s docscreen.FormStep, rec R, f form, err error) error {
-	var he doctype.HTTPError
-	if !errors.As(err, &he) || he.Status() != http.StatusConflict && he.Status() != http.StatusUnprocessableEntity {
+	f, status, ok := f.Refused(err, s.Fields)
+	if !ok {
 		return err
 	}
-	errs := he.FieldErrors()
-	f.Errs = stepErrors(s, errs)
-	f.Problem = strings.Join(messages(slices.DeleteFunc(slices.Clone(errs), func(e doctype.FieldError) bool {
-		return slices.Contains(s.Fields, e.Field)
-	})), " ")
-	if len(f.Errs) == 0 && f.Problem == "" {
-		f.Problem = he.Error()
-	}
-	f.Reload = he.Status() == http.StatusConflict
-	return h.renderSection(w, r, he.Status(), id, s, rec, f)
+	return h.renderSection(w, r, status, id, s, rec, f)
 }
 
 // renderSection is the section's form on the record page's template.
 func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, status int, id int64, s docscreen.FormStep, rec R, f form) error {
 	head := h.Head(rec)
+	var err error
+	if f.Stored, err = h.formValues(rec); err != nil {
+		return err
+	}
 	v := recordView{
 		ID: id, Title: s.Label, Action: h.sectionPath(id, s), CanWrite: true, Width: layout.Form, Form: f,
 		Back: components.Link{Label: strings.TrimSpace(head.Code + " " + head.Name), Href: h.recordPath(id)},

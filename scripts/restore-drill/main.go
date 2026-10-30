@@ -1,6 +1,6 @@
-// Command restore-drill is the Go half of scripts/restore-drill.sh: it verifies
-// a restored data directory against the crashed one, and holds the temporary
-// stand-in writer (standin.go).
+// Command restore-drill is the Go half of scripts/restore-drill.sh: it kills
+// the writer (./writer) inside an open transaction and verifies a restored
+// data directory against the crashed one.
 package main
 
 import (
@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// writerLimit stops a stand-in writer the drill failed to kill.
-const writerLimit = 2 * time.Minute
+// killLimit stops the wait for a writer that never opens a transaction.
+const killLimit = time.Minute
 
 func main() {
 	if err := drill(os.Args[1:]); err != nil {
@@ -24,31 +24,34 @@ func main() {
 
 func drill(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: restore-drill verify|standin-writer [flags]")
+		return errors.New("usage: restore-drill verify|kill-inflight [flags]")
 	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	switch args[0] {
 	case "verify":
 		source := fs.String("source", "", "crashed data directory")
 		restored := fs.String("restored", "", "restored data directory")
-		committed := fs.Int("committed", 0, "approvals the writer saw committed")
-		countSQL := fs.String("count-sql", "", "query counting approved documents")
+		acks := fs.String("acks", "", "the writer's output: one line per committed approval")
+		approvedSQL := fs.String("approved-sql", "", "query listing approved document ids")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
-		return verify(context.Background(), os.Stdout, *source, *restored, *committed, *countSQL)
-	case "standin-writer":
-		data := fs.String("data", "", "data directory")
-		n := fs.Int("n", 0, "rows to commit before the in-flight transaction")
+		acked, err := readAcks(*acks)
+		if err != nil {
+			return err
+		}
+		return verify(context.Background(), os.Stdout, *source, *restored, acked, *approvedSQL)
+	case "kill-inflight":
+		acks := fs.String("acks", "", "the writer's output")
+		want := fs.Int("after", 0, "acknowledgements to wait for")
+		wal := fs.String("wal", "", "the database's WAL file")
+		pid := fs.Int("pid", 0, "process to kill")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), writerLimit)
+		ctx, cancel := context.WithTimeout(context.Background(), killLimit)
 		defer cancel()
-		if err := initDB(*data); err != nil {
-			return err
-		}
-		return standInWriter(ctx, os.Stdout, *data, *n, 10*time.Millisecond)
+		return killInflight(ctx, os.Stdout, *acks, *want, *wal, *pid)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }

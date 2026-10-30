@@ -77,6 +77,7 @@ type Field struct {
 	Name, Label, Column                                            string
 	Type                                                           FieldType
 	Link                                                           string // target DocType for Link
+	LinkRole                                                       string // CD-218: the picker's role= ("customer"); "" searches every record
 	Required, Filterable, Sortable, Searchable, Importable, OnLine bool
 	ListPriority, MaxLen                                           int
 	Options                                                        []string

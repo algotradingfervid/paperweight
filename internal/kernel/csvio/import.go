@@ -98,13 +98,14 @@ func (im *Importer) run(ctx context.Context, p auth.Principal, dt *doctype.DocTy
 			return err
 		}
 		codes := map[string]int{} // asciiUpper(code) → first row
+		memo := newLinkMemo(im.auth, p)
 		var ids []int64
 		for _, sr := range sheet.Rows {
 			var errs []RowError
 			if denied {
 				errs = append(errs, RowError{Row: sr.Num, Message: "you don't have permission to create " + dt.Label + "."})
 			}
-			row, cellErrs, err := checkRow(ctx, tx, dt, cols, sr, codes)
+			row, cellErrs, err := checkRow(ctx, tx, memo, dt, cols, sr, codes)
 			if err != nil {
 				return err
 			}
@@ -123,6 +124,9 @@ func (im *Importer) run(ctx context.Context, p auth.Principal, dt *doctype.DocTy
 				}
 				if len(fieldErrs) == 0 {
 					ids = append(ids, id)
+					if err := memo.added(ctx, tx, dt, id); err != nil {
+						return err
+					}
 				}
 			}
 			rep.Errors = append(rep.Errors, errs...)
@@ -153,7 +157,7 @@ func (im *Importer) run(ctx context.Context, p auth.Principal, dt *doctype.DocTy
 
 // checkRow checks one row's cells, required fields and code, and returns
 // the RowFunc's row map (CD-60) with links resolved to ids.
-func checkRow(ctx context.Context, tx *db.Tx, dt *doctype.DocType, cols []ColumnMap, sr SheetRow, codes map[string]int) (map[string]string, []RowError, error) {
+func checkRow(ctx context.Context, tx *db.Tx, memo *linkMemo, dt *doctype.DocType, cols []ColumnMap, sr SheetRow, codes map[string]int) (map[string]string, []RowError, error) {
 	row := map[string]string{}
 	var errs []RowError
 	for _, c := range cols {
@@ -164,7 +168,7 @@ func checkRow(ctx context.Context, tx *db.Tx, dt *doctype.DocType, cols []Column
 			continue
 		}
 		if f.Type == doctype.Link {
-			id, msg, err := resolveLink(ctx, tx, f, cell)
+			id, msg, err := resolveLink(ctx, tx, memo, f, cell)
 			if err != nil {
 				return nil, nil, err
 			}

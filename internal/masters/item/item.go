@@ -200,7 +200,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in, nil); err != nil {
+	if err := s.checkLinks(ctx, tx, p, in, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
@@ -277,7 +277,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in, kept); err != nil {
+	if err := s.checkLinks(ctx, tx, p, in, kept); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {
@@ -351,8 +351,9 @@ func (s *Service) checkLocks(ctx context.Context, tx *db.Tx, old Item, in Input)
 // default tax code exist and the tax code is enabled (MST-074, CD-94), then
 // the conversion rows' UoMs (MST-082, MST-083). A UoM with no row in kept is
 // new to the item and must be enabled (MST-093); the purchase UoM always has
-// a row. The foreign keys are only a backstop.
-func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input, kept []Conversion) error {
+// a row. A UoM or tax code p can't read doesn't exist for p (CD-227). The
+// foreign keys are only a backstop.
+func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, p auth.Principal, in Input, kept []Conversion) error {
 	var es mstkit.Errors
 	found := map[int64]uom.UoM{}
 	uoms := uom.New(s.env)
@@ -360,7 +361,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input, kept []Co
 		if u, ok := found[id]; ok {
 			return u, true, nil
 		}
-		u, err := uoms.Get(ctx, tx, id)
+		u, err := mstkit.LinkedTx(ctx, tx, s.env, p, uom.Kind, id, uoms.Get)
 		if errors.Is(err, doctype.ErrNotFound) {
 			return uom.UoM{}, false, nil
 		}
@@ -387,7 +388,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input, kept []Co
 	if !purchaseOK {
 		es.Add("purchase_uom_id", MsgPurchaseNotFound)
 	}
-	if err := taxcode.New(s.env).CheckEnabledTx(ctx, tx, in.DefaultTaxCodeID); err != nil {
+	if err := taxcode.New(s.env).CheckEnabledTx(ctx, tx, p, in.DefaultTaxCodeID); err != nil {
 		var ve *mstkit.ValidationError
 		if !errors.As(err, &ve) {
 			return err

@@ -64,7 +64,7 @@ func init() {
 			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
 			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
 			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType, Required: true, Importable: true, ListPriority: 5},
-			{Name: "customer_id", Label: "Customer", Column: "customer_id", Type: doctype.Link, Link: party.DocType, Importable: true},
+			{Name: "customer_id", Label: "Customer", Column: "customer_id", Type: doctype.Link, Link: party.DocType, LinkRole: "customer", Importable: true},
 			{Name: "start_date", Label: "Start date", Column: "start_date", Type: doctype.Date, Importable: true},
 			{Name: "end_date", Label: "End date", Column: "end_date", Type: doctype.Date, Importable: true},
 			{Name: "status", Label: "Status", Column: "status", Type: doctype.Select, Importable: true, Filterable: true, ListPriority: 3, Options: options},
@@ -198,10 +198,11 @@ func nullDate(d types.Date) sql.NullString {
 }
 
 // checkLinks refuses an unknown or disabled branch and an unknown, disabled or
-// non-customer party, reading inside tx (CD-94, CD-170, MST-103).
-func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
+// non-customer party, reading inside tx (CD-94, CD-170, MST-103). A target p
+// can't read is unknown (CD-227).
+func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, p auth.Principal, in Input) error {
 	var es mstkit.Errors
-	b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
+	b, err := mstkit.LinkedTx(ctx, tx, s.env, p, company.Kind, in.BranchID, company.New(s.env).Get)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
 		es.Add("branch_id", MsgBranchNotFound)
@@ -211,7 +212,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 		es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
 	}
 	if in.CustomerID != 0 {
-		pt, err := party.New(s.env).Get(ctx, tx, in.CustomerID)
+		pt, err := mstkit.LinkedTx(ctx, tx, s.env, p, party.Kind, in.CustomerID, party.New(s.env).Get)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
 			es.Add("customer_id", MsgCustomerNotFound)
@@ -267,7 +268,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in); err != nil {
+	if err := s.checkLinks(ctx, tx, p, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
@@ -312,7 +313,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in); err != nil {
+	if err := s.checkLinks(ctx, tx, p, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {

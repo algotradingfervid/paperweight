@@ -207,17 +207,17 @@ func (a *App) DB() *db.DB { return a.db }
 // Auth is the real AUTH service.
 func (a *App) Auth() *auth.Auth { return a.auth }
 
-// Masters is every master's service.
-func (a *App) Masters() *allmasters.Services { return a.masters }
-
-// Files is the file store.
-func (a *App) Files() *files.Store { return a.files }
-
 // Engine is the document engine.
 func (a *App) Engine() doc.Engine { return a.engine }
 
 // Approvals is the real APR service.
 func (a *App) Approvals() *approval.Approvals { return a.approvals }
+
+// Masters is every master's service.
+func (a *App) Masters() *allmasters.Services { return a.masters }
+
+// Files is the file store.
+func (a *App) Files() *files.Store { return a.files }
 
 // Run listens on cfg.Addr and serves, with the hourly jobs alongside, until
 // ctx ends; it then shuts down gracefully. The kernel packages log through
