@@ -138,6 +138,12 @@ Task 2 (composition root) also does:
 - `/healthz` reads the database. Logs are JSON to stdout (spec §7). HSTS is set.
 - Deletes the empty `TestContracts_StubsReturnNotImplemented` (CD-154).
 
+Task 5 (sweep) also does:
+- Registers `authscreens.Screens` and supplies `submit`, a one-line chromedp wrapper as in docscreen. `uibrowser.Check` (browser.go:150) refuses any screen with As != "", so it needs sign-in support first.
+- Picks a Role no sweep user depends on, because the read-notice save changes that role's rights.
+- Runs the scripts with real ui.Shell wiring; they have only run with a CSRF fill.
+- Removes the `/users` skip prefix and sweeps the other authweb GET routes.
+
 Task 6 (release) also does:
 - Adds the hourly `files/` sync timer (CD-141) to `deploy/`.
 - Sets Litestream retention explicitly; the value is the owner's recovery target.
