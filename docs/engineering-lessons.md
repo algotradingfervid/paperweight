@@ -148,6 +148,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Run `covertouched` with a profile path named after the task: the shared `.work/covertouched.out` gave one false "0 blocks" when two runs collided.
 - Don't settle an open design question in a brief: reviewers found a major in each round of P2, P5, P6 and P7b from tests that proved nothing or decisions the design contradicted. Full-repo lint before review on security paths: `--new-from-rev` misses taint in unchanged files.
 - An import test reads every column back: one that only asserted a row was imported passed with ten columns dropped. covertouched counts lines, not operands, so mapping code needs a read-back test per column.
+- When a Service method gains a Tx twin, every double that embeds a Service and overrides the plain method overrides the twin too: listtest.Auth skipped Deny until a test caught it.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).

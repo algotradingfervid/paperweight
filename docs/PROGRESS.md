@@ -252,6 +252,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | Site read-only rule; Task 22 batch 1 (rows in .worktrees/masters-screens/.work/ad-tasks.md); `make ci` green after each | — | director | | 30 Oct | — | — | — |
 | Polish | Header search, roles screens, BodyCeiling message; lane complete (rows in .worktrees/polish/.work/ad-tasks.md) | High | AD-4 | | 30 Oct | 2 | each reviewed and re-checked | wp/polish 319ad8d |
 | WP2 | 20, 21 CSV importers (rows in .worktrees/masters-import/.work/ad-tasks.md) | High | AD-3 | 30 Oct | 30 Oct | 1 | 0/3/9 | lane/masters-import fd40798 |
+| CD-213 | Step 1 CanTx and tx-aware AUTH reads | High | AD-1 | 30 Oct | 30 Oct | 1 | 0/0/5, mutation 35/37 | lane/auth-cantx 9898993 |
 | Polish | Factor, inbox why and filter, copy rights, body ceiling (rows in .worktrees/polish/.work/ad-tasks.md) | Standard | AD-4 | | 30 Oct | 1 | each reviewed | wp/polish 1c3d103 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
