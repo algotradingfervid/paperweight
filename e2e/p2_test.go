@@ -383,16 +383,24 @@ func TestE2E_ExpenseAttachmentPreview(t *testing.T) {
 }
 
 // TestE2E_ExifOrientation: FILE-035, on an image wider than tall as stored.
-// The computed style is the check: Chrome's natural size follows EXIF
-// whatever the CSS, so it can't fail (CD-248).
+// The check is on the served CSS, read through the CSSOM: from-image is CSS's
+// initial value, so neither the computed style nor any rendering (natural
+// size, painted pixels) differs without base.css's img rule (CD-251).
 func TestE2E_ExifOrientation(t *testing.T) {
 	h := Start(t)
 	d := h.SignIn(deepak, desktop)
 	attachedClaim(h, d, map[string][]byte{"r-rotated.jpg": exifPhoto(t)})
 
-	img := thumbLoaded(d, "r-rotated.jpg")
-	if got := Eval[string](d, `getComputedStyle(`+img+`).imageOrientation`); got != "from-image" {
-		t.Errorf("image-orientation = %q", got)
+	thumbLoaded(d, "r-rotated.jpg")
+	const rule = `(() => {
+		const has = rules => [...rules].some(r =>
+			(r instanceof CSSStyleRule && r.selectorText.split(",").some(s => s.trim() === "img") &&
+				r.style.imageOrientation === "from-image") ||
+			(r.cssRules !== undefined && has(r.cssRules)));
+		return [...document.styleSheets].some(s => has(s.cssRules));
+	})()`
+	if !Eval[bool](d, rule) {
+		t.Error("the served CSS has no img { image-orientation: from-image } rule")
 	}
 }
 
