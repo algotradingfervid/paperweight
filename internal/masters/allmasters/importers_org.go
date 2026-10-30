@@ -78,9 +78,5 @@ func (s *Services) importEmployee(ctx context.Context, tx *db.Tx, p auth.Princip
 		Joining: joining, Birth: birth, Relieving: relieving,
 		Status: employee.Status(cellSelect(employee.DocType, "status", row["status"])),
 	})
-	if err != nil {
-		fields, err := fieldErrors(err)
-		return 0, fields, err
-	}
-	return saved.ID, nil, nil
+	return savedRow(saved, err)
 }

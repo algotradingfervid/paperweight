@@ -7,7 +7,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
-	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/masters/party"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
@@ -29,13 +28,10 @@ func (s *Services) importParty(ctx context.Context, tx *db.Tx, p auth.Principal,
 	saved, err := s.Party.CreateTx(ctx, tx, p, party.Input{
 		Code: row["code"], Name: row["name"],
 		IsVendor: cellBool(row["is_vendor"]), IsCustomer: cellBool(row["is_customer"]),
-		PAN: row["pan"], GSTCategory: gstin.Category(cellOption(row["gst_category"], gstCategories())),
+		PAN: row["pan"], GSTCategory: gstin.Category(cellSelect(party.DocType, "gst_category", row["gst_category"])),
 		DefaultPaymentTermsID: terms,
 	})
-	if err == nil {
-		err = applyDisabled(ctx, tx, p, saved, row, s.Party.SetDisabledTx)
-	}
-	return createdRow(saved, err)
+	return rowResult(ctx, tx, p, row, saved, err, s.Party.SetDisabledTx)
 }
 
 func (s *Services) importAddress(ctx context.Context, tx *db.Tx, p auth.Principal, row map[string]string) (int64, []doctype.FieldError, error) {
@@ -48,10 +44,7 @@ func (s *Services) importAddress(ctx context.Context, tx *db.Tx, p auth.Principa
 		StateCode: cellState(row["state_code"]), Country: row["country"], Pincode: row["pincode"], GSTIN: row["gstin"],
 		IsBilling: cellBool(row["is_billing"]), IsShipping: cellBool(row["is_shipping"]),
 	})
-	if err == nil {
-		err = applyDisabled(ctx, tx, p, saved, row, s.Address.SetDisabledTx)
-	}
-	return createdRow(saved, err)
+	return rowResult(ctx, tx, p, row, saved, err, s.Address.SetDisabledTx)
 }
 
 func (s *Services) importContact(ctx context.Context, tx *db.Tx, p auth.Principal, row map[string]string) (int64, []doctype.FieldError, error) {
@@ -70,7 +63,7 @@ func (s *Services) importContact(ctx context.Context, tx *db.Tx, p auth.Principa
 		in.Phones = []address.PhoneInput{{Number: row["mobile"], Mobile: true, Primary: true}}
 	}
 	saved, err := s.Address.CreateContactTx(ctx, tx, p, in)
-	id, errs, err := createdRow(saved, err)
+	id, errs, err := savedRow(saved, err)
 	for i := range errs {
 		// csvio finds the cell by Field for its Excel hint.
 		switch errs[i].Field {
@@ -83,29 +76,9 @@ func (s *Services) importContact(ctx context.Context, tx *db.Tx, p auth.Principa
 	return id, errs, err
 }
 
-// createdRow is a RowFunc's return for a row saved with err.
-func createdRow(saved mstkit.Saved, err error) (int64, []doctype.FieldError, error) {
-	if err != nil {
-		errs, err := fieldErrors(err)
-		return 0, errs, err
-	}
-	return saved.ID, nil, nil
-}
-
-// gstCategories is the options of Party's GST Category field.
-func gstCategories() []string {
-	dt, _ := doctype.Lookup(party.DocType) // registered by party's init
-	f, _ := dt.Field("gst_category")
-	return f.Options
-}
-
-// cellState returns the code of the state cell names by code or by name, in
-// any case. A cell naming none comes back unchanged, so the address master
-// refuses it.
+// cellState returns the code of the state cell names by name, in any case. A
+// cell naming none comes back unchanged, so the address master refuses it.
 func cellState(cell string) string {
-	if st, ok := gstin.StateByCode(cell); ok {
-		return st.Code
-	}
 	if st, ok := gstin.StateByName(cell); ok {
 		return st.Code
 	}

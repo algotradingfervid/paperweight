@@ -13,6 +13,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/csvio"
+	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/allmasters"
 	"github.com/vardhan/internaltools/internal/masters/company"
 	"github.com/vardhan/internaltools/internal/masters/employee"
@@ -602,20 +603,22 @@ func TestImport_LinksResolved(t *testing.T) {
 	}
 }
 
-// sampleOrder is testdata/masters in dependency order. Task 20's merge adds
-// parties.csv and its neighbours at the front and drops othersCustomer below.
+// sampleOrder is testdata/masters in dependency order.
 var sampleOrder = []string{
-	"uoms.csv", "tax_codes.csv", "items.csv", "expense_types.csv", "projects.csv", "sites.csv", "employees.csv",
+	"parties.csv", "addresses.csv", "contacts.csv", "uoms.csv", "tax_codes.csv", "items.csv", "expense_types.csv",
+	"projects.csv", "sites.csv", "employees.csv",
 }
 
 func TestImport_SampleFilesLoadAll(t *testing.T) {
 	env, svc := othersFresh(t)
-	othersCustomer(t, env, svc, "CUST-SAMPLE")
 
 	want := map[string]struct {
 		docType string
 		rows    int
 	}{
+		"parties.csv":       {party.DocType, 4},
+		"addresses.csv":     {address.DocType, 5},
+		"contacts.csv":      {address.ContactDocType, 4},
 		"uoms.csv":          {uom.DocType, 5},
 		"tax_codes.csv":     {taxcode.DocType, 6},
 		"items.csv":         {item.DocType, 7},

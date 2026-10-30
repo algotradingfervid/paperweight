@@ -3,13 +3,11 @@ package allmasters
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/expensetype"
 	"github.com/vardhan/internaltools/internal/masters/item"
-	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/masters/taxcode"
 	"github.com/vardhan/internaltools/internal/masters/uom"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -24,42 +22,6 @@ func catalogueImporters() map[string]rowFunc {
 		item.DocType:        (*Services).importItem,
 		expensetype.DocType: (*Services).importExpenseType,
 	}
-}
-
-// cellSelect reads a Select cell against the Options of docType's field; see
-// cellOption.
-func cellSelect(docType, field, cell string) string {
-	dt, _ := doctype.Lookup(docType)
-	f, _ := dt.Field(field)
-	return cellOption(cell, f.Options)
-}
-
-// cellValue reads a cell with csvio's parser for its type, "" being the zero
-// value. csvio has already refused a cell that doesn't parse.
-func cellValue[T any](cell string, parse func(string) (T, error)) (T, error) {
-	var zero T
-	if cell == "" {
-		return zero, nil
-	}
-	v, err := parse(cell)
-	if err != nil {
-		return zero, fmt.Errorf("allmasters: cell %q: %w", cell, err)
-	}
-	return v, nil
-}
-
-// rowResult ends a RowFunc on the master's create: it applies the Disabled cell
-// to the saved row and returns the id, or the row's field errors.
-func rowResult(ctx context.Context, tx *db.Tx, p auth.Principal, row map[string]string, saved mstkit.Saved, err error,
-	set func(context.Context, *db.Tx, auth.Principal, int64, int, bool) error) (int64, []doctype.FieldError, error) {
-	if err == nil {
-		err = applyDisabled(ctx, tx, p, saved, row, set)
-	}
-	if err != nil {
-		fields, err := fieldErrors(err)
-		return 0, fields, err
-	}
-	return saved.ID, nil, nil
 }
 
 func (s *Services) importUoM(ctx context.Context, tx *db.Tx, p auth.Principal, row map[string]string) (int64, []doctype.FieldError, error) {
