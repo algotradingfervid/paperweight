@@ -1,0 +1,5 @@
+Code,Name,Vendor,Customer,PAN,GST Category,Payment Terms,Disabled
+VEND-STEEL,Sample Steel Traders,Yes,No,AABCS1429B,Registered Regular,,No
+VEND-LOCAL,Sample Hardware Store,Yes,No,,Unregistered,,No
+VEND-OVERSEAS,Sample Overseas Supplies,Yes,No,,Overseas,,No
+CUST-SAMPLE,Sample Metro Corporation,No,Yes,AAACT2727Q,Registered Regular,,No

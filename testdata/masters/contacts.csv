@@ -1,0 +1,5 @@
+Party,First Name,Middle Name,Last Name,Email,Mobile,Primary
+VEND-STEEL,Sunil,,Mehta,accounts@shreesteel.test,98200 12345,Yes
+VEND-STEEL,Kiran,,Joshi,,,No
+VEND-LOCAL,Ganesh,,Patil,,09820012346,Yes
+CUST-SAMPLE,Anita,R,Rao,anita.rao@metrocorp.test,+919876543210,Yes
