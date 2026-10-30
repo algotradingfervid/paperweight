@@ -1,6 +1,9 @@
 -- name: GetSession :one
 SELECT data, created_at, last_seen_at FROM sessions WHERE token_hash = ?;
 
+-- name: SessionLastSeen :one
+SELECT last_seen_at FROM sessions WHERE token_hash = ?;
+
 -- name: InsertSession :exec
 INSERT INTO sessions (token_hash, user_id, data, created_at, last_seen_at, ip, user_agent)
 VALUES (?, ?, ?, ?, ?, ?, ?);
@@ -8,6 +11,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 -- name: UpdateSession :exec
 UPDATE sessions SET data = ?, user_id = ?, last_seen_at = ?, ip = ?, user_agent = ?
 WHERE token_hash = ?;
+
+-- name: TouchSession :exec
+UPDATE sessions SET last_seen_at = sqlc.arg(now), ip = sqlc.arg(ip), user_agent = sqlc.arg(user_agent)
+WHERE token_hash = sqlc.arg(token_hash) AND last_seen_at < sqlc.arg(cutoff);
 
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE token_hash = ?;

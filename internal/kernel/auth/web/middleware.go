@@ -3,6 +3,7 @@ package authweb
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -33,7 +34,8 @@ func (s *Server) Middleware(next http.Handler) http.Handler {
 
 // loadPrincipal stores the session user's Principal and UserState in the
 // context. A missing or disabled user destroys the session; that, or a
-// presented cookie whose session was not found, marks the request expired.
+// presented cookie whose session was not found, marks the request expired. A
+// presented session that is still live is touched (CD-223).
 func (s *Server) loadPrincipal(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -57,6 +59,12 @@ func (s *Server) loadPrincipal(next http.Handler) http.Handler {
 			default:
 				ctx = auth.WithPrincipal(ctx, p)
 				ctx = context.WithValue(ctx, userStateKey{}, st)
+			}
+		}
+		if presented && !expired {
+			// A missed touch must not fail a read-only page.
+			if err := s.st.Touch(ctx, auth.PresentedHash(ctx)); err != nil {
+				slog.WarnContext(ctx, "session touch failed", "path", r.URL.Path, "err", err)
 			}
 		}
 		// A session with values gets its token now, before anything can start
