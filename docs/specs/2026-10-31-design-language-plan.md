@@ -187,10 +187,12 @@ Policy on failure:
 
 | Failure | Behaviour | Message (exact form) |
 |---|---|---|
-| `accent` fails a contrast pair | Darkened automatically. Startup logs a warning; `app brand check` prints it | `brand: accent #00897B fails "white text on accent" (4.32:1, needs 4.5:1); using #007A6E (5.24:1). Set "accent" to #007A6E to silence this.` |
-| `accent` fails and `"strict": true` | Refuses to start | same text, ending `Refusing to start because "strict" is true.` |
+| `accent` fails a contrast pair, no choice recorded | **Refuses to start** and points to the preview (owner, CD-244: the company decides, nothing is changed silently) | `brand: accent #00897B fails "white text on accent" (4.32:1, needs 4.5:1). Run "app brand preview" to compare it with the readable shade #007A6E, then either set "accent" to #007A6E or set "accept_low_contrast": true to keep #00897B.` |
+| `accent` fails and `"accept_low_contrast": true` | Starts with the colour as given; logs a warning naming every failing pair on each start | `brand: using accent #00897B as given ("accept_low_contrast" is true); white text on it is 4.32:1, below 4.5:1.` |
 | An override fails | Refuses to start | `brand: accent_800 #5A7BD6 on accent_50 #EEF3FF is 3.62:1, needs 4.5:1. Remove accent_800 to derive it, or pick a darker colour.` |
 | Status distance | Warning only | `brand: accent #AA5403 is close to the warning colour #985000 (distance 0.04). States stay readable because they always show an icon and a word, but consider a different accent.` |
+
+**Preview (CD-244).** `app brand preview <dir>` writes a self-contained HTML file (no server needed; open it in a browser) showing, side by side, the accent as given and the computed readable shade on the real components: header and drawer with the active item, primary and secondary buttons, a link, a status badge row, a form with a focus ring and an error, and a printed letterhead. Each pair shows its contrast number and pass or fail. `app brand check` prints the same numbers as text. The company then writes its choice into `brand.json`. Built in DL-4 with the palette code.
 
 ### 3.8 Sample themes (computed with the algorithm above; contrast is WCAG 2 relative luminance)
 
@@ -228,7 +230,7 @@ Policy on failure:
   "accent": "#8B1E3F",
   "document_accent": "#8B1E3F",
   "radius": "default",
-  "strict": false,
+  "accept_low_contrast": false,
   "app_logo": "logo.svg",
   "app_mark": "mark.svg",
   "document_logo": "letterhead.png",
@@ -701,7 +703,7 @@ Tiers per `docs/superpowers/plans/2026-10-25-execution-protocol.md` §3. UI work
 | DL-1 | Tokens v2: motion, icon sizes, radius presets, elevation names, state recipe, `--root-bg` fix (A7), Closed → neutral | `ui/css/tokens.css`, `theme.css`, `base.css`, `components/badge.css` | Light | `TestTheme_MatchesTokens` extended; contrast table rows | no (no layout change) | 1 | DL-0 |
 | DL-2 | Lint rules §7 (six new rules with fixtures) | `ui/lint_test.go`, `ui/testdata/lint/*` | Standard | each rule's bad/good fixture | no | 1.5 | DL-1 |
 | DL-3 | Icon registry: two-column `icons.txt`, typed names, gen validation, re-pin Lucide 1.65.0, `icons/custom/`, gallery icons page, DocType icon map in `internal/app` | `ui/icons/**`, `ui/gallery/*`, `internal/app/routes.go`, every `Icon(` call site | Standard | registry, gallery coverage, DocType coverage, SVG validation | no | 2.5 | DL-1 |
-| DL-4 | Palette derivation (OKLCH), contrast checks, adjust/refuse policy, status-distance warning, sample-theme table | `platform/brand/colour.go`, `brand.go` | Standard | property test (10k accents), §3.8 table, each message | no | 1.5 | DL-0 |
+| DL-4 | Palette derivation (OKLCH), contrast checks, refuse-until-chosen policy and `accept_low_contrast` (CD-244), `app brand preview` HTML, status-distance warning, sample-theme table | `platform/brand/colour.go`, `brand.go` | Standard | property test (10k accents), §3.8 table, each message | no | 1.5 | DL-0 |
 | DL-5 | Runtime brand: `--brand` flag, startup load, defaults, `app brand check`, hashed `theme.<hash>.css` and logo serving, `brand.Active` replaces `brand_gen.go` constants, `buildassets` stops appending brand CSS, print theme file, `show_name`, `app_mark`, monogram, letterhead fallback chain (CD-209) | `platform/brand/**`, `cmd/app/main.go`, `ui/cmd/buildassets/build/build.go`, `ui/layout/page.templ`, `header.templ`, `kernel/print/web/print.go`, `deploy/app.service`, `docs/operations.md` | Standard | startup with absent, valid and invalid folders; hash changes with config; served headers; fallback chain; e2e page links the theme file | no | 3 | DL-4 |
 | DL-6 | Logo validation: SVG refusal rules, PNG/JPEG decode limits, ratios, sizes | `platform/brand/logo.go` | **High** | test-writer first: hostile SVGs (script, foreignObject, external href, huge viewBox), oversize and corrupt images | no | 1.5 | DL-5 |
 | DL-7 | Motion base: `motion.css` utilities, daisyUI modal and drawer overrides (A17), reduced-motion rules, htmx swap classes, toast exit, view-transition CSS, Alpine class-form utilities | `ui/css/components/motion.css`, `dialog.css`, `toast.css`, `ui/js/toast.js`, `ui/js/app.js` | Standard | motion e2e (§7), reduced-motion e2e, gallery motion page | no | 2 | DL-1, DL-2 |
@@ -711,7 +713,7 @@ Tiers per `docs/superpowers/plans/2026-10-25-execution-protocol.md` §3. UI work
 | DL-11 | Screens: masters lists and forms (A9, A16), Roles (A13), Numbering empty state (A14), sign-in (A15) | `internal/masters/**/web`, `kernel/auth` screens, `ui/docscreen` | Light (batch of ≤5) | page tests; overflow; axe × 3 themes | **yes, one per screen family** | 3 | DL-10 |
 | DL-12 | Screens: PO, GRN, Expense, approvals, document pages (motion for row remove and next request) | `internal/modules/**/web`, `ui/docscreen` | Light, except anything touching CD-95 grid saves (High) | page tests; browser tests | **yes, one per module** | 4 | DL-11 |
 | DL-13 | Enforcement e2e: computed-colour sweep and axe × 3 themes, states gallery check, uishots `--login`/`--theme` | `internal/ui/uibrowser/*`, `scripts/uishots/shots.py`, `ui/testdata/themes/*` | Standard | the gates themselves, each with a planted failure | no | 2 | DL-5, DL-8 |
-| DL-14 (optional) | Accent suggestion from the logo: `app brand suggest <logo>` prints three candidates (dominant high-chroma colours, k-means in OKLab over opaque pixels) already run through DL-4's check; the admin copies one into `brand.json`. PNG/JPEG only (stdlib `image`); for SVG it reads explicit `fill`/`stroke` hex values | `platform/brand/suggest.go`, `cmd/app/main.go` | Light | fixtures: three logos give stable candidates | no | 1 | DL-4 |
+| DL-14 (dropped, CD-244) | Accent suggestion from the logo: `app brand suggest <logo>` prints three candidates (dominant high-chroma colours, k-means in OKLab over opaque pixels) already run through DL-4's check; the admin copies one into `brand.json`. PNG/JPEG only (stdlib `image`); for SVG it reads explicit `fill`/`stroke` hex values | `platform/brand/suggest.go`, `cmd/app/main.go` | Light | fixtures: three logos give stable candidates | no | 1 | DL-4 |
 | DL-15 | Lessons and CLAUDE.md lines (motion and icon rules that bite), PROGRESS | `docs/engineering-lessons.md` §9, `CLAUDE.md` | director | n/a | n/a | 0.5 | all |
 
 **Order and parallelism**: DL-0 → {DL-1, DL-4} in parallel → {DL-2, DL-3, DL-5} in parallel → {DL-6, DL-7} → DL-8 and DL-9 in parallel → DL-10 → DL-11 → DL-12, with DL-13 any time after DL-8, and DL-14 any time after DL-4. Lanes that touch `internal/ui/css` regenerate the hashed CSS: one CSS lane at a time, or rebase and `make generate` per lessons.
@@ -735,20 +737,20 @@ Tiers per `docs/superpowers/plans/2026-10-25-execution-protocol.md` §3. UI work
 
 ---
 
-## 9. Owner decisions (each with a recommendation)
+## 9. Owner decisions (all decided 31 Oct 2026, CD-244)
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Theme config read at startup from `<data>/brand` (restart to change), not edited in the app | **Yes.** A file is auditable, deploys with the instance, and needs no new rights or screens. An in-app theme editor is a later add-on |
-| D2 | Failing accent: adjust automatically with a warning (default), or refuse to start | **Adjust**, with `"strict": true` available for anyone who wants a hard stop |
-| D3 | Letterhead logo source | **Company logo uploaded in the app (CD-209) first**, then the deployment's `document_logo`, then `app_logo`, then the name as text |
-| D4 | Closed state moves from blue tint to neutral | **Yes**, so no company accent can make a state look like another (P3) |
-| D5 | Filled icons for the selected nav item | **No.** Selection shows through the row (tint, bar, weight). It avoids drawing about 30 filled twins |
-| D6 | Desktop sidebar collapse to icons only (spec §6) | **Drop it.** Icon-only nav needs memorisation and tooltips; the 16rem sidebar fits from 64rem |
-| D7 | List first-render stagger (30 ms per row, max 5) | **No** for v1. It is decoration on screens people open dozens of times a day |
-| D8 | Radius preset as a theme option | **Yes, three presets only**, no free values |
-| D9 | Icon set | **Stay on Lucide** (ISC, no new dependency), re-pinned to 1.65.0. Phosphor or Material Symbols only if the owner wants filled variants app-wide |
-| D10 | Optional accent-from-logo suggestion (DL-14) | **Build it last, if time allows** (1 day, stdlib only). It helps non-designers pick a passing accent |
+| D1 | Theme config read at startup from `<data>/brand` (restart to change), not edited in the app | **Accepted:** **Yes.** A file is auditable, deploys with the instance, and needs no new rights or screens. An in-app theme editor is a later add-on |
+| D2 | Failing accent | **Decided (CD-244):** a preview shows the colour as given and the computed readable shade side by side, with contrast numbers, on sample screens; the company chooses. Until a choice is in the config the app refuses to start |
+| D3 | Letterhead logo source | **Accepted:** **Company logo uploaded in the app (CD-209) first**, then the deployment's `document_logo`, then `app_logo`, then the name as text |
+| D4 | Closed state moves from blue tint to neutral | **Accepted:** **Yes**, so no company accent can make a state look like another (P3) |
+| D5 | Filled icons for the selected nav item | **Accepted:** **No.** Selection shows through the row (tint, bar, weight). It avoids drawing about 30 filled twins |
+| D6 | Desktop sidebar collapse to icons only (spec §6) | **Accepted:** **Drop it.** Icon-only nav needs memorisation and tooltips; the 16rem sidebar fits from 64rem |
+| D7 | List first-render stagger (30 ms per row, max 5) | **Accepted:** **No** for v1. It is decoration on screens people open dozens of times a day |
+| D8 | Radius preset as a theme option | **Accepted:** **Yes, three presets only**, no free values |
+| D9 | Icon set | **Accepted:** **Stay on Lucide** (ISC, no new dependency), re-pinned to 1.65.0. Phosphor or Material Symbols only if the owner wants filled variants app-wide |
+| D10 | Optional accent-from-logo suggestion (DL-14) | **Decided (CD-244): not built.** DL-14 is dropped |
 
 ---
 
