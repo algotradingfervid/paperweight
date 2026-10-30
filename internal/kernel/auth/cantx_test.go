@@ -183,8 +183,7 @@ func TestCanTx_RollbackCantPoisonMatrixCache(t *testing.T) {
 	t5WantDenied(t, "Can(write), the rolled-back grant", w.Auth.Can(ctx, p, authtest.DTOrder, auth.RightWrite, nil), auth.RightWrite, false, false, ctxNoWrite)
 }
 
-// Unconverted master paths rely on this: an Administrator's Can needs no
-// connection at all, on a record or without one.
+// An Administrator's Can needs no connection at all, on a record or without one.
 func TestCan_AdministratorInsideWriteNoSecondConn(t *testing.T) {
 	w := authtest.NewWorld(t)
 	admin := w.P(t, "admin@vardhan.test")

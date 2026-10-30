@@ -259,10 +259,9 @@ func (lw *logoWorld) forBranch(t *testing.T, ctx context.Context) (string, error
 	return got, err
 }
 
-// onePool leaves the pool one connection and returns what restores it. Real
-// auth.Can reads on a connection of its own, so a request that calls it waits
-// until requestLimit, and a call with no deadline must restore the pool first:
-// Administrator is the user that skips that read.
+// onePool leaves the pool one connection and returns what restores it. A tx
+// that asks for a second connection then waits on itself until its ctx ends,
+// so a call with no deadline must restore the pool first.
 func (lw *logoWorld) onePool() func() {
 	pool := lw.h.Env.DB.SQL()
 	pool.SetMaxOpenConns(1)

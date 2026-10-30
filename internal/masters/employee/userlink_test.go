@@ -351,7 +351,7 @@ func wantStale(t *testing.T, what string, err error) {
 }
 
 // TestEmployee_SetDisabledNoopChecksVersionAndRights: SetDisabledTx calls
-// Auth.Can and CheckVersion before its no-op short-circuit (CD-181).
+// Auth.CanTx and CheckVersion before its no-op short-circuit (CD-181).
 func TestEmployee_SetDisabledNoopChecksVersionAndRights(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t)

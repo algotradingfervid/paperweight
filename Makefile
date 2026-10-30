@@ -19,8 +19,10 @@ build:
 
 # The nestcheck tag turns on db's gate: a transaction opened on a goroutine
 # already inside one prints the stack and exits the test binary with code 2.
+# The tests on the second line nest on purpose, so they run without the gate.
 test:
 	go test -race -count=1 -tags nestcheck ./...
+	go test -race -count=1 -run 'TestCanTx_Reads|TestNoSecondConn_(NestedReadFails|IgnoresCtxStillFails)' ./internal/kernel/auth ./internal/testkit
 
 # CD-45: end-to-end tests.
 e2e:
@@ -28,6 +30,7 @@ e2e:
 
 lint:
 	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run --build-tags nestcheck ./internal/platform/db/...
 
 # WP done-check (spec section 9 rule 3). Usage: make checkids AREA=<AREA>
 checkids:

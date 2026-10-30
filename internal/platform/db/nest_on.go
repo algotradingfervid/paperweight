@@ -15,7 +15,7 @@ const NestCheck = true
 
 var (
 	nestMu sync.Mutex
-	nest   = map[string]int{} // goroutine id to open transactions
+	nest   = map[string]bool{} // goroutines inside a transaction, by id
 )
 
 // goid reads the id from the first line of the stack: "goroutine 7 [running]:".
@@ -32,10 +32,10 @@ func goid() string {
 func enterTx() func() {
 	id := goid()
 	nestMu.Lock()
-	depth := nest[id]
-	nest[id] = depth + 1
+	nested := nest[id]
+	nest[id] = true
 	nestMu.Unlock()
-	if depth > 0 {
+	if nested {
 		buf := make([]byte, 1<<16)
 		buf = buf[:runtime.Stack(buf, false)]
 		fmt.Fprintf(os.Stderr, "db: a transaction was opened inside another on this goroutine\n%s\n", buf)
