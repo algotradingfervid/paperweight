@@ -27,12 +27,13 @@ func MapHeader(dt *doctype.DocType, header []string) ([]ColumnMap, []string, err
 	var cols []ColumnMap
 	var warns []string
 	seen := map[*doctype.Field]bool{}
+	imports := dt.ImportFields() // one call: seen compares pointers into it
 	for i, cell := range header {
 		n := normaliseHeader(cell)
 		if n == "" {
 			continue
 		}
-		f := matchField(dt, n)
+		f := matchField(dt, imports, n)
 		if f == nil {
 			warns = append(warns, "Column '"+strings.TrimSpace(strings.TrimPrefix(cell, "\uFEFF"))+"' isn't a field of "+dt.Label+" and will be ignored.")
 			continue
@@ -47,18 +48,27 @@ func MapHeader(dt *doctype.DocType, header []string) ([]ColumnMap, []string, err
 		}
 		cols = append(cols, ColumnMap{Index: i, Field: f})
 	}
-	for i := range dt.Fields {
-		f := &dt.Fields[i]
-		if f.Required && f.Importable && !seen[f] {
+	for i := range imports {
+		f := &imports[i]
+		if f.Required && !seen[f] {
 			return nil, nil, &FileError{Msg: "Column '" + f.Label + "' is missing. Add it to the first row."}
 		}
 	}
 	return cols, warns, nil
 }
 
-func matchField(dt *doctype.DocType, n string) *doctype.Field {
-	for i := range dt.Fields {
-		f := &dt.Fields[i]
+// matchField finds n among the import fields, then among dt's other fields
+// (those get the "can't be imported" warning).
+func matchField(dt *doctype.DocType, imports []doctype.Field, n string) *doctype.Field {
+	if f := findField(dt, imports, n); f != nil {
+		return f
+	}
+	return findField(dt, dt.Fields, n)
+}
+
+func findField(dt *doctype.DocType, fields []doctype.Field, n string) *doctype.Field {
+	for i := range fields {
+		f := &fields[i]
 		if n == normaliseHeader(f.Label) || n == normaliseHeader(f.Name) || n == normaliseHeader(dt.Label+" "+f.Label) {
 			return f
 		}

@@ -36,6 +36,7 @@ var std = newRegistry()
 // submittable or approvable. A header field named after a convention column
 // with Column empty or equal to its Name becomes System (CD-144); any other
 // field on a convention column panics. References to other DocTypes are checked by Check.
+// ImportOnly fields are validated, then taken out of Fields; ImportFields keeps them.
 func Register(dt DocType) { std.Register(dt) }
 
 // Lookup returns the DocType registered under name.
@@ -45,27 +46,29 @@ func Lookup(name string) (*DocType, bool) { return std.Lookup(name) }
 func All() []*DocType { return std.All() }
 
 // CheckRegistry resolves every cross-DocType reference: Field.Link, RollUps,
-// Links and the rights fields. doc.NewEngine calls it. (The plan's name Check
-// is taken by the FieldType constant.)
+// Links and the rights fields, and refuses an Importable DocType with no
+// Importable field. doc.NewEngine calls it. (The plan's name Check is taken by
+// the FieldType constant.)
 func CheckRegistry() error { return std.Check() }
 
 func (r *registry) Register(dt DocType) {
 	if dt.Name == "" {
 		panic("doctype: DocType has no Name")
 	}
-	dt.Fields = slices.Clone(dt.Fields)
+	dt.Fields = dt.declaredFields()
 	for i := range dt.Fields {
 		f := &dt.Fields[i]
 		if f.Column == "" {
 			f.Column = f.Name
 		}
-		if conventionField(*f) {
+		if !f.ImportOnly && conventionField(*f) {
 			f.System = true // CD-144: the engine owns the column; never from input
 		}
 	}
 	if err := validate(&dt); err != nil {
 		panic(fmt.Sprintf("doctype: DocType %q: %v", dt.Name, err))
 	}
+	stripImportOnly(&dt)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, dup := r.byName[dt.Name]; dup {
@@ -92,6 +95,20 @@ func (r *registry) All() []*DocType {
 	return all
 }
 
+// stripImportOnly moves dt's ImportOnly fields out of Fields.
+func stripImportOnly(dt *DocType) {
+	stored := make([]Field, 0, len(dt.Fields))
+	dt.importOnly = nil
+	for i, f := range dt.Fields {
+		if f.ImportOnly {
+			dt.importOnly = append(dt.importOnly, importOnlyField{Field: f, at: i})
+		} else {
+			stored = append(stored, f)
+		}
+	}
+	dt.Fields = stored
+}
+
 // validate checks the rules that need only dt itself.
 func validate(dt *DocType) error {
 	if dt.Table != "" && !identRe.MatchString(dt.Table) {
@@ -112,6 +129,12 @@ func validate(dt *DocType) error {
 		seen[f.Name] = true
 		if err := validateField(f); err != nil {
 			return fmt.Errorf("field %q: %w", f.Name, err)
+		}
+		if f.ImportOnly {
+			if err := validateImportOnly(dt, f); err != nil {
+				return fmt.Errorf("field %q: %w", f.Name, err)
+			}
+			continue // no column, so no column rule applies
 		}
 		conv := headerConvColumns
 		if f.OnLine {
@@ -161,13 +184,35 @@ func validateField(f Field) error {
 	return nil
 }
 
+// validateImportOnly refuses what would need f to have a column.
+func validateImportOnly(dt *DocType, f Field) error {
+	switch {
+	case !f.Importable:
+		return errors.New("an ImportOnly field must be Importable")
+	case f.OnLine, f.Filterable, f.Sortable, f.Searchable, f.ListPriority != 0, f.ReadOnly, f.RollUp, f.System:
+		return errors.New("an ImportOnly field can't be OnLine, Filterable, Sortable, Searchable, ReadOnly, RollUp or System, or have a ListPriority")
+	case f.Column != f.Name:
+		return fmt.Errorf("an ImportOnly field has no column, but names Column %q", f.Column)
+	case f.Name == "code":
+		return errors.New("an ImportOnly field can't be named code: csvio reads that cell as the row's code and looks it up in the table")
+	case slices.Contains(dt.SearchFields, f.Name):
+		return errors.New("an ImportOnly field can't be in SearchFields")
+	case slices.ContainsFunc(dt.DefaultSort, func(k SortKey) bool { return k.Field == f.Name }):
+		return errors.New("an ImportOnly field can't be in DefaultSort")
+	}
+	return nil
+}
+
 func (r *registry) Check() error {
 	var errs []error
 	for _, dt := range r.All() {
 		bad := func(format string, args ...any) {
 			errs = append(errs, fmt.Errorf("doctype: DocType %q: "+format, append([]any{dt.Name}, args...)...))
 		}
-		for _, f := range dt.Fields {
+		if dt.Importable && len(dt.ImportFields()) == 0 {
+			bad("Importable, but it has no Importable field")
+		}
+		for _, f := range dt.declaredFields() {
 			if f.Type == Link {
 				if _, ok := r.Lookup(f.Link); !ok {
 					bad("field %q links to unknown DocType %q", f.Name, f.Link)

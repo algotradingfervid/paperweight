@@ -88,6 +88,11 @@ type Field struct {
 	Min, Max                            *int64
 	Default                             string // in the form value format
 	RollUp, System, EditableAfterSubmit bool
+
+	// ImportOnly marks a field that exists only in a CSV import file: it has no
+	// column, and Register keeps it out of Fields (CD-199, CD-210). Only
+	// ImportFields lists it, and the importer's RowFunc gets its cell.
+	ImportOnly bool
 }
 
 type SortKey struct {
@@ -135,6 +140,15 @@ type DocType struct {
 	DefaultRights                                                   map[string]map[string]string // role → right → scope ("own" | "team" | "all"), CD-09/10/11
 	Hooks                                                           Hooks                        // nil for masters
 	Master                                                          MasterLookup                 // non-nil only for masters (CD-21)
+
+	importOnly []importOnlyField // what Register took out of Fields
+}
+
+// importOnlyField is a field Register took out of Fields, and the place it
+// had among the declared fields.
+type importOnlyField struct {
+	Field
+	at int
 }
 
 // Register, Lookup and All live in registry.go (CD-84).

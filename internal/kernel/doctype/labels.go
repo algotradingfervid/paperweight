@@ -1,6 +1,9 @@
 package doctype
 
-import "strconv"
+import (
+	"slices"
+	"strconv"
+)
 
 var stateLabels = map[State]string{
 	StateDraft:     "Draft",
@@ -45,6 +48,28 @@ func (dt *DocType) Field(name string) (Field, bool) {
 		}
 	}
 	return Field{}, false
+}
+
+// ImportFields returns the Importable fields in declared order, ImportOnly
+// ones included. These are the columns of dt's import file.
+func (dt *DocType) ImportFields() []Field {
+	var out []Field
+	for _, f := range dt.declaredFields() {
+		if f.Importable {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// declaredFields returns Fields with the ImportOnly fields back in their
+// places, so a copy of a registered DocType keeps them.
+func (dt *DocType) declaredFields() []Field {
+	out := slices.Clone(dt.Fields)
+	for _, f := range dt.importOnly {
+		out = slices.Insert(out, min(f.at, len(out)), f.Field)
+	}
+	return out
 }
 
 // HeaderFields returns the fields that are not OnLine, in declared order.

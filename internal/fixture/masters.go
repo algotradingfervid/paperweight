@@ -37,7 +37,7 @@ func masterDocTypes() []doctype.DocType {
 		return doctype.DocType{
 			Name: name, Label: label, PluralLabel: plural, Table: table, Importable: true,
 			Fields: []doctype.Field{
-				{Name: "code", Label: "Code", Type: doctype.Text, Required: true, ListPriority: 1},
+				{Name: "code", Label: "Code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
 				{Name: "name", Label: "Name", Type: doctype.Text, Required: true, ListPriority: 4},
 			},
 			DefaultRights: map[string]map[string]string{

@@ -79,7 +79,7 @@ func docFields() []doctype.Field {
 // masterFields are the probe master columns as fields.
 func masterFields() []doctype.Field {
 	return []doctype.Field{
-		{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true},
+		{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true},
 		{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true},
 		{Name: "enabled", Label: "Enabled", Column: "enabled", Type: doctype.Check},
 	}
