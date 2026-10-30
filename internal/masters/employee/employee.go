@@ -205,7 +205,9 @@ func flag(b bool) int64 {
 // fields first (CD-170), then date of birth against today in IST (Review
 // Focus 4), self-manager (MST-113), the manager's status (MST-116), loops
 // (MST-114), the user's other active employee (MST-111) and reportees of
-// someone leaving (MST-117). old is nil on create.
+// someone leaving (MST-117). A leave skips the branch and loop checks of links
+// it keeps, so neither can hold a leaver's user enabled, and MST-116 never
+// refuses a leave (CD-204). old is nil on create.
 func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input) error {
 	var id int64
 	if old != nil {
@@ -214,15 +216,20 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 	if in.ManagerID != 0 && in.ManagerID == id {
 		return fieldErr("manager_id", msgSelfManager)
 	}
+	leaving := old != nil && old.Status == Active && in.Status == Left
+	keepsBranch := leaving && in.BranchID == old.BranchID
+	keepsManager := leaving && in.ManagerID == old.ManagerID
 	var es mstkit.Errors
-	b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
-	switch {
-	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("branch_id", msgNoBranch)
-	case err != nil:
-		return err
-	case b.Disabled:
-		es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
+	if !keepsBranch {
+		b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
+		switch {
+		case errors.Is(err, doctype.ErrNotFound):
+			es.Add("branch_id", msgNoBranch)
+		case err != nil:
+			return err
+		case b.Disabled:
+			es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
+		}
 	}
 	if in.ManagerID != 0 {
 		m, err := s.Get(ctx, tx, in.ManagerID)
@@ -238,6 +245,7 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 	var user auth.UserInfo
 	if in.UserID != 0 {
 		var ok bool
+		var err error
 		if user, ok, err = s.env.Auth.User(ctx, tx, in.UserID); err != nil {
 			return err
 		}
@@ -257,7 +265,7 @@ func (s *Service) check(ctx context.Context, tx *db.Tx, old *Employee, in Input)
 		return err
 	}
 	q := dbq.New(tx.SQL())
-	if in.ManagerID != 0 && id != 0 {
+	if in.ManagerID != 0 && id != 0 && !keepsManager {
 		if err := s.checkLoop(ctx, tx, id, in.Code, in.ManagerID); err != nil {
 			return err
 		}
