@@ -3,14 +3,17 @@ package docfake_test
 import (
 	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doc/docfake"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/platform/errs"
 )
 
 // TestParity_DocFakeReads checks that docfake's Info, Load and References
@@ -97,6 +100,124 @@ func TestParity_DocFakeReads(t *testing.T) {
 			t.Errorf("fake IsReferenced of an unreferenced row = (%v, %v), want the engine's (false, nil)", ok, err)
 		}
 	})
+}
+
+// TestParity_DocFakeProblems checks Problems, ActionInput.Only and
+// Result.Problems on the fake (CD-205). docfake reads like its other reads
+// (CD-186): it returns what SetProblems stored and computes nothing. What the
+// fake must match:
+//
+//   - a missing record is the engine's not-found error, even with problems set;
+//   - a draft returns what SetProblems stored, given the engine's output;
+//   - a stored draft with nothing set returns none, as the engine does for a
+//     clean draft, so pages over a seeded record render;
+//   - a document past draft returns none, even with problems set: the engine
+//     never reports problems past draft, so the fake can't either;
+//   - Do with Only set still returns ErrNotImplemented unless SetResult was
+//     called: the fake doesn't scope anything.
+func TestParity_DocFakeProblems(t *testing.T) {
+	h := fixturetest.New(t)
+	ctx := t.Context()
+	bad := h.NewOrderWith(t, h.Priya, map[string]string{"supplier_id": strconv.FormatInt(h.M.Party["RAJKOT"], 10)}).ID
+	clean := h.NewOrder(t, h.Priya).ID
+	approved := h.ApprovedOrder(t, fixturetest.OL{Item: "MS-ANGLE-50", Qty: "10.000", Rate: "62.5000"}).ID
+	fixture.SetDisabled(t, h.DB, "fixture_party", "RAJKOT", true)
+	const missing = 9999
+
+	var (
+		badRec, cleanRec, apRec doc.Record
+		badPr, cleanPr, apPr    []doctype.FieldError
+		missErr                 error
+	)
+	err := h.DB.Read(ctx, func(tx *db.Tx) (err error) {
+		if badRec, err = h.Engine.Load(ctx, tx, fixture.Order, bad); err != nil {
+			return err
+		}
+		if cleanRec, err = h.Engine.Load(ctx, tx, fixture.Order, clean); err != nil {
+			return err
+		}
+		if apRec, err = h.Engine.Load(ctx, tx, fixture.Order, approved); err != nil {
+			return err
+		}
+		if badPr, err = h.Engine.Problems(ctx, tx, fixture.Order, bad); err != nil {
+			return err
+		}
+		if cleanPr, err = h.Engine.Problems(ctx, tx, fixture.Order, clean); err != nil {
+			return err
+		}
+		if apPr, err = h.Engine.Problems(ctx, tx, fixture.Order, approved); err != nil {
+			return err
+		}
+		_, missErr = h.Engine.Problems(ctx, tx, fixture.Order, missing)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("engine read: %v", err)
+	}
+	if len(badPr) == 0 || len(cleanPr) != 0 || len(apPr) != 0 {
+		t.Fatalf("engine: Problems bad = %+v, clean = %+v, approved = %+v; want only the bad draft's", badPr, cleanPr, apPr)
+	}
+
+	f := docfake.New()
+	f.SetRecord(badRec)
+	f.SetRecord(cleanRec)
+	f.SetRecord(apRec)
+	f.SetProblems(fixture.Order, bad, badPr)
+	f.SetProblems(fixture.Order, approved, badPr)
+	f.SetProblems(fixture.Order, missing, badPr)
+
+	t.Run("draft with problems", func(t *testing.T) {
+		got, err := f.Problems(ctx, nil, fixture.Order, bad)
+		if err != nil || !reflect.DeepEqual(got, badPr) {
+			t.Errorf("fake Problems = (%+v, %v), want the engine's (%+v, nil)", got, err, badPr)
+		}
+		got[0].Message = "changed by the caller"
+		again, _ := f.Problems(ctx, nil, fixture.Order, bad)
+		if !reflect.DeepEqual(again, badPr) {
+			t.Errorf("fake Problems shares its slice with callers: %+v", again)
+		}
+	})
+	t.Run("clean draft", func(t *testing.T) {
+		if got, err := f.Problems(ctx, nil, fixture.Order, clean); err != nil || len(got) != 0 {
+			t.Errorf("fake Problems = (%+v, %v), want none", got, err)
+		}
+	})
+	t.Run("past draft", func(t *testing.T) {
+		if got, err := f.Problems(ctx, nil, fixture.Order, approved); err != nil || len(got) != 0 {
+			t.Errorf("fake Problems = (%+v, %v), want none, as the engine", got, err)
+		}
+	})
+	t.Run("missing", func(t *testing.T) {
+		_, err := f.Problems(ctx, nil, fixture.Order, missing)
+		sameError(t, "Problems", err, missErr)
+	})
+}
+
+// CD-186, CD-205: Do with Only refuses unless told otherwise, records Only
+// as a copy, and returns Result.Problems as a copy.
+func TestDocFake_DoWithOnly(t *testing.T) {
+	f := docfake.New()
+	only := []string{"remarks"}
+	in := doc.ActionInput{Version: 1, Only: only}
+	if _, err := f.Do(t.Context(), auth.Principal{}, fixture.Order, 1, doc.ActionSave, in); !errors.Is(err, errs.ErrNotImplemented) {
+		t.Errorf("Do with Only and no SetResult error = %v, want errs.ErrNotImplemented", err)
+	}
+	only[0] = "changed by the caller"
+	if calls := f.Calls(); len(calls) != 1 || !reflect.DeepEqual(calls[0].Input.Only, []string{"remarks"}) {
+		t.Errorf("Calls = %+v, want one with Only [remarks]", calls)
+	}
+
+	problems := []doctype.FieldError{{Field: "supplier_id", Message: "Supplier is required."}}
+	f.SetResult(fixture.Order, 1, doc.ActionSave, doc.Result{ID: 1, Problems: problems}, nil)
+	got, err := f.Do(t.Context(), auth.Principal{}, fixture.Order, 1, doc.ActionSave, in)
+	if err != nil || !reflect.DeepEqual(got.Problems, problems) {
+		t.Fatalf("Do = (%+v, %v), want the SetResult Problems", got, err)
+	}
+	got.Problems[0].Message = "changed by the caller"
+	again, _ := f.Do(t.Context(), auth.Principal{}, fixture.Order, 1, doc.ActionSave, in)
+	if again.Problems[0].Message != "Supplier is required." {
+		t.Errorf("Do shares Result.Problems with callers: %+v", again.Problems)
+	}
 }
 
 // sameError checks the fake's error matches the engine's: same text, same
