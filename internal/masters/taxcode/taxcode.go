@@ -310,14 +310,14 @@ func (s *Service) ByCode(ctx context.Context, tx *db.Tx, code string) (TaxCode, 
 	return fromRow(r), true, nil
 }
 
-// CheckEnabledTx refuses a default_tax_code_id that doesn't exist or is
-// disabled (MST-074, CD-170), reading inside tx (CD-94). 0 is none.
-func (s *Service) CheckEnabledTx(ctx context.Context, tx *db.Tx, id int64) error {
+// CheckEnabledTx refuses a default_tax_code_id that doesn't exist, p can't read
+// (CD-227) or is disabled (MST-074, CD-170), reading inside tx (CD-94). 0 is none.
+func (s *Service) CheckEnabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) error {
 	if id == 0 {
 		return nil
 	}
 	var es mstkit.Errors
-	tc, err := s.Get(ctx, tx, id)
+	tc, err := mstkit.LinkedTx(ctx, tx, s.env, p, Kind, id, s.Get)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
 		es.Add("default_tax_code_id", MsgDefaultNotFound)

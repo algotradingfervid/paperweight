@@ -195,6 +195,10 @@ func (h *handlers[R, In]) sectionRefused(w http.ResponseWriter, r *http.Request,
 // renderSection is the section's form on the record page's template.
 func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, status int, id int64, s docscreen.FormStep, rec R, f form) error {
 	head := h.Head(rec)
+	var err error
+	if f.Stored, err = h.formValues(rec); err != nil {
+		return err
+	}
 	v := recordView{
 		ID: id, Title: s.Label, Action: h.sectionPath(id, s), CanWrite: true, Width: layout.Form, Form: f,
 		Back: components.Link{Label: strings.TrimSpace(head.Code + " " + head.Name), Href: h.recordPath(id)},

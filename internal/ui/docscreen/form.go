@@ -494,6 +494,9 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		m.ReturnTo = slugCheck
 	}
 	sv := stepView{M: m, Bar: wizard.Bar{Back: i > 0}}
+	if v != nil {
+		d = d.WithStored(v.Inputs)
+	}
 	for _, name := range s.Fields {
 		f, ok := dt.Field(name)
 		if !ok {

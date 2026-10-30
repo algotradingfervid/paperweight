@@ -143,8 +143,9 @@ func (w *nsWorld) pgAuth(t *testing.T) *auth.Auth {
 	return a
 }
 
-// pgUser creates pgRole with the rights on docType and returns user id holding
-// only it. AUTH decides from a Principal's roles, as a session loads them.
+// pgUser creates pgRole with the rights on docType and read on every other
+// master, and returns user id holding only it. AUTH decides from a Principal's
+// roles, as a session loads them.
 func (w *nsWorld) pgUser(t *testing.T, id auth.UserID, docType string, rights map[auth.Right]auth.Scope) auth.Principal {
 	t.Helper()
 	if err := w.pgAuth(t).CreateRole(t.Context(), w.Admin, pgRole); err != nil {
@@ -152,6 +153,14 @@ func (w *nsWorld) pgUser(t *testing.T, id auth.UserID, docType string, rights ma
 	}
 	if err := w.pgAuth(t).SetRights(t.Context(), w.Admin, pgRole, docType, rights); err != nil {
 		t.Fatalf("SetRights: %v", err)
+	}
+	for _, m := range pgMasters() { // a saved link reads its target (CD-227)
+		if m.k.DocType == docType {
+			continue
+		}
+		if err := w.pgAuth(t).SetRights(t.Context(), w.Admin, pgRole, m.k.DocType, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
+			t.Fatalf("SetRights: %v", err)
+		}
 	}
 	return auth.Principal{ID: id, Name: "Scoped", Roles: []string{pgRole}}
 }
@@ -396,6 +405,9 @@ func TestCD223_AddressWriteBackFillsPartyWithoutPartyRights(t *testing.T) {
 	vendor := w.nsVendor(t)
 	old := w.nsAddress(t, vendor, "First")
 	p := w.pgUser(t, pgDeepak, address.DocType, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll, auth.RightWrite: auth.ScopeAll})
+	if err := w.pgAuth(t).SetRights(ctx, w.Admin, pgRole, party.DocType, map[auth.Right]auth.Scope{}); err != nil {
+		t.Fatalf("SetRights: %v", err)
+	}
 	if err := w.Kit.Auth.Can(ctx, p, party.DocType, auth.RightRead, nil); !errors.Is(err, auth.ErrForbidden) {
 		t.Fatalf("the user reads Party: %v", err)
 	}

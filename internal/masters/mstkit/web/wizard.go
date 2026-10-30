@@ -697,10 +697,18 @@ func (h *handlers[R, In]) typedDisplay(ctx context.Context, tx *db.Tx, fd doctyp
 	if fd.Type != doctype.Link {
 		return value, nil
 	}
-	if _, err := strconv.ParseInt(value, 10, 64); err != nil {
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
 		return value, nil //nolint:nilerr // the step's Next shows why; here it is only a summary
 	}
-	s, err := docscreen.Display(ctx, tx, h.Env.Engine, fd, value)
+	p, _ := auth.PrincipalFrom(ctx)
+	if target, ok := doctype.Lookup(fd.Link); ok && target.IsMaster() { // CD-233; else Display says what it can
+		err = h.Env.CanLinkTargetTx(ctx, tx, p, target, id)
+	}
+	s := value
+	if err == nil {
+		s, err = docscreen.Display(ctx, tx, h.Env.Engine, fd, value)
+	}
 	if errors.Is(err, doctype.ErrNotFound) {
 		return value, nil
 	}

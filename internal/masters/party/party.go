@@ -187,7 +187,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 			return mstkit.Saved{}, err
 		}
 	}
-	if err := s.checkTerms(ctx, tx, in.DefaultPaymentTermsID); err != nil {
+	if err := s.checkTerms(ctx, tx, p, in.DefaultPaymentTermsID); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
@@ -248,7 +248,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkTerms(ctx, tx, in.DefaultPaymentTermsID); err != nil { // CD-180 D4: after the version
+	if err := s.checkTerms(ctx, tx, p, in.DefaultPaymentTermsID); err != nil { // CD-180 D4: after the version
 		return mstkit.Saved{}, err
 	}
 	if err := s.env.CheckCodeChange(ctx, tx, p, old.Code, in.Code); err != nil {

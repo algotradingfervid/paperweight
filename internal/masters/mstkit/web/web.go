@@ -247,7 +247,7 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 		dt:       sortable(dt),
 		list:     &list.Service{DB: s.Env.DB, Auth: s.Env.Auth},
 		exporter: csvio.NewExporter(s.Env.DB, s.Env.Auth),
-		deps:     docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine},
+		deps:     docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine, LinkRead: s.Env.CanLinkTargetTx},
 		// disabled is set by Disable and Enable, never on the form.
 		fields:    slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return f.Name == "disabled" || f.OnLine }),
 		rowFields: rowFields,
@@ -881,11 +881,12 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 			return err
 		}
 		head := h.Head(rec)
+		if f.Stored, err = h.formValues(rec); err != nil {
+			return err
+		}
 		if f.Values == nil {
 			f.Version = head.Version
-			if f.Values, err = h.formValues(rec); err != nil {
-				return err
-			}
+			f.Values = f.Stored
 		}
 		if h.Sections != nil { // the summary has no inputs for a field error to sit on
 			f.Problem = strings.TrimSpace(f.Problem + " " + strings.Join(messages(f.Errs), " "))
@@ -921,7 +922,7 @@ func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Com
 	fd.Name = path
 	id, value, msg := components.FieldID(path), f.Values[path], f.errFor(path)
 	if !looked && !coded && !numbered && !labelled && !selected {
-		return docscreen.FieldInput(fd, id, value, msg, h.deps)
+		return docscreen.FieldInput(fd, id, value, msg, h.deps.WithStored(f.Stored))
 	}
 	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Error: msg, Value: value, Optional: !fd.Required}
 	if looked {
@@ -1180,6 +1181,7 @@ func stateOf(off bool) doctype.State {
 // and Problem for the banner.
 type form struct {
 	Values  map[string]string
+	Stored  map[string]string // the record's values; a posted link never gets a label from these (CD-233)
 	Version int
 	Errs    []doctype.FieldError
 	Problem string
