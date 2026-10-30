@@ -17,9 +17,9 @@ type PickRow struct {
 func (r PickRow) Display() string { return r.Code + " " + r.Name }
 
 // PickerProps describes a Picker. Field.ID is what an ErrorSummary links to:
-// the search input's id, or the picker's own while a row is chosen, because
-// the search is hidden then (see pickerInputID). HiddenName is the name of
-// the field that carries the chosen ID.
+// the search input's id, or the picker's own when rendered with a row chosen,
+// because the search is hidden then (see pickerInputID). HiddenName is the
+// name of the field that carries the chosen ID.
 type PickerProps struct {
 	Field                            FieldProps
 	SearchURL, HiddenName, ListboxID string
