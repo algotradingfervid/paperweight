@@ -45,6 +45,7 @@ const (
 	msgStockLocked      = "Stock UoM can't change after the item is used. Create a new item."
 	msgTypeLocked       = "Item type can't change after the item is used. Create a new item."
 	msgUoMDisabled      = "UoM %s is disabled. Pick another UoM."
+	msgRateNegative     = "Standard Rate can't be negative."
 	MsgStockNotFound    = "Stock UoM not found. Pick one from the list."    // DOC-032's wording
 	MsgPurchaseNotFound = "Purchase UoM not found. Pick one from the list." // DOC-032's wording
 )
@@ -104,9 +105,10 @@ type Input struct {
 
 // Validate normalises code, name and HSN/SAC and checks the item type, the
 // stock UoM (MST-069), the HSN or SAC (MST-070…MST-073), that a service isn't
-// a stock item (MST-076) and the conversion factors (MST-080, MST-081). A
-// blank purchase UoM becomes the stock UoM and a missing stock row is added
-// first with factor 1 (MST-079, MST-083).
+// a stock item (MST-076), the conversion factors (MST-080, MST-081) and that
+// the Standard Rate isn't negative (CD-220). A blank purchase UoM becomes the
+// stock UoM and a missing stock row is added first with factor 1 (MST-079,
+// MST-083).
 func Validate(in Input) (Input, error) {
 	var es mstkit.Errors
 	add := func(err error) {
@@ -147,6 +149,9 @@ func Validate(in Input) (Input, error) {
 			out.PurchaseUoMID = in.StockUoMID
 		}
 		out.Conversions = checkFactors(&es, in.StockUoMID, in.Conversions)
+	}
+	if in.StandardRate < 0 {
+		es.Add("standard_rate", msgRateNegative)
 	}
 	if err := es.Err(); err != nil {
 		return Input{}, err

@@ -129,7 +129,7 @@ func TestServices_RoutesReachARealImporter(t *testing.T) {
 	})
 
 	webtest.WantRedirect(t, post("/m/import/import", fields), "/m/import/choose")
-	webtest.WantBanner(t, send(httptest.NewRequest(http.MethodGet, "/m/import/choose", nil)), "Imported 1 UoMs.")
+	webtest.WantBanner(t, send(httptest.NewRequest(http.MethodGet, "/m/import/choose", nil)), "Imported 1 UoM.")
 
 	zed := othersGet(t, h.Env, svc.UoM.ByCode, "ZED")
 	if zed.Name != "Zed" || !zed.WholeNumber || zed.UQC != "NOS" {

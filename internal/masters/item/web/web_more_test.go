@@ -122,6 +122,31 @@ func TestScreens_ItemSaveUntouchedKeepsRows(t *testing.T) {
 	}
 }
 
+// The service's refusal of a negative rate reaches the field on both forms
+// and nothing is saved (CD-220).
+func TestScreens_ItemNegativeRate(t *testing.T) {
+	const msg = "Standard Rate can't be negative."
+	w := newWorld(t)
+	form := w.boltForm(t, "Hex Bolt")
+	form.Set("standard_rate", "-1")
+	resp := w.h.Post(t, w.h.Env.Kavya, "/m/item/new", form)
+	webtest.WantStatus(t, resp, http.StatusUnprocessableEntity)
+	wantErrAt(t, resp, "standard_rate", msg)
+	if _, ok := w.byCode(t, "BOLT-M12"); ok {
+		t.Fatal("BOLT-M12 saved with a negative rate")
+	}
+
+	rich := w.richItem(t)
+	edit := posted(w.h.Get(t, w.h.Env.Kavya, path(rich.ID, "")), path(rich.ID, ""))
+	edit.Set("standard_rate", "-1")
+	resp = w.h.Post(t, w.h.Env.Kavya, path(rich.ID, ""), edit)
+	webtest.WantStatus(t, resp, http.StatusUnprocessableEntity)
+	wantErrAt(t, resp, "standard_rate", msg)
+	if got := w.mustGet(t, "RICH"); got != rich {
+		t.Errorf("item after a refused save = %+v; want %+v", got, rich)
+	}
+}
+
 // A user without write sees every value and the rows, linked masters as
 // "{Code} {Name}" (CD-68).
 func TestScreens_ItemReadOnlyShowsRows(t *testing.T) {

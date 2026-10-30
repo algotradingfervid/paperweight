@@ -540,6 +540,8 @@ func TestImport_OneRowSaysSingular(t *testing.T) {
 	if got := webtest.Squash(r.Doc.Find(`button.btn--primary`).Text()); got != "Import 1 widget UoM" {
 		t.Errorf("primary = %q", got)
 	}
+	webtest.WantRedirect(t, b.post(t, p, "/m/import/import", nil), "/m/import/choose")
+	webtest.WantBanner(t, b.get(t, p, "/m/import/choose"), "Imported 1 Widget UoM.") // CD-220
 }
 
 // The preview is a promise about the past: Import validates again, so rows

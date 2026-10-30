@@ -267,3 +267,32 @@ func TestItem_DefaultTaxCodeEnabled(t *testing.T) { // MST-074
 	_, err = svc.Update(ctx, env.Kavya, saved.ID, saved.Version, in)
 	wantOnlyMessage(t, "Update(MS-ANGLE-50 unchanged, GST18 disabled since)", err, msg)
 }
+
+func TestItem_NegativeStandardRate(t *testing.T) { // CD-220
+	const msg = "Standard Rate can't be negative."
+	wantRefused := func(what string, err error) {
+		t.Helper()
+		wantOnlyMessage(t, what, err, msg)
+		if ve := validationErr(t, what, err); ve != nil {
+			if got := ve.FieldErrors(); got[0].Field != "standard_rate" {
+				t.Errorf("%s: field = %q; want standard_rate", what, got[0].Field)
+			}
+		}
+	}
+	env := msttest.New(t)
+	ctx := context.Background()
+	svc := item.New(env.Kit)
+	in := item.Input{Code: "BOLT-M12", Name: "Hex Bolt", Type: goods, HSNSAC: "7318", StockUoMID: uomID(t, env, "NOS"), IsStock: true}
+
+	negative := in
+	negative.StandardRate = -1
+	_, err := svc.Create(ctx, env.Kavya, negative)
+	wantRefused("Create(rate -0.0001)", err)
+
+	saved, err := svc.Create(ctx, env.Kavya, in) // a zero rate is none (CD-37)
+	if err != nil {
+		t.Fatalf("Create(rate 0): %v", err)
+	}
+	_, err = svc.Update(ctx, env.Kavya, saved.ID, saved.Version, negative)
+	wantRefused("Update(rate -0.0001)", err)
+}

@@ -2,9 +2,13 @@ package company_test
 
 import (
 	"context"
+	"errors"
+	"slices"
 	"testing"
 
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/company"
+	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/masters/msttest"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
@@ -49,6 +53,19 @@ func TestBranch_GSTINStateMatch(t *testing.T) { // MST-022
 	}
 	if got.StateCode != "29" || got.GSTIN != blrGSTIN {
 		t.Errorf("ValidateBranch(BLR) = {StateCode %q, GSTIN %q}; want {29, %s}", got.StateCode, got.GSTIN, blrGSTIN)
+	}
+}
+
+// An unknown state is printed as given, never as a blank (CD-220).
+func TestBranch_GSTINUnknownState(t *testing.T) {
+	_, err := company.ValidateBranch(company.BranchInput{Code: "BLR", Name: "Bengaluru Site Office", StateCode: "99", GSTIN: puneGSTIN}, companyPAN)
+	var ve *mstkit.ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("err = %v (%T); want *mstkit.ValidationError", err, err)
+	}
+	const msg = "GSTIN 27AAFCV2449G1Z7 is for Maharashtra (27) but the branch state is 99. Fix the GSTIN or the state."
+	if !slices.Contains(ve.FieldErrors(), doctype.FieldError{Field: "gstin", Message: msg}) {
+		t.Errorf("FieldErrors() = %+v; want gstin %q", ve.FieldErrors(), msg)
 	}
 }
 
