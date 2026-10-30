@@ -1134,6 +1134,25 @@ func TestStepScope_LineRefusalsShowTheirOwnText(t *testing.T) {
 				if got := e.record(t).Version; got != 1 {
 					t.Errorf("stored version = %d, want 1", got)
 				}
+				page := uitest.Doc(t, rec)
+				switch c.name {
+				case "move":
+					// The refusal has fields, so it is a failed step, not a conflict.
+					if page.Find("#wizard-conflict").Length() != 0 {
+						t.Error("a refusal with fields shows #wizard-conflict")
+					}
+					if text := pageText(t, rec); strings.Contains(text, "Fix the highlighted") {
+						t.Errorf("page shows DOC's generic text; text %.600q", text)
+					}
+					if page.Find(".error-summary[autofocus]").Length() != 1 {
+						t.Error("the error summary doesn't take focus")
+					}
+				case "line page", "new line":
+					wantNoDeadLinks(t, rec)
+					if got := summaryLinks(page); !slices.Equal(got, []string{"#main"}) {
+						t.Errorf("error summary links = %q, want [#main]", got)
+					}
+				}
 			})
 		}
 	}
@@ -1380,5 +1399,98 @@ func TestStepScope_ItemsPostRefusesAWholeLinesError(t *testing.T) {
 	wantHeading(t, rec, "Items")
 	if text := wizardText(t, rec); !strings.Contains(text, scopeTooMany) {
 		t.Errorf("Items step doesn't show %q; text %.500q", scopeTooMany, text)
+	}
+}
+
+// A no-field line error beside the step's own error shows both: filtering to
+// the step mustn't drop the one that has no step.
+func TestStepScope_LineNoFieldErrorBesideOwnError(t *testing.T) {
+	e := newScopeEnv(t)
+	e.probe.ValidateErrors = []doctype.FieldError{{Line: 2, Message: scopeLineHook}}
+	rec := e.post(t, e.stepURL("delivery"), e.deliveryForm(1, "much-too-long-a-reference"))
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+	}
+	text := wizardText(t, rec)
+	for _, msg := range []string{scopeLineHook, scopeRefLongMsg} {
+		if !strings.Contains(text, msg) {
+			t.Errorf("wizard doesn't show %q; text %q", msg, text)
+		}
+	}
+}
+
+// DOC-069: a stale move is a conflict with DOC's text and a reload link to the
+// items step (CD-94).
+func TestStepScope_StaleMoveIs409(t *testing.T) {
+	e := newScopeEnv(t)
+	if got := location(t, e.post(t, e.docURL()+"/lines/1/move?dir=down", url.Values{"version": {"1"}})); got != e.stepURL("items") {
+		t.Fatalf("first move went to %q", got)
+	}
+	rec := e.post(t, e.docURL()+"/lines/1/move?dir=down", url.Values{"version": {"1"}})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409; body %.300s", rec.Code, rec.Body)
+	}
+	want := "Someone else changed Draft " + itoa(e.id) + " after you opened it. Reload it and make your changes again."
+	if text := pageText(t, rec); !strings.Contains(text, want) {
+		t.Errorf("page doesn't show %q; text %.600q", want, text)
+	}
+	page := uitest.Doc(t, rec)
+	if page.Find(`#wizard a[href="`+e.stepURL("items")+`"]`).FilterFunction(func(_ int, s *goquery.Selection) bool {
+		return norm(s.Text()) == "Reload"
+	}).Length() != 1 {
+		t.Errorf("no Reload link to %s", e.stepURL("items"))
+	}
+	if got := e.record(t).Version; got != 2 {
+		t.Errorf("stored version = %d, want 2", got)
+	}
+}
+
+// A refusal with only a header error on a line path (CD-178's restricted
+// Required) shows its own text, on real AUTH: the draft is visible through the
+// other project and the Required project is empty.
+func TestStepScope_HeaderRefusalOnLinePaths(t *testing.T) {
+	for _, c := range []struct {
+		name, path string
+		hx, edit   bool
+	}{
+		{"line page", "/lines/1", false, true},
+		{"grid", "/lines/1", true, true},
+		{"new line", "/lines/new", false, true},
+		{"move", "/lines/1/move?dir=down", false, false},
+		{"remove", "/lines/1/remove", false, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e, open, restricted := newScopeRealEnv(t)
+			res, err := e.d.Engine.Do(t.Context(), open, scopeReqType, 0, doctype.ActionSave, doc.ActionInput{
+				Values: map[string]string{"other_project_id": itoa(e.fx.M.Project["PRJ-TECHPARK"])},
+				Lines:  []map[string]string{{"note": "first"}, {"note": "second"}},
+			})
+			if err != nil {
+				t.Fatalf("create the draft: %v", err)
+			}
+			e.who = restricted
+			form := url.Values{"version": {strconv.Itoa(res.Version)}}
+			if c.edit {
+				form.Set("note", "typed")
+			}
+			var hdr []string
+			if c.hx {
+				hdr = []string{"HX-Request", "true"}
+			}
+			rec := e.post(t, "/doc/"+scopeReqType+"/"+itoa(res.ID)+c.path, form, hdr...)
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+			}
+			text := pageText(t, rec)
+			if !strings.Contains(text, "Project is required.") {
+				t.Errorf("page doesn't show the refusal's text; text %.600q", text)
+			}
+			if strings.Contains(text, "Fix the highlighted") {
+				t.Errorf("page shows DOC's generic text; text %.600q", text)
+			}
+			if got := e.fx.Record(t, scopeReqType, res.ID).Version; got != res.Version {
+				t.Errorf("stored version = %d, want %d", got, res.Version)
+			}
+		})
 	}
 }

@@ -1269,6 +1269,39 @@ func TestDoc_SourceProblems_AllLines(t *testing.T) {
 	})
 }
 
+// Paths that don't scope keep stopping at the first source error: create, a
+// save with a nil Only and Submit report line 1's only, exactly.
+func TestDoc_Sources_FirstErrorOnly(t *testing.T) {
+	t.Run("create", func(t *testing.T) {
+		h := fixturetest.New(t)
+		first, second := osApproved(t, h), osApproved(t, h)
+		osCancel(t, h, first)
+		osCancel(t, h, second)
+		_, err := h.Do(t, t.Context(), h.Priya, fixture.Receipt, 0, doc.ActionSave, doc.ActionInput{
+			Values: map[string]string{"receipt_date": "2026-10-24"},
+			Lines: []map[string]string{
+				{"order_line_id": lkID(first.Lines[0].ID), "qty": "1"},
+				{"order_line_id": lkID(second.Lines[0].ID), "qty": "1"},
+			},
+		})
+		lkInvalid(t, err, osSourceCancelled(1, first.Number))
+	})
+	t.Run("save with a nil Only and a change", func(t *testing.T) {
+		h := fixturetest.New(t)
+		d, first, _ := osBadReceipt(t, h)
+		in := h.In(d)
+		in.Values["remarks"] = "typed"
+		_, err := h.Do(t, t.Context(), h.Priya, fixture.Receipt, d.ID, doc.ActionSave, in)
+		lkInvalid(t, err, osSourceCancelled(1, first.Number))
+	})
+	t.Run("submit", func(t *testing.T) {
+		h := fixturetest.New(t)
+		d, first, _ := osBadReceipt(t, h)
+		_, err := h.Do(t, t.Context(), h.Priya, fixture.Receipt, d.ID, doc.ActionSubmit, doc.ActionInput{Version: d.Version})
+		lkInvalid(t, err, osSourceCancelled(1, first.Number))
+	})
+}
+
 // An empty Required field is Submit's error, not a stored draft's problem
 // (CD-178): the check page lists those itself.
 func TestDoc_Problems_EmptyRequiredIsNone(t *testing.T) {
