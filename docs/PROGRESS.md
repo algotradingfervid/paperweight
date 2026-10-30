@@ -265,6 +265,12 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP3-T4a | e2e harness, six P1 browser ids, the plan's five flows; LinkRead wired | High | AD-7 | 31 Oct | 31 Oct | 2 | fix round APPROVE | fb2ac51 (wp/wp3 cc9e80c); P1 556/556 |
 | CD-240 | Follow-ups: authfake CheckLink not-found parity, LinkError source guard | Standard | impl opus, rev opus (AD-8) | 31 Oct | 31 Oct | 1 + fix | 0/1/2 | 3aebc9b (lane/cd240-followup f8db28a) |
 | WP3-T3c,4b,5 | Real-router AUTH rows (CD-245), ten P2 e2e (CD-248), screen sweeps incl. Party screens (CD-250) | High | AD-7 | 31 Oct | 31 Oct | 2 each | fix rounds APPROVE | afcd4d1 (wp/wp3 58c48cf); P1 556/556 |
+| WP3-T6c | App 404 and 405 pages (CD-250) | Standard | AD-7 | 31 Oct | 31 Oct | 1 | APPROVE, minors fixed | c52f47a (wp/wp3 8040675) |
+| CD-241 | Attachments: A UX design | High | ux, rev opus (AD-8) | 00:21 | 00:52 | 2 | 0/5/14, 0/0/1 | lane/wp3-attach |
+| CD-241 | Attachments: B1 gallery mock | Light | impl, ui-rev opus (AD-8) | 00:52 | 01:00 | 1 | 0/1/3 | lane/wp3-attach |
+| CD-241 | Attachments: B2 Attachable flag, files/web htmx | High | tw, impl, rev opus (AD-8) | 00:52 | 01:13 | 1 | 0/0/3 | lane/wp3-attach |
+| CD-241 | Attachments: B3 components, docscreen panel (CD-249) | High | tw, impl, rev opus (AD-8) | 01:13 | 01:53 | 1 + TEST-DISPUTE | 0/0/5 | lane/wp3-attach |
+| CD-241 | Attachments: B4 e2e | Standard | impl, rev opus (AD-8) | 01:53 | 02:38 | 1 | 0/0/6 | 79b3e08 (lane/wp3-attach 46c2d3f); P1 556/556 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
