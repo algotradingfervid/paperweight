@@ -1,0 +1,19 @@
+package docscreen
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// attachCard is the Attachments card on the check step and the document
+// page: the empty text when there are no files, then the upload (which shows
+// the files under its controls) or, for a reader, the files alone.
+templ attachCard(a attachView) {
+	@components.Card("Attachments", nil) {
+		if len(a.Files) == 0 {
+			@components.EmptyState("No files attached yet.", nil)
+		}
+		if a.Upload != nil {
+			@components.FileUpload(*a.Upload)
+		} else if len(a.Files) > 0 {
+			@components.Attachments(a.Files)
+		}
+	}
+}

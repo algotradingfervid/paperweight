@@ -70,9 +70,15 @@ func Error(w http.ResponseWriter, r *http.Request, status int, message string) {
 		_, _ = w.Write([]byte(`<div class="error" role="alert">` + template.HTMLEscapeString(message) + `</div>`))
 		return
 	}
-	trigger, _ := json.Marshal(map[string]Notice{"notice": {Level: "error", Text: message}})
-	h.Set("HX-Trigger", asciiJSON(trigger))
+	SetNotice(h, "error", message)
 	w.WriteHeader(status)
+}
+
+// SetNotice sets h's HX-Trigger to a "notice" event with level and text,
+// replacing any earlier HX-Trigger; the UI shows it in its #alerts region.
+func SetNotice(h http.Header, level, text string) {
+	trigger, _ := json.Marshal(map[string]Notice{"notice": {Level: level, Text: text}})
+	h.Set("HX-Trigger", asciiJSON(trigger))
 }
 
 // asciiJSON escapes every non-ASCII rune in b as \uXXXX (a surrogate pair above

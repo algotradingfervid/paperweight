@@ -10,7 +10,8 @@ type Attachment struct {
 }
 
 // UploadProps describes a FileUpload. Action receives one "file" part per
-// request; its response replaces Target (default the element with id ID).
+// request; its response replaces Target (default the element with id ID), and
+// so does a Remove confirm's.
 // Accept is the Choose file control's file types (default images and PDFs).
 // NoCamera leaves out "Take photo", for files a camera can't make.
 type UploadProps struct {
@@ -25,8 +26,10 @@ type UploadProps struct {
 func UploadInputID(id string) string { return id + "-file" }
 
 // FileUpload states the limits first, then offers "Take photo" (rear camera
-// on phones) and "Choose file". Choosing a file posts it at once; upload.js
-// moves the progress bar on htmx:xhr:progress.
+// on phones) and "Choose file". Choosing a file posts it at once and disables
+// both inputs; upload.js moves the progress bar, puts the status line's
+// data-busy text in it and copies the template's error markup into the
+// message region for a refusal (data-dropped when no answer came).
 templ FileUpload(p UploadProps) {
 	<div id={ p.ID } class="upload">
 		@choiceGroup(FieldProps{ID: p.ID, Label: p.Label, Hint: orDefault(p.Hint, "JPG, PNG, HEIC or PDF, up to 10 MB"), Error: p.Error}) {
@@ -38,8 +41,13 @@ templ FileUpload(p UploadProps) {
 			</div>
 		}
 		<progress class="progress upload__progress" max="100" value="0" hidden></progress>
+		<p id={ p.ID + "-status" } role="status" data-busy="Uploading…" data-dropped="The upload didn't finish. Check your connection and try again."></p>
+		<template data-upload-msg>
+			@icons.Icon("alert-circle")
+			<span></span>
+		</template>
 		if len(p.Files) > 0 {
-			@Attachments(p.Files)
+			@attachmentItems(p.Files, orDefault(p.Target, "#"+p.ID))
 		}
 	</div>
 }
@@ -47,7 +55,7 @@ templ FileUpload(p UploadProps) {
 // uploadForm is one control in its own form, so the other control's empty
 // input never sends a second "file" part.
 templ uploadForm(p UploadProps, camera bool) {
-	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: orDefault(p.Target, "#"+p.ID), Trigger: "change"}) {
+	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: orDefault(p.Target, "#"+p.ID), Trigger: "change", DisabledElt: "#" + p.ID + " input[type=file]"}) {
 		<label class={ buttonClass(Secondary) + " upload__button" }>
 			if camera {
 				@icons.Icon("camera")

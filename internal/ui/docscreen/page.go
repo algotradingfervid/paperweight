@@ -40,6 +40,7 @@ type pageView struct {
 	Errors  []components.FieldErr
 	Success string // an htmx action's banner, or the flash's beside "Next request" (a 303 uses the flash)
 	Next    string // "Next request" link after an approve
+	Attach  *attachView
 }
 
 // actionForm is the hidden form a bar button posts through.
@@ -101,7 +102,7 @@ func takeSuccess(ctx context.Context) string {
 
 func (d Deps) pageViewOf(ctx context.Context, p auth.Principal, dt *doctype.DocType, v DocView) pageView {
 	rights := Rights(ctx, d.Auth, p, dt.Name, &v.Record)
-	pv := pageView{DT: dt, V: v}
+	pv := pageView{DT: dt, V: v, Attach: attachOf(dt, v, rights)}
 	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
 	if pv.Bar.Note == "" {
 		for _, b := range buttons(v, dt.Printable, rights) {

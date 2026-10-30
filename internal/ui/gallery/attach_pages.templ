@@ -1,0 +1,55 @@
+package gallery
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
+)
+
+// attachmentsBody is variants (a) to (g). In (e) the refusal is FileUpload's
+// Error prop; on a page upload.js writes the server's notice into the same
+// #att-refused-msg region. Each removable file's confirm is Attachments' own.
+templ attachmentsBody() {
+	<section id="att-a" class="stack">
+		<h2>(a) Writer, draft, no files</h2>
+		@components.Card("Attachments", nil) {
+			@components.EmptyState(attachEmpty, nil)
+			@components.FileUpload(attachUpload("att-empty", "", nil))
+		}
+	</section>
+	<section id="att-b" class="stack">
+		<h2>(b) Writer, draft, three files</h2>
+		@components.Card("Attachments", nil) {
+			@components.FileUpload(attachUpload("att-draft", "", threeFiles(true)))
+		}
+	</section>
+	<section id="att-c" class="stack">
+		<h2>(c) Writer, approved, three files</h2>
+		@components.Card("Attachments", nil) {
+			@components.FileUpload(attachUpload("att-approved", "", threeFiles(false)))
+		}
+	</section>
+	<section id="att-d" class="stack">
+		<h2>(d) Reader</h2>
+		@components.Card("Attachments", nil) {
+			@components.Attachments(threeFiles(false))
+		}
+	</section>
+	<section id="att-e" class="stack">
+		<h2>(e) Refused</h2>
+		@components.Card("Attachments", nil) {
+			@components.EmptyState(attachEmpty, nil)
+			@components.FileUpload(attachUpload("att-refused", uitest.LongError, nil))
+		}
+	</section>
+	<section id="att-f" class="stack">
+		<h2>(f) 20 files, longest names</h2>
+		@components.Card("Attachments", nil) {
+			@components.FileUpload(attachUpload("att-many", "", twentyFiles()))
+		}
+	</section>
+	<section id="att-g" class="stack">
+		<h2>(g) Remove confirm</h2>
+		<p>Opens the confirm for receipt.jpg in (b).</p>
+		@components.Button(components.ButtonProps{Label: "Open the remove confirm", Type: "button", Attrs: templ.Attributes{"data-open-dialog": "remove-file-1", "aria-haspopup": "dialog"}})
+	</section>
+}

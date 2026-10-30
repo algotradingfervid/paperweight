@@ -131,6 +131,7 @@ type DocType struct {
 	Name, Label, PluralLabel, Table, LinesTable                     string // CD-35
 	Series                                                          string
 	Submittable, Approvable, Printable, Importable, HasRoundedTotal bool
+	Attachable                                                      bool // the document page and check step show Attachments (CD-241)
 	Fields                                                          []Field
 	SearchFields                                                    []string
 	DefaultSort                                                     []SortKey

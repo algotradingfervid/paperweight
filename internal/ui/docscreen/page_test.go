@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
 	"github.com/vardhan/internaltools/internal/ui/uitest"
@@ -277,6 +279,12 @@ func TestDocPage_ReadOnlyOutsideDraft(t *testing.T) {
 		t.Run(string(s), func(t *testing.T) {
 			e := newDocEnv(t, allRights...)
 			e.seed(s)
+			if s == doctype.StateRejected {
+				// A removable file, so the remove confirm's form is on the page.
+				e.extras.SetAttachments(docscreentest.Sample, 42, []components.Attachment{
+					{ID: 7, Name: "receipt.jpg", Size: "2.3 MB", UploadedBy: "Priya Shah", UploadedAt: "24-10-2026 10:30", URL: "/files/7", Kind: "image"},
+				})
+			}
 			rec := e.get(t, doc42)
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, body %.300s", rec.Code, rec.Body)
@@ -289,11 +297,21 @@ func TestDocPage_ReadOnlyOutsideDraft(t *testing.T) {
 			if !strings.Contains(page.Find("h1").Text(), sampleInfo(42, s).Display) {
 				t.Errorf("h1 = %q, want the Display", page.Find("h1").Text())
 			}
+			// The Attachments upload (UX design 2026-10-31, CD-243) is the one
+			// editable control outside draft: its two file inputs.
+			if s != doctype.StateCancelled {
+				if n := page.Find("#attachments input[type=file]").Length(); n != 2 {
+					t.Errorf("found %d file inputs under #attachments, want 2", n)
+				}
+			}
 			page.Find("input, select, textarea").Each(func(_ int, el *goquery.Selection) {
 				html, _ := goquery.OuterHtml(el)
 				form := formOf(doc, el)
 				action, _ := form.Attr("action")
 				method, _ := form.Attr("method")
+				if s != doctype.StateCancelled && attachControl(el, form, action, method) {
+					return
+				}
 				ok := strings.EqualFold(method, "post") && slices.ContainsFunc(direct, func(a string) bool { return action == doc42+"/"+a })
 				if !ok {
 					t.Errorf("control outside an action form: %s (form action %q)", html, action)
@@ -305,6 +323,27 @@ func TestDocPage_ReadOnlyOutsideDraft(t *testing.T) {
 			})
 		})
 	}
+}
+
+// removeActionRE matches a remove confirm's form action (UX design 2026-10-31 §5.4).
+var removeActionRE = regexp.MustCompile(`^/files/\d+/remove$`)
+
+// attachControl reports whether el is one of the Attachments card's own
+// controls under #attachments: a file input or the csrf token of an upload
+// form posting to the sample's attachments route, or the csrf token of a
+// remove confirm's form.
+func attachControl(el, form *goquery.Selection, action, method string) bool {
+	if el.Closest("#attachments").Length() == 0 || form.Closest("#attachments").Length() == 0 || !strings.EqualFold(method, "post") {
+		return false
+	}
+	name, _ := el.Attr("name")
+	typ, _ := el.Attr("type")
+	isInput := goquery.NodeName(el) == "input"
+	csrf := isInput && typ == "hidden" && name == "csrf_token"
+	if action == "/attachments/"+docscreentest.Sample+"/42" {
+		return csrf || isInput && typ == "file" && name == "file"
+	}
+	return csrf && form.Closest("dialog").Length() == 1 && removeActionRE.MatchString(action)
 }
 
 func TestDocPage_RejectedReasonBanner(t *testing.T) {

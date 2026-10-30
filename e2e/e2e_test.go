@@ -783,7 +783,6 @@ func receiptPhoto(t *testing.T) string {
 // TestE2E_ExpenseFromPhoneWithReceipt: Deepak at 360 px, Take photo, submit;
 // Priya sees it through the team scope and approves.
 func TestE2E_ExpenseFromPhoneWithReceipt(t *testing.T) {
-	t.Skip("no document screen has a Take photo control yet: CD-241, pending its UX design")
 	h := Start(t)
 	d := h.SignIn(deepak, phone360)
 	var employee int64
@@ -807,22 +806,40 @@ func TestE2E_ExpenseFromPhoneWithReceipt(t *testing.T) {
 	d.Press(saveContinue)
 	d.WaitText("Step 3 of 3")
 
-	take := chromedp.CSS(`input[type=file][capture]`)
-	d.Do("take a photo", chromedp.SetUploadFiles(take, []string{receiptPhoto(t)}, chromedp.NodeReady))
-	d.WaitText("receipt.jpg")
+	// UX design §1: from setting the file to its thumbnail in under 15 s.
+	const goal = 15 * time.Second
+	start := time.Now()
+	d.SetFile(takePhoto, receiptPhoto(t))
+	d.Until("the receipt's thumbnail", thumbShown("receipt.jpg"))
+	if took := time.Since(start); took >= goal {
+		t.Errorf("file to thumbnail took %v, want under %v", took, goal)
+	} else {
+		t.Logf("file to thumbnail: %v", took)
+	}
+	if !Eval[bool](d, attachCardInView) {
+		t.Errorf("the Attachments card is outside the viewport after the reload: %v", Eval[[]float64](d, attachCardBox))
+	}
 	if got := Scalar[int](h, `SELECT count(*) FROM attachment WHERE parent_doctype = ? AND parent_id = ?`, fixture.Claim, claim); got != 1 {
 		t.Errorf("attachments = %d, want 1", got)
 	}
 	d.Press(sendApproval)
 	d.WaitText("Pending approval")
+	if got := docState(h, "fixture_claim", claim); got != "pending_approval" {
+		t.Errorf("claim state after submit = %q, want pending_approval", got)
+	}
 
 	p := h.SignIn(priya, phone390)
 	p.Open("/approvals")
 	p.WaitText(draft(claim))
 	p.Press("Open " + draft(claim))
-	p.WaitText("receipt.jpg")
+	p.Until("the receipt's thumbnail in the panel", thumbShown("receipt.jpg"))
+	if p.Shows("Add a file") || Eval[int](p, `document.querySelectorAll("input[type=file]").length`) != 0 {
+		t.Error("Priya, who can't write Deepak's claim, is offered Add a file")
+	}
 	p.Press("Approve")
 	p.WaitText(firstClaim)
+	p.Open(DocPath(fixture.Claim, claim))
+	p.Until("the receipt still listed after approval", thumbShown("receipt.jpg"))
 	if got := docState(h, "fixture_claim", claim); got != "approved" {
 		t.Errorf("claim state = %q, want approved", got)
 	}
