@@ -303,7 +303,7 @@ func TestDenial_Messages(t *testing.T) {
 		denial{"ValueError", w.Auth.CheckValues(ctx, suresh, authtest.DTReceipt, map[string][]int64{"site_id": {w.Sites["TECH-SITE"]}}),
 			http.StatusForbidden, "You can only use Sites METRO-SITE, PUNE-WH. Choose one of your allowed sites."},
 		denial{"LinkError", w.Auth.CheckLink(ctx, suresh, authtest.DTOrder, po30),
-			http.StatusForbidden, "You can't use Purchase Order PO/26-27/00030. It isn't available to you."},
+			http.StatusForbidden, "You can't use this Purchase Order. It isn't available to you."},
 		denial{"ErrNotFound", w.Auth.Can(ctx, suresh, authtest.DTReceipt, auth.RightRead, ref(authtest.DTReceipt, grn2)),
 			http.StatusNotFound, auth.MsgNotFound},
 	)

@@ -1,7 +1,9 @@
 // Package mstkit holds the rules every master shares (code, name, audit,
-// disable, delete-if-unreferenced) and the registry wiring. This file is the
-// only one in WP2 that names kernel write APIs (db.Write, audit append,
-// Engine.References), so a kernel name change is fixed here.
+// disable, delete-if-unreferenced) and the registry wiring. Outside the test
+// helpers (msttest, mstfixture), this file names the kernel write APIs (db.Write,
+// audit append, Engine.References) for all of WP2, except that
+// company/web/logo.go and allmasters/web/store.go call db.Write directly, so a
+// kernel name change is fixed in these three files.
 //
 // Kernel reconciliation (MST Task 1 Step 1 against main d17fb3a; Task 1b
 // against main e2dd7d5, AUTH, DOC, NUM and UI merged). Every M2 contract

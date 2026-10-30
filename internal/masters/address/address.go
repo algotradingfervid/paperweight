@@ -41,9 +41,8 @@ const (
 	// CD-170.
 	msgPartyNotFound  = "Party not found. Pick one from the list."
 	msgBranchNotFound = "Branch not found. Pick one from the list."
-	// CD-177 (1) and (3).
+	// CD-177 (1).
 	msgKeepPrimaryBilling = "This is the party's primary billing address. Make another billing address primary first."
-	msgEnableFirst        = "Enable this address before making it primary."
 )
 
 func init() {
@@ -293,7 +292,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	}
 	if old.Disabled && (in.PrimaryBilling || in.PrimaryShipping) {
 		var es mstkit.Errors
-		es.Add("disabled", msgEnableFirst) // CD-180 D2
+		es.Add("disabled", party.MsgEnableFirst) // CD-180 D2
 		return mstkit.Saved{}, es.Err()
 	}
 	if !in.IsBilling {
@@ -480,7 +479,7 @@ func (s *Service) SetPrimaryTx(ctx context.Context, tx *db.Tx, p auth.Principal,
 	var es mstkit.Errors
 	switch {
 	case a.Disabled:
-		es.Add("disabled", msgEnableFirst)
+		es.Add("disabled", party.MsgEnableFirst)
 		return es.Err()
 	case billing && !a.IsBilling:
 		es.Add("is_billing", "Tick Billing on this address before making it the primary billing address.")
