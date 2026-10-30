@@ -250,6 +250,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | WP2 Tasks 24-27 and CD-214; MST P1 96/96 and no MST P2 missing; `make ci` green | — | director | | 30 Oct | — | — | — |
 | WP2 | 22-cd205 step-scoped draft saves (CD-204, CD-205, CD-207) | High | opus/opus (AD-2) | 30 Oct | 30 Oct | 2 | 0/4/4 | lane/masters-stepfix 96ded84 |
 | Merges | Site read-only rule; Task 22 batch 1 (rows in .worktrees/masters-screens/.work/ad-tasks.md); `make ci` green after each | — | director | | 30 Oct | — | — | — |
+| Polish | Header search, roles screens, BodyCeiling message; lane complete (rows in .worktrees/polish/.work/ad-tasks.md) | High | AD-4 | | 30 Oct | 2 | each reviewed and re-checked | wp/polish 319ad8d |
 | Polish | Factor, inbox why and filter, copy rights, body ceiling (rows in .worktrees/polish/.work/ad-tasks.md) | Standard | AD-4 | | 30 Oct | 1 | each reviewed | wp/polish 1c3d103 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)

@@ -146,6 +146,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - `chromedp.Poll`, and so `waitFor`, can't span a navigation: wait with a Query on a selector found only on the target page.
 - A no-op test that takes the Unchanged early return never reaches the behaviour it names. Lock and rule checks that read the current row go after CheckVersion, or a stale page gets a 422.
 - Run `covertouched` with a profile path named after the task: the shared `.work/covertouched.out` gave one false "0 blocks" when two runs collided.
+- Don't settle an open design question in a brief: reviewers found a major in each round of P2, P5, P6 and P7b from tests that proved nothing or decisions the design contradicted. Full-repo lint before review on security paths: `--new-from-rev` misses taint in unchanged files.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
