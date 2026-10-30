@@ -60,6 +60,32 @@ func (a *Auth) UserForEdit(ctx context.Context, actor Principal, id UserID) (Use
 	return UserInfo{ID: id, Email: u.Email, Name: u.Name, Enabled: u.Enabled != 0}, u.Version, out, nil
 }
 
+// UserAccess returns user id, its version (CD-94) and its restricted values
+// per dimension with their labels, read together (CD-146). Only an
+// Administrator may read it (ErrAdminOnlyAccess); an unknown id is
+// ErrNotFound.
+func (a *Auth) UserAccess(ctx context.Context, actor Principal, id UserID) (UserInfo, int64, map[Dimension][]Restriction, error) {
+	if !isAdmin(actor) {
+		return UserInfo{}, 0, nil, ErrAdminOnlyAccess
+	}
+	var (
+		u   dbq.GetUserRow
+		out map[Dimension][]Restriction
+	)
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
+		var err error
+		if u, err = getUser(ctx, dbq.New(tx.SQL()), id); err != nil {
+			return err
+		}
+		out, err = a.restrictionList(ctx, tx, id)
+		return err
+	})
+	if err != nil {
+		return UserInfo{}, 0, nil, err
+	}
+	return UserInfo{ID: id, Email: u.Email, Name: u.Name, Enabled: u.Enabled != 0}, u.Version, out, nil
+}
+
 // UserRestrictions returns u's restricted values per dimension, each sorted.
 func (a *Auth) UserRestrictions(ctx context.Context, u UserID) (map[Dimension][]int64, error) {
 	var out map[Dimension][]int64

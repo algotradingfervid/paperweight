@@ -118,7 +118,7 @@ func New(t testing.TB, w *authtest.World, opts ...Option) *Harness {
 	cfg := auth.DefaultSessionConfig(o.tls)
 	st := auth.NewSessionStore(w.DB, w.Clock, cfg)
 	sm := auth.NewSessionManager(st, cfg)
-	srv := authweb.New(w.Auth, st, sm, views.Default{}, authweb.Config{Secure: o.tls, TrustProxy: o.trustProxy})
+	srv := authweb.New(w.Auth, st, sm, views.Default{}, authweb.Config{Secure: o.tls, TrustProxy: o.trustProxy, PickerURL: pickerURL})
 
 	r := chi.NewRouter()
 	r.Use(srv.Middleware, withTokenHeader(t, sm))

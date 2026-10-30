@@ -3,6 +3,7 @@ package authweb
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/a-h/templ"
@@ -105,7 +106,11 @@ func (s *Server) showUser(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	s.render(w, r, s.v.User(UserPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Version: version, User: u}))
+	page := UserPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Version: version, User: u}
+	if slices.Contains(p.Roles, auth.RoleAdministrator) {
+		page.AccessURL = accessPath(id)
+	}
+	s.render(w, r, s.v.User(page))
 }
 
 func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
@@ -201,6 +206,9 @@ func (s *Server) saveUser(w http.ResponseWriter, r *http.Request, p auth.Princip
 	redirect(w, r, userPath(id))
 }
 
+// changeRestrictions adds and removes one dimension's values and redirects
+// to the access page. An Add form with nothing picked gets that page back
+// with a field error (CD-194).
 func (s *Server) changeRestrictions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	p, _ := auth.PrincipalFrom(ctx)
@@ -215,6 +223,10 @@ func (s *Server) changeRestrictions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dim := auth.Dimension(r.PostFormValue("dimension"))
+	if problem := emptyAddError(r, dim); problem != nil {
+		s.writeEmptyAdd(w, r, id, dim, *version, problem)
+		return
+	}
 	add, err := formIDs(r, "add")
 	if err != nil {
 		s.WriteError(w, r, err)
@@ -236,7 +248,13 @@ func (s *Server) changeRestrictions(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	redirect(w, r, userPath(id))
+	u, _, _, err := s.a.UserForEdit(ctx, p, id)
+	if err != nil {
+		s.WriteError(w, r, err)
+		return
+	}
+	web.Flash(ctx, "success", "Site and project access for "+u.Name+" saved.")
+	redirect(w, r, accessPath(id))
 }
 
 func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {

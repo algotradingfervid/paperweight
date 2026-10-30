@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth/dbq"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -396,8 +397,8 @@ func (a *Auth) DefaultValue(ctx context.Context, p Principal, dim Dimension) (in
 	return ids[0], true, nil
 }
 
-// RestrictionLabels returns u's allowed codes per restricted dimension, with
-// " (disabled)" on values the dimension's master reports disabled (AUTH-105).
+// RestrictionLabels returns the Label of each of u's allowed values per
+// restricted dimension (see Restriction).
 func (a *Auth) RestrictionLabels(ctx context.Context, u UserID) (map[Dimension][]string, error) {
 	var out map[Dimension][]string
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
@@ -413,7 +414,31 @@ func (a *Auth) RestrictionLabels(ctx context.Context, u UserID) (map[Dimension][
 
 // restrictionLabels is RestrictionLabels inside the caller's transaction.
 func (a *Auth) restrictionLabels(ctx context.Context, tx *db.Tx, u UserID) (map[Dimension][]string, error) {
+	list, err := a.restrictionList(ctx, tx, u)
+	if err != nil {
+		return nil, err
+	}
 	out := map[Dimension][]string{}
+	for d, rs := range list {
+		for _, r := range rs {
+			out[d] = append(out[d], r.Label)
+		}
+	}
+	return out, nil
+}
+
+// Restriction is one allowed value of a dimension: its id and its label, the
+// master's code, or the id when the Directory has no code for it, plus
+// " (disabled)" when the dimension's master reports it disabled (AUTH-105).
+type Restriction struct {
+	ID    int64
+	Label string
+}
+
+// restrictionList returns u's allowed values per restricted dimension, in id
+// order, read inside tx.
+func (a *Auth) restrictionList(ctx context.Context, tx *db.Tx, u UserID) (map[Dimension][]Restriction, error) {
+	out := map[Dimension][]Restriction{}
 	allowed, err := restrictions(ctx, dbq.New(tx.SQL()), u)
 	if err != nil {
 		return nil, err
@@ -423,11 +448,11 @@ func (a *Auth) restrictionLabels(ctx context.Context, tx *db.Tx, u UserID) (map[
 		if err != nil {
 			return nil, err
 		}
-		master, hasMaster := masterFor(d)
+		master, hasMaster := MasterFor(d)
 		for _, id := range ids {
-			label, ok := codes[id]
-			if !ok {
-				continue
+			label := codes[id]
+			if label == "" {
+				label = strconv.FormatInt(id, 10)
 			}
 			if hasMaster {
 				info, found, err := master.Master.Lookup(ctx, tx, id)
@@ -438,7 +463,7 @@ func (a *Auth) restrictionLabels(ctx context.Context, tx *db.Tx, u UserID) (map[
 					label += " (disabled)"
 				}
 			}
-			out[d] = append(out[d], label)
+			out[d] = append(out[d], Restriction{ID: id, Label: label})
 		}
 	}
 	return out, nil

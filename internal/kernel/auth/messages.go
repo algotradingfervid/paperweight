@@ -52,6 +52,8 @@ var (
 	ErrCannotDemoteSelf     = &Problem{400, "You can't remove your own Administrator role. Ask another administrator."}
 	ErrLastAdmin            = &Problem{409, "At least one enabled user must have the Administrator role."}
 	ErrAdminRoleFixed       = &Problem{400, "The Administrator role can't be changed."}
+	ErrChooseSite           = &Problem{422, "Choose a site."}    // CD-194
+	ErrChooseProject        = &Problem{422, "Choose a project."} // CD-194
 )
 
 // EmailTakenError: another user has email.

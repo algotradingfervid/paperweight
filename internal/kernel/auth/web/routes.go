@@ -39,6 +39,8 @@ func (s *Server) Mount(r chi.Router) {
 	r.Method(http.MethodPost, "/users/{id}", s.Self(http.HandlerFunc(s.updateUser)))
 	r.Method(http.MethodPost, "/users/{id}/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.updateRoles)))
 	r.Method(http.MethodPost, "/users/{id}/restrictions", s.Admin(auth.ErrAdminOnlyAccess.Msg, http.HandlerFunc(s.changeRestrictions)))
+	// Site and project access (Task 20).
+	r.Method(http.MethodGet, "/users/{id}/access", s.Admin(auth.ErrAdminOnlyAccess.Msg, http.HandlerFunc(s.getAccess)))
 	r.Method(http.MethodPost, "/users/{id}/delete", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.deleteUser)))
 	// Roles and the rights matrix (Task 17).
 	r.Method(http.MethodGet, "/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.listRoles)))

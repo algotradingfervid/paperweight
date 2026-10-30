@@ -1,0 +1,94 @@
+package authscreens
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// AccessPage is one user's "Site and project access" page (Task 20). UserPath
+// is the Back link's target. Post is the restrictions URL every form posts to
+// with Version (CD-146): the user's version, or on a re-render the one the
+// page posted (CD-94). PickerURL is each dimension's master picker search URL.
+// Error, when set, shows on ErrorDim's picker and in the summary (CD-194).
+type AccessPage struct {
+	User      auth.UserInfo
+	UserPath  string
+	Version   int64
+	Post      string
+	Values    map[auth.Dimension][]auth.Restriction
+	PickerURL map[auth.Dimension]string
+	ErrorDim  auth.Dimension
+	Error     string
+}
+
+// accessSection is the wording of one dimension's section.
+type accessSection struct {
+	Dim              auth.Dimension
+	Title, None, Add string
+}
+
+var accessSections = []accessSection{
+	{Dim: auth.DimSite, Title: "Sites", None: "All sites (no restriction)", Add: "Add a site"},
+	{Dim: auth.DimProject, Title: "Projects", None: "All projects (no restriction)", Add: "Add a project"},
+}
+
+// addFieldID is the id of dim's picker field.
+func addFieldID(dim auth.Dimension) string {
+	return components.FieldID("add-" + string(dim))
+}
+
+// addError is the error shown on dim's picker, if any.
+func addError(p AccessPage, dim auth.Dimension) string {
+	if dim == p.ErrorDim {
+		return p.Error
+	}
+	return ""
+}
+
+// Access shows, per dimension, a Card with "Remove" for each allowed value
+// (or the no-restriction text) and a Picker that adds one, with p.Error in
+// the ErrorSummary and on its dimension's Picker.
+templ Access(p AccessPage) {
+	{{ o := uilayout.PageOpts{Title: "Site and project access", Error: p.Error != "", Back: &components.Link{Label: p.User.Name, Href: p.UserPath}} }}
+	if o.Error {
+		{{ o.BannerSlot = components.ErrorSummary([]components.FieldErr{{ID: addFieldID(p.ErrorDim), Message: p.Error}}) }}
+	}
+	@uilayout.Page(o) {
+		<p>{ p.User.Name } · { p.User.Email }</p>
+		for _, s := range accessSections {
+			<section class="stack">
+				<h2>{ s.Title }</h2>
+				if len(p.Values[s.Dim]) == 0 {
+					<p>{ s.None }</p>
+				}
+				for _, v := range p.Values[s.Dim] {
+					@components.Card("", nil) {
+						<p>{ v.Label }</p>
+						@components.Form(components.FormProps{Action: p.Post}) {
+							@accessHidden(s.Dim, p.Version)
+							<input type="hidden" name="remove" value={ strconv.FormatInt(v.ID, 10) }/>
+							@components.Button(components.ButtonProps{Label: "Remove", AriaLabel: "Remove " + v.Label, Type: "submit", Variant: components.Secondary})
+						}
+					}
+				}
+				@components.Form(components.FormProps{Action: p.Post}) {
+					@accessHidden(s.Dim, p.Version)
+					@components.Picker(components.PickerProps{
+						Field:     components.FieldProps{ID: addFieldID(s.Dim), Label: s.Add, Error: addError(p, s.Dim)},
+						SearchURL: p.PickerURL[s.Dim], HiddenName: "add", ListboxID: addFieldID(s.Dim) + "-results",
+					})
+					@components.Button(components.ButtonProps{Label: "Add", AriaLabel: s.Add, Type: "submit"})
+				}
+			</section>
+		}
+	}
+}
+
+// accessHidden is the dimension and version every access form posts.
+templ accessHidden(dim auth.Dimension, version int64) {
+	<input type="hidden" name="dimension" value={ string(dim) }/>
+	<input type="hidden" name="version" value={ strconv.FormatInt(version, 10) }/>
+}

@@ -6,6 +6,7 @@ import (
 	"github.com/alexedwards/scs/v2"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 )
 
 // Config is the web configuration.
@@ -14,6 +15,9 @@ type Config struct {
 	TrustProxy bool // take the client IP from X-Forwarded-For
 	// Seed is what a matrix reset seeds with (WP3 sets LinkedMasterRead).
 	Seed auth.SeedOptions
+	// PickerURL returns the search URL of a master's picker (Task 20). Without
+	// it the access page answers a plain internal error.
+	PickerURL func(dt *doctype.DocType) string
 }
 
 // Server holds what AUTH's middleware, guards and handlers need.
