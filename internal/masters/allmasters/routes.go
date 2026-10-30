@@ -26,9 +26,10 @@ type WebDeps struct {
 
 // Routes mounts every master's screens under /m/{doctype-slug}/, their
 // pickers at /pick/{DocType} and the CSV import wizard at /m/import (MST Task
-// 22, CD-195, CD-206); WP3 mounts it behind AUTH's middleware. Each master
-// adds one line.
+// 22, CD-195, CD-206); WP3 mounts it behind AUTH's middleware. It registers
+// the importers too (CD-210). Each master adds one line.
 func (s *Services) Routes(r chi.Router, d WebDeps) {
+	RegisterImporters(s)
 	companyweb.Routes(s.Company, s.env)(r)
 	companyweb.LogoRoutes(s.Company, s.env, d.Files)(r)
 	paymenttermsweb.Routes(s.Terms, s.env)(r)

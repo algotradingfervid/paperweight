@@ -15,6 +15,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/expensetype"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
+	"github.com/vardhan/internaltools/internal/masters/taxcode"
 	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
@@ -48,7 +49,7 @@ func toInput(v map[string]string) (expensetype.Input, []doctype.FieldError) {
 	if s := v["default_tax_code_id"]; s != "" {
 		id, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			return in, []doctype.FieldError{{Field: "default_tax_code_id", Message: expensetype.MsgTaxNotFound}}
+			return in, []doctype.FieldError{{Field: "default_tax_code_id", Message: taxcode.MsgDefaultNotFound}}
 		}
 		in.DefaultTaxCodeID = id
 	}

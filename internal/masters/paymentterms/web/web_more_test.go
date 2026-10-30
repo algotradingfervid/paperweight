@@ -74,8 +74,8 @@ func TestScreens_PaymentTermsSaveUntouchedKeepsRows(t *testing.T) {
 
 		webtest.WantRedirect(t, w.h.Post(t, kavya, path(saved.ID, ""), form), path(saved.ID, ""))
 		got := w.mustGet(t, c.code)
-		if !slices.Equal(got.Rows, c.rows) || got.Version != saved.Version+1 {
-			t.Errorf("%s after saving its own form = %+v; want rows %v, version %d", c.code, got, c.rows, saved.Version+1)
+		if !slices.Equal(got.Rows, c.rows) || got.Version != saved.Version {
+			t.Errorf("%s after saving its own form = %+v; want rows %v, version %d (CD-208)", c.code, got, c.rows, saved.Version)
 		}
 	}
 }

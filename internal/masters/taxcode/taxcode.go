@@ -45,7 +45,7 @@ const (
 	msgNotNotified = "GST rate %s%% is not a notified rate. Use one of 0.1, 0.25, 1, 1.5, 3, 5, 6, 7.5, 12, 18, 28, 40."
 
 	msgDefaultDisabled = "Tax code %s is disabled. Pick another tax code."
-	msgDefaultNotFound = "Default tax code not found. Pick one from the list." // DOC-032's wording
+	MsgDefaultNotFound = "Default tax code not found. Pick one from the list." // DOC-032's wording
 
 	msgRateLocked      = "Rate can't change after this tax code is used. Disable it and create a new one."
 	msgTreatmentLocked = "Treatment can't change after this tax code is used. Disable it and create a new one."
@@ -320,7 +320,7 @@ func (s *Service) CheckEnabledTx(ctx context.Context, tx *db.Tx, id int64) error
 	tc, err := s.Get(ctx, tx, id)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("default_tax_code_id", msgDefaultNotFound)
+		es.Add("default_tax_code_id", MsgDefaultNotFound)
 	case err != nil:
 		return err
 	case tc.Disabled:

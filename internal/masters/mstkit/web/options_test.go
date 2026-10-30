@@ -78,7 +78,7 @@ func TestScreens_OptionLabelsInListAndReadOnly(t *testing.T) {
 	webtest.WantText(t, read, "Physical goods")
 
 	h = harness(t, stubService{rec: stubRecord{"item_type": "Service"}}, labelled)
-	webtest.WantText(t, h.Get(t, h.Env.Priya, record), "Item typeService")
+	webtest.WantText(t, h.Get(t, h.Env.Priya, record), "TypeService")
 }
 
 // Without OptionLabels a Select shows its stored values.

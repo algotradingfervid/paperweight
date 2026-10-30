@@ -28,8 +28,9 @@ import (
 )
 
 // No case IDs of its own: the wizard's words are NUM's (NUM-140 to NUM-158).
-// Fixture DocTypes stand in for the masters, because AD-5's Tasks 20 and 21
-// register the real importers (a second RegisterImporter panics).
+// Fixture DocTypes stand in for the masters, because Tasks 20 and 21 register
+// the real importers (a second RegisterImporter panics). The real masters are
+// Importable (CD-210), so they are on the choose step too.
 
 const (
 	widget = "mastersweb.Widget" // importable, with a RowFunc
@@ -283,14 +284,16 @@ func TestChoose_ListsOnlyWhatTheUserMayImport(t *testing.T) {
 		return out
 	}
 
-	if got, want := values(w.env.Admin), []string{gadget, note, orphan, widget}; !slices.Equal(got, want) {
+	want := []string{"Address", "Contact", "Employee", "Expense Type", gadget, "Item", note, orphan, "Party", "Project", "Site", "Tax Code", "UoM", widget}
+	if got := values(w.env.Admin); !slices.Equal(got, want) {
 		t.Errorf("Admin sees %q; want %q (sorted by label, never the not-importable one)", got, want)
 	}
 	ctx := context.Background()
 	if err := w.env.Kit.Auth.(*auth.Auth).SetRights(ctx, w.env.Admin, "Masters Manager", gadget, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := values(w.env.Kavya), []string{note, orphan, widget}; !slices.Equal(got, want) {
+	want = slices.DeleteFunc(want, func(v string) bool { return v == gadget })
+	if got := values(w.env.Kavya); !slices.Equal(got, want) {
 		t.Errorf("Kavya sees %q; want %q", got, want)
 	}
 	if got := values(w.env.Priya); len(got) != 0 {

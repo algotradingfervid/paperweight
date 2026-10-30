@@ -18,6 +18,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/item"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
+	"github.com/vardhan/internaltools/internal/masters/taxcode"
 	"github.com/vardhan/internaltools/internal/masters/uom"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -110,7 +111,7 @@ func toInput(v map[string]string) (item.Input, []doctype.FieldError) {
 	}
 	in.StockUoMID = link("stock_uom_id", item.MsgStockNotFound)
 	in.PurchaseUoMID = link("purchase_uom_id", item.MsgPurchaseNotFound)
-	in.DefaultTaxCodeID = link("default_tax_code_id", item.MsgTaxNotFound)
+	in.DefaultTaxCodeID = link("default_tax_code_id", taxcode.MsgDefaultNotFound)
 	rate, err := types.ParseRate(v["standard_rate"])
 	if err != nil && !errors.Is(err, types.ErrEmpty) {
 		errs = append(errs, doctype.FieldError{Field: "standard_rate", Message: err.Error()})

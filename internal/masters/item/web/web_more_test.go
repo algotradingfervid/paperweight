@@ -103,7 +103,8 @@ func TestScreens_ItemFormShowsStoredRows(t *testing.T) {
 }
 
 // Saving what the page rendered, rows untouched, keeps every field and every
-// row: a form without its rows would wipe the table.
+// row, and writes nothing (CD-208): a form without its rows would wipe the
+// table.
 func TestScreens_ItemSaveUntouchedKeepsRows(t *testing.T) {
 	w := newWorld(t)
 	rich := w.richItem(t)
@@ -116,10 +117,8 @@ func TestScreens_ItemSaveUntouchedKeepsRows(t *testing.T) {
 	if got := w.conversions(t, rich.ID); !slices.Equal(got, before) {
 		t.Errorf("conversions after an untouched save = %v; want %v", got, before)
 	}
-	want := rich
-	want.Version++
-	if got := w.mustGet(t, "RICH"); got != want {
-		t.Errorf("item after an untouched save = %+v; want %+v", got, want)
+	if got := w.mustGet(t, "RICH"); got != rich {
+		t.Errorf("item after an untouched save = %+v; want %+v", got, rich)
 	}
 }
 

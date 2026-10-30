@@ -223,12 +223,14 @@ func TestScreens_ZeroLinkShowsEmpty(t *testing.T) {
 	read := h.Get(t, h.Env.Priya, record)
 	webtest.WantStatus(t, read, http.StatusOK)
 	var value string
+	found := false
 	read.Doc.Find(".summary-row").Each(func(_ int, s *goquery.Selection) {
-		if webtest.Squash(s.Find("dt").Text()) == "Stock UoM" {
+		if webtest.Squash(s.Find("dt").Text()) == "UoM" {
+			found = true
 			value = webtest.Squash(s.Find("dd").Text())
 		}
 	})
-	if value != "" {
-		t.Errorf("Stock UoM on the read-only page = %q; want empty", value)
+	if !found || value != "" {
+		t.Errorf("UoM on the read-only page = %q (found %v); want empty", value, found)
 	}
 }

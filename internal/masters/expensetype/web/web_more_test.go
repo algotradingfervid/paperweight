@@ -18,7 +18,7 @@ import (
 // No case ID: the screen behaviour Task 22 adds beyond its named tests.
 
 // msgTaxNotFound is expensetype's refusal of a tax code that doesn't exist.
-const msgTaxNotFound = "Tax code not found. Pick one from the list."
+const msgTaxNotFound = "Default tax code not found. Pick one from the list."
 
 // msgTaxDisabled is expensetype's refusal of the disabled GST18.
 const msgTaxDisabled = "Tax code GST18 is disabled. Pick another tax code."
