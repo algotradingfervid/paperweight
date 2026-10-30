@@ -280,7 +280,7 @@ func TestCheckValuesAndLink(t *testing.T) {
 	var le *auth.LinkError
 	if !errors.As(err, &le) || !errors.Is(err, auth.ErrForbidden) {
 		t.Errorf("CheckLink(PO-30 at TECH-SITE) = %v (%T), want *auth.LinkError (ErrForbidden)", err, err)
-	} else if got, want := err.Error(), "You can't use Purchase Order PO/26-27/00030. It isn't available to you."; got != want {
+	} else if got, want := err.Error(), "You can't use this Purchase Order. It isn't available to you."; got != want {
 		t.Errorf("CheckLink(PO-30) message = %q, want %q", got, want)
 	}
 	if err := w.Auth.CheckLink(ctx, suresh, authtest.DTOrder, 31); err != nil {

@@ -21,7 +21,7 @@ templ reasonPageMain(rv reasonView) {
 
 templ reasonBanners(rv reasonView) {
 	if rv.Danger != "" {
-		@components.Banner(components.BannerProps{Kind: components.Danger, Message: rv.Danger})
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: rv.Danger, Link: rv.Link})
 	}
 	@components.ErrorSummary(rv.Errors)
 }

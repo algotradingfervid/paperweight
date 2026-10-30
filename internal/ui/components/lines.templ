@@ -29,6 +29,9 @@ templ LineList(p LineListProps) {
 						<span class="num">{ c.QtyRate }</span>
 						<span>{ c.Tax }</span>
 					</p>
+					if c.Received != "" {
+						<p class="lines-meta">{ c.Received }</p>
+					}
 					if p.Editable {
 						<div class="lines-actions">
 							@Button(ButtonProps{Label: "Change", AriaLabel: lineAria("Change", c.No), Href: c.ChangeURL, Variant: Ghost})

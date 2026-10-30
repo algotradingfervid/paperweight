@@ -394,7 +394,7 @@ func (a *Auth) CheckLinkTx(ctx context.Context, tx *db.Tx, p Principal, target s
 	case err == nil:
 		return nil
 	case errors.Is(err, ErrForbidden), errors.Is(err, ErrNotFound):
-		return &LinkError{Label: info.DocLabel, Display: info.Display}
+		return &LinkError{Label: info.DocLabel}
 	}
 	return err
 }

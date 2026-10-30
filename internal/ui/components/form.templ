@@ -20,7 +20,9 @@ func orDefault(s, def string) string {
 }
 
 // Form renders a form around its children: a hidden csrf_token on POST
-// (CD-15) and, when HX, the htmx attributes with double-submit protection.
+// (CD-15) and, when HX, the htmx attributes with double-submit protection. That
+// protection stops at the form: a field's own request must leave Save enabled,
+// or the click that blurred the field lands on a disabled button.
 templ Form(p FormProps) {
 	if p.Method == "get" {
 		<form
@@ -34,6 +36,7 @@ templ Form(p FormProps) {
 				hx-target={ orDefault(p.Target, "#main") }
 				hx-swap={ orDefault(p.Swap, "outerHTML") }
 				hx-disabled-elt="find button[type=submit]"
+				hx-disinherit="hx-disabled-elt"
 			}
 		>
 			{ children... }
@@ -53,6 +56,7 @@ templ Form(p FormProps) {
 				hx-target={ orDefault(p.Target, "#main") }
 				hx-swap={ orDefault(p.Swap, "outerHTML") }
 				hx-disabled-elt={ orDefault(p.DisabledElt, "find button[type=submit]") }
+				hx-disinherit="hx-disabled-elt"
 				if p.Trigger != "" {
 					hx-trigger={ p.Trigger }
 				}
