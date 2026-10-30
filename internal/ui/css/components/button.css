@@ -4,6 +4,11 @@
 @utility tap {
   min-block-size: var(--target-min);
   min-inline-size: var(--target-min);
+  /* A label longer than the room wraps inside the button (a role's name). */
+  block-size: auto;
+  max-inline-size: 100%;
+  flex-shrink: 1;
+  overflow-wrap: anywhere;
   .actionbar & {
     min-block-size: var(--target-primary);
   }

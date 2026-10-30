@@ -62,7 +62,9 @@ templ docBody(pv pageView) {
 				<p>{ s }</p>
 			}
 			if pv.V.Origin.AmendedFrom != "" {
-				<p><a href={ templ.SafeURL(docURL(pv.DT.Name, pv.V.Origin.AmendedFromID)) }>{ "Amended from " + pv.V.Origin.AmendedFrom }</a></p>
+				<p>
+					@components.Button(components.ButtonProps{Label: "Amended from " + pv.V.Origin.AmendedFrom, Href: docURL(pv.DT.Name, pv.V.Origin.AmendedFromID), Variant: components.Ghost})
+				</p>
 			}
 			@components.Warnings(pv.V.Warnings)
 			@components.Card("Details", nil) {

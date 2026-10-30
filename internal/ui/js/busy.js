@@ -51,8 +51,10 @@ document.addEventListener("htmx:afterRequest", function (evt) {
   clearBusy(submitter(evt));
 });
 
-// Back to a page kept in the back/forward cache: its buttons work again.
+// Back to a page kept in the back/forward cache: ask the server again, which
+// also leaves no button busy. Signed-in pages are never stored (CD-225), but
+// Chrome keeps a no-store page there while no cookie changes, so Back after
+// the session ended elsewhere would show it.
 window.addEventListener("pageshow", function (evt) {
-  if (!evt.persisted) return;
-  document.querySelectorAll("[data-idle-label]").forEach(clearBusy);
+  if (evt.persisted) window.location.reload();
 });
