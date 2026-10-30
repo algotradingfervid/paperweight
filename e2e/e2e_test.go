@@ -75,10 +75,12 @@ func staleText(id int64) string {
 func draft(id int64) string { return "Draft " + strconv.FormatInt(id, 10) }
 
 // orderDetails fills step 1 of the order wizard with the reference PO's header.
+// Priya may use only PRJ-METRO, so the project comes prefilled (AUTH-100, CD-245).
 func orderDetails(s *Session) {
 	s.t.Helper()
 	s.Pick("supplier_id", "SHREE")
-	s.Pick("project_id", "PRJ-METRO")
+	s.Until("project PRJ-METRO prefilled", `document.querySelector("#f-project_id [data-picker-summary]").textContent === "PRJ-METRO Pune Metro Depot" && `+
+		`document.querySelector("#f-project_id [data-picker-value]").value === "`+strconv.FormatInt(s.h.M.Project["PRJ-METRO"], 10)+`"`)
 	s.Fill("order_date", fixtureDate)
 	s.Fill("amount", "94,164.00")
 }
