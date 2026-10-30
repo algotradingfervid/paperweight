@@ -43,6 +43,7 @@ const (
 	msgStockRequired = "Stock UoM is required."
 	msgTaxDisabled   = "Tax code %s is disabled. Pick another tax code."
 	msgNotFound      = "%s not found. Pick one from the list." // DOC-032's wording
+	msgStockLocked   = "Stock UoM can't change after the item is used. Create a new item."
 )
 
 func init() {
@@ -227,9 +228,11 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 	return saved, err
 }
 
-// UpdateTx is Update inside tx. A changed stock UoM resets the conversion
-// table to [(stock UoM, 1)] with a warning (MST-089). The UPDATE is
-// conditional on the posted version (CD-94).
+// UpdateTx is Update inside tx. A changed stock UoM is refused once a document
+// outside draft uses the item (MST-090); otherwise it resets the conversion
+// table to [(stock UoM, 1)] with a warning (MST-089). The version is checked
+// first, so a stale page gets the conflict, and the UPDATE is conditional on
+// the posted version (CD-94).
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
@@ -238,8 +241,20 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
+		return mstkit.Saved{}, err
+	}
 	var warnings []string
 	if in.StockUoMID != old.StockUoMID {
+		_, used, err := s.env.UsedOutsideDrafts(ctx, tx, Kind.Table, id)
+		if err != nil {
+			return mstkit.Saved{}, err
+		}
+		if used {
+			var es mstkit.Errors
+			es.Add("stock_uom_id", msgStockLocked)
+			return mstkit.Saved{}, es.Err()
+		}
 		// The reset comes before Validate, so the dropped rows aren't checked.
 		// The purchase UoM's row is gone too, so it falls back to the stock UoM.
 		in.Conversions = []Conversion{{UoMID: in.StockUoMID, Factor: uom.FactorOne}}
@@ -254,9 +269,6 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {
-		return mstkit.Saved{}, err
-	}
-	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
