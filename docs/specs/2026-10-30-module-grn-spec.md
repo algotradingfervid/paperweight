@@ -49,7 +49,7 @@ The line link gives DOC-017's closed-source refusal, DOC-038's cancelled-source 
 | Field | Label | Type | Rule |
 |---|---|---|---|
 | `number` | GRN number | Text, read-only | List priority 1 |
-| `purchase_order_id` | Purchase order | Link `purchase.Order` | Required. Step `order`. Can't change once the draft has lines; a wrong PO means delete the draft |
+| `purchase_order_id` | Purchase order | Link `purchase.Order` | Required. No `Step`, so it's on the first step, `details` (hooks spec §4.1). Can't change once the draft has lines; a wrong PO means delete the draft |
 | `vendor_id` | Vendor | Link Party, `System`, `ReadOnly` | Copied from the PO in `Validate`. The name is what MST-043 reads (CD-216 item 8) |
 | `site_id` | Site | Int | Posted by the module's first step from the PO; `Validate` overwrites it from the PO. Hidden on forms. Display comes from `snap_site_name` |
 | `project_id` | Project | Int | The same |
