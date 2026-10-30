@@ -260,4 +260,10 @@ func TestItem_DefaultTaxCodeEnabled(t *testing.T) { // MST-074
 		t.Errorf("BOLT-M12 after refused update = {DefaultTaxCodeID %d, Version %d}; want {GST5 %d, %d} (unchanged)",
 			got.DefaultTaxCodeID, got.Version, gst5.ID, bolt.Version)
 	}
+
+	// A no-op save of the item that took GST18 while enabled is refused too:
+	// the check runs before the no-change skip (CD-208).
+	in.Code, in.Name = "MS-ANGLE-50", "MS Angle 50x50x5"
+	_, err = svc.Update(ctx, env.Kavya, saved.ID, saved.Version, in)
+	wantOnlyMessage(t, "Update(MS-ANGLE-50 unchanged, GST18 disabled since)", err, msg)
 }
