@@ -238,7 +238,7 @@ func (w *world) get(t *testing.T, id int64) project.Project {
 
 // restrictPriya gives Purchase User (Priya) rights on Project through the AUTH
 // matrix and restricts Priya to exactly projectID (the id the project service
-// gave PRJ-METRO, not the testkit stand-in's), through AUTH as Admin.
+// gave PRJ-METRO), through AUTH as Admin.
 func (w *world) restrictPriya(t *testing.T, rights map[auth.Right]auth.Scope, projectID int64) {
 	t.Helper()
 	ctx := context.Background()
