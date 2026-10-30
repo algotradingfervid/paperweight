@@ -32,13 +32,18 @@ var (
 	AxeTimeout  = 30 * time.Second
 )
 
-var errBrowserDeadline = fmt.Errorf("browser deadline %v exceeded: %w", BrowserTimeout, context.DeadlineExceeded)
-
 // New starts a headless browser for t and closes it when t ends or after
 // BrowserTimeout.
 func New(t *testing.T) context.Context {
 	t.Helper()
-	tctx, cancelT := context.WithTimeoutCause(context.Background(), BrowserTimeout, errBrowserDeadline)
+	return NewFor(t, BrowserTimeout)
+}
+
+// NewFor is New with a longer life, for a full sweep in one browser.
+func NewFor(t *testing.T, d time.Duration) context.Context {
+	t.Helper()
+	errBrowserDeadline := fmt.Errorf("browser deadline %v exceeded: %w", d, context.DeadlineExceeded)
+	tctx, cancelT := context.WithTimeoutCause(context.Background(), d, errBrowserDeadline)
 	actx, cancelA := chromedp.NewExecAllocator(tctx, chromedp.DefaultExecAllocatorOptions[:]...)
 	ctx, cancel := chromedp.NewContext(actx)
 	t.Cleanup(func() {
@@ -142,55 +147,80 @@ func CSPProblems(ctx context.Context) func() []string {
 	}
 }
 
-// Check opens s at every width in screens.Widths under base and reports
-// overflow, small targets (at 360), axe violations (at 360 and 1440) and CSP
-// problems.
-func Check(t *testing.T, ctx context.Context, s screens.Screen, base string) {
+// Options says what Check does.
+type Options struct {
+	Widths                 []int64 // the widths to open each screen at
+	Overflow, Targets, Axe bool    // the checks to run at each width
+	// CSP is the func CSPProblems returned for this browser; nil skips the check.
+	CSP func() []string
+	// SignIn gives the browser of ctx the session of email, or none for "". Nil
+	// means nobody can sign in, so a screen with As set is a problem.
+	SignIn func(ctx context.Context, email string) error
+	// Page, if set, looks at the page after its Setup, at each width.
+	Page func(ctx context.Context, s screens.Screen) []string
+}
+
+// Check opens s at each width under base, signed in as s.As, and reports what
+// opt asks for.
+func Check(t *testing.T, ctx context.Context, s screens.Screen, base string, opt Options) {
 	t.Helper()
-	if s.As != "" {
-		t.Errorf("%s: sign-in not supported yet", s.Name)
-		return
-	}
-	csp := CSPProblems(ctx)
-	url := base + s.URL
-	for _, w := range screens.Widths {
-		if err := At(ctx, w, url); err != nil {
-			t.Errorf("%s@%d: %v", s.Name, w, err)
-			continue
-		}
-		if err := setup(ctx, s, url); err != nil {
-			t.Errorf("%s@%d: setup: %v", s.Name, w, err)
-			continue
-		}
-		report(t, ctx, s.Name, w, url, "overflow", Overflow)
-		if w == 360 {
-			report(t, ctx, s.Name, w, url, "target smaller than 44px", SmallTargets)
-		}
-		if w == 360 || w == 1440 {
-			vs, err := withDeadline(ctx, AxeTimeout, "axe "+url, Axe)
-			if err != nil {
-				t.Errorf("%s@%d: %v", s.Name, w, err)
-			}
-			for _, v := range vs {
-				t.Errorf("%s@%d: axe %s: %s: %s", s.Name, w, v.ID, v.Help, strings.Join(v.Nodes, ", "))
-			}
-		}
-		for _, p := range csp() {
-			t.Errorf("%s@%d: CSP: %s", s.Name, w, p)
-		}
-	}
-	for _, p := range csp() {
-		t.Errorf("%s: CSP: %s", s.Name, p)
+	for _, p := range Problems(ctx, s, base, opt) {
+		t.Error(p)
 	}
 }
 
-func report(t *testing.T, ctx context.Context, name string, w int64, url, what string, f func(context.Context) ([]string, error)) {
-	t.Helper()
-	probs, err := f(ctx)
-	if err != nil {
-		t.Errorf("%s@%d: %s: %s: %v", name, w, url, what, err)
+// Problems is what Check reports.
+func Problems(ctx context.Context, s screens.Screen, base string, opt Options) []string {
+	var out []string
+	add := func(w int64, what string, probs []string, err error) {
+		if err != nil {
+			out = append(out, fmt.Sprintf("%s@%d: %s: %v", s.Name, w, what, err))
+		}
+		for _, p := range probs {
+			out = append(out, fmt.Sprintf("%s@%d: %s: %s", s.Name, w, what, p))
+		}
 	}
-	for _, p := range probs {
-		t.Errorf("%s@%d: %s: %s", name, w, what, p)
+	switch {
+	case opt.SignIn != nil:
+		if _, err := withDeadline(ctx, StepTimeout, "sign in", func(ctx context.Context) (struct{}, error) {
+			return struct{}{}, opt.SignIn(ctx, s.As)
+		}); err != nil {
+			return []string{s.Name + ": sign in as " + s.As + ": " + err.Error()}
+		}
+	case s.As != "":
+		return []string{s.Name + ": Options has no SignIn for " + s.As}
 	}
+	url := base + s.URL
+	for _, w := range opt.Widths {
+		if err := At(ctx, w, url); err != nil {
+			add(w, "open", nil, err)
+			continue
+		}
+		if err := setup(ctx, s, url); err != nil {
+			add(w, "setup", nil, err)
+			continue
+		}
+		if opt.Page != nil {
+			add(w, "page", opt.Page(ctx, s), nil)
+		}
+		if opt.Overflow {
+			probs, err := Overflow(ctx)
+			add(w, "overflow", probs, err)
+		}
+		if opt.Targets {
+			probs, err := SmallTargets(ctx)
+			add(w, "target smaller than 44px", probs, err)
+		}
+		if opt.Axe {
+			vs, err := withDeadline(ctx, AxeTimeout, "axe "+url, Axe)
+			add(w, "axe", nil, err)
+			for _, v := range vs {
+				add(w, "axe "+v.ID, []string{v.Help + ": " + strings.Join(v.Nodes, ", ")}, nil)
+			}
+		}
+		if opt.CSP != nil {
+			add(w, "CSP", opt.CSP(), nil)
+		}
+	}
+	return out
 }

@@ -16,7 +16,9 @@ templ user(p authweb.UserPage) {
 	@page(uilayout.PageOpts{Title: p.User.Name}, p.CSRF, p.Error, "main", p.Warnings) {
 		<p>{ p.User.Email }</p>
 		if p.AccessURL != "" {
-			<p><a href={ templ.SafeURL(p.AccessURL) }>Site and project access</a></p>
+			<p>
+				@components.Button(components.ButtonProps{Label: "Site and project access", Href: p.AccessURL, Variant: components.Ghost})
+			</p>
 		}
 		@components.Hidden("version", strconv.FormatInt(p.Version, 10))
 	}

@@ -294,3 +294,20 @@ func TestCheckPage_AmendedFromLink(t *testing.T) {
 		t.Error("a draft that amends nothing shows an Amended from link")
 	}
 }
+
+// The Amended from link stands alone on the check page and the document's
+// page, so it is a 44 px target like a button (design-system §10).
+func TestAmendedFromLink_IsATarget(t *testing.T) {
+	for state, path := range map[doctype.State]string{
+		doctype.StateDraft:   samplePath + "/43/edit/check",
+		doctype.StatePending: samplePath + "/43",
+	} {
+		e := newFormEnv(t, allRights...)
+		docscreentest.Seed(e.docs, sampleInfo(43, state), sampleRecord())
+		e.extras.SetOrigin(docscreentest.Sample, 43, docscreen.Origin{AmendedFrom: "SO/26-27/00001", AmendedFromID: 42})
+		link := uitest.Doc(t, e.get(t, path)).Find(`a[href="` + doc42 + `"]`)
+		if link.Length() != 1 || !link.HasClass("tap") {
+			t.Errorf("%s: link %d, class %q; want one tap target", path, link.Length(), link.AttrOr("class", ""))
+		}
+	}
+}

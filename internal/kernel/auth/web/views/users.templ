@@ -3,7 +3,9 @@ package views
 import (
 	"fmt"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	"github.com/vardhan/internaltools/internal/ui/components"
 	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
 )
 
@@ -13,10 +15,18 @@ func (Default) Users(p authweb.UsersPage) templ.Component {
 
 templ users(p authweb.UsersPage) {
 	@page(uilayout.PageOpts{Title: "Users"}, p.CSRF, p.Error, "main", p.Warnings) {
-		<ul>
-			for _, u := range p.Users {
-				<li><a href={ templ.SafeURL(fmt.Sprintf("/users/%d", u.ID)) }>{ u.Name }</a> { u.Email }</li>
-			}
-		</ul>
+		@components.DataList(usersList(p.Users))
 	}
+}
+
+// usersList is the users as list cards, as the gallery's users page shows them.
+func usersList(us []auth.UserInfo) components.DataListProps {
+	p := components.DataListProps{Label: "Users", Columns: []components.Column{
+		{Key: "name", Label: "Name", Priority: components.PTitle},
+		{Key: "email", Label: "Email", Priority: components.PMeta, Code: true},
+	}}
+	for _, u := range us {
+		p.Rows = append(p.Rows, components.Row{Href: fmt.Sprintf("/users/%d", u.ID), Values: map[string]string{"name": u.Name, "email": u.Email}})
+	}
+	return p
 }

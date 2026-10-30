@@ -10,7 +10,9 @@ import (
 // actions (design-system §8.3).
 templ checkBody(cv checkView) {
 	if cv.AmendedFrom != "" {
-		<p><a href={ templ.SafeURL(cv.AmendedURL) }>{ "Amended from " + cv.AmendedFrom }</a></p>
+		<p>
+			@components.Button(components.ButtonProps{Label: "Amended from " + cv.AmendedFrom, Href: cv.AmendedURL, Variant: components.Ghost})
+		</p>
 	}
 	if cv.Preview != "" {
 		@components.Banner(components.BannerProps{Kind: components.Info, Message: cv.Preview})
