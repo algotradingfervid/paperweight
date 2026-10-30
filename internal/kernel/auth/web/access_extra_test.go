@@ -18,6 +18,7 @@ import (
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
 	"github.com/vardhan/internaltools/internal/kernel/auth/web/views"
 	"github.com/vardhan/internaltools/internal/kernel/auth/web/webtest"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 )
 
 // Task 20: the access page takes the flash once; it is gone on the next GET
@@ -61,29 +62,58 @@ func TestUserPage_AccessLink(t *testing.T) {
 	}
 }
 
-// Task 20: a Server whose Config has no PickerURL answers the access page
-// with a plain internal error, not a panic.
-func TestAccessEditor_NoPickerURL(t *testing.T) {
-	w := authtest.NewWorld(t)
-	// /bare/... is served by a second Server with an empty Config, behind
-	// the harness's session middleware.
+// t20Bare serves /bare/... from a second Server, behind the harness's session
+// middleware. cfg gets a func that cancels the current request's context.
+func t20Bare(t *testing.T, w *authtest.World, cfg func(cancel func()) authweb.Config) *webtest.Harness {
+	t.Helper()
 	var bare http.Handler
+	var cancel context.CancelFunc
 	h := webtest.New(t, w, webtest.WithRoutes(func(r chi.Router, _ *authweb.Server) {
 		r.Get("/bare/users/{id}/access", func(rw http.ResponseWriter, req *http.Request) {
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, nil))
+			ctx, stop := context.WithCancel(context.WithValue(req.Context(), chi.RouteCtxKey, nil))
+			defer stop()
+			cancel = stop
+			req = req.WithContext(ctx)
 			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/bare")
 			bare.ServeHTTP(rw, req)
 		})
 	}))
 	srv := authweb.New(w.Auth, auth.NewSessionStore(w.DB, w.Clock, auth.DefaultSessionConfig(false)), h.SM,
-		views.Default{}, authweb.Config{})
+		views.Default{}, cfg(func() { cancel() }))
 	mux := chi.NewRouter()
 	srv.Mount(mux)
 	bare = mux
+	return h
+}
+
+// Task 20: a Server whose Config has no PickerURL answers the access page
+// with a plain internal error, not a panic.
+func TestAccessEditor_NoPickerURL(t *testing.T) {
+	w := authtest.NewWorld(t)
+	h := t20Bare(t, w, func(func()) authweb.Config { return authweb.Config{} })
 
 	path := "/bare" + t13UserPath(w, t13Suresh, "/access")
 	r := signedIn(t, h, t13Admin).Get(path)
 	wantStatus(t, "admin GET "+path+" without Config.PickerURL", r, http.StatusInternalServerError)
+	if !strings.Contains(r.Body, t10InternalMsg) {
+		t.Fatalf("admin GET %s: body lacks the internal error message: %q", path, r.Body)
+	}
+}
+
+// CD-160: a page that fails to render is a 500 with the plain error page, not
+// a 200. PickerURL cancels the request, so the render that follows fails.
+func TestAccessEditor_RenderError(t *testing.T) {
+	w := authtest.NewWorld(t)
+	h := t20Bare(t, w, func(cancel func()) authweb.Config {
+		return authweb.Config{PickerURL: func(*doctype.DocType) string {
+			cancel()
+			return "/picker"
+		}}
+	})
+
+	path := "/bare" + t13UserPath(w, t13Suresh, "/access")
+	r := signedIn(t, h, t13Admin).Get(path)
+	wantStatus(t, "admin GET "+path+" with a failing render", r, http.StatusInternalServerError)
 	if !strings.Contains(r.Body, t10InternalMsg) {
 		t.Fatalf("admin GET %s: body lacks the internal error message: %q", path, r.Body)
 	}
@@ -114,13 +144,17 @@ func TestAccessEditor_AddButtonNames(t *testing.T) {
 	}
 }
 
-// Task 20: the access page of a user who doesn't exist is a 404.
+// Task 20: the access page of a user who doesn't exist, or of an id that isn't
+// a number, is the app's 404 page, not the router's.
 func TestAccessEditor_UnknownUser(t *testing.T) {
 	w := authtest.NewWorld(t)
 	h := t13Harness(t, w)
-	const path = "/users/9999/access"
-	r := signedIn(t, h, t13Admin).Get(path)
-	wantStatus(t, "admin GET "+path, r, http.StatusNotFound)
+	admin := signedIn(t, h, t13Admin)
+	for _, path := range []string{"/users/9999/access", "/users/abc/access"} {
+		r := admin.Get(path)
+		wantStatus(t, "admin GET "+path, r, http.StatusNotFound)
+		wantBody(t, "admin GET "+path, r, auth.MsgNotFound)
+	}
 }
 
 // Task 20: the Back link goes to the user's page and carries their name.
@@ -310,6 +344,7 @@ func TestAccessEditor_EmptyAddRefusals(t *testing.T) {
 	const unknown = "/users/9999/restrictions"
 	r = signedIn(t, h, t13Admin).Post(unknown, form("1"))
 	wantStatus(t, "admin posts an empty Add for an unknown user", r, http.StatusNotFound)
+	wantBody(t, "admin posts an empty Add for an unknown user", r, auth.MsgNotFound)
 }
 
 // CD-194: only a form with a blank add and nothing to remove, on a real

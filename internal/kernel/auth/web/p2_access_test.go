@@ -20,7 +20,7 @@ var (
 	t20InputRe = regexp.MustCompile(`(?is)<input\b[^>]*>`)
 	t20AttrRe  = regexp.MustCompile(`(?is)\s([a-z][\w:.-]*)="([^"]*)"`)
 	// t20SitePickerRe is an attribute whose value is the site picker's
-	// search URL (Config.PickerURL(masterFor(site)), the probe's route).
+	// search URL (Config.PickerURL(MasterFor(site)), the probe's route).
 	t20SitePickerRe = regexp.MustCompile(`(?is)\s[a-z][\w:.-]*="/site/picker"`)
 )
 

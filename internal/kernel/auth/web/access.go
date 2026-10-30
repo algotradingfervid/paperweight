@@ -15,7 +15,7 @@ import (
 )
 
 // accessPath is a user's "Site and project access" page.
-func accessPath(id auth.UserID) string { return userPath(id) + "/access" }
+func accessPath(id auth.UserID) string { return fmt.Sprintf("/users/%d/access", id) }
 
 // getAccess shows one user's site and project restrictions with Remove and
 // Add forms (Task 20). It refuses what accessPage refuses.
