@@ -1101,7 +1101,9 @@ func TestScreens_PartyWizardDraftCap(t *testing.T) {
 	held := rows(mumbaiRow)
 	webtest.WantRedirect(t, b.Post(t, stepAddresses, held), stepContacts)
 
-	huge := bigRows(300, 900, map[string]string{"state_code": "27", "pincode": "400001", "is_billing": "1"}, "title", "line1", "line2", "city")
+	// Row counts, not long values: no value here passes the 140-character limit
+	// (CD-227), so what refuses them can only be the cap.
+	huge := bigRows(300, 140, map[string]string{"state_code": "27", "pincode": "400001", "is_billing": "1"}, "title", "line1", "line2", "city")
 	for name, form := range map[string]url.Values{
 		"next": huge,
 		"back": with(huge, "nav", "back"),
@@ -1111,6 +1113,7 @@ func TestScreens_PartyWizardDraftCap(t *testing.T) {
 			r := b.Post(t, stepAddresses, form)
 			webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
 			webtest.WantText(t, r, msgTooBig)
+			webtest.WantNoText(t, r, "can be at most")
 			page := b.Get(t, stepAddresses)
 			value(t, page, line(1, "line1"), "Plot 12, MIDC")
 			noControl(t, page, line(2, "line1"))
@@ -1118,13 +1121,19 @@ func TestScreens_PartyWizardDraftCap(t *testing.T) {
 	}
 
 	// Each step alone is under the cap; both together are over it.
-	a := bigRows(50, 450, map[string]string{"state_code": "27", "pincode": "400001", "is_shipping": "1"}, "title", "line1", "line2", "city")
+	a := bigRows(110, 140, map[string]string{"state_code": "27", "pincode": "400001", "is_shipping": "1"}, "title", "line1", "line2", "city")
 	webtest.WantRedirect(t, b.Post(t, stepAddresses, a), stepContacts)
-	c := bigRows(50, 800, map[string]string{"email": "a@mehtafab.test", "mobile": "9820012345"}, "first_name", "middle_name", "last_name")
+	c := bigRows(100, 140, map[string]string{"email": "a@mehtafab.test", "mobile": "9820012345"}, "first_name", "middle_name", "last_name")
 	r := b.Post(t, stepContacts, c)
 	webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
 	webtest.WantText(t, r, msgTooBig)
+	webtest.WantNoText(t, r, "can be at most")
 	blankRow(t, b.Get(t, stepContacts), line(1, "first_name"))
+
+	alone := w.kavya().As(w.h.Env.Admin)
+	webtest.WantRedirect(t, alone.Post(t, stepDetails, details("ALONE")), stepAddresses)
+	webtest.WantRedirect(t, alone.Post(t, stepAddresses, url.Values{}), stepContacts)
+	webtest.WantRedirect(t, alone.Post(t, stepContacts, c), stepCheck)
 }
 
 // Start over drops the whole draft, rows included, writes nothing, and only
@@ -1200,8 +1209,9 @@ func TestScreens_PartyWizardUsersDontMix(t *testing.T) {
 	value(t, kavya.Get(t, stepDetails), "code", "MEHTA")
 }
 
-// The inputs: GSTIN, pincode and PAN are CodeInputs, the state is a Select of
-// the GST states, and the labels are Line 1, Line 2 and Payment Terms (CD-199).
+// The inputs: GSTIN and PAN are CodeInputs, the pincode is plain text (CD-229),
+// the state is a Select of the GST states, and the labels are Line 1, Line 2 and
+// Payment Terms (CD-199).
 func TestScreens_PartyWizardInputs(t *testing.T) {
 	w := newWorld(t)
 	b := w.kavya()
@@ -1224,7 +1234,7 @@ func wantCode(t *testing.T, r webtest.Response, name, kind string) {
 func wantAddressInputs(t *testing.T, r webtest.Response, gstinName, pincodeName, stateName string) {
 	t.Helper()
 	wantCode(t, r, gstinName, "gstin")
-	wantCode(t, r, pincodeName, "pincode")
+	wantFreeText(t, r, pincodeName)
 	if r.Doc.Find(`select[name="`+stateName+`"]`).Length() != 1 {
 		t.Errorf("%s is not a Select\nbody: %s", stateName, webtest.Squash(r.Body))
 	}
