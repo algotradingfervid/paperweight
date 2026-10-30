@@ -1,6 +1,6 @@
 # Module spec: Goods Receipt (GRN)
 
-Version 0.2 · 30 October 2026 · Status: draft for owner review, revised for CD-234 and a kernel check · Author: AD-6
+Version 0.3 · 30 October 2026 · Status: for owner review, with CD-234 and CD-235 applied · Author: AD-6
 
 Follows the Purchase Order spec (`docs/specs/2026-10-30-module-purchase-order-spec.md`), whose §14 shared decisions, §12 cutover plan and §17 sources apply here. Marks **(CD-234)**, **[Assumption]** and **CA** mean the same as there.
 
@@ -225,6 +225,8 @@ PO spec §12 applies. GRN-specific points:
 - Vendor challan can be left blank only on a service-only GRN, so paper GRNs need a challan number. Type `Not recorded` if it's lost.
 
 ## 14. Proposed changes for the head
+
+Rulings of 30 October: the `Int` columns with a module handler running `CheckLinkTx` are accepted, and `CloseRight` is accepted for MOD-0. Hooks await the design pass.
 
 1. **Module hooks.** Steps 1 and 3 here aren't field forms, so this spec uses `StepBody`, `PageExtra` and `ReasonNote` from PO spec §15 item 11. Design-system §8.7's GRN step order changes to §11's.
 2. **`print.GRNDoc` and `GRNLine`** gain the additive fields in §9.

@@ -1,6 +1,6 @@
 # Module spec: Expense Claim and Employee Advance
 
-Version 0.3 · 30 October 2026 · Status: draft for owner review, revised for CD-234 and a builder check · Author: AD-6
+Version 0.4 · 30 October 2026 · Status: for owner review, with CD-234 and CD-235 applied · Author: AD-6
 
 Follows the Purchase Order spec (`docs/specs/2026-10-30-module-purchase-order-spec.md`), whose §14 shared decisions, §12 cutover plan and §17 sources apply here. Marks **(CD-234)**, **[Assumption]** and **CA** mean the same as there. This module depends on no other module, so it can run beside the PO.
 
@@ -116,7 +116,7 @@ It has a lines table because `checkFields` refuses a submit with no lines on eve
 
 **Lines.** `expense_type_id` (required), `description`, `amount` (more than 0), `project_id`, `site_id`. No receipts: nothing has been spent yet.
 
-**Rule.** Seed at go-live: Employee Advance, ₹0, reporting manager, fallback Director, like claims.
+**Rule.** Entered at go-live: Employee Advance, ₹0, reporting manager, fallback role Fallback Approver, like claims (§6).
 
 **Settlement.**
 
@@ -170,16 +170,32 @@ Odoo's duplicate checks work the same way and are soft there too. A cancelled cl
 | Action | Who | Module work |
 |---|---|---|
 | Save, submit, withdraw, revise | Employee, own | §5 |
-| Approve, reject | Reporting manager (fallback Director), per the rule | Eligibility excludes the claimant |
-| Close | Director, Administrator [Assumption] | Claim: reason says how it was settled. Advance: §4 |
-| Cancel | Director, Administrator [Assumption] | Reason required; lock check; recompute the advance |
+| Approve, reject | Reporting manager, else a Fallback Approver (§6) | Eligibility excludes the claimant |
+| Close | Director, Administrator (CD-235) | Claim: reason says how it was settled. Advance: §4 |
+| Cancel | Director, Administrator (CD-235) | Reason required; lock check; recompute the advance |
 | Amend | Employee, own | New draft; the amender becomes `created_by` |
 
 **Close needs a new owner.** There's no Accounts role (CD-234), and the kernel gives `close` to the `submit` right (R4), so every employee could close their own claim. This spec proposes `doctype.DocType.CloseRight string`: `""` means `submit` as today, `"none"` means no close, otherwise a right name. Claims and Advances set `"cancel"`. Cancel is held by Director and Administrator, so one role does both. GRN sets `"none"`.
 
 **Close is optional.** It's the app's only "done" state for a claim, and CD-234 tracks no payments. A closed claim can't be cancelled or amended (R6). A claim left approved forever is harmless. The page shows the kernel's words: button `Close`, field `Reason for closing`, hint `For example how it was paid`.
 
-**The Director's own claims.** Director Meena has no manager, and the fallback rule excludes the claimant, so with one Director her submit is refused (D-APR-08). Drafted: the Director's own expenses stay outside the app, and Director doesn't hold the Employee role [Assumption]. Owner question in §16.
+**Fallback approver (owner's answer, 30 October).** The Director keeps the Employee role and files claims in the app. Someone else must approve them, so:
+
+- A rule has one fallback role (`approval.Rule.FallbackRole`). A new canonical role, **Fallback Approver**, holds read and approve (all) on Expense Claim and Employee Advance, and nothing else. A second Director also works, but the Director role carries PO approval and cancel rights, which this person may not need.
+- The owner gives Fallback Approver to the Director and to at least one other person. That person may be the Administrator, who still needs the role, because eligibility goes by role (`holdsAny`), not by right alone.
+- Both rules (Expense Claim and Employee Advance, ₹0, reporting manager) name Fallback Approver. No code holds a name: both are data in the approval rules screen.
+
+| Claim from | Who approves |
+|---|---|
+| Employee with a manager | The manager. A Fallback Approver can also act (below) |
+| Employee with no manager, or a manager with no user | A Fallback Approver |
+| The Director | The other Fallback Approver |
+| The other Fallback Approver | Their manager, usually the Director; with no manager, the Director |
+| The only active Fallback Approver | Submit is refused with APR's text: `No one else can approve this Expense Claim. Give the Fallback Approver role to another active user, then submit again.` The draft stays intact (D-APR-08) |
+
+The fallback role is an approver role on the rule, so its holders can act on any claim and read them all. Accepted: it is the same reach the Director already has.
+
+**When the second person leaves.** A disabled user is never eligible (D-APR-18). A pending claim with nobody left shows on Stuck approvals (APR-043), and it moves once another person gets the role. Withdrawing also works. The go-live check confirms two active holders.
 
 The approver can't change an amount. A claim with one wrong line goes back with a reason, and revise puts it in draft, then through approval again (D-APR-11). A claim pending when the manager leaves shows on the stuck list (APR-043).
 
@@ -224,9 +240,11 @@ Both DocTypes:
 |---|---|
 | Employee | read (team); create, write, submit, amend, print (own); delete (own); approve (team) |
 | Director | read, approve, cancel, print, export (all) |
+| Fallback Approver | read, approve (all) |
 | Administrator | every applicable right |
 
 - Team is direct reports only (CD-11), which is why Priya sees and approves Deepak's claims.
+- The Director also holds Employee, so they can file their own claims (`00-fixtures.md` changes for Meena).
 - Fixture `Employee` has no `amend` or `delete`; both join here so a person can correct their own work. An employee can't self-approve, so a claimant amending is safe.
 - No one outside the employee's line sees a claim except Director and Administrator, since there's no Accounts role.
 
@@ -263,14 +281,14 @@ PO spec §12 applies.
 - No photo: type `Paper file` as the reason. That's one short entry per line, and there's no bulk route [Assumption].
 - Set `EX/` and `EA/` series as in the PO plan; the owner has no earlier advance numbers on record that I know of.
 - Advances open on go-live day go in as back-dated advances, then their claims set against them, or as an advance for the balance. The Administrator picks one.
-- Each employee needs a linked user and a reporting manager before rules go in. Otherwise D-APR-08 refuses their submit, unless the fallback role has someone.
-- Seed rules on go-live day: Expense Claim and Employee Advance, ₹0, reporting manager, fallback Director.
+- Each employee needs a linked user and, normally, a reporting manager before rules go in.
+- Go-live day: give Fallback Approver to the Director and a second person, confirm both are active, then enter the rules for Expense Claim and Employee Advance: ₹0, reporting manager, fallback role Fallback Approver.
 
 ## 15. Proposed changes for the head
 
 1. **`doctype.DocType.CloseRight`** (§6). Additive across DOC, `auth` and `authfake` with parity rows, and `docscreen`'s button and reason page. Core spec R4 gains a line. It replaces GRN spec §14 item 4's flag.
 2. **FILE:** `(*files.Store).ListTx` per CD-209; `msgLimit` takes `pol.MaxCount`; FILE-045 and FILE-046 gain hash wording; the claim's policy and `RemoveGuard` go in `files.New`'s wiring. `filesfake` stays on DefaultPolicy, so EXP-010 runs on the real store.
-3. **`00-fixtures.md`:** Employee gains `amend` and `delete` (own) on Expense Claim; Director gains `cancel`; Employee Advance rows.
+3. **`00-fixtures.md`:** Employee gains `amend` and `delete` (own) on Expense Claim; Director gains `cancel` and Meena gains Employee; new canonical role Fallback Approver and a second holder; the fallback rows move to it; Employee Advance rows. Fixture tests using Director as the fallback need a look (`fixture.Claim`).
 4. **`print.ExpenseDoc`** additive fields, and a new `AdvanceDocument`.
 5. **`docscreen` module hooks:** this spec uses `StepBody`, `StepPost`, `CheckExtra`, `PageExtra` and `HideField` from PO spec §15 item 11.
 6. **Series `EA/{FY}/{#####}`** joins `00-fixtures.md`'s numbering table.
@@ -278,13 +296,7 @@ PO spec §12 applies.
 
 ## 16. Open points for owner review
 
-Follow-up questions went to the head with this revision:
-
-| Question | Drafted as |
-|---|---|
-| Who closes and cancels claims and advances? | Director and Administrator |
-| Who enters other people's claims during back-entry? | Administrator only |
-| Whose claims can the top person's approve? | Their own expenses stay outside the app (§6) |
+The owner has answered both batches (CD-234, CD-235, and the fallback answer in §6, which still needs its CD line).
 
 **My other assumptions, for review.**
 - Claims aren't restricted by project or site.
@@ -296,7 +308,7 @@ Follow-up questions went to the head with this revision:
 
 ## 17. Test plan
 
-Fixtures: `00-fixtures.md`, `TRAVEL`, `FOOD`, `FUEL`, `LODGING`, `SITE-MISC`. Advance rule as in §4.
+Fixtures: `00-fixtures.md`, `TRAVEL`, `FOOD`, `FUEL`, `LODGING`, `SITE-MISC`. Advance rule as in §4. EXP-016 and EXP-039 to EXP-041 run on the real `auth.Service`.
 
 | ID | Behaviour | Go test | P | Level |
 |---|---|---|---|---|
@@ -315,7 +327,10 @@ Fixtures: `00-fixtures.md`, `TRAVEL`, `FOOD`, `FUEL`, `LODGING`, `SITE-MISC`. Ad
 | EXP-013 | Type defaults copied when blank; disabled tax code gives none | `TestExp_TypeDefaults` | P1 | integration |
 | EXP-014 | Duplicate receipt and duplicate line warn, don't refuse; cancelled claims ignored | `TestExp_DuplicateWarnings` | P1 | integration |
 | EXP-015 | Goes to the reporting manager; number on approve | `TestExp_ManagerApproves` | P1 | integration |
-| EXP-016 | No manager falls back to Director | `TestExp_Fallback` | P1 | integration |
+| EXP-016 | No manager falls back to Fallback Approver | `TestExp_Fallback` | P1 | integration |
+| EXP-039 | Director's claim goes to the other Fallback Approver and not to the Director | `TestExp_DirectorClaim` | P1 | integration |
+| EXP-040 | Claim from the only active Fallback Approver is refused with APR's text; the draft stays; a second holder lets it submit | `TestExp_OnlyFallback` | P1 | integration |
+| EXP-041 | Second holder disabled while pending: claim on Stuck approvals, moves when the role is given | `TestExp_FallbackLeaves` | P1 | integration |
 | EXP-017 | Project-restricted Priya sees and approves Deepak's no-project claim, on the real `auth.Service` | `TestExp_RestrictedManagerReal` | P1 | integration |
 | EXP-018 | Other teams' claims are 404; own scope on list and export | `TestExp_TeamScopeReal` | P1 | integration |
 | EXP-019 | Reject needs a reason; revise and resubmit | `TestExp_RejectRevise` | P1 | integration |

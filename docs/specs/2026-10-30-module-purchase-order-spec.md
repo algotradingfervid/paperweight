@@ -1,11 +1,11 @@
 # Module spec: Purchase Order
 
-Version 0.2 · 30 October 2026 · Status: draft for owner review, revised for CD-234 · Author: AD-6
+Version 0.3 · 30 October 2026 · Status: for owner review, with CD-234 and CD-235 applied · Author: AD-6
 
 Builds on the core platform spec, the design system, the decision log (to CD-229) and `docs/tests/core/`. Where this spec names a kernel rule it does not restate it. Goods Receipt and Expense specs depend on the shared decisions in §14 and the cutover plan in §12.
 
 **How to read the marks.**
-- **(CD-234)**: the owner's answer of 30 October.
+- **(CD-234)**, **(CD-235)**: the owner's answers of 30 October.
 - **[Assumption]**: a default of mine, listed in §16 for review.
 - **CA**: "check with your CA". Facts are from the research of 30 October (sources in §17). They are not legal advice, and the app never decides tax treatment.
 
@@ -258,7 +258,7 @@ Owner decisions: go live as soon as the modules are ready (CD-228). Open POs are
 |---|---|
 | Dates | Only future dates are refused. Number, FY and print follow the document's own date (D-NAM-04). Nothing compares a date with today beyond that |
 | Numbering | The FY in the number comes from the document date, so a date before 1 April 2026 gets a `25-26` prefix with its own counter. Numbers follow entry order, not date order |
-| Approvals | **No approval rules exist during back-entry** [Assumption]. With no rule, submit goes straight to approved and numbers the document (F5), so nobody re-approves a year of history. Rules go in on go-live day. Print shows the person who entered it as the approver, and the audit shows the real entry time |
+| Approvals | **No approval rules exist during back-entry** (CD-235). With no rule, submit goes straight to approved and numbers the document (F5), so nobody re-approves a year of history. Rules go in on go-live day. Print shows the person who entered it as the approver, and the audit shows the real entry time |
 | Period lock | Off by default (§14.2) |
 | Receipts on old claims | The reason field takes `Paper file` where no photo exists |
 
@@ -270,10 +270,10 @@ Owner decisions: go live as soon as the modules are ready (CD-228). Open POs are
 | Set-up | Link each user to an employee; assign roles and restrictions. **No approval rules yet** | Administrator |
 | Set-up | `app admin create` before ports open (CD-228); restore drill against S3 (CD-226) | Owner with Claude Code |
 | Set-up | Set each series' last number used (NAM-056): `PO/26-27/` to the last paper PO, `GR/26-27/` and `EX/26-27/` the same, or 0 if none. Any earlier FY entered needs its own prefix set (NAM-057 refuses a lower number) | Administrator |
-| Back-entry | Enter the year's POs with their real dates. The paper number goes in `Earlier PO no.`. Enter GRNs against them with real dates, and claims and advances (Expense spec §3.1 for entering on someone's behalf) | Purchase User, Stores, Administrator |
+| Back-entry | Enter the year's POs with their real dates. The paper number goes in `Earlier PO no.`. Enter GRNs against them with real dates, and claims and advances (only an Administrator enters claims and advances for someone else, CD-235) | Purchase User, Stores, Administrator |
 | Back-entry | An open PO with goods already received: either enter its GRNs, or fill `Already received` per line. Never both, or the goods count twice | Purchase User |
 | Back-entry | Check each PO's pending against the paper, using the pending items report | Purchase User |
-| Go-live day | Enter production approval rules. From this moment every new document follows them | Administrator |
+| Go-live day | Enter production approval rules, after confirming two active Fallback Approvers (Expense spec §6). From this moment every new document follows them | Administrator |
 | Go-live day | Paper stops. New POs, GRNs and claims go in the app | Everyone |
 | After go-live | The Administrator may turn on the period lock (§14.2) | Administrator |
 | FY rollover | The first PO dated 1 April uses a new prefix and starts at 1 (NAM-059 can preset) | Automatic |
@@ -332,7 +332,7 @@ The app holds no `Entered` mark, no Accounts role, and no payment record. Staff 
 
 ## 15. Proposed changes for the head
 
-I don't edit the core spec or the decision log. Proposed CD entries:
+I don't edit the core spec or the decision log. Rulings of 30 October: items 8 and `CloseRight` and the FILE changes are accepted in principle for MOD-0; item 11 needs its design pass (`docs/specs/2026-10-30-module-docscreen-hooks-spec.md`); moving `amend` is accepted. The rest await the head's ruling with all three specs in. Proposed CD entries:
 
 1. **Module packages and migration ranges** as §14.5; spec §4.1 gains `internal/modules/`, and §4.5 splits `10000+`.
 2. **Import rule row** for `internal/modules/*` in `TestContracts_KernelImportsFollowTable`, per plan checklist item 8.
@@ -345,16 +345,11 @@ I don't edit the core spec or the decision log. Proposed CD entries:
 9. **Spec §1 and §11 and BRIEF** still say Zoho sync is the first module after Expenses; CD-228 says it's decided after the modules are in use.
 10. **`docs/ux/` design documents** for PO, GRN and Expense: one `crew-ux-designer` task per module once these specs are approved.
 11. **`docscreen` module hooks (additive, UI's code, in MOD-0).** `docscreen.Deps.Modules map[string]docscreen.Module`, each optional: `StepBody(slug)` and `StepPost(slug)` (a step the module renders and saves through `Engine.Do`, inside docscreen's frame, version and navigation; a module's first step may create the draft with lines), `CheckExtra` (place reason, reverse-charge note), `PageExtra` (pending column, linked GRNs, bill panel, over-delivery note), `ReasonNote(action)` (close warning), `HideField` (`already_received`, earlier-PO fields until wanted). Modules without an entry behave as today.
-12. **Fixture seed.** Decide whether `00-fixtures.md` moves `amend` for Purchase Order to Purchase User to match §10, or the seed stays and only production `DefaultRights` differ. I recommend moving it, so tests and production agree.
+12. **Fixture seed.** `amend` moves as §10 says (ruled). `00-fixtures.md` moves with it, so tests and production agree.
 
 ## 16. Open points for owner review
 
-The owner answered the first batch (CD-234). Follow-up questions went to the head with this revision:
-
-| Question | Drafted as |
-|---|---|
-| Back-entry approvals | No rules until go-live day (§12) |
-| Numbers on back-entered POs | Continue from the last paper number (CD-234), with the paper number in `Earlier PO no.` |
+The owner has answered both batches (CD-234, CD-235).
 
 **My other assumptions, for review.**
 - Project is required on every PO; stock buys use a general project.
