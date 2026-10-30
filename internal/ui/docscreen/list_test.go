@@ -295,6 +295,7 @@ func TestRoutes_AllRegistered(t *testing.T) {
 		"POST /doc/{doctype}/{id}/lines/{no}/move",
 		"GET /doc/{doctype}/{id}/{action}",
 		"POST /doc/{doctype}/{id}/{action}",
+		"GET /search",
 	}
 	slices.Sort(got)
 	slices.Sort(want)
