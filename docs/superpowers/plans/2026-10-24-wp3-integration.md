@@ -135,6 +135,7 @@ Task 2 (composition root) also does:
 - Mounts `/ui/validate/*` for real pages; today only the gallery mounts it.
 - Calls `company.SetupTx` from first-run setup with CD-165's fields.
 - Adds `app admin create` before the site opens, and an admin password reset command, so a sole admin who forgets a password can recover without SQL.
+- Sets `Cache-Control: private, no-store` on every signed-in HTML response, so Back after sign-out on a shared computer shows nothing (CD-225); only files and print set it today, and CD-223 removed the scs header that left `no-cache="Set-Cookie"`.
 - `/healthz` reads the database. Logs are JSON to stdout (spec §7). HSTS is set.
 - Deletes the empty `TestContracts_StubsReturnNotImplemented` (CD-154).
 
