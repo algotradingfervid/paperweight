@@ -103,7 +103,7 @@ func (s *Service) SaveCompanyTx(ctx context.Context, tx *db.Tx, p auth.Principal
 	if version != 0 {
 		rec = &auth.RecordRef{DocType: CompanyDocType, ID: companyID}
 	}
-	if err := s.env.Auth.Can(ctx, p, CompanyDocType, auth.RightWrite, rec); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, CompanyDocType, auth.RightWrite, rec); err != nil {
 		return err
 	}
 	in, err := ValidateCompany(in)

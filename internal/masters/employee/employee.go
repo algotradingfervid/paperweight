@@ -357,7 +357,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, in Input) (mstki
 
 // CreateTx is Create inside tx.
 func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in Input) (mstkit.Saved, error) {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)
@@ -400,7 +400,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 
 // UpdateTx is Update inside tx.
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)
@@ -423,7 +423,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
+	if err := s.env.CheckCodeChange(ctx, tx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
 	before, after := auditFields(old), auditFields(fromInput(in))
@@ -462,7 +462,7 @@ func (s *Service) SetDisabled(ctx context.Context, p auth.Principal, id int64, v
 // already in the requested state is left alone, after the rights and version
 // checks (CD-181). Re-joining clears the relieving date.
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return err
 	}
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
@@ -497,7 +497,7 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id int64, versio
 
 // DeleteTx is Delete inside tx.
 func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int) error {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightDelete, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightDelete, ref(id)); err != nil {
 		return err
 	}
 	return s.env.DeleteTx(ctx, tx, p, Kind, id, version)

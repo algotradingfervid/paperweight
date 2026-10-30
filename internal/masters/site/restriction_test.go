@@ -286,6 +286,19 @@ func TestSite_UpdateRestrictedError(t *testing.T) { // CD-214
 	}
 }
 
+// TestSite_UpdatePostedProjectError: PUNE-WH has no project, so the read-only
+// check reads nothing, and an error from the check on the posted project
+// refuses the update and is returned as is.
+func TestSite_UpdatePostedProjectError(t *testing.T) { // CD-214
+	w := newProjectWorld(t)
+	kit := w.env.Kit
+	kit.Auth = failingRestricted{kit.Auth}
+	_, err := site.New(kit).Update(context.Background(), w.env.Priya, w.m.Sites["PUNE-WH"], 1, w.input("PUNE-WH", "PUNE", "PRJ-METRO"))
+	if !errors.Is(err, errRestrictedBoom) {
+		t.Errorf("Update posting a project with failing ValueAllowedTx = %v; want %v", err, errRestrictedBoom)
+	}
+}
+
 // wantReadOnly checks err is CD-216(6)'s refusal: a 403 with the exact text.
 func wantReadOnly(t *testing.T, err error) {
 	t.Helper()

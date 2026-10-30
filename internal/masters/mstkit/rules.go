@@ -75,12 +75,12 @@ func CheckCodeFree(ctx context.Context, tx *db.Tx, k Kind, code string, exceptID
 }
 
 // CheckCodeChange allows a code change only for a Masters Manager; an
-// unchanged code (in any case) is always allowed.
-func (e Env) CheckCodeChange(ctx context.Context, p auth.Principal, oldCode, newCode string) error {
+// unchanged code (in any case) is always allowed. It reads inside tx (CD-213).
+func (e Env) CheckCodeChange(ctx context.Context, tx *db.Tx, p auth.Principal, oldCode, newCode string) error {
 	if strings.EqualFold(strings.TrimSpace(oldCode), strings.TrimSpace(newCode)) {
 		return nil
 	}
-	ok, err := e.Auth.HasRole(ctx, p.ID, roleMastersManager)
+	ok, err := e.Auth.HasRoleTx(ctx, tx, p.ID, roleMastersManager)
 	if err != nil {
 		return err
 	}

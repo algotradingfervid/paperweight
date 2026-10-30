@@ -64,6 +64,9 @@ func nestedRead(ctx context.Context, d *db.DB) error {
 // CD-213: a read inside a write is reported near the deadline, and the message
 // says what happened and names the test's own function; the pool limit is back.
 func TestNoSecondConn_NestedReadFails(t *testing.T) {
+	if db.NestCheck {
+		t.Skip("nests a Read in a Write on purpose; the nestcheck gate would end the run")
+	}
 	d := testkit.NewDB(t)
 	before := d.SQL().Stats().MaxOpenConnections
 
@@ -91,6 +94,9 @@ func TestNoSecondConn_NestedReadFails(t *testing.T) {
 // CD-213: fn that ignores its ctx can't hang the helper; the test still fails
 // near the deadline and the pool limit is back. Close releases the waiting fn.
 func TestNoSecondConn_IgnoresCtxStillFails(t *testing.T) {
+	if db.NestCheck {
+		t.Skip("nests a Read in a Write on purpose; the nestcheck gate would end the run")
+	}
 	d := testkit.NewDB(t)
 	before := d.SQL().Stats().MaxOpenConnections
 

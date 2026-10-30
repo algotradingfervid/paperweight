@@ -190,6 +190,13 @@ func (a *Auth) Restricted(_ context.Context, _ *db.Tx, _ auth.Principal, dimensi
 	return false, auth.ValidDimension(dimension)
 }
 
+// ValueAllowedTx allows every value, as nobody here is restricted, and refuses
+// an unknown dimension like the real service (CD-216 item 7).
+func (a *Auth) ValueAllowedTx(_ context.Context, _ *db.Tx, _ auth.Principal, dimension string, _ int64) (bool, error) {
+	err := auth.ValidDimension(dimension)
+	return err == nil, err
+}
+
 // HasRole reads the roles registered with Remember.
 func (a *Auth) HasRole(_ context.Context, u auth.UserID, role string) (bool, error) {
 	a.mu.Lock()

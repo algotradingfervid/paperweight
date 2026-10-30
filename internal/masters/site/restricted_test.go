@@ -13,10 +13,14 @@ import (
 
 var errRestrictedBoom = errors.New("restricted lookup failed")
 
-// failingRestricted is the real auth.Service with Restricted failing.
+// failingRestricted is the real auth.Service with Restricted and ValueAllowedTx failing.
 type failingRestricted struct{ auth.Service }
 
 func (failingRestricted) Restricted(context.Context, *db.Tx, auth.Principal, string) (bool, error) {
+	return false, errRestrictedBoom
+}
+
+func (failingRestricted) ValueAllowedTx(context.Context, *db.Tx, auth.Principal, string, int64) (bool, error) {
 	return false, errRestrictedBoom
 }
 

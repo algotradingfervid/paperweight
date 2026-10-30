@@ -148,7 +148,7 @@ func wantText(t *testing.T, what string, err, target error, msg string) {
 	}
 }
 
-// Create as a user restricted on project: Auth.Can on the record, Auth.Restricted
+// Create as a user restricted on project: Auth.CanTx on the record, Auth.Restricted
 // and CheckValues all run inside the write.
 func TestNoSecondConn_DocCreate(t *testing.T) {
 	e := nsNew(t)
@@ -164,7 +164,7 @@ func TestNoSecondConn_DocCreate(t *testing.T) {
 	}
 }
 
-// A create outside the user's project is refused by Auth.Can on the proposed
+// A create outside the user's project is refused by Auth.CanTx on the proposed
 // record: a 404, because the draft would be hidden from them.
 func TestNoSecondConn_DocCreateOutsideRestriction(t *testing.T) {
 	e := nsNew(t)
@@ -175,7 +175,7 @@ func TestNoSecondConn_DocCreateOutsideRestriction(t *testing.T) {
 	wantText(t, "create on PRJ-TECHPARK", err, auth.ErrNotFound, auth.MsgNotFound)
 }
 
-// Save: Auth.Can on the stored record and CheckValues.
+// Save: Auth.CanTx on the stored record and CheckValues.
 func TestNoSecondConn_DocSave(t *testing.T) {
 	e := nsNew(t)
 	d := e.draftOrder(t)
@@ -190,7 +190,7 @@ func TestNoSecondConn_DocSave(t *testing.T) {
 	}
 }
 
-// A save moving the draft outside the user's project passes Can on the stored
+// A save moving the draft outside the user's project passes CanTx on the stored
 // record and is refused by CheckValues, with the allowed codes.
 func TestNoSecondConn_DocSaveRefusedByCheckValues(t *testing.T) {
 	e := nsNew(t)
@@ -220,7 +220,7 @@ func TestNoSecondConn_DocSubmitNeedsApproval(t *testing.T) {
 	}
 }
 
-// Approve: Can, CheckApprover and Record's second CheckApprover, all in the write.
+// Approve: CanTx, CheckApprover and Record's second CheckApprover, all in the write.
 func TestNoSecondConn_DocApprove(t *testing.T) {
 	e := nsNew(t)
 	d := e.PendingOrder(t)
@@ -459,7 +459,7 @@ func (e *nsEnv) inbox(t *testing.T, p auth.Principal) (types.Result[approval.Inb
 	return res, kinds
 }
 
-// InboxOfType runs holdsAny (HasRole) and canApprove (Can, eligible) inside its
+// InboxOfType runs holdsAny (HasRoleTx) and canApprove (CanTx, eligible) inside its
 // read transaction.
 func TestNoSecondConn_ApprovalInbox(t *testing.T) {
 	e := nsNew(t)

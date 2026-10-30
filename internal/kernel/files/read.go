@@ -89,9 +89,9 @@ func (s *Store) List(ctx context.Context, p auth.Principal, parent auth.RecordRe
 
 // Latest returns parent's newest attachment, read in the caller's tx, and
 // false when it has none. The user comes from ctx (CD-12) and is checked as in
-// Open: a ReadAnySignedIn parent needs only a signed-in user and takes no second
-// connection (CD-209); any other parent goes through auth.Can, whose real
-// service does. A ctx with no user is refused, not answered with "none".
+// Open: a ReadAnySignedIn parent needs only a signed-in user (CD-209); any other
+// parent goes through auth.CanTx in tx, so neither takes a second connection.
+// A ctx with no user is refused, not answered with "none".
 func (s *Store) Latest(ctx context.Context, tx *db.Tx, parent auth.RecordRef) (Meta, bool, error) {
 	p, _ := auth.PrincipalFrom(ctx)
 	if err := s.canRead(ctx, tx, p, parent.DocType, parent.ID); err != nil {

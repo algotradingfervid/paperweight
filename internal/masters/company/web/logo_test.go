@@ -259,10 +259,9 @@ func (lw *logoWorld) forBranch(t *testing.T, ctx context.Context) (string, error
 	return got, err
 }
 
-// onePool leaves the pool one connection and returns what restores it. Real
-// auth.Can reads on a connection of its own, so a request that calls it waits
-// until requestLimit, and a call with no deadline must restore the pool first:
-// Administrator is the user that skips that read.
+// onePool leaves the pool one connection and returns what restores it. A tx
+// that asks for a second connection then waits on itself until its ctx ends,
+// so a call with no deadline must restore the pool first.
 func (lw *logoWorld) onePool() func() {
 	pool := lw.h.Env.DB.SQL()
 	pool.SetMaxOpenConns(1)
@@ -303,9 +302,8 @@ func TestLogo_LetterheadWithNoPrincipalIsRefused(t *testing.T) {
 // second connection under the write lock. With one connection in the pool the
 // writers queue for the tx's own connection, so any second connection the
 // logo code asks for waits on itself until requestLimit, and fails this test
-// on the status, not on a clock. It runs as Administrator: for any other user
-// files.Store's own auth.Can reads on a second connection (see onePool), which
-// is not this code's to change (CD-213).
+// on the status, not on a clock. It runs as Administrator; the non-admin cases
+// are in logo_nosecondconn_test.go (CD-213).
 func TestLogo_ReplaceTakesNoSecondConnectionAsAdministrator(t *testing.T) {
 	lw := seeded(t)
 	admin := lw.h.Env.Admin

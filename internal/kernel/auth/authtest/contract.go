@@ -119,6 +119,7 @@ var contractRows = []struct {
 	{"CD-174 Restricted", rowRestricted},
 	{"CD-199 UserByEmail", rowUserByEmail},
 	{"CD-213 Tx methods match their twins", rowTxParity},
+	{"CD-216 ValueAllowedTx", rowValueAllowedTx},
 }
 
 var refusalRows = []struct {
@@ -128,6 +129,7 @@ var refusalRows = []struct {
 	{"AUTH-066 inapplicable rights refused", rowInapplicable},
 	{"CD-174 unknown dimension", rowUnknownDimension},
 	{"CD-213 inapplicable rights refused in a tx", rowInapplicableTx},
+	{"CD-216 ValueAllowedTx unknown dimension", rowValueAllowedUnknownDimension},
 }
 
 // order returns a probe Purchase Order record created by u.
@@ -1210,5 +1212,83 @@ func rowUnknownDocTypeTx(t *testing.T, svc auth.Service, admin auth.Principal, d
 		plain("CheckValuesTx", svc.CheckValuesTx(ctx, tx, admin, dt, map[string][]int64{"project": {1}}))
 		_, err := svc.UsersWithRightTx(ctx, tx, dt, auth.RightRead, nil)
 		plain("UsersWithRightTx", err)
+	})
+}
+
+// CD-216(7): ValueAllowedTx is true for the Administrator whatever their
+// restriction rows say, for a user with no restriction on that dimension, and
+// for an id in the user's list on it; false for any other id.
+func rowValueAllowedTx(t *testing.T, svc auth.Service, s Setup) {
+	d := s.DB()
+	ctx := context.Background()
+	metro, techpark := projects(t, s)
+	pune, tech := masterID(t, d, "probe_site", "PUNE-WH"), masterID(t, d, "probe_site", "TECH-SITE")
+	const unknownID = 999999
+
+	both := s.User(t, "both@contract.test")
+	s.Restrict(t, both.ID, []int64{metro}, []int64{pune})
+	onlyProject := s.User(t, "only-project@contract.test")
+	s.Restrict(t, onlyProject.ID, []int64{metro}, nil)
+	onlySite := s.User(t, "only-site@contract.test")
+	s.Restrict(t, onlySite.ID, nil, []int64{pune})
+	open := s.User(t, "open@contract.test")
+	admin := s.Admin(t)
+	s.Restrict(t, admin.ID, []int64{metro}, []int64{pune})
+
+	cases := []struct {
+		p    auth.Principal
+		dim  auth.Dimension
+		id   int64
+		want bool
+	}{
+		{admin, auth.DimProject, metro, true},
+		{admin, auth.DimProject, techpark, true},
+		{admin, auth.DimSite, pune, true},
+		{admin, auth.DimSite, tech, true},
+		{admin, auth.DimProject, unknownID, true},
+		{open, auth.DimProject, techpark, true},
+		{open, auth.DimSite, tech, true},
+		{open, auth.DimProject, unknownID, true},
+		{both, auth.DimProject, metro, true},
+		{both, auth.DimProject, techpark, false},
+		{both, auth.DimSite, pune, true},
+		{both, auth.DimSite, tech, false},
+		{both, auth.DimProject, unknownID, false},
+		{onlyProject, auth.DimProject, metro, true},
+		{onlyProject, auth.DimProject, techpark, false},
+		{onlyProject, auth.DimSite, tech, true},
+		{onlySite, auth.DimProject, techpark, true},
+		{onlySite, auth.DimSite, pune, true},
+		{onlySite, auth.DimSite, tech, false},
+	}
+	inTxs(t, d, func(t *testing.T, tx *db.Tx) {
+		for _, c := range cases {
+			got, err := svc.ValueAllowedTx(ctx, tx, c.p, string(c.dim), c.id)
+			if err != nil || got != c.want {
+				t.Errorf("ValueAllowedTx(%s, %s, %d) = (%v, %v), want (%v, nil)", c.p.Name, c.dim, c.id, got, err, c.want)
+			}
+		}
+	})
+}
+
+// CD-216(7), CD-174: an unknown dimension is Restricted's plain error, for the
+// Administrator too; it is never an allowed value.
+func rowValueAllowedUnknownDimension(t *testing.T, svc auth.Service, admin auth.Principal, d *db.DB) {
+	ctx := context.Background()
+	plain := auth.Principal{ID: admin.ID + 1000, Name: "Plain User"}
+	inTxs(t, d, func(t *testing.T, tx *db.Tx) {
+		for _, p := range []auth.Principal{plain, admin} {
+			for _, dim := range []string{"region", ""} {
+				got, err := svc.ValueAllowedTx(ctx, tx, p, dim, 1)
+				what := fmt.Sprintf("ValueAllowedTx(%s, %q)", p.Name, dim)
+				if got {
+					t.Errorf("%s = true, want false with the error", what)
+				}
+				want := fmt.Sprintf("auth: unknown dimension %q", dim)
+				if err == nil || err.Error() != want || errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+					t.Errorf("%s: err = %v, want the plain error %q", what, err, want)
+				}
+			}
+		}
 	})
 }

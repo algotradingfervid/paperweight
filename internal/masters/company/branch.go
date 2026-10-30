@@ -150,7 +150,7 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id int64, versio
 
 // CreateTx creates a branch inside tx.
 func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in BranchInput) (mstkit.Saved, error) {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := s.validate(ctx, tx, in)
@@ -194,7 +194,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.env.CheckCodeChange(ctx, p, cur.Code, in.Code); err != nil {
+	if err := s.env.CheckCodeChange(ctx, tx, p, cur.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.checkAddressStates(ctx, tx, id, in.StateCode); err != nil {
@@ -317,7 +317,7 @@ func (s *Service) can(ctx context.Context, tx *db.Tx, p auth.Principal, id int64
 	if err != nil {
 		return Branch{}, err
 	}
-	return b, s.env.Auth.Can(ctx, p, DocType, r, &auth.RecordRef{DocType: DocType, ID: id})
+	return b, s.env.Auth.CanTx(ctx, tx, p, DocType, r, &auth.RecordRef{DocType: DocType, ID: id})
 }
 
 // validate runs ValidateBranch against the stored company PAN.

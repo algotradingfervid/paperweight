@@ -72,6 +72,9 @@ func ctxOneConn(t *testing.T, w *authtest.World, fn func(ctx context.Context, tx
 // A grant made in the caller's write is what CanTx answers from; Can, on its
 // own connection, can't see it, and after the rollback nobody can.
 func TestCanTx_ReadsGrantInCallersTx(t *testing.T) {
+	if db.NestCheck {
+		t.Skip("calls plain Can inside a Write on purpose; the nestcheck gate would end the run")
+	}
 	w, p := ctxWorld(t)
 	ctx := t.Context()
 	rec := ctxPO(1)
@@ -103,6 +106,9 @@ func TestCanTx_ReadsGrantInCallersTx(t *testing.T) {
 // A restriction added in the caller's write hides the record from CanTx; Can,
 // on its own connection, can't see it.
 func TestCanTx_ReadsRestrictionInCallersTx(t *testing.T) {
+	if db.NestCheck {
+		t.Skip("calls plain Can inside a Write on purpose; the nestcheck gate would end the run")
+	}
 	w, p := ctxWorld(t)
 	ctx := t.Context()
 	metro, techpark := w.Projects["PRJ-METRO"], w.Projects["PRJ-TECHPARK"]
@@ -177,8 +183,7 @@ func TestCanTx_RollbackCantPoisonMatrixCache(t *testing.T) {
 	t5WantDenied(t, "Can(write), the rolled-back grant", w.Auth.Can(ctx, p, authtest.DTOrder, auth.RightWrite, nil), auth.RightWrite, false, false, ctxNoWrite)
 }
 
-// Unconverted master paths rely on this: an Administrator's Can needs no
-// connection at all, on a record or without one.
+// An Administrator's Can needs no connection at all, on a record or without one.
 func TestCan_AdministratorInsideWriteNoSecondConn(t *testing.T) {
 	w := authtest.NewWorld(t)
 	admin := w.P(t, "admin@vardhan.test")

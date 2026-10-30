@@ -144,8 +144,7 @@ func (a *Auth) CanTx(ctx context.Context, tx *db.Tx, p Principal, doctypeName st
 
 // canWithoutReads is the part of Can that opens no connection: an unknown
 // DocType, a right that doesn't apply and an Administrator. decided is false
-// with dt set when can has to read the rest. Master Tx methods still on Can
-// rely on an Administrator taking no connection until they move to CanTx.
+// with dt set when can has to read the rest.
 func canWithoutReads(p Principal, doctypeName string, r Right) (dt *doctype.DocType, decided bool, err error) {
 	dt, err = lookup(doctypeName)
 	if err != nil {
