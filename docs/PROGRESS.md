@@ -260,6 +260,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Polish | Factor, inbox why and filter, copy rights, body ceiling (rows in .worktrees/polish/.work/ad-tasks.md) | Standard | AD-4 | | 30 Oct | 1 | each reviewed | wp/polish 1c3d103 |
 | Merges | WP3 Tasks 2, 3a, 3b (8212ff9), CD-227, CD-232, CD-233 (b1612b2); `make ci` green after each | — | director | | 30 Oct | — | — | — |
 | WP3-T6 | Phase B restore drill on real approvals, app.service flags, operations notes; 10 of 10 runs | High | AD-7 | 30 Oct | 30 Oct | 1 | APPROVE, minors fixed | fa3a43d (wp/wp3 c91e6db) |
+| Merges | WP2 done gate 5075621 (tag wp2-masters), module specs b70be1c; `make ci` green 31 Oct after a disk-full rerun | — | director | | 31 Oct | — | — | — |
+| CD-240 | LinkError names no hidden record (AUTH-101) | Standard | impl opus, rev opus (AD-8) | 31 Oct 00:20 | 01:10 | 1 | 0/0/2 | 3d2cc78 (lane/cd240 8ae6529) |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
