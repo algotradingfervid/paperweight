@@ -13,9 +13,9 @@ CREATE TABLE employee (
     relieving_date TEXT,
     status         TEXT    NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Left')),
     disabled       INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0, 1)),
-    -- Set when this employee's leave disabled an enabled user; re-joining
-    -- re-enables that user only then (CD-185).
-    user_disabled_on_leave INTEGER NOT NULL DEFAULT 0 CHECK (user_disabled_on_leave IN (0,1)),
+    -- users.version right after this employee's leave disabled an enabled user;
+    -- re-joining re-enables that user only while it still matches (CD-189).
+    user_version_on_leave INTEGER,
     version        INTEGER NOT NULL DEFAULT 1,
     created_at     TEXT    NOT NULL,
     created_by     INTEGER,

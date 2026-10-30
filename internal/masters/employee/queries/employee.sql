@@ -7,18 +7,18 @@ RETURNING id;
 -- name: UpdateEmployee :exec
 UPDATE employee
 SET code = ?, name = ?, branch_id = ?, user_id = ?, manager_id = ?, joining_date = ?, birth_date = ?,
-    relieving_date = ?, status = ?, disabled = ?, user_disabled_on_leave = ?,
+    relieving_date = ?, status = ?, disabled = ?, user_version_on_leave = ?,
     version = version + 1, updated_at = ?, updated_by = ?
 WHERE id = ? AND version = ?;
 
 -- name: GetEmployee :one
 SELECT id, code, name, branch_id, user_id, manager_id, joining_date, birth_date, relieving_date,
-       status, disabled, user_disabled_on_leave, version
+       status, disabled, user_version_on_leave, version
 FROM employee WHERE id = ?;
 
 -- name: GetEmployeeByCode :one
 SELECT id, code, name, branch_id, user_id, manager_id, joining_date, birth_date, relieving_date,
-       status, disabled, user_disabled_on_leave, version
+       status, disabled, user_version_on_leave, version
 FROM employee WHERE code = ?;
 
 -- name: ActiveEmployeeForUser :one

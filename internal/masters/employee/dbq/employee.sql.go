@@ -81,24 +81,24 @@ func (q *Queries) CountEmployees(ctx context.Context) (int64, error) {
 
 const getEmployee = `-- name: GetEmployee :one
 SELECT id, code, name, branch_id, user_id, manager_id, joining_date, birth_date, relieving_date,
-       status, disabled, user_disabled_on_leave, version
+       status, disabled, user_version_on_leave, version
 FROM employee WHERE id = ?
 `
 
 type GetEmployeeRow struct {
-	ID                  int64
-	Code                string
-	Name                string
-	BranchID            int64
-	UserID              sql.NullInt64
-	ManagerID           sql.NullInt64
-	JoiningDate         string
-	BirthDate           sql.NullString
-	RelievingDate       sql.NullString
-	Status              string
-	Disabled            int64
-	UserDisabledOnLeave int64
-	Version             int64
+	ID                 int64
+	Code               string
+	Name               string
+	BranchID           int64
+	UserID             sql.NullInt64
+	ManagerID          sql.NullInt64
+	JoiningDate        string
+	BirthDate          sql.NullString
+	RelievingDate      sql.NullString
+	Status             string
+	Disabled           int64
+	UserVersionOnLeave sql.NullInt64
+	Version            int64
 }
 
 func (q *Queries) GetEmployee(ctx context.Context, id int64) (GetEmployeeRow, error) {
@@ -116,7 +116,7 @@ func (q *Queries) GetEmployee(ctx context.Context, id int64) (GetEmployeeRow, er
 		&i.RelievingDate,
 		&i.Status,
 		&i.Disabled,
-		&i.UserDisabledOnLeave,
+		&i.UserVersionOnLeave,
 		&i.Version,
 	)
 	return i, err
@@ -124,24 +124,24 @@ func (q *Queries) GetEmployee(ctx context.Context, id int64) (GetEmployeeRow, er
 
 const getEmployeeByCode = `-- name: GetEmployeeByCode :one
 SELECT id, code, name, branch_id, user_id, manager_id, joining_date, birth_date, relieving_date,
-       status, disabled, user_disabled_on_leave, version
+       status, disabled, user_version_on_leave, version
 FROM employee WHERE code = ?
 `
 
 type GetEmployeeByCodeRow struct {
-	ID                  int64
-	Code                string
-	Name                string
-	BranchID            int64
-	UserID              sql.NullInt64
-	ManagerID           sql.NullInt64
-	JoiningDate         string
-	BirthDate           sql.NullString
-	RelievingDate       sql.NullString
-	Status              string
-	Disabled            int64
-	UserDisabledOnLeave int64
-	Version             int64
+	ID                 int64
+	Code               string
+	Name               string
+	BranchID           int64
+	UserID             sql.NullInt64
+	ManagerID          sql.NullInt64
+	JoiningDate        string
+	BirthDate          sql.NullString
+	RelievingDate      sql.NullString
+	Status             string
+	Disabled           int64
+	UserVersionOnLeave sql.NullInt64
+	Version            int64
 }
 
 func (q *Queries) GetEmployeeByCode(ctx context.Context, code string) (GetEmployeeByCodeRow, error) {
@@ -159,7 +159,7 @@ func (q *Queries) GetEmployeeByCode(ctx context.Context, code string) (GetEmploy
 		&i.RelievingDate,
 		&i.Status,
 		&i.Disabled,
-		&i.UserDisabledOnLeave,
+		&i.UserVersionOnLeave,
 		&i.Version,
 	)
 	return i, err
@@ -214,27 +214,27 @@ func (q *Queries) InsertEmployee(ctx context.Context, arg InsertEmployeeParams) 
 const updateEmployee = `-- name: UpdateEmployee :exec
 UPDATE employee
 SET code = ?, name = ?, branch_id = ?, user_id = ?, manager_id = ?, joining_date = ?, birth_date = ?,
-    relieving_date = ?, status = ?, disabled = ?, user_disabled_on_leave = ?,
+    relieving_date = ?, status = ?, disabled = ?, user_version_on_leave = ?,
     version = version + 1, updated_at = ?, updated_by = ?
 WHERE id = ? AND version = ?
 `
 
 type UpdateEmployeeParams struct {
-	Code                string
-	Name                string
-	BranchID            int64
-	UserID              sql.NullInt64
-	ManagerID           sql.NullInt64
-	JoiningDate         string
-	BirthDate           sql.NullString
-	RelievingDate       sql.NullString
-	Status              string
-	Disabled            int64
-	UserDisabledOnLeave int64
-	UpdatedAt           string
-	UpdatedBy           sql.NullInt64
-	ID                  int64
-	Version             int64
+	Code               string
+	Name               string
+	BranchID           int64
+	UserID             sql.NullInt64
+	ManagerID          sql.NullInt64
+	JoiningDate        string
+	BirthDate          sql.NullString
+	RelievingDate      sql.NullString
+	Status             string
+	Disabled           int64
+	UserVersionOnLeave sql.NullInt64
+	UpdatedAt          string
+	UpdatedBy          sql.NullInt64
+	ID                 int64
+	Version            int64
 }
 
 func (q *Queries) UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) error {
@@ -249,7 +249,7 @@ func (q *Queries) UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) 
 		arg.RelievingDate,
 		arg.Status,
 		arg.Disabled,
-		arg.UserDisabledOnLeave,
+		arg.UserVersionOnLeave,
 		arg.UpdatedAt,
 		arg.UpdatedBy,
 		arg.ID,

@@ -201,23 +201,23 @@ type ContactPhone struct {
 }
 
 type Employee struct {
-	ID                  int64
-	Code                string
-	Name                string
-	BranchID            int64
-	UserID              sql.NullInt64
-	ManagerID           sql.NullInt64
-	JoiningDate         string
-	BirthDate           sql.NullString
-	RelievingDate       sql.NullString
-	Status              string
-	Disabled            int64
-	UserDisabledOnLeave int64
-	Version             int64
-	CreatedAt           string
-	CreatedBy           sql.NullInt64
-	UpdatedAt           string
-	UpdatedBy           sql.NullInt64
+	ID                 int64
+	Code               string
+	Name               string
+	BranchID           int64
+	UserID             sql.NullInt64
+	ManagerID          sql.NullInt64
+	JoiningDate        string
+	BirthDate          sql.NullString
+	RelievingDate      sql.NullString
+	Status             string
+	Disabled           int64
+	UserVersionOnLeave sql.NullInt64
+	Version            int64
+	CreatedAt          string
+	CreatedBy          sql.NullInt64
+	UpdatedAt          string
+	UpdatedBy          sql.NullInt64
 }
 
 type ExpenseType struct {
