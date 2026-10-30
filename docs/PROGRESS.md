@@ -263,6 +263,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | WP2 done gate 5075621 (tag wp2-masters), module specs b70be1c; `make ci` green 31 Oct after a disk-full rerun | — | director | | 31 Oct | — | — | — |
 | CD-240 | LinkError names no hidden record (AUTH-101) | Standard | impl opus, rev opus (AD-8) | 31 Oct 00:20 | 01:10 | 1 | 0/0/2 | 3d2cc78 (lane/cd240 8ae6529) |
 | WP3-T4a | e2e harness, six P1 browser ids, the plan's five flows; LinkRead wired | High | AD-7 | 31 Oct | 31 Oct | 2 | fix round APPROVE | fb2ac51 (wp/wp3 cc9e80c); P1 556/556 |
+| CD-240 | Follow-ups: authfake CheckLink not-found parity, LinkError source guard | Standard | impl opus, rev opus (AD-8) | 31 Oct | 31 Oct | 1 + fix | 0/1/2 | 3aebc9b (lane/cd240-followup f8db28a) |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
