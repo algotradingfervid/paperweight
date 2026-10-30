@@ -76,6 +76,49 @@ func TestFileUpload_TwoControlsAndLimits(t *testing.T) {
 	}
 }
 
+// Accept, NoCamera and Target change only what they name, for a file that is
+// neither a photo nor an attachment of the element it replaces.
+func TestFileUpload_AcceptNoCameraTarget(t *testing.T) {
+	doc := uitest.Render(t, components.FileUpload(components.UploadProps{
+		ID: "sheet", Label: "CSV file", Action: "/import", Hint: "CSV", Accept: ".csv", NoCamera: true, Target: "#wizard",
+	}))
+	inputs := doc.Find(`input[type="file"]`)
+	if inputs.Length() != 1 {
+		t.Fatalf("want one file input, got %d", inputs.Length())
+	}
+	if got, _ := inputs.Attr("accept"); got != ".csv" {
+		t.Errorf("accept = %q", got)
+	}
+	if doc.Find(`input[capture]`).Length() != 0 || strings.Contains(doc.Text(), "Take photo") {
+		t.Error("NoCamera still offers the camera")
+	}
+	if got, _ := doc.Find("form").Attr("hx-target"); got != "#wizard" {
+		t.Errorf("hx-target = %q", got)
+	}
+}
+
+// An error marks the control and the summary can link to it.
+func TestFileUpload_ErrorMarksTheInput(t *testing.T) {
+	doc := uitest.Render(t, components.FileUpload(components.UploadProps{ID: "sheet", Label: "CSV file", Action: "/import", Error: "Too big."}))
+	input := doc.Find("#" + components.UploadInputID("sheet"))
+	if input.Length() != 1 || !strings.Contains(input.Closest("label").Text(), "Choose file") {
+		t.Fatalf("UploadInputID doesn't name the Choose file input")
+	}
+	doc.Find(`input[type="file"]`).Each(func(_ int, s *goquery.Selection) {
+		if got, _ := s.Attr("aria-invalid"); got != "true" {
+			t.Errorf("aria-invalid = %q", got)
+		}
+	})
+	if got := strings.TrimSpace(doc.Find("#sheet-msg").Text()); got != "Too big." {
+		t.Errorf("message = %q", got)
+	}
+
+	clean := uitest.Render(t, components.FileUpload(components.UploadProps{ID: "sheet", Label: "CSV file", Action: "/import"}))
+	if clean.Find(`input[aria-invalid]`).Length() != 0 {
+		t.Error("aria-invalid without an error")
+	}
+}
+
 func TestAttachments_PreviewAndHEIC(t *testing.T) {
 	items := []components.Attachment{
 		{ID: 1, Name: "bill.jpg", Size: "1.2 MB", UploadedBy: "Asha Rao", UploadedAt: "24-10-2026 14:45", URL: "/files/1", RemoveURL: "/files/1/remove", Kind: "image"},

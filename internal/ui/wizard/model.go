@@ -47,10 +47,13 @@ const (
 // ("" = "#wizard"; a form whose response leaves the wizard names #main),
 // and After renders after
 // the step form, inside #wizard, for content holding forms of its own
-// (forms can't nest).
+// (forms can't nest). LastLabel replaces the mode's required last step label
+// for a wizard that ends in something else (the master import ends in
+// "Import", design-system §8.7).
 type Model struct {
 	Mode                               Mode
 	Title, DocLabel, BaseURL, ReturnTo string
+	LastLabel                          string
 	Steps                              []Step
 	Current, Furthest                  int
 	Version                            int
@@ -66,6 +69,9 @@ var slugRe = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 // lastLabel is the required label of a mode's last step.
 func (m Model) lastLabel() string {
+	if m.LastLabel != "" {
+		return m.LastLabel
+	}
 	if m.Mode == Master {
 		return "Check and save"
 	}

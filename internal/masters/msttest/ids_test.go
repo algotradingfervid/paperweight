@@ -21,7 +21,8 @@ import (
 // noIDTables are WP2 tables keyed by something other than an id; nothing
 // refers to them by a generated id, so CD-156 doesn't apply.
 var noIDTables = map[string]bool{
-	"gst_state": true, // keyed by the GST state code
+	"gst_state":  true, // keyed by the GST state code
+	"csv_upload": true, // keyed by a random token (CD-201)
 }
 
 // noReuseBehaviourSkip are tables the behaviour half can't exercise; the

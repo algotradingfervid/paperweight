@@ -68,6 +68,21 @@ func TestModel_Validate(t *testing.T) {
 		t.Errorf(`Master mode ending "Check and save": %v`, err)
 	}
 
+	named := docSave
+	named.Mode = wizard.Master
+	named.Steps = steps("Party", "Lines", "Terms", "Import")
+	if named.Validate() == nil {
+		t.Error(`last step "Import" without LastLabel must fail`)
+	}
+	named.LastLabel = "Import"
+	if err := named.Validate(); err != nil {
+		t.Errorf(`LastLabel "Import": %v`, err)
+	}
+	named.Steps = steps("Party", "Lines", "Terms", "Check and save")
+	if named.Validate() == nil {
+		t.Error("LastLabel replaces the mode's label, so that label must fail")
+	}
+
 	ahead := docModel()
 	ahead.Current, ahead.Furthest = 2, 1
 	if ahead.Validate() == nil {

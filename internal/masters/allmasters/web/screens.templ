@@ -1,0 +1,56 @@
+package mastersweb
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
+)
+
+// Every screen here composes internal/ui components and adds no class of
+// its own (CD-98: daisyUI and our utilities live only in internal/ui).
+
+templ stepPage(v view, failed bool) {
+	@layout.Page(layout.PageOpts{Title: v.M.Heading(), Error: failed, Width: layout.Form, NoHeading: true}) {
+		@stepFrame(v)
+	}
+}
+
+// stepFrame is the #wizard fragment.
+templ stepFrame(v view) {
+	@wizard.Frame(v.M, v.Bar) {
+		@v.Body
+	}
+}
+
+templ chooseBody(field components.FieldProps, opts []components.Option, offered bool) {
+	if offered {
+		@components.Select(field, opts)
+	} else {
+		@components.EmptyState("There are no masters you can import.", nil)
+	}
+}
+
+// uploadStep comes after the step form: FileUpload's forms can't nest in it.
+templ uploadStep(upload components.UploadProps, template components.Link) {
+	@components.Button(components.ButtonProps{Label: template.Label, Href: template.Href, Variant: components.Ghost})
+	@components.FileUpload(upload)
+}
+
+templ checkBody(summary components.BannerProps, problems []string, download bool) {
+	@components.Banner(summary)
+	if download {
+		@components.Button(components.ButtonProps{Label: "Download rows with errors", Href: base + "/errors.csv", Variant: components.Secondary})
+	}
+	for _, line := range problems {
+		@components.Card(line, nil)
+	}
+}
+
+templ importBody(summary string) {
+	<p>{ summary }</p>
+}
+
+// problemPage is a refusal on its own page: AUTH's 403 or a 404.
+templ problemPage(msg string) {
+	@layout.Page(layout.PageOpts{Title: msg, Error: true, Back: &components.Link{Label: "Import masters", Href: base + "/choose"}})
+}
