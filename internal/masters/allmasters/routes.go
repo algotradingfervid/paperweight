@@ -7,6 +7,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	mastersweb "github.com/vardhan/internaltools/internal/masters/allmasters/web"
 	companyweb "github.com/vardhan/internaltools/internal/masters/company/web"
+	employeeweb "github.com/vardhan/internaltools/internal/masters/employee/web"
 	expensetypeweb "github.com/vardhan/internaltools/internal/masters/expensetype/web"
 	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
 	paymenttermsweb "github.com/vardhan/internaltools/internal/masters/paymentterms/web"
@@ -39,5 +40,6 @@ func (s *Services) Routes(r chi.Router, d WebDeps) {
 	expensetypeweb.Routes(s.ExpenseType, s.env)(r)
 	projectweb.Routes(s.Project, s.env)(r)
 	siteweb.Routes(s.Site, s.env)(r)
+	employeeweb.Routes(s.Employee, s.env, d.Sessions)(r)
 	mastersweb.Routes(s.env, d.Sessions)(r)
 }

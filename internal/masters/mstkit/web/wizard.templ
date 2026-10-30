@@ -1,0 +1,45 @@
+package mstweb
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
+)
+
+// wizardPage is one step of a create wizard as a whole page.
+templ wizardPage(v wizardView) {
+	@layout.Page(layout.PageOpts{
+		Title:     v.M.Heading(),
+		NoHeading: true, // the frame's heading is the page's
+		Error:     len(v.M.Errors) > 0,
+		Width:     layout.Form,
+		Back:      &v.Back,
+	}) {
+		@wizardFrame(v)
+	}
+}
+
+// wizardFrame is the #wizard fragment.
+templ wizardFrame(v wizardView) {
+	@wizard.Frame(v.M, v.Bar) {
+		for _, in := range v.Inputs {
+			@in
+		}
+	}
+}
+
+// wizardCheck is Check and save's summary, one section per step with Change.
+templ wizardCheck(cards []sectionCard) {
+	for _, c := range cards {
+		@wizard.CheckSection(c.Title, "", c.Change.Href) {
+			@components.SummaryList(c.Pairs)
+		}
+	}
+}
+
+// wizardStartOverForm goes below the action bar, as its own form.
+templ wizardStartOverForm(action string) {
+	@components.Form(components.FormProps{Action: action}) {
+		@components.Button(components.ButtonProps{Label: "Start over", Variant: components.Ghost})
+	}
+}

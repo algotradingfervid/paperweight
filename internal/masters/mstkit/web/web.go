@@ -1,6 +1,7 @@
-// Package mstweb is the screens every single-form master shares (MST Task
-// 22, CD-89): the list, the new and record pages, disable, enable, delete
-// (after a confirm step) and the picker search. A master's web/ subpackage
+// Package mstweb is the screens every master shares (MST Task 22, CD-89): the
+// list, the new and record pages, disable, enable, delete (after a confirm
+// step) and the picker search; for a master with steps, the Master-mode create
+// wizard (wizard.go) and the per-section edit (sections.go). A master's web/ subpackage
 // fills a Screen with its service, its copy and a few small functions; this
 // package does the rest. It renders only internal/ui components and adds no
 // class of its own; the form is built from the DocType's fields by
@@ -152,6 +153,33 @@ type Screen[R, In any] struct {
 	// preselected option. A refused form shows what was posted and a stored
 	// record what is stored.
 	Defaults map[string]string
+	// Wizard is optional and makes the new page a Master-mode create wizard
+	// at Base/new (CD-50): a CreateWizard. NoNew still leaves it out.
+	Wizard Wizard
+	// Sections is optional and makes the record page a summary with Change per
+	// section, each its own form at Base/{id}/edit/{slug}; POST Base/{id} is
+	// not mounted, because a section posts only its fields (CD-50). Steps
+	// makes them from Field.Step.
+	Sections []docscreen.FormStep
+	// Lookups names the fields a person fills in by something they know, not
+	// the stored value (Employee's user, by email). Only the wizard and
+	// sections read them.
+	Lookups map[string]Lookup
+}
+
+// Lookup is a field whose form shows a person's key for a stored value
+// (CD-218). It runs in a read tx before the service, which stays authoritative
+// inside the write. Blank is no value and calls neither function.
+type Lookup struct {
+	// Find is the stored value for what was typed; ok false refuses with Msg.
+	Find func(ctx context.Context, tx *db.Tx, typed string) (stored string, ok bool, err error)
+	// Show is what the page shows for a stored value.
+	Show func(ctx context.Context, tx *db.Tx, stored string) (string, error)
+	Msg  string // the refusal
+	Hint string // the field's hint
+	// Masked is what a user without write sees for a stored value (CD-222);
+	// Show is for writers only.
+	Masked string
 }
 
 // Routes mounts the screens under Base and the picker search at
@@ -163,12 +191,24 @@ func (s Screen[R, In]) Routes() func(chi.Router) {
 	return func(r chi.Router) {
 		r.Get(s.Base, h.handle(h.listPage))
 		r.Get(s.Base+"/export.csv", h.handle(h.export))
-		if !s.NoNew {
+		switch {
+		case s.NoNew:
+		case s.Wizard != nil:
+			r.Get(s.Base+"/new", h.handle(h.wizardGet))
+			r.Get(s.Base+"/new/{step}", h.handle(h.wizardGet))
+			r.Post(s.Base+"/new/{step}", h.handle(h.wizardPost))
+			r.Post(s.Base+"/new/"+startOverSlug, h.handle(h.wizardStartOver))
+		default:
 			r.Get(s.Base+"/new", h.handle(h.newPage))
 			r.Post(s.Base+"/new", h.handle(h.create))
 		}
 		r.Get(s.Base+idPattern, h.handle(h.page))
-		r.Post(s.Base+idPattern, h.handle(h.save))
+		if s.Sections == nil {
+			r.Post(s.Base+idPattern, h.handle(h.save))
+		} else {
+			r.Get(s.Base+idPattern+"/edit/{section}", h.handle(h.sectionPage))
+			r.Post(s.Base+idPattern+"/edit/{section}", h.handle(h.sectionSave))
+		}
 		if !s.NoDisable {
 			r.Post(s.Base+idPattern+"/disable", h.handle(h.setDisabled(true)))
 			r.Post(s.Base+idPattern+"/enable", h.handle(h.setDisabled(false)))
@@ -189,7 +229,7 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 	if len(rowFields) > 0 && (s.Copy.Rows == "" || s.Copy.AddRow == "") {
 		panic("mstweb: " + s.DocType + ": Copy.Rows and Copy.AddRow are required with OnLine fields")
 	}
-	return &handlers[R, In]{
+	h := &handlers[R, In]{
 		Screen:   s,
 		dt:       sortable(dt),
 		list:     &list.Service{DB: s.Env.DB, Auth: s.Env.Auth},
@@ -199,6 +239,17 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 		fields:    slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return f.Name == "disabled" || f.OnLine }),
 		rowFields: rowFields,
 	}
+	if s.Wizard != nil {
+		h.wiz = s.Wizard.core()
+	}
+	for _, st := range slices.Concat(s.Sections, h.wiz.steps) {
+		for _, name := range st.Fields {
+			if _, ok := dt.Field(name); !ok {
+				panic("mstweb: " + s.DocType + ": step " + st.Slug + " names no field " + name)
+			}
+		}
+	}
+	return h
 }
 
 // sortable is a copy of dt with code and name Sortable, the columns of every
@@ -224,6 +275,7 @@ type handlers[R, In any] struct {
 	fields   []doctype.Field // the form's: no disabled, no rows
 	// rowFields is each row's: the OnLine fields.
 	rowFields []doctype.Field
+	wiz       wizardCore // zero without a Wizard
 }
 
 // handlerFunc answers a request or returns the error fail renders.
@@ -380,8 +432,13 @@ func (h *handlers[R, In]) cells(ctx context.Context, tx *db.Tx, lr list.Row, col
 	return vals, nil
 }
 
-// display is a stored value's text: its OptionLabels label, else docscreen's.
+// display is a stored value's text: its Lookup's mask, its OptionLabels label,
+// else docscreen's. Only sectionCards shows a writer the Lookup's own text, so
+// a new caller can't reveal it (CD-222).
 func (h *handlers[R, In]) display(ctx context.Context, tx *db.Tx, fd doctype.Field, value string) (string, error) {
+	if l, ok := h.Lookups[fd.Name]; ok && value != "" {
+		return l.Masked, nil
+	}
 	if label := h.OptionLabels[fd.Name][value]; label != "" {
 		return label, nil
 	}
@@ -767,8 +824,15 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 		var rec R
 		err := h.Env.DB.Read(ctx, func(tx *db.Tx) error {
 			var err error
-			if rec, err = h.Svc.Get(ctx, tx, id); err != nil || v.CanWrite {
+			if rec, err = h.Svc.Get(ctx, tx, id); err != nil {
 				return err
+			}
+			if h.Sections != nil {
+				v.Cards, err = h.sectionCards(ctx, tx, id, h.stored(rec), v.CanWrite)
+				return err
+			}
+			if v.CanWrite {
+				return nil
 			}
 			vals := h.stored(rec)
 			if v.Pairs, err = h.pairs(ctx, tx, vals); err != nil {
@@ -786,6 +850,10 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 			if f.Values, err = h.formValues(rec); err != nil {
 				return err
 			}
+		}
+		if h.Sections != nil { // the summary has no inputs for a field error to sit on
+			f.Problem = strings.TrimSpace(f.Problem + " " + strings.Join(messages(f.Errs), " "))
+			f.Errs = nil
 		}
 		v.ID, v.Title, v.Action, v.Disabled = id, strings.TrimSpace(head.Code+" "+head.Name), h.recordPath(id), head.Disabled
 		v.More = h.more(ctx, p, id, head.Disabled, f.Version)
@@ -806,18 +874,23 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 }
 
 // input is fd's control at path, its name or a row's "lines[N].field":
-// CodeInput for a Codes field, NumberInput for a Numbers field, Radios for an
+// EmailInput for a Lookups field, CodeInput for a Codes field, NumberInput for a Numbers field, Radios for an
 // OptionLabels field, else docscreen's.
 func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Component {
+	lookup, looked := h.Lookups[fd.Name]
 	code, coded := h.Codes[fd.Name]
 	number, numbered := h.Numbers[fd.Name]
 	labels, labelled := h.OptionLabels[fd.Name]
 	fd.Name = path
 	id, value, msg := components.FieldID(path), f.Values[path], f.errFor(path)
-	if !coded && !numbered && !labelled {
+	if !looked && !coded && !numbered && !labelled {
 		return docscreen.FieldInput(fd, id, value, msg, h.deps)
 	}
 	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Error: msg, Value: value, Optional: !fd.Required}
+	if looked {
+		p.Hint = lookup.Hint
+		return components.EmailInput(p, "off")
+	}
 	if labelled {
 		opts := make([]components.Option, len(fd.Options))
 		for i, o := range fd.Options {
@@ -1112,6 +1185,7 @@ type recordView struct {
 	Inputs                      []templ.Component
 	Width                       layout.Width
 	Rows                        *components.RowsProps // nil for a master without rows
+	Cards                       []sectionCard         // the summary, with Sections
 	Pairs                       []components.Pair
 	RowPairs                    [][]components.Pair
 	More                        []components.MoreAction
