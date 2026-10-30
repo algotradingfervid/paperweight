@@ -243,7 +243,9 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | CD-189 UserInfo.Version | High | crew-implementer ×2, crew-reviewer (AD-1) | 26 Oct | 26 Oct | 2 | 0/1/1 | 0cf537e |
 | WP3 | CD-191 contracts_test off lenient filesfake.New() | Standard | crew-implementer (AD-4) | 26 Oct | 26 Oct | 1 | 0/0/0 | b2f41da |
 | Merges | Four MERGE-READYs held undelivered since 26 Oct merged in order; `make ci` green after each; main feb67ba | — | director | | 30 Oct | — | — | — |
-| WP1-AUTH | 20 access screen (CD-194) | High | crew-implementer ×4, crew-reviewer ×3 (AD-1) | 26 Oct | 30 Oct | 3 | 0/1/6, 0/1/6, APPROVE | lane/auth-20 9a97448 |
+| WP1-AUTH | 20 user restrictions editor (CD-194) | Standard | crew-test-writer, crew-implementer ×4, crew-reviewer ×3, crew-verifier ×2 (AD-1) | 26 Oct | 30 Oct | 3 | 0/2/12 | lane/auth-20 9a97448 |
+| WP1-AUTH | CD-199 UserByEmail | High | crew-implementer, crew-reviewer, crew-verifier (AD-1) | 30 Oct | 30 Oct | 1 | 0/0/2 | 87e54a4 |
+| Merges | WP1-AUTH complete 8d56a19; WP2 Organisation (Tasks 12-14), CD-165, RunDirectory, CD-199 draft fix f8bc71b; P1 531/556; `make ci` green after each | — | director | | 30 Oct | — | — | — |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 

@@ -136,6 +136,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - A hand-in's covertouched base is the task's first commit~1: a fix-round base hid 4 of 5 coverage gaps in AUTH Task 20.
 - A hand-in that changes a helper's callers runs full lint: `--new-from-rev` missed gosec G710 at an unchanged line caused by a new caller.
 - Start an AD session with its working directory inside a worktree: subagents of a background session started in the main checkout can write only to the worktree that session entered, so lanes don't work from it.
+- A check a test executes but never asserts passes covertouched (Update's CheckVersion, CheckCodeFree, CheckCodeChange): reviewers run a mutation pass over touched `Check*` calls.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
