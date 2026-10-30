@@ -78,6 +78,7 @@ func RunUnknownDocType(t *testing.T, svc auth.Service, admin auth.Principal) {
 	t.Helper()
 	RegisterDocTypes()
 	t.Run("CD-171 unknown DocType", func(t *testing.T) { rowUnknownDocType(t, svc, admin, nil) })
+	t.Run("CD-213 unknown DocType in a tx", func(t *testing.T) { rowUnknownDocTypeTx(t, svc, admin, testkit.NewDB(t)) })
 }
 
 // Roles the rows create; none of them is in the seeded matrix.
@@ -117,6 +118,7 @@ var contractRows = []struct {
 	{"AUTH-116 UsersWithRight", rowUsersWithRight},
 	{"CD-174 Restricted", rowRestricted},
 	{"CD-199 UserByEmail", rowUserByEmail},
+	{"CD-213 Tx methods match their twins", rowTxParity},
 }
 
 var refusalRows = []struct {
@@ -125,6 +127,7 @@ var refusalRows = []struct {
 }{
 	{"AUTH-066 inapplicable rights refused", rowInapplicable},
 	{"CD-174 unknown dimension", rowUnknownDimension},
+	{"CD-213 inapplicable rights refused in a tx", rowInapplicableTx},
 }
 
 // order returns a probe Purchase Order record created by u.
@@ -845,4 +848,366 @@ func rowUnknownDocType(t *testing.T, svc auth.Service, admin auth.Principal, _ *
 	plain("CheckValues", svc.CheckValues(ctx, admin, dt, map[string][]int64{"project": {1}}))
 	_, err = svc.UsersWithRight(ctx, dt, auth.RightRead, nil)
 	plain("UsersWithRight", err)
+}
+
+// errRollback makes inTxs' write transaction roll back.
+var errRollback = errors.New("authtest: roll back")
+
+// inTxs runs fn inside a read transaction of d and inside a write transaction
+// that is rolled back, as a subtest each (CD-213).
+func inTxs(t *testing.T, d *db.DB, fn func(t *testing.T, tx *db.Tx)) {
+	t.Helper()
+	ctx := context.Background()
+	t.Run("read", func(t *testing.T) {
+		if err := d.Read(ctx, func(tx *db.Tx) error { fn(t, tx); return nil }); err != nil {
+			t.Fatalf("Read: %v", err)
+		}
+	})
+	t.Run("write", func(t *testing.T) {
+		if err := d.Write(ctx, func(tx *db.Tx) error { fn(t, tx); return errRollback }); !errors.Is(err, errRollback) {
+			t.Fatalf("Write: %v, want the rollback", err)
+		}
+	})
+}
+
+// outcome is what the parity rows compare: an error's type, kind and exact text.
+func outcome(err error) string {
+	if err == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%T forbidden=%v notfound=%v %q", err, errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrNotFound), err.Error())
+}
+
+// parityDocTypes is every DocType the suite registers.
+func parityDocTypes() []*doctype.DocType {
+	var out []*doctype.DocType
+	for _, d := range docTypes() {
+		dt, _ := doctype.Lookup(d.Name)
+		out = append(out, dt)
+	}
+	return out
+}
+
+// parityRights is every right plus one that doesn't exist.
+func parityRights() []auth.Right { return append(slices.Clone(auth.AllRights), unknownRight) }
+
+// parity is the state rowTxParity compares on: users of every kind of access.
+type parity struct {
+	people               []auth.Principal // those below, and one who reads all but writes less
+	owner, restricted    auth.Principal
+	manager, none, admin auth.Principal
+	metro, techpark      int64
+	pune, tech           int64
+}
+
+// newParity gives roleOwner every applicable right at scope own and roleReader
+// at scope all, on every DocType, and roleTeam team scope on the Claim. The
+// restricted user holds roleReader on PRJ-METRO and PUNE-WH only; a user with
+// roleOther and roleApprover reads all but writes only own Orders and team Claims.
+func newParity(t *testing.T, s Setup) parity {
+	t.Helper()
+	x := parity{pune: masterID(t, s.DB(), "probe_site", "PUNE-WH"), tech: masterID(t, s.DB(), "probe_site", "TECH-SITE")}
+	x.metro, x.techpark = projects(t, s)
+	for _, dt := range parityDocTypes() {
+		for _, r := range auth.AllRights {
+			if auth.Applies(dt, r) {
+				s.Grant(t, roleOwner, dt.Name, r, auth.ScopeOwn)
+				s.Grant(t, roleReader, dt.Name, r, auth.ScopeAll)
+			}
+		}
+	}
+	for _, r := range []auth.Right{auth.RightRead, auth.RightWrite, auth.RightApprove} {
+		s.Grant(t, roleTeam, DTClaim, r, auth.ScopeTeam)
+	}
+	s.Grant(t, roleOther, DTOrder, auth.RightRead, auth.ScopeAll)
+	s.Grant(t, roleOther, DTOrder, auth.RightWrite, auth.ScopeOwn)
+	s.Grant(t, roleApprover, DTClaim, auth.RightRead, auth.ScopeAll)
+	s.Grant(t, roleApprover, DTClaim, auth.RightWrite, auth.ScopeTeam)
+	x.owner = s.User(t, "owner@contract.test", roleOwner)
+	x.restricted = s.User(t, "restricted@contract.test", roleReader)
+	s.Restrict(t, x.restricted.ID, []int64{x.metro}, []int64{x.pune})
+	x.manager, _, _ = team(t, s, roleTeam)
+	x.none = s.User(t, "none@contract.test")
+	x.admin = s.Admin(t)
+	partial := s.User(t, "partial@contract.test", roleOther, roleApprover)
+	x.people = []auth.Principal{x.owner, x.restricted, x.manager, x.none, x.admin, partial}
+	return x
+}
+
+// records are p's view of dt: nil, its own, another's, a report's, one for its
+// employee, one outside the restrictions and one with empty ids.
+func (x parity) records(dt string, p auth.Principal) map[string]*auth.RecordRef {
+	rec := func(id int64, by auth.UserID, emp int64, projects, sites []int64) *auth.RecordRef {
+		return &auth.RecordRef{DocType: dt, ID: id, CreatedBy: by, EmployeeID: emp, ProjectIDs: projects, SiteIDs: sites}
+	}
+	in, inSite := []int64{x.metro}, []int64{x.pune}
+	return map[string]*auth.RecordRef{
+		"nil":                 nil,
+		"own":                 rec(1, p.ID, 0, in, inSite),
+		"another's":           rec(2, x.admin.ID, empStranger, in, inSite),
+		"a report's":          rec(3, x.admin.ID, empReport, in, inSite),
+		"for my employee":     rec(4, x.admin.ID, empManager, in, inSite),
+		"outside restriction": rec(5, p.ID, 0, []int64{x.techpark}, []int64{x.tech}),
+		"empty ids":           rec(6, p.ID, 0, nil, nil),
+	}
+}
+
+// CD-213: each Tx method answers exactly as its twin, error kind and text,
+// inside a read and inside a rolled-back write. Each comparison first checks
+// the twin gave the different answers it must, so an empty table can't pass.
+func rowTxParity(t *testing.T, svc auth.Service, s Setup) {
+	x := newParity(t, s)
+	t.Run("CanTx", func(t *testing.T) { parityCan(t, svc, s, x) })
+	t.Run("CheckValuesTx", func(t *testing.T) { parityCheckValues(t, svc, s, x) })
+	t.Run("CheckLinkTx", func(t *testing.T) { parityCheckLink(t, svc, s, x) })
+	t.Run("UsersWithRightTx", func(t *testing.T) { parityUsersWithRight(t, svc, s, x) })
+	t.Run("HasRoleTx", func(t *testing.T) { parityHasRole(t, svc, s, x) })
+}
+
+// wantSeen fails unless every outcome class in want occurred.
+func wantSeen(t *testing.T, seen map[string]bool, want ...string) {
+	t.Helper()
+	for _, k := range want {
+		if !seen[k] {
+			t.Errorf("the twin never answered %q, so the comparison proves nothing (saw %v)", k, seen)
+		}
+	}
+}
+
+// parityCan compares Can and CanTx over every DocType × right × record × user.
+func parityCan(t *testing.T, svc auth.Service, s Setup, x parity) {
+	ctx := context.Background()
+	type call struct {
+		what string
+		p    auth.Principal
+		dt   string
+		r    auth.Right
+		rec  *auth.RecordRef
+		want string
+	}
+	var calls []call
+	seen := map[string]bool{}
+	for _, dt := range parityDocTypes() {
+		for _, r := range parityRights() {
+			for _, p := range x.people {
+				for name, rec := range x.records(dt.Name, p) {
+					err := svc.Can(ctx, p, dt.Name, r, rec)
+					var de *auth.DeniedError
+					switch {
+					case err == nil:
+						seen["allowed"] = true
+					case errors.Is(err, auth.ErrNotFound):
+						seen["not found"] = true
+					case errors.As(err, &de) && de.OwnOnly:
+						seen["own only"] = true
+					case errors.As(err, &de) && de.TeamOnly:
+						seen["team only"] = true
+					case errors.As(err, &de):
+						seen["denied"] = true
+					}
+					calls = append(calls, call{fmt.Sprintf("%s %s(%s, %s, %s)", "CanTx", p.Name, dt.Name, r, name), p, dt.Name, r, rec, outcome(err)})
+				}
+			}
+		}
+	}
+	wantSeen(t, seen, "allowed", "not found", "own only", "team only", "denied")
+	inTxs(t, s.DB(), func(t *testing.T, tx *db.Tx) {
+		for _, c := range calls {
+			if got := outcome(svc.CanTx(ctx, tx, c.p, c.dt, c.r, c.rec)); got != c.want {
+				t.Errorf("%s = %s, want what Can gave: %s", c.what, got, c.want)
+			}
+		}
+	})
+}
+
+// parityCheckValues compares CheckValues and CheckValuesTx.
+func parityCheckValues(t *testing.T, svc auth.Service, s Setup, x parity) {
+	ctx := context.Background()
+	sets := []map[string][]int64{
+		nil,
+		{"project_id": {x.metro}},
+		{"project_id": {x.techpark}},
+		{"project_id": {x.metro, x.techpark}},
+		{"site_id": {x.pune}},
+		{"site_id": {x.tech}},
+		{"lines.line_site_id": {x.tech}},
+		{"project_id": {x.metro}, "site_id": {x.tech}},
+	}
+	type call struct {
+		p      auth.Principal
+		dt     string
+		values map[string][]int64
+		want   string
+	}
+	var calls []call
+	seen := map[string]bool{}
+	for _, dt := range parityDocTypes() {
+		for _, p := range x.people {
+			for _, values := range sets {
+				err := svc.CheckValues(ctx, p, dt.Name, values)
+				var ve *auth.ValueError
+				seen["allowed"] = seen["allowed"] || err == nil
+				seen["value error"] = seen["value error"] || errors.As(err, &ve)
+				calls = append(calls, call{p, dt.Name, values, outcome(err)})
+			}
+		}
+	}
+	wantSeen(t, seen, "allowed", "value error")
+	inTxs(t, s.DB(), func(t *testing.T, tx *db.Tx) {
+		for _, c := range calls {
+			if got := outcome(svc.CheckValuesTx(ctx, tx, c.p, c.dt, c.values)); got != c.want {
+				t.Errorf("CheckValuesTx(%s, %s, %v) = %s, want what CheckValues gave: %s", c.p.Name, c.dt, c.values, got, c.want)
+			}
+		}
+	})
+}
+
+// parityCheckLink compares CheckLink and CheckLinkTx on stored records and a
+// missing one.
+func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
+	ctx := context.Background()
+	insertOrders(t, s, order(1, x.owner.ID), order(2, x.admin.ID, x.metro), order(3, x.admin.ID, x.techpark))
+	insertClaims(t, s, claim(4, x.admin.ID, empReport), claim(5, x.admin.ID, empStranger))
+	targets := []struct {
+		dt string
+		id int64
+	}{{DTOrder, 1}, {DTOrder, 2}, {DTOrder, 3}, {DTOrder, 999}, {DTClaim, 4}, {DTClaim, 5}, {DTProject, x.metro}}
+	type call struct {
+		p    auth.Principal
+		dt   string
+		id   int64
+		want string
+	}
+	var calls []call
+	seen := map[string]bool{}
+	for _, tg := range targets {
+		for _, p := range x.people {
+			err := svc.CheckLink(ctx, p, tg.dt, tg.id)
+			var le *auth.LinkError
+			seen["allowed"] = seen["allowed"] || err == nil
+			seen["link error"] = seen["link error"] || errors.As(err, &le)
+			calls = append(calls, call{p, tg.dt, tg.id, outcome(err)})
+		}
+	}
+	wantSeen(t, seen, "allowed", "link error")
+	inTxs(t, s.DB(), func(t *testing.T, tx *db.Tx) {
+		for _, c := range calls {
+			if got := outcome(svc.CheckLinkTx(ctx, tx, c.p, c.dt, c.id)); got != c.want {
+				t.Errorf("CheckLinkTx(%s, %s, %d) = %s, want what CheckLink gave: %s", c.p.Name, c.dt, c.id, got, c.want)
+			}
+		}
+	})
+}
+
+// parityUsersWithRight compares UsersWithRight and UsersWithRightTx.
+func parityUsersWithRight(t *testing.T, svc auth.Service, s Setup, x parity) {
+	ctx := context.Background()
+	type call struct {
+		dt    string
+		r     auth.Right
+		name  string
+		rec   *auth.RecordRef
+		users []auth.UserID
+		want  string
+	}
+	var calls []call
+	seen := map[string]bool{}
+	for _, dt := range parityDocTypes() {
+		for _, r := range parityRights() {
+			recs := x.records(dt.Name, x.owner)
+			for _, name := range []string{"nil", "own", "another's", "outside restriction", "empty ids"} {
+				rec := recs[name]
+				users, err := svc.UsersWithRight(ctx, dt.Name, r, rec)
+				seen["nobody"] = seen["nobody"] || len(users) == 0
+				seen["somebody"] = seen["somebody"] || len(users) > 1
+				calls = append(calls, call{dt.Name, r, name, rec, users, outcome(err)})
+			}
+		}
+	}
+	wantSeen(t, seen, "nobody", "somebody")
+	inTxs(t, s.DB(), func(t *testing.T, tx *db.Tx) {
+		for _, c := range calls {
+			users, err := svc.UsersWithRightTx(ctx, tx, c.dt, c.r, c.rec)
+			if got := outcome(err); got != c.want || !slices.Equal(users, c.users) {
+				t.Errorf("UsersWithRightTx(%s, %s, %s) = (%v, %s), want what UsersWithRight gave: (%v, %s)", c.dt, c.r, c.name, users, got, c.users, c.want)
+			}
+		}
+	})
+}
+
+// parityHasRole compares HasRole and HasRoleTx, with a missing user and role.
+func parityHasRole(t *testing.T, svc auth.Service, s Setup, x parity) {
+	ctx := context.Background()
+	type call struct {
+		u    auth.UserID
+		role string
+		has  bool
+		want string
+	}
+	var calls []call
+	seen := map[bool]bool{}
+	for _, u := range []auth.UserID{x.owner.ID, x.restricted.ID, x.manager.ID, x.none.ID, 99999} {
+		for _, role := range []string{roleOwner, roleReader, roleTeam, "No Such Role"} {
+			has, err := svc.HasRole(ctx, u, role)
+			seen[has] = true
+			calls = append(calls, call{u, role, has, outcome(err)})
+		}
+	}
+	if !seen[true] || !seen[false] {
+		t.Errorf("HasRole answered only %v, so the comparison proves nothing", seen)
+	}
+	inTxs(t, s.DB(), func(t *testing.T, tx *db.Tx) {
+		for _, c := range calls {
+			has, err := svc.HasRoleTx(ctx, tx, c.u, c.role)
+			if got := outcome(err); got != c.want || has != c.has {
+				t.Errorf("HasRoleTx(%d, %q) = (%v, %s), want what HasRole gave: (%v, %s)", c.u, c.role, has, got, c.has, c.want)
+			}
+		}
+	})
+}
+
+// CD-213, CD-171, CD-173: rowInapplicable through the Tx methods.
+func rowInapplicableTx(t *testing.T, svc auth.Service, admin auth.Principal, d *db.DB) {
+	ctx := context.Background()
+	cases := []struct {
+		dt string
+		r  auth.Right
+	}{
+		{DTOrder, unknownRight},
+		{DTItem, auth.RightSubmit},
+		{DTItem, auth.RightApprove},
+		{DTReceipt, auth.RightApprove},
+	}
+	inTxs(t, d, func(t *testing.T, tx *db.Tx) {
+		for _, c := range cases {
+			what := fmt.Sprintf("admin CanTx(%s, %s)", c.dt, c.r)
+			wantDenied(t, what+" nil", svc.CanTx(ctx, tx, admin, c.dt, c.r, nil), c.r, "")
+			rec := &auth.RecordRef{DocType: c.dt, ID: 1, CreatedBy: admin.ID}
+			wantDenied(t, what+" own record", svc.CanTx(ctx, tx, admin, c.dt, c.r, rec), c.r, "")
+			users, err := svc.UsersWithRightTx(ctx, tx, c.dt, c.r, nil)
+			if err != nil || len(users) != 0 {
+				t.Errorf("UsersWithRightTx(%s, %s) = (%v, %v), want nobody and nil", c.dt, c.r, users, err)
+			}
+		}
+	})
+}
+
+// CD-213, CD-171: rowUnknownDocType through the Tx methods.
+func rowUnknownDocTypeTx(t *testing.T, svc auth.Service, admin auth.Principal, d *db.DB) {
+	ctx := context.Background()
+	const dt = "authtest.Unknown"
+	want := fmt.Sprintf("auth: unknown DocType %q", dt)
+	inTxs(t, d, func(t *testing.T, tx *db.Tx) {
+		plain := func(what string, err error) {
+			t.Helper()
+			if err == nil || err.Error() != want || errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+				t.Errorf("%s(%s) = %v, want the plain error %q", what, dt, err, want)
+			}
+		}
+		plain("CanTx", svc.CanTx(ctx, tx, admin, dt, auth.RightRead, nil))
+		plain("CanTx record", svc.CanTx(ctx, tx, admin, dt, auth.RightRead, &auth.RecordRef{DocType: dt, ID: 1, CreatedBy: admin.ID}))
+		plain("CheckValuesTx", svc.CheckValuesTx(ctx, tx, admin, dt, map[string][]int64{"project": {1}}))
+		_, err := svc.UsersWithRightTx(ctx, tx, dt, auth.RightRead, nil)
+		plain("UsersWithRightTx", err)
+	})
 }
