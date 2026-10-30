@@ -1,8 +1,9 @@
 package web_test
 
 // Polish P7 (CD-206 part 3): web.BodyCeiling with the real limit in front of
-// the real upload handler. The handler keeps its own limit, so a refusal is
-// only the ceiling's when it carries the ceiling's text.
+// the real upload handler. The handler keeps its own limit and answers with the
+// same text as plain text, so the ceiling's answer is told from the handler's
+// by its alert markup.
 
 import (
 	"bytes"
@@ -19,15 +20,12 @@ import (
 	platformweb "github.com/vardhan/internaltools/internal/platform/web"
 )
 
-const (
-	realCeiling     = files.MaxFileBytes + web.MultipartOverhead
-	msgBodyTooLarge = "This request is too large."
-)
+const realCeiling = files.MaxFileBytes + web.MultipartOverhead
 
 // ceiled serves req through the ceiling at the real limit, then Routes.
 func ceiled(f *fixture, req *http.Request) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	platformweb.BodyCeiling(realCeiling)(f.router).ServeHTTP(rec, req)
+	platformweb.BodyCeiling(realCeiling, files.MsgTooLarge)(f.router).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -74,8 +72,9 @@ func TestBodyCeiling_LegalMaximumUploadPasses(t *testing.T) {
 	wantTmpEmpty(t, f.env)
 }
 
-// The declared case is the ceiling's own 413: the upload handler never runs,
-// so its message must not appear and the body is not read.
+// The declared case is the ceiling's own 413: the upload handler never runs, so
+// the answer is the ceiling's full alert page, not the handler's plain text, and
+// the body is not read.
 func TestBodyCeiling_OverLimitUploadRefused(t *testing.T) {
 	f := newFixture(t, nil)
 	body, ct := overLimitBody(t)
@@ -90,8 +89,11 @@ func TestBodyCeiling_OverLimitUploadRefused(t *testing.T) {
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status = %d, want 413 (body %q)", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), msgBodyTooLarge) {
-		t.Errorf("body %q, want %q", rec.Body.String(), msgBodyTooLarge)
+	if ct := rec.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Errorf("Content-Type = %q, want the ceiling's text/html page, not the handler's %q", ct, textPlain)
+	}
+	if want := `<div role="alert">` + msgTooLarge + `</div>`; !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("body %q, want the ceiling's alert %q", rec.Body.String(), want)
 	}
 	if n := cr.count(); n != 0 {
 		t.Errorf("bytes read from body = %d, want 0", n)

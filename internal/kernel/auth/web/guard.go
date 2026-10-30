@@ -145,7 +145,7 @@ func redirect(w http.ResponseWriter, r *http.Request, loc string) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	http.Redirect(w, r, loc, http.StatusSeeOther)
+	http.Redirect(w, r, loc, http.StatusSeeOther) //nolint:gosec // G710: every caller passes a fixed local path built from ids and an escaped DocType.
 }
 
 func isHTMX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }

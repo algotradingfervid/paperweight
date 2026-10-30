@@ -68,6 +68,16 @@
   @media (min-width: 48rem) { display: none; }
 }
 
+/* The header's search form, from 64rem only (design-system §6). */
+@utility header-search {
+  display: none;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  max-inline-size: calc(var(--space-16) * 6);
+  & .input { inline-size: 100%; min-block-size: var(--control-h); text-overflow: ellipsis; }
+  @media (min-width: 64rem) { display: block; }
+}
+
 @utility header-end {
   display: flex;
   align-items: center;
@@ -226,4 +236,18 @@
   & > * { min-inline-size: 0; }
   & > :first-child { flex-basis: calc(var(--space-16) * 4); flex-grow: 1; }
   & > :last-child { flex-basis: 0; flex-grow: 999; min-inline-size: 50%; }
+}
+
+/* A sidebar-layout's first pane when it only leads to sibling pages: a phone
+   shows the second pane and a Back link, so this appears from 64rem. */
+@utility pane-nav {
+  display: none;
+  @media (min-width: 64rem) { display: block; }
+  & a {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--target-min);
+    color: var(--color-primary-700);
+  }
+  & a[aria-current="page"] { color: var(--color-text); font-weight: var(--weight-semibold); }
 }

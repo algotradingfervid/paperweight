@@ -1,0 +1,146 @@
+package authscreens
+
+import (
+	"fmt"
+	"net/url"
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// RolesPage shows the roles (design-system §8.6). Each links to its page; the
+// rights themselves are never here.
+type RolesPage struct {
+	Roles []auth.RoleInfo
+}
+
+// RolePage is one role's page: a card per DocType, each summarising the rights
+// the role holds there. The Administrator role has no cards.
+type RolePage struct {
+	Role  auth.RoleInfo
+	Cards []RoleCard
+}
+
+// RoleCard is one DocType on a role page. Rights are the role's rights on it.
+type RoleCard struct {
+	DocType *doctype.DocType
+	Rights  map[auth.Right]auth.Scope
+}
+
+// RightsPath is role id's rights page on a DocType, also the URL its form
+// posts to.
+func RightsPath(id int64, docType string) string {
+	return fmt.Sprintf("/roles/%d/rights/%s", id, url.PathEscape(docType))
+}
+
+func rolePath(id int64) string {
+	return "/roles/" + strconv.FormatInt(id, 10)
+}
+
+// usersText is "1 user" or "n users".
+func usersText(n int) string {
+	if n == 1 {
+		return "1 user"
+	}
+	return fmt.Sprintf("%d users", n)
+}
+
+// applicableRights are the rights that apply to dt, in auth.AllRights order.
+func applicableRights(dt *doctype.DocType) []auth.Right {
+	var out []auth.Right
+	for _, rt := range auth.AllRights {
+		if auth.Applies(dt, rt) {
+			out = append(out, rt)
+		}
+	}
+	return out
+}
+
+// rightsSummary is a card's line: rights held of the rights that apply, and
+// the read right's scope. Every write requires read (AUTH-065); a row that
+// lacks it anyway gets no scope words.
+func rightsSummary(dt *doctype.DocType, held map[auth.Right]auth.Scope) string {
+	rights := applicableRights(dt)
+	n := 0
+	for _, rt := range rights {
+		if held[rt] != "" {
+			n++
+		}
+	}
+	if n == 0 {
+		return "No rights"
+	}
+	summary := fmt.Sprintf("%d of %d rights", n, len(rights))
+	if read := held[auth.RightRead]; read != "" {
+		summary += " · " + string(read) + " documents"
+	}
+	return summary
+}
+
+// Roles adds, renames and deletes roles, and leads to each role's page.
+templ Roles(p RolesPage) {
+	@uilayout.Page(uilayout.PageOpts{Title: "Roles"}) {
+		@components.Button(components.ButtonProps{Label: "Who can…", Href: "/rights/who-can"})
+		@components.Form(components.FormProps{Action: "/roles"}) {
+			<div class="stack">
+				@components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "New role name", Attrs: templ.Attributes{"required": true}})
+				@components.Button(components.ButtonProps{Label: "Add role", Type: "submit", Variant: components.Primary})
+			</div>
+		}
+		<ul class="stack">
+			for _, r := range p.Roles {
+				<li>
+					@components.Card("", nil) {
+						<div class="cluster">
+							@components.Button(components.ButtonProps{Label: r.Name, Href: rolePath(r.ID), Variant: components.Ghost})
+							<span>{ " (" + usersText(r.Users) + ")" }</span>
+						</div>
+						if !r.IsAdmin {
+							@roleActions(r)
+						}
+					}
+				</li>
+			}
+		</ul>
+	}
+}
+
+// roleActions are a role's rename and delete forms and its Copy rights link.
+templ roleActions(r auth.RoleInfo) {
+	{{ version := strconv.FormatInt(r.Version, 10) }}
+	@components.Form(components.FormProps{Action: rolePath(r.ID) + "/rename"}) {
+		<input type="hidden" name="version" value={ version }/>
+		<div class="stack">
+			@components.TextInput(components.FieldProps{ID: components.FieldID(fmt.Sprintf("name-%d", r.ID)), Name: "name", Label: "Name", Value: r.Name, Attrs: templ.Attributes{"required": true}})
+			@components.Button(components.ButtonProps{Label: "Rename", Type: "submit"})
+		</div>
+	}
+	<div class="cluster">
+		@components.Form(components.FormProps{Action: rolePath(r.ID) + "/delete"}) {
+			<input type="hidden" name="version" value={ version }/>
+			@components.Button(components.ButtonProps{Label: "Delete", Type: "submit", Variant: components.Danger, Busy: "Deleting…"})
+		}
+		@components.Button(components.ButtonProps{Label: "Copy rights", Href: rolePath(r.ID) + "/copy-rights"})
+	</div>
+}
+
+// Role is one role's page. The Administrator role can't be changed, so it is
+// one line and no cards.
+templ Role(p RolePage) {
+	@uilayout.Page(uilayout.PageOpts{Title: p.Role.Name, Back: &components.Link{Label: "Roles", Href: "/roles"}}) {
+		if p.Role.IsAdmin {
+			<p>Every right that applies. { auth.ErrAdminRoleFixed.Msg }</p>
+		} else {
+			<div class="auto-grid">
+				for _, c := range p.Cards {
+					@components.Card(c.DocType.Label, &components.Link{Label: "Change", Href: RightsPath(p.Role.ID, c.DocType.Name)}) {
+						<p>{ rightsSummary(c.DocType, c.Rights) }</p>
+					}
+				}
+			</div>
+		}
+	}
+}

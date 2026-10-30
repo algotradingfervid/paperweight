@@ -8,8 +8,12 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
+// SearchMaxLen is the longest search text, in characters (CD-200 part 4).
+const SearchMaxLen = 100
+
 // header is the 56 px app header: menu button (phones), brand, page title,
-// inbox link and user menu. Bare drops the menu button and the inbox.
+// search form (from 64rem, signed in), inbox link and user menu. Bare drops
+// the menu button, the search form and the inbox.
 templ header(o PageOpts, s ui.Shell) {
 	<header class="app-header">
 		if !o.Bare {
@@ -23,6 +27,12 @@ templ header(o PageOpts, s ui.Shell) {
 		</a>
 		if !o.Bare {
 			<span class="header-title truncate">{ o.Title }</span>
+		}
+		if s.SignedIn && !o.Bare {
+			<form class="header-search" role="search" method="get" action="/search">
+				<label class="visually-hidden" for="header-q">Search</label>
+				<input id="header-q" class="input" type="search" name="q" maxlength={ strconv.Itoa(SearchMaxLen) }/>
+			</form>
 		}
 		<div class="header-end">
 			if !o.Bare {

@@ -3,7 +3,6 @@ package authweb
 import (
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	authscreens "github.com/vardhan/internaltools/internal/kernel/auth/web/screens"
@@ -16,8 +15,7 @@ import (
 // unknown right is errBadForm.
 func (s *Server) getWhoCan(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	all := slices.Clone(doctype.All())
-	slices.SortStableFunc(all, func(a, b *doctype.DocType) int { return strings.Compare(a.Label, b.Label) })
+	all := docTypesByLabel()
 	page := authscreens.WhoCanPage{DocTypes: all, DocType: r.URL.Query().Get("doctype"), Right: r.URL.Query().Get("right")}
 	if page.Right != "" && !slices.Contains(auth.AllRights, auth.Right(page.Right)) {
 		s.WriteError(w, r, errBadForm)

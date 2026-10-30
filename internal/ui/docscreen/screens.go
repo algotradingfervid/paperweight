@@ -20,7 +20,7 @@ const sweepUser = "priya@vardhan.test"
 // Screens lists the docscreen pages of the DocType name for the overflow sweep:
 // the wizard (step 1 of a new document, every step of ids.Draft, a 422 and a
 // 409 variant), the line pages, the document page in every other state and
-// the reason, confirm and list pages.
+// the reason, confirm and list pages, and the search page.
 func Screens(name string, ids SampleIDs) []screens.Screen {
 	const route = "/doc/{doctype}"
 	base := "/doc/" + name
@@ -64,6 +64,9 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 		{Name: name + " list filtered", Route: route, URL: base + "?" + ListQuery{
 			Filters: []Filter{{Field: "state", Op: "=", Values: []string{string(doctype.StateApproved), string(doctype.StatePending)}}},
 		}.Encode(), As: sweepUser},
+		{Name: name + " search", Route: "/search", URL: "/search", As: sweepUser},
+		{Name: name + " search results", Route: "/search", URL: "/search?q=Draft", As: sweepUser},
+		{Name: name + " search no match", Route: "/search", URL: "/search?q=no-such-thing-zz", As: sweepUser},
 	}...)
 }
 

@@ -1,0 +1,36 @@
+package docscreen
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+templ searchPage(v searchView) {
+	@layout.Page(v.Opts) {
+		@searchBody(v)
+	}
+}
+
+templ searchMain(v searchView) {
+	@layout.Main(v.Opts) {
+		@searchBody(v)
+	}
+}
+
+templ searchBody(v searchView) {
+	@components.FilterBar(v.Bar)
+	if v.Message != "" {
+		@components.EmptyState(v.Message, nil)
+	}
+	for _, g := range v.Groups {
+		<section class="stack">
+			<h2>{ g.Heading }</h2>
+			@components.DataList(g.List)
+			if g.SeeAll != nil {
+				<div class="cluster">
+					@components.Button(components.ButtonProps{Label: g.SeeAll.Label, Href: g.SeeAll.Href, Variant: components.Ghost})
+				</div>
+			}
+		</section>
+	}
+}

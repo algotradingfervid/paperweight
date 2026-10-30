@@ -8,10 +8,12 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -19,7 +21,7 @@ import (
 
 const (
 	ceilingLimit = 1024
-	ceilingText  = "This request is too large."
+	ceilingText  = "Too big for this test."
 	// ceilingReadBuffer is the most a ceiling may read past the limit: one read
 	// of the multipart reader's buffer.
 	ceilingReadBuffer = 4096
@@ -59,7 +61,7 @@ func TestBodyCeiling_ExactlyAtLimitPasses(t *testing.T) {
 			var got []byte
 			var readErr error
 			reached := false
-			h := web.BodyCeiling(ceilingLimit)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := web.BodyCeiling(ceilingLimit, ceilingText)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				reached = true
 				got, readErr = io.ReadAll(r.Body)
 				w.WriteHeader(http.StatusNoContent)
@@ -88,7 +90,7 @@ func TestBodyCeiling_ExactlyAtLimitPasses(t *testing.T) {
 // the body is touched.
 func TestBodyCeiling_DeclaredLimitPlusOneRefused(t *testing.T) {
 	reached := false
-	h := web.BodyCeiling(ceilingLimit)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	h := web.BodyCeiling(ceilingLimit, ceilingText)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		reached = true
 	}))
 	req, body := ceilingPost(ceilingLimit+1, true)
@@ -121,7 +123,7 @@ func TestBodyCeiling_ReadPastLimitSeesMaxBytesError(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got []byte
 			var readErr error
-			h := web.BodyCeiling(ceilingLimit)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := web.BodyCeiling(ceilingLimit, ceilingText)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				got, readErr = io.ReadAll(r.Body)
 				w.WriteHeader(http.StatusNoContent)
 			}))
@@ -151,7 +153,7 @@ func TestBodyCeiling_GetWithNoBodyUntouched(t *testing.T) {
 	reached := false
 	var readErr error
 	var got []byte
-	h := web.BodyCeiling(ceilingLimit)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := web.BodyCeiling(ceilingLimit, ceilingText)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reached = true
 		got, readErr = io.ReadAll(r.Body)
 		_, _ = w.Write([]byte("HOME"))
@@ -174,7 +176,7 @@ func TestBodyCeiling_GetWithNoBodyUntouched(t *testing.T) {
 func TestBodyCeiling_NilBodyLeftAlone(t *testing.T) {
 	reached := false
 	var body io.ReadCloser
-	h := web.BodyCeiling(ceilingLimit)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+	h := web.BodyCeiling(ceilingLimit, ceilingText)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		reached = true
 		body = r.Body
 	}))
@@ -201,15 +203,67 @@ func TestBodyCeiling_LimitBelowOnePanicsAtConstruction(t *testing.T) {
 					t.Errorf("BodyCeiling(%d) did not panic", limit)
 				}
 			}()
-			web.BodyCeiling(limit)
+			web.BodyCeiling(limit, ceilingText)
 		}()
+	}
+}
+
+// An empty message is a programmer error too: the 413 would have no text.
+func TestBodyCeiling_EmptyMessagePanicsAtConstruction(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("BodyCeiling with an empty message did not panic")
+		}
+	}()
+	web.BodyCeiling(ceilingLimit, "")
+}
+
+// An htmx request gets no page: the refusal is an empty body with the message as
+// an HX-Trigger notice.
+func TestBodyCeiling_HTMXRefusalIsANotice(t *testing.T) {
+	reached := false
+	h := web.BodyCeiling(ceilingLimit, ceilingText)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		reached = true
+	}))
+	req, _ := ceilingPost(ceilingLimit+1, true)
+	req.Header.Set("HX-Request", "true")
+
+	rec := serve(t, h, req)
+
+	if reached {
+		t.Error("handler reached")
+	}
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want 413", rec.Code)
+	}
+	if rec.Body.Len() != 0 {
+		t.Errorf("body = %q, want empty", rec.Body.String())
+	}
+	var trig map[string]web.Notice
+	if err := json.Unmarshal([]byte(rec.Header().Get("HX-Trigger")), &trig); err != nil {
+		t.Fatalf("HX-Trigger %q is not JSON: %v", rec.Header().Get("HX-Trigger"), err)
+	}
+	if got := trig["notice"]; got.Level != "error" || got.Text != ceilingText {
+		t.Errorf("notice = %+v, want level \"error\" and text %q", got, ceilingText)
+	}
+}
+
+// The message is HTML-escaped on the full page, as every web.Error message is.
+func TestBodyCeiling_MessageIsEscaped(t *testing.T) {
+	h := web.BodyCeiling(ceilingLimit, "<b>Too big</b>")(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	req, _ := ceilingPost(ceilingLimit+1, true)
+
+	rec := serve(t, h, req)
+
+	if want := `<div role="alert">&lt;b&gt;Too big&lt;/b&gt;</div>`; !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("body %q, want the escaped alert %q", rec.Body.String(), want)
 	}
 }
 
 // One byte is the smallest legal limit.
 func TestBodyCeiling_LimitOneIsLegal(t *testing.T) {
 	reached := false
-	h := web.BodyCeiling(1)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))
+	h := web.BodyCeiling(1, ceilingText)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))
 	req, _ := ceilingPost(1, true)
 
 	rec := serve(t, h, req)

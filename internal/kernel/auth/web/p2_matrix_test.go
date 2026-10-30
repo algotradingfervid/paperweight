@@ -211,7 +211,7 @@ func TestMatrix_SeedEditReset(t *testing.T) {
 	grn := map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}
 	w.SetRights(t, "Stores", authtest.DTReceipt, grn)
 	r = admin.Post("/rights/"+authtest.DTOrder+"/reset", url.Values{})
-	wantStatus(t, "admin resets PO rights", r, http.StatusOK)
+	wantRedirect(t, "admin resets PO rights", r, http.StatusSeeOther, "/roles")
 	orderDT, _ := doctype.Lookup(authtest.DTOrder)
 	for _, role := range t17Roles {
 		if got, want := t17Rights(t, w, role, authtest.DTOrder), t17Defaults(orderDT, role); !reflect.DeepEqual(got, want) {

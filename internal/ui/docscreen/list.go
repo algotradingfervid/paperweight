@@ -1,6 +1,7 @@
 package docscreen
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strconv"
@@ -55,31 +56,7 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		return
 	}
 	cols := ListColumns(dt)
-	rows := make([]components.Row, len(res.Rows))
-	err = d.DB.Read(ctx, func(tx *db.Tx) error {
-		for i, lr := range res.Rows {
-			vals := map[string]string{}
-			for _, c := range cols {
-				f, ok := fieldOf(dt, c.Key)
-				if !ok {
-					continue
-				}
-				s, err := Display(ctx, tx, d.Engine, f, lr.Values[c.Key])
-				if err != nil {
-					return err
-				}
-				vals[c.Key] = s
-			}
-			rows[i] = components.Row{
-				Href:   docURL(dt.Name, lr.Info.ID),
-				Title:  lr.Info.Display,
-				Party:  lr.Info.Party,
-				Values: vals,
-				State:  lr.Info.State,
-			}
-		}
-		return nil
-	})
+	rows, err := d.listRows(ctx, dt, cols, res.Rows, docURL)
 	if err != nil {
 		problem(w, r, err)
 		return
@@ -121,6 +98,36 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		v.Opts.BannerSlot = actionBanners(success, warnings)
 	}
 	ui.Render(w, r, http.StatusOK, listPage(v), listMain(v))
+}
+
+// listRows is rs as DataList rows over cols; href is each row's link.
+func (d Deps) listRows(ctx context.Context, dt *doctype.DocType, cols []components.Column, rs []ListRow, href func(string, int64) string) ([]components.Row, error) {
+	rows := make([]components.Row, len(rs))
+	err := d.DB.Read(ctx, func(tx *db.Tx) error {
+		for i, lr := range rs {
+			vals := map[string]string{}
+			for _, c := range cols {
+				f, ok := fieldOf(dt, c.Key)
+				if !ok {
+					continue
+				}
+				s, err := Display(ctx, tx, d.Engine, f, lr.Values[c.Key])
+				if err != nil {
+					return err
+				}
+				vals[c.Key] = s
+			}
+			rows[i] = components.Row{
+				Href:   href(dt.Name, lr.Info.ID),
+				Title:  lr.Info.Display,
+				Party:  lr.Info.Party,
+				Values: vals,
+				State:  lr.Info.State,
+			}
+		}
+		return nil
+	})
+	return rows, err
 }
 
 func (d Deps) can(r *http.Request, p auth.Principal, name string, right auth.Right) bool {
