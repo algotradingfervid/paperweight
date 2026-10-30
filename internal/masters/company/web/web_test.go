@@ -23,7 +23,7 @@ import (
 // Screens under test (MST Task 22): the singleton company at /m/company and
 // /m/company/1 (no create, disable or delete: MST-019), and branches at
 // /m/branch with /new, /{id}, POST /{id} with version, /{id}/disable,
-// /{id}/enable, /{id}/delete and the picker /m/branch/pick?q=. Field names
+// /{id}/enable, /{id}/delete and the picker /pick/Branch?q=. Field names
 // are the DocTypes' Field names.
 const (
 	legalName = "Vardhan Infra Projects Pvt Ltd"
@@ -350,13 +350,13 @@ func TestScreens_BranchPicker(t *testing.T) {
 	kavya := w.h.Env.Kavya
 	pune, blr := w.mustBranch(t, "PUNE"), w.mustBranch(t, "BLR")
 
-	rows := w.h.GetHTMX(t, kavya, "/m/branch/pick?q=Pune")
+	rows := w.h.GetHTMX(t, kavya, "/pick/Branch?q=Pune")
 	webtest.WantStatus(t, rows, http.StatusOK)
 	got := rows.PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(pune.ID, 10) || !strings.Contains(got[0].Text, "PUNE Pune Works") {
 		t.Errorf("pick?q=Pune = %v; want one row %d \"PUNE Pune Works\"", got, pune.ID)
 	}
-	got = w.h.GetHTMX(t, kavya, "/m/branch/pick?q=Bengaluru").PickRows()
+	got = w.h.GetHTMX(t, kavya, "/pick/Branch?q=Bengaluru").PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(blr.ID, 10) || !strings.Contains(got[0].Text, "BLR Bengaluru Site Office") {
 		t.Errorf("pick?q=Bengaluru = %v; want one row %d \"BLR Bengaluru Site Office\"", got, blr.ID)
 	}
@@ -364,7 +364,7 @@ func TestScreens_BranchPicker(t *testing.T) {
 	if err := w.svc.SetDisabled(context.Background(), kavya, blr.ID, blr.Version, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.h.GetHTMX(t, kavya, "/m/branch/pick?q=Bengaluru").PickRows(); len(got) != 0 {
+	if got := w.h.GetHTMX(t, kavya, "/pick/Branch?q=Bengaluru").PickRows(); len(got) != 0 {
 		t.Errorf("pick?q=Bengaluru after disabling BLR = %v; want no rows", got)
 	}
 }

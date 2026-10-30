@@ -59,7 +59,7 @@ func (h *handlers) upload(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = f.Cleanup() }()
 	switch _, err := nextFilePart(mr); {
 	case err == nil:
-		http.Error(w, msgTwoFileParts, http.StatusUnprocessableEntity)
+		http.Error(w, MsgTwoFileParts, http.StatusUnprocessableEntity)
 		return
 	case !errors.Is(err, io.EOF):
 		h.badPart(w, r, err)

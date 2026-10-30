@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -37,19 +38,7 @@ func (s *Store) Open(ctx context.Context, p auth.Principal, id int64) (io.ReadCl
 		if err != nil {
 			return err
 		}
-		if s.policy(row.ParentDocType).ReadAnySignedIn {
-			var info doctype.Info
-			info, err = s.cfg.Info.Info(ctx, tx, row.ParentDocType, row.ParentID)
-			if err != nil {
-				return NotFoundErr(err)
-			}
-			if p.ID == 0 {
-				return &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgNoRight, "read", info.DocLabel), Err: auth.ErrForbidden}
-			}
-			return nil
-		}
-		_, err = s.canOnParent(ctx, tx, p, "read", row.ParentDocType, row.ParentID)
-		return err
+		return s.canRead(ctx, tx, p, row.ParentDocType, row.ParentID)
 	})
 	if err != nil {
 		return nil, Meta{}, err
@@ -96,6 +85,51 @@ func (s *Store) List(ctx context.Context, p auth.Principal, parent auth.RecordRe
 		out = append(out, m)
 	}
 	return out, nil
+}
+
+// Latest returns parent's newest attachment, read in the caller's tx, and
+// false when it has none. The user comes from ctx (CD-12) and is checked as in
+// Open: a ReadAnySignedIn parent needs only a signed-in user and takes no second
+// connection (CD-209); any other parent goes through auth.Can, whose real
+// service does. A ctx with no user is refused, not answered with "none".
+func (s *Store) Latest(ctx context.Context, tx *db.Tx, parent auth.RecordRef) (Meta, bool, error) {
+	p, _ := auth.PrincipalFrom(ctx)
+	if err := s.canRead(ctx, tx, p, parent.DocType, parent.ID); err != nil {
+		return Meta{}, false, err
+	}
+	rows, err := dbq.New(tx.SQL()).ListForParent(ctx, dbq.ListForParentParams{ParentDocType: parent.DocType, ParentID: parent.ID})
+	if err != nil || len(rows) == 0 {
+		return Meta{}, false, err
+	}
+	m, err := metaFrom(rows[0])
+	return m, err == nil, err
+}
+
+// LatestURL is Latest as the /files/{id} URL that serves it, "" when parent
+// has no attachment (CD-58, CD-209).
+func (s *Store) LatestURL(ctx context.Context, tx *db.Tx, parent auth.RecordRef) (string, error) {
+	m, ok, err := s.Latest(ctx, tx, parent)
+	if err != nil || !ok {
+		return "", err
+	}
+	return "/files/" + strconv.FormatInt(m.ID, 10), nil
+}
+
+// canRead lets p read attachments of dt's record id: a parent whose policy has
+// ReadAnySignedIn only has to exist and p be signed in.
+func (s *Store) canRead(ctx context.Context, tx *db.Tx, p auth.Principal, dt string, id int64) error {
+	if !s.policy(dt).ReadAnySignedIn {
+		_, err := s.canOnParent(ctx, tx, p, "read", dt, id)
+		return err
+	}
+	info, err := s.cfg.Info.Info(ctx, tx, dt, id)
+	if err != nil {
+		return NotFoundErr(err)
+	}
+	if p.ID == 0 {
+		return &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgNoRight, "read", info.DocLabel), Err: auth.ErrForbidden}
+	}
+	return nil
 }
 
 // canOnParent is CanOnParent with the Store's own auth and InfoSource.

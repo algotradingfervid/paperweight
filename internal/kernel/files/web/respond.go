@@ -12,10 +12,12 @@ import (
 )
 
 const (
-	msgExpired      = "Your session has expired. Sign in again."
-	msgNoFilePart   = "Choose a file to upload."
-	msgTwoFileParts = "Upload one file at a time."
+	msgExpired    = "Your session has expired. Sign in again."
+	msgNoFilePart = "Choose a file to upload."
 )
+
+// MsgTwoFileParts refuses an upload with more than one "file" part (CD-209).
+const MsgTwoFileParts = "Upload one file at a time."
 
 // signedOut answers a request with no principal like AUTH's middleware
 // (CD-17, CD-63): a browser GET is sent to sign in; htmx, /api/* and any other
