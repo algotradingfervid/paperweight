@@ -34,12 +34,13 @@ import (
 const DocType = "mst.Order"
 
 // Hooks has no Env, so these services run over a zero one: their Get,
-// CheckRole, Factor and Snapshot paths use only the transaction.
+// CheckRole, Factor, Snapshot and Defaults paths use only the transaction.
 var (
 	parties   = party.New(mstkit.Env{})
 	addresses = address.New(mstkit.Env{})
 	items     = item.New(mstkit.Env{})
 	uoms      = uom.New(mstkit.Env{})
+	expenses  = expensetype.New(mstkit.Env{})
 )
 
 func init() {
@@ -65,11 +66,13 @@ func init() {
 			{Name: "uom_id", Label: "UoM", Type: doctype.Link, Link: uom.DocType, OnLine: true},
 			{Name: "tax_code_id", Label: "Tax Code", Type: doctype.Link, Link: taxcode.DocType, OnLine: true},
 			{Name: "expense_type_id", Label: "Expense Type", Type: doctype.Link, Link: expensetype.DocType, OnLine: true},
+			{Name: "hsn_sac", Label: "HSN/SAC", Type: doctype.Text, OnLine: true},
 			{Name: "qty", Label: "Quantity", Type: doctype.Qty, Required: true, Positive: true, OnLine: true},
 			{Name: "rate", Label: "Rate", Type: doctype.Rate, NonNegative: true, OnLine: true},
 		},
 		Hooks: orderHooks{},
 	})
+	uom.RegisterQtyUse(uom.QtyUse{DocType: DocType, LinesTable: "mst_order_line", ParentColumn: "parent_id", UoMColumn: "uom_id", QtyColumn: "qty"})
 }
 
 // Header is an order's header; a zero id is left blank.
@@ -78,9 +81,11 @@ type Header struct {
 	Date                                                                  types.Date
 }
 
-// Line is an order line; a zero id is left blank.
+// Line is an order line; a zero id is left blank. An expense line with no tax
+// code or no HSNSAC starts from its expense type's defaults (MST-123).
 type Line struct {
 	ItemID, UoMID, TaxCodeID, ExpenseTypeID int64
+	HSNSAC                                  string
 	Qty                                     types.Qty
 	Rate                                    types.Rate
 }
@@ -119,7 +124,7 @@ func Save(ctx context.Context, env *msttest.Env, p auth.Principal, id int64, h H
 	for _, l := range lines {
 		in.Lines = append(in.Lines, map[string]string{
 			"item_id": idText(l.ItemID), "uom_id": idText(l.UoMID), "tax_code_id": idText(l.TaxCodeID),
-			"expense_type_id": idText(l.ExpenseTypeID), "qty": l.Qty.Plain(), "rate": l.Rate.Plain(),
+			"expense_type_id": idText(l.ExpenseTypeID), "hsn_sac": l.HSNSAC, "qty": l.Qty.Plain(), "rate": l.Rate.Plain(),
 		})
 	}
 	if id != 0 {
@@ -262,6 +267,11 @@ func readLines(ctx context.Context, tx *db.Tx, id int64) ([]storedLine, error) {
 }
 
 func validateLine(ctx context.Context, tx *db.Tx, l storedLine) []doctype.FieldError {
+	if l.expenseTypeID != 0 {
+		if err := copyExpenseDefaults(ctx, tx, l); err != nil {
+			return fieldErrors(err)
+		}
+	}
 	if l.itemID == 0 || l.uomID == 0 {
 		return nil // an expense line, or a draft line BeforeSubmit will refuse: nothing to snapshot
 	}
@@ -286,6 +296,18 @@ func validateLine(ctx context.Context, tx *db.Tx, l storedLine) []doctype.FieldE
 		return fieldErrors(err)
 	}
 	return nil
+}
+
+// copyExpenseDefaults fills what the line left blank from its expense type
+// (MST-123); what the line already holds stays, so both remain editable.
+func copyExpenseDefaults(ctx context.Context, tx *db.Tx, l storedLine) error {
+	hsnSAC, taxCodeID, err := expenses.Defaults(ctx, tx, l.expenseTypeID)
+	if err != nil {
+		return err
+	}
+	_, err = tx.SQL().ExecContext(ctx, `UPDATE mst_order_line SET hsn_sac = COALESCE(NULLIF(hsn_sac, ''), ?), tax_code_id = COALESCE(tax_code_id, NULLIF(?, 0)) WHERE id = ?`,
+		hsnSAC, taxCodeID, l.id)
+	return err
 }
 
 // noConversion is CD-199's refusal for a line whose UoM the item no longer

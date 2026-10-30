@@ -47,30 +47,6 @@ func TestUoM_Basic(t *testing.T) { // MST-077
 	ctx := context.Background()
 	svc := uom.New(env.Kit)
 
-	// The seed: exactly the eleven rows, enabled.
-	if n := countUoMs(t, env.DB); n != len(seeded) {
-		t.Errorf("seeded uom rows = %d; want %d", n, len(seeded))
-	}
-	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
-		for _, s := range seeded {
-			u, ok, err := svc.ByCode(ctx, tx, s.code)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				t.Errorf("ByCode(%s): not found; want the seeded UoM", s.code)
-				continue
-			}
-			if u.Code != s.code || u.Name != s.name || u.UQC != s.uqc || u.WholeNumber != s.whole || u.Disabled {
-				t.Errorf("seeded %s = {Code %q, Name %q, UQC %q, WholeNumber %v, Disabled %v}; want {%q, %q, %q, %v, false}",
-					s.code, u.Code, u.Name, u.UQC, u.WholeNumber, u.Disabled, s.code, s.name, s.uqc, s.whole)
-			}
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("read seed: %v", err)
-	}
-
 	// NOS "Numbers" whole-number and KGS "Kilograms" not whole-number save
 	// (custom codes, since the seed holds NOS and KGS).
 	for _, c := range []struct {

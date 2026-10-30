@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,8 @@ import (
 
 // DocType is the registry name.
 const DocType = "UoM"
+
+const msgFractionalUse = "%s is used with fractional quantities (e.g. %s). Create a new UoM instead."
 
 // Kind is the UoM master.
 var Kind = mstkit.Kind{DocType: DocType, Label: "UoM", Table: "uom", HasCode: true}
@@ -145,7 +148,8 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 	return saved, err
 }
 
-// UpdateTx is Update inside tx.
+// UpdateTx is Update inside tx. The whole-number flag can't be turned on while
+// a document outside draft holds a fractional quantity in this UoM (MST-092).
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
@@ -167,6 +171,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := checkWholeFlag(ctx, tx, old, in); err != nil {
+		return mstkit.Saved{}, err
+	}
 	before := auditFields(Input{Code: old.Code, Name: old.Name, UQC: old.UQC, WholeNumber: old.WholeNumber})
 	if mstkit.Unchanged(before, auditFields(in)) {
 		return mstkit.Saved{ID: id, Version: version}, nil
@@ -181,6 +188,21 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: version + 1}, nil
+}
+
+// checkWholeFlag refuses turning the whole-number flag on over fractional
+// quantities (MST-092).
+func checkWholeFlag(ctx context.Context, tx *db.Tx, old UoM, in Input) error {
+	if !in.WholeNumber || old.WholeNumber {
+		return nil
+	}
+	label, used, err := fractionalUse(ctx, tx, old.ID)
+	if err != nil || !used {
+		return err
+	}
+	var es mstkit.Errors
+	es.Add("whole_number", fmt.Sprintf(msgFractionalUse, old.Code, label))
+	return es.Err()
 }
 
 // SetDisabled disables or enables the UoM.
