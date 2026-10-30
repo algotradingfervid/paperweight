@@ -95,7 +95,7 @@ func (e *engine) do(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocTyp
 		// right (CD-52); an unknown action is refused by guard below.
 		right = "read"
 	}
-	if err := e.Auth.Can(ctx, p, dt.Name, right, recordRef(dt, d)); err != nil {
+	if err := e.Auth.CanTx(ctx, tx, p, dt.Name, right, recordRef(dt, d)); err != nil {
 		return Result{}, err
 	}
 	if decision {

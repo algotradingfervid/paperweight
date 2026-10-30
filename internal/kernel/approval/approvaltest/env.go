@@ -478,7 +478,7 @@ func (e *Env) can(ctx context.Context, tx *db.Tx, p auth.Principal, d Doc, right
 		return err
 	}
 	ref := &auth.RecordRef{DocType: in.DocType, ID: in.ID, CreatedBy: in.CreatedBy, EmployeeID: in.EmployeeID, ProjectIDs: in.ProjectIDs, SiteIDs: in.SiteIDs}
-	return e.Auth.Can(ctx, p, d.Type, right, ref)
+	return e.Auth.CanTx(ctx, tx, p, d.Type, right, ref)
 }
 
 // approve is the tail of approve and of a submit that needs no approval:

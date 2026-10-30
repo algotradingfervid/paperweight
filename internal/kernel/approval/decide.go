@@ -28,7 +28,7 @@ func (a *Approvals) CheckApprover(ctx context.Context, tx *db.Tx, p auth.Princip
 	}
 	// A record hidden from p is a 404 (doctype.ErrNotFound); having no read
 	// right at all falls through to the eligibility message.
-	if err := a.auth.Can(ctx, p, dt, "read", recordRef(in)); err != nil && !errors.Is(err, auth.ErrForbidden) {
+	if err := a.auth.CanTx(ctx, tx, p, dt, "read", recordRef(in)); err != nil && !errors.Is(err, auth.ErrForbidden) {
 		return err
 	}
 	r, ok, err := a.openRequest(ctx, tx, dt, id)
@@ -39,7 +39,7 @@ func (a *Approvals) CheckApprover(ctx context.Context, tx *db.Tx, p auth.Princip
 		return a.notPendingErr(ctx, tx, in)
 	}
 	s := snapshotOf(r)
-	holds, err := a.holdsAny(ctx, p.ID, s)
+	holds, err := a.holdsAny(ctx, tx, p.ID, s)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (a *Approvals) CheckApprover(ctx context.Context, tx *db.Tx, p auth.Princip
 	if !holds {
 		return refuse
 	}
-	users, err := a.eligible(ctx, s, in)
+	users, err := a.eligible(ctx, tx, s, in)
 	if err != nil {
 		return err
 	}

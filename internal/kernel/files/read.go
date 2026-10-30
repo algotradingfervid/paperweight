@@ -151,7 +151,7 @@ func CanOnParent(ctx context.Context, tx *db.Tx, a auth.Service, src doctype.Inf
 	if r == "write" {
 		verb = "change"
 	}
-	if err := a.Can(ctx, p, dt, r, &ref); err != nil {
+	if err := a.CanTx(ctx, tx, p, dt, r, &ref); err != nil {
 		if errors.Is(err, auth.ErrForbidden) {
 			return doctype.Info{}, &Error{Kind: KindForbidden, Code: http.StatusForbidden, Message: fmt.Sprintf(msgNoRight, verb, info.DocLabel), Err: err}
 		}

@@ -107,7 +107,7 @@ func (h *handlers) serve(w http.ResponseWriter, r *http.Request, fn func(tx *db.
 			DocType: info.DocType, ID: info.ID, CreatedBy: info.CreatedBy,
 			EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
 		}
-		if err := h.cfg.Auth.Can(r.Context(), p, dt, "print", &ref); err != nil {
+		if err := h.cfg.Auth.CanTx(r.Context(), tx, p, dt, "print", &ref); err != nil {
 			return err
 		}
 		return fn(tx, info)

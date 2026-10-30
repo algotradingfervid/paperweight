@@ -21,7 +21,7 @@ func History(ctx context.Context, d *db.DB, a auth.Service, p auth.Principal, do
 		if err != nil {
 			return err
 		}
-		if err := a.Can(ctx, p, dt.Name, auth.RightRead, recordRef(dt, rec)); err != nil {
+		if err := a.CanTx(ctx, tx, p, dt.Name, auth.RightRead, recordRef(dt, rec)); err != nil {
 			return err
 		}
 		out, err = audit.ForDoc(ctx, tx, dt.Name, id)

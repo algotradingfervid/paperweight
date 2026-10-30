@@ -25,29 +25,30 @@ func (a *Auth) Scope(ctx context.Context, p Principal, doctypeName string, r Rig
 	if slices.Contains(p.Roles, RoleAdministrator) {
 		return Predicate{}, nil
 	}
-	readScope, err := a.grant(ctx, p.Roles, dt.Name, RightRead)
-	if err != nil {
-		return Predicate{}, err
-	}
-	rScope, err := a.grant(ctx, p.Roles, dt.Name, r)
-	if err != nil {
-		return Predicate{}, err
-	}
-	acc := Access{User: p.ID, Read: readScope, Right: rScope}
-	if readScope != "" && rScope != "" {
-		scoped := slices.ContainsFunc([]Scope{readScope, rScope}, func(s Scope) bool { return s == ScopeOwn || s == ScopeTeam })
-		if err := a.db.Read(ctx, func(tx *db.Tx) error {
-			var err error
-			if scoped && dt.EmployeeField != "" {
-				if acc.Employee, acc.Reports, acc.HasEmployee, err = a.employee(ctx, tx, p.ID); err != nil {
-					return err
-				}
-			}
-			acc.Allowed, err = restrictions(ctx, dbq.New(tx.SQL()), p.ID)
+	var acc Access
+	if err := a.db.Read(ctx, func(tx *db.Tx) error {
+		readScope, err := a.grantTx(ctx, tx, p.Roles, dt.Name, RightRead)
+		if err != nil {
 			return err
-		}); err != nil {
-			return Predicate{}, err
 		}
+		rScope, err := a.grantTx(ctx, tx, p.Roles, dt.Name, r)
+		if err != nil {
+			return err
+		}
+		acc = Access{User: p.ID, Read: readScope, Right: rScope}
+		if readScope == "" || rScope == "" {
+			return nil
+		}
+		scoped := slices.ContainsFunc([]Scope{readScope, rScope}, func(s Scope) bool { return s == ScopeOwn || s == ScopeTeam })
+		if scoped && dt.EmployeeField != "" {
+			if acc.Employee, acc.Reports, acc.HasEmployee, err = a.employee(ctx, tx, p.ID); err != nil {
+				return err
+			}
+		}
+		acc.Allowed, err = restrictions(ctx, dbq.New(tx.SQL()), p.ID)
+		return err
+	}); err != nil {
+		return Predicate{}, err
 	}
 	return acc.Scope(dt, r)
 }

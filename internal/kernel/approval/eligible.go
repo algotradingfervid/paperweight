@@ -55,13 +55,13 @@ func (a *Approvals) own(ctx context.Context, tx *db.Tx, requester types.UserID, 
 // now: they hold approve and read on it (auth applies disabled users, scope
 // and restrictions), hold one of the snapshot's roles or are its manager, and
 // aren't one of its owners unless self-approval is allowed.
-func (a *Approvals) eligible(ctx context.Context, s snapshot, in doctype.Info) ([]types.UserID, error) {
+func (a *Approvals) eligible(ctx context.Context, tx *db.Tx, s snapshot, in doctype.Info) ([]types.UserID, error) {
 	ref := recordRef(in)
-	approvers, err := a.auth.UsersWithRight(ctx, s.doctype, "approve", ref)
+	approvers, err := a.auth.UsersWithRightTx(ctx, tx, s.doctype, "approve", ref)
 	if err != nil {
 		return nil, err
 	}
-	readers, err := a.auth.UsersWithRight(ctx, s.doctype, "read", ref)
+	readers, err := a.auth.UsersWithRightTx(ctx, tx, s.doctype, "read", ref)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (a *Approvals) eligible(ctx context.Context, s snapshot, in doctype.Info) (
 		if !s.allowSelf && slices.Contains(s.own, u) {
 			continue
 		}
-		ok, err := a.holdsAny(ctx, u, s)
+		ok, err := a.holdsAny(ctx, tx, u, s)
 		if err != nil {
 			return nil, err
 		}
@@ -86,12 +86,12 @@ func (a *Approvals) eligible(ctx context.Context, s snapshot, in doctype.Info) (
 }
 
 // holdsAny reports whether u is the snapshot's manager or holds one of its roles.
-func (a *Approvals) holdsAny(ctx context.Context, u types.UserID, s snapshot) (bool, error) {
+func (a *Approvals) holdsAny(ctx context.Context, tx *db.Tx, u types.UserID, s snapshot) (bool, error) {
 	if s.manager != 0 && u == s.manager {
 		return true, nil
 	}
 	for _, r := range s.roles {
-		ok, err := a.auth.HasRole(ctx, u, r)
+		ok, err := a.auth.HasRoleTx(ctx, tx, u, r)
 		if err != nil || ok {
 			return ok, err
 		}
@@ -122,5 +122,5 @@ func (a *Approvals) EligibleApprovers(ctx context.Context, tx *db.Tx, doctype st
 	if err != nil {
 		return nil, err
 	}
-	return a.eligible(ctx, s, in)
+	return a.eligible(ctx, tx, s, in)
 }
