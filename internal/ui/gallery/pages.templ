@@ -72,6 +72,7 @@ templ fieldSet(pre, errText string) {
 		@components.QtyInput(components.FieldProps{ID: pre + "-qty", Name: pre + "_qty", Label: "Quantity", Value: "1,00,000", Error: errText}, false, "kg")
 		@components.RateInput(components.FieldProps{ID: pre + "-rate", Name: pre + "_rate", Label: "Rate", Value: "9,99,999.9999", Error: errText})
 		@components.PercentInput(components.FieldProps{ID: pre + "-discount", Name: pre + "_discount", Label: "Discount", Value: "12.5", Error: errText})
+		@components.NumberInput(components.FieldProps{ID: pre + "-factor", Name: pre + "_factor", Label: "Conversion factor", Value: "9,99,999.999999999", Error: errText}, components.Factor, false)
 		@components.DateInput(components.DateProps{FieldProps: components.FieldProps{ID: pre + "-date", Name: pre + "_date", Label: "Order date", Value: "24-10-2026", Echo: "Saturday, 24 October 2026", Error: errText}, Today: "24-10-2026", Yesterday: "23-10-2026"})
 		@components.CodeInput(components.FieldProps{ID: pre + "-gstin", Name: pre + "_gstin", Label: "GSTIN", Value: uitest.LongCode60, Error: errText}, components.GSTIN)
 		@components.Radios(components.FieldProps{ID: pre + "-delivery", Name: pre + "_delivery", Label: "Delivery", Value: "site", Error: errText}, deliveryOptions)

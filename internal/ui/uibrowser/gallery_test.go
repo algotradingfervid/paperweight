@@ -895,7 +895,7 @@ func TestGalleryBrowser_NumberInputsNotClipped(t *testing.T) {
 		want []string // worst-case values the page's visible number inputs must hold
 		wide int64    // from this width on, the number inputs must be shown
 	}{
-		{"fields", []string{"99,99,99,999.99", "1,00,000", "9,99,999.9999"}, 0},
+		{"fields", []string{"99,99,99,999.99", "1,00,000", "9,99,999.9999", "9,99,999.999999999"}, 0},
 		{"lines", []string{"1,00,000", "9,99,999.9999"}, 1440},
 	}
 	for _, p := range pages {

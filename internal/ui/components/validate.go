@@ -35,6 +35,7 @@ func NUMParsers() map[string]ParseFunc {
 		"percent": numParser(types.ParsePercent, func(p types.Percent) string {
 			return strings.TrimSuffix(types.FormatPercent(p), "%")
 		}),
+		"factor": numParser(types.ParseFactor, types.FormatFactor),
 		"date": func(in string) (string, string, error) {
 			d, err := types.ParseDate(in)
 			if err != nil {

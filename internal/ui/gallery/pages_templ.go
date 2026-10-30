@@ -409,6 +409,10 @@ func fieldSet(pre, errText string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		templ_7745c5c3_Err = components.NumberInput(components.FieldProps{ID: pre + "-factor", Name: pre + "_factor", Label: "Conversion factor", Value: "9,99,999.999999999", Error: errText}, components.Factor, false).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		templ_7745c5c3_Err = components.DateInput(components.DateProps{FieldProps: components.FieldProps{ID: pre + "-date", Name: pre + "_date", Label: "Order date", Value: "24-10-2026", Echo: "Saturday, 24 October 2026", Error: errText}, Today: "24-10-2026", Yesterday: "23-10-2026"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -560,7 +564,7 @@ func badgesBody() templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(uitest.LongError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 106, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 107, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -640,7 +644,7 @@ func dialogsBody() templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(uitest.LongError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 117, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 118, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -814,7 +818,7 @@ func gridText(v string) templ.Component {
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(v)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 154, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 155, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {

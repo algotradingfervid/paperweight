@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -105,6 +106,34 @@ func TestValidateHandler_FormatsAndErrors(t *testing.T) {
 	}
 }
 
+// The Factor kind through the real parsers: the format comes back in the
+// ui:field event and the refusal is ParseFactor's own message.
+func TestValidateHandler_Factor(t *testing.T) {
+	h := components.ValidateHandler(components.NUMParsers())
+	post := func(v string) *httptest.ResponseRecorder {
+		return uitest.Do(t, h, http.MethodPost, "/ui/validate/factor", url.Values{"_id": {"f-factor"}, "_name": {"factor"}, "factor": {v}})
+	}
+
+	ok := post("250000.125")
+	if ok.Code != http.StatusOK {
+		t.Fatalf("status = %d", ok.Code)
+	}
+	if ev := trigger(t, ok.Header()); ev.Field.Value != "2,50,000.125" || ev.Field.Invalid {
+		t.Errorf("good value trigger = %+v, want 2,50,000.125 and valid", ev.Field)
+	}
+	if got := strings.TrimSpace(uitest.Doc(t, ok).Find("#f-factor-msg").Text()); got != "" {
+		t.Errorf("good value message = %q", got)
+	}
+
+	bad := post("1.1234567891")
+	if got, want := strings.TrimSpace(uitest.Doc(t, bad).Find("#f-factor-msg").Text()), "Conversion factor can have at most 9 decimal places."; got != want {
+		t.Errorf("too many decimals message = %q, want %q", got, want)
+	}
+	if ev := trigger(t, bad.Header()); ev.Field.Value != "1.1234567891" || !ev.Field.Invalid {
+		t.Errorf("too many decimals trigger = %+v, want the typed value kept and invalid", ev.Field)
+	}
+}
+
 func TestNUMParsers_UseNUMFormats(t *testing.T) {
 	ps := components.NUMParsers()
 	for _, c := range []struct{ kind, in, want, echo string }{
@@ -112,6 +141,7 @@ func TestNUMParsers_UseNUMFormats(t *testing.T) {
 		{"rate", "62.5", "62.50", ""},
 		{"percent", "18", "18", ""},
 		{"qty", "1500.5", "1,500.5", ""},
+		{"factor", "999999.999999999", "9,99,999.999999999", ""},
 		{"date", "27-03-2026", "27-03-2026", "Friday, 27 March 2026"},
 	} {
 		f, ok := ps[c.kind]
