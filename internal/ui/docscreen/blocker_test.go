@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
+
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -32,9 +34,11 @@ func (a unreadableReceipts) CanTx(ctx context.Context, tx *db.Tx, p auth.Princip
 	return a.Service.CanTx(ctx, tx, p, dt, r, rec)
 }
 
-// TestReasonPage_FailedBlockerReadIsLoggedAndHidesTheLink: the refusal stands
-// alone, so a failed check loses only the link, and the failure is logged.
-func TestReasonPage_FailedBlockerReadIsLoggedAndHidesTheLink(t *testing.T) {
+// cancelBlocked posts a cancel of an order a receipt blocks, as the admin
+// under an AUTH whose read on receipts answers err, and returns the refusal
+// and what was logged.
+func cancelBlocked(t *testing.T, err error) (*goquery.Selection, string) {
+	t.Helper()
 	h := fixturetest.New(t)
 	ctx := context.Background()
 	order := h.ApprovedOrder(t, fixturetest.OL{Item: "MS-ANGLE-50", Qty: "1200.000", Rate: "62.5000"})
@@ -50,7 +54,7 @@ func TestReasonPage_FailedBlockerReadIsLoggedAndHidesTheLink(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
 	t.Cleanup(func() { slog.SetDefault(old) })
 
-	e := scopeMount(t, h, h.Engine, unreadableReceipts{Service: h.Auth, err: errors.New("rights table gone")}, h.Admin)
+	e := scopeMount(t, h, h.Engine, unreadableReceipts{Service: h.Auth, err: err}, h.Admin)
 	var version int64
 	if err := h.DB.SQL().QueryRowContext(ctx, `SELECT version FROM fixture_order WHERE id = ?`, order.ID).Scan(&version); err != nil {
 		t.Fatal(err)
@@ -59,15 +63,33 @@ func TestReasonPage_FailedBlockerReadIsLoggedAndHidesTheLink(t *testing.T) {
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("POST cancel = %d, want 409: %.300s", rec.Code, rec.Body)
 	}
-	page := uitest.Doc(t, rec)
-	alert := page.Find(`[role="alert"]`)
+	alert := uitest.Doc(t, rec).Find(`[role="alert"]`)
 	if !strings.Contains(alert.Text(), "is linked to it") {
 		t.Errorf("the refusal is gone: %q", alert.Text())
 	}
+	return alert, logged.String()
+}
+
+// TestReasonPage_FailedBlockerReadIsLoggedAndHidesTheLink: the refusal stands
+// alone, so a failed check loses only the link, and the failure is logged.
+func TestReasonPage_FailedBlockerReadIsLoggedAndHidesTheLink(t *testing.T) {
+	alert, logged := cancelBlocked(t, errors.New("rights table gone"))
 	if alert.Find("a").Length() != 0 {
 		t.Error("a failed read check still shows the link")
 	}
-	if !strings.Contains(logged.String(), "rights table gone") {
-		t.Errorf("the failed check isn't logged: %q", logged.String())
+	if !strings.Contains(logged, "rights table gone") {
+		t.Errorf("the failed check isn't logged: %q", logged)
+	}
+}
+
+// TestReasonPage_HiddenBlockerIsNoLinkAndNoError: a blocker the check answers
+// not found for is hidden like a refused one, not logged as a failure (CD-248).
+func TestReasonPage_HiddenBlockerIsNoLinkAndNoError(t *testing.T) {
+	alert, logged := cancelBlocked(t, auth.ErrNotFound)
+	if alert.Find("a").Length() != 0 {
+		t.Error("a blocker the user can't find still shows the link")
+	}
+	if strings.Contains(logged, "blocker link") {
+		t.Errorf("a not-found answer is logged as a failed check: %q", logged)
 	}
 }

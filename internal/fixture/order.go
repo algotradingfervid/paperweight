@@ -15,6 +15,7 @@ func orderDocType() doctype.DocType {
 		Submittable: true, Approvable: true, Printable: true,
 		OwnerField:    "created_by",
 		ProjectFields: []string{"project_id"},
+		SearchFields:  []string{"remarks"}, // NUM-125: orders have no party name column
 		DefaultRights: map[string]map[string]string{
 			"Purchase Manager": rights("all", "read", "approve", "cancel", "amend", "print", "export"),
 			"Purchase User": func() map[string]string {
@@ -29,13 +30,18 @@ func orderDocType() doctype.DocType {
 			{Name: "supplier_id", Label: "Supplier", Type: doctype.Link, Link: Party, Required: true, ListPriority: 1},
 			{Name: "project_id", Label: "Project", Type: doctype.Link, Link: Project, ListPriority: 5},
 			{Name: "order_date", Label: "Order date", Type: doctype.Date, Required: true, ListPriority: 4},
-			{Name: "amount", Label: "Amount", Type: doctype.Money, ListPriority: 2},
+			{Name: "amount", Label: "Amount", Type: doctype.Money, Sortable: true, ListPriority: 2},
 			{Name: "remarks", Label: "Remarks", Type: doctype.Text, MaxLen: 500},
 			{Name: "credit_days", Label: "Credit days", Type: doctype.Int, Min: i64(0), Max: i64(365),
 				Hint: "Days the supplier gives you to pay."},
 			{Name: "supplier_ref", Label: "Supplier ref", Type: doctype.Text, MaxLen: 140},
 			{Name: "priority", Label: "Priority", Type: doctype.Text, Default: "normal"},
 			{Name: "discount_pct", Label: "Discount", Type: doctype.Percent, Default: "0"},
+			// The state convention column, for list filters (CD-144, CD-162).
+			{Name: "state", Label: "State", Type: doctype.Select, ReadOnly: true, Filterable: true, Options: []string{
+				string(doctype.StateDraft), string(doctype.StatePending), string(doctype.StateApproved),
+				string(doctype.StateClosed), string(doctype.StateRejected), string(doctype.StateCancelled),
+			}},
 
 			{Name: "item_id", Label: "Item", Type: doctype.Link, Link: Item, Required: true, OnLine: true, Step: "lines"},
 			{Name: "qty", Label: "Quantity", Type: doctype.Qty, Required: true, Positive: true, OnLine: true, Step: "lines"},

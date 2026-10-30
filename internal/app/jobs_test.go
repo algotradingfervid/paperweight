@@ -302,7 +302,7 @@ func TestApp_DocumentHistoryAndFiles(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"· System · imported", "· Ravi Kulkarni · Cancelled: Wrong supplier", "· Priya Shah · Approved on submit (no approval needed)",
+		"· System · Imported", "· Ravi Kulkarni · Cancelled: Wrong supplier", "· Priya Shah · Approved on submit (no approval needed)",
 		"HEIC image, opens as download", "note.pdf",
 	} {
 		if !strings.Contains(r.pageText(), want) {

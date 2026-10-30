@@ -77,13 +77,19 @@ func wantActions(t *testing.T, s *Session, what string, want ...string) {
 	}
 }
 
-// noInputs checks that the page has nothing to type in or choose.
+// noInputs checks that the page has nothing to type in or choose, and no
+// action whose label starts with Edit ("Edit details" too; CD-248).
 func noInputs(t *testing.T, s *Session, what string) {
 	t.Helper()
 	got := Eval[[]string](s, `[...document.querySelectorAll("main input, main textarea, main select")]
   .filter((e) => e.type !== "hidden").map((e) => e.outerHTML)`)
 	if len(got) != 0 {
 		t.Errorf("%s: the page has fields: %q", what, got)
+	}
+	edits := Eval[[]string](s, `[...document.querySelectorAll("main button, main a, .actionbar button, .actionbar a, .more-actions a, .more-actions button")]
+  .filter((e) => e.checkVisibility()).map((e) => e.textContent.replace(/\s+/g, " ").trim()).filter((l) => l.startsWith("Edit"))`)
+	if len(edits) != 0 {
+		t.Errorf("%s: the page offers %q", what, edits)
 	}
 }
 
@@ -230,10 +236,14 @@ func TestE2E_Doc_ButtonsPerState(t *testing.T) {
 	noInputs(t, a, "the edit URL of an approved order")
 }
 
-// historyRows are the History rows, top to bottom, as one line each.
+// historyRows are the History rows, top to bottom, as one line each: the
+// heading, then " | " and each change listed below it.
 func historyRows(s *Session) []string {
 	s.t.Helper()
-	return Eval[[]string](s, `[...document.querySelectorAll(".doc-audit .history-row")].map((e) => e.innerText.replace(/\s+/g, " ").trim())`)
+	return Eval[[]string](s, `[...document.querySelectorAll(".doc-audit .history-row")].map((e) => {
+  const text = (n) => n.innerText.replace(/\s+/g, " ").trim();
+  return [e.querySelector(".history-head"), ...e.querySelectorAll(".history-changes li")].map(text).join(" | ");
+})`)
 }
 
 // TestE2E_Audit_HistoryView: DOC-089. History is on the document page, which a
@@ -258,10 +268,11 @@ func TestE2E_Audit_HistoryView(t *testing.T) {
 	h.Do(priya, fixture.Order, first.ID, doctype.ActionSubmit, doc.ActionInput{Version: orderVersion(h, first.ID)})
 	h.Do(priya, fixture.Order, second.ID, doctype.ActionSubmit, doc.ActionInput{Version: orderVersion(h, second.ID)})
 
+	// Each row's heading, then the changes listed below it (CD-248).
 	openHistory(a, DocPath(fixture.Order, first.ID))
 	want := []string{
 		"24-10-2026 15:00 · Priya Shah · Submitted",
-		"24-10-2026 14:45 · Anil Kapoor · Saved Remarks: (empty) → Deliver to Pune site",
+		"24-10-2026 14:45 · Anil Kapoor · Saved | Remarks: (empty) → Deliver to Pune site",
 		"24-10-2026 10:30 · Priya Shah · Created",
 	}
 	if got := historyRows(a); !slices.Equal(got, want) {
@@ -269,7 +280,7 @@ func TestE2E_Audit_HistoryView(t *testing.T) {
 	}
 
 	openHistory(a, DocPath(fixture.Order, second.ID))
-	if got, want := historyRows(a), "24-10-2026 14:45 · Anil Kapoor · Saved Amount: ₹94,164.00 → ₹1,30,000.00"; !slices.Contains(got, want) {
+	if got, want := historyRows(a), "24-10-2026 14:45 · Anil Kapoor · Saved | Amount: ₹94,164.00 → ₹1,30,000.00"; !slices.Contains(got, want) {
 		t.Errorf("history rows %q, want %q", got, want)
 	}
 }
@@ -373,6 +384,8 @@ func TestE2E_ExpenseAttachmentPreview(t *testing.T) {
 }
 
 // TestE2E_ExifOrientation: FILE-035, on an image wider than tall as stored.
+// The computed style is the check: Chrome's natural size follows EXIF
+// whatever the CSS, so it can't fail (CD-248).
 func TestE2E_ExifOrientation(t *testing.T) {
 	h := Start(t)
 	d := h.SignIn(deepak, desktop)
@@ -382,21 +395,17 @@ func TestE2E_ExifOrientation(t *testing.T) {
 	if got := Eval[string](d, `getComputedStyle(`+img+`).imageOrientation`); got != "from-image" {
 		t.Errorf("image-orientation = %q", got)
 	}
-	size := Eval[[]int](d, `[`+img+`.naturalWidth, `+img+`.naturalHeight]`)
-	if size[1] <= size[0] {
-		t.Errorf("the preview is %d × %d, want taller than wide", size[0], size[1])
-	}
 }
 
-// TestE2E_PrintPageNumbers: FILE-058, on webtest's 60-line Draft 42, which
-// prints to more pages than the case's 3, and its approved PO, which fits one.
+// TestE2E_PrintPageNumbers: FILE-058, on webtest's 60-line Draft 42 and its
+// approved PO. N is the PDF's page count (CD-248); Draft 42 runs to more than one.
 func TestE2E_PrintPageNumbers(t *testing.T) {
 	srv := webtest.NewServer(t, testkit.Principal(t, priya))
 	s := &Session{t: t, ctx: uibrowser.New(t), width: desktop}
 
 	pages := ParsePDF(t, printPDF(s, fmt.Sprintf("%s/print/test.PurchaseOrder/%d", srv.URL, webtest.DraftPOID)))
-	if len(pages) < 3 {
-		t.Fatalf("pages = %d, want at least 3", len(pages))
+	if len(pages) < 2 {
+		t.Fatalf("pages = %d, want more than one", len(pages))
 	}
 	for i, pg := range pages {
 		want := fmt.Sprintf("Draft%d·Page%dof%d", webtest.DraftPOID, i+1, len(pages))
@@ -530,7 +539,7 @@ func TestE2E_AmountInputFormatting(t *testing.T) {
 // listRowIDs are the document ids of the rows shown, in order.
 func listRowIDs(s *Session) []string {
 	s.t.Helper()
-	return Eval[[]string](s, `[...new Set([...document.querySelectorAll('main a[href^="/doc/`+listOrder+`/"]')]
+	return Eval[[]string](s, `[...new Set([...document.querySelectorAll('main a[href^="/doc/`+fixture.Order+`/"]')]
   .filter((a) => a.checkVisibility()).map((a) => a.getAttribute("href").split("/").pop()).filter((id) => /^[0-9]+$/.test(id)))]`)
 }
 
@@ -542,65 +551,34 @@ func wantRows(t *testing.T, s *Session, what string, want []string) {
 	}
 }
 
-// listOrder is fixture.Order, on its tables, with the list settings NUM-125
-// needs: search over remarks (fixture orders have no party name column), a
-// sortable amount and the state filter (CD-144, CD-162). Declared on
-// fixture.Order they change every package that registers it (the frozen-values
-// checks and header search), so the copy lives here. It has no approval rule,
-// so submit approves.
-const listOrder = "e2e.ListOrder"
-
-func init() {
-	base, ok := doctype.Lookup(fixture.Order)
-	if !ok {
-		panic("e2e: no DocType " + fixture.Order)
-	}
-	dt := *base
-	dt.Name, dt.Label, dt.PluralLabel, dt.Series = listOrder, "List Order", "List Orders", "LO/{FY}/{#####}"
-	dt.SearchFields = []string{"remarks"}
-	dt.Fields = nil
-	for _, f := range base.Fields {
-		if f.Name == "amount" {
-			f.Sortable = true
-		}
-		if f.OnLine && !slices.ContainsFunc(dt.Fields, func(f doctype.Field) bool { return f.Name == "state" }) {
-			dt.Fields = append(dt.Fields, doctype.Field{Name: "state", Label: "State", Type: doctype.Select, ReadOnly: true, Filterable: true, Options: []string{
-				string(doctype.StateDraft), string(doctype.StatePending), string(doctype.StateApproved),
-				string(doctype.StateClosed), string(doctype.StateRejected), string(doctype.StateCancelled),
-			}})
-		}
-		dt.Fields = append(dt.Fields, f)
-	}
-	doctype.Register(dt)
-}
-
-// TestE2E_ListStateInURL: NUM-125, on listOrder. The list has no filter control
-// yet, so the status filter arrives as a URL; search, sort and page go through
-// the page.
+// TestE2E_ListStateInURL: NUM-125, on fixture.Order (search over remarks, a
+// sortable amount and the state filter). The list has no filter control yet,
+// so the status filter arrives as a URL; search, sort and page go through the
+// page. Amounts stay under the approval rule, so submit approves.
 func TestE2E_ListStateInURL(t *testing.T) {
 	h := Start(t)
 	for i := range listPeers + 1 {
-		amount := 60000 + (i*7%(listPeers+1))*100 // out of id order
+		amount := 30000 + (i*7%(listPeers+1))*100 // out of id order, under 50,000
 		remarks := "steel for the depot"
 		if i == 0 {
 			remarks = "cement for the depot"
 		}
-		r := h.Do(priya, listOrder, 0, doctype.ActionSave, doc.ActionInput{
+		r := h.Do(priya, fixture.Order, 0, doctype.ActionSave, doc.ActionInput{
 			Values: map[string]string{
 				"supplier_id": strconv.FormatInt(h.M.Party["SHREE"], 10), "project_id": strconv.FormatInt(h.M.Project["PRJ-METRO"], 10),
 				"order_date": plainDate, "amount": strconv.Itoa(amount) + ".00", "remarks": remarks,
 			},
 			Lines: []map[string]string{{"item_id": strconv.FormatInt(h.M.Item["WIRE-18G"], 10), "qty": "50.000", "rate": "96.0000", "uom": "kg"}},
 		})
-		if s := h.Do(priya, listOrder, r.ID, doctype.ActionSubmit, doc.ActionInput{Version: r.Version}); s.State != doctype.StateApproved {
+		if s := h.Do(priya, fixture.Order, r.ID, doctype.ActionSubmit, doc.ActionInput{Version: r.Version}); s.State != doctype.StateApproved {
 			t.Fatalf("order %d is %s after submit, want approved (no rule)", r.ID, s.State)
 		}
 	}
 	// Matches the search; only the status filter drops it.
-	h.Do(priya, listOrder, 0, doctype.ActionSave, doc.ActionInput{
+	h.Do(priya, fixture.Order, 0, doctype.ActionSave, doc.ActionInput{
 		Values: map[string]string{
 			"supplier_id": strconv.FormatInt(h.M.Party["SHREE"], 10), "project_id": strconv.FormatInt(h.M.Project["PRJ-METRO"], 10),
-			"order_date": plainDate, "amount": "99999.00", "remarks": "steel, not sent yet",
+			"order_date": plainDate, "amount": "49999.00", "remarks": "steel, not sent yet",
 		},
 	})
 
@@ -624,12 +602,12 @@ func TestE2E_ListStateInURL(t *testing.T) {
 	}
 
 	p := h.SignIn(priya, desktop)
-	p.Open("/doc/" + listOrder + "?f=state:=:approved")
+	p.Open("/doc/" + fixture.Order + "?f=state:=:approved")
 	p.Until("the list", `document.getElementById("filter-q") !== null`)
 	p.FillID("filter-q", "steel")
 	p.Keys("\r")
 	p.Until("the search in the URL", `location.search.includes("q=steel")`)
-	p.WaitText("26 list orders")
+	p.WaitText("26 purchase orders")
 	p.Do("sort by amount", chromedp.Evaluate[chromedp.Void](`(() => {
   const e = document.getElementById("filter-sort");
   e.value = "amount.desc";
@@ -645,7 +623,7 @@ func TestE2E_ListStateInURL(t *testing.T) {
 			t.Errorf("URL %s has no %s", search, wantParam)
 		}
 	}
-	url := "/doc/" + listOrder + search
+	url := "/doc/" + fixture.Order + search
 	onePage := want(listPeers, listPeers-1)
 	if len(onePage) != 1 {
 		t.Fatalf("page 2 holds %d rows, want 1", len(onePage))
@@ -655,7 +633,7 @@ func TestE2E_ListStateInURL(t *testing.T) {
 	p.Open(url)
 	wantRows(t, p, "after a reload", onePage)
 
-	p.Open("/doc/" + listOrder + "/" + onePage[0])
+	p.Open("/doc/" + fixture.Order + "/" + onePage[0])
 	p.WaitText("Details")
 	p.Back()
 	p.Until("the list again", `location.search === `+strconv.Quote(search))

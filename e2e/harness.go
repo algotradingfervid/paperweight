@@ -469,14 +469,23 @@ func (s *Session) SecondTab() *Session {
 	return s.tab()
 }
 
-// tab is a session on a tab of s's browser, by default a new one. Its first
-// run has no deadline: a tab lives as long as the context of its first run.
+// tab is a session on a tab of s's browser, by default a new one. A tab lives
+// as long as the context of its first run, so that run gets no timeout
+// context; it is waited for up to stepDeadline instead (CD-248).
 func (s *Session) tab(opts ...chromedp.ContextOption) *Session {
 	s.t.Helper()
 	ctx, cancel := chromedp.NewContext(s.ctx, opts...)
 	s.t.Cleanup(cancel)
-	if err := chromedp.Do(ctx); err != nil {
-		s.t.Fatalf("open a tab: %v", err)
+	opened := make(chan error, 1)
+	go func() { opened <- chromedp.Do(ctx) }()
+	select {
+	case err := <-opened:
+		if err != nil {
+			s.t.Fatalf("open a tab: %v", err)
+		}
+	case <-time.After(stepDeadline):
+		cancel()
+		s.t.Fatalf("open a tab: no answer in %s", stepDeadline)
 	}
 	return &Session{t: s.t, h: s.h, ctx: ctx, width: s.width, Email: s.Email}
 }

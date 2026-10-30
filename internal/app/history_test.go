@@ -46,9 +46,24 @@ func TestApp_HistoryWording(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("GET order = %d", r.status)
 	}
-	for _, want := range []string{"· Priya Shah · Created", "· Priya Shah · Saved", "· Priya Shah · Submitted", "· Suresh Patil · Updated by GR/26-27/00001"} {
+	// Ravi can't read fixture.Receipt, so the roll-up doesn't name it (CD-248).
+	for _, want := range []string{"· Priya Shah · Created", "· Priya Shah · Saved", "· Priya Shah · Submitted", "· Suresh Patil · Updated by a linked document"} {
 		if !slices.ContainsFunc(historyHeads(r), func(h string) bool { return strings.HasSuffix(h, want) }) {
 			t.Errorf("history heads %q, want one ending %q", historyHeads(r), want)
+		}
+	}
+	if text := strings.Join(historyHeads(r), "\n"); strings.Contains(text, "GR/26-27/00001") {
+		t.Errorf("Ravi's history heads %q name the receipt he can't read", historyHeads(r))
+	}
+	// Suresh reads both, so he sees the number (CD-248).
+	sr := w.signedIn(sureshEmail).get(orderURL(order))
+	if want := "· Suresh Patil · Updated by GR/26-27/00001"; !slices.ContainsFunc(historyHeads(sr), func(h string) bool { return strings.HasSuffix(h, want) }) {
+		t.Errorf("Suresh's history heads %q, want one ending %q", historyHeads(sr), want)
+	}
+	// Changes on fields the DocType doesn't declare stay out (CD-248).
+	for _, c := range historyChanges(r) {
+		if strings.HasPrefix(c, "auto_approved") || strings.HasPrefix(c, "number") {
+			t.Errorf("change row %q is on an undeclared field", c)
 		}
 	}
 	if changes := historyChanges(r); !slices.Contains(changes, "Line 1 Received quantity: 0 → 400") {

@@ -270,12 +270,13 @@ func TestE2E_Doc_PurchaseLifecycle(t *testing.T) {
 	r.Until("the link to the original", `document.querySelector('a[href="`+path+`"]')?.textContent === "Amended from `+firstNumber+`"`)
 
 	// Newest first. Priya's wizard saves twice; the GRN's approval and its
-	// cancel each leave an effect row on the order.
+	// cancel each leave an effect row on the order, which doesn't name the GRN
+	// to Ravi, who can't read it (CD-248).
 	wantHistory(t, "order", openHistory(r, path), []string{
 		"Ravi Kulkarni · Amended",
 		"Ravi Kulkarni · Cancelled: " + reasonPO,
-		"Anil Kapoor · Updated by " + firstGRN,
-		"Suresh Patil · Updated by " + firstGRN,
+		"Anil Kapoor · Updated by a linked document",
+		"Suresh Patil · Updated by a linked document",
 		"Ravi Kulkarni · Approved",
 		"Priya Shah · Submitted",
 		"Priya Shah · Saved",

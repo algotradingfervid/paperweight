@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strconv"
@@ -404,9 +405,11 @@ func (m *fzModel) checkGapless(at string) {
 	}
 }
 
-// fzContent is a document's header and lines without received_qty.
+// fzContent is a document's header without state and lines without received_qty.
 func fzContent(d doc.Doc) []any {
-	out := []any{map[string]any(d.Header)}
+	h := maps.Clone(map[string]any(d.Header))
+	delete(h, "state") // the read-only state column (CD-162) moves on every action
+	out := []any{h}
 	for _, l := range d.Lines {
 		v := map[string]any{}
 		for k, x := range l.Values {
