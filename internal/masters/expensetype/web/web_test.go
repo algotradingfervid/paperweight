@@ -23,7 +23,7 @@ import (
 
 // Screens under test (MST Task 22): /m/expense-type list, /new, /{id},
 // POST /{id} with version, /{id}/disable, /{id}/enable, /{id}/delete and the
-// picker /m/expense-type/pick?q=. Field names are the DocType's Field names.
+// picker /pick/Expense%20Type?q= (CD-195). Field names are the DocType's Field names.
 const (
 	msgSAC       = "SAC code must be 6 digits starting with 99." // MST-122
 	staleLodging = "Someone else changed Expense Type LODGING after you opened it. Reload it and make your changes again."
@@ -256,13 +256,13 @@ func TestScreens_ExpenseTypePicker(t *testing.T) {
 	kavya := w.h.Env.Kavya
 	travel, food := w.seed(t)
 
-	rows := w.h.GetHTMX(t, kavya, "/m/expense-type/pick?q=Trav")
+	rows := w.h.GetHTMX(t, kavya, "/pick/Expense%20Type?q=Trav")
 	webtest.WantStatus(t, rows, http.StatusOK)
 	got := rows.PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(travel.ID, 10) || !strings.Contains(got[0].Text, "TRAVEL Travel") {
 		t.Errorf("pick?q=Trav = %v; want one row %d \"TRAVEL Travel\"", got, travel.ID)
 	}
-	got = w.h.GetHTMX(t, kavya, "/m/expense-type/pick?q=Food").PickRows()
+	got = w.h.GetHTMX(t, kavya, "/pick/Expense%20Type?q=Food").PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(food.ID, 10) || !strings.Contains(got[0].Text, "FOOD Food") {
 		t.Errorf("pick?q=Food = %v; want one row %d \"FOOD Food\"", got, food.ID)
 	}
@@ -270,7 +270,7 @@ func TestScreens_ExpenseTypePicker(t *testing.T) {
 	if err := w.svc.SetDisabled(context.Background(), kavya, food.ID, food.Version, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.h.GetHTMX(t, kavya, "/m/expense-type/pick?q=Food").PickRows(); len(got) != 0 {
+	if got := w.h.GetHTMX(t, kavya, "/pick/Expense%20Type?q=Food").PickRows(); len(got) != 0 {
 		t.Errorf("pick?q=Food after disabling FOOD = %v; want no rows", got)
 	}
 }
