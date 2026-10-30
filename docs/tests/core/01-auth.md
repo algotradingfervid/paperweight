@@ -751,7 +751,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-101 · Restricted users can't link to a document they can't see
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved `PO/26-27/00030` for Site `TECH-SITE`, and Suresh restricted to `PUNE-WH` and `METRO-SITE` **When** Suresh creates a GRN and posts `purchase_order_id` of `PO/26-27/00030` **Then** 403 "You can't use Purchase Order PO/26-27/00030. It isn't available to you." The PO picker on the GRN doesn't list it.
+- **Given** approved `PO/26-27/00030` for Site `TECH-SITE`, and Suresh restricted to `PUNE-WH` and `METRO-SITE` **When** Suresh creates a GRN and posts `purchase_order_id` of `PO/26-27/00030` **Then** 403 "You can't use this Purchase Order. It isn't available to you." (CD-240) The PO picker on the GRN doesn't list it.
 - **Go test:** `TestRestriction_LinkedDocumentMustBeVisible`
 - **Sources:** `frappe/frappe/permissions.py:423` (`check_user_permission_on_link_fields`), `frappe/frappe/tests/test_permissions.py:311` (`test_user_permissions_if_applied_on_doc_being_evaluated`)
 
