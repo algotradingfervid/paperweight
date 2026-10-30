@@ -34,7 +34,9 @@ type Harness struct {
 // New builds msttest.New(t), then mounts routes(env.Kit) on web.NewRouter
 // with an scs session manager and no AUTH middleware (the principal is put on
 // each request by Get and Post). Register the masters under test (import
-// their packages) before calling it, so msttest grants their rights.
+// their packages) before calling it, so msttest grants their rights. A test
+// of the production wiring passes allmasters.New(k).Routes as routes; this
+// package can't call it, because allmasters reaches internal/ui (CD-89).
 func New(t testing.TB, routes func(k mstkit.Env) func(chi.Router)) *Harness {
 	t.Helper()
 	env := msttest.New(t)
@@ -55,13 +57,29 @@ type Response struct {
 // Get sends a full-page GET as p.
 func (h *Harness) Get(t testing.TB, p auth.Principal, target string) Response {
 	t.Helper()
-	return h.do(t, p, http.MethodGet, target, nil, false)
+	return h.do(t, p, http.MethodGet, target, nil, false, nil)
+}
+
+// Follow GETs r's Location as p, sending the session cookie r set, as a
+// browser does after a 303: the next page shows the flash the write put in
+// the session (CD-80). It fails the test unless r is a redirect that set a
+// cookie.
+func (h *Harness) Follow(t testing.TB, p auth.Principal, r Response) Response {
+	t.Helper()
+	if r.Location == "" {
+		t.Fatalf("follow: response %d has no Location\nbody: %s", r.Status, Squash(r.Body))
+	}
+	cookies := (&http.Response{Header: r.Header}).Cookies()
+	if len(cookies) == 0 {
+		t.Fatalf("follow %s: the response set no cookie, so the session (and its flash) is lost", r.Location)
+	}
+	return h.do(t, p, http.MethodGet, r.Location, nil, false, cookies)
 }
 
 // GetHTMX sends a GET as p with HX-Request: true (pickers, fragments).
 func (h *Harness) GetHTMX(t testing.TB, p auth.Principal, target string) Response {
 	t.Helper()
-	return h.do(t, p, http.MethodGet, target, nil, true)
+	return h.do(t, p, http.MethodGet, target, nil, true, nil)
 }
 
 // Post sends form as p, form-encoded, as a full-page (no-JS) submit.
@@ -70,10 +88,10 @@ func (h *Harness) Post(t testing.TB, p auth.Principal, target string, form url.V
 	if form == nil {
 		form = url.Values{}
 	}
-	return h.do(t, p, http.MethodPost, target, form, false)
+	return h.do(t, p, http.MethodPost, target, form, false, nil)
 }
 
-func (h *Harness) do(t testing.TB, p auth.Principal, method, target string, form url.Values, htmx bool) Response {
+func (h *Harness) do(t testing.TB, p auth.Principal, method, target string, form url.Values, htmx bool, cookies []*http.Cookie) Response {
 	t.Helper()
 	var req *http.Request
 	if form != nil {
@@ -84,6 +102,9 @@ func (h *Harness) do(t testing.TB, p auth.Principal, method, target string, form
 	}
 	if htmx {
 		req.Header.Set("HX-Request", "true")
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
 	}
 	req = req.WithContext(auth.WithPrincipal(req.Context(), p))
 	rec := httptest.NewRecorder()
@@ -137,6 +158,27 @@ func WantNoText(t testing.TB, r Response, text string) {
 	if strings.Contains(r.Text(), text) {
 		t.Errorf("page text contains %q; want it absent\ntext: %s", text, r.Text())
 	}
+}
+
+// Banners is the text of each banner in the page's main region (flash
+// messages and page banners, design-system §7), in page order.
+func (r Response) Banners() []string {
+	var out []string
+	r.Doc.Find("#main .banner").Each(func(_ int, s *goquery.Selection) {
+		out = append(out, Squash(s.Text()))
+	})
+	return out
+}
+
+// WantBanner fails the test unless a banner in the main region shows msg.
+func WantBanner(t testing.TB, r Response, msg string) {
+	t.Helper()
+	for _, b := range r.Banners() {
+		if strings.Contains(b, msg) {
+			return
+		}
+	}
+	t.Errorf("no banner shows %q; banners: %q\ntext: %s", msg, r.Banners(), r.Text())
 }
 
 // FieldMessage is the text of the message region tied to the form control

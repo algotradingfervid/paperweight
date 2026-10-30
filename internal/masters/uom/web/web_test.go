@@ -23,7 +23,7 @@ import (
 
 // Screens under test (MST Task 22): /m/uom list, /new, /{id}, POST /{id} with
 // version, /{id}/disable, /{id}/enable, /{id}/delete and the picker
-// /m/uom/pick?q=. The eleven UoMs are seeded by migration 01251.
+// /pick/UoM?q= (CD-195). The eleven UoMs are seeded by migration 01251.
 const (
 	msgDupNOS = "Code NOS is already used by UoM Numbers. Choose another code." // MST-003, MST-077
 	staleGram = "Someone else changed UoM GRAM after you opened it. Reload it and make your changes again."
@@ -220,13 +220,13 @@ func TestScreens_UoMPicker(t *testing.T) {
 	kavya := w.h.Env.Kavya
 	kgs, sqm := w.mustGet(t, "KGS"), w.mustGet(t, "SQM")
 
-	rows := w.h.GetHTMX(t, kavya, "/m/uom/pick?q=Kilo")
+	rows := w.h.GetHTMX(t, kavya, "/pick/UoM?q=Kilo")
 	webtest.WantStatus(t, rows, http.StatusOK)
 	got := rows.PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(kgs.ID, 10) || !strings.Contains(got[0].Text, "KGS Kilograms") {
 		t.Errorf("pick?q=Kilo = %v; want one row %d \"KGS Kilograms\"", got, kgs.ID)
 	}
-	got = w.h.GetHTMX(t, kavya, "/m/uom/pick?q=Square").PickRows()
+	got = w.h.GetHTMX(t, kavya, "/pick/UoM?q=Square").PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(sqm.ID, 10) || !strings.Contains(got[0].Text, "SQM Square meters") {
 		t.Errorf("pick?q=Square = %v; want one row %d \"SQM Square meters\"", got, sqm.ID)
 	}
@@ -234,7 +234,7 @@ func TestScreens_UoMPicker(t *testing.T) {
 	if err := w.svc.SetDisabled(context.Background(), kavya, sqm.ID, sqm.Version, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.h.GetHTMX(t, kavya, "/m/uom/pick?q=Square").PickRows(); len(got) != 0 {
+	if got := w.h.GetHTMX(t, kavya, "/pick/UoM?q=Square").PickRows(); len(got) != 0 {
 		t.Errorf("pick?q=Square after disabling SQM = %v; want no rows", got)
 	}
 }

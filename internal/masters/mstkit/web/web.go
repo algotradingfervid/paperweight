@@ -1,0 +1,557 @@
+// Package mstweb is the screens every single-form master shares (MST Task
+// 22, CD-89): the list, the new and record pages, disable, enable, delete
+// (after a confirm step) and the picker search. A master's web/ subpackage
+// fills a Screen with its service, its copy and four small functions; this
+// package does the rest. It renders only internal/ui components and adds no
+// class of its own; the form is built from the DocType's fields by
+// docscreen.FieldInput. Tailwind scans masters' .templ files (app.css
+// @source), so keep daisyUI words out of their comments and text.
+package mstweb
+
+import (
+	"cmp"
+	"context"
+	"errors"
+	"net/http"
+	"net/url"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/a-h/templ"
+	"github.com/go-chi/chi/v5"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/list"
+	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/platform/web"
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
+)
+
+// pageSize is the list page size (list.PageSizes[0]); the picker asks for
+// the same and PickerResults shows the first 20.
+const pageSize = 25
+
+// Service is a master's standard surface (WP2 plan, "Standard master
+// surface"): R is its record type, In its input.
+type Service[R, In any] interface {
+	Create(ctx context.Context, p auth.Principal, in In) (mstkit.Saved, error)
+	Update(ctx context.Context, p auth.Principal, id int64, version int, in In) (mstkit.Saved, error)
+	SetDisabled(ctx context.Context, p auth.Principal, id int64, version int, disabled bool) error
+	Delete(ctx context.Context, p auth.Principal, id int64, version int) error
+	Get(ctx context.Context, tx *db.Tx, id int64) (R, error)
+}
+
+// Copy is a master's text, in sentence case (design-system §9).
+type Copy struct {
+	Plural string // list title and Back link: "Tax Codes"
+	New    string // "New tax code"
+	Search string // "Search tax codes"
+	Empty  string // "No tax codes yet."
+	// Success banners after each write: "Tax code saved."
+	Saved, Disabled, Enabled, Deleted string
+}
+
+// Head is what the screens show of a stored record besides its fields.
+type Head struct {
+	Code, Name string // the title is "{Code} {Name}" (CD-68); Code "" for Address and Contact
+	Disabled   bool
+	Version    int
+}
+
+// Screen is one master's screens under Base.
+type Screen[R, In any] struct {
+	DocType string // registry name; its fields make the form and the list
+	Base    string // "/m/taxcode"
+	Copy    Copy
+	Svc     Service[R, In]
+	Env     mstkit.Env
+	// ToInput turns the form's values (keyed by Field.Name, as typed) into
+	// the service's input.
+	ToInput func(values map[string]string) In
+	// Values is a stored record in the form's terms: Check fields "1" or
+	// "0", Link fields the id in decimal, numbers and dates as
+	// docscreen.FieldInput and docscreen.Display take them.
+	Values func(R) map[string]string
+	Head   func(R) Head
+	// Ref is the record AUTH checks, as the service builds it (Project and
+	// Site put their own id in ProjectIDs or SiteIDs).
+	Ref func(id int64) *auth.RecordRef
+}
+
+// Routes mounts the screens under Base and the picker search at
+// /pick/{DocType} (CD-195). Every handler checks rights through
+// the service or AUTH itself; WP3 mounts them behind AUTH's middleware,
+// which puts the principal on the request (CD-12).
+func (s Screen[R, In]) Routes() func(chi.Router) {
+	h := s.handlers()
+	return func(r chi.Router) {
+		r.Get(s.Base, h.handle(h.listPage))
+		r.Get(s.Base+"/new", h.handle(h.newPage))
+		r.Post(s.Base+"/new", h.handle(h.create))
+		r.Get(s.Base+"/{id:[0-9]+}", h.handle(h.page))
+		r.Post(s.Base+"/{id:[0-9]+}", h.handle(h.save))
+		r.Post(s.Base+"/{id:[0-9]+}/disable", h.handle(h.setDisabled(true)))
+		r.Post(s.Base+"/{id:[0-9]+}/enable", h.handle(h.setDisabled(false)))
+		r.Post(s.Base+"/{id:[0-9]+}/delete", h.handle(h.delete))
+		r.Get("/pick/"+s.DocType, h.handle(h.pick))
+	}
+}
+
+func (s Screen[R, In]) handlers() *handlers[R, In] {
+	dt, _ := doctype.Lookup(s.DocType) // registered by the master package's init
+	return &handlers[R, In]{
+		Screen: s,
+		dt:     dt,
+		list:   &list.Service{DB: s.Env.DB, Auth: s.Env.Auth},
+		deps:   docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine},
+		// disabled is set by Disable and Enable, never on the form.
+		fields: slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return f.Name == "disabled" }),
+	}
+}
+
+type handlers[R, In any] struct {
+	Screen[R, In]
+	dt     *doctype.DocType
+	list   *list.Service
+	deps   docscreen.Deps
+	fields []doctype.Field
+}
+
+// handlerFunc answers a request or returns the error fail renders.
+type handlerFunc func(w http.ResponseWriter, r *http.Request, p auth.Principal) error
+
+// handle runs fn as the signed-in user. A request without one carries the
+// zero Principal, which AUTH refuses.
+func (h *handlers[R, In]) handle(fn handlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p, _ := auth.PrincipalFrom(r.Context())
+		if err := fn(w, r, p); err != nil {
+			h.fail(w, r, err)
+		}
+	}
+}
+
+// fail renders err by its status (CD-44): AUTH's 403 and 404, the 400 of a
+// form without its version, as a page with the producing package's message.
+// htmx requests, db.ErrBusy (503) and anything else go to web.ErrorFrom.
+func (h *handlers[R, In]) fail(w http.ResponseWriter, r *http.Request, err error) {
+	if pr, ok := docscreen.Classify(err); ok && !ui.IsHTMX(r) {
+		ui.Render(w, r, pr.Status, problemPage(pr.Message, components.Link{Label: h.Copy.Plural, Href: h.Base}), nil)
+		return
+	}
+	web.ErrorFrom(w, r, err)
+}
+
+// listPage serves GET Base: enabled records by the DocType's default sort,
+// or every record with include_disabled=true (each tagged Enabled or
+// Disabled); q searches the DocType's SearchFields.
+func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+	ctx := r.Context()
+	q := r.URL.Query()
+	page, _ := strconv.Atoi(q.Get("page"))
+	page = max(page, 1)
+	all := q.Get("include_disabled") == "true"
+	lq := list.Query{Search: q.Get("q"), Page: page, PageSize: pageSize}
+	if !all {
+		lq.Filters = list.DefaultFilters(h.dt)
+	}
+	res, err := h.list.List(ctx, p, h.dt, lq)
+	if err != nil {
+		return err
+	}
+	rows := make([]components.Row, len(res.Rows))
+	for i, lr := range res.Rows {
+		off, _ := lr.Values["disabled"].(bool)
+		// A master with more list columns than title and status fills
+		// their Values here, formatted with docscreen.Display.
+		rows[i] = components.Row{Href: h.recordPath(lr.ID), Values: map[string]string{"name": title(lr)}, State: stateOf(off)}
+	}
+	// The code is in the title; the status column only shows when disabled
+	// records are listed.
+	cols := slices.DeleteFunc(docscreen.ListColumns(h.dt), func(c components.Column) bool {
+		return c.Key == "code" || c.Key == "disabled" && !all
+	})
+	for i := range cols {
+		if cols[i].Key == "disabled" {
+			cols[i].Label = "Status" // its values are Enabled and Disabled
+		}
+	}
+	var newLink *components.Link
+	if h.can(ctx, p, auth.RightCreate, nil) {
+		newLink = &components.Link{Label: h.Copy.New, Href: h.Base + "/new"}
+	}
+	v := listView{
+		Title: h.Copy.Plural,
+		Bar:   components.FilterBarProps{Action: h.Base, Search: q.Get("q"), SearchLabel: h.Copy.Search, New: newLink},
+		List:  components.DataListProps{Label: h.Copy.Plural, Columns: cols, Rows: rows, Empty: components.EmptyState(h.Copy.Empty, newLink)},
+		Pages: h.pageInfo(q, page, res.Total),
+	}
+	if all {
+		v.Bar.Keep = []components.Param{{Name: "include_disabled", Value: "true"}}
+		v.Bar.Chips = []components.Chip{{Label: "Disabled included", RemoveURL: h.listURL(q.Get("q"), false)}}
+		v.Bar.ClearURL = h.Base
+	} else {
+		v.ShowDisabled = &components.Link{Label: "Show disabled " + h.Copy.Plural, Href: h.listURL(q.Get("q"), true)}
+	}
+	ui.Render(w, r, http.StatusOK, listPage(v), listMain(v))
+	return nil
+}
+
+// title is a list row's "{Code} {Name}" (CD-68), or the name alone for a
+// master without a code.
+func title(lr list.Row) string {
+	code, _ := lr.Values["code"].(string)
+	name, _ := lr.Values["name"].(string)
+	return strings.TrimSpace(code + " " + name)
+}
+
+// pick is the picker search, GET /pick/{DocType}?q= (the URL
+// docscreen.FieldInput's pickers use): enabled records the user may read,
+// "{Code} {Name}" (CD-68). htmx names the listbox it fills in HX-Target.
+func (h *handlers[R, In]) pick(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+	q := r.URL.Query().Get("q")
+	res, err := h.list.Picker(r.Context(), p, h.dt, q, pageSize)
+	if err != nil {
+		return err
+	}
+	rows := make([]components.PickRow, len(res.Rows))
+	for i, lr := range res.Rows {
+		code, _ := lr.Values["code"].(string)
+		name, _ := lr.Values["name"].(string)
+		rows[i] = components.PickRow{ID: lr.ID, Code: code, Name: name}
+	}
+	frag := components.PickerResults(cmp.Or(r.Header.Get("HX-Target"), "pick-"+h.dt.Table), rows, q)
+	ui.Render(w, r, http.StatusOK, frag, frag)
+	return nil
+}
+
+func (h *handlers[R, In]) newPage(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+	if err := h.Env.Auth.Can(r.Context(), p, h.DocType, auth.RightCreate, nil); err != nil {
+		return err
+	}
+	return h.render(w, r, p, http.StatusOK, 0, form{Values: map[string]string{}})
+}
+
+func (h *handlers[R, In]) create(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+	f := h.posted(r)
+	saved, err := h.Svc.Create(r.Context(), p, h.ToInput(f.Values))
+	if err != nil {
+		return h.refused(w, r, p, 0, f, err)
+	}
+	return done(w, r, h.Copy.Saved, h.recordPath(saved.ID))
+}
+
+func (h *handlers[R, In]) page(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+	return h.render(w, r, p, http.StatusOK, recordID(r), form{})
+}
+
+// save updates the record at the version the page posted (CD-94).
+func (h *handlers[R, In]) save(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+	id := recordID(r)
+	f := h.posted(r)
+	version, err := postedVersion(r)
+	if err != nil {
+		return err
+	}
+	f.Version = version
+	if _, err := h.Svc.Update(r.Context(), p, id, version, h.ToInput(f.Values)); err != nil {
+		return h.refused(w, r, p, id, f, err)
+	}
+	return done(w, r, h.Copy.Saved, h.recordPath(id))
+}
+
+func (h *handlers[R, In]) setDisabled(off bool) handlerFunc {
+	return func(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+		id := recordID(r)
+		version, err := postedVersion(r)
+		if err != nil {
+			return err
+		}
+		if err := h.Svc.SetDisabled(r.Context(), p, id, version, off); err != nil {
+			return h.refused(w, r, p, id, form{}, err)
+		}
+		msg := h.Copy.Enabled
+		if off {
+			msg = h.Copy.Disabled
+		}
+		return done(w, r, msg, h.recordPath(id))
+	}
+}
+
+// delete deletes an unused record; a used one is refused with mstkit's
+// "Cannot delete …" (422, no field), shown on the record page.
+func (h *handlers[R, In]) delete(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
+	id := recordID(r)
+	version, err := postedVersion(r)
+	if err != nil {
+		return err
+	}
+	if err := h.Svc.Delete(r.Context(), p, id, version); err != nil {
+		return h.refused(w, r, p, id, form{}, err)
+	}
+	return done(w, r, h.Copy.Deleted, h.Base)
+}
+
+// done is a successful write: a success banner on the next page (CD-80) and
+// 303 to it.
+func done(w http.ResponseWriter, r *http.Request, msg, next string) error {
+	web.Flash(r.Context(), "success", msg)
+	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // G710: next is Base or Base + "/" + a numeric id
+	return nil
+}
+
+// refused shows the page again when the page can show err: field errors next
+// to their fields (422), or a stale version (409, with Reload) or a refusal
+// with no field (422) in a banner. f keeps what the user typed; an empty f
+// shows the stored record. Anything else (403, 404, 503) is returned for
+// fail.
+func (h *handlers[R, In]) refused(w http.ResponseWriter, r *http.Request, p auth.Principal, id int64, f form, err error) error {
+	var he doctype.HTTPError
+	if !errors.As(err, &he) || he.Status() != http.StatusConflict && he.Status() != http.StatusUnprocessableEntity {
+		return err
+	}
+	f.Errs, f.Problem = splitErrs(he.FieldErrors())
+	if len(f.Errs) == 0 && f.Problem == "" {
+		f.Problem = he.Error()
+	}
+	f.Reload = he.Status() == http.StatusConflict
+	return h.render(w, r, p, he.Status(), id, f)
+}
+
+// splitErrs keeps the errors that name a field and joins the messages of
+// those that don't (Field ""), which the page shows in its banner.
+func splitErrs(errs []doctype.FieldError) ([]doctype.FieldError, string) {
+	var fields []doctype.FieldError
+	var others []string
+	for _, e := range errs {
+		if e.Field == "" {
+			others = append(others, e.Message)
+		} else {
+			fields = append(fields, e)
+		}
+	}
+	return fields, strings.Join(others, " ")
+}
+
+// render renders the new page (id 0) or record id's page with status. On a
+// record page an empty f shows the stored values and version. A user
+// without write sees the values instead of the form.
+func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.Principal, status int, id int64, f form) error {
+	ctx := r.Context()
+	v := recordView{Title: h.Copy.New, Action: h.Base + "/new", Back: components.Link{Label: h.Copy.Plural, Href: h.Base}, CanWrite: true}
+	if id != 0 {
+		ref := h.Ref(id)
+		if err := h.Env.Auth.Can(ctx, p, h.DocType, auth.RightRead, ref); err != nil {
+			return err
+		}
+		v.CanWrite = h.can(ctx, p, auth.RightWrite, ref)
+		var rec R
+		err := h.Env.DB.Read(ctx, func(tx *db.Tx) error {
+			var err error
+			if rec, err = h.Svc.Get(ctx, tx, id); err != nil || v.CanWrite {
+				return err
+			}
+			v.Pairs, err = h.pairs(ctx, tx, h.stored(rec))
+			return err
+		})
+		if err != nil {
+			return err
+		}
+		head := h.Head(rec)
+		if f.Values == nil {
+			f.Values, f.Version = h.stored(rec), head.Version
+		}
+		v.ID, v.Title, v.Action, v.Disabled = id, strings.TrimSpace(head.Code+" "+head.Name), h.recordPath(id), head.Disabled
+		v.More = h.more(ctx, p, id, head.Disabled, f.Version)
+		v.Confirm = r.URL.Query().Has("delete") && h.can(ctx, p, auth.RightDelete, ref)
+	}
+	v.Form = f
+	for _, fd := range h.fields {
+		v.Inputs = append(v.Inputs, docscreen.FieldInput(fd, components.FieldID(fd.Name), f.Values[fd.Name], f.errFor(fd.Name), h.deps))
+	}
+	ui.Render(w, r, status, recordPage(v), nil)
+	return nil
+}
+
+// stored is rec's values for the form and the read-only view. A zero Link id
+// means no link, which shows as "", never "0".
+func (h *handlers[R, In]) stored(rec R) map[string]string {
+	vals := h.Values(rec)
+	for _, fd := range h.fields {
+		if fd.Type == doctype.Link && vals[fd.Name] == "0" {
+			vals[fd.Name] = ""
+		}
+	}
+	return vals
+}
+
+// pairs is the read-only view of the stored values.
+func (h *handlers[R, In]) pairs(ctx context.Context, tx *db.Tx, vals map[string]string) ([]components.Pair, error) {
+	out := make([]components.Pair, 0, len(h.fields))
+	for _, fd := range h.fields {
+		s, err := docscreen.Display(ctx, tx, h.Env.Engine, fd, vals[fd.Name])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, components.Pair{Label: fd.Label, Value: s})
+	}
+	return out, nil
+}
+
+// more is the record's "More actions": Disable or Enable for write, and
+// Delete for delete, which opens the confirm step (?delete) first
+// (design-system §7: danger actions need a confirm step). The POSTs carry
+// the rendered version (CD-94, CD-183).
+func (h *handlers[R, In]) more(ctx context.Context, p auth.Principal, id int64, disabled bool, version int) []components.MoreAction {
+	var out []components.MoreAction
+	if h.can(ctx, p, auth.RightWrite, h.Ref(id)) {
+		toggle := components.MoreAction{Label: "Disable", Href: h.recordPath(id) + "/disable", Post: true}
+		if disabled {
+			toggle.Label, toggle.Href = "Enable", h.recordPath(id)+"/enable"
+		}
+		toggle.Hidden = []components.Param{{Name: "version", Value: strconv.Itoa(version)}}
+		out = append(out, toggle)
+	}
+	if h.can(ctx, p, auth.RightDelete, h.Ref(id)) {
+		out = append(out, components.MoreAction{Label: "Delete", Href: h.recordPath(id) + "?delete", Danger: true})
+	}
+	return out
+}
+
+func (h *handlers[R, In]) can(ctx context.Context, p auth.Principal, right auth.Right, rec *auth.RecordRef) bool {
+	return h.Env.Auth.Can(ctx, p, h.DocType, right, rec) == nil
+}
+
+// posted is the form's values as typed.
+func (h *handlers[R, In]) posted(r *http.Request) form {
+	f := form{Values: map[string]string{}}
+	for _, fd := range h.fields {
+		f.Values[fd.Name] = r.PostFormValue(fd.Name)
+	}
+	return f
+}
+
+func (h *handlers[R, In]) recordPath(id int64) string {
+	return h.Base + "/" + strconv.FormatInt(id, 10)
+}
+
+// listURL is the list with search and, when all, disabled records too.
+func (h *handlers[R, In]) listURL(search string, all bool) string {
+	u := url.Values{}
+	if search != "" {
+		u.Set("q", search)
+	}
+	if all {
+		u.Set("include_disabled", "true")
+	}
+	if len(u) == 0 {
+		return h.Base
+	}
+	return h.Base + "?" + u.Encode()
+}
+
+// pageInfo is the list's paging; the links keep the search and filter.
+func (h *handlers[R, In]) pageInfo(q url.Values, page, total int) components.PageInfo {
+	at := func(n int) string {
+		u := url.Values{}
+		for k, v := range q {
+			u[k] = v
+		}
+		u.Set("page", strconv.Itoa(n))
+		return h.Base + "?" + u.Encode()
+	}
+	return components.PageInfo{
+		Page: page, From: (page-1)*pageSize + 1, To: min(page*pageSize, total), Total: total, Noun: h.Copy.Plural,
+		PrevURL: at(page - 1), NextURL: at(page + 1),
+	}
+}
+
+// postedVersion is the version the page was rendered at; a missing or
+// non-numeric one is AUTH's 400 form error (CD-146, CD-183).
+func postedVersion(r *http.Request) (int, error) {
+	v, err := strconv.Atoi(r.PostFormValue("version"))
+	if err != nil {
+		return 0, auth.ErrBadForm
+	}
+	return v, nil
+}
+
+// recordID is the {id} in the URL. The routes only match digits; one too
+// large for int64 is 0 here, which no record has (404 from Get).
+func recordID(r *http.Request) int64 {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	return id
+}
+
+// disabledState tags a disabled record in the list's status column and on
+// its page; masters have no document state ("", CD-21).
+const disabledState doctype.State = "Disabled"
+
+func stateOf(off bool) doctype.State {
+	if off {
+		return disabledState
+	}
+	return "Enabled"
+}
+
+// form is the form's values (as typed or as stored), the version the page
+// was rendered at and what the last save was refused with: field errors,
+// and Problem for the banner.
+type form struct {
+	Values  map[string]string
+	Version int
+	Errs    []doctype.FieldError
+	Problem string
+	Reload  bool
+}
+
+// errFor is the message on header field field, "" when none.
+func (f form) errFor(field string) string {
+	for _, e := range f.Errs {
+		if e.Field == field && e.Line == 0 {
+			return e.Message
+		}
+	}
+	return ""
+}
+
+// summary links each field error to its input's id; a line error's id is
+// FieldID("lines[N].field"), as docscreen names line inputs.
+func (f form) summary() []components.FieldErr {
+	out := make([]components.FieldErr, 0, len(f.Errs))
+	for _, e := range f.Errs {
+		path := e.Field
+		if e.Line > 0 {
+			path = "lines[" + strconv.Itoa(e.Line) + "]." + e.Field
+		}
+		out = append(out, components.FieldErr{ID: components.FieldID(path), Message: e.Message})
+	}
+	return out
+}
+
+// listView is what the list renders.
+type listView struct {
+	Title        string
+	Bar          components.FilterBarProps
+	List         components.DataListProps
+	Pages        components.PageInfo
+	ShowDisabled *components.Link // lists disabled records too; nil when they are listed
+}
+
+// recordView is what the new and record pages render. ID is 0 on the new
+// page.
+type recordView struct {
+	ID                          int64
+	Title, Action               string
+	Back                        components.Link
+	Disabled, CanWrite, Confirm bool
+	Form                        form
+	Inputs                      []templ.Component
+	Pairs                       []components.Pair
+	More                        []components.MoreAction
+}

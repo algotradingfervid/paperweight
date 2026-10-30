@@ -1,0 +1,98 @@
+package mstweb
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// Every screen here composes internal/ui components and adds no class of
+// its own (CD-98: daisyUI and our utilities live only in internal/ui).
+
+templ listPage(v listView) {
+	@layout.Page(layout.PageOpts{Title: v.Title}) {
+		@listBody(v)
+	}
+}
+
+// listMain is the #main fragment an htmx search swaps in.
+templ listMain(v listView) {
+	@layout.Main(layout.PageOpts{Title: v.Title}) {
+		@listBody(v)
+	}
+}
+
+templ listBody(v listView) {
+	@components.FilterBar(v.Bar)
+	@components.DataList(v.List)
+	@components.Pagination(v.Pages)
+	if v.ShowDisabled != nil {
+		@components.Button(components.ButtonProps{Label: v.ShowDisabled.Label, Href: v.ShowDisabled.Href, Variant: components.Ghost})
+	}
+}
+
+// recordPage is the new page and a record's page: the form (with the
+// version it was rendered at), or the values for a user without write; a
+// refusal banner; the delete confirm step; and More actions.
+templ recordPage(v recordView) {
+	@layout.Page(layout.PageOpts{
+		Title:      v.Title,
+		Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
+		Width:      layout.Form,
+		Back:       &v.Back,
+		BannerSlot: problemBanner(v),
+	}) {
+		if v.Disabled {
+			@components.StateBadge(disabledState)
+		}
+		@components.ErrorSummary(v.Form.summary())
+		if v.Confirm {
+			@components.Card("Delete "+v.Title+"?", nil) {
+				<p>This can't be undone.</p>
+				@components.Form(components.FormProps{Action: v.Action + "/delete"}) {
+					<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
+					@components.ActionBar(components.ActionBarProps{
+						Primary:   &components.ButtonProps{Label: "Delete", Variant: components.Danger, Busy: "Deleting…"},
+						Secondary: &components.ButtonProps{Label: "Cancel", Href: v.Action},
+					})
+				}
+			}
+		} else if v.CanWrite {
+			@components.Form(components.FormProps{Action: v.Action}) {
+				if v.ID != 0 {
+					<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
+				}
+				for _, in := range v.Inputs {
+					@in
+				}
+				@components.ActionBar(components.ActionBarProps{
+					Primary: &components.ButtonProps{Label: "Save", Variant: components.Primary, Busy: "Saving…"},
+				})
+			}
+		} else {
+			@components.SummaryList(v.Pairs)
+		}
+		if !v.Confirm {
+			@components.MoreActions(v.More)
+		}
+	}
+}
+
+// problemBanner is a refusal with no field: a stale version (409, with
+// Reload) or mstkit's "Cannot delete …" (422).
+templ problemBanner(v recordView) {
+	if v.Form.Problem != "" {
+		if v.Form.Reload {
+			@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.Form.Problem, Link: &components.Link{Label: "Reload", Href: v.Action}})
+		} else {
+			@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.Form.Problem})
+		}
+	}
+}
+
+// problemPage is a refusal shown on its own page: AUTH's 403 and 404, or a
+// form without its version (400).
+templ problemPage(msg string, back components.Link) {
+	@layout.Page(layout.PageOpts{Title: msg, Error: true, Back: &back})
+}
