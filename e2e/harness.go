@@ -196,11 +196,23 @@ func (h *Harness) DelayPosts(path string, d time.Duration) {
 
 // pick answers a stand-in master's picker search like mstkit's.
 func (h *Harness) pick(w http.ResponseWriter, r *http.Request, name string) {
+	var table string
+	switch name {
+	case "party":
+		table = "fixture_party"
+	case "item":
+		table = "fixture_item"
+	case "project":
+		table = "fixture_project"
+	default:
+		http.NotFound(w, r)
+		return
+	}
 	q := r.URL.Query().Get("q")
 	like := "%" + q + "%"
 	var rows []components.PickRow
 	rs, err := h.App.DB().SQL().QueryContext(r.Context(),
-		`SELECT id, code, name FROM fixture_`+name+` WHERE code LIKE ? OR name LIKE ? ORDER BY name`, like, like) //nolint:gosec // G202: name is one of the fixture tables' names
+		`SELECT id, code, name FROM `+table+` WHERE code LIKE ? OR name LIKE ? ORDER BY name`, like, like) //nolint:gosec // G202: table is one of the three names above
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

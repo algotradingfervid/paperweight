@@ -116,11 +116,13 @@ func ToPlain(f doctype.Field, typed string) (string, *doctype.FieldError) {
 	return plain, nil
 }
 
-// Problem is an error UI renders itself.
+// Problem is an error UI renders itself. Blocked is DOC's refusal of a cancel
+// because of linked documents (DOC-052), which shares its status with others.
 type Problem struct {
 	Status  int
 	Message string
 	Fields  []doctype.FieldError
+	Blocked bool
 }
 
 // Classify maps a kernel error through doctype.HTTPError (CD-44) or
@@ -129,7 +131,9 @@ type Problem struct {
 func Classify(err error) (Problem, bool) {
 	var he doctype.HTTPError
 	if errors.As(err, &he) {
-		return Problem{Status: he.Status(), Message: err.Error(), Fields: he.FieldErrors()}, true
+		var de *doc.Error
+		blocked := errors.As(err, &de) && de.Kind == doc.KindBlocked
+		return Problem{Status: he.Status(), Message: err.Error(), Fields: he.FieldErrors(), Blocked: blocked}, true
 	}
 	if errors.Is(err, doctype.ErrNotFound) {
 		return Problem{Status: 404, Message: err.Error()}, true

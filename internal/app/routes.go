@@ -27,6 +27,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/allmasters"
 	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
 	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
+	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -160,6 +161,8 @@ func (a *App) docDeps() docscreen.Deps {
 		RecordURL: recordURL,
 		ListURL:   listURL,
 		Parse:     parsers(),
+		// A posted link shows its target's label only to a reader (CD-233).
+		LinkRead: mstkit.Env{Auth: a.auth}.CanLinkTargetTx,
 	}
 }
 

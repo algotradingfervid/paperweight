@@ -106,10 +106,7 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 	v := DocView{
 		Info:    i,
 		Version: rec.Version,
-		Record: auth.RecordRef{
-			DocType: i.DocType, ID: i.ID, CreatedBy: i.CreatedBy,
-			EmployeeID: i.EmployeeID, ProjectIDs: i.ProjectIDs, SiteIDs: i.SiteIDs,
-		},
+		Record:  recordRef(i),
 		Display: map[string]string{},
 		Inputs:  map[string]string{},
 	}
@@ -150,12 +147,20 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 			return DocView{}, err
 		}
 		if i.State != doctype.StateApproved && i.State != doctype.StateClosed {
-			lv.Card.Received = "" // only an approved document can have receipts
+			lv.Card.Received = "" // only approved and closed documents show receipts (CD-242)
 		}
 		v.Lines = append(v.Lines, lv)
 		v.Problems = append(v.Problems, problems...)
 	}
 	return v, nil
+}
+
+// recordRef is the document as AUTH sees it.
+func recordRef(i doctype.Info) auth.RecordRef {
+	return auth.RecordRef{
+		DocType: i.DocType, ID: i.ID, CreatedBy: i.CreatedBy,
+		EmployeeID: i.EmployeeID, ProjectIDs: i.ProjectIDs, SiteIDs: i.SiteIDs,
+	}
 }
 
 // lineView is line no: every line field in input and display form, and the
