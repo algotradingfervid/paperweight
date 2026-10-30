@@ -693,7 +693,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-089 · History shows newest first, in IST, with names
 - **Priority:** P2
 - **Level:** e2e
-- **Given** an order with entries at the fixture clock 2026-10-24T05:00:00Z (create, Priya Shah) and 2026-10-24T09:15:00Z (save, Anil Kapoor) **When** the History tab is opened **Then** the first row reads "24-10-2026 14:45 · Anil Kapoor · Saved · Remarks: (empty) → Deliver to Pune site" and the second reads "24-10-2026 10:30 · Priya Shah · Created" (`types.FormatIST`, the only timestamp format, CD-33, CD-51). Money shows as ₹1,30,000.00. Owned and run by WP3 in `e2e/` (CD-40).
+- **Given** an order with entries at the fixture clock 2026-10-24T05:00:00Z (create, Priya Shah) and 2026-10-24T09:15:00Z (save, Anil Kapoor) **When** the History tab is opened **Then** the first row's heading reads "24-10-2026 14:45 · Anil Kapoor · Saved", with the change "Remarks: (empty) → Deliver to Pune site" listed below it (CD-247) and the second reads "24-10-2026 10:30 · Priya Shah · Created" (`types.FormatIST`, the only timestamp format, CD-33, CD-51). Money shows as ₹1,30,000.00. Owned and run by WP3 in `e2e/` (CD-40).
 - **Go test:** `TestE2E_Audit_HistoryView`
 - **Sources:** `frappe/frappe/core/doctype/version/test_version.py:17` (`test_generate_html_diff_produces_table`), `frappe/frappe/core/doctype/version/test_version.py:25` (`test_generate_html_diff_escapes_html`)
 
