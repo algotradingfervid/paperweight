@@ -193,6 +193,9 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			return chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](`Promise.all(document.getElementById("nav-sheet").getAnimations({subtree: true}).map((a) => a.finished))`, chromedp.EvalAwaitPromise))
 		}},
 		{Name: "not found", Route: "/doc/{doctype}/{id}", URL: DocPath(fixture.Order, missingDoc), As: priya},
+		// No route matches, so Route is the "" chi's Find gives (CD-250).
+		{Name: "unknown path", Route: "", URL: "/no/such/page", As: priya},
+		{Name: "unknown path signed out", Route: "", URL: "/no/such/page"},
 		{Name: "refused", Route: "/users", URL: "/users", As: priya},
 		{Name: "signed out", Route: "/signin", URL: "/signin?next=%2Fapprovals"},
 
