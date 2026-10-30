@@ -172,6 +172,13 @@ func TestGSTIN_StateFromGSTIN(t *testing.T) { // MST-037
 		"GSTIN 33AAACT2727Q1Z3 is for Tamil Nadu (33) but the address state is Kerala (32). Fix the GSTIN or the state.")
 }
 
+// A given state with no name is printed as given, never as a blank (CD-220).
+func TestGSTIN_GivenStateUnknown(t *testing.T) {
+	_, err := ResolveState("33AAACT2727Q1Z3", "99", "address")
+	wantErr(t, "unknown state", err,
+		"GSTIN 33AAACT2727Q1Z3 is for Tamil Nadu (33) but the address state is 99. Fix the GSTIN or the state.")
+}
+
 func TestGSTIN_UnknownStateCode(t *testing.T) { // MST-038
 	_, err := ResolveState("99AABCS1429B1ZJ", "", "address")
 	wantErr(t, "state 99", err, "GSTIN state code 99 is not a current GST state code. Check the GSTIN.")

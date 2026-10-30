@@ -533,7 +533,7 @@ func (h *handlers) doImport(w http.ResponseWriter, r *http.Request, p auth.Princ
 		return nil
 	}
 	h.session.Clear(ctx)
-	web.Flash(ctx, "success", rep.Summary())
+	web.Flash(ctx, "success", importedMessage(j.dt, rep))
 	// The rows are committed, so this failing is no failure of the import, and
 	// the row stays claimed: it can't import again.
 	if err := h.files.remove(ctx, j.token, p.ID); err != nil {
@@ -541,6 +541,15 @@ func (h *handlers) doImport(w http.ResponseWriter, r *http.Request, p auth.Princ
 	}
 	wizard.Respond(w, r, wizard.Finish, stepURL(stepChoose), nil)
 	return nil
+}
+
+// importedMessage is the flash after an import: csvio's summary, in the
+// singular for one row (CD-220).
+func importedMessage(dt *doctype.DocType, rep csvio.Report) string {
+	if rep.Imported == 1 {
+		return "Imported 1 " + dt.Label + "."
+	}
+	return rep.Summary()
 }
 
 // importLabel is the primary button: "Import 214 parties".

@@ -229,6 +229,15 @@ func TestImport_ItemStandardRate(t *testing.T) { // CD-37
 	}
 }
 
+func TestImport_ItemNegativeStandardRate(t *testing.T) { // CD-220
+	env, svc := othersFresh(t)
+	body := othersCSV(othersItemHeader, othersItemRow("ANGLE-50", "7216", "-1"))
+	const want = "Row 2: Standard Rate can't be negative."
+	othersRefused(t, othersPreview(t, env, item.DocType, body), want)
+	othersRefused(t, othersImport(t, env, item.DocType, body), want)
+	othersAbsent(t, env, svc.Item.ByCode, "ANGLE-50")
+}
+
 // The CD-37 template has no stock column, so Type decides.
 func TestImport_ItemIsStock(t *testing.T) {
 	env, svc := othersFresh(t)

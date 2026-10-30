@@ -82,6 +82,14 @@ func addrWantHas(t *testing.T, err error, msg string) {
 	t.Fatalf("FieldErrors() = %+v; want one with %q", ve.FieldErrors(), msg)
 }
 
+// An unknown state is printed as given, never as a blank (CD-220).
+func TestAddress_GSTINUnknownState(t *testing.T) {
+	in := addrValid()
+	in.StateCode, in.GSTIN = "99", addrMumbaiGSTIN
+	_, err := address.Validate(in)
+	addrWantHas(t, err, "GSTIN "+addrMumbaiGSTIN+" is for Maharashtra (27) but the address state is 99. Fix the GSTIN or the state.")
+}
+
 func TestAddress_RequiredFields(t *testing.T) { // MST-053
 	for _, tc := range []struct {
 		name string

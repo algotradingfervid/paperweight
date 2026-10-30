@@ -70,7 +70,8 @@ func IsIndianState(code string) bool {
 
 // ResolveState returns the state code for a record (owner "branch" or
 // "address") with a normalised GSTIN: the GSTIN's state when stateCode is
-// blank, else stateCode if they agree (overrides/address.py:71, :100).
+// blank, else stateCode if they agree (overrides/address.py:71, :100). A
+// stateCode with no name is printed as given (CD-220).
 // Indian addresses only; callers skip it for foreign addresses (MST-057).
 func ResolveState(gstin, stateCode, owner string) (string, error) {
 	if gstin == "" {
@@ -84,7 +85,10 @@ func ResolveState(gstin, stateCode, owner string) (string, error) {
 	if stateCode == "" || stateCode == code {
 		return code, nil
 	}
-	chosen, _ := StateByCode(stateCode)
-	return "", fmt.Errorf("GSTIN %s is for %s (%s) but the %s state is %s (%s). Fix the GSTIN or the state.",
-		gstin, s.Name, s.Code, owner, chosen.Name, stateCode)
+	chosen := stateCode
+	if st, ok := StateByCode(stateCode); ok {
+		chosen = st.Name + " (" + stateCode + ")"
+	}
+	return "", fmt.Errorf("GSTIN %s is for %s (%s) but the %s state is %s. Fix the GSTIN or the state.",
+		gstin, s.Name, s.Code, owner, chosen)
 }
