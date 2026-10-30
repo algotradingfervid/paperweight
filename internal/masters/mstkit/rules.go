@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -34,6 +36,10 @@ const (
 	msgNameRequired    = "Name is required."
 	msgCodeChange      = "Only a Masters Manager can change a code."
 	roleMastersManager = "Masters Manager"
+
+	// MaxNameLen is the longest name, or name-like text such as an address
+	// line, in characters (CD-223).
+	MaxNameLen = 140
 )
 
 // NormalizeCode trims and upper-cases raw and checks its format (MST-001,
@@ -49,13 +55,34 @@ func NormalizeCode(raw string) (string, error) {
 	return code, nil
 }
 
-// NormalizeName trims raw; a blank name is an error (MST-017).
+// NormalizeName trims raw; a blank or over-long name is an error (MST-017,
+// CD-223).
 func NormalizeName(raw string) (string, error) {
+	return NormalizeLabelledName(raw, "Name")
+}
+
+// NormalizeLabelledName is NormalizeName for a name field labelled other than
+// Name; label is shown in the length refusal.
+func NormalizeLabelledName(raw, label string) (string, error) {
 	name := strings.TrimSpace(raw)
 	if name == "" {
 		return "", fieldError("name", msgNameRequired)
 	}
+	var es Errors
+	es.CheckLen("name", label, name)
+	if err := es.Err(); err != nil {
+		return "", err
+	}
 	return name, nil
+}
+
+// CheckLen records field's refusal when value is over MaxNameLen characters,
+// in the words of DOC's msgMaxLen for the same condition. It counts characters,
+// not bytes: Hindi takes three bytes each.
+func (es *Errors) CheckLen(field, label, value string) {
+	if utf8.RuneCountInString(value) > MaxNameLen {
+		es.Add(field, label+" can be at most "+strconv.Itoa(MaxNameLen)+" characters.")
+	}
 }
 
 // CheckCodeFree fails when another row of k (not exceptID) already has code.

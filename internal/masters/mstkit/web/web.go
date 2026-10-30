@@ -114,7 +114,8 @@ type Screen[R, In any] struct {
 	Values func(R) map[string]string
 	Head   func(R) Head
 	// Ref is the record AUTH checks, as the service builds it (Project and
-	// Site put their own id in ProjectIDs or SiteIDs).
+	// Site put their own id in ProjectIDs or SiteIDs). CreatedBy stays empty:
+	// mstkit.Env.CanRow reads it from the row.
 	Ref func(id int64) *auth.RecordRef
 	// Codes names the fields that render through components.CodeInput.
 	Codes map[string]components.CodeKind
@@ -359,7 +360,7 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 		}
 		v.List.Empty = components.EmptyState(text, newLink)
 	}
-	if h.can(ctx, p, auth.RightExport, nil) {
+	if h.can(ctx, p, auth.RightExport) {
 		v.Bar.Export = &components.Link{Label: "Export", Href: h.exportURL(q)}
 	}
 	if all {
@@ -669,7 +670,17 @@ func (h *handlers[R, In]) checkSubmit(ctx context.Context, p auth.Principal, id 
 	if id == 0 {
 		return h.checkCreate(ctx, p)
 	}
-	return h.Env.Auth.Can(ctx, p, h.DocType, auth.RightWrite, h.Ref(id))
+	return h.canRow(ctx, p, auth.RightWrite, h.Ref(id))
+}
+
+// canRow is the check on a stored row: its created_by decides own scope, as in
+// the list (CD-223).
+func (h *handlers[R, In]) canRow(ctx context.Context, p auth.Principal, right auth.Right, rec *auth.RecordRef) error {
+	return h.Env.CanRow(ctx, p, h.kind(), right, rec)
+}
+
+func (h *handlers[R, In]) kind() mstkit.Kind {
+	return mstkit.Kind{DocType: h.DocType, Table: h.dt.Table}
 }
 
 // checkCreate is whether p may create at all: AUTH's right, then CanCreate.
@@ -817,13 +828,16 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 	}
 	if id != 0 {
 		ref := h.Ref(id)
-		if err := h.Env.Auth.Can(ctx, p, h.DocType, auth.RightRead, ref); err != nil {
-			return err
-		}
-		v.CanWrite = h.can(ctx, p, auth.RightWrite, ref)
+		var canDelete bool
 		var rec R
 		err := h.Env.DB.Read(ctx, func(tx *db.Tx) error {
-			var err error
+			// CanRowTx fills ref, so the other two rights reuse its created_by.
+			err := h.Env.CanRowTx(ctx, tx, p, h.kind(), auth.RightRead, ref)
+			if err != nil {
+				return err
+			}
+			v.CanWrite = h.Env.Auth.CanTx(ctx, tx, p, h.DocType, auth.RightWrite, ref) == nil
+			canDelete = h.Env.Auth.CanTx(ctx, tx, p, h.DocType, auth.RightDelete, ref) == nil
 			if rec, err = h.Svc.Get(ctx, tx, id); err != nil {
 				return err
 			}
@@ -856,8 +870,8 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 			f.Errs = nil
 		}
 		v.ID, v.Title, v.Action, v.Disabled = id, strings.TrimSpace(head.Code+" "+head.Name), h.recordPath(id), head.Disabled
-		v.More = h.more(ctx, p, id, head.Disabled, f.Version)
-		v.Confirm = !h.NoDelete && r.URL.Query().Has("delete") && h.can(ctx, p, auth.RightDelete, ref)
+		v.More = h.more(id, head.Disabled, f.Version, v.CanWrite, canDelete)
+		v.Confirm = !h.NoDelete && r.URL.Query().Has("delete") && canDelete
 		if h.Extra != nil {
 			v.Extra = h.Extra(rec)
 		}
@@ -1021,9 +1035,9 @@ func (h *handlers[R, In]) rowPairs(ctx context.Context, tx *db.Tx, vals map[stri
 // Delete for delete, which opens the confirm step (?delete) first
 // (design-system §7: danger actions need a confirm step). The POSTs carry
 // the rendered version (CD-94, CD-183).
-func (h *handlers[R, In]) more(ctx context.Context, p auth.Principal, id int64, disabled bool, version int) []components.MoreAction {
+func (h *handlers[R, In]) more(id int64, disabled bool, version int, canWrite, canDelete bool) []components.MoreAction {
 	var out []components.MoreAction
-	if !h.NoDisable && h.can(ctx, p, auth.RightWrite, h.Ref(id)) {
+	if !h.NoDisable && canWrite {
 		toggle := components.MoreAction{Label: "Disable", Href: h.recordPath(id) + "/disable", Post: true}
 		if disabled {
 			toggle.Label, toggle.Href = "Enable", h.recordPath(id)+"/enable"
@@ -1031,14 +1045,14 @@ func (h *handlers[R, In]) more(ctx context.Context, p auth.Principal, id int64, 
 		toggle.Hidden = []components.Param{{Name: "version", Value: strconv.Itoa(version)}}
 		out = append(out, toggle)
 	}
-	if !h.NoDelete && h.can(ctx, p, auth.RightDelete, h.Ref(id)) {
+	if !h.NoDelete && canDelete {
 		out = append(out, components.MoreAction{Label: "Delete", Href: h.recordPath(id) + "?delete", Danger: true})
 	}
 	return out
 }
 
-func (h *handlers[R, In]) can(ctx context.Context, p auth.Principal, right auth.Right, rec *auth.RecordRef) bool {
-	return h.Env.Auth.Can(ctx, p, h.DocType, right, rec) == nil
+func (h *handlers[R, In]) can(ctx context.Context, p auth.Principal, right auth.Right) bool {
+	return h.Env.Auth.Can(ctx, p, h.DocType, right, nil) == nil
 }
 
 // posted is the form's values as typed, its rows' included.

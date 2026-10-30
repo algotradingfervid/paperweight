@@ -59,7 +59,7 @@ type CompanyInput struct{ LegalName, PAN string }
 // required (MST-020, CD-165).
 func ValidateCompany(in CompanyInput) (CompanyInput, error) {
 	var es mstkit.Errors
-	name, err := mstkit.NormalizeName(in.LegalName)
+	name, err := mstkit.NormalizeLabelledName(in.LegalName, "Legal name")
 	addErr(&es, err)
 	pan, err := gstin.ValidatePAN(in.PAN)
 	if err != nil {
@@ -99,14 +99,16 @@ func (s *Service) SaveCompany(ctx context.Context, p auth.Principal, in CompanyI
 // the page posted. A create while a company exists is refused (MST-019), and
 // every branch GSTIN must carry the PAN saved (MST-023).
 func (s *Service) SaveCompanyTx(ctx context.Context, tx *db.Tx, p auth.Principal, in CompanyInput, version int) error {
-	var rec *auth.RecordRef
-	if version != 0 {
-		rec = &auth.RecordRef{DocType: CompanyDocType, ID: companyID}
+	var err error
+	if version == 0 {
+		err = s.env.Auth.CanTx(ctx, tx, p, CompanyDocType, auth.RightWrite, nil)
+	} else {
+		err = s.env.CanRowTx(ctx, tx, p, CompanyKind, auth.RightWrite, &auth.RecordRef{DocType: CompanyDocType, ID: companyID})
 	}
-	if err := s.env.Auth.CanTx(ctx, tx, p, CompanyDocType, auth.RightWrite, rec); err != nil {
+	if err != nil {
 		return err
 	}
-	in, err := ValidateCompany(in)
+	in, err = ValidateCompany(in)
 	if err != nil {
 		return err
 	}
