@@ -78,7 +78,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		a.srv.Mount(r)
 		// A path or method no route takes gets the app's own page (CD-250).
 		// No route means no guard, so a guest gets it too: CD-17 is for
-		// guarded routes, and a guest's unknown path is 404 (AUTH-112).
+		// guarded routes, and an unmatched path is 404 for a guest too.
 		r.NotFound(errorPage(http.StatusNotFound, auth.MsgNotFound))
 		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 			allow(w, r)
@@ -160,10 +160,15 @@ func errorPage(status int, msg string) http.HandlerFunc {
 }
 
 // allow sets the 405's Allow header, which chi sets only in its own handler.
+// It matches the path chi routed on: RawPath when set.
 func allow(w http.ResponseWriter, r *http.Request) {
 	routes := chi.RouteContext(r.Context()).Routes
+	path := r.URL.Path
+	if r.URL.RawPath != "" {
+		path = r.URL.RawPath
+	}
 	for _, m := range []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
-		if routes.Match(chi.NewRouteContext(), m, r.URL.Path) {
+		if routes.Match(chi.NewRouteContext(), m, path) {
 			w.Header().Add("Allow", m)
 		}
 	}

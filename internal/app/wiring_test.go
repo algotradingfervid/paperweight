@@ -615,7 +615,6 @@ func TestApp_FilesPrefixNotFound(t *testing.T) {
 func TestApp_UnknownPath(t *testing.T) {
 	const (
 		unknown   = "/no/such/page"
-		msg405    = "This page doesn't take that kind of request. Go back and try again."
 		shellLink = `nav[aria-label="Main"] a[href="/approvals"]`
 	)
 	w := newWorld(t)
@@ -629,6 +628,9 @@ func TestApp_UnknownPath(t *testing.T) {
 	}
 	if r.doc.Find(shellLink).Length() == 0 {
 		t.Errorf("signed-in GET %s has no shell navigation", unknown)
+	}
+	if hx := r.doc.Find("body").AttrOr("hx-headers", ""); !strings.Contains(hx, b.csrf) {
+		t.Errorf("signed-in GET %s: body hx-headers = %q, want the session's CSRF token", unknown, hx)
 	}
 	if r.header.Get("Content-Security-Policy") == "" || r.header.Get("Cache-Control") != "private, no-store" {
 		t.Errorf("signed-in GET %s: CSP %q, Cache-Control %q, want both set (CD-225)", unknown, r.header.Get("Content-Security-Policy"), r.header.Get("Cache-Control"))
@@ -649,7 +651,7 @@ func TestApp_UnknownPath(t *testing.T) {
 	}
 
 	// Signed out: no route means no guard, so the public 404 page, never a
-	// redirect to /signin (AUTH-112's guest GET /api/po/1 is 404).
+	// redirect to /signin: an unmatched path is 404 for a guest (CD-250).
 	guest := w.browser().get(unknown)
 	if guest.status != http.StatusNotFound || heading(guest) != auth.MsgNotFound || guest.doc.Find(shellLink).Length() != 0 {
 		t.Errorf("signed-out GET %s = %d h1 %q, want 404 %q with no navigation", unknown, guest.status, heading(guest), auth.MsgNotFound)
@@ -666,12 +668,17 @@ func TestApp_UnknownPath(t *testing.T) {
 
 	// A known path with a method it doesn't take stays 405, with Allow.
 	put := b.do(http.MethodPut, "/approvals", nil, "", map[string]string{"X-CSRF-Token": b.csrf})
-	if put.status != http.StatusMethodNotAllowed || put.alert() != msg405 || put.header.Get("Allow") != http.MethodGet {
-		t.Errorf("PUT /approvals = %d alert %q Allow %q, want 405 %q Allow GET", put.status, put.alert(), put.header.Get("Allow"), msg405)
+	if put.status != http.StatusMethodNotAllowed || put.alert() != app.MsgMethodNotAllowed || put.header.Get("Allow") != http.MethodGet {
+		t.Errorf("PUT /approvals = %d alert %q Allow %q, want 405 %q Allow GET", put.status, put.alert(), put.header.Get("Allow"), app.MsgMethodNotAllowed)
+	}
+	// chi routes an escaped path on RawPath, so Allow matches it there too.
+	esc := b.do(http.MethodPut, "/doc/po%2Fx/1/edit/2", nil, "", map[string]string{"X-CSRF-Token": b.csrf})
+	if got := strings.Join(esc.header.Values("Allow"), ", "); esc.status != http.StatusMethodNotAllowed || got != "GET, POST" {
+		t.Errorf("PUT /doc/po%%2Fx/1/edit/2 = %d Allow %q, want 405 Allow GET, POST", esc.status, got)
 	}
 	get := b.get("/ui/validate/date")
-	if get.status != http.StatusMethodNotAllowed || heading(get) != msg405 || get.doc.Find(shellLink).Length() == 0 {
-		t.Errorf("GET /ui/validate/date = %d h1 %q, want the 405 page %q in the shell", get.status, heading(get), msg405)
+	if get.status != http.StatusMethodNotAllowed || heading(get) != app.MsgMethodNotAllowed || get.doc.Find(shellLink).Length() == 0 {
+		t.Errorf("GET /ui/validate/date = %d h1 %q, want the 405 page %q in the shell", get.status, heading(get), app.MsgMethodNotAllowed)
 	}
 }
 
