@@ -3,7 +3,9 @@ package auth_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -136,7 +138,8 @@ func TestSession_AllCtxOmitsExpired(t *testing.T) {
 }
 
 func TestSession_AbsoluteLimitWhileActive(t *testing.T) {
-	e := newSessionEnv(t)
+	// A read-only request reaches the store only as Middleware's touch (CD-223).
+	e := newServedSessionEnv(t)
 	priya := e.w.Users["priya@vardhan.test"]
 	e.w.Clock.Set(authtest.T0)
 	raw := e.login(t, priya, "10.0.0.4")
@@ -164,8 +167,9 @@ func TestSession_UpdateKeepsCreatedAt(t *testing.T) {
 	hash := auth.HashToken(raw)
 
 	e.w.Clock.Advance(3 * time.Hour)
-	if got := e.uidSeen(t, raw); got != int64(priya) {
-		t.Fatalf("after 3 h: uid = %d, want %d", got, priya)
+	// A real commit on the presented token (CD-223: a read-only GET commits nothing).
+	if body, _ := e.get(t, fmt.Sprintf("/login?uid=%d", priya), raw, "10.0.0.4"); body != strconv.FormatInt(int64(priya), 10) {
+		t.Fatalf("after 3 h: uid = %q, want %d", body, priya)
 	}
 	if got := e.str(t, `SELECT created_at FROM sessions WHERE token_hash = ?`, hash); got != auth.FormatTime(authtest.T0) {
 		t.Errorf("created_at after an update = %q, want %q (unchanged)", got, auth.FormatTime(authtest.T0))
