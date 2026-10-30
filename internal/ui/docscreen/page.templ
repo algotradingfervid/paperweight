@@ -87,7 +87,9 @@ templ docBody(pv pageView) {
 			<div class="doc-state">
 				@components.StateBadge(pv.V.Info.State)
 			</div>
-			if len(pv.V.Attachments) > 0 {
+			if pv.Attach != nil {
+				@attachCard(*pv.Attach)
+			} else if !pv.DT.Attachable && len(pv.V.Attachments) > 0 {
 				@components.Card("Attachments", nil) {
 					@components.Attachments(pv.V.Attachments)
 				}

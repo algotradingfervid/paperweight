@@ -22,7 +22,7 @@ import (
 var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
-	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows",
+	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review

@@ -31,7 +31,7 @@ func RegisterSample() {
 		doctype.Register(doctype.DocType{
 			Name: Sample, Label: "Sample Order", PluralLabel: "Sample Orders",
 			Table: "docscreentest_sample", LinesTable: "docscreentest_sample_line",
-			Submittable: true, Approvable: true, Printable: true,
+			Submittable: true, Approvable: true, Printable: true, Attachable: true,
 			Fields: []doctype.Field{
 				{Name: "supplier_id", Label: "Supplier", Type: doctype.Link, Link: Supplier, Required: true},
 				{Name: "order_date", Label: "Order date", Type: doctype.Date, Required: true, Sortable: true, ListPriority: 4},

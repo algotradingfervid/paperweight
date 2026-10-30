@@ -9,6 +9,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	platformweb "github.com/vardhan/internaltools/internal/platform/web"
 )
 
 const (
@@ -24,7 +25,7 @@ const MsgTwoFileParts = "Upload one file at a time."
 // method get 401 (htmx also gets HX-Redirect).
 func signedOut(w http.ResponseWriter, r *http.Request) {
 	signin := "/signin?next=" + url.QueryEscape(r.URL.RequestURI())
-	htmx := r.Header.Get("HX-Request") == "true"
+	htmx := isHTMX(r)
 	if r.Method == http.MethodGet && !htmx && !strings.HasPrefix(r.URL.Path, "/api/") {
 		http.Redirect(w, r, signin, http.StatusSeeOther)
 		return
@@ -35,7 +36,29 @@ func signedOut(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, msgExpired, http.StatusUnauthorized)
 }
 
-// fail writes err as text: a *files.Error or any doctype.HTTPError (CD-44)
+func isHTMX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
+
+// refresh asks htmx to reload the page after a success (CD-241).
+func refresh(w http.ResponseWriter, r *http.Request) {
+	if isHTMX(r) {
+		w.Header().Set("HX-Refresh", "true")
+	}
+}
+
+// refuse writes a refusal of msg with status: plain text, or for htmx an
+// empty body, HX-Reswap none and an error notice (CD-241). Every refusal goes
+// through it.
+func refuse(w http.ResponseWriter, r *http.Request, msg string, status int) {
+	if !isHTMX(r) {
+		http.Error(w, msg, status)
+		return
+	}
+	w.Header().Set("HX-Reswap", "none")
+	platformweb.SetNotice(w.Header(), "error", msg)
+	w.WriteHeader(status)
+}
+
+// fail writes err through refuse: a *files.Error or any doctype.HTTPError (CD-44)
 // with its status and text, an over-long body as 413, db.ErrBusy as 503
 // (CD-76), and anything else as 500 with the storage message, logged.
 func (h *handlers) fail(w http.ResponseWriter, r *http.Request, err error) {
@@ -44,15 +67,15 @@ func (h *handlers) fail(w http.ResponseWriter, r *http.Request, err error) {
 	var he doctype.HTTPError
 	switch {
 	case errors.As(err, &fe):
-		http.Error(w, fe.Message, fe.Code)
+		refuse(w, r, fe.Message, fe.Code)
 	case errors.As(err, &mb):
-		http.Error(w, files.MsgTooLarge, http.StatusRequestEntityTooLarge)
+		refuse(w, r, files.MsgTooLarge, http.StatusRequestEntityTooLarge)
 	case errors.As(err, &he):
-		http.Error(w, he.Error(), he.Status())
+		refuse(w, r, he.Error(), he.Status())
 	case errors.Is(err, db.ErrBusy):
-		http.Error(w, db.ErrBusy.Error(), http.StatusServiceUnavailable)
+		refuse(w, r, db.ErrBusy.Error(), http.StatusServiceUnavailable)
 	default:
 		h.cfg.Logger.ErrorContext(r.Context(), "files/web: request failed", "method", r.Method, "path", r.URL.Path, "err", err)
-		http.Error(w, files.MsgStorage, http.StatusInternalServerError)
+		refuse(w, r, files.MsgStorage, http.StatusInternalServerError)
 	}
 }

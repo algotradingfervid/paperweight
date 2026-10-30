@@ -588,6 +588,7 @@ type checkView struct {
 	Sections          []checkSection
 	GrandTotal, Words string
 	More              []components.MoreAction
+	Attach            *attachView
 }
 
 // checkSection is one step's summary card.
@@ -615,7 +616,7 @@ func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, 
 	if bar.Primary != nil {
 		sv.Bar = wizard.Bar{Primary: bar.Primary.Label}
 	}
-	cv := checkView{Preview: v.Approval.Preview, GrandTotal: v.GrandTotal, Words: v.InWords, More: more}
+	cv := checkView{Preview: v.Approval.Preview, GrandTotal: v.GrandTotal, Words: v.InWords, More: more, Attach: attachOf(dt, v, rights)}
 	if v.Origin.AmendedFrom != "" {
 		cv.AmendedFrom, cv.AmendedURL = v.Origin.AmendedFrom, docURL(dt.Name, v.Origin.AmendedFromID)
 	}

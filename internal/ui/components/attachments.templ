@@ -1,11 +1,22 @@
 package components
 
-import "github.com/vardhan/internaltools/internal/ui/icons"
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
 
 // Attachments lists stored files: images as lazy thumbnails, HEIC as a
 // download link (browsers can't show it), others as a file chip. Each item
-// shows who uploaded it and when, and "Remove" when RemoveURL is set.
+// shows who uploaded it and when, and, when RemoveURL is set, "Remove", which
+// opens the file's confirm.
 templ Attachments(items []Attachment) {
+	@attachmentItems(items, "")
+}
+
+// attachmentItems is Attachments whose Remove confirms swap target (Form's
+// default when empty).
+templ attachmentItems(items []Attachment, target string) {
 	<ul class="attachments">
 		for _, a := range items {
 			<li>
@@ -28,14 +39,33 @@ templ Attachments(items []Attachment) {
 				if a.Kind == "image" || a.Kind == "heic" {
 					<p class="attachments__name">{ a.Name }</p>
 				}
+				// Spaces keep the name, size and uploader apart in the page text.
+				{ " " }
 				<p class="attachments__meta">{ a.Size }</p>
+				{ " " }
 				<p class="attachments__meta">{ a.UploadedBy + " · " + a.UploadedAt }</p>
 				if a.RemoveURL != "" {
-					@Form(FormProps{Action: a.RemoveURL}) {
-						@Button(ButtonProps{Label: "Remove", AriaLabel: "Remove " + a.Name, Busy: "Removing…", Variant: Secondary})
-					}
+					@Button(ButtonProps{Label: "Remove", AriaLabel: "Remove " + a.Name, Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-open-dialog": removeDialogID(a.ID)}})
+					@removeConfirm(a, target)
 				}
 			</li>
 		}
 	</ul>
+}
+
+// removeDialogID is the id of file id's Remove confirm.
+func removeDialogID(id int64) string { return "remove-file-" + strconv.FormatInt(id, 10) }
+
+// removeConfirm asks before file a is removed (design-system §8.5): its form
+// is the only one that posts the removal.
+templ removeConfirm(a Attachment, target string) {
+	@Dialog(removeDialogID(a.ID), "Remove this file?") {
+		<p>{ a.Name + " will be removed from this document. You can attach it again later." }</p>
+		@Form(FormProps{Action: a.RemoveURL, HX: true, Target: target}) {
+			<div class="cluster">
+				@Button(ButtonProps{Label: "Remove file", Busy: "Removing…", Variant: Danger})
+				@Button(ButtonProps{Label: "Keep file", Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-close-dialog": true}})
+			</div>
+		}
+	}
 }
