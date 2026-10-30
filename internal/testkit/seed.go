@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
 )
@@ -45,12 +46,26 @@ const (
 	factorOne         = 1_000_000_000 // types.Factor is at 1e-9 scale
 )
 
-// Seed inserts, with plain SQL in foreign-key order, exactly the master rows
-// msttest.SeedMasters creates, and returns the fixtures with their database
-// ids filled in. Employees get user_id NULL: Seed creates no users, rights or
-// sessions (AUTH owns those), so a caller with users then calls LinkEmployees
-// (CD-199). The UoMs and tax codes are the migrations' rows.
+// Seed writes SeedMasters' rows, then AUTH's rows (users 1-8, their roles and
+// the rights matrix) with plain SQL, because AUTH has no API that keeps a given
+// id, then the employee links (CD-67, CD-91). It writes no restrictions,
+// passwords or approval rules: a caller on the real AUTH adds restrictions
+// itself. Call it before SeedDefaults, whose rows on the same DocTypes it would
+// collide with.
 func Seed(t testing.TB, d *db.DB) Fixtures {
+	t.Helper()
+	fx := SeedMasters(t, d)
+	seedAuth(t, d, fx)
+	LinkEmployees(t, d, fx)
+	return fx
+}
+
+// SeedMasters inserts, with plain SQL in foreign-key order, exactly the master
+// rows msttest.SeedMasters creates, and returns the fixtures with their
+// database ids filled in. Employees get user_id NULL: it is for a harness that
+// makes its own users, then calls LinkEmployees (CD-199). The UoMs and tax
+// codes are the migrations' rows.
+func SeedMasters(t testing.TB, d *db.DB) Fixtures {
 	t.Helper()
 	fx := canonical()
 	ctx := context.Background()
@@ -64,9 +79,66 @@ func Seed(t testing.TB, d *db.DB) Fixtures {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("testkit.Seed: insert masters: %v", err)
+		t.Fatalf("testkit.SeedMasters: %v", err)
 	}
 	return fx
+}
+
+// seedAuth inserts the fixture users, their roles and Fixtures.Rights. AUTH
+// keeps one scope per role, DocType and right, so a right listed at two scopes
+// is stored at the wider one. The names "*", "every master", "Purchase Order",
+// "GRN" and "Expense Claim" are stored as written, and no registered DocType
+// has them today: AUTH never looks them up, as Administrator holds every right
+// through the role and SeedDefaults grants the registered masters. Once a
+// DocType with such a name is registered, Seed's rows override its
+// DefaultRights, because SeedDefaults leaves existing rows alone.
+func seedAuth(t testing.TB, d *db.DB, fx Fixtures) {
+	t.Helper()
+	type row struct{ role, doctype string }
+	rights := map[row]map[auth.Right]auth.Scope{}
+	for _, r := range fx.Rights {
+		k := row{r.Role, r.DocType}
+		if rights[k] == nil {
+			rights[k] = map[auth.Right]auth.Scope{}
+		}
+		for _, w := range r.Rights {
+			rights[k][auth.Right(w)] = auth.Wider(rights[k][auth.Right(w)], auth.Scope(r.Scope))
+		}
+	}
+	ctx := context.Background()
+	at := types.TimestampOf(Clock().Now()).String()
+	err := d.Write(ctx, func(tx *db.Tx) error {
+		q := tx.SQL()
+		for _, u := range fx.Users {
+			if _, err := q.ExecContext(ctx, `INSERT INTO users (id, email, name, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+				int64(u.ID), u.Email, u.Name, !u.Disabled, at, at); err != nil {
+				return fmt.Errorf("user %s: %w", u.Email, err)
+			}
+			for _, role := range u.Roles {
+				if _, err := q.ExecContext(ctx, `INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE name = ?`,
+					int64(u.ID), role); err != nil {
+					return fmt.Errorf("user %s role %s: %w", u.Email, role, err)
+				}
+			}
+		}
+		for k, granted := range rights {
+			if _, err := q.ExecContext(ctx, `INSERT INTO role_doctypes (role_id, doctype) SELECT id, ? FROM roles WHERE name = ?`,
+				k.doctype, k.role); err != nil {
+				return fmt.Errorf("role %s on %s: %w", k.role, k.doctype, err)
+			}
+			for r, s := range granted {
+				if _, err := q.ExecContext(ctx, `INSERT INTO role_rights (role_id, doctype, right_name, scope) SELECT id, ?, ?, ? FROM roles WHERE name = ?`,
+					k.doctype, string(r), string(s), k.role); err != nil {
+					return fmt.Errorf("role %s on %s, %s: %w", k.role, k.doctype, r, err)
+				}
+			}
+		}
+		_, err := q.ExecContext(ctx, `UPDATE auth_meta SET perm_version = perm_version + 1 WHERE id = 1`)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("testkit.Seed: insert users and rights: %v", err)
+	}
 }
 
 // LinkEmployees sets each fixture employee's user_id. Call it once the

@@ -73,9 +73,8 @@ func NewWorld(t testing.TB) *World {
 		t.Fatalf("authtest.NewWorld: SeedDefaults: %v", err)
 	}
 	for _, u := range fx.Users {
-		w.insertUser(t, u.ID, u.Email, u.Name, !u.Disabled, u.Roles)
+		w.Users[u.Email] = u.ID
 	}
-	testkit.LinkEmployees(t, d, fx)
 	for _, r := range fx.Restrictions {
 		w.Restrict(t, r.Email, r.ProjectCodes, r.SiteCodes)
 	}
@@ -107,29 +106,6 @@ func (w *World) user(t testing.TB, email string) auth.UserID {
 		t.Fatalf("authtest: no user %q in the World", email)
 	}
 	return u
-}
-
-// insertUser inserts a user (id 0 = next id) with roles and records it in
-// w.Users.
-func (w *World) insertUser(t testing.TB, id auth.UserID, email, name string, enabled bool, roles []string) auth.UserID {
-	t.Helper()
-	w.write(t, "AddUser", func(ctx context.Context, q db.DBTX) error {
-		var idArg any // NULL = next id
-		if id != 0 {
-			idArg = int64(id)
-		}
-		at := auth.FormatTime(w.Clock.Now())
-		var got int64
-		if err := q.QueryRowContext(ctx,
-			`INSERT INTO users (id, email, name, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
-			idArg, email, name, enabled, at, at).Scan(&got); err != nil {
-			return err
-		}
-		id = auth.UserID(got)
-		return addRoles(ctx, q, id, roles)
-	})
-	w.Users[email] = id
-	return id
 }
 
 // addRoles gives u each role (which must exist); roles it has are kept.
@@ -199,7 +175,20 @@ func (w *World) P(t testing.TB, email string) auth.Principal {
 // AddUser creates an enabled user with no password and the given roles.
 func (w *World) AddUser(t testing.TB, email, name string, roles ...string) auth.UserID {
 	t.Helper()
-	return w.insertUser(t, 0, email, name, true, roles)
+	var id auth.UserID
+	w.write(t, "AddUser", func(ctx context.Context, q db.DBTX) error {
+		at := auth.FormatTime(w.Clock.Now())
+		var got int64
+		if err := q.QueryRowContext(ctx,
+			`INSERT INTO users (email, name, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id`,
+			email, name, at, at).Scan(&got); err != nil {
+			return err
+		}
+		id = auth.UserID(got)
+		return addRoles(ctx, q, id, roles)
+	})
+	w.Users[email] = id
+	return id
 }
 
 // Grant gives role scope s for r on doctype, creating the role when it is

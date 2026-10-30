@@ -1,6 +1,7 @@
 package testkit
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -35,12 +36,13 @@ func Directory(fx Fixtures) *authfake.Directory {
 }
 
 // Principal returns the principal of the fixture user with email, from
-// Fixtures.Users (no database read in Wave 1, CD-72).
+// Fixtures.Users (no database read in Wave 1, CD-72), with its roles sorted
+// as AUTH loads them.
 func Principal(t testing.TB, email string) auth.Principal {
 	t.Helper()
 	for _, u := range canonical().Users {
 		if u.Email == email {
-			return auth.Principal{ID: u.ID, Name: u.Name, Roles: u.Roles}
+			return auth.Principal{ID: u.ID, Name: u.Name, Roles: slices.Sorted(slices.Values(u.Roles))}
 		}
 	}
 	t.Fatalf("testkit.Principal: no fixture user with email %q; use one from docs/tests/core/00-fixtures.md", email)

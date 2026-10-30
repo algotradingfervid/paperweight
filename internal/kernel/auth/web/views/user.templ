@@ -4,6 +4,8 @@ import (
 	"strconv"
 
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
 )
 
 func (Default) User(p authweb.UserPage) templ.Component {
@@ -11,11 +13,11 @@ func (Default) User(p authweb.UserPage) templ.Component {
 }
 
 templ user(p authweb.UserPage) {
-	@layout(p.User.Name, p.CSRF, p.Error, p.Warnings) {
+	@page(uilayout.PageOpts{Title: p.User.Name}, p.CSRF, p.Error, "main", p.Warnings) {
 		<p>{ p.User.Email }</p>
 		if p.AccessURL != "" {
 			<p><a href={ templ.SafeURL(p.AccessURL) }>Site and project access</a></p>
 		}
-		<input type="hidden" name="version" value={ strconv.FormatInt(p.Version, 10) }/>
+		@components.Hidden("version", strconv.FormatInt(p.Version, 10))
 	}
 }

@@ -6,19 +6,11 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/web"
 )
-
-// render writes c, answering a render error through WriteError.
-func (s *Server) render(w http.ResponseWriter, r *http.Request, c templ.Component) {
-	if err := c.Render(r.Context(), w); err != nil {
-		s.WriteError(w, r, err)
-	}
-}
 
 // flashWarnings shows warnings on the next page (CD-80).
 func flashWarnings(r *http.Request, warnings []string) {
@@ -90,7 +82,7 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	s.render(w, r, s.v.Users(UsersPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Users: users}))
+	s.renderPage(w, r, http.StatusOK, s.v.Users(UsersPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Users: users}))
 }
 
 func (s *Server) showUser(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +102,7 @@ func (s *Server) showUser(w http.ResponseWriter, r *http.Request) {
 	if slices.Contains(p.Roles, auth.RoleAdministrator) {
 		page.AccessURL = accessPath(id)
 	}
-	s.render(w, r, s.v.User(page))
+	s.renderPage(w, r, http.StatusOK, s.v.User(page))
 }
 
 func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {

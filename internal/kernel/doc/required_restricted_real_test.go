@@ -27,11 +27,7 @@ func rqRealEngine(t *testing.T, h *fixturetest.H) (doc.Engine, auth.Principal, a
 		DB: h.DB, Clock: h.Clock, Directory: testkit.Directory(h.F), Audit: auditfake.New(),
 		Refs: &authtest.Refs{}, Info: &authtest.Info{},
 	})
-	adminID, err := a.CreateFirstAdmin(ctx, "rq-admin@vardhan.test", "Rq Admin", rqRealPassword)
-	if err != nil {
-		t.Fatalf("CreateFirstAdmin: %v", err)
-	}
-	admin := rqPrincipal(t, a, adminID)
+	admin := h.Admin
 	if err := a.CreateRole(ctx, admin, "Drafter"); err != nil {
 		t.Fatalf("CreateRole: %v", err)
 	}

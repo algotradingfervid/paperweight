@@ -172,7 +172,7 @@ func restrict(t testing.TB, a *auth.Auth, admin auth.Principal, fx testkit.Fixtu
 }
 
 // insertUsers adds the fixture users with their ids and roles. AUTH has no
-// API that keeps a given id, so this is SQL, as in AUTH's own test world.
+// API that keeps a given id, so this is SQL, as in testkit.Seed.
 func insertUsers(t testing.TB, d *db.DB, fx testkit.Fixtures) {
 	t.Helper()
 	ctx := context.Background()

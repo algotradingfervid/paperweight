@@ -185,7 +185,7 @@ func (w *world) canonical() (auth.Principal, testkit.Fixtures, fixture.Masters) 
 	w.t.Helper()
 	admin := w.seedUsers()
 	d := w.app.DB()
-	fx := testkit.Seed(w.t, d)
+	fx := testkit.SeedMasters(w.t, d)
 	testkit.LinkEmployees(w.t, d, fx)
 	m := fixture.SeedMasters(w.t, d)
 	err := w.app.Auth().ChangeRestrictions(context.Background(), admin, priyaID, auth.DimProject, []int64{m.Project["PRJ-METRO"]}, nil, nil)
@@ -326,15 +326,21 @@ func (b *browser) upload(path, name string, data []byte, fields map[string]strin
 	return b.do(http.MethodPost, path, &buf, mw.FormDataContentType(), map[string]string{"X-CSRF-Token": b.csrf})
 }
 
-// pageCSRF reads the token out of a page's form.
+// pageCSRF reads the token a page's POST forms send, never the page-level
+// hidden input outside them: a POST form without a token fails the test.
 func (b *browser) pageCSRF(path string) string {
 	b.w.t.Helper()
 	r := b.get(path)
-	tok, ok := r.doc.Find(`input[name="csrf_token"]`).First().Attr("value")
-	if !ok || tok == "" {
-		b.w.t.Fatalf("GET %s (status %d): no csrf_token in the page", path, r.status)
+	forms := r.doc.Find(`form[method="post"]`)
+	if forms.Length() == 0 {
+		b.w.t.Fatalf("GET %s (status %d): no POST form in the page", path, r.status)
 	}
-	return tok
+	forms.Each(func(_ int, f *goquery.Selection) {
+		if f.Find(`input[name="csrf_token"]`).AttrOr("value", "") == "" {
+			b.w.t.Fatalf("GET %s: form %q has no csrf_token", path, f.AttrOr("action", ""))
+		}
+	})
+	return r.doc.Find(`form input[name="csrf_token"]`).First().AttrOr("value", "")
 }
 
 // trySignIn posts the real sign-in form and returns the answer.

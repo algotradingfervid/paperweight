@@ -97,7 +97,7 @@ templ Rights(p RightsPage) {
 			</nav>
 			<div class="stack form-width">
 				@components.Form(components.FormProps{Action: RightsPath(p.Role.ID, p.DocType.Name)}) {
-					<input type="hidden" name="version" value={ strconv.FormatInt(p.Role.Version, 10) }/>
+					@components.Hidden("version", strconv.FormatInt(p.Role.Version, 10))
 					<div class="stack">
 						for _, rt := range applicableRights(p.DocType) {
 							@components.Segmented(components.FieldProps{
@@ -115,7 +115,7 @@ templ Rights(p RightsPage) {
 					<div class="stack">
 						@components.Banner(components.BannerProps{Kind: components.Warning, Message: "This replaces every role's rights on " + p.DocType.Label + " with the defaults. It can't be undone."})
 						@components.Form(components.FormProps{Action: "/rights/" + url.PathEscape(p.DocType.Name) + "/reset"}) {
-							<input type="hidden" name="role_id" value={ strconv.FormatInt(p.Role.ID, 10) }/>
+							@components.Hidden("role_id", strconv.FormatInt(p.Role.ID, 10))
 							@components.Button(components.ButtonProps{Label: "Reset " + p.DocType.Label + " to defaults for every role", Type: "submit", Variant: components.Danger, Busy: "Resetting…"})
 						}
 					</div>
