@@ -2,6 +2,9 @@ package app
 
 import "time"
 
+// MsgMethodNotAllowed is the 405's text.
+const MsgMethodNotAllowed = msgMethodNotAllowed
+
 // Mount is mount, for the test that it refuses a route's middleware.
 var Mount = mount
 

@@ -54,6 +54,8 @@ const (
 
 	noStoreValue = "private, no-store"
 	hstsValue    = "max-age=31536000"
+
+	msgMethodNotAllowed = "This page doesn't take that kind of request. Go back and try again."
 )
 
 // routes builds the router: AUTH's middleware through platform/web (CD-14,
@@ -74,6 +76,14 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(ui.ShellMiddleware(a.shell))
 		a.srv.Mount(r)
+		// A path or method no route takes gets the app's own page (CD-250).
+		// No route means no guard, so a guest gets it too: CD-17 is for
+		// guarded routes, and an unmatched path is 404 for a guest too.
+		r.NotFound(errorPage(http.StatusNotFound, auth.MsgNotFound))
+		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+			allow(w, r)
+			errorPage(http.StatusMethodNotAllowed, msgMethodNotAllowed)(w, r)
+		})
 
 		self := func(_ string, h http.Handler) http.Handler { return a.srv.Self(h) }
 		r.Method(http.MethodGet, homePath, a.srv.Self(http.HandlerFunc(a.home)))
@@ -134,6 +144,34 @@ func mount(r chi.Router, sub chi.Routes, guard func(route string, h http.Handler
 		r.Method(method, route, guard(route, h))
 		return nil
 	})
+}
+
+// errorPage answers status with msg: a full-page GET gets the error page in
+// the shell, as a missing document does; htmx and other methods get web.Error.
+func errorPage(status int, msg string) http.HandlerFunc {
+	page := layout.Page(layout.PageOpts{Title: msg, Error: true})
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || ui.IsHTMX(r) {
+			web.Error(w, r, status, msg)
+			return
+		}
+		ui.Render(w, r, status, page, nil)
+	}
+}
+
+// allow sets the 405's Allow header, which chi sets only in its own handler.
+// It matches the path chi routed on: RawPath when set.
+func allow(w http.ResponseWriter, r *http.Request) {
+	routes := chi.RouteContext(r.Context()).Routes
+	path := r.URL.Path
+	if r.URL.RawPath != "" {
+		path = r.URL.RawPath
+	}
+	for _, m := range []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+		if routes.Match(chi.NewRouteContext(), m, path) {
+			w.Header().Add("Allow", m)
+		}
+	}
 }
 
 // parsers is every kind /ui/validate and the forms accept (CD-209, CD-212).
