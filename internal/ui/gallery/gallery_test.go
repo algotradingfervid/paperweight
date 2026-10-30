@@ -102,6 +102,9 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		if d.Find(`[role="combobox"][hx-get]`).Length() == 0 {
 			t.Error("picker: no live combobox")
 		}
+		if d.Find("[data-picker-chosen]:not([hidden]) [data-picker-clear]").Length() == 0 {
+			t.Error("picker: no optional picker with a chosen value")
+		}
 	},
 	"upload": func(t *testing.T, d *goquery.Document) {
 		if d.Find("img[loading=lazy]").Length() == 0 {

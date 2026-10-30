@@ -255,11 +255,11 @@ func barLabel(m wizard.Model) string {
 	return ""
 }
 
-// wizardBody is step i; ?errors=1 shows step 1 refused and ?conflict=1 the
-// conflict banner.
+// wizardBody is step i; ?errors=1 shows step 1 refused, ?supplier=<id> step 1
+// with that supplier chosen and ?conflict=1 the conflict banner.
 func wizardBody(i int) func(*http.Request) templ.Component {
 	return func(r *http.Request) templ.Component {
-		v := stepValues{reference: "PO-REF-1", date: "24-10-2026"}
+		v := stepValues{reference: "PO-REF-1", date: "24-10-2026", supplier: pickByID(r.URL.Query().Get("supplier"))}
 		if i == 0 && r.URL.Query().Get("errors") == "1" {
 			v = stepValues{errs: []components.FieldErr{{ID: "f-reference", Message: "Enter the reference."}, {ID: "f-order_date", Message: "Enter the order date."}}}
 		}
@@ -293,6 +293,7 @@ func Screens(base string) []screens.Screen {
 					settled(`document.querySelectorAll("#f-item-list [role=option]").length > 2 && document.querySelector(".htmx-request") === null`))
 			}},
 		screens.Screen{Name: "gallery wizard-1, refused", Route: route, URL: base + "/_gallery/wizard-1?errors=1"},
+		screens.Screen{Name: "gallery wizard-1, supplier chosen", Route: route, URL: base + "/_gallery/wizard-1?supplier=3"},
 		screens.Screen{Name: "gallery wizard-3, conflict", Route: route, URL: base + "/_gallery/wizard-3?conflict=1"},
 	)
 	for _, s := range docscreen.Screens(docscreentest.Sample, galleryIDs) {

@@ -2,6 +2,8 @@
 // fills the listbox; this moves aria-activedescendant with the arrow keys,
 // writes the chosen id and summary on Enter or click, and closes on Esc.
 // Closing after "Change" without a new choice shows the old summary again.
+// "Clear" empties the value and shows the closed search; focus goes to the
+// picker itself, so the phone panel doesn't open over the page.
 // Every handler is bound in init(), so the markup holds no expressions.
 
 function combobox() {
@@ -156,10 +158,22 @@ function combobox() {
         if (e.target.closest("[data-picker-close]")) {
           close();
           if (search.hidden) change.focus();
+          else root.focus();
         } else if (e.target.closest("[data-picker-change]")) {
           chosen.hidden = true;
           search.hidden = false;
           input.focus();
+        } else if (e.target.closest("[data-picker-clear]")) {
+          // The search text goes too: its input event makes htmx fetch the
+          // rows for the empty text, so no old results stay under it.
+          value.value = "";
+          summary.textContent = "";
+          input.value = "";
+          chosen.hidden = true;
+          search.hidden = false;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          value.dispatchEvent(new Event("change", { bubbles: true }));
+          root.focus();
         }
       });
     },

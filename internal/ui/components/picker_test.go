@@ -109,6 +109,56 @@ func TestPicker_ChosenSummaryWithChange(t *testing.T) {
 	}
 }
 
+func TestPicker_ClearOptionalChosen(t *testing.T) {
+	p := pickerProps()
+	p.Field.Optional = true
+	p.Chosen = &components.PickRow{ID: 7, Code: "CEMENT-OPC", Name: "OPC Cement 53 Grade"}
+	doc := uitest.Render(t, components.Picker(p))
+	clear := doc.Find(`[data-picker-chosen]:not([hidden]) button[type="button"][data-picker-clear]`)
+	if clear.Length() != 1 {
+		t.Fatalf("want one visible Clear button, got %d", clear.Length())
+	}
+	if got := strings.TrimSpace(clear.Text()); got != "Clear" {
+		t.Errorf("text = %q, want Clear", got)
+	}
+	if got, _ := clear.Attr("aria-label"); got != "Clear Item" {
+		t.Errorf("aria-label = %q, want Clear Item", got)
+	}
+	if !clear.HasClass("tap") {
+		t.Error("Clear has no tap class, so no 44 × 44 target")
+	}
+	// Clear moves focus to the group, so it needs a name and must be focusable.
+	root := doc.Find(`.picker[role="group"][tabindex="-1"]`)
+	if got, _ := root.Attr("aria-label"); got != "Item" {
+		t.Errorf("picker group aria-label = %q, want Item", got)
+	}
+}
+
+func TestPicker_NoClearOnRequired(t *testing.T) {
+	p := pickerProps()
+	if doc := uitest.Render(t, components.Picker(p)); doc.Find("[data-picker-clear]").Length() != 0 {
+		t.Error("required, none chosen: Clear rendered")
+	}
+	p.Chosen = &components.PickRow{ID: 7, Code: "CEMENT-OPC", Name: "OPC Cement 53 Grade"}
+	if doc := uitest.Render(t, components.Picker(p)); doc.Find("[data-picker-clear]").Length() != 0 {
+		t.Error("required, chosen: Clear rendered")
+	}
+}
+
+// With nothing chosen Clear stays inside the hidden summary, which combobox.js
+// shows once a row is chosen in the browser.
+func TestPicker_NoVisibleClearWithoutChoice(t *testing.T) {
+	p := pickerProps()
+	p.Field.Optional = true
+	doc := uitest.Render(t, components.Picker(p))
+	if doc.Find("[data-picker-chosen]:not([hidden]) [data-picker-clear]").Length() != 0 {
+		t.Error("none chosen: Clear is visible")
+	}
+	if doc.Find("[data-picker-chosen][hidden] [data-picker-clear]").Length() != 1 {
+		t.Error("none chosen: no Clear waiting in the hidden summary, so a row chosen in the browser can't be cleared")
+	}
+}
+
 func TestPickerResults_Max20AndEmpty(t *testing.T) {
 	var rows []components.PickRow
 	for i := range 25 {

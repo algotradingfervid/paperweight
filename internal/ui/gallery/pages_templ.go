@@ -989,6 +989,14 @@ func pickerBody() templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = components.Picker(components.PickerProps{
+			Field:     components.FieldProps{ID: "f-project", Label: "Project", Optional: true},
+			SearchURL: searchURL("f-project-list"), HiddenName: "project_id", ListboxID: "f-project-list",
+			Chosen: &pickRows[2],
+		}).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = components.Picker(components.PickerProps{
 			Field:      components.FieldProps{ID: "f-uom", Label: "Unit"},
 			HiddenName: "uom_id",
 			Options:    []components.Option{{Value: "1", Label: "kg"}, {Value: "2", Label: "Number"}, {Value: "3", Label: "Metre"}},
