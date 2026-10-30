@@ -359,7 +359,6 @@ func thumbLoaded(s *Session, name string) string {
 
 // TestE2E_ExpenseAttachmentPreview: FILE-033.
 func TestE2E_ExpenseAttachmentPreview(t *testing.T) {
-	t.Skip("CD-241: document pages can't add an attachment yet")
 	h := Start(t)
 	d := h.SignIn(deepak, desktop)
 	attachedClaim(h, d, map[string][]byte{"r.jpg": photo(t), "r.heic": filestest.HEIC("heic")})
