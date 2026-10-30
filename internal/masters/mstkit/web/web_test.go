@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
@@ -32,20 +33,21 @@ const (
 // stubRecord is a stored record: its Values, as a master would give them.
 type stubRecord map[string]string
 
-// stubService returns getErr from Get, and err from every write. It writes
-// nothing, so a nil err isn't used here.
+// stubService returns getErr from Get, and err from every write, with saved
+// from Create and Update. It writes nothing.
 type stubService struct {
 	rec    stubRecord
+	saved  mstkit.Saved
 	getErr error
 	err    error
 }
 
 func (s stubService) Create(context.Context, auth.Principal, stubRecord) (mstkit.Saved, error) {
-	return mstkit.Saved{}, s.err
+	return s.saved, s.err
 }
 
 func (s stubService) Update(context.Context, auth.Principal, int64, int, stubRecord) (mstkit.Saved, error) {
-	return mstkit.Saved{}, s.err
+	return s.saved, s.err
 }
 
 func (s stubService) SetDisabled(context.Context, auth.Principal, int64, int, bool) error {
@@ -75,7 +77,7 @@ func harness(t *testing.T, svc stubService) *webtest.Harness {
 		return mstweb.Screen[stubRecord, stubRecord]{
 			DocType: item.DocType,
 			Base:    base,
-			Copy:    mstweb.Copy{Plural: "Stubs", New: "New stub", Search: "Search stubs", Empty: "No stubs yet."},
+			Copy:    mstweb.Copy{Plural: "Stubs", New: "New stub", Search: "Search stubs", Empty: "No stubs yet.", Saved: "Stub saved."},
 			Svc:     svc,
 			Env:     k,
 			ToInput: func(v map[string]string) stubRecord { return v },
@@ -131,6 +133,24 @@ func TestScreens_OtherHTTPErrorIsAProblemPage(t *testing.T) {
 	webtest.WantText(t, resp, "Producer's own words.")
 	if _, ok := resp.RowLink(base); !ok {
 		t.Errorf("problem page has no Back link to %s", base)
+	}
+}
+
+// A save's warnings show on the page the 303 leads to, each in the alerts
+// region, with the success banner (CD-80), on create and on update.
+func TestScreens_SaveWarningsAreFlashed(t *testing.T) {
+	h := harness(t, stubService{rec: stubRecord{}, saved: mstkit.Saved{ID: 7, Warnings: []string{"First warning.", "Second warning."}}})
+	for _, target := range []string{base + "/new", record} {
+		resp := h.Post(t, h.Env.Kavya, target, url.Values{"version": {"3"}})
+		webtest.WantRedirect(t, resp, record)
+		page := h.Follow(t, h.Env.Kavya, resp)
+		webtest.WantStatus(t, page, http.StatusOK)
+		webtest.WantBanner(t, page, "Stub saved.")
+		alerts := webtest.Squash(page.Doc.Find("#alerts").Text())
+		first, second := strings.Index(alerts, "First warning."), strings.Index(alerts, "Second warning.")
+		if first < 0 || second < first {
+			t.Errorf("POST %s: #alerts = %q; want both warnings in order", target, alerts)
+		}
 	}
 }
 

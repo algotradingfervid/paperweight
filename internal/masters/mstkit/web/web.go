@@ -36,6 +36,10 @@ import (
 // the same and PickerResults shows the first 20.
 const pageSize = 25
 
+// noMatch is the empty list while a search or filter is on: Copy.Empty's "yet"
+// would be untrue.
+const noMatch = "No results. Try a different search."
+
 // Service is a master's standard surface (WP2 plan, "Standard master
 // surface"): R is its record type, In its input.
 type Service[R, In any] interface {
@@ -185,10 +189,14 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 	if h.can(ctx, p, auth.RightCreate, nil) {
 		newLink = &components.Link{Label: h.Copy.New, Href: h.Base + "/new"}
 	}
+	empty := h.Copy.Empty
+	if q.Get("q") != "" || all {
+		empty = noMatch
+	}
 	v := listView{
 		Title: h.Copy.Plural,
 		Bar:   components.FilterBarProps{Action: h.Base, Search: q.Get("q"), SearchLabel: h.Copy.Search, New: newLink},
-		List:  components.DataListProps{Label: h.Copy.Plural, Columns: cols, Rows: rows, Empty: components.EmptyState(h.Copy.Empty, newLink)},
+		List:  components.DataListProps{Label: h.Copy.Plural, Columns: cols, Rows: rows, Empty: components.EmptyState(empty, newLink)},
 		Pages: h.pageInfo(q, page, res.Total),
 	}
 	if all {
@@ -243,7 +251,7 @@ func (h *handlers[R, In]) create(w http.ResponseWriter, r *http.Request, p auth.
 	if err != nil {
 		return h.refused(w, r, p, 0, f, err)
 	}
-	return done(w, r, h.Copy.Saved, h.recordPath(saved.ID))
+	return done(w, r, h.Copy.Saved, h.recordPath(saved.ID), saved.Warnings...)
 }
 
 func (h *handlers[R, In]) page(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
@@ -259,10 +267,11 @@ func (h *handlers[R, In]) save(w http.ResponseWriter, r *http.Request, p auth.Pr
 		return err
 	}
 	f.Version = version
-	if _, err := h.Svc.Update(r.Context(), p, id, version, h.ToInput(f.Values)); err != nil {
+	saved, err := h.Svc.Update(r.Context(), p, id, version, h.ToInput(f.Values))
+	if err != nil {
 		return h.refused(w, r, p, id, f, err)
 	}
-	return done(w, r, h.Copy.Saved, h.recordPath(id))
+	return done(w, r, h.Copy.Saved, h.recordPath(id), saved.Warnings...)
 }
 
 func (h *handlers[R, In]) setDisabled(off bool) handlerFunc {
@@ -297,9 +306,12 @@ func (h *handlers[R, In]) delete(w http.ResponseWriter, r *http.Request, p auth.
 	return done(w, r, h.Copy.Deleted, h.Base)
 }
 
-// done is a successful write: a success banner on the next page (CD-80) and
-// 303 to it.
-func done(w http.ResponseWriter, r *http.Request, msg, next string) error {
+// done is a successful write: its warnings and a success banner on the next
+// page (CD-80) and 303 to it.
+func done(w http.ResponseWriter, r *http.Request, msg, next string, warnings ...string) error {
+	for _, warning := range warnings {
+		web.Flash(r.Context(), "warning", warning)
+	}
 	web.Flash(r.Context(), "success", msg)
 	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // G710: next is Base or Base + "/" + a numeric id
 	return nil

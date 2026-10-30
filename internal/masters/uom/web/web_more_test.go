@@ -188,6 +188,19 @@ func TestScreens_UoMListKeepsSearch(t *testing.T) {
 	}
 }
 
+// With a search or the disabled filter on, an empty result says the search
+// found nothing: "No UoMs yet." would be untrue.
+func TestScreens_UoMNoMatch(t *testing.T) {
+	w := newWorld(t)
+	kavya := w.h.Env.Kavya
+	for _, target := range []string{"/m/uom?q=zzzz", "/m/uom?include_disabled=true&q=zzzz"} {
+		resp := w.h.Get(t, kavya, target)
+		webtest.WantStatus(t, resp, http.StatusOK)
+		webtest.WantText(t, resp, "No results. Try a different search.")
+		webtest.WantNoText(t, resp, "No UoMs yet.")
+	}
+}
+
 // allmasters.New builds the services and Routes mounts the screens and the
 // picker from them, as production will (CD-195).
 func TestScreens_UoMThroughAllmasters(t *testing.T) {
