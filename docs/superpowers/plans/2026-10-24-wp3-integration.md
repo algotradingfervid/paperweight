@@ -130,6 +130,7 @@ Task 2 (composition root) also does:
 - Mounts `web.BodyCeiling(limit, files.MsgTooLarge)` with `r.Use` right after `web.NewRouter(opts)`, before any route, and tests a 413 with CSP, a log line and FILE-003's exact text inside the alert div through `app.Handler()` (CD-211). Passes `allmasters.WebDeps` to `Routes`.
 - Wires `files.New` Policies and Info, `Letterhead.LogoURL`, and merges `gstinweb.Parsers()` and `itemweb.Parsers()` into ValidateHandler; a nil `Deps.Parse` 404s every kind (CD-209).
 - The /search Lister adds no default filters, and AUTH-106 compares rows, not the page body (CD-215).
+- Mounts master routes only after WP2 Tasks 20 and 21 land; until then a real import returns a 500 from the stubs.
 - Mounts `GET /search` with Self, not CheckedInHandler (CD-87's prefix is /doc/), split out of docscreen.Routes at the mount, and wires `Deps.RecordURL` (CD-200).
 - Mounts `/ui/validate/*` for real pages; today only the gallery mounts it.
 - Calls `company.SetupTx` from first-run setup with CD-165's fields.
