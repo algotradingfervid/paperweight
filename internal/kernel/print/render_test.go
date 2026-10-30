@@ -57,6 +57,19 @@ func TestPrint_TitleIsSafeNumber(t *testing.T) {
 }
 
 // Supporting test (no case ID; feeds WP3's FILE-056, CD-77).
+// TestPrintCSS_ClosingStaysTogether: totals, words, terms, approval and the
+// signatory move to the next page as one block (FILE-057).
+func TestPrintCSS_ClosingStaysTogether(t *testing.T) {
+	for _, want := range []string{
+		".totals, .words, .terms, .approved { break-inside: avoid; break-after: avoid; }",
+		".closing { break-inside: avoid; }",
+	} {
+		if !strings.Contains(print.CSS, want) {
+			t.Errorf("print.CSS missing %q", want)
+		}
+	}
+}
+
 func TestPrintCSS_A4(t *testing.T) {
 	for _, want := range []string{
 		"@page { size: A4 portrait; margin: 15mm; }",

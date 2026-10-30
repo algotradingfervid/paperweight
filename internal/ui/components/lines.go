@@ -11,7 +11,7 @@ import (
 // when set, is posted by the move forms (CD-94).
 type LineCard struct {
 	No                                           int
-	Item, Code, QtyRate, Amount, Tax             string
+	Item, Code, QtyRate, Amount, Tax, Received   string
 	ChangeURL, RemoveURL, MoveUpURL, MoveDownURL string
 	Version                                      string
 }

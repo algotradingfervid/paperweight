@@ -27,6 +27,7 @@ th { text-align: start; border-block-end: 0.4mm solid var(--doc-accent); }
 th, td { padding: 1mm 1.5mm; vertical-align: top; }
 tr { break-inside: avoid; }
 .totals { background: color-mix(in srgb, var(--doc-accent) 10%, #fff); border-block-start: 0.4mm solid var(--doc-accent); }
+.totals, .words, .terms, .approved { break-inside: avoid; break-after: avoid; }
 .closing { break-inside: avoid; }
 
 img { image-orientation: from-image; }

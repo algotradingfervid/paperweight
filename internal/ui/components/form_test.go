@@ -57,6 +57,18 @@ func TestButton_SubmitBusyAttributes(t *testing.T) {
 	_ = components.Button(components.ButtonProps{Icon: "x"}).Render(context.Background(), &strings.Builder{})
 }
 
+// TestForm_ChildRequestsLeaveSubmitEnabled: htmx attributes inherit, so without
+// hx-disinherit a field's own check on blur disables the form's submit under the
+// pointer and the click that caused the blur is lost.
+func TestForm_ChildRequestsLeaveSubmitEnabled(t *testing.T) {
+	for _, method := range []string{"post", "get"} {
+		doc := uitest.Render(t, components.Form(components.FormProps{Action: "/x", Method: method, HX: true}))
+		if got := doc.Find("form").AttrOr("hx-disinherit", ""); got != "hx-disabled-elt" {
+			t.Errorf("%s form: hx-disinherit = %q, want hx-disabled-elt", method, got)
+		}
+	}
+}
+
 func TestForm_CSRFAndHTMX(t *testing.T) {
 	ctx := ui.WithShell(context.Background(), ui.Shell{CSRF: "tok-123"})
 	post := uitest.RenderCtx(t, ctx, components.Form(components.FormProps{ID: "f", Action: "/doc/po/1", HX: true}))

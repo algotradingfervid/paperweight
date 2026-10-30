@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -45,6 +47,7 @@ type reasonView struct {
 	Question string // the delete page's question
 	Button   components.ButtonProps
 	Danger   string
+	Link     *components.Link // the document that refused a cancel
 	Errors   []components.FieldErr
 }
 
@@ -76,7 +79,25 @@ func (d Deps) reasonPost(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		return
 	}
 	rv := reasonViewOf(dt, v, name, rp, version, r.PostFormValue("reason"), pr)
+	if rp.action == doctype.ActionCancel && rv.Danger != "" {
+		rv.Link = d.blockerLink(r.Context(), dt.Name, id)
+	}
 	ui.Render(w, r, pr.Status, reasonPageFull(rv), reasonPageMain(rv))
+}
+
+// blockerLink links the one document that blocks a cancel (DOC-092). Several
+// are only listed, in the message. The message stands alone, so a failed read
+// just leaves the link out.
+func (d Deps) blockerLink(ctx context.Context, name string, id int64) *components.Link {
+	var bs []doc.Blocker
+	err := d.DB.Read(ctx, func(tx *db.Tx) (err error) {
+		bs, err = doc.LinkedBlockers(ctx, tx, name, id)
+		return err
+	})
+	if err != nil || len(bs) != 1 {
+		return nil
+	}
+	return &components.Link{Label: naming.Label(bs[0].Number, bs[0].ID), Href: docURL(bs[0].DocType, bs[0].ID)}
 }
 
 func reasonViewOf(dt *doctype.DocType, v DocView, name string, rp reasonPage, version int, typed string, pr Problem) reasonView {

@@ -131,7 +131,7 @@ func reasonBanners(rv reasonView) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if rv.Danger != "" {
-			templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Danger, Message: rv.Danger}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Danger, Message: rv.Danger, Link: rv.Link}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

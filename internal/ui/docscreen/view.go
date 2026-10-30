@@ -149,6 +149,9 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 		if err != nil {
 			return DocView{}, err
 		}
+		if i.State != doctype.StateApproved && i.State != doctype.StateClosed {
+			lv.Card.Received = "" // only an approved document can have receipts
+		}
 		v.Lines = append(v.Lines, lv)
 		v.Problems = append(v.Problems, problems...)
 	}
@@ -156,11 +159,12 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 }
 
 // lineView is line no: every line field in input and display form, and the
-// card "{qty} {uom} × {rate}" (CD-61) with the item's master name and code.
+// card "{qty} {uom} × {rate}" (CD-61) with the item's master name and code,
+// and, for a quantity roll-up, "Received {n} of {qty} {uom}" (DOC-092).
 func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no int, line map[string]string) (LineView, []doctype.FieldError, error) {
 	lv := LineView{No: no, Inputs: map[string]string{}, Display: map[string]string{}, Card: components.LineCard{No: no}}
 	var problems []doctype.FieldError
-	var qty, rate string
+	var qty, rate, received string
 	for _, f := range dt.Fields {
 		if !f.OnLine {
 			continue
@@ -181,6 +185,8 @@ func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no i
 			return LineView{}, nil, err
 		}
 		switch {
+		case f.RollUp && f.Type == doctype.Qty:
+			received = lv.Inputs[f.Name]
 		case f.Type == doctype.Link && lv.Card.Item == "":
 			lv.Card.Item, lv.Card.Code, err = itemOf(ctx, tx, f, plain, shown)
 			if err != nil {
@@ -202,6 +208,9 @@ func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no i
 		parts = append(parts, rate)
 	}
 	lv.Card.QtyRate = strings.Join(parts, " × ")
+	if received != "" {
+		lv.Card.Received = strings.TrimSpace("Received " + received + " of " + qty + " " + line["uom"])
+	}
 	return lv, problems, nil
 }
 

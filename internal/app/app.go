@@ -213,6 +213,12 @@ func (a *App) Masters() *allmasters.Services { return a.masters }
 // Files is the file store.
 func (a *App) Files() *files.Store { return a.files }
 
+// Engine is the document engine.
+func (a *App) Engine() doc.Engine { return a.engine }
+
+// Approvals is the real APR service.
+func (a *App) Approvals() *approval.Approvals { return a.approvals }
+
 // Run listens on cfg.Addr and serves, with the hourly jobs alongside, until
 // ctx ends; it then shuts down gracefully. The kernel packages log through
 // slog's default, so a running app points that at its own JSON logger too.
