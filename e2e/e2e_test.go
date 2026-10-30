@@ -272,21 +272,21 @@ func TestE2E_Doc_PurchaseLifecycle(t *testing.T) {
 	// Newest first. Priya's wizard saves twice; the GRN's approval and its
 	// cancel each leave an effect row on the order.
 	wantHistory(t, "order", openHistory(r, path), []string{
-		"Ravi Kulkarni · amended",
-		"Ravi Kulkarni · cancel: " + reasonPO,
-		"Anil Kapoor · effect",
-		"Suresh Patil · effect",
-		"Ravi Kulkarni · approve",
-		"Priya Shah · submit",
-		"Priya Shah · save",
-		"Priya Shah · save",
-		"Priya Shah · create",
+		"Ravi Kulkarni · Amended",
+		"Ravi Kulkarni · Cancelled: " + reasonPO,
+		"Anil Kapoor · Updated by " + firstGRN,
+		"Suresh Patil · Updated by " + firstGRN,
+		"Ravi Kulkarni · Approved",
+		"Priya Shah · Submitted",
+		"Priya Shah · Saved",
+		"Priya Shah · Saved",
+		"Priya Shah · Created",
 	})
 	wantHistory(t, "receipt", openHistory(a, grnPath), []string{
-		"Anil Kapoor · cancel: " + reasonGRN,
-		"Suresh Patil · submit",
-		"Suresh Patil · save",
-		"Suresh Patil · create",
+		"Anil Kapoor · Cancelled: " + reasonGRN,
+		"Suresh Patil · Submitted",
+		"Suresh Patil · Saved",
+		"Suresh Patil · Created",
 	})
 }
 
