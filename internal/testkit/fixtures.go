@@ -139,6 +139,9 @@ type FixturePOLine struct {
 
 var allRights = []string{"read", "create", "write", "submit", "cancel", "amend", "delete", "approve", "print", "export", "import"}
 
+// Canonical returns the fixture values with no database ids (CD-199).
+func Canonical() Fixtures { return canonical() }
+
 func canonical() Fixtures {
 	return Fixtures{
 		Company: FixtureCompany{LegalName: "Vardhan Infra Projects Pvt Ltd", PAN: "AAFCV2449G"},

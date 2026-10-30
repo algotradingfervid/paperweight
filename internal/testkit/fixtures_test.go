@@ -47,3 +47,15 @@ func TestTestkit_FixtureRightsUseAuthWords(t *testing.T) {
 		}
 	}
 }
+
+// TestTestkit_CanonicalHasValuesNoIDs: Canonical is the fixture values without
+// a database, so no record has an id (CD-199 item 4).
+func TestTestkit_CanonicalHasValuesNoIDs(t *testing.T) {
+	fx := testkit.Canonical()
+	if fx.Company.PAN != "AAFCV2449G" || len(fx.Employees) != 8 || len(fx.Projects) != 2 || len(fx.Sites) != 3 {
+		t.Fatalf("Canonical = %+v; want the 00-fixtures.md values", fx)
+	}
+	if fx.Employees[0].ID != 0 || fx.Projects[0].ID != 0 || fx.Sites[0].ID != 0 {
+		t.Errorf("Canonical ids = %d, %d, %d; want 0 (only Seed fills them in)", fx.Employees[0].ID, fx.Projects[0].ID, fx.Sites[0].ID)
+	}
+}

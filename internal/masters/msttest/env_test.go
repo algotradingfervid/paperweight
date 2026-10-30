@@ -3,8 +3,11 @@ package msttest_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -57,7 +60,7 @@ func TestMsttest_NewWiresRealKernel(t *testing.T) {
 	}
 	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
 		var n int
-		for _, table := range []string{"audit_log", "gst_state", "goose_db_version", "goose_testkit"} {
+		for _, table := range []string{"audit_log", "gst_state", "goose_db_version", "goose_testkit", "goose_mstfixture", "mst_order", "mst_order_line"} {
 			if err := tx.SQL().QueryRowContext(ctx, `SELECT count(*) FROM `+table).Scan(&n); err != nil { //nolint:gosec // G202: fixed table names
 				t.Errorf("table %s: %v; want it migrated", table, err)
 			}
@@ -130,9 +133,10 @@ func TestMsttest_NewWiresRealKernel(t *testing.T) {
 }
 
 // TestMsttest_AppliesFixtureRestrictions has no case ID (review finding):
-// msttest.New applies the canonical fixtures' user restrictions
-// (00-fixtures.md, Users table) as AUTH's own test world does, seen through
-// the real AUTH service; users the fixtures don't restrict have none.
+// msttest.SeedMasters applies the canonical fixtures' user restrictions
+// (00-fixtures.md, Users table) with the real masters' ids, seen through the
+// real AUTH service; users the fixtures don't restrict have none. New has no
+// projects or sites yet, so it restricts nobody (CD-199 item 4).
 func TestMsttest_AppliesFixtureRestrictions(t *testing.T) {
 	env := msttest.New(t)
 	ctx := context.Background()
@@ -140,40 +144,18 @@ func TestMsttest_AppliesFixtureRestrictions(t *testing.T) {
 	if !ok {
 		t.Fatalf("Kit.Auth = %T; want the real *auth.Auth", env.Kit.Auth)
 	}
+	for _, u := range env.Fx.Users {
+		if got, err := a.UserRestrictions(ctx, u.ID); err != nil || len(got) != 0 {
+			t.Errorf("after New, UserRestrictions(%s) = %v, %v; want none", u.Email, got, err)
+		}
+	}
+	m := msttest.SeedMasters(t, env)
 
-	// The fixture values (codes, user ids) from testkit; the database ids of
-	// projects and sites from env's own seeded stand-in tables.
-	fx := testkit.Seed(t, testkit.NewDB(t))
+	fx := env.Fx
 	if len(fx.Restrictions) == 0 {
 		t.Fatal("testkit fixtures have no restrictions; want Priya's and Suresh's (00-fixtures.md)")
 	}
-	ids := map[string]map[string]int64{"testkit_project": {}, "testkit_site": {}}
-	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
-		for table, m := range ids {
-			rows, err := tx.SQL().QueryContext(ctx, `SELECT code, id FROM `+table) //nolint:gosec // G202: fixed table names
-			if err != nil {
-				return err
-			}
-			for rows.Next() {
-				var code string
-				var id int64
-				if err := rows.Scan(&code, &id); err != nil {
-					_ = rows.Close()
-					return err
-				}
-				m[code] = id
-			}
-			if err := rows.Close(); err != nil {
-				return err
-			}
-			if err := rows.Err(); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("read stand-in ids: %v", err)
-	}
+	ids := map[string]map[string]int64{"project": m.Projects, "site": m.Sites}
 	resolve := func(table string, codes []string) []int64 {
 		var out []int64
 		for _, c := range codes {
@@ -191,10 +173,10 @@ func TestMsttest_AppliesFixtureRestrictions(t *testing.T) {
 	for _, r := range fx.Restrictions {
 		w := map[auth.Dimension][]int64{}
 		if len(r.ProjectCodes) > 0 {
-			w[auth.DimProject] = resolve("testkit_project", r.ProjectCodes)
+			w[auth.DimProject] = resolve("project", r.ProjectCodes)
 		}
 		if len(r.SiteCodes) > 0 {
-			w[auth.DimSite] = resolve("testkit_site", r.SiteCodes)
+			w[auth.DimSite] = resolve("site", r.SiteCodes)
 		}
 		want[r.Email] = w
 	}
@@ -215,5 +197,87 @@ func TestMsttest_AppliesFixtureRestrictions(t *testing.T) {
 		if !reflect.DeepEqual(got, w) {
 			t.Errorf("UserRestrictions(%s) = %v; want %v (fixture restrictions)", u.Email, got, w)
 		}
+	}
+}
+
+// TestMsttest_NewEnsuresOrderSeries has no case ID: New seeds mst.Order's
+// number series, which registration doesn't (Namer.Assign needs the row).
+func TestMsttest_NewEnsuresOrderSeries(t *testing.T) {
+	env := msttest.New(t)
+	ctx := context.Background()
+	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
+		var label, tpl string
+		if err := tx.SQL().QueryRowContext(ctx, `SELECT label, template FROM naming_series WHERE doctype = 'mst.Order'`).Scan(&label, &tpl); err != nil {
+			return err
+		}
+		if label != "Purchase Order" || tpl != "PO/{FY}/{#####}" {
+			t.Errorf("series = %q, %q; want Purchase Order, PO/{FY}/{#####}", label, tpl)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("read series: %v", err)
+	}
+}
+
+// TestMsttest_NewNumbersFixtures has no case ID: Fx carries the ids the seed
+// will produce, in fixture order, because AUTH's Directory fake is built from
+// them before any master exists.
+func TestMsttest_NewNumbersFixtures(t *testing.T) {
+	env := msttest.New(t)
+	if p := env.Fx.Projects[1]; p.Code != "PRJ-TECHPARK" || p.ID != 2 {
+		t.Errorf("Fx.Projects[1] = %+v; want PRJ-TECHPARK with id 2", p)
+	}
+	if s := env.Fx.Sites[2]; s.Code != "TECH-SITE" || s.ID != 3 || s.ProjectID != 2 {
+		t.Errorf("Fx.Sites[2] = %+v; want TECH-SITE with id 3, project 2", s)
+	}
+	if e := env.Fx.Employees[6]; e.Code != "EMP-007" || e.ID != 7 {
+		t.Errorf("Fx.Employees[6] = %+v; want EMP-007 with id 7", e)
+	}
+}
+
+// fatalTB records the first Fatalf and ends the goroutine, as testing does.
+type fatalTB struct {
+	testing.TB
+	msg string
+}
+
+func (f *fatalTB) Helper() {}
+
+func (f *fatalTB) Fatalf(format string, args ...any) {
+	f.msg = fmt.Sprintf(format, args...)
+	runtime.Goexit()
+}
+
+// TestMsttest_SeedMastersFailsOnIDMismatch has no case ID: ids that differ
+// from Fx fail the test before the restrictions are applied, because the
+// restrictions and AUTH's Directory fake use Fx's ids.
+func TestMsttest_SeedMastersFailsOnIDMismatch(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		breakIt func(env *msttest.Env)
+		want    string
+	}{
+		{"project", func(env *msttest.Env) { env.Fx.Projects[1].ID = 99 }, "PRJ-TECHPARK"},
+		{"site", func(env *msttest.Env) { env.Fx.Sites[0].ID = 99 }, "PUNE-WH"},
+		{"employee", func(env *msttest.Env) { env.Fx.Employees[0].ID = 99 }, "EMP-001"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			env := msttest.New(t)
+			c.breakIt(env)
+			f := &fatalTB{TB: t}
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				msttest.SeedMasters(f, env)
+			}()
+			<-done
+			if !strings.Contains(f.msg, c.want) {
+				t.Errorf("SeedMasters Fatalf = %q; want it to name %s", f.msg, c.want)
+			}
+			got, err := env.Kit.Auth.(*auth.Auth).UserRestrictions(context.Background(), env.Priya.ID)
+			if err != nil || len(got) != 0 {
+				t.Errorf("UserRestrictions(Priya) = %v, %v; want none after the failure", got, err)
+			}
+		})
 	}
 }
