@@ -1238,3 +1238,42 @@ func wantAddressInputs(t *testing.T, r webtest.Response, gstinName, pincodeName,
 	webtest.WantText(t, r, "Line 1")
 	webtest.WantText(t, r, "Line 2")
 }
+
+// Next and Save overlap other requests of the session, such as a picker's
+// search: nothing the POST put in the session is lost, and a saved draft
+// doesn't come back (CD-223). webtest.NewSessions has AUTH's manager and store,
+// so these fail if a read rewrites the session it loaded.
+func TestScreens_PartyWizardOverlappingRequests(t *testing.T) {
+	const search, rounds = "/pick/Party?q=SHREE", 25
+	overlap := func(t *testing.T, b *webtest.Browser, post func(tab *webtest.Browser)) {
+		t.Helper()
+		var wg sync.WaitGroup
+		pick, tab := b.Clone(), b.Clone()
+		wg.Go(func() {
+			for range 6 {
+				pick.Get(t, search)
+			}
+		})
+		wg.Go(func() { post(tab) })
+		wg.Wait()
+	}
+	t.Run("next keeps its values", func(t *testing.T) {
+		w := newWorld(t)
+		b := w.kavya()
+		webtest.WantRedirect(t, b.Post(t, stepDetails, details("FIRST")), stepAddresses)
+		for n := range rounds {
+			code := "OVER" + strconv.Itoa(n)
+			overlap(t, b, func(tab *webtest.Browser) { tab.Post(t, stepDetails, details(code)) })
+			value(t, b.Get(t, stepDetails), "code", code)
+		}
+	})
+	t.Run("a saved draft stays gone", func(t *testing.T) {
+		w := newWorld(t)
+		b := w.kavya()
+		for n := range rounds {
+			toCheck(t, b, details("SAVED"+strconv.Itoa(n)), url.Values{}, url.Values{})
+			overlap(t, b, func(tab *webtest.Browser) { tab.Post(t, stepCheck, url.Values{}) })
+			webtest.WantRedirect(t, b.Get(t, stepCheck), stepDetails)
+		}
+	})
+}

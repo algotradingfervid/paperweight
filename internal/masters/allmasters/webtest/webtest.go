@@ -45,14 +45,32 @@ func New(t testing.TB, routes func(k mstkit.Env) func(chi.Router)) *Harness {
 // NewSessions is New for routes that use the router's session manager
 // themselves. A test of the production wiring calls allmasters.New(k).Routes
 // inside routes, with sm in its WebDeps; this package can't call it, because
-// allmasters reaches internal/ui (CD-89).
+// allmasters reaches internal/ui (CD-89). The manager and store are AUTH's, so
+// overlapping requests behave as in production (CD-223).
 func NewSessions(t testing.TB, routes func(k mstkit.Env, sm *scs.SessionManager) func(chi.Router)) *Harness {
 	t.Helper()
 	env := msttest.New(t)
-	sm := scs.New()
+	cfg := auth.DefaultSessionConfig(false)
+	sm := auth.NewSessionManager(auth.NewSessionStore(env.DB, env.Clock, cfg), cfg)
 	r := web.NewRouter(web.Options{Sessions: sm})
 	routes(env.Kit, sm)(r)
-	return &Harness{Env: env, Router: r, handler: r}
+	m := metaRouter{Router: r, cookie: sm.Cookie.Name}
+	return &Harness{Env: env, Router: m, handler: m}
+}
+
+// metaRouter tells AUTH's store which token the request presented, as AUTH's
+// middleware does around the session load (CD-223).
+type metaRouter struct {
+	chi.Router
+	cookie string
+}
+
+func (m metaRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var hash string
+	if c, err := r.Cookie(m.cookie); err == nil && c.Value != "" {
+		hash = auth.HashToken(c.Value)
+	}
+	m.Router.ServeHTTP(w, r.WithContext(auth.WithRequestMeta(r.Context(), hash, "", r.UserAgent())))
 }
 
 // Response is one recorded answer.
