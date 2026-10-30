@@ -22,12 +22,18 @@ import (
 // so the source's copy is left out and a restored one is a sync bug.
 const spoolPrefix = "tmp/"
 
+// maxUnacknowledged is how many approvals the restore may hold past the last
+// one printed. The writer is sequential and prints straight after each commit,
+// so a kill can fall between one commit and its print, never two.
+const maxUnacknowledged = 1
+
 // verify checks the restored data directory against the crashed source and
-// the writer's committed count, printing one line per passed check. It stops
-// at the first failure.
-func verify(ctx context.Context, w io.Writer, source, restored string, committed int, countSQL string) error {
+// the approvals the writer acknowledged, printing one line per passed check.
+// It stops at the first failure. The final figure is the writer's own count:
+// see checkApprovals for the rule.
+func verify(ctx context.Context, w io.Writer, source, restored string, acked []int64, approvedSQL string) error {
 	say := func(format string, a ...any) { _, _ = fmt.Fprintf(w, format+"\n", a...) }
-	if committed <= 0 {
+	if len(acked) == 0 {
 		return errors.New("nothing committed: the writer acknowledged no approvals")
 	}
 	src, err := db.Open(filepath.Join(source, "app.db"))
@@ -65,16 +71,90 @@ func verify(ctx context.Context, w io.Writer, source, restored string, committed
 	}
 	say("files %d/%d sha256 ok", n, n)
 
-	var approved int
-	// countSQL is the drill script's own constant.
-	if err := dst.SQL().QueryRowContext(ctx, countSQL).Scan(&approved); err != nil { //nolint:gosec // see above
-		return fmt.Errorf("count approvals: %w", err)
+	srcIDs, err := approvedIDs(ctx, src.SQL(), approvedSQL)
+	if err != nil {
+		return fmt.Errorf("source: %w", err)
 	}
-	if approved != committed {
-		return fmt.Errorf("approvals %d/%d: restored count differs from committed", approved, committed)
+	dstIDs, err := approvedIDs(ctx, dst.SQL(), approvedSQL)
+	if err != nil {
+		return fmt.Errorf("restored: %w", err)
 	}
-	say("approvals %d/%d", approved, committed)
+	extra, err := checkApprovals(acked, srcIDs, dstIDs)
+	if err != nil {
+		return err
+	}
+	if extra > 0 {
+		say("%d more approval committed but not printed, also in the source", extra)
+	}
+	say("approvals %d/%d", len(acked), len(acked))
 	return nil
+}
+
+// checkApprovals is the count rule. acked comes from the writer's output, never
+// from a database; source and restored are the ids approved in each. It passes
+// only if every acknowledged id is approved in restored, source and restored
+// hold exactly the same ids, and at most maxUnacknowledged of those ids are
+// unacknowledged: an approval the writer committed and died before printing. It
+// returns how many such ids there are. Comparing ids, not counts, means a lost
+// row can't be hidden by an extra one.
+func checkApprovals(acked, source, restored []int64) (extra int, err error) {
+	found := 0
+	for _, id := range acked {
+		if slices.Contains(restored, id) {
+			found++
+		}
+	}
+	if found != len(acked) {
+		return 0, fmt.Errorf("approvals %d/%d: acknowledged approvals missing from the restored database", found, len(acked))
+	}
+	if !slices.Equal(slices.Sorted(slices.Values(source)), slices.Sorted(slices.Values(restored))) {
+		return 0, fmt.Errorf("approvals %d/%d: approved ids differ: source %v, restored %v", found, len(acked), source, restored)
+	}
+	extra = len(restored) - found
+	if extra > maxUnacknowledged {
+		return 0, fmt.Errorf("approvals %d/%d: %d more in the restored database, at most %d allowed", found, len(acked), extra, maxUnacknowledged)
+	}
+	return extra, nil
+}
+
+func approvedIDs(ctx context.Context, q *sql.DB, approvedSQL string) ([]int64, error) {
+	// approvedSQL is the drill script's own constant.
+	rows, err := q.QueryContext(ctx, approvedSQL) //nolint:gosec // see above
+	if err != nil {
+		return nil, fmt.Errorf("list approvals: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("list approvals: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list approvals: %w", err)
+	}
+	return ids, nil
+}
+
+// readAcks parses the writer's output into document ids. Every line must be
+// "committed <n> <id>", n counting up from 1, each id new.
+func readAcks(path string) ([]int64, error) {
+	body, err := os.ReadFile(path) //nolint:gosec // the drill's own temp tree
+	if err != nil {
+		return nil, err
+	}
+	var ids []int64
+	for line := range strings.Lines(string(body)) {
+		var n int
+		var id int64
+		if _, err := fmt.Sscanf(line, "committed %d %d\n", &n, &id); err != nil || n != len(ids)+1 || slices.Contains(ids, id) {
+			return nil, fmt.Errorf("bad acknowledgement after %d: %q", len(ids), line)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func integrity(ctx context.Context, q *sql.DB) error {

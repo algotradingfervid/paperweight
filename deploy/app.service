@@ -9,7 +9,9 @@ Wants=network-online.target
 Type=simple
 User=paperweight
 Group=paperweight
-ExecStart=/usr/local/bin/app serve --data /var/lib/paperweight --addr 127.0.0.1:8080
+# Replace paperweight.example.com with the real domain.
+ExecStart=/usr/local/bin/app serve --data /var/lib/paperweight --addr 127.0.0.1:8080 \
+  --secure --trust-proxy --trusted-origin https://paperweight.example.com
 Restart=on-failure
 RestartSec=5s
 UMask=0027
