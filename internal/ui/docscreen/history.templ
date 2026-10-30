@@ -11,7 +11,7 @@ templ History(rows []HistoryRow) {
 				if len(h.Changes) > 0 {
 					<ul class="history-changes">
 						for _, c := range h.Changes {
-							<li>{ c.Field + ": " + orEmpty(c.Before) + " → " + c.After }</li>
+							<li>{ c.Field + ": " + orEmpty(c.Before) + " → " + orEmpty(c.After) }</li>
 						}
 					</ul>
 				}

@@ -296,13 +296,13 @@ func TestApp_DocumentHistoryAndFiles(t *testing.T) {
 	}
 	var changes []string
 	r.doc.Find(".history-changes li").Each(func(_ int, s *goquery.Selection) { changes = append(changes, s.Text()) })
-	for _, want := range []string{"Supplier: null → ", "Line 1: (empty) → "} {
+	for _, want := range []string{"Line 1: (empty) → Item MS-ANGLE-50, Quantity 1,200, Rate ₹62.50, Unit kg"} {
 		if !slices.ContainsFunc(changes, func(c string) bool { return strings.HasPrefix(c, want) }) {
 			t.Errorf("change rows %q, want one starting %q (under the field's label)", changes, want)
 		}
 	}
 	for _, want := range []string{
-		"· System · imported", "· Ravi Kulkarni · cancel: Wrong supplier", "· Priya Shah · Approved on submit (no approval needed)",
+		"· System · imported", "· Ravi Kulkarni · Cancelled: Wrong supplier", "· Priya Shah · Approved on submit (no approval needed)",
 		"HEIC image, opens as download", "note.pdf",
 	} {
 		if !strings.Contains(r.pageText(), want) {

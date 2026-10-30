@@ -195,29 +195,98 @@ func (e extras) Audit(ctx context.Context, p auth.Principal, name string, id int
 		if err != nil {
 			return nil, err
 		}
-		action := entry.Action
+		action := auditAction(entry)
 		if entry.Reason != "" {
 			action += ": " + entry.Reason
 		}
-		out = append(out, docscreen.HistoryRow{At: types.FormatIST(entry.At), By: by, Action: action, Changes: changeRows(dt, entry.Changes)})
+		row := docscreen.HistoryRow{At: types.FormatIST(entry.At), By: by, Action: action}
+		if entry.Action != actionCreate { // DOC-089: a created row is the one line
+			row.Changes = changeRows(ctx, dt, entry.Changes)
+		}
+		out = append(out, row)
 	}
 	return out, nil
 }
 
-// changeRows are an audit entry's changes under their field labels.
-func changeRows(dt *doctype.DocType, changes []audit.Change) []docscreen.ChangeRow {
+// actionCreate is the audit action of a new document; it is not a doctype.Action.
+const actionCreate = "create"
+
+// auditActions are the audit log's actions as History words them (DOC-089).
+var auditActions = map[string]string{
+	actionCreate:                   "Created",
+	string(doctype.ActionSave):     "Saved",
+	string(doctype.ActionSubmit):   "Submitted",
+	string(doctype.ActionWithdraw): "Withdrawn",
+	string(doctype.ActionApprove):  "Approved",
+	string(doctype.ActionReject):   "Rejected",
+	string(doctype.ActionRevise):   "Revised",
+	string(doctype.ActionClose):    "Closed",
+	string(doctype.ActionCancel):   "Cancelled",
+	string(doctype.ActionDelete):   "Deleted",
+	"amended":                      "Amended",
+	"attachment_added":             "Attachment added",
+	"attachment_removed":           "Attachment removed",
+}
+
+// auditAction is an entry's action in words: a roll-up names the document that
+// caused it. An action with no words shows as it is, like approvalAction.
+func auditAction(e audit.Entry) string {
+	if e.CausedBy != nil {
+		return "Updated by " + e.CausedBy.Number
+	}
+	if words, ok := auditActions[e.Action]; ok {
+		return words
+	}
+	return e.Action
+}
+
+// changeRows are an audit entry's changes under their field labels, each value
+// as the document shows it.
+func changeRows(ctx context.Context, dt *doctype.DocType, changes []audit.Change) []docscreen.ChangeRow {
 	out := make([]docscreen.ChangeRow, 0, len(changes))
 	for _, c := range changes {
+		f, known := dt.Field(c.Field)
 		label := c.Field
-		if f, ok := dt.Field(c.Field); ok {
+		before, after := c.Before, c.After
+		switch {
+		case known:
 			label = f.Label
+			before, after = changeText(ctx, f, c.Before), changeText(ctx, f, c.After)
+		case c.Field == "":
+			before, after = lineText(ctx, dt, c.Before), lineText(ctx, dt, c.After)
 		}
 		if c.LineNo > 0 {
 			label = strings.TrimSpace("Line " + strconv.Itoa(c.LineNo) + " " + label)
 		}
-		out = append(out, docscreen.ChangeRow{Field: label, Before: c.Before, After: c.After})
+		out = append(out, docscreen.ChangeRow{Field: label, Before: before, After: after})
 	}
 	return out
+}
+
+// changeText is one audit value as the document shows it. A link is its code
+// alone, so it never reads the master, whose row may have changed since.
+func changeText(ctx context.Context, f doctype.Field, raw string) string {
+	plain := doc.AuditPlain(f, raw)
+	if f.Type == doctype.Link {
+		return plain
+	}
+	text, err := docscreen.Display(ctx, nil, nil, f, plain)
+	if err != nil {
+		return plain // an entry older than the field's type
+	}
+	return text
+}
+
+// lineText is a whole added or removed line: "Item X, Quantity 5".
+func lineText(ctx context.Context, dt *doctype.DocType, raw string) string {
+	vals := doc.AuditLine(raw)
+	var parts []string
+	for _, f := range dt.LineFields() {
+		if v, ok := vals[f.Name]; ok {
+			parts = append(parts, f.Label+" "+changeText(ctx, f, v))
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (e extras) Attachments(ctx context.Context, p auth.Principal, rec auth.RecordRef) ([]components.Attachment, error) {

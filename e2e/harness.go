@@ -5,6 +5,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
 
@@ -27,6 +30,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/kernel/print/printtest"
+	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -50,12 +54,13 @@ const (
 // Harness is one real App on a temp dir behind a random port: the canonical
 // seed, the fixture DocTypes, their print views and the fixture clock.
 type Harness struct {
-	t    *testing.T
-	App  *app.App
-	URL  string
-	Fx   testkit.Fixtures
-	M    fixture.Masters
-	logs *lockedBuffer
+	t     *testing.T
+	App   *app.App
+	URL   string
+	Fx    testkit.Fixtures
+	M     fixture.Masters
+	Clock *clock.Fixed
+	logs  *lockedBuffer
 
 	delayPath atomic.Pointer[string]
 	delay     atomic.Int64
@@ -85,9 +90,9 @@ func (l *lockedBuffer) tail() string {
 func Start(t *testing.T) *Harness {
 	t.Helper()
 	printtest.RegisterFixtureViews(print.Default)
-	h := &Harness{t: t, logs: &lockedBuffer{}}
+	h := &Harness{t: t, Clock: testkit.Clock(), logs: &lockedBuffer{}}
 	a, err := app.New(context.Background(), app.Config{
-		DataDir: t.TempDir(), Clock: testkit.Clock(), LogOutput: h.logs,
+		DataDir: t.TempDir(), Clock: h.Clock, LogOutput: h.logs,
 		Prepare: func(ctx context.Context, d *db.DB) error {
 			if err := db.Migrate(ctx, d, fixture.MigrationsFS, "goose_fixture"); err != nil {
 				return err
@@ -444,4 +449,44 @@ func (s *Session) DocID() int64 {
 // DocPath is one document's page.
 func DocPath(dt string, id int64) string {
 	return fmt.Sprintf("/doc/%s/%d", dt, id)
+}
+
+// SecondTab is a new tab in the same browser, so it shares s's sign-in.
+func (s *Session) SecondTab() *Session {
+	s.t.Helper()
+	return s.tab()
+}
+
+// tab is a session on a tab of s's browser, by default a new one. Its first
+// run has no deadline: a tab lives as long as the context of its first run.
+func (s *Session) tab(opts ...chromedp.ContextOption) *Session {
+	s.t.Helper()
+	ctx, cancel := chromedp.NewContext(s.ctx, opts...)
+	s.t.Cleanup(cancel)
+	if err := chromedp.Do(ctx); err != nil {
+		s.t.Fatalf("open a tab: %v", err)
+	}
+	return &Session{t: s.t, h: s.h, ctx: ctx, width: s.width, Email: s.Email}
+}
+
+// Front brings the tab to the front: a tab behind another takes no key events.
+func (s *Session) Front() {
+	s.t.Helper()
+	s.Do("bring the tab to the front", chromedp.Func(func(ctx context.Context, _ *chromedp.Target) error {
+		_, err := chromedp.Call(ctx, page.BringToFront, cdp.Empty{})
+		return err
+	}))
+}
+
+// Upload posts one file to path from the page, as a multipart fetch with the
+// page's CSRF header, and returns the status.
+func (s *Session) Upload(path, name string, data []byte) int {
+	s.t.Helper()
+	return Eval[int](s, `(async () => {
+  const bytes = Uint8Array.from(atob("`+base64.StdEncoding.EncodeToString(data)+`"), (c) => c.charCodeAt(0));
+  const body = new FormData();
+  body.append("file", new File([bytes], `+strconv.Quote(name)+`));
+  const headers = JSON.parse(document.body.getAttribute("hx-headers"));
+  return (await fetch(`+strconv.Quote(path)+`, {method: "POST", body, headers})).status;
+})()`, chromedp.EvalAwaitPromise)
 }
