@@ -16,8 +16,6 @@ type Views interface {
 	Sessions(SessionsPage) templ.Component
 	Users(UsersPage) templ.Component
 	User(UserPage) templ.Component
-	Roles(RolesPage) templ.Component
-	Matrix(MatrixPage) templ.Component
 }
 
 // MessagePage shows one message.
@@ -71,31 +69,4 @@ type UserPage struct {
 	User        auth.UserInfo
 	Version     int64
 	AccessURL   string
-}
-
-// RolesPage lists the roles and shows the rights matrix of every DocType.
-type RolesPage struct {
-	CSRF     string
-	Warnings []string
-	Roles    []auth.RoleInfo
-	Matrices []MatrixPage
-}
-
-// MatrixPage is one DocType's rights matrix. Rights are the rights that
-// apply to the DocType; Scopes is auth.ScopeOptions(DocType), so Team is
-// offered only where the DocType has an employee field (CD-11). Each right
-// shows None plus Scopes.
-type MatrixPage struct {
-	CSRF           string
-	DocType, Label string
-	Rights         []auth.Right
-	Scopes         []auth.Scope
-	Roles          []MatrixRow
-}
-
-// MatrixRow is one role's rights on the DocType (absent = none); its forms
-// post Role.Version. The Administrator row is fixed.
-type MatrixRow struct {
-	Role   auth.RoleInfo
-	Rights map[auth.Right]auth.Scope
 }

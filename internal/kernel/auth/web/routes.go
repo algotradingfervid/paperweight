@@ -42,11 +42,13 @@ func (s *Server) Mount(r chi.Router) {
 	// Site and project access (Task 20).
 	r.Method(http.MethodGet, "/users/{id}/access", s.Admin(auth.ErrAdminOnlyAccess.Msg, http.HandlerFunc(s.getAccess)))
 	r.Method(http.MethodPost, "/users/{id}/delete", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.deleteUser)))
-	// Roles and the rights matrix (Task 17).
+	// Roles and their rights (Task 17, design-system §8.6).
 	r.Method(http.MethodGet, "/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.listRoles)))
 	r.Method(http.MethodPost, "/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.createRole)))
+	r.Method(http.MethodGet, "/roles/{id}", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.getRole)))
 	r.Method(http.MethodPost, "/roles/{id}/rename", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.renameRole)))
 	r.Method(http.MethodPost, "/roles/{id}/delete", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.deleteRole)))
+	r.Method(http.MethodGet, "/roles/{id}/rights/{doctype}", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.getRights)))
 	r.Method(http.MethodPost, "/roles/{id}/rights/{doctype}", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.setRights)))
 	r.Method(http.MethodPost, "/rights/{doctype}/reset", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.resetRights)))
 	// Who can… (Task 19).
