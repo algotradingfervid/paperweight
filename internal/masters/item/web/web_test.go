@@ -25,7 +25,7 @@ import (
 
 // Screens under test (MST Task 22): /m/item list, /new, /{id}, POST /{id}
 // with version, /{id}/disable, /{id}/enable, /{id}/delete and the picker
-// /m/item/pick?q=. Field names are the DocType's Field names; conversion rows
+// /pick/Item?q=. Field names are the DocType's Field names; conversion rows
 // post as lines[N].uom_id and lines[N].factor (doctype.FieldError.Path).
 const (
 	staleBolt    = "Someone else changed Item BOLT-M12 after you opened it. Reload it and make your changes again."
@@ -365,13 +365,13 @@ func TestScreens_ItemPicker(t *testing.T) {
 	angle, cable := w.seed(t)
 
 	// Matching enabled rows as "{Code} {Name}" (CD-68), each posting its id.
-	rows := w.h.GetHTMX(t, kavya, "/m/item/pick?q=Angle")
+	rows := w.h.GetHTMX(t, kavya, "/pick/Item?q=Angle")
 	webtest.WantStatus(t, rows, http.StatusOK)
 	got := rows.PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(angle.ID, 10) || !strings.Contains(got[0].Text, "MS-ANGLE-50 MS Angle 50x50x5") {
 		t.Errorf("pick?q=Angle = %v; want one row %d \"MS-ANGLE-50 MS Angle 50x50x5\"", got, angle.ID)
 	}
-	got = w.h.GetHTMX(t, kavya, "/m/item/pick?q=Cable").PickRows()
+	got = w.h.GetHTMX(t, kavya, "/pick/Item?q=Cable").PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(cable.ID, 10) || !strings.Contains(got[0].Text, "CABLE-4C Armoured Cable 4 core 16 sq mm") {
 		t.Errorf("pick?q=Cable = %v; want one row %d CABLE-4C", got, cable.ID)
 	}
@@ -380,7 +380,7 @@ func TestScreens_ItemPicker(t *testing.T) {
 	if err := w.svc.SetDisabled(context.Background(), kavya, cable.ID, cable.Version, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.h.GetHTMX(t, kavya, "/m/item/pick?q=Cable").PickRows(); len(got) != 0 {
+	if got := w.h.GetHTMX(t, kavya, "/pick/Item?q=Cable").PickRows(); len(got) != 0 {
 		t.Errorf("pick?q=Cable after disabling CABLE-4C = %v; want no rows", got)
 	}
 }
