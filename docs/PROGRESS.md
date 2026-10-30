@@ -255,6 +255,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | CD-213 | Step 1 CanTx and tx-aware AUTH reads | High | AD-1 | 30 Oct | 30 Oct | 1 | 0/0/5, mutation 35/37 | lane/auth-cantx 9898993 |
 | WP2 | 22-employee screens, CreateWizard, Sections | High | opus/opus (AD-2) | 30 Oct | 30 Oct | 3 | 0/4/12 | lane/masters-screens c17deb0 |
 | CD-213 | Step 2 master Tx methods, ValueAllowedTx, nestcheck gate | High | AD-1 | 30 Oct | 30 Oct | 2 | 0/1/5, mutation 47/51 | lane/auth-cantx 4915844 |
+| CD-223 | Sessions commit only on change | High | AD-4 | 30 Oct | 30 Oct | 1 | APPROVE, 2 minors fixed | wp/polish 9875cb2 |
 | Polish | Factor, inbox why and filter, copy rights, body ceiling (rows in .worktrees/polish/.work/ad-tasks.md) | Standard | AD-4 | | 30 Oct | 1 | each reviewed | wp/polish 1c3d103 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
