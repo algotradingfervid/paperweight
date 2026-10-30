@@ -23,9 +23,10 @@ const CompanyDocType = "Company"
 var CompanyKind = mstkit.Kind{DocType: CompanyDocType, Label: "Company", Table: "company"}
 
 const (
-	companyID    = 1
-	msgSingleton = "This install supports one company. Add a branch instead."
-	msgPAN       = "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. AAFCV2449G)."
+	companyID      = 1
+	msgSingleton   = "This install supports one company. Add a branch instead."
+	msgPAN         = "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. AAFCV2449G)."
+	msgPANRequired = "PAN is required."
 )
 
 func init() {
@@ -54,14 +55,17 @@ type Company struct {
 // CompanyInput is what a company save posts.
 type CompanyInput struct{ LegalName, PAN string }
 
-// ValidateCompany trims the legal name and normalises the PAN (MST-020).
+// ValidateCompany trims the legal name and normalises the PAN, which is
+// required (MST-020, CD-165).
 func ValidateCompany(in CompanyInput) (CompanyInput, error) {
 	var es mstkit.Errors
 	name, err := mstkit.NormalizeName(in.LegalName)
 	addErr(&es, err)
 	pan, err := gstin.ValidatePAN(in.PAN)
-	if err != nil || pan == "" {
+	if err != nil {
 		es.Add("pan", msgPAN)
+	} else if pan == "" {
+		es.Add("pan", msgPANRequired)
 	}
 	return CompanyInput{LegalName: name, PAN: pan}, es.Err()
 }
