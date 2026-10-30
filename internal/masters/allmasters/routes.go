@@ -6,7 +6,12 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	mastersweb "github.com/vardhan/internaltools/internal/masters/allmasters/web"
+	companyweb "github.com/vardhan/internaltools/internal/masters/company/web"
 	expensetypeweb "github.com/vardhan/internaltools/internal/masters/expensetype/web"
+	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
+	paymenttermsweb "github.com/vardhan/internaltools/internal/masters/paymentterms/web"
+	projectweb "github.com/vardhan/internaltools/internal/masters/project/web"
+	siteweb "github.com/vardhan/internaltools/internal/masters/site/web"
 	taxcodeweb "github.com/vardhan/internaltools/internal/masters/taxcode/web"
 	uomweb "github.com/vardhan/internaltools/internal/masters/uom/web"
 )
@@ -24,8 +29,14 @@ type WebDeps struct {
 // 22, CD-195, CD-206); WP3 mounts it behind AUTH's middleware. Each master
 // adds one line.
 func (s *Services) Routes(r chi.Router, d WebDeps) {
+	companyweb.Routes(s.Company, s.env)(r)
+	companyweb.LogoRoutes(s.Company, s.env, d.Files)(r)
+	paymenttermsweb.Routes(s.Terms, s.env)(r)
 	uomweb.Routes(s.UoM, s.env)(r)
 	taxcodeweb.Routes(s.TaxCode, s.env)(r)
+	itemweb.Routes(s.Item, s.env)(r)
 	expensetypeweb.Routes(s.ExpenseType, s.env)(r)
+	projectweb.Routes(s.Project, s.env)(r)
+	siteweb.Routes(s.Site, s.env)(r)
 	mastersweb.Routes(s.env, d.Sessions)(r)
 }
