@@ -18,6 +18,8 @@
     font-size: var(--text-base);
     overflow-wrap: anywhere;
   }
+  /* Two buttons leave a phone's summary too narrow, so they go under it. */
+  & .picker__chosen:has([data-picker-clear]) .picker__summary { flex-basis: 100%; }
   & .picker__search {
     position: relative;
     display: grid;
@@ -80,6 +82,7 @@
   }
   & .picker__search[data-open] [data-picker-close] { display: inline-flex; }
   @media (min-width: 48rem) {
+    & .picker__chosen:has([data-picker-clear]) .picker__summary { flex-basis: 0; }
     & .picker__search[data-open] {
       position: relative;
       inset: auto;

@@ -4,7 +4,9 @@ import "strconv"
 
 // Picker is a master picker (design-system §7): a Select for fewer than 50
 // options, else an ARIA 1.2 combobox that htmx fills from SearchURL and
-// combobox.js drives. A chosen row shows as a summary with "Change". Below
+// combobox.js drives. A chosen row shows as a summary with "Change", and with
+// "Clear" when the field is optional (CD-217); Clear stays in the hidden
+// summary while nothing is chosen, for a row chosen in the browser. Below
 // 48rem the open search fills the screen like a sheet.
 templ Picker(p PickerProps) {
 	if len(p.Options) > 0 && len(p.Options) < 50 {
@@ -12,10 +14,13 @@ templ Picker(p PickerProps) {
 	} else {
 		{{ id, text := pickerChosen(p) }}
 		@field(p.Field) {
-			<div class="picker" x-data="combobox">
+			<div class="picker" role="group" aria-label={ p.Field.Label } tabindex="-1" x-data="combobox">
 				<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
 					<p class="picker__summary" data-picker-summary>{ text }</p>
 					@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-picker-change": true}})
+					if p.Field.Optional {
+						@Button(ButtonProps{Label: "Clear", AriaLabel: "Clear " + p.Field.Label, Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-clear": true}})
+					}
 				</div>
 				<div class="picker__search" data-picker-search hidden?={ p.Chosen != nil }>
 					<div class="picker__bar">
