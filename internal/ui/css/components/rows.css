@@ -1,0 +1,54 @@
+/* rows.css: RowsEditor, rows that save with the whole form (MST Task 22).
+   Cards below 48rem; from 48rem (container) the same items become aligned
+   rows under the head. Cells share the room equally, except that a wide cell
+   holds a track for its longest number (CD-203), which shrinks only if wide
+   tracks alone would fill the row: three fit at 48rem. */
+@utility rows-fieldset {
+  min-inline-size: 0;
+  & > legend { max-inline-size: 100%; overflow-wrap: anywhere; }
+}
+
+@utility rows-editor {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--space-3);
+  & > * { min-inline-size: 0; }
+  & > .btn { justify-self: start; max-inline-size: 100%; }
+  & .rows-head { display: none; }
+  & .rows-items { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+  & .rows-row {
+    display: grid;
+    gap: var(--space-2);
+    min-inline-size: 0;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: var(--border-w) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    & > * { min-inline-size: 0; }
+  }
+  & .rows-no { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+  @container (min-width: 48rem) {
+    & :is(.rows-head, .rows-row) {
+      display: flex;
+      gap: var(--space-2);
+      align-items: start;
+      & > * { flex: 1 1 0; min-inline-size: 0; }
+    }
+    & .rows-head {
+      padding: var(--space-2) 0;
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+      border-block-end: var(--border-w) solid var(--color-border-subtle);
+    }
+    & .rows-row { padding: 0; background: none; border: 0; border-radius: 0; }
+    & .rows-row .field__label { @apply visually-hidden; }
+    /* Tight tracks and control padding: with four cells at exactly 48rem a
+       worst-case amount still shows whole (CD-169), and "Removing…" fits. */
+    & :is(.rows-head, .rows-row) > .rows-cell--wide { flex: 0 1 calc(var(--space-16) * 2.5); }
+    & :is(.rows-head, .rows-row) > .rows-no { flex: 0 0 var(--space-6); }
+    & :is(.rows-head, .rows-row) > .rows-actions { flex: 0 0 calc(var(--space-12) * 2); }
+    & .rows-row > .rows-no { display: flex; align-items: center; min-block-size: var(--control-h); }
+    & .rows-row .input { padding-inline: var(--space-2); }
+    & .rows-actions .btn { max-inline-size: 100%; padding-inline: var(--space-2); }
+  }
+}

@@ -57,6 +57,7 @@ var pages = []galleryPage{
 	{"dialogs", titled("Dialogs and sheets"), static(dialogsBody())},
 	{"datalist", titled("Data list"), static(datalistBody())},
 	{"lines", titled("Lines"), static(linesBody())},
+	{"rows", titled("Row editor"), static(rowsBody())},
 	{"picker", formWidth("Picker"), static(pickerBody())},
 	{"upload", formWidth("File upload"), static(uploadBody())},
 	{"wizard-1", wizardOpts(1), wizardBody(0)},
@@ -150,13 +151,16 @@ func show(w http.ResponseWriter, r *http.Request) {
 	render(w, r, http.StatusOK, pages[i].opts, pages[i].body(r))
 }
 
-// post serves the buttons page's slow form and wizard step 1.
+// post serves the buttons page's slow form, the row editor (which only draws
+// the page again) and wizard step 1.
 func post(w http.ResponseWriter, r *http.Request) {
 	switch chi.URLParam(r, "page") {
 	case "buttons":
 		time.Sleep(500 * time.Millisecond)
 		w.Header().Set("HX-Trigger", `{"notice":{"level":"success","text":"Saved the sample."}}`)
 		w.WriteHeader(http.StatusNoContent)
+	case "rows":
+		render(w, r, http.StatusOK, titled("Row editor"), rowsBody())
 	case "wizard-1":
 		v := stepValues{reference: r.PostFormValue("reference"), date: r.PostFormValue("order_date"), supplier: pickByID(r.PostFormValue("supplier_id"))}
 		if strings.TrimSpace(v.reference) == "" {
