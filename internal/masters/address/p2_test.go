@@ -397,7 +397,7 @@ func TestParty_DefaultPaymentTerms(t *testing.T) { // MST-050
 func TestParty_DefaultPaymentTermsChecked(t *testing.T) {
 	const (
 		field       = "default_payment_terms_id"
-		notFound    = "Default payment terms not found. Pick one from the list."
+		notFound    = "Payment Terms not found. Pick one from the list."
 		disabledMsg = "Payment terms NET30 is disabled. Pick another payment terms."
 		noTerms     = 9999
 	)
