@@ -6,14 +6,13 @@ for uploaded files. The files are in `deploy/`.
 
 ## Binary sizes
 
-Built on 2026-10-30 from commit `04e28f4` with Go 1.27.3
-(`CGO_ENABLED=0 GOOS=linux go build -trimpath`), one build per target. These
-sizes are for that commit; they are re-measured before the `core-v1` tag.
+Built on 2026-10-31 from commit `ab77618` (the core-v1 final gate) with Go
+1.27.3 (`CGO_ENABLED=0 GOOS=linux go build -trimpath`), one build per target.
 
 | Target | Size |
 |---|---|
-| linux/amd64 | 32,876,708 bytes (31.4 MiB) |
-| linux/arm64 | 30,431,462 bytes (29.0 MiB) |
+| linux/amd64 | 33,894,313 bytes (32.3 MiB) |
+| linux/arm64 | 31,226,331 bytes (29.8 MiB) |
 
 Build a release binary:
 
@@ -280,7 +279,7 @@ starves the write Litestream needs for its first sync (`create _litestream_seq
 table: database is locked` in the log). Litestream retries and recovers, but one
 stopped before the retry has replicated nothing.
 
-Last run: 2026-10-30 on darwin/arm64, ten runs in a row, each `approvals 200/200`.
+Last run: 2026-10-31 on darwin/arm64 at `ab77618` (core-v1 final gate), `approvals 200/200`; ten runs in a row on 2026-10-30.
 Removing a restored file, adding or dropping acknowledgements, swapping an
 acknowledged id and a `--delete` in the sync each failed the drill.
 
