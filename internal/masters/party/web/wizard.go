@@ -11,6 +11,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/address"
+	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/masters/party"
@@ -130,6 +131,7 @@ func (s wizardSaver) save(ctx context.Context, p auth.Principal, d draft) (mstki
 			}
 			warnings = append(warnings, added.Warnings...)
 		}
+		es = withoutFollowOns(d.Addresses, es)
 		for i, in := range d.Contacts {
 			in.PartyID = saved.ID
 			_, err := s.addresses.CreateContactTx(ctx, tx, p, in)
@@ -141,7 +143,7 @@ func (s wizardSaver) save(ctx context.Context, p auth.Principal, d draft) (mstki
 			return nil
 		}
 		slices.SortStableFunc(es, func(a, b doctype.FieldError) int { return cmp.Compare(a.Line, b.Line) })
-		return &mstkit.ValidationError{Fields: withoutNeedBilling(d.Addresses, es)}
+		return &mstkit.ValidationError{Fields: es}
 	})
 	saved.Warnings = mergeWarnings(warnings)
 	return saved, err
@@ -167,14 +169,26 @@ func billingFirst(rows []address.Input) []int {
 	return order
 }
 
-// withoutNeedBilling drops D1 from a draft that has a billing row: that row was
-// refused for its own reason, and saying it's missing would be false. A draft
-// without one keeps D1.
-func withoutNeedBilling(rows []address.Input, es []doctype.FieldError) []doctype.FieldError {
-	if !slices.ContainsFunc(rows, func(in address.Input) bool { return in.IsBilling }) {
-		return es
+// withoutFollowOns drops from es, the address rows' errors in save order, those
+// that hold only because of an earlier row. A refused billing row was never
+// written, so the rows after it look like the party's first: saying D1, or the
+// two GSTIN errors of a first billing row, would be false. D1 is about the
+// draft, so a row that shows it counts the same and it shows once (CD-180).
+// Billing rows save first, so a real error on one has no such row above it.
+func withoutFollowOns(rows []address.Input, es []doctype.FieldError) []doctype.FieldError {
+	cause := 0 // the Line that explains the rest
+	var kept []doctype.FieldError
+	for _, e := range es {
+		needBilling := e.Message == party.MsgNeedPrimaryBilling
+		if cause != 0 && e.Line != cause && (needBilling || e.Message == gstin.MsgNeedGSTIN || e.Message == gstin.MsgUnregisteredGSTIN) {
+			continue
+		}
+		if cause == 0 && (needBilling || rows[e.Line-1].IsBilling) {
+			cause = e.Line
+		}
+		kept = append(kept, e)
 	}
-	return slices.DeleteFunc(es, func(e doctype.FieldError) bool { return e.Message == party.MsgNeedPrimaryBilling })
+	return kept
 }
 
 // mergeWarnings is every record's warnings once. The party's same-PAN warning

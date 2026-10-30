@@ -22,6 +22,13 @@ func Categories() []Category {
 	return []Category{Regular, Composition, Unregistered, SEZ, Overseas}
 }
 
+// ValidateCategory's refusals of a GSTIN missing or not allowed, for a screen
+// that must tell them apart (CD-212).
+const (
+	MsgNeedGSTIN         = "Enter a GSTIN, or set GST category to Unregistered or Overseas."
+	MsgUnregisteredGSTIN = "GST category can't be Unregistered when a GSTIN is entered."
+)
+
 // ValidateCategory checks that a normalised GSTIN fits category c
 // (utils/__init__.py:413, validate_gst_category; GSTIN_FORMATS,
 // constants/__init__.py:1461). Registered Regular also accepts the TCS and TDS
@@ -29,7 +36,7 @@ func Categories() []Category {
 func ValidateCategory(c Category, gstin string) error {
 	if gstin == "" {
 		if c != Unregistered && c != Overseas {
-			return errors.New("Enter a GSTIN, or set GST category to Unregistered or Overseas.")
+			return errors.New(MsgNeedGSTIN)
 		}
 		return nil
 	}
@@ -37,7 +44,7 @@ func ValidateCategory(c Category, gstin string) error {
 		return errUnsupported
 	}
 	if c == Unregistered {
-		return errors.New("GST category can't be Unregistered when a GSTIN is entered.")
+		return errors.New(MsgUnregisteredGSTIN)
 	}
 	var ok bool
 	switch c {

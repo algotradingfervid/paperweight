@@ -54,7 +54,7 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		Values:   values,
 		Head:     head,
 		Ref:      ref,
-		Codes:    map[string]components.CodeKind{"pan": components.PAN, "gstin": components.GSTIN, "pincode": components.Pincode},
+		Codes:    map[string]components.CodeKind{"pan": components.PAN, "gstin": components.GSTIN},
 		Selects:  map[string][]components.Option{"state_code": stateOptions()},
 		Extra:    rec.lists,
 		Mount:    rec.routes,
@@ -170,7 +170,7 @@ func ref(id int64) *auth.RecordRef {
 
 // fieldsOf is docType's fields of these names, in order, ImportOnly ones too.
 func fieldsOf(docType string, names ...string) []doctype.Field {
-	dt, _ := doctype.Lookup(docType) // registered by the master package's init
+	dt, _ := doctype.Lookup(docType)                   // registered by the master package's init
 	all := slices.Concat(dt.Fields, dt.ImportFields()) // email and mobile are only in the second
 	out := make([]doctype.Field, len(names))
 	for i, name := range names {

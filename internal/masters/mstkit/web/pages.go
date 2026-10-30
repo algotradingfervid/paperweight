@@ -65,7 +65,8 @@ func (f form) Refused(err error, names []string) (Form, int, bool) {
 
 // SubForm is a form of the master's own on the record page's template: an
 // address under its party. ID 0 posts no version. Confirm shows the delete
-// confirm step instead, which posts to Action + "/delete".
+// confirm step instead, which posts to Action + "/delete" and cancels to Back:
+// Action's form may need a right the step doesn't.
 type SubForm struct {
 	ID            int64
 	Title, Action string
@@ -77,8 +78,8 @@ type SubForm struct {
 
 // RenderSubForm renders s with status.
 func RenderSubForm(w http.ResponseWriter, r *http.Request, status int, s SubForm) {
-	ui.Render(w, r, status, recordPage(recordView{
+	ui.Render(w, r, status, recordPageCancelTo(recordView{
 		ID: s.ID, Title: s.Title, Action: s.Action, Back: s.Back, CanWrite: true, Width: layout.Form,
 		Form: s.Form, Inputs: s.Inputs, Confirm: s.Confirm,
-	}), nil)
+	}, s.Back.Href), nil)
 }

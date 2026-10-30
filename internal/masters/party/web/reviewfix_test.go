@@ -548,3 +548,15 @@ func TestScreens_PartyWizardCheckSkipsBlankFields(t *testing.T) {
 	webtest.WantNoText(t, blank, "Line 2")
 	webtest.WantNoText(t, blank, "Middle name")
 }
+
+// A billing row's own errors all stay: only the rows after it are excused.
+func TestScreens_PartyWizardRowKeepsItsOwnErrors(t *testing.T) {
+	w := newWorld(t)
+	b := w.kavya()
+	overseas := row(blrRow, "gstin", "", "is_billing", "1", "is_shipping", "", "state_code", "", "country", "United Kingdom", "pincode", "SW1A 1AA")
+	toCheck(t, b, details("MEHTA"), rows(overseas), url.Values{})
+	refused := b.Post(t, stepCheck, url.Values{})
+	webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
+	webtest.WantFieldErrorID(t, refused, components.FieldID(line(1, "country")), msgOverseas)
+	webtest.WantFieldErrorID(t, refused, components.FieldID(line(1, "gstin")), msgNeedGSTIN)
+}

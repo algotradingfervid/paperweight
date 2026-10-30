@@ -41,7 +41,8 @@ type stored struct {
 // rowKind is what differs between an address's pages and a contact's. Each has
 // its own rights, version and routes under its party (CD-50).
 type rowKind struct {
-	path, docType, newTitle                 string
+	kind                                    mstkit.Kind
+	path, newTitle                          string
 	saved, disabledMsg, enabledMsg, deleted string
 	fields                                  []doctype.Field
 	defaults                                map[string]string
@@ -55,6 +56,12 @@ type rowKind struct {
 	extra func(pages mstweb.Pages, f mstweb.Form) []templ.Component
 }
 
+// ref is the row AUTH checks: Address and Contact declare no project, site or
+// employee field.
+func (k rowKind) ref(id int64) *auth.RecordRef {
+	return &auth.RecordRef{DocType: k.kind.DocType, ID: id}
+}
+
 func (k rowKind) names() []string {
 	names := make([]string, len(k.fields))
 	for i, fd := range k.fields {
@@ -66,7 +73,7 @@ func (k rowKind) names() []string {
 func (s records) addressKind() rowKind {
 	a := s.addresses
 	return rowKind{
-		path: stepAddresses, docType: address.DocType, newTitle: "New address",
+		kind: address.Kind, path: stepAddresses, newTitle: "New address",
 		saved: "Address saved.", disabledMsg: "Address disabled.", enabledMsg: "Address enabled.", deleted: "Address deleted.",
 		fields: addressFields(), defaults: addressDefaults,
 		get: func(ctx context.Context, tx *db.Tx, id int64) (stored, error) {
@@ -96,7 +103,7 @@ func (s records) contactKind() rowKind {
 	a := s.addresses
 	fields := fieldsOf(address.ContactDocType, "first_name", "middle_name", "last_name", "is_primary")
 	return rowKind{
-		path: stepContacts, docType: address.ContactDocType, newTitle: "New contact",
+		kind: address.ContactKind, path: stepContacts, newTitle: "New contact",
 		saved: "Contact saved.", disabledMsg: "Contact disabled.", enabledMsg: "Contact enabled.", deleted: "Contact deleted.",
 		fields: fields,
 		get: func(ctx context.Context, tx *db.Tx, id int64) (stored, error) {
@@ -201,7 +208,6 @@ func contactFormInput(v map[string]string) address.ContactInput {
 // contactLists is the contact form's emails and phones, each with a spare row
 // for another, ticked Mobile because most are.
 func contactLists(pages mstweb.Pages, f mstweb.Form) []templ.Component {
-	f.Values = maps.Clone(f.Values)
 	var out []templ.Component
 	input := func(key, label string, kind doctype.FieldType) {
 		out = append(out, pages.Input(doctype.Field{Label: label, Type: kind}, key, f))
@@ -268,24 +274,44 @@ func rowID(r *http.Request) int64 {
 	return id
 }
 
-// open checks p's right, on the row when the URL names one, and reads the party
-// and the row. A row that isn't the party's is a 404: the owner never changes
+// readParty reads the party a row route is under, refusing as its record does:
+// rows live under a party, so a user who can't read it reaches none of them.
+func (s records) readParty(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) (party.Party, error) {
+	if err := s.env.CanRowTx(ctx, tx, p, party.Kind, auth.RightRead, ref(id)); err != nil {
+		return party.Party{}, err
+	}
+	return s.parties.Get(ctx, tx, id)
+}
+
+// urlParty is readParty in one read, for a route that checks its row in the write.
+func (s records) urlParty(r *http.Request, p auth.Principal) (party.Party, error) {
+	ctx := r.Context()
+	var pt party.Party
+	err := s.env.DB.Read(ctx, func(tx *db.Tx) error {
+		var err error
+		pt, err = s.readParty(ctx, tx, p, mstweb.RecordID(r))
+		return err
+	})
+	return pt, err
+}
+
+// open reads the party, checks p's right, on the row when the URL names one, and
+// reads the row. A row that isn't the party's is a 404: the owner never changes
 // (CD-176, CD-190), so this read holds for the write that follows.
 func (s records) open(r *http.Request, p auth.Principal, k rowKind, right auth.Right) (party.Party, stored, error) {
 	ctx := r.Context()
 	id := rowID(r)
-	var rec *auth.RecordRef
-	if id != 0 {
-		rec = &auth.RecordRef{DocType: k.docType, ID: id}
-	}
-	if err := s.env.Auth.Can(ctx, p, k.docType, right, rec); err != nil {
-		return party.Party{}, stored{}, err
-	}
 	var pt party.Party
 	var st stored
 	err := s.env.DB.Read(ctx, func(tx *db.Tx) error {
 		var err error
-		if pt, err = s.parties.Get(ctx, tx, mstweb.RecordID(r)); err != nil || id == 0 {
+		if pt, err = s.readParty(ctx, tx, p, mstweb.RecordID(r)); err != nil {
+			return err
+		}
+		if id == 0 {
+			return s.env.Auth.CanTx(ctx, tx, p, k.kind.DocType, right, nil)
+		}
+		if err := s.env.CanRowTx(ctx, tx, p, k.kind, right, k.ref(id)); err != nil {
 			return err
 		}
 		if st, err = k.get(ctx, tx, id); err != nil {
@@ -431,11 +457,11 @@ func (s records) remove(pages mstweb.Pages, k rowKind) mstweb.HandlerFunc {
 }
 
 // setPrimaryAddress posts kind=billing or shipping, at the posted version. The
-// service takes no owner: open's 404 guards it.
+// service takes no owner, so the write checks it first.
 func (s records) setPrimaryAddress(pages mstweb.Pages) mstweb.HandlerFunc {
 	k := s.addressKind()
 	return func(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
-		pt, _, err := s.open(r, p, k, auth.RightWrite)
+		pt, err := s.urlParty(r, p)
 		if err != nil {
 			return err
 		}
@@ -449,7 +475,14 @@ func (s records) setPrimaryAddress(pages mstweb.Pages) mstweb.HandlerFunc {
 		}
 		ctx := r.Context()
 		err = s.env.Write(ctx, p, address.Kind, auth.RightWrite, func(tx *db.Tx) error {
-			return s.addresses.SetPrimaryTx(ctx, tx, p, rowID(r), kind == "billing", version)
+			a, err := s.addresses.Get(ctx, tx, rowID(r))
+			if err != nil {
+				return err
+			}
+			if a.PartyID != pt.ID {
+				return doctype.ErrNotFound
+			}
+			return s.addresses.SetPrimaryTx(ctx, tx, p, a.ID, kind == "billing", version)
 		})
 		if err != nil {
 			return pages.Refused(w, r, p, pt.ID, err)
@@ -465,7 +498,11 @@ func (s records) setPrimaryAddress(pages mstweb.Pages) mstweb.HandlerFunc {
 func (s records) setPrimaryContact(pages mstweb.Pages) mstweb.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
 		ctx := r.Context()
-		partyID, id := mstweb.RecordID(r), rowID(r)
+		pt, err := s.urlParty(r, p)
+		if err != nil {
+			return err
+		}
+		id := rowID(r)
 		version, err := mstweb.PostedVersion(r)
 		if err != nil {
 			return err
@@ -475,17 +512,17 @@ func (s records) setPrimaryContact(pages mstweb.Pages) mstweb.HandlerFunc {
 			if err != nil && !errors.Is(err, doctype.ErrNotFound) {
 				return err
 			}
-			if err == nil && c.PartyID == partyID {
+			if err == nil && c.PartyID == pt.ID {
 				if err := mstkit.CheckVersion(ctx, tx, address.ContactKind, id, version); err != nil {
 					return err
 				}
 			}
-			return s.addresses.SetPrimaryContactTx(ctx, tx, p, partyID, id)
+			return s.addresses.SetPrimaryContactTx(ctx, tx, p, pt.ID, id)
 		})
 		if err != nil {
-			return pages.Refused(w, r, p, partyID, err)
+			return pages.Refused(w, r, p, pt.ID, err)
 		}
-		return mstweb.Done(w, r, s.contactKind().saved, partyPath(partyID))
+		return mstweb.Done(w, r, s.contactKind().saved, partyPath(pt.ID))
 	}
 }
 
@@ -552,39 +589,40 @@ func (s records) rowIDs(ctx context.Context, p auth.Principal, docType string, p
 		for _, row := range res.Rows {
 			ids = append(ids, row.ID)
 		}
-		if len(res.Rows) == 0 || len(ids) >= res.Total {
+		if len(ids) >= res.Total {
 			return ids, nil
 		}
 	}
 }
 
-// view is the row list of docType, nil for a user who can't read it; row fills
-// one row's view from its id, and the read tx is shared.
+// view is k's row list, nil for a user who can't read it; row fills one row's
+// view from its id, and every row shares one read.
 func (s records) view(ctx context.Context, p auth.Principal, k rowKind, title, empty, addLabel string, partyID int64, row func(tx *db.Tx, id int64, can func(auth.Right) bool) (rowView, error)) (*rowsView, error) {
-	if s.env.Auth.Can(ctx, p, k.docType, auth.RightRead, nil) != nil {
+	if s.env.Auth.Can(ctx, p, k.kind.DocType, auth.RightRead, nil) != nil {
 		return nil, nil //nolint:nilnil // nil is no such section, not a failure
 	}
-	ids, err := s.rowIDs(ctx, p, k.docType, partyID)
+	ids, err := s.rowIDs(ctx, p, k.kind.DocType, partyID)
 	if err != nil {
 		return nil, err
 	}
 	v := &rowsView{Title: title, Empty: empty}
-	if s.env.Auth.Can(ctx, p, k.docType, auth.RightCreate, nil) == nil {
+	if s.env.Auth.Can(ctx, p, k.kind.DocType, auth.RightCreate, nil) == nil {
 		v.Add = &components.Link{Label: addLabel, Href: partyPath(partyID) + "/" + k.path + "/new"}
 	}
-	for _, id := range ids {
-		can := map[auth.Right]bool{}
-		for _, right := range []auth.Right{auth.RightWrite, auth.RightDelete} {
-			can[right] = s.env.Auth.Can(ctx, p, k.docType, right, &auth.RecordRef{DocType: k.docType, ID: id}) == nil
-		}
-		err := s.env.DB.Read(ctx, func(tx *db.Tx) error {
-			r, err := row(tx, id, func(right auth.Right) bool { return can[right] })
+	err = s.env.DB.Read(ctx, func(tx *db.Tx) error {
+		for _, id := range ids {
+			r, err := row(tx, id, func(right auth.Right) bool {
+				return s.env.CanRowTx(ctx, tx, p, k.kind, right, k.ref(id)) == nil
+			})
+			if err != nil {
+				return err
+			}
 			v.Rows = append(v.Rows, r)
-			return err
-		})
-		if err != nil {
-			return nil, err
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return v, nil
 }
