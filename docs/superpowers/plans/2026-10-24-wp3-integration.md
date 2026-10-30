@@ -127,6 +127,7 @@ Task 2 (composition root) also does:
 - Fills `ui.Shell` navigation and the inbox count, and sets Shell CSRF from `authweb.CSRFToken`.
 - Owns the signed-in `/` route, where `SafeNext` and the header brand link land.
 - Routes `/doc/{DocType}/export.csv`, which docscreen already links to.
+- Mounts the request body ceiling before CSRF (CD-206) and passes `allmasters.WebDeps` to `Routes`.
 - Mounts `GET /search` and wires `Deps.RecordURL` (CD-200).
 - Mounts `/ui/validate/*` for real pages; today only the gallery mounts it.
 - Calls `company.SetupTx` from first-run setup with CD-165's fields.
