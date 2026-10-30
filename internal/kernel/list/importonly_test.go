@@ -115,7 +115,7 @@ func TestList_SkipsImportOnly(t *testing.T) {
 	if n, err := s.Count(ctx, p, dt, q); err != nil || n != 2 {
 		t.Errorf("Count = %d, %v; want 2, nil", n, err)
 	}
-	res, err = s.Picker(ctx, p, dt, "zeta", 10)
+	res, err = s.Picker(ctx, p, dt, "zeta", 25)
 	if err != nil {
 		t.Fatalf("Picker: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestList_SkipsImportOnly(t *testing.T) {
 	if got := list.DefaultFilters(bare); got != nil {
 		t.Errorf("DefaultFilters(bare) = %+v, want nil", got)
 	}
-	res, err = s.Picker(ctx, p, bare, "", 10)
+	res, err = s.Picker(ctx, p, bare, "", 25)
 	if err != nil {
 		t.Fatalf("Picker(bare): %v", err)
 	}
