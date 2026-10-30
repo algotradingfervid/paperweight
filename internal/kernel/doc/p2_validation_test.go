@@ -223,6 +223,110 @@ func TestDoc_Save_NoOp(t *testing.T) {
 	}
 }
 
+// CD-199 (DOC-034, DOC-101, MST-010): a save with identical values still
+// checks the draft's masters; the no-change shortcut never hides their errors.
+func TestDoc_Save_NoOp_MasterRefused(t *testing.T) {
+	const rajkotBlocked = "Rajkot Castings is on hold. Ask accounts before ordering."
+	cases := []struct {
+		name     string
+		refuse   func(t *testing.T, h *fixturetest.H)
+		allow    func(t *testing.T, h *fixturetest.H)
+		field    string
+		line     int
+		wantText string
+	}{
+		{
+			name:   "disabled supplier",
+			refuse: func(t *testing.T, h *fixturetest.H) { fixture.SetDisabled(t, h.DB, "fixture_party", "RAJKOT", true) },
+			allow:  func(t *testing.T, h *fixturetest.H) { fixture.SetDisabled(t, h.DB, "fixture_party", "RAJKOT", false) },
+			field:  "supplier_id", wantText: lkMsgSupplierDisabled,
+		},
+		{
+			name:   "disabled item on line 1",
+			refuse: func(t *testing.T, h *fixturetest.H) { fixture.SetDisabled(t, h.DB, "fixture_item", "CEMENT-OPC", true) },
+			allow: func(t *testing.T, h *fixturetest.H) {
+				fixture.SetDisabled(t, h.DB, "fixture_item", "CEMENT-OPC", false)
+			},
+			field: "item_id", line: 1, wantText: lkMsgItemDisabled,
+		},
+		{
+			name: "blocked supplier",
+			refuse: func(t *testing.T, h *fixturetest.H) {
+				fixture.SetBlocked(t, h.DB, "fixture_party", "RAJKOT", rajkotBlocked)
+			},
+			allow: func(t *testing.T, h *fixturetest.H) { fixture.SetBlocked(t, h.DB, "fixture_party", "RAJKOT", "") },
+			field: "supplier_id", wantText: rajkotBlocked,
+		},
+		{
+			name: "blocked item on line 2",
+			refuse: func(t *testing.T, h *fixturetest.H) {
+				fixture.SetBlocked(t, h.DB, "fixture_item", "WIRE-18G", p2lWireBlocked)
+			},
+			allow: func(t *testing.T, h *fixturetest.H) { fixture.SetBlocked(t, h.DB, "fixture_item", "WIRE-18G", "") },
+			field: "item_id", line: 2, wantText: p2lMsgWireBlockedL2,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := fixturetest.New(t)
+			res := h.NewOrderWith(t, h.Priya, map[string]string{"supplier_id": p2vID(h.M.Party["RAJKOT"])},
+				fixturetest.OL{Item: "CEMENT-OPC", Qty: "10"}, fixturetest.OL{Item: "WIRE-18G", Qty: "5"})
+			d := loadDoc(t, h, fixture.Order, res.ID)
+			count := h.AuditCount(t)
+			entries := len(h.Audit(t, fixture.Order, res.ID))
+			c.refuse(t, h)
+
+			h.Clock.Set("2026-10-24T09:15:00Z")
+			_, err := h.Do(t, t.Context(), h.Priya, fixture.Order, res.ID, doc.ActionSave, h.In(d))
+			lkInvalid(t, err, doctype.FieldError{Field: c.field, Line: c.line, Message: c.wantText})
+
+			fixturetest.Eq(t, loadDoc(t, h, fixture.Order, res.ID), d)
+			if n := h.AuditCount(t); n != count {
+				t.Errorf("AuditCount = %d, want %d (nothing written)", n, count)
+			}
+			if n := len(h.Audit(t, fixture.Order, res.ID)); n != entries {
+				t.Errorf("order audit entries = %d, want %d", n, entries)
+			}
+
+			// MST-010: with the master usable again the same save succeeds, still
+			// as a no-change save (DOC-029).
+			c.allow(t, h)
+			got, err := h.Do(t, t.Context(), h.Priya, fixture.Order, res.ID, doc.ActionSave, h.In(d))
+			if err != nil {
+				t.Fatalf("identical save after the master is usable: %v, want nil", err)
+			}
+			if got.Version != d.Version {
+				t.Errorf("Result.Version = %d, want %d", got.Version, d.Version)
+			}
+			fixturetest.Eq(t, loadDoc(t, h, fixture.Order, res.ID), d)
+		})
+	}
+}
+
+// CD-199: a master's Warning is no error, so a clean no-change save still
+// succeeds without a write and returns it (DOC-029, DOC-106).
+func TestDoc_Save_NoOp_KeepsWarning(t *testing.T) {
+	const warning = "Project PRJ-METRO is on hold."
+	h := fixturetest.New(t)
+	res := h.NewOrder(t, h.Priya, fixturetest.OL{Item: "MS-ANGLE-50", Qty: "10"})
+	d := loadDoc(t, h, fixture.Order, res.ID)
+	count := h.AuditCount(t)
+	fixture.SetWarning(t, h.DB, "fixture_project", "PRJ-METRO", warning)
+
+	got, err := h.Do(t, t.Context(), h.Priya, fixture.Order, res.ID, doc.ActionSave, h.In(d))
+	if err != nil {
+		t.Fatalf("identical save: %v, want nil", err)
+	}
+	fixturetest.Eq(t, got.Warnings, []string{warning})
+	if got.Version != d.Version {
+		t.Errorf("Result.Version = %d, want %d", got.Version, d.Version)
+	}
+	fixturetest.Eq(t, loadDoc(t, h, fixture.Order, res.ID), d)
+	if n := h.AuditCount(t); n != count {
+		t.Errorf("AuditCount = %d, want %d (no new row)", n, count)
+	}
+}
+
 // DOC-031
 func TestDoc_Save_MissingDoc(t *testing.T) {
 	h := fixturetest.New(t)

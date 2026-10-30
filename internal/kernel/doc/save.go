@@ -126,6 +126,9 @@ func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocT
 	}
 	res := Result{ID: d.ID, State: d.State, Number: d.Number, Version: d.Version, Warnings: warnings}
 	if len(saveChanges(dt, d, n, nil)) == 0 && !reordered(d, &n) {
+		if len(errs) > 0 {
+			return Result{}, invalid(errs) // CD-199: unchanged values must still pass, e.g. a master since disabled
+		}
 		return res, nil // DOC-029: nothing changed, nothing written
 	}
 

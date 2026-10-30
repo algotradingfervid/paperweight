@@ -200,6 +200,26 @@ type ContactPhone struct {
 	IsPrimary int64
 }
 
+type Employee struct {
+	ID                 int64
+	Code               string
+	Name               string
+	BranchID           int64
+	UserID             sql.NullInt64
+	ManagerID          sql.NullInt64
+	JoiningDate        string
+	BirthDate          sql.NullString
+	RelievingDate      sql.NullString
+	Status             string
+	Disabled           int64
+	UserVersionOnLeave sql.NullInt64
+	Version            int64
+	CreatedAt          string
+	CreatedBy          sql.NullInt64
+	UpdatedAt          string
+	UpdatedBy          sql.NullInt64
+}
+
 type ExpenseType struct {
 	ID               int64
 	Code             string
@@ -326,6 +346,23 @@ type PaymentTermsRow struct {
 	Days     int64
 }
 
+type Project struct {
+	ID         int64
+	Code       string
+	Name       string
+	BranchID   int64
+	CustomerID sql.NullInt64
+	StartDate  sql.NullString
+	EndDate    sql.NullString
+	Status     string
+	Disabled   int64
+	Version    int64
+	CreatedAt  string
+	CreatedBy  sql.NullInt64
+	UpdatedAt  string
+	UpdatedBy  sql.NullInt64
+}
+
 type Role struct {
 	ID        int64
 	Name      string
@@ -360,6 +397,21 @@ type Session struct {
 	LastSeenAt string
 	Ip         string
 	UserAgent  string
+}
+
+type Site struct {
+	ID        int64
+	Code      string
+	Name      string
+	BranchID  int64
+	ProjectID sql.NullInt64
+	Type      string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
 }
 
 type TaxCode struct {
