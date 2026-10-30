@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -224,6 +225,31 @@ func WantFieldError(t testing.TB, r Response, field, msg string) {
 		t.Errorf("message next to %q = %q; want %q", field, got, msg)
 	case !invalid:
 		t.Errorf("control %q shows %q but is not aria-invalid=\"true\"", field, msg)
+	}
+}
+
+// WantFieldErrorID fails the test unless the control with element id id has a
+// message region reading exactly msg and is marked aria-invalid. A form with
+// two pickers has two search inputs named q, so WantFieldError can't tell them
+// apart. Callers pass components.FieldID(field), which this package can't
+// import (CD-89).
+func WantFieldErrorID(t testing.TB, r Response, id, msg string) {
+	t.Helper()
+	s := r.Doc.Find(`[id="` + id + `"]`).First()
+	refs, ok := s.Attr("aria-describedby")
+	if !ok {
+		t.Errorf("no control %s with aria-describedby; want %q next to it\ntext: %s", id, msg, r.Text())
+		return
+	}
+	var got []string
+	for _, ref := range strings.Fields(refs) {
+		got = append(got, Squash(r.Doc.Find(`[id="`+ref+`"]`).Text()))
+	}
+	if !slices.Contains(got, msg) {
+		t.Errorf("messages next to %s = %q; want %q", id, got, msg)
+	}
+	if v, _ := s.Attr("aria-invalid"); v != "true" {
+		t.Errorf("control %s shows %q but is not aria-invalid", id, msg)
 	}
 }
 

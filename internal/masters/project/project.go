@@ -43,9 +43,10 @@ const (
 	msgDates    = "End date can't be before start date."
 	msgStatus   = "Status must be Open, On Hold, Completed or Cancelled."
 	msgBranch   = "Branch is required."
-	msgNoBranch = "Branch not found. Pick one from the list."                                                  // CD-170
 	msgRestrict = "You can only work with your assigned projects. Ask your administrator to add this project." // CD-172
-	msgCustomer = "Customer not found. Pick one from the list."                                                // DOC-032's wording
+
+	MsgBranchNotFound   = "Branch not found. Pick one from the list."   // CD-170
+	MsgCustomerNotFound = "Customer not found. Pick one from the list." // DOC-032's wording
 )
 
 func init() {
@@ -170,9 +171,9 @@ func ref(id int64) *auth.RecordRef {
 	return &auth.RecordRef{DocType: DocType, ID: id, ProjectIDs: []int64{id}}
 }
 
-// checkUnrestricted refuses a principal restricted on Project (CD-172),
+// CheckUnrestricted refuses a principal restricted on Project (CD-172),
 // reading inside tx (CD-174).
-func (s *Service) checkUnrestricted(ctx context.Context, tx *db.Tx, p auth.Principal) error {
+func (s *Service) CheckUnrestricted(ctx context.Context, tx *db.Tx, p auth.Principal) error {
 	restricted, err := s.env.Auth.Restricted(ctx, tx, p, string(auth.DimProject))
 	if err != nil {
 		return err
@@ -203,7 +204,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 	b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("branch_id", msgNoBranch)
+		es.Add("branch_id", MsgBranchNotFound)
 	case err != nil:
 		return err
 	case b.Disabled:
@@ -213,7 +214,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 		pt, err := party.New(s.env).Get(ctx, tx, in.CustomerID)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
-			es.Add("customer_id", msgCustomer)
+			es.Add("customer_id", MsgCustomerNotFound)
 		case err != nil:
 			return err
 		case pt.Disabled:
@@ -259,7 +260,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkUnrestricted(ctx, tx, p); err != nil {
+	if err := s.CheckUnrestricted(ctx, tx, p); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)

@@ -107,9 +107,9 @@ type Screen[R, In any] struct {
 	// called; nil shows the parse errors alone.
 	Validate func(In) (In, error)
 	// Values is a stored record in the form's terms: Check fields "1" or
-	// "0", Link fields the id in decimal, numbers and dates as
-	// docscreen.FieldInput and docscreen.Display take them, a row's fields
-	// "lines[N].field".
+	// "0", Link fields the id in decimal, numbers as docscreen.FieldInput and
+	// docscreen.Display take them, scalar dates as stored (yyyy-mm-dd; the
+	// form shows them dd-mm-yyyy), a row's fields "lines[N].field".
 	Values func(R) map[string]string
 	Head   func(R) Head
 	// Ref is the record AUTH checks, as the service builds it (Project and
@@ -139,6 +139,19 @@ type Screen[R, In any] struct {
 	// the service's own check, so the message isn't copied: Project and Site
 	// pass their CheckUnrestricted.
 	CanCreate func(ctx context.Context, tx *db.Tx, p auth.Principal) error
+	// OptionLabels is a Select field's words for its stored values: field
+	// name, then stored value, then label (CD-175). The form, list and
+	// read-only page show the label, a value without one as stored; the form
+	// posts the stored value and the export keeps it. A labelled field renders
+	// as radios whatever its number of options.
+	OptionLabels map[string]map[string]string
+	// StartRows is how many blank rows the new page opens with; 0 opens with
+	// none, and Add starts the first.
+	StartRows int
+	// Defaults is the new page's values, keyed by Field.Name: a Select's
+	// preselected option. A refused form shows what was posted and a stored
+	// record what is stored.
+	Defaults map[string]string
 }
 
 // Routes mounts the screens under Base and the picker search at
@@ -257,16 +270,7 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 	if err != nil {
 		return err
 	}
-	// The code is in the title; the status column only shows when disabled
-	// records are listed.
-	cols := slices.DeleteFunc(docscreen.ListColumns(h.dt), func(c components.Column) bool {
-		return c.Key == "code" || c.Key == "disabled" && !all
-	})
-	for i := range cols {
-		if cols[i].Key == "disabled" {
-			cols[i].Label = "Status" // its values are Enabled and Disabled
-		}
-	}
+	cols := h.listColumns(all)
 	rows := make([]components.Row, len(res.Rows))
 	err = h.Env.DB.Read(ctx, func(tx *db.Tx) error {
 		for i, lr := range res.Rows {
@@ -317,6 +321,30 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 	return nil
 }
 
+// listColumns is the list's columns. The code is in the title. The state
+// column, Enabled or Disabled, only shows when disabled records are listed
+// (all). A field of the master's own at the state's priority (Project's and
+// Employee's status, M13) is a plain column: DataList's state column would
+// show the Row's State, not its value. Disabled then gets a column of its own.
+func (h *handlers[R, In]) listColumns(all bool) []components.Column {
+	isDisabled := func(c components.Column) bool { return c.Key == "disabled" }
+	cols := slices.DeleteFunc(docscreen.ListColumns(h.dt), func(c components.Column) bool {
+		return c.Key == "code" || isDisabled(c) && !all
+	})
+	for i := range cols {
+		switch {
+		case isDisabled(cols[i]):
+			cols[i].Label = "Status" // its values are Enabled and Disabled
+		case cols[i].Priority == components.PState:
+			cols[i].Priority = components.PMeta
+		}
+	}
+	if all && !slices.ContainsFunc(cols, isDisabled) {
+		cols = append(cols, components.Column{Key: "disabled", Label: "State", Priority: components.PState})
+	}
+	return cols
+}
+
 // query is the list.Query of a list URL: its search, sort and disabled
 // filter. The list and its export share it. An unknown sort is the list's own
 // 422.
@@ -342,7 +370,7 @@ func (h *handlers[R, In]) cells(ctx context.Context, tx *db.Tx, lr list.Row, col
 		if h.ZeroIsNone[c.Key] && v != nil && reflect.ValueOf(v).IsZero() {
 			v = nil
 		}
-		s, err := docscreen.Display(ctx, tx, h.Env.Engine, h.dt.Fields[i], plain(v))
+		s, err := h.display(ctx, tx, h.dt.Fields[i], plain(v))
 		if err != nil {
 			return nil, err
 		}
@@ -350,6 +378,14 @@ func (h *handlers[R, In]) cells(ctx context.Context, tx *db.Tx, lr list.Row, col
 	}
 	vals["name"] = title(lr)
 	return vals, nil
+}
+
+// display is a stored value's text: its OptionLabels label, else docscreen's.
+func (h *handlers[R, In]) display(ctx context.Context, tx *db.Tx, fd doctype.Field, value string) (string, error) {
+	if label := h.OptionLabels[fd.Name][value]; label != "" {
+		return label, nil
+	}
+	return docscreen.Display(ctx, tx, h.Env.Engine, fd, value)
 }
 
 // plain is a list.Row value (typed by its field, nil for NULL) in the form
@@ -486,7 +522,14 @@ func (h *handlers[R, In]) newPage(w http.ResponseWriter, r *http.Request, p auth
 	if err := h.checkCreate(r.Context(), p); err != nil {
 		return err
 	}
-	return h.render(w, r, p, http.StatusOK, 0, form{Values: map[string]string{}})
+	f := form{Values: map[string]string{}}
+	maps.Copy(f.Values, h.Defaults)
+	for no := 1; no <= h.StartRows; no++ {
+		for _, fd := range h.rowFields {
+			f.Values[rowKey(no, fd.Name)] = ""
+		}
+	}
+	return h.render(w, r, p, http.StatusOK, 0, f)
 }
 
 func (h *handlers[R, In]) create(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
@@ -739,7 +782,10 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 		}
 		head := h.Head(rec)
 		if f.Values == nil {
-			f.Values, f.Version = h.stored(rec), head.Version
+			f.Version = head.Version
+			if f.Values, err = h.formValues(rec); err != nil {
+				return err
+			}
 		}
 		v.ID, v.Title, v.Action, v.Disabled = id, strings.TrimSpace(head.Code+" "+head.Name), h.recordPath(id), head.Disabled
 		v.More = h.more(ctx, p, id, head.Disabled, f.Version)
@@ -760,17 +806,25 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 }
 
 // input is fd's control at path, its name or a row's "lines[N].field":
-// CodeInput for a Codes field, NumberInput for a Numbers field, else
-// docscreen's.
+// CodeInput for a Codes field, NumberInput for a Numbers field, Radios for an
+// OptionLabels field, else docscreen's.
 func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Component {
 	code, coded := h.Codes[fd.Name]
 	number, numbered := h.Numbers[fd.Name]
+	labels, labelled := h.OptionLabels[fd.Name]
 	fd.Name = path
 	id, value, msg := components.FieldID(path), f.Values[path], f.errFor(path)
-	if !coded && !numbered {
+	if !coded && !numbered && !labelled {
 		return docscreen.FieldInput(fd, id, value, msg, h.deps)
 	}
 	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Error: msg, Value: value, Optional: !fd.Required}
+	if labelled {
+		opts := make([]components.Option, len(fd.Options))
+		for i, o := range fd.Options {
+			opts[i] = components.Option{Value: o, Label: cmp.Or(labels[o], o)}
+		}
+		return components.Radios(p, opts)
+	}
 	if fd.MaxLen > 0 {
 		p.Attrs = templ.Attributes{"maxlength": strconv.Itoa(fd.MaxLen)}
 	}
@@ -842,11 +896,29 @@ func (h *handlers[R, In]) stored(rec R) map[string]string {
 	return vals
 }
 
+// formValues is rec's stored values as the form shows them: dates dd-mm-yyyy,
+// where Values and the read-only view have them as stored. What a user typed
+// never comes through here, so a refused save keeps it.
+func (h *handlers[R, In]) formValues(rec R) (map[string]string, error) {
+	vals := h.stored(rec)
+	for _, fd := range h.fields {
+		if fd.Type != doctype.Date || vals[fd.Name] == "" {
+			continue
+		}
+		d, err := types.DateFromISO(vals[fd.Name])
+		if err != nil {
+			return nil, err
+		}
+		vals[fd.Name] = types.FormatDate(d)
+	}
+	return vals, nil
+}
+
 // pairs is the read-only view of the stored values.
 func (h *handlers[R, In]) pairs(ctx context.Context, tx *db.Tx, vals map[string]string) ([]components.Pair, error) {
 	out := make([]components.Pair, 0, len(h.fields))
 	for _, fd := range h.fields {
-		s, err := docscreen.Display(ctx, tx, h.Env.Engine, fd, vals[fd.Name])
+		s, err := h.display(ctx, tx, fd, vals[fd.Name])
 		if err != nil {
 			return nil, err
 		}
@@ -861,7 +933,7 @@ func (h *handlers[R, In]) rowPairs(ctx context.Context, tx *db.Tx, vals map[stri
 	for _, no := range h.rowNos(vals) {
 		row := []components.Pair{{Label: "Row", Value: strconv.Itoa(no)}}
 		for _, fd := range h.rowFields {
-			s, err := docscreen.Display(ctx, tx, h.Env.Engine, fd, vals[rowKey(no, fd.Name)])
+			s, err := h.display(ctx, tx, fd, vals[rowKey(no, fd.Name)])
 			if err != nil {
 				return nil, err
 			}

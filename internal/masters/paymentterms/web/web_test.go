@@ -24,7 +24,7 @@ import (
 
 // Screens under test (MST Task 22): /m/payment-terms list, /new, /{id},
 // POST /{id} with version, /{id}/disable, /{id}/enable, /{id}/delete and the
-// picker /m/payment-terms/pick?q=. The rows use the line grid and post as
+// picker /pick/Payment%20Terms?q= (CD-195). The rows use the line grid and post as
 // lines[N].portion and lines[N].days (doctype.FieldError.Path).
 const (
 	msgDays1   = "Row 1: Days must be a whole number, 0 or more."        // MST-125
@@ -277,13 +277,13 @@ func TestScreens_PaymentTermsPicker(t *testing.T) {
 	kavya := w.h.Env.Kavya
 	net30, adv50 := w.seed(t)
 
-	rows := w.h.GetHTMX(t, kavya, "/m/payment-terms/pick?q=Net")
+	rows := w.h.GetHTMX(t, kavya, "/pick/Payment%20Terms?q=Net")
 	webtest.WantStatus(t, rows, http.StatusOK)
 	got := rows.PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(net30.ID, 10) || !strings.Contains(got[0].Text, "NET30 Net 30 days") {
 		t.Errorf("pick?q=Net = %v; want one row %d \"NET30 Net 30 days\"", got, net30.ID)
 	}
-	got = w.h.GetHTMX(t, kavya, "/m/payment-terms/pick?q=advance").PickRows()
+	got = w.h.GetHTMX(t, kavya, "/pick/Payment%20Terms?q=advance").PickRows()
 	if len(got) != 1 || got[0].Value != strconv.FormatInt(adv50.ID, 10) || !strings.Contains(got[0].Text, "ADV50 Half advance, half in 30 days") {
 		t.Errorf("pick?q=advance = %v; want one row %d ADV50", got, adv50.ID)
 	}
@@ -291,7 +291,7 @@ func TestScreens_PaymentTermsPicker(t *testing.T) {
 	if err := w.svc.SetDisabled(context.Background(), kavya, net30.ID, net30.Version, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.h.GetHTMX(t, kavya, "/m/payment-terms/pick?q=Net").PickRows(); len(got) != 0 {
+	if got := w.h.GetHTMX(t, kavya, "/pick/Payment%20Terms?q=Net").PickRows(); len(got) != 0 {
 		t.Errorf("pick?q=Net after disabling NET30 = %v; want no rows", got)
 	}
 }

@@ -223,6 +223,56 @@ func TestScreens_AddFirstRow(t *testing.T) {
 	}
 }
 
+// StartRows opens the new page with that many blank rows, each with every row
+// field, and touches no other page; a master that doesn't set it opens with
+// none.
+func TestScreens_StartRows(t *testing.T) {
+	cases := []struct {
+		rows int
+		want []string
+		none []string
+	}{
+		{0, nil, []string{"lines[1].uom_id", "lines[1].factor"}},
+		{1, []string{"lines[1].uom_id", "lines[1].factor"}, []string{"lines[2].factor"}},
+		{2, []string{"lines[1].factor", "lines[2].uom_id", "lines[2].factor"}, []string{"lines[3].factor"}},
+	}
+	for _, c := range cases {
+		h := harness(t, stubService{}, func(s *screen) { s.StartRows = c.rows })
+		page := h.Get(t, h.Env.Kavya, base+"/new")
+		webtest.WantStatus(t, page, http.StatusOK)
+		for _, name := range c.want {
+			if v := rowValue(t, page, name); v != "" {
+				t.Errorf("StartRows %d: %s = %q; want blank", c.rows, name, v)
+			}
+		}
+		for _, name := range c.none {
+			if page.HasControl(name) {
+				t.Errorf("StartRows %d: new page has %s", c.rows, name)
+			}
+		}
+	}
+
+	h := harness(t, stubService{}, func(s *screen) { s.StartRows = 2 })
+	page := h.Get(t, h.Env.Kavya, record)
+	webtest.WantStatus(t, page, http.StatusOK)
+	if page.HasControl("lines[1].factor") {
+		t.Error("a stored record with no rows gained a row")
+	}
+	resp := h.Post(t, h.Env.Kavya, base+"/new", url.Values{"_rows": {"add"}})
+	webtest.WantStatus(t, resp, http.StatusOK)
+	if resp.HasControl("lines[2].factor") {
+		t.Error("a posted form gained the start rows")
+	}
+
+	// A refused Create redraws what was posted: no rows stays no rows.
+	h = harness(t, stubService{err: &mstkit.ValidationError{Fields: []doctype.FieldError{{Field: "name", Message: "Name is wrong."}}}}, func(s *screen) { s.StartRows = 2 })
+	resp = h.Post(t, h.Env.Kavya, base+"/new", url.Values{"name": {"Typed"}})
+	webtest.WantStatus(t, resp, http.StatusUnprocessableEntity)
+	if resp.HasControl("lines[1].factor") {
+		t.Error("a refused create gained the start rows")
+	}
+}
+
 // Remove drops its row and renumbers the rest 1..n, and the service hears
 // nothing.
 func TestScreens_RemoveRow(t *testing.T) {
