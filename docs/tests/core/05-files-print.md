@@ -438,7 +438,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-058 · Each page shows "Page X of Y" and the document number in its footer
 - **Priority:** P2
 - **Level:** e2e
-- **Given** the FILE-057 PO printing to 3 pages **When** the PDF text is extracted **Then** the pages show "Draft 42 · Page 1 of 3", "Page 2 of 3" and "Page 3 of 3" (the PO is a draft, so it has no number; once approved the footer reads "PO/26-27/00001 · Page 1 of 3") (CSS `@page` margin boxes with `counter(page)`/`counter(pages)`).
+- **Given** the FILE-057 PO printing to N pages (4 today, since totals, terms and signatory are kept together, CD-242) **When** the PDF text is extracted **Then** the pages show "Draft 42 · Page 1 of N", then "Page 2 of N" and so on to "Page N of N" (the PO is a draft, so it has no number; once approved the footer reads "PO/26-27/00001 · Page 1 of N"); the test reads N from the PDF's page count (CD-248) (CSS `@page` margin boxes with `counter(page)`/`counter(pages)`).
 - **Go test:** `TestE2E_PrintPageNumbers`
 - **Sources:** `frappe/frappe/tests/test_pdf.py:175` (`test_print_format_margins_keep_header_and_footer_on_every_page`)
 

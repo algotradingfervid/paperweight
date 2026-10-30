@@ -22,6 +22,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/audit/auditfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authfake"
+	"github.com/vardhan/internaltools/internal/kernel/auth/authtest"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doc/docfake"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -217,8 +218,15 @@ func TestContracts_AuthFakeSeedingHelpers(t *testing.T) {
 		t.Errorf("Can on record inside Restrict projects error = %v, want nil", err)
 	}
 
-	f.Hide("fixture.Order", 9)
-	if err := f.CheckLink(ctx, p, "fixture.Order", 9); !errors.Is(err, auth.ErrForbidden) {
+	// CheckLink needs a registered target: an unregistered one is ErrNotFound,
+	// as in the real service (CD-240 follow-up).
+	authtest.RegisterDocTypes()
+	f.Grant("Purchase User", authtest.DTOrder, "read", auth.ScopeAll)
+	if err := f.CheckLink(ctx, p, authtest.DTOrder, 9); err != nil {
+		t.Errorf("CheckLink on a readable record error = %v, want nil", err)
+	}
+	f.Hide(authtest.DTOrder, 9)
+	if err := f.CheckLink(ctx, p, authtest.DTOrder, 9); !errors.Is(err, auth.ErrForbidden) {
 		t.Errorf("CheckLink on hidden record error = %v, want auth.ErrForbidden", err)
 	}
 }
