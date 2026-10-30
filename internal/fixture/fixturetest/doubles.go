@@ -185,6 +185,23 @@ func (a *Auth) User(_ context.Context, _ *db.Tx, u auth.UserID) (auth.UserInfo, 
 	return info, ok, nil
 }
 
+// UserByEmail returns the user from Users, comparing normalised emails; a
+// blank email finds nobody (CD-199).
+func (a *Auth) UserByEmail(_ context.Context, _ *db.Tx, email string) (auth.UserInfo, bool, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	email = auth.NormalizeEmail(email)
+	if email == "" {
+		return auth.UserInfo{}, false, nil
+	}
+	for _, info := range a.Users {
+		if auth.NormalizeEmail(info.Email) == email {
+			return info, true, nil
+		}
+	}
+	return auth.UserInfo{}, false, nil
+}
+
 // DisableUser marks the user disabled in Users.
 func (a *Auth) DisableUser(_ context.Context, _ *db.Tx, u auth.UserID, _ string) error {
 	return a.setEnabled(u, false)

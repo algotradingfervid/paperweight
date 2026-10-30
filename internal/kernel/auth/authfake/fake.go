@@ -470,6 +470,23 @@ func (f *Fake) User(ctx context.Context, tx *db.Tx, u auth.UserID) (auth.UserInf
 	return info, ok, nil
 }
 
+// UserByEmail compares normalised emails, stored ones too because AddUser
+// keeps what it is given; a blank email finds nobody (CD-199).
+func (f *Fake) UserByEmail(ctx context.Context, tx *db.Tx, email string) (auth.UserInfo, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	email = auth.NormalizeEmail(email)
+	if email == "" {
+		return auth.UserInfo{}, false, nil
+	}
+	for _, info := range f.infos {
+		if auth.NormalizeEmail(info.Email) == email {
+			return info, true, nil
+		}
+	}
+	return auth.UserInfo{}, false, nil
+}
+
 func (f *Fake) DisableUser(ctx context.Context, tx *db.Tx, u auth.UserID, reason string) error {
 	return f.setEnabled(u, false)
 }

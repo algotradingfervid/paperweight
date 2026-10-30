@@ -65,6 +65,7 @@ func TestContract_Authfake(t *testing.T) {
 		f := authfake.New()
 		dir := authfake.NewDirectory()
 		f.UseDirectory(dir)
+		f.AddUser(auth.UserInfo{ID: 1, Enabled: true}) // a blank email: UserByEmail("") must not find it (CD-199)
 		return f, &fakeSetup{f: f, d: authtest.NewWorld(t).DB, dir: dir, next: 100}
 	})
 }

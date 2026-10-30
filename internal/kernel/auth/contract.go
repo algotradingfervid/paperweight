@@ -82,6 +82,7 @@ type Service interface {
 	UsersWithRight(ctx context.Context, doctype string, r Right, rec *RecordRef) ([]UserID, error)
 	HasRole(ctx context.Context, u UserID, role string) (bool, error)
 	User(ctx context.Context, tx *db.Tx, u UserID) (UserInfo, bool, error)
+	UserByEmail(ctx context.Context, tx *db.Tx, email string) (UserInfo, bool, error) // normalises email; unknown or blank: ok false, nil error; disabled users too (CD-199)
 	DisableUser(ctx context.Context, tx *db.Tx, u UserID, reason string) error
 	EnableUser(ctx context.Context, tx *db.Tx, u UserID) error
 	Restricted(ctx context.Context, tx *db.Tx, p Principal, dimension string) (bool, error) // any restriction on dimension? (CD-174)

@@ -59,6 +59,19 @@ func (a *Auth) User(ctx context.Context, tx *db.Tx, u UserID) (UserInfo, bool, e
 	return UserInfo{ID: u, Email: row.Email, Name: row.Name, Enabled: row.Enabled != 0, Version: int(row.Version)}, true, nil
 }
 
+// UserByEmail is User by normalised email; a disabled user is returned for
+// the caller to judge (CD-199).
+func (a *Auth) UserByEmail(ctx context.Context, tx *db.Tx, email string) (UserInfo, bool, error) {
+	id, err := dbq.New(tx.SQL()).UserIDByEmail(ctx, NormalizeEmail(email))
+	if errors.Is(err, sql.ErrNoRows) {
+		return UserInfo{}, false, nil
+	}
+	if err != nil {
+		return UserInfo{}, false, err
+	}
+	return a.User(ctx, tx, UserID(id))
+}
+
 // HasRole reports whether u holds role.
 func (a *Auth) HasRole(ctx context.Context, u UserID, role string) (bool, error) {
 	var n int64
