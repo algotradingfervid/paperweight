@@ -101,7 +101,7 @@ func p7World(t *testing.T) (gate http.Handler, st *t10Stubs, ck *http.Cookie, to
 	}
 	tmp = t.TempDir()
 	t.Setenv("TMPDIR", tmp)
-	return web.BodyCeiling(p7Limit)(h.Router), st, ck, token, tmp
+	return web.BodyCeiling(p7Limit, p7Text)(h.Router), st, ck, token, tmp
 }
 
 // p7Post builds Ravi's multipart POST to the guarded save route. Its

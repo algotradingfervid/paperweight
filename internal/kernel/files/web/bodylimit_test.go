@@ -19,15 +19,12 @@ import (
 	platformweb "github.com/vardhan/internaltools/internal/platform/web"
 )
 
-const (
-	realCeiling     = files.MaxFileBytes + web.MultipartOverhead
-	msgBodyTooLarge = "This request is too large."
-)
+const realCeiling = files.MaxFileBytes + web.MultipartOverhead
 
 // ceiled serves req through the ceiling at the real limit, then Routes.
 func ceiled(f *fixture, req *http.Request) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	platformweb.BodyCeiling(realCeiling)(f.router).ServeHTTP(rec, req)
+	platformweb.BodyCeiling(realCeiling, files.MsgTooLarge)(f.router).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -74,8 +71,8 @@ func TestBodyCeiling_LegalMaximumUploadPasses(t *testing.T) {
 	wantTmpEmpty(t, f.env)
 }
 
-// The declared case is the ceiling's own 413: the upload handler never runs,
-// so its message must not appear and the body is not read.
+// The declared case is the ceiling's own 413, carrying FILE-003's text: the
+// upload handler never runs, and the body is not read.
 func TestBodyCeiling_OverLimitUploadRefused(t *testing.T) {
 	f := newFixture(t, nil)
 	body, ct := overLimitBody(t)
@@ -90,8 +87,8 @@ func TestBodyCeiling_OverLimitUploadRefused(t *testing.T) {
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status = %d, want 413 (body %q)", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), msgBodyTooLarge) {
-		t.Errorf("body %q, want %q", rec.Body.String(), msgBodyTooLarge)
+	if !strings.Contains(rec.Body.String(), files.MsgTooLarge) {
+		t.Errorf("body %q, want %q", rec.Body.String(), files.MsgTooLarge)
 	}
 	if n := cr.count(); n != 0 {
 		t.Errorf("bytes read from body = %d, want 0", n)
