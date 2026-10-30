@@ -1080,6 +1080,12 @@ func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
 		id   int64
 		want string
 	}
+	// CD-240: the refusal names only the DocType, never the record.
+	linkText := map[string]string{
+		DTOrder:   "You can't use this Purchase Order. It isn't available to you.",
+		DTClaim:   "You can't use this Expense Claim. It isn't available to you.",
+		DTProject: "You can't use this Project. It isn't available to you.",
+	}
 	var calls []call
 	seen := map[string]bool{}
 	for _, tg := range targets {
@@ -1087,7 +1093,12 @@ func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
 			err := svc.CheckLink(ctx, p, tg.dt, tg.id)
 			var le *auth.LinkError
 			seen["allowed"] = seen["allowed"] || err == nil
-			seen["link error"] = seen["link error"] || errors.As(err, &le)
+			if errors.As(err, &le) {
+				seen["link error"] = true
+				if got := err.Error(); got != linkText[tg.dt] {
+					t.Errorf("CheckLink(%s, %s, %d) text = %q, want %q", p.Name, tg.dt, tg.id, got, linkText[tg.dt])
+				}
+			}
 			calls = append(calls, call{p, tg.dt, tg.id, outcome(err)})
 		}
 	}
