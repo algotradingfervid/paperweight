@@ -303,6 +303,9 @@ func TestAttachBrowser_DroppedConnection(t *testing.T) {
 	if n := attachEval[int](t, ctx, attAlertCount); n != alerts {
 		t.Errorf("#alerts gained %d notices on a dropped connection, want none", n-alerts)
 	}
+	if n := attachEval[int](t, ctx, attInvalid(id)); n != 0 {
+		t.Errorf("%d inputs have aria-invalid after a dropped connection, want none (the file wasn't wrong)", n)
+	}
 	if n := attachEval[int](t, ctx, `document.querySelectorAll("#`+id+` .attachments > li").length`); n != 0 {
 		t.Errorf("the list changed: %d files", n)
 	}

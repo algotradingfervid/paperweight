@@ -1,6 +1,11 @@
 package gallery
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
 
 // The mock's stand-in confirms (removeDialogs) go once Attachments renders
 // its own (UX design 2026-10-31 §6 change 2(b)): in (b) and (f) each Remove
@@ -37,4 +42,9 @@ func TestGallery_AttachmentsRemoveOpensConfirm(t *testing.T) {
 	if n := d.Find(`dialog[id^="remove-file-"]`).Length(); n != 3+20 {
 		t.Errorf("found %d remove confirms, want 23 (three in (b), twenty in (f))", n)
 	}
+}
+
+// removeDialogID is file a's remove confirm.
+func removeDialogID(a components.Attachment) string {
+	return "remove-file-" + strconv.FormatInt(a.ID, 10)
 }
