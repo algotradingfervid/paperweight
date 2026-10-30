@@ -106,10 +106,11 @@ func (d Deps) gridRowOf(dt *doctype.DocType, v DocView, lv LineView, version str
 			continue
 		}
 		var in templ.Component
+		id := "grid-" + strconv.Itoa(lv.No) + "-" + f.Name
 		if f.Type == doctype.Link {
-			in = gridItem(f.Label, lv.Display[f.Name], f.Name, values[f.Name])
+			in = gridItem(id, f.Label, lv.Display[f.Name], f.Name, values[f.Name], lineError(errs, f.Name))
 		} else {
-			in = FieldInput(f, "grid-"+strconv.Itoa(lv.No)+"-"+f.Name, values[f.Name], lineError(errs, f.Name), d)
+			in = FieldInput(f, id, values[f.Name], lineError(errs, f.Name), d)
 		}
 		row.Cells = append(row.Cells, components.GridCell{Label: f.Label, Input: in})
 	}
@@ -198,6 +199,11 @@ func (d Deps) linePage(dt *doctype.DocType, v DocView, no, version int, values m
 			lv.Inputs = append(lv.Inputs, FieldInput(f, components.FieldID(f.Name), values[f.Name], lineError(errs, f.Name), d))
 		}
 	}
+	for n, e := range errs {
+		if e.Field == "" || e.Field == "lines" {
+			lv.Errors[n].ID = "main" // no input to link to
+		}
+	}
 	lv.Opts.Error = danger != "" || len(errs) > 0
 	return lv
 }
@@ -226,7 +232,8 @@ func (d Deps) lineGet(w http.ResponseWriter, r *http.Request) {
 
 // linePost serves POST …/lines/new and …/lines/{no}: the loaded lines,
 // plain and with their ids, with this one replaced or added, saved with
-// the posted version (CD-94). An htmx post comes from the desktop grid and
+// the posted version (CD-94) and scoped to the lines, so only a changed
+// line's error refuses (CD-207). An htmx post comes from the desktop grid and
 // gets its row back (CD-95).
 func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 	dt, id, ok := target(w, r)
@@ -280,7 +287,7 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		maps.Copy(l, plain)
 		lines[no-1] = l
 	}
-	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines})
+	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
 	if err != nil {
 		pr, ok := Classify(err)
 		switch {
@@ -305,13 +312,18 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 	d.backToItems(w, r, dt, id, res.Warnings)
 }
 
-// lineErrors keeps the errors of line pos.
+// lineErrors keeps the errors of line pos, and those no line owns: with no
+// field name, or on the lines as a whole. When none is left, a refusal must
+// still say why: each error's own message, with no field.
 func lineErrors(errs []doctype.FieldError, pos int) []doctype.FieldError {
 	var out []doctype.FieldError
 	for _, e := range errs {
-		if e.Line == pos {
+		if e.Line == pos || e.Field == "" || e.Field == "lines" {
 			out = append(out, doctype.FieldError{Field: e.Field, Message: e.Message})
 		}
+	}
+	if len(out) == 0 {
+		return messagesOnly(errs)
 	}
 	return out
 }
@@ -359,10 +371,23 @@ func (d Deps) gridRefused(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 		return
 	}
 	g := gridView{Row: d.gridRowOf(dt, v, v.Lines[no-1], strconv.Itoa(version), typed, pr.Fields)}
-	if len(pr.Fields) == 0 || pr.Status == http.StatusConflict {
-		g.Alert, g.ReloadURL = pr.Message, itemsURL(dt.Name, id)
-	}
+	g.Alert, g.ReloadURL = formText(pr), itemsURL(dt.Name, id)
 	ui.Render(w, r, pr.Status, gridResponse(g), nil)
+}
+
+// formText is what a refusal says beyond a row's cells: its message when it
+// has no field errors or is a conflict, else the errors no cell can show.
+func formText(pr Problem) string {
+	if len(pr.Fields) == 0 || pr.Status == http.StatusConflict {
+		return pr.Message
+	}
+	var out []string
+	for _, e := range pr.Fields {
+		if e.Field == "" || e.Field == "lines" {
+			out = append(out, e.Message)
+		}
+	}
+	return strings.Join(out, " ")
 }
 
 // gridView is a grid row save's response.
@@ -436,8 +461,9 @@ func (d Deps) movePost(w http.ResponseWriter, r *http.Request) {
 }
 
 // reorder saves the loaded lines as change returns them, with the posted
-// version (CD-94), and goes back to the items step. A refusal shows the
-// items step (or the remove page) with the kernel's message and status.
+// version (CD-94) and scoped to the lines (CD-207), and goes back to the items
+// step. A refusal shows the items step (or the remove page) with the kernel's
+// message and status.
 func (d Deps) reorder(w http.ResponseWriter, r *http.Request, change func(lines []map[string]string, no int) ([]map[string]string, bool)) {
 	dt, id, ok := target(w, r)
 	if !ok {
@@ -463,7 +489,7 @@ func (d Deps) reorder(w http.ResponseWriter, r *http.Request, change func(lines 
 		d.backToItems(w, r, dt, id, nil)
 		return
 	}
-	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines})
+	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
 	if err != nil {
 		pr, ok := Classify(err)
 		if !ok {
@@ -476,15 +502,21 @@ func (d Deps) reorder(w http.ResponseWriter, r *http.Request, change func(lines 
 	d.backToItems(w, r, dt, id, res.Warnings)
 }
 
-// itemsRefused re-shows the remove page, or the items step for a move,
-// with the kernel's message unchanged and its status.
+// itemsRefused re-shows the remove page, or the items step for a move, with
+// the kernel's message unchanged, or its field errors when it has any, and
+// its status.
 func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, no, version int, pr Problem) {
 	v, ok := d.draftView(w, r, dt, id)
 	if !ok {
 		return
 	}
 	if strings.HasSuffix(r.URL.Path, "/remove") && no <= len(v.Lines) {
-		lp := removePage(dt, v, no, version, pr.Message)
+		danger := formText(pr)
+		if danger == "" {
+			pr.Fields = messagesOnly(pr.Fields)
+			danger = formText(pr)
+		}
+		lp := removePage(dt, v, no, version, danger)
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 		return
 	}
@@ -494,8 +526,11 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 		return
 	}
 	i, _ := stepOf(steps, slugItems)
-	sv := d.stepViewOf(r, dt, steps, i, &v, nil, nil)
-	sv.M.Conflict, sv.M.ReloadURL = pr.Message, itemsURL(dt.Name, id)
+	fields := refusalErrors(steps, i, pr.Fields)
+	sv := d.stepViewOf(r, dt, steps, i, &v, nil, fields)
+	if len(fields) == 0 {
+		sv.M.Conflict, sv.M.ReloadURL = pr.Message, itemsURL(dt.Name, id)
+	}
 	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))
 }
 

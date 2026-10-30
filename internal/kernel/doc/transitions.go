@@ -19,10 +19,7 @@ import (
 // core field checks with Required and at least one line (CD-178), the source
 // documents, then Hooks.Validate. Every error becomes one KindInvalid error.
 func (e *engine) revalidate(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) ([]string, error) {
-	n := normalized{Header: d.Header, links: map[linkKey]doctype.MasterInfo{}}
-	for i, l := range d.Lines {
-		n.Lines = append(n.Lines, nline{ID: l.ID, Values: l.Values, Pos: i})
-	}
+	n := storedInput(d)
 	errs, warnings := checkFields(ctx, tx, dt, &n, true, masters)
 	if n.err != nil {
 		return nil, n.err
@@ -38,6 +35,15 @@ func (e *engine) revalidate(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) 
 		return nil, invalid(byPosition(dt, errs))
 	}
 	return warnings, nil
+}
+
+// storedInput is stored d as checkFields reads it.
+func storedInput(d Doc) normalized {
+	n := normalized{Header: d.Header, links: map[linkKey]doctype.MasterInfo{}}
+	for i, l := range d.Lines {
+		n.Lines = append(n.Lines, nline{ID: l.ID, Values: l.Values, Pos: i})
+	}
+	return n
 }
 
 // enterApproved moves d to approved: it assigns the number when d has none

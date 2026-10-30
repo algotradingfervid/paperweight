@@ -49,20 +49,22 @@ type outcome struct {
 }
 
 type Fake struct {
-	mu      sync.Mutex
-	infos   map[docKey]doctype.Info
-	records map[docKey]doc.Record
-	refs    map[rowKey][]doc.Reference
-	results map[resultKey]outcome
-	calls   []Call
+	mu       sync.Mutex
+	infos    map[docKey]doctype.Info
+	records  map[docKey]doc.Record
+	problems map[docKey][]doctype.FieldError
+	refs     map[rowKey][]doc.Reference
+	results  map[resultKey]outcome
+	calls    []Call
 }
 
 func New() *Fake {
 	return &Fake{
-		infos:   map[docKey]doctype.Info{},
-		records: map[docKey]doc.Record{},
-		refs:    map[rowKey][]doc.Reference{},
-		results: map[resultKey]outcome{},
+		infos:    map[docKey]doctype.Info{},
+		records:  map[docKey]doc.Record{},
+		problems: map[docKey][]doctype.FieldError{},
+		refs:     map[rowKey][]doc.Reference{},
+		results:  map[resultKey]outcome{},
 	}
 }
 
@@ -113,6 +115,13 @@ func (f *Fake) SetRecord(r doc.Record) {
 	f.infos[k] = copyInfo(r.Info)
 }
 
+// SetProblems sets what Problems returns for draft (dt, id) (CD-205).
+func (f *Fake) SetProblems(dt string, id int64, problems []doctype.FieldError) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.problems[docKey{dt, id}] = slices.Clone(problems)
+}
+
 // Calls returns the recorded Do calls in order.
 func (f *Fake) Calls() []Call {
 	f.mu.Lock()
@@ -144,6 +153,7 @@ func copyLines(lines []map[string]string) []map[string]string {
 func copyInput(in doc.ActionInput) doc.ActionInput {
 	in.Values = maps.Clone(in.Values)
 	in.Lines = copyLines(in.Lines)
+	in.Only = slices.Clone(in.Only)
 	return in
 }
 
@@ -164,6 +174,7 @@ func (f *Fake) Do(ctx context.Context, p auth.Principal, dt string, id int64, a 
 		return doc.Result{}, errs.ErrNotImplemented
 	}
 	o.result.Warnings = slices.Clone(o.result.Warnings)
+	o.result.Problems = slices.Clone(o.result.Problems)
 	return o.result, o.err
 }
 
@@ -199,6 +210,22 @@ func (f *Fake) Load(ctx context.Context, tx *db.Tx, dt string, id int64) (doc.Re
 	r = copyRecord(r)
 	r.Info = copyInfo(f.infos[k])
 	return r, nil
+}
+
+// Problems returns the SetProblems value of a stored draft and computes
+// nothing (CD-186): none past draft, as the engine, and a missing record is
+// the engine's doc.Gone error.
+func (f *Fake) Problems(ctx context.Context, tx *db.Tx, dt string, id int64) ([]doctype.FieldError, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	k := docKey{dt, id}
+	if _, ok := f.records[k]; !ok {
+		return nil, doc.Gone()
+	}
+	if f.infos[k].State != doctype.StateDraft {
+		return nil, nil
+	}
+	return slices.Clone(f.problems[k]), nil
 }
 
 // Info returns the stored Info; a missing one is the engine's doc.Gone error.

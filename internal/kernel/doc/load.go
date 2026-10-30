@@ -85,3 +85,26 @@ func (e *engine) Load(ctx context.Context, tx *db.Tx, doctype string, id int64) 
 	}
 	return rec, nil
 }
+
+// Problems is Engine.Problems: the checks of a draft save that need no input,
+// on the stored values.
+func (e *engine) Problems(ctx context.Context, tx *db.Tx, doctype string, id int64) ([]FieldError, error) {
+	d, err := LoadDoc(ctx, tx, doctype, id)
+	if err != nil {
+		return nil, err
+	}
+	if d.State != StateDraft {
+		return nil, nil
+	}
+	dt, _ := Lookup(doctype)
+	n := storedInput(d)
+	errs, _ := checkFields(ctx, tx, dt, &n, false, masters)
+	if n.err != nil {
+		return nil, n.err
+	}
+	sources, err := sourceErrors(ctx, tx, dt, d, false)
+	if err != nil {
+		return nil, err
+	}
+	return byPosition(dt, append(errs, sources...)), nil
+}

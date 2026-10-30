@@ -89,6 +89,9 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 // save saves the existing draft d (the plan's Task 7 save algorithm). The
 // pipeline has checked the write right, the state and in.Version.
 func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, d Doc, in ActionInput) (Result, error) {
+	if err := checkOnly(dt, in.Only); err != nil {
+		return Result{}, err
+	}
 	var stored, supplied *string
 	if d.Number != "" {
 		stored = &d.Number
@@ -125,8 +128,11 @@ func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocT
 		return Result{}, err
 	}
 	res := Result{ID: d.ID, State: d.State, Number: d.Number, Version: d.Version, Warnings: warnings}
-	if len(saveChanges(dt, d, n, nil)) == 0 && !reordered(d, &n) {
-		if len(errs) > 0 {
+	changes := saveChanges(dt, d, n, nil)
+	sc := scope{only: in.Only, changed: changedLines(changes), required: requiredErrs}
+	if len(changes) == 0 && !reordered(d, &n) {
+		var refused bool
+		if res.Problems, refused = sc.split(errs); refused {
 			return Result{}, invalid(errs) // CD-199: unchanged values must still pass, e.g. a master since disabled
 		}
 		return res, nil // DOC-029: nothing changed, nothing written
@@ -158,14 +164,13 @@ func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocT
 		}
 		after.Lines = append(after.Lines, Line{ID: id, LineNo: i + 1, Values: l.Values})
 	}
-	fe, err := e.checkSources(ctx, tx, dt, after)
+	sources, err := sourceErrors(ctx, tx, dt, after, in.Only == nil)
 	if err != nil {
 		return Result{}, err
 	}
-	if fe != nil {
-		errs = byPosition(dt, append(errs, *fe))
-	}
-	if errs = append(errs, dt.Hooks.Validate(ctx, tx, d.ID)...); len(errs) > 0 {
+	errs = append(byPosition(dt, append(errs, sources...)), dt.Hooks.Validate(ctx, tx, d.ID)...)
+	var refused bool
+	if res.Problems, refused = sc.split(errs); refused {
 		return Result{}, invalid(errs)
 	}
 
@@ -178,6 +183,60 @@ func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocT
 	}
 	res.Version = after.Version
 	return res, nil
+}
+
+// checkOnly refuses a name in only that is neither a field of dt nor "lines":
+// a caller's bug, so a plain internal error (CD-147, CD-205).
+func checkOnly(dt *DocType, only []string) error {
+	for _, name := range only {
+		if _, ok := dt.Field(name); !ok && name != "lines" {
+			return fmt.Errorf("doc: save %s: unknown field %q in Only", dt.Name, name)
+		}
+	}
+	return nil
+}
+
+// changedLines are the line numbers, after the save, of the lines changes
+// adds or changes. Comparing parsed values by line id is saveChanges' job, so
+// a line only moved or written in another format isn't one (CD-207).
+func changedLines(changes []audit.Change) map[int]bool {
+	lines := map[int]bool{}
+	for _, c := range changes {
+		if c.LineNo > 0 && c.Op != audit.OpRemove {
+			lines[c.LineNo] = true
+		}
+	}
+	return lines
+}
+
+// scope decides which of a save's errors refuse it (CD-205, CD-207).
+type scope struct {
+	only     []string
+	changed  map[int]bool // from changedLines
+	required []FieldError // CD-178: refused in or out of scope
+}
+
+// refuses reports whether e stops the save. A nil only is every error.
+func (s scope) refuses(e FieldError) bool {
+	if s.only == nil || e.Field == "" || slices.Contains(s.required, e) {
+		return true
+	}
+	if e.Line > 0 && !s.changed[e.Line] {
+		return false
+	}
+	return slices.Contains(s.only, e.Field) || (e.Line > 0 && slices.Contains(s.only, "lines"))
+}
+
+// split returns the errors that don't stop the save, and whether another does.
+func (s scope) split(errs []FieldError) (problems []FieldError, refused bool) {
+	for _, e := range errs {
+		if s.refuses(e) {
+			refused = true
+		} else {
+			problems = append(problems, e)
+		}
+	}
+	return problems, refused
 }
 
 // numberError is the number guard's refusal on field "number" (CD-28).

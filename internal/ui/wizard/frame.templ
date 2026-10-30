@@ -76,6 +76,7 @@ templ Frame(m Model, bar Bar) {
 		}
 		@components.ErrorSummary(m.Errors)
 		@components.Warnings(m.Warnings)
+		@components.Warnings(m.Stored)
 		if len(m.Errors) == 0 && m.Conflict == "" {
 			<h1 id="step-title" tabindex="-1" autofocus>{ m.Heading() }</h1>
 		} else {
