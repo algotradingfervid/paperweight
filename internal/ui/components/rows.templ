@@ -1,0 +1,85 @@
+package components
+
+import "strconv"
+
+// RowsRow is one row of a RowsEditor: its controls are named lines[No].field
+// with ids grid-<no>-<field>, as LineGrid's, and each shows its own error.
+type RowsRow struct {
+	No    int
+	Cells []GridCell
+}
+
+// RowsProps describes a RowsEditor. AddLabel is Add's text ("Add conversion");
+// Error is a message about all the rows together.
+type RowsProps struct {
+	ID, Legend, AddLabel string
+	Rows                 []RowsRow
+	Error                string
+}
+
+// rowsNoValidate lets a row button past the browser's required-field check:
+// the server redraws the form, it isn't saved.
+var rowsNoValidate = templ.Attributes{"formnovalidate": true}
+
+// rowsCellClass is one column's track, the same in the head and the rows.
+func rowsCellClass(c GridCell) string {
+	if c.Wide {
+		return "rows-cell rows-cell--wide"
+	}
+	return "rows-cell"
+}
+
+// RowsEditor edits a master's rows inside the caller's form; they save with
+// the whole form. Add and Remove are submit buttons posting _rows=add or
+// _rows=remove:<no>, and the server redraws. Unlike LineGrid it holds no form.
+//
+// Enter in a text field clicks the form's first submit button, which would
+// be Remove on row 1 or Add. A plain submit button comes first, so Enter
+// saves as the form's own Save does. It stays rendered, only clipped, because
+// a browser may pass over a default button that has no box.
+//
+// An htmx form holding an editor passes
+// DisabledElt: "#<id> button[type=submit]", as the wizard does: Form's default
+// disables only the first submit, and here that is this hidden one.
+templ RowsEditor(p RowsProps) {
+	<fieldset id={ p.ID } class="fieldset rows-fieldset" aria-describedby={ p.ID + "-msg" }>
+		<legend class="fieldset-legend field__label">{ p.Legend }</legend>
+		<span class="visually-hidden">
+			@Button(ButtonProps{Label: "Save", Attrs: templ.Attributes{"aria-hidden": "true", "tabindex": "-1"}})
+		</span>
+		<div class="rows-editor">
+			if len(p.Rows) > 0 {
+				<div class="rows-head" aria-hidden="true">
+					<span class="rows-no">#</span>
+					for _, c := range p.Rows[0].Cells {
+						<span class={ rowsCellClass(c) }>{ c.Label }</span>
+					}
+					<span class="rows-actions">Actions</span>
+				</div>
+				<ol class="rows-items">
+					for _, r := range p.Rows {
+						<li class="rows-row">
+							<span class="rows-no"><span class="visually-hidden">Row</span>{ strconv.Itoa(r.No) }</span>
+							for _, c := range r.Cells {
+								<div class={ rowsCellClass(c) }>
+									@c.Input
+								</div>
+							}
+							<div class="rows-actions">
+								@Button(ButtonProps{
+									Label: "Remove", AriaLabel: "Remove row " + strconv.Itoa(r.No), Busy: "Removing…", Variant: Ghost,
+									Name: "_rows", Value: "remove:" + strconv.Itoa(r.No), Attrs: rowsNoValidate,
+								})
+							</div>
+						</li>
+					}
+				</ol>
+			}
+			@fieldMsg(p.ID, p.Error, "")
+			@Button(ButtonProps{
+				Label: p.AddLabel, Busy: "Adding…", Icon: "plus", Variant: Secondary,
+				Name: "_rows", Value: "add", Attrs: rowsNoValidate,
+			})
+		</div>
+	</fieldset>
+}

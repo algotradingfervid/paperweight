@@ -16,10 +16,15 @@ type LineCard struct {
 	Version                                      string
 }
 
-// GridCell is one input cell of a grid row; Label heads its column.
+// GridCell is one input cell of a grid row; Label heads its column. Wide
+// gives a number cell in a RowsEditor the track its longest value needs
+// (CD-203); LineGrid sets its columns itself and ignores it. The track
+// assumes no suffix: a suffix needs 137 px and gets 83 px. Item's factor has
+// none.
 type GridCell struct {
 	Label string
 	Input templ.Component
+	Wide  bool
 }
 
 // LineGridRow is one row of the desktop grid (CD-139). Cells are the item

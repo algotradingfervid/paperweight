@@ -37,12 +37,14 @@ const (
 var siteTypes = []SiteType{Warehouse, SiteKind}
 
 const (
-	msgType      = "Type must be Warehouse or Site." // MST-105 (06 wins over CD-166)
-	msgBranch    = "Branch is required."
-	msgNoBranch  = "Branch not found. Pick one from the list."                                            // CD-170
-	msgNoProject = "Project not found. Pick one from the list."                                           // CD-170
-	msgRestrict  = "You can only work with your assigned sites. Ask your administrator to add this site." // CD-172
-	msgLocked    = "Branch can't change after the site is used."                                          // MST-107
+	msgType   = "Type must be Warehouse or Site." // MST-105 (06 wins over CD-166)
+	msgBranch = "Branch is required."
+	// MsgBranchNotFound and MsgProjectNotFound are the refusals of a link that
+	// doesn't exist; the screens show them for one that can't be parsed too.
+	MsgBranchNotFound  = "Branch not found. Pick one from the list."                                            // CD-170
+	MsgProjectNotFound = "Project not found. Pick one from the list."                                           // CD-170
+	msgRestrict        = "You can only work with your assigned sites. Ask your administrator to add this site." // CD-172
+	msgLocked          = "Branch can't change after the site is used."                                          // MST-107
 
 	msgRestrictProject = "You can only link sites to your assigned projects. Ask your administrator to add this project." // CD-214
 	msgReadOnly        = "This site is on a project you aren't assigned to. Ask your administrator to change it."         // CD-216(6)
@@ -152,9 +154,9 @@ func ref(id int64) *auth.RecordRef {
 	return &auth.RecordRef{DocType: DocType, ID: id, SiteIDs: []int64{id}}
 }
 
-// checkUnrestricted refuses a principal restricted on Site (CD-172),
+// CheckUnrestricted refuses a principal restricted on Site (CD-172),
 // reading inside tx (CD-174).
-func (s *Service) checkUnrestricted(ctx context.Context, tx *db.Tx, p auth.Principal) error {
+func (s *Service) CheckUnrestricted(ctx context.Context, tx *db.Tx, p auth.Principal) error {
 	restricted, err := s.env.Auth.Restricted(ctx, tx, p, string(auth.DimSite))
 	if err != nil {
 		return err
@@ -223,7 +225,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 	b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("branch_id", msgNoBranch)
+		es.Add("branch_id", MsgBranchNotFound)
 	case err != nil:
 		return err
 	case b.Disabled:
@@ -233,7 +235,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 		pr, err := project.New(s.env).Get(ctx, tx, in.ProjectID)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
-			es.Add("project_id", msgNoProject)
+			es.Add("project_id", MsgProjectNotFound)
 		case err != nil:
 			return err
 		case pr.Disabled:
@@ -280,7 +282,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkUnrestricted(ctx, tx, p); err != nil {
+	if err := s.CheckUnrestricted(ctx, tx, p); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)

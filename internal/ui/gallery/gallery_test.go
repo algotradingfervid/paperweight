@@ -21,7 +21,7 @@ import (
 var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
-	"actionbar", "warnings", "filterbar", "pagination", "bare",
+	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
@@ -39,6 +39,35 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		}
 		if d.Find(`input.num[hx-post="/ui/validate/factor"][value="9,99,999.999999999"]`).Length() == 0 {
 			t.Error("fields: no Factor input holding the worst-case value 9,99,999.999999999")
+		}
+	},
+	"rows": func(t *testing.T, d *goquery.Document) {
+		if !strings.Contains(d.Text(), uitest.LongError) {
+			t.Error("rows: no uitest.LongError (the refused state)")
+		}
+		for name, v := range map[string]string{
+			"LongName100": uitest.LongName100, "LongCode60": uitest.LongCode60, "worst-case amount": "99,99,99,999.99", "worst-case factor": "9,99,999.999999",
+		} {
+			if d.Find(`.rows-row input[value="`+v+`"]`).Length() == 0 {
+				t.Errorf("rows: no row input holds the %s", name)
+			}
+		}
+		if d.Find(`.rows-row [aria-invalid="true"]`).Length() == 0 {
+			t.Error(`rows: no row input has aria-invalid="true" (a field error)`)
+		}
+		if d.Find("form#rows-plain").Length() != 1 || d.Find("form#rows-hx[hx-post]").Length() != 1 {
+			t.Error("rows: want the editor in a plain form and in an htmx form")
+		}
+		if got := d.Find("form#rows-hx").AttrOr("hx-disabled-elt", ""); got != "#rows-hx button[type=submit]" {
+			t.Errorf("rows: htmx form hx-disabled-elt = %q", got)
+		}
+		if name := d.Find("form#rows-plain input#rows-name"); name.Length() != 1 || d.Find("form#rows-plain fieldset input#rows-name").Length() != 0 {
+			t.Error("rows: no text field above the editor in the plain form")
+		}
+		if d.Find("form .rows-editor").Length() != 3 || d.Find(".rows-editor").FilterFunction(func(_ int, s *goquery.Selection) bool {
+			return s.Find(".rows-row").Length() == 0
+		}).Length() != 1 {
+			t.Error("rows: want three editors in forms, one of them with no rows")
 		}
 	},
 	"datalist": func(t *testing.T, d *goquery.Document) {

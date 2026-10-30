@@ -38,14 +38,15 @@ const (
 )
 
 const (
-	msgTypeRequired  = "Item type is required (Goods or Service)."
-	msgTypeUnknown   = "Item type must be Goods or Service."
-	msgStockRequired = "Stock UoM is required."
-	msgServiceStock  = "Service items can't be stock items."
-	msgNotFound      = "%s not found. Pick one from the list." // DOC-032's wording
-	msgStockLocked   = "Stock UoM can't change after the item is used. Create a new item."
-	msgTypeLocked    = "Item type can't change after the item is used. Create a new item."
-	msgUoMDisabled   = "UoM %s is disabled. Pick another UoM."
+	msgTypeRequired     = "Item type is required (Goods or Service)."
+	msgTypeUnknown      = "Item type must be Goods or Service."
+	msgStockRequired    = "Stock UoM is required."
+	msgServiceStock     = "Service items can't be stock items."
+	msgStockLocked      = "Stock UoM can't change after the item is used. Create a new item."
+	msgTypeLocked       = "Item type can't change after the item is used. Create a new item."
+	msgUoMDisabled      = "UoM %s is disabled. Pick another UoM."
+	MsgStockNotFound    = "Stock UoM not found. Pick one from the list."    // DOC-032's wording
+	MsgPurchaseNotFound = "Purchase UoM not found. Pick one from the list." // DOC-032's wording
 )
 
 func init() {
@@ -370,7 +371,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input, kept []Co
 	}
 	switch {
 	case !stockOK:
-		es.Add("stock_uom_id", fmt.Sprintf(msgNotFound, "Stock UoM"))
+		es.Add("stock_uom_id", MsgStockNotFound)
 	case stock.Disabled && !hasRow(kept, in.StockUoMID):
 		es.Add("stock_uom_id", fmt.Sprintf(msgUoMDisabled, stock.Code))
 	}
@@ -379,7 +380,7 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input, kept []Co
 		return err
 	}
 	if !purchaseOK {
-		es.Add("purchase_uom_id", fmt.Sprintf(msgNotFound, "Purchase UoM"))
+		es.Add("purchase_uom_id", MsgPurchaseNotFound)
 	}
 	if err := taxcode.New(s.env).CheckEnabledTx(ctx, tx, in.DefaultTaxCodeID); err != nil {
 		var ve *mstkit.ValidationError

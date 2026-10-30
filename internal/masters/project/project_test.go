@@ -11,6 +11,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/company"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/masters/msttest"
+	"github.com/vardhan/internaltools/internal/masters/party"
 	"github.com/vardhan/internaltools/internal/masters/project"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -261,6 +262,40 @@ func (w *world) restrictPriya(t *testing.T, rights map[auth.Right]auth.Scope, pr
 	}
 	if ids := got[auth.DimProject]; len(ids) != 1 || ids[0] != projectID {
 		t.Fatalf("Priya's project restriction = %v; want [%d]", ids, projectID)
+	}
+}
+
+// TestProject_DisabledCustomer has no case ID: a disabled customer is refused
+// on create and on update, as a disabled branch is, and can be cleared (CD-170).
+func TestProject_DisabledCustomer(t *testing.T) {
+	ctx := context.Background()
+	w := newWorld(t)
+	kavya := w.env.Kavya
+	parties := party.New(w.env.Kit)
+	c, err := parties.Create(ctx, kavya, party.Input{Code: "SHREE", Name: "Shree Steel Traders", IsCustomer: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := validInput()
+	in.CustomerID = c.ID
+	saved := w.create(t, in)
+	if err := parties.SetDisabled(ctx, kavya, c.ID, c.Version, true); err != nil {
+		t.Fatal(err)
+	}
+	const msg = "Customer SHREE is disabled. Pick another customer."
+
+	in.BranchID = w.branchID
+	in.Code = "PRJ-NEW"
+	_, err = w.svc.Create(ctx, kavya, in)
+	wantOneFieldError(t, err, "customer_id", msg)
+
+	in.Code = prjCode
+	_, err = w.svc.Update(ctx, kavya, saved.ID, saved.Version, in)
+	wantOneFieldError(t, err, "customer_id", msg)
+
+	in.CustomerID = 0
+	if _, err := w.svc.Update(ctx, kavya, saved.ID, saved.Version, in); err != nil {
+		t.Errorf("Update clearing the disabled customer = %v; want nil", err)
 	}
 }
 

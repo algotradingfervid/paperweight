@@ -275,6 +275,27 @@ func gridRow(no int, item *components.PickRow, qty, errText string) components.L
 	}
 }
 
+// sampleRows are row editor rows numbered first to last, with worst-case
+// values. A row number shows on one page once, so its ids stay unique.
+func sampleRows(first, last int) []components.RowsRow {
+	var out []components.RowsRow
+	for no := first; no <= last; no++ {
+		id, name := "grid-"+strconv.Itoa(no)+"-", "lines["+strconv.Itoa(no)+"]."
+		errText := ""
+		if no == 2 {
+			errText = uitest.LongError
+		}
+		out = append(out, components.RowsRow{No: no, Cells: []components.GridCell{
+			{Label: "Unit", Input: components.TextInput(components.FieldProps{ID: id + "unit", Name: name + "unit", Label: "Unit", Value: uitest.LongName100})},
+			{Label: "Code", Input: components.TextInput(components.FieldProps{ID: id + "code", Name: name + "code", Label: "Code", Value: uitest.LongCode60, Error: errText})},
+			{Label: "Pack", Input: components.TextInput(components.FieldProps{ID: id + "pack", Name: name + "pack", Label: "Pack", Value: uitest.LongName100})},
+			{Label: "Factor", Input: components.RateInput(components.FieldProps{ID: id + "factor", Name: name + "factor", Label: "Factor", Value: "9,99,999.999999"}), Wide: true},
+			{Label: "Amount", Input: components.MoneyInput(components.FieldProps{ID: id + "amount", Name: name + "amount", Label: "Amount", Value: "99,99,99,999.99"}), Wide: true},
+		}})
+	}
+	return out
+}
+
 // searchURL is the picker search for the listbox with id list.
 func searchURL(list string) string { return "/_gallery/items?list=" + list }
 

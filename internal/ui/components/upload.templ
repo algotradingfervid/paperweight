@@ -10,11 +10,19 @@ type Attachment struct {
 }
 
 // UploadProps describes a FileUpload. Action receives one "file" part per
-// request; its response replaces the element with id ID.
+// request; its response replaces Target (default the element with id ID).
+// Accept is the Choose file control's file types (default images and PDFs).
+// NoCamera leaves out "Take photo", for files a camera can't make.
 type UploadProps struct {
 	ID, Label, Action, Hint, Error string
+	Accept, Target                 string
+	NoCamera                       bool
 	Files                          []Attachment
 }
+
+// UploadInputID is the id of the Choose file input of the FileUpload with id
+// id: the place an ErrorSummary link goes.
+func UploadInputID(id string) string { return id + "-file" }
 
 // FileUpload states the limits first, then offers "Take photo" (rear camera
 // on phones) and "Choose file". Choosing a file posts it at once; upload.js
@@ -23,7 +31,9 @@ templ FileUpload(p UploadProps) {
 	<div id={ p.ID } class="upload">
 		@choiceGroup(FieldProps{ID: p.ID, Label: p.Label, Hint: orDefault(p.Hint, "JPG, PNG, HEIC or PDF, up to 10 MB"), Error: p.Error}) {
 			<div class="upload__controls">
-				@uploadForm(p, true)
+				if !p.NoCamera {
+					@uploadForm(p, true)
+				}
 				@uploadForm(p, false)
 			</div>
 		}
@@ -37,7 +47,7 @@ templ FileUpload(p UploadProps) {
 // uploadForm is one control in its own form, so the other control's empty
 // input never sends a second "file" part.
 templ uploadForm(p UploadProps, camera bool) {
-	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: "#" + p.ID, Trigger: "change"}) {
+	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: orDefault(p.Target, "#"+p.ID), Trigger: "change"}) {
 		<label class={ buttonClass(Secondary) + " upload__button" }>
 			if camera {
 				@icons.Icon("camera")
@@ -49,16 +59,23 @@ templ uploadForm(p UploadProps, camera bool) {
 					capture="environment"
 					class="input-overlay"
 					aria-describedby={ p.ID + "-hint " + p.ID + "-msg" }
+					if p.Error != "" {
+						aria-invalid="true"
+					}
 				/>
 			} else {
 				@icons.Icon("upload")
 				<span>Choose file</span>
 				<input
+					id={ UploadInputID(p.ID) }
 					type="file"
 					name="file"
-					accept="image/*,application/pdf"
+					accept={ orDefault(p.Accept, "image/*,application/pdf") }
 					class="input-overlay"
 					aria-describedby={ p.ID + "-hint " + p.ID + "-msg" }
+					if p.Error != "" {
+						aria-invalid="true"
+					}
 				/>
 			}
 		</label>

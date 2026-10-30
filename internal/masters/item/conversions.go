@@ -21,12 +21,12 @@ type Conversion struct {
 
 const (
 	msgStockFactor   = "The conversion factor for the stock UoM must be 1."
-	msgRowPrefix     = "Row %d: "
+	MsgRowPrefix     = "Row %d: "
 	msgRowUoMBlank   = "Row %d: UoM is required."
 	msgDuplicateUoM  = "UoM %s is entered more than once. Keep one row per UoM."
 	msgPurchaseNoRow = "Purchase UoM %s has no conversion for this item. Add a row such as 1 %s = 100 %s."
-	msgRowNotFound   = "Row %d: UoM not found. Pick one from the list."
-	msgRowDisabled   = msgRowPrefix + msgUoMDisabled
+	MsgRowNotFound   = "Row %d: UoM not found. Pick one from the list."
+	msgRowDisabled   = MsgRowPrefix + msgUoMDisabled
 	msgStockReset    = "Stock UoM changed. Re-enter the other conversions."
 )
 
@@ -40,7 +40,7 @@ func checkFactors(es *mstkit.Errors, stockUoMID int64, rows []Conversion) []Conv
 			es.AddLine(i+1, "uom_id", fmt.Sprintf(msgRowUoMBlank, i+1))
 		}
 		if err := uom.CheckFactor(c.Factor); err != nil {
-			es.AddLine(i+1, "factor", fmt.Sprintf(msgRowPrefix, i+1)+err.Error())
+			es.AddLine(i+1, "factor", fmt.Sprintf(MsgRowPrefix, i+1)+err.Error())
 		} else if c.UoMID == stockUoMID && c.Factor != uom.FactorOne {
 			es.AddLine(i+1, "factor", msgStockFactor)
 		}
@@ -64,7 +64,7 @@ func checkRows(es *mstkit.Errors, in Input, kept []Conversion, lookup func(id in
 		}
 		switch {
 		case !ok && c.UoMID != in.StockUoMID:
-			es.AddLine(i+1, "uom_id", fmt.Sprintf(msgRowNotFound, i+1))
+			es.AddLine(i+1, "uom_id", fmt.Sprintf(MsgRowNotFound, i+1))
 		case ok && seen[c.UoMID] == 2:
 			es.AddLine(i+1, "uom_id", fmt.Sprintf(msgDuplicateUoM, u.Code))
 		case ok && u.Disabled && c.UoMID != in.StockUoMID && !hasRow(kept, c.UoMID):

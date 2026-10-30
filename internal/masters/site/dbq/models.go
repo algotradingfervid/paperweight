@@ -201,6 +201,14 @@ type ContactPhone struct {
 	IsPrimary int64
 }
 
+type CsvUpload struct {
+	Token     string
+	UserID    int64
+	CreatedAt string
+	ClaimedAt interface{}
+	Data      []byte
+}
+
 type Employee struct {
 	ID                 int64
 	Code               string

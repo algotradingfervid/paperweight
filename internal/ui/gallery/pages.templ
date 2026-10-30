@@ -150,6 +150,29 @@ templ linesBody() {
 	})
 }
 
+// rowsBody is the row editor in a plain form, refused and with worst-case
+// values, in an htmx form, and with no rows yet.
+templ rowsBody() {
+	<h2>Refused, in a plain form</h2>
+	@components.Form(components.FormProps{ID: "rows-plain", Action: "/_gallery/rows"}) {
+		@components.TextInput(components.FieldProps{ID: "rows-name", Name: "name", Label: "Item name", Value: uitest.LongName100})
+		@components.RowsEditor(components.RowsProps{
+			ID: "rows-refused", Legend: uitest.LongName100, AddLabel: "Add conversion",
+			Rows: sampleRows(1, 3), Error: uitest.LongError,
+		})
+		@components.Button(components.ButtonProps{Label: "Save", Variant: components.Primary})
+	}
+	<h2>In an htmx form</h2>
+	@components.Form(components.FormProps{ID: "rows-hx", Action: "/_gallery/rows", HX: true, DisabledElt: "#rows-hx button[type=submit]"}) {
+		@components.RowsEditor(components.RowsProps{ID: "rows-htmx", Legend: "Unit conversions", AddLabel: "Add conversion", Rows: sampleRows(4, 5)})
+		@components.Button(components.ButtonProps{Label: "Save", Variant: components.Primary})
+	}
+	<h2>No rows yet</h2>
+	@components.Form(components.FormProps{Action: "/_gallery/rows"}) {
+		@components.RowsEditor(components.RowsProps{ID: "rows-empty", Legend: "Unit conversions", AddLabel: "Add conversion"})
+	}
+}
+
 // gridText is a grid cell that only shows a value.
 templ gridText(v string) {
 	<span>{ v }</span>

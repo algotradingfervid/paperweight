@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5"
+
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/csvio"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -59,6 +62,16 @@ func TestRegisterImporters_AllTenAndRepeatable(t *testing.T) {
 			}()
 			csvio.RegisterImporter(name, nil)
 		}()
+	}
+}
+
+// Routes makes its own Services the importers' (CD-210), so WP3 has nothing
+// to call.
+func TestRoutes_RegistersImporters(t *testing.T) {
+	s := New(msttest.New(t).Kit)
+	s.Routes(chi.NewRouter(), WebDeps{Sessions: scs.New()})
+	if got := importServices.Load(); got != s {
+		t.Errorf("importers use services %p; want %p", got, s)
 	}
 }
 
