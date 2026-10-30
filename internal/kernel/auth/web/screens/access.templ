@@ -8,15 +8,20 @@ import (
 	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
 )
 
-// AccessPage is one user's "Site and project access" page (Task 20). Post is
-// the restrictions URL every form posts to with Version (CD-146); PickerURL
-// is each dimension's master picker search URL.
+// AccessPage is one user's "Site and project access" page (Task 20). UserPath
+// is the Back link's target. Post is the restrictions URL every form posts to
+// with Version (CD-146): the user's version, or on a re-render the one the
+// page posted (CD-94). PickerURL is each dimension's master picker search URL.
+// Error, when set, shows on ErrorDim's picker and in the summary (CD-194).
 type AccessPage struct {
 	User      auth.UserInfo
+	UserPath  string
 	Version   int64
 	Post      string
 	Values    map[auth.Dimension][]auth.Restriction
 	PickerURL map[auth.Dimension]string
+	ErrorDim  auth.Dimension
+	Error     string
 }
 
 // accessSection is the wording of one dimension's section.
@@ -30,10 +35,28 @@ var accessSections = []accessSection{
 	{Dim: auth.DimProject, Title: "Projects", None: "All projects (no restriction)", Add: "Add a project"},
 }
 
+// addFieldID is the id of dim's picker field.
+func addFieldID(dim auth.Dimension) string {
+	return components.FieldID("add-" + string(dim))
+}
+
+// addError is the error shown on dim's picker, if any.
+func addError(p AccessPage, dim auth.Dimension) string {
+	if dim == p.ErrorDim {
+		return p.Error
+	}
+	return ""
+}
+
 // Access shows, per dimension, a Card with "Remove" for each allowed value
-// (or the no-restriction text) and a Picker that adds one.
+// (or the no-restriction text) and a Picker that adds one, with p.Error in
+// the ErrorSummary and on its dimension's Picker.
 templ Access(p AccessPage) {
-	@uilayout.Page(uilayout.PageOpts{Title: "Site and project access", Back: &components.Link{Label: p.User.Name, Href: "/users/" + strconv.FormatInt(int64(p.User.ID), 10)}}) {
+	{{ o := uilayout.PageOpts{Title: "Site and project access", Error: p.Error != "", Back: &components.Link{Label: p.User.Name, Href: p.UserPath}} }}
+	if o.Error {
+		{{ o.BannerSlot = components.ErrorSummary([]components.FieldErr{{ID: addFieldID(p.ErrorDim), Message: p.Error}}) }}
+	}
+	@uilayout.Page(o) {
 		<p>{ p.User.Name } · { p.User.Email }</p>
 		for _, s := range accessSections {
 			<section class="stack">
@@ -54,10 +77,10 @@ templ Access(p AccessPage) {
 				@components.Form(components.FormProps{Action: p.Post}) {
 					@accessHidden(s.Dim, p.Version)
 					@components.Picker(components.PickerProps{
-						Field:     components.FieldProps{ID: components.FieldID("add-" + string(s.Dim)), Label: s.Add},
-						SearchURL: p.PickerURL[s.Dim], HiddenName: "add", ListboxID: components.FieldID("add-" + string(s.Dim)) + "-results",
+						Field:     components.FieldProps{ID: addFieldID(s.Dim), Label: s.Add, Error: addError(p, s.Dim)},
+						SearchURL: p.PickerURL[s.Dim], HiddenName: "add", ListboxID: addFieldID(s.Dim) + "-results",
 					})
-					@components.Button(components.ButtonProps{Label: "Add", Type: "submit"})
+					@components.Button(components.ButtonProps{Label: "Add", AriaLabel: s.Add, Type: "submit"})
 				}
 			</section>
 		}

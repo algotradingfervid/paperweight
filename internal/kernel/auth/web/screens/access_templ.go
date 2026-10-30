@@ -16,15 +16,20 @@ import (
 	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
 )
 
-// AccessPage is one user's "Site and project access" page (Task 20). Post is
-// the restrictions URL every form posts to with Version (CD-146); PickerURL
-// is each dimension's master picker search URL.
+// AccessPage is one user's "Site and project access" page (Task 20). UserPath
+// is the Back link's target. Post is the restrictions URL every form posts to
+// with Version (CD-146): the user's version, or on a re-render the one the
+// page posted (CD-94). PickerURL is each dimension's master picker search URL.
+// Error, when set, shows on ErrorDim's picker and in the summary (CD-194).
 type AccessPage struct {
 	User      auth.UserInfo
+	UserPath  string
 	Version   int64
 	Post      string
 	Values    map[auth.Dimension][]auth.Restriction
 	PickerURL map[auth.Dimension]string
+	ErrorDim  auth.Dimension
+	Error     string
 }
 
 // accessSection is the wording of one dimension's section.
@@ -38,8 +43,22 @@ var accessSections = []accessSection{
 	{Dim: auth.DimProject, Title: "Projects", None: "All projects (no restriction)", Add: "Add a project"},
 }
 
+// addFieldID is the id of dim's picker field.
+func addFieldID(dim auth.Dimension) string {
+	return components.FieldID("add-" + string(dim))
+}
+
+// addError is the error shown on dim's picker, if any.
+func addError(p AccessPage, dim auth.Dimension) string {
+	if dim == p.ErrorDim {
+		return p.Error
+	}
+	return ""
+}
+
 // Access shows, per dimension, a Card with "Remove" for each allowed value
-// (or the no-restriction text) and a Picker that adds one.
+// (or the no-restriction text) and a Picker that adds one, with p.Error in
+// the ErrorSummary and on its dimension's Picker.
 func Access(p AccessPage) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -61,6 +80,10 @@ func Access(p AccessPage) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+		o := uilayout.PageOpts{Title: "Site and project access", Error: p.Error != "", Back: &components.Link{Label: p.User.Name, Href: p.UserPath}}
+		if o.Error {
+			o.BannerSlot = components.ErrorSummary([]components.FieldErr{{ID: addFieldID(p.ErrorDim), Message: p.Error}})
+		}
 		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -80,7 +103,7 @@ func Access(p AccessPage) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(p.User.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 37, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 60, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -93,7 +116,7 @@ func Access(p AccessPage) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.User.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 37, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 60, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -111,7 +134,7 @@ func Access(p AccessPage) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(s.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 40, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 63, Col: 17}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -129,7 +152,7 @@ func Access(p AccessPage) templ.Component {
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(s.None)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 42, Col: 16}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 65, Col: 16}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
@@ -160,7 +183,7 @@ func Access(p AccessPage) templ.Component {
 						var templ_7745c5c3_Var8 string
 						templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(v.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 46, Col: 18}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 69, Col: 18}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 						if templ_7745c5c3_Err != nil {
@@ -193,7 +216,7 @@ func Access(p AccessPage) templ.Component {
 							var templ_7745c5c3_Var10 string
 							templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.FormatInt(v.ID, 10))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 49, Col: 77}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 72, Col: 77}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 							if templ_7745c5c3_Err != nil {
@@ -237,13 +260,13 @@ func Access(p AccessPage) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					templ_7745c5c3_Err = components.Picker(components.PickerProps{
-						Field:     components.FieldProps{ID: components.FieldID("add-" + string(s.Dim)), Label: s.Add},
-						SearchURL: p.PickerURL[s.Dim], HiddenName: "add", ListboxID: components.FieldID("add-"+string(s.Dim)) + "-results",
+						Field:     components.FieldProps{ID: addFieldID(s.Dim), Label: s.Add, Error: addError(p, s.Dim)},
+						SearchURL: p.PickerURL[s.Dim], HiddenName: "add", ListboxID: addFieldID(s.Dim) + "-results",
 					}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Add", Type: "submit"}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Add", AriaLabel: s.Add, Type: "submit"}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -260,7 +283,7 @@ func Access(p AccessPage) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = uilayout.Page(uilayout.PageOpts{Title: "Site and project access", Back: &components.Link{Label: p.User.Name, Href: "/users/" + strconv.FormatInt(int64(p.User.ID), 10)}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = uilayout.Page(o).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -297,7 +320,7 @@ func accessHidden(dim auth.Dimension, version int64) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(string(dim))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 69, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 92, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -310,7 +333,7 @@ func accessHidden(dim auth.Dimension, version int64) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.FormatInt(version, 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 70, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/access.templ`, Line: 93, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 		if templ_7745c5c3_Err != nil {

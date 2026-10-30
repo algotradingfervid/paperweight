@@ -397,8 +397,8 @@ func (a *Auth) DefaultValue(ctx context.Context, p Principal, dim Dimension) (in
 	return ids[0], true, nil
 }
 
-// RestrictionLabels returns u's allowed codes per restricted dimension, with
-// " (disabled)" on values the dimension's master reports disabled (AUTH-105).
+// RestrictionLabels returns the Label of each of u's allowed values per
+// restricted dimension (see Restriction).
 func (a *Auth) RestrictionLabels(ctx context.Context, u UserID) (map[Dimension][]string, error) {
 	var out map[Dimension][]string
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
@@ -428,8 +428,8 @@ func (a *Auth) restrictionLabels(ctx context.Context, tx *db.Tx, u UserID) (map[
 }
 
 // Restriction is one allowed value of a dimension: its id and its label, the
-// master's code plus " (disabled)" for a disabled value (AUTH-105), or the id
-// when the Directory has no code for it.
+// master's code, or the id when the Directory has no code for it, plus
+// " (disabled)" when the dimension's master reports it disabled (AUTH-105).
 type Restriction struct {
 	ID    int64
 	Label string

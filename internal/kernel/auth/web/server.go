@@ -15,7 +15,8 @@ type Config struct {
 	TrustProxy bool // take the client IP from X-Forwarded-For
 	// Seed is what a matrix reset seeds with (WP3 sets LinkedMasterRead).
 	Seed auth.SeedOptions
-	// PickerURL is the search URL of a master's picker (Task 20).
+	// PickerURL returns the search URL of a master's picker (Task 20). Without
+	// it the access page answers a plain internal error.
 	PickerURL func(dt *doctype.DocType) string
 }
 

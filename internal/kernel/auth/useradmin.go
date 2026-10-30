@@ -60,9 +60,10 @@ func (a *Auth) UserForEdit(ctx context.Context, actor Principal, id UserID) (Use
 	return UserInfo{ID: id, Email: u.Email, Name: u.Name, Enabled: u.Enabled != 0}, u.Version, out, nil
 }
 
-// UserAccess returns user id, the version its access page posts back (CD-94)
-// and its restricted values per dimension with their labels, read together
-// (CD-146). Only an Administrator may read it.
+// UserAccess returns user id, its version (CD-94) and its restricted values
+// per dimension with their labels, read together (CD-146). Only an
+// Administrator may read it (ErrAdminOnlyAccess); an unknown id is
+// ErrNotFound.
 func (a *Auth) UserAccess(ctx context.Context, actor Principal, id UserID) (UserInfo, int64, map[Dimension][]Restriction, error) {
 	if !isAdmin(actor) {
 		return UserInfo{}, 0, nil, ErrAdminOnlyAccess

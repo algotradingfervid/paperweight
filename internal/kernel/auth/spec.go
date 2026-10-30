@@ -69,7 +69,7 @@ func dimColumns(dt *doctype.DocType, d Dimension) (header, lines []string) {
 }
 
 // MasterFor returns the registered master that holds dimension d's values:
-// the one whose own id is its d column (CD-64).
+// the one whose own id is its d column (CD-64). The bool is false when none is.
 func MasterFor(d Dimension) (*doctype.DocType, bool) {
 	for _, dt := range doctype.All() {
 		if dt.Master != nil && slices.Contains(dimFields(dt, d), "id") {
