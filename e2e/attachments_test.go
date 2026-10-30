@@ -193,7 +193,6 @@ func shadedPhoto(t *testing.T, w, h int, shade uint8) []byte {
 	return buf.Bytes()
 }
 
-// exifRotated is data with an EXIF APP1 segment saying orientation 6 (the
 // fileOf writes data to a temp file called name.
 func fileOf(t *testing.T, name string, data []byte) string {
 	t.Helper()
@@ -655,18 +654,22 @@ func TestE2E_AttachmentsAxe(t *testing.T) {
 	attachFile(h, deepak, draftID, "quote.pdf", filestest.PDF(1000))
 	approved := claimWithFiles(t, h)
 	d := h.SignIn(deepak, phone360)
+	gifFile := fileOf(t, "receipt.gif", gif())
 	for _, c := range []struct {
-		name, path, setup, ready string
+		name, path, setup, upload, ready string
 	}{
-		{"check step", checkStep(draftID), "", thumbShown("receipt.jpg")},
-		{"document page", DocPath(fixture.Claim, approved), "", thumbShown("receipt.jpg")},
-		{"refused", checkStep(draftID), fmt.Sprintf(refusedLong, strconv.Quote(msgGIF)), upShows(msgGIF)},
-		{"confirm open", checkStep(draftID), `document.querySelector('button[data-open-dialog^="remove-file-"]').click()`, `document.querySelector("dialog[open]") !== null`},
+		{"check step", checkStep(draftID), "", "", thumbShown("receipt.jpg")},
+		{"document page", DocPath(fixture.Claim, approved), "", "", thumbShown("receipt.jpg")},
+		{"refused", checkStep(draftID), "", gifFile, upShows(msgGIF) + " && " + upIdle},
+		{"confirm open", checkStep(draftID), `document.querySelector('button[data-open-dialog^="remove-file-"]').click()`, "", `document.querySelector("dialog[open]") !== null`},
 	} {
 		d.Open(c.path)
 		d.Until("the page to load", `document.readyState === "complete"`)
 		if c.setup != "" {
 			d.Do(c.name, chromedp.Evaluate[chromedp.Void](c.setup))
+		}
+		if c.upload != "" {
+			d.SetFile(chooseFile, c.upload) // a real refusal from the server (ATT-026)
 		}
 		// A dialog fading in fails color-contrast mid-way: wait for its
 		// transitions (daisyUI's scroll-driven animation never ends).

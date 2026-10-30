@@ -198,7 +198,7 @@ A refusal shows in two places, as a field error does with its summary: in the ca
 - After a refusal: focus is back on the input the user used; the message is announced by `#alerts` and, through `aria-describedby`, read with the input.
 - Remove: Enter or Space opens the dialog; focus goes to the dialog (native `showModal`, first focusable is its Close button); Tab moves to `Remove file` and `Keep file`; Escape closes; on close focus returns to the Remove button (`dialog.js`). On a refused remove the dialog closes first, then the message shows (§6 change 2).
 - Enter inside the card never submits the wizard: the card sits in the check step's `After`, outside the step form.
-- After a successful upload or remove, the page reloads: the browser restores the scroll position and focus starts as on any load. ATT-022 asserts the card is in view after the reload on the check step (whose heading has `autofocus`); if it isn't, that is a build defect to fix before hand-in.
+- After a successful upload or remove, the page reloads at `#attachments` (the URL keeps the fragment): the browser scrolls to the card, and because the URL names an element it skips the heading's `autofocus`, so the next Tab reaches `Take photo`. Without the fragment the check step's heading autofocus scrolled the page back to the top (B4 build finding, 31 Oct). ATT-022 asserts the card is in view after the reload.
 
 ### 5.2 Check step (draft and amended draft)
 
@@ -210,7 +210,7 @@ The card goes after the step sections and before the total, so the total and the
 
 **Copy:** §5.1. On an amended draft the copied files show with Remove (it is a draft) and the amending user as uploader (FILE-043); removing one leaves the original's file alone (FILE-044).
 
-**Focus:** §5.1; the heading keeps its autofocus.
+**Focus:** §5.1; the heading keeps its autofocus on an ordinary load, but not on the reload after an upload or remove, which opens at `#attachments`.
 
 ### 5.3 Document page (rejected, pending approval, approved, closed, cancelled)
 

@@ -477,6 +477,13 @@ func (s *Session) SetFile(sel, path string) {
 		if res.Result == nil || res.Result.ObjectID == "" {
 			return fmt.Errorf("no element %s", sel)
 		}
+		off, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`document.querySelector(` + strconv.Quote(sel) + `).disabled`))
+		if err != nil {
+			return err
+		}
+		if off {
+			return fmt.Errorf("%s is disabled: a user can't pick a file on it", sel)
+		}
 		_, err = chromedp.Call(ctx, dom.SetFileInputFiles, dom.SetFileInputFilesParams{Files: []string{path}, ObjectID: res.Result.ObjectID})
 		return err
 	}))
