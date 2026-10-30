@@ -144,6 +144,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Moving data out of a loop moves it out of every check that loop fed: `Check` over `dt.Fields` lost ImportOnly fields until the rule read `ImportFields()`.
 - Check every test literal that enters a validated API (page size, template, code) against that validator first; a forwarding wrapper's test asserts every argument arrives, not only the result.
 - `scripts/covertouched` skips untracked files, so stage new files before trusting "all covered". `chromedp.Poll`, and so `waitFor`, can't span a navigation: wait with a Query on a selector found only on the target page.
+- A no-op test that takes the Unchanged early return never reaches the behaviour it names. Lock and rule checks that read the current row go after CheckVersion, or a stale page gets a 422.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
