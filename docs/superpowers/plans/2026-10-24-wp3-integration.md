@@ -134,7 +134,7 @@ Task 2 (composition root) also does:
 - Mounts `GET /search` with Self, not CheckedInHandler (CD-87's prefix is /doc/), split out of docscreen.Routes at the mount, and wires `Deps.RecordURL` (CD-200).
 - Mounts `/ui/validate/*` for real pages; today only the gallery mounts it.
 - Calls `company.SetupTx` from first-run setup with CD-165's fields.
-- Adds `app admin create` before the site opens, and an admin password reset command, so a sole admin who forgets a password can recover without SQL.
+- The app is public with no 2FA (CD-228): `/setup` is closed or token-protected on a public host, and first-install docs create the admin before the ports open. Adds `app admin create` before the site opens, and an admin password reset command, so a sole admin who forgets a password can recover without SQL.
 - Sets `Cache-Control: private, no-store` on every signed-in HTML response, so Back after sign-out on a shared computer shows nothing (CD-225); only files and print set it today, and CD-223 removed the scs header that left `no-cache="Set-Cookie"`.
 - `/healthz` reads the database. Logs are JSON to stdout (spec §7). HSTS is set.
 - Deletes the empty `TestContracts_StubsReturnNotImplemented` (CD-154).
@@ -149,7 +149,7 @@ Task 5 (sweep) also does:
 Task 6 (release) also does:
 - Adds a development Litestream configuration replicating to the gitignored `backup/` folder, and the restore drill runs against it (CD-226). `deploy/litestream.yml` stays S3 for production; the real-bucket drill is a go-live step.
 - Adds the hourly `files/` sync timer (CD-141) to `deploy/`.
-- Sets Litestream retention explicitly; the value is the owner's recovery target.
+- Sets Litestream retention to 90 days in `deploy/litestream.yml`, with the bucket in ap-south-1 (CD-228).
 - The restore drill covers `app.db` and `files/` and compares checksums (spec §10.4).
 - The 200-approvals drill runs on an e2e-tag build, because the release binary has no fixture DocTypes.
 - Adds a pre-upgrade backup and a rollback step to `docs/operations.md`.
