@@ -17,8 +17,10 @@ generate:
 build:
 	CGO_ENABLED=0 go build -trimpath -o bin/app ./cmd/app
 
+# The nestcheck tag turns on db's gate: a transaction opened on a goroutine
+# already inside one prints the stack and exits the test binary with code 2.
 test:
-	go test -race -count=1 ./...
+	go test -race -count=1 -tags nestcheck ./...
 
 # CD-45: end-to-end tests.
 e2e:

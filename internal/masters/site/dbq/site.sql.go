@@ -146,24 +146,3 @@ func (q *Queries) UpdateSite(ctx context.Context, arg UpdateSiteParams) (int64, 
 	}
 	return result.RowsAffected()
 }
-
-const userHasRestrictionValue = `-- name: UserHasRestrictionValue :one
-SELECT EXISTS (
-    SELECT 1 FROM user_restrictions WHERE user_id = ? AND dimension = ? AND value_id = ?
-)
-`
-
-type UserHasRestrictionValueParams struct {
-	UserID    int64
-	Dimension string
-	ValueID   int64
-}
-
-// AUTH's table, read here because auth.Service has no value check that takes
-// the caller's tx (CD-213, CD-214).
-func (q *Queries) UserHasRestrictionValue(ctx context.Context, arg UserHasRestrictionValueParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, userHasRestrictionValue, arg.UserID, arg.Dimension, arg.ValueID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}

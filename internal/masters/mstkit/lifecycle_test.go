@@ -636,17 +636,22 @@ func TestKit_CodeChangeNeedsRole(t *testing.T) {
 	k := newKit(t)
 	ctx := context.Background()
 	const msg = "Only a Masters Manager can change a code."
-	if err := k.env.CheckCodeChange(ctx, k.priya, "V-SHARMA", "V-SHARMA-2"); err == nil || err.Error() != msg {
-		t.Errorf("Priya: CheckCodeChange = %v; want %q", err, msg)
-	}
-	if err := k.env.CheckCodeChange(ctx, k.kavya, "V-SHARMA", "V-SHARMA-2"); err != nil {
-		t.Errorf("Kavya: CheckCodeChange = %v; want nil", err)
-	}
-	if err := k.env.CheckCodeChange(ctx, k.priya, "V-SHARMA", "V-SHARMA"); err != nil {
-		t.Errorf("Priya, same code: CheckCodeChange = %v; want nil", err)
-	}
-	if err := k.env.CheckCodeChange(ctx, k.priya, "V-SHARMA", "v-sharma"); err != nil {
-		t.Errorf("Priya, same code different case: CheckCodeChange = %v; want nil", err)
+	if err := k.env.DB.Read(ctx, func(tx *db.Tx) error {
+		if err := k.env.CheckCodeChange(ctx, tx, k.priya, "V-SHARMA", "V-SHARMA-2"); err == nil || err.Error() != msg {
+			t.Errorf("Priya: CheckCodeChange = %v; want %q", err, msg)
+		}
+		if err := k.env.CheckCodeChange(ctx, tx, k.kavya, "V-SHARMA", "V-SHARMA-2"); err != nil {
+			t.Errorf("Kavya: CheckCodeChange = %v; want nil", err)
+		}
+		if err := k.env.CheckCodeChange(ctx, tx, k.priya, "V-SHARMA", "V-SHARMA"); err != nil {
+			t.Errorf("Priya, same code: CheckCodeChange = %v; want nil", err)
+		}
+		if err := k.env.CheckCodeChange(ctx, tx, k.priya, "V-SHARMA", "v-sharma"); err != nil {
+			t.Errorf("Priya, same code different case: CheckCodeChange = %v; want nil", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 

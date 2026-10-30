@@ -90,7 +90,8 @@ type Service interface {
 	UserByEmail(ctx context.Context, tx *db.Tx, email string) (UserInfo, bool, error) // normalises email; unknown or blank: ok false, nil error; disabled users too (CD-199)
 	DisableUser(ctx context.Context, tx *db.Tx, u UserID, reason string) error
 	EnableUser(ctx context.Context, tx *db.Tx, u UserID) error
-	Restricted(ctx context.Context, tx *db.Tx, p Principal, dimension string) (bool, error) // any restriction on dimension? (CD-174)
+	Restricted(ctx context.Context, tx *db.Tx, p Principal, dimension string) (bool, error)               // any restriction on dimension? (CD-174)
+	ValueAllowedTx(ctx context.Context, tx *db.Tx, p Principal, dimension string, id int64) (bool, error) // may p use this value of dimension? (CD-216 item 7)
 }
 
 type Directory interface { // CD-13: implemented by MST, wired by internal/app

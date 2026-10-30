@@ -72,6 +72,9 @@ func ctxOneConn(t *testing.T, w *authtest.World, fn func(ctx context.Context, tx
 // A grant made in the caller's write is what CanTx answers from; Can, on its
 // own connection, can't see it, and after the rollback nobody can.
 func TestCanTx_ReadsGrantInCallersTx(t *testing.T) {
+	if db.NestCheck {
+		t.Skip("calls plain Can inside a Write on purpose; the nestcheck gate would end the run")
+	}
 	w, p := ctxWorld(t)
 	ctx := t.Context()
 	rec := ctxPO(1)
@@ -103,6 +106,9 @@ func TestCanTx_ReadsGrantInCallersTx(t *testing.T) {
 // A restriction added in the caller's write hides the record from CanTx; Can,
 // on its own connection, can't see it.
 func TestCanTx_ReadsRestrictionInCallersTx(t *testing.T) {
+	if db.NestCheck {
+		t.Skip("calls plain Can inside a Write on purpose; the nestcheck gate would end the run")
+	}
 	w, p := ctxWorld(t)
 	ctx := t.Context()
 	metro, techpark := w.Projects["PRJ-METRO"], w.Projects["PRJ-TECHPARK"]

@@ -172,7 +172,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, in Input) (mstki
 
 // CreateTx is Create inside tx. The importer's RowFunc must call it (Task 20).
 func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in Input) (mstkit.Saved, error) {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)
@@ -225,7 +225,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 
 // UpdateTx is Update inside tx. The importer's RowFunc must call it (Task 20).
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)
@@ -248,7 +248,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.checkTerms(ctx, tx, in.DefaultPaymentTermsID); err != nil { // CD-180 D4: after the version
 		return mstkit.Saved{}, err
 	}
-	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
+	if err := s.env.CheckCodeChange(ctx, tx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.checkRolesInUse(ctx, tx, old, in); err != nil {
@@ -298,7 +298,7 @@ func (s *Service) SetDisabled(ctx context.Context, p auth.Principal, id int64, v
 
 // SetDisabledTx is SetDisabled inside tx.
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return err
 	}
 	return s.env.SetDisabledTx(ctx, tx, p, Kind, id, version, disabled)
@@ -314,7 +314,7 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id int64, versio
 
 // DeleteTx is Delete inside tx.
 func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int) error {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightDelete, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightDelete, ref(id)); err != nil {
 		return err
 	}
 	return s.env.DeleteTx(ctx, tx, p, Kind, id, version, owned...)

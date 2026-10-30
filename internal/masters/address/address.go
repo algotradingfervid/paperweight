@@ -195,7 +195,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, in Input) (mstki
 
 // CreateTx is Create inside tx. The importer's RowFunc must call it (Task 20).
 func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in Input) (mstkit.Saved, error) {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightCreate, nil); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)
@@ -251,7 +251,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 // UpdateTx is Update inside tx, at the version the page posted (CD-94). The
 // importer's RowFunc must call it (Task 20).
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
 	}
 	old, err := s.Get(ctx, tx, id)
@@ -348,7 +348,7 @@ func (s *Service) SetDisabled(ctx context.Context, p auth.Principal, id int64, v
 // may go (keepPrimaryBilling) clears its primary flags and promotes nothing
 // (CD-180 D2, D3).
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return err
 	}
 	a, err := s.Get(ctx, tx, id)
@@ -392,7 +392,7 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id int64, versio
 
 // DeleteTx is Delete inside tx.
 func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int) error {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightDelete, ref(id)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightDelete, ref(id)); err != nil {
 		return err
 	}
 	a, err := s.Get(ctx, tx, id)
@@ -455,7 +455,7 @@ func (s *Service) keepPrimaryBilling(ctx context.Context, tx *db.Tx, a Address, 
 // transaction (MST-060). The partial unique indexes keep it to one per owner
 // whatever the interleaving (Review Focus 3).
 func (s *Service) SetPrimaryTx(ctx context.Context, tx *db.Tx, p auth.Principal, addressID int64, billing bool, version int) error {
-	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(addressID)); err != nil {
+	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(addressID)); err != nil {
 		return err
 	}
 	a, err := s.Get(ctx, tx, addressID)

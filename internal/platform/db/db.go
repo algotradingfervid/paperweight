@@ -116,6 +116,7 @@ func (db *DB) Read(ctx context.Context, fn func(tx *Tx) error) error {
 }
 
 func (db *DB) run(ctx context.Context, txo *sql.TxOptions, writable bool, fn func(tx *Tx) error) (err error) {
+	defer enterTx()()
 	stx, err := db.sql.BeginTx(ctx, txo)
 	if err != nil {
 		return mapBusy(err)

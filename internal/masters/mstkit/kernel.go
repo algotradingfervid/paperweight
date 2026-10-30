@@ -59,7 +59,7 @@ type Env struct {
 
 // Write checks that p has right r on k, then runs fn inside db.Write
 // (BEGIN IMMEDIATE). It checks the kind-level right only (RecordRef nil): a
-// master's UpdateTx, SetDisabledTx and DeleteTx must call Auth.Can with a
+// master's UpdateTx, SetDisabledTx and DeleteTx must call Auth.CanTx with a
 // RecordRef themselves, because the Tx twins called by importers and other
 // masters never pass through Write (AUTH-102 restrictions on Project/Site).
 func (e Env) Write(ctx context.Context, p auth.Principal, k Kind, r auth.Right, fn func(tx *db.Tx) error) error {

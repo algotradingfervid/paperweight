@@ -303,9 +303,8 @@ func TestLogo_LetterheadWithNoPrincipalIsRefused(t *testing.T) {
 // second connection under the write lock. With one connection in the pool the
 // writers queue for the tx's own connection, so any second connection the
 // logo code asks for waits on itself until requestLimit, and fails this test
-// on the status, not on a clock. It runs as Administrator: for any other user
-// files.Store's own auth.Can reads on a second connection (see onePool), which
-// is not this code's to change (CD-213).
+// on the status, not on a clock. It runs as Administrator; the non-admin cases
+// are in logo_nosecondconn_test.go (CD-213).
 func TestLogo_ReplaceTakesNoSecondConnectionAsAdministrator(t *testing.T) {
 	lw := seeded(t)
 	admin := lw.h.Env.Admin
