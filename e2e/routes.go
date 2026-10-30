@@ -4,9 +4,11 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -60,7 +62,9 @@ type sweepState struct {
 // lets her read the documents.
 func (h *Harness) prepareSweep() sweepState {
 	h.t.Helper()
-	s := sweepState{long: testkit.SeedLongValues(h.t, h.App.DB(), h.Fx)}
+	s := sweepState{long: testkit.SeedLongValues(h.t, h.App.DB(), h.Fx, testkit.LongValues{
+		Name: uitest.LongName100, Devanagari: uitest.LongDevanagari, Code60: uitest.LongCode60, Email: uitest.LongEmail,
+	})}
 	ctx := context.Background()
 	err := h.App.DB().Write(ctx, func(tx *db.Tx) error {
 		for _, table := range []string{"fixture_party", "fixture_item", "fixture_project"} {
@@ -200,6 +204,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		{Name: "claim new", Route: "/doc/{doctype}/new", URL: "/doc/" + fixture.Claim + "/new", As: deepak},
 		{Name: "claim page", Route: "/doc/{doctype}/{id}", URL: DocPath(fixture.Claim, s.claim), As: deepak},
 		{Name: "receipt new", Route: "/doc/{doctype}/new", URL: "/doc/" + fixture.Receipt + "/new", As: suresh},
+		{Name: "company logo", Route: "/m/company/1/logo", URL: "/m/company/1/logo", As: admin},
 	}
 	for _, sc := range docscreen.Screens(fixture.Order, s.order) {
 		switch {
@@ -359,8 +364,13 @@ func walkWizard(steps []wizardStep) func(context.Context) error {
 	}
 }
 
-// importCSV has one good row and one a master refuses, so Check results shows both.
-const importCSV = `code,name\nGOOD,Good row\n,` + uitest.LongName100 + `\n`
+// importCSV has one good row and one a master refuses, so Check results shows
+// both. importReady has only a good row, and a column no master has, so Import
+// shows its warning.
+const (
+	importCSV   = `code,name\nGOOD,Good row\n,` + uitest.LongName100 + `\n`
+	importReady = `code,name,colour\nREADY,Ready row,red\n`
+)
 
 // importScreens walks the CSV import wizard: each step's URL sends the browser
 // back to the step that is missing, and the Setups go forward from there.
@@ -371,23 +381,41 @@ func importScreens() []screens.Screen {
   r.value = "UoM";
   r.form.requestSubmit();
 })()`
-	upload := `(() => {
+	upload := func(csv string) string {
+		return `(() => {
   const input = document.querySelector("input[type=file]"), dt = new DataTransfer();
-  dt.items.add(new File(["` + importCSV + `"], "uom.csv", {type: "text/csv"}));
+  dt.items.add(new File(["` + csv + `"], "uom.csv", {type: "text/csv"}));
   input.files = dt.files;
   input.form.requestSubmit();
 })()`
+	}
 	toUpload := func(ctx context.Context) error { return submit(ctx, choose, "input[type=file]") }
-	toCheck := func(ctx context.Context) error {
-		if err := toUpload(ctx); err != nil {
+	toCheck := func(csv string) func(ctx context.Context) error {
+		return func(ctx context.Context) error {
+			if err := toUpload(ctx); err != nil {
+				return err
+			}
+			return submit(ctx, upload(csv), `progress.stepper__bar[value="3"]`)
+		}
+	}
+	toImport := func(ctx context.Context) error {
+		if err := toCheck(importReady)(ctx); err != nil {
 			return err
 		}
-		return submit(ctx, upload, `progress.stepper__bar[value="3"]`)
+		if err := submit(ctx, `document.getElementById("wizard-form").requestSubmit()`, `progress.stepper__bar[value="4"]`); err != nil {
+			return err
+		}
+		warned, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`document.body.innerText.includes("Column 'colour'")`))
+		if err == nil && !warned {
+			err = errors.New("import ready shows no warning for the colour column")
+		}
+		return err
 	}
 	return []screens.Screen{
 		{Name: "import choose", Route: base + "choose", URL: base + "choose", As: admin},
 		{Name: "import upload", Route: base + "upload", URL: base + "choose", As: admin, Setup: toUpload},
-		{Name: "import check", Route: base + "check", URL: base + "choose", As: admin, Setup: toCheck},
+		{Name: "import check", Route: base + "check", URL: base + "choose", As: admin, Setup: toCheck(importCSV)},
+		{Name: "import ready", Route: base + "import", URL: base + "choose", As: admin, Setup: toImport},
 	}
 }
 
@@ -414,11 +442,17 @@ func freshScreens() (setup, company []screens.Screen) {
 }
 
 // notPage is a GET route with no screen, because it answers with no page: the
-// sweep can't look at it, and TestE2E_EveryRouteCovered proves that it doesn't
-// answer with one. URL "" is a route with no sample to fetch: why says why.
+// sweep can't look at it, and TestE2E_EveryRouteCovered fetches url, a sample of
+// the route, to prove that it doesn't answer with one.
 type notPage struct {
 	route, url, why string
 }
+
+// notPageStatus is the status a sample answers with when it isn't 200.
+var notPageStatus = map[string]int{"/files/*": http.StatusNotFound}
+
+// notPageAfter names the screen whose state a sample needs, opened first.
+var notPageAfter = map[string]string{"/m/import/errors.csv": "import check"}
 
 // notPages lists them.
 func notPages(s sweepState) []notPage {
@@ -427,11 +461,9 @@ func notPages(s sweepState) []notPage {
 		{"/settings/numbering/preview", "/settings/numbering/preview?tpl=PO%2F%7B%23%23%23%23%23%7D", "the template form's htmx preview"},
 		{"/doc/{doctype}/export.csv", "/doc/" + fixture.Order + "/export.csv", "a CSV"},
 		{"/m/import/template", "/m/import/template?doctype=UoM", "a CSV"},
-		{"/m/import/errors.csv", "", "a CSV of a checked file's refused rows; alone it redirects to Choose"},
-		{"/m/import/import", "", "the last step shows only after a checked file; its form posts to itself"},
-		{"/m/company/1/logo", "", "an image; the seed has no logo, so it is a 404 until one is uploaded"},
+		{"/m/import/errors.csv", "/m/import/errors.csv", "a CSV of a checked file's refused rows; alone it redirects to Choose"},
 		{"/files/{id}", "/files/" + strconv.FormatInt(s.file, 10), "a file"},
-		{"/files/*", "", "FILE's plain-text 404 for any other path under /files/; no page"},
+		{"/files/*", "/files/no/such", "FILE's plain-text 404 for any other path under /files/; no page"},
 	}
 	for slug := range s.master {
 		out = append(out, notPage{"/m/" + slug + "/export.csv", "/m/" + slug + "/export.csv", "a CSV"})
@@ -440,6 +472,26 @@ func notPages(s sweepState) []notPage {
 		out = append(out, notPage{"/pick/" + name, "/pick/" + strings.ReplaceAll(name, " ", "%20") + "?q=a", "a picker's htmx rows"})
 	}
 	return out
+}
+
+// notPageProblems refuses an entry with no sample, which nothing would check.
+func notPageProblems(pages []notPage) []string {
+	var out []string
+	for _, p := range pages {
+		if p.url == "" {
+			out = append(out, p.route+" has no sample URL")
+		}
+	}
+	return out
+}
+
+// uncovered is the GET routes of r with no screen. DefaultSkip matches by
+// prefix, but a not-page route only exactly, so /files/{id} can't hide a later
+// /files/{id}/thumb.
+func uncovered(r chi.Routes, pages []notPage) []string {
+	return slices.DeleteFunc(screens.Uncovered(r, screens.DefaultSkip), func(route string) bool {
+		return slices.ContainsFunc(pages, func(p notPage) bool { return p.route == route })
+	})
 }
 
 // routes is the real router.

@@ -12,7 +12,9 @@ import (
 // nothing in the sweep.
 func TestTestkit_SeedLongValues(t *testing.T) {
 	d := testkit.NewDB(t)
-	r := testkit.SeedLongValues(t, d, testkit.SeedMasters(t, d))
+	r := testkit.SeedLongValues(t, d, testkit.SeedMasters(t, d), testkit.LongValues{
+		Name: uitest.LongName100, Devanagari: uitest.LongDevanagari, Code60: uitest.LongCode60, Email: uitest.LongEmail,
+	})
 	rows := []struct {
 		table, column string
 		id            int64

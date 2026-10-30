@@ -6,15 +6,15 @@ import (
 
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
-	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
-// The longest values the masters' own rules let through. Codes and GSTINs
-// stop at the field's MaxLen; names are uitest's, under mstkit.MaxNameLen.
-var (
-	longCode  = uitest.LongCode60[:20]
-	longGSTIN = uitest.LongCode60[:15]
-)
+// LongValues are the worst-case strings SeedLongValues writes, uitest's (U6).
+// The caller passes them in: the master packages use testkit, and they must not
+// depend on internal/ui (CD-89). Names stay under mstkit.MaxNameLen; codes and
+// GSTINs are cut from Code60 at the field's MaxLen.
+type LongValues struct {
+	Name, Devanagari, Code60, Email string
+}
 
 const (
 	longPhone   = "+91 98765 43210 98765"
@@ -33,16 +33,16 @@ type LongRows struct {
 	User                    int64
 }
 
-// SeedLongValues adds one row per master holding uitest's worst-case strings
-// (U6), for the overflow sweep. Like SeedMasters it writes plain SQL, after
+// SeedLongValues adds one row per master holding v's worst-case strings, for
+// the overflow sweep. Like SeedMasters it writes plain SQL, after
 // SeedMasters. The user has a 253-character email and no roles.
-func SeedLongValues(t testing.TB, d *db.DB, fx Fixtures) LongRows {
+func SeedLongValues(t testing.TB, d *db.DB, fx Fixtures, v LongValues) LongRows {
 	t.Helper()
 	ctx := context.Background()
 	var r LongRows
 	err := d.Write(ctx, func(tx *db.Tx) error {
 		s := seeder{ctx: ctx, q: tx.SQL(), fx: &fx, at: types.TimestampOf(Clock().Now()).String()}
-		return s.longValues(&r)
+		return s.longValues(&r, v)
 	})
 	if err != nil {
 		t.Fatalf("testkit.SeedLongValues: %v", err)
@@ -50,8 +50,8 @@ func SeedLongValues(t testing.TB, d *db.DB, fx Fixtures) LongRows {
 	return r
 }
 
-func (s seeder) longValues(r *LongRows) error {
-	const long, devanagari = uitest.LongName100, uitest.LongDevanagari
+func (s seeder) longValues(r *LongRows, v LongValues) error {
+	long, devanagari, longCode, longGSTIN := v.Name, v.Devanagari, v.Code60[:20], v.Code60[:15]
 	var err error
 	add := func(id *int64, table, columns string, values ...any) {
 		if err == nil {
@@ -73,7 +73,7 @@ func (s seeder) longValues(r *LongRows) error {
 	add(&r.Project, "project", "code, name, branch_id, customer_id", longCode, long, r.Branch, r.Party)
 	add(&r.Site, "site", "code, name, branch_id, project_id, type", longCode, long, r.Branch, r.Project, "site")
 	add(&r.ExpenseType, "expense_type", "code, name, default_hsn_sac, default_tax_code_id", longCode, devanagari, longHSN, r.TaxCode)
-	add(&r.User, "users", "email, name, mobile, enabled", uitest.LongEmail, long, longPhone, true)
+	add(&r.User, "users", "email, name, mobile, enabled", v.Email, long, longPhone, true)
 	add(&r.Employee, "employee", "code, name, branch_id, user_id, joining_date, status", longCode, long, r.Branch, r.User, seedJoiningDate, "Active")
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func (s seeder) longValues(r *LongRows) error {
 	if err := s.itemUoM(r.Item, 1, stock, factorOne); err != nil {
 		return err
 	}
-	if _, err := s.q.ExecContext(s.ctx, `INSERT INTO contact_email (contact_id, email, is_primary) VALUES (?, ?, 1)`, r.Contact, uitest.LongEmail); err != nil {
+	if _, err := s.q.ExecContext(s.ctx, `INSERT INTO contact_email (contact_id, email, is_primary) VALUES (?, ?, 1)`, r.Contact, v.Email); err != nil {
 		return err
 	}
 	_, err = s.q.ExecContext(s.ctx, `INSERT INTO contact_phone (contact_id, number, kind, is_primary) VALUES (?, ?, 'mobile', 1)`, r.Contact, longPhone)

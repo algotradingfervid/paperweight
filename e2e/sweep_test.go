@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -69,14 +70,15 @@ func (h *Harness) sweepAs() func(ctx context.Context, email string) error {
 	}
 }
 
-// sweep checks every page state with opt: h's screens, then a new install's.
-func sweep(t *testing.T, opt uibrowser.Options, more ...func(h *Harness, s sweepState) []screens.Screen) (*Harness, context.Context) {
+// sweep checks every page state with opt: h's screens, then a new install's,
+// fresh.
+func sweep(t *testing.T, opt uibrowser.Options, more ...func(h *Harness, s sweepState) []screens.Screen) (h, fresh *Harness, ctx context.Context) {
 	t.Helper()
-	h := Start(t)
+	h = Start(t)
 	state := h.prepareSweep()
-	fresh := StartEmpty(t)
+	fresh = StartEmpty(t)
 	t.Parallel()
-	ctx := uibrowser.NewFor(t, sweepBrowser)
+	ctx = uibrowser.NewFor(t, sweepBrowser)
 	if opt.CSP != nil {
 		opt.CSP = uibrowser.CSPProblems(ctx)
 	}
@@ -100,7 +102,7 @@ func sweep(t *testing.T, opt uibrowser.Options, more ...func(h *Harness, s sweep
 	check(fresh, setup)
 	fresh.createAdmin()
 	check(fresh, company)
-	return h, ctx
+	return h, fresh, ctx
 }
 
 // createAdmin is `app admin create` on an empty install.
@@ -128,7 +130,7 @@ func TestE2E_TargetSizeAtLeast44(t *testing.T) {
 // pages the other sweeps leave out, because style-src 'self' applies to them
 // too. An inline style at the end proves a violation does reach the server.
 func TestE2E_NoCSPViolations(t *testing.T) {
-	h, ctx := sweep(t, uibrowser.Options{Widths: screens.Widths, CSP: func() []string { return nil }}, func(h *Harness, s sweepState) []screens.Screen {
+	h, fresh, ctx := sweep(t, uibrowser.Options{Widths: screens.Widths, CSP: func() []string { return nil }}, func(h *Harness, s sweepState) []screens.Screen {
 		return []screens.Screen{{Name: "print", Route: "/print/{doctype}/{id}", URL: "/print/" + fixture.Order + "/" + strconv.FormatInt(s.order.Draft, 10), As: priya}}
 	})
 	// The sweep ends on the new install, which has its own report endpoint.
@@ -147,6 +149,9 @@ func TestE2E_NoCSPViolations(t *testing.T) {
 	if len(reports) != 1 {
 		t.Errorf("%d CSP reports, want only the control's:\n%s", len(reports), strings.Join(reports, "\n"))
 	}
+	if reports := fresh.CSPReports(); len(reports) != 0 {
+		t.Errorf("%d CSP reports from the new install, want none:\n%s", len(reports), strings.Join(reports, "\n"))
+	}
 }
 
 // TestE2E_EveryRouteCovered is the sweep's own gate: every GET route of the real
@@ -160,11 +165,10 @@ func TestE2E_EveryRouteCovered(t *testing.T) {
 	registerSweep.Do(func() { screens.Register(slices.Concat(list, setup, company)...) })
 
 	pages := notPages(state)
-	skip := slices.Clone(screens.DefaultSkip)
-	for _, p := range pages {
-		skip = append(skip, p.route)
+	for _, p := range notPageProblems(pages) {
+		t.Error(p)
 	}
-	if missing := screens.Uncovered(h.routes(), skip); len(missing) != 0 {
+	if missing := uncovered(h.routes(), pages); len(missing) != 0 {
 		t.Errorf("routes with no screen: %q", missing)
 	}
 
@@ -177,12 +181,36 @@ func TestE2E_EveryRouteCovered(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range pages {
-		if p.url == "" {
-			continue
+		if name := notPageAfter[p.route]; name != "" {
+			i := slices.IndexFunc(list, func(s screens.Screen) bool { return s.Name == name })
+			uibrowser.Check(t, ctx, list[i], h.URL, uibrowser.Options{Widths: opt.Widths, SignIn: opt.SignIn})
 		}
-		if why := h.answersNoPage(ctx, p.url); why != "" {
+		want := notPageStatus[p.route]
+		if want == 0 {
+			want = http.StatusOK
+		}
+		if why := h.answersNoPage(ctx, p.url, want); why != "" {
 			t.Errorf("%s (%s): %s", p.route, p.why, why)
 		}
+	}
+}
+
+// A not-page entry with no sample URL is refused, and a not-page route hides
+// no route under it: a new GET route there needs a screen of its own.
+func TestE2E_NotPagesAreChecked(t *testing.T) {
+	if got := notPageProblems([]notPage{{"/x.csv", "", "a CSV"}}); len(got) != 1 {
+		t.Errorf("an entry with no URL: problems %q, want one", got)
+	}
+	if got := notPageProblems(notPages(sweepState{})); len(got) != 0 {
+		t.Errorf("notPages: %q", got)
+	}
+	r := chi.NewRouter()
+	nop := func(http.ResponseWriter, *http.Request) {}
+	r.Get("/files/{id}", nop)
+	r.Get("/files/{id}/thumb", nop)
+	got := uncovered(r, []notPage{{"/files/{id}", "/files/1", "a file"}})
+	if want := []string{"/files/{id}/thumb"}; !slices.Equal(got, want) {
+		t.Errorf("uncovered = %q, want %q", got, want)
 	}
 }
 
@@ -226,8 +254,8 @@ type pageFacts struct {
 var expectedStatus = map[string]int{"not found": 404, "refused": 403}
 
 // answersNoPage fetches url in the signed-in browser and says what's wrong if
-// the answer is an error or a whole page.
-func (h *Harness) answersNoPage(ctx context.Context, url string) string {
+// the answer isn't status want or is a whole page.
+func (h *Harness) answersNoPage(ctx context.Context, url string, want int) string {
 	sctx, cancel := context.WithTimeout(ctx, stepDeadline)
 	defer cancel()
 	got, err := chromedp.Run(sctx, chromedp.Evaluate[pageFacts](`fetch(`+strconv.Quote(url)+`).then(async (r) => ({
@@ -236,8 +264,8 @@ func (h *Harness) answersNoPage(ctx context.Context, url string) string {
 	switch {
 	case err != nil:
 		return err.Error()
-	case got.Status != 200:
-		return fmt.Sprintf("status %d at %s", got.Status, got.Path)
+	case got.Status != want:
+		return fmt.Sprintf("status %d at %s, want %d", got.Status, got.Path, want)
 	case got.Main:
 		return "it answers with a whole page at " + got.Path
 	}
@@ -252,6 +280,10 @@ func TestE2E_BackAfterSignOutShowsNothing(t *testing.T) {
 	path := DocPath(fixture.Order, refPO(h).ID)
 	const supplier = "Shree Steel Traders"
 	s := h.SignIn(priya, desktop)
+	s.Open(path)
+	if got := Eval[string](s, `fetch(location.href).then((r) => r.headers.get("Cache-Control"))`, chromedp.EvalAwaitPromise); got != "private, no-store" {
+		t.Errorf("the signed-in page's Cache-Control is %q, want %q (CD-225)", got, "private, no-store")
+	}
 	signIn := func() {
 		s.Open("/signin")
 		s.Fill("email", priya)
