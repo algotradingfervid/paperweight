@@ -216,7 +216,7 @@ func TestPickerClear_ChangeThenCloseRestores(t *testing.T) {
 			}
 			want := value[string](t, ctx, supplierSummary)
 			act(t, ctx, "Change", chromedp.Click(chromedp.CSS("[data-picker-change]")))
-			until(t, ctx, "the search", `document.activeElement === document.querySelector("#f-supplier_id")`)
+			until(t, ctx, "the search", `document.activeElement === document.querySelector("[data-picker-search] [role=combobox]")`)
 			if w == 320 {
 				act(t, ctx, "Close", chromedp.Click(chromedp.CSS("[data-picker-search][data-open] [data-picker-close]")))
 			} else {
