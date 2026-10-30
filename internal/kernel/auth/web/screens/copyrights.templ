@@ -38,7 +38,7 @@ templ CopyRights(p CopyRightsPage) {
 		} else {
 			@components.Banner(components.BannerProps{Kind: components.Warning, Message: "This replaces every right " + p.Role + " has with the rights of the role you pick."})
 			@components.Form(components.FormProps{Action: p.Post}) {
-				<input type="hidden" name="version" value={ strconv.FormatInt(p.Version, 10) }/>
+				@components.Hidden("version", strconv.FormatInt(p.Version, 10))
 				<div class="stack">
 					{{ f := components.FieldProps{ID: copySourceID, Name: "source_id", Label: "Role to copy from", Error: p.Error} }}
 					if len(p.Sources) > maxRadios {

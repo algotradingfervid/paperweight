@@ -152,6 +152,9 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Test harnesses use production session settings: `scs.New()` has IdleTimeout 0 while production had 12 h, which hid draft-overwrite races from every test.
 - A conversion task also greps comments for the old name: three comments describing the old state survived CD-213.
 - A contract test that scans source needs floors on what it scanned, or a rename leaves it green with nothing checked. `go test -overlay` can't reach a test that reads source from disk: prove those on a scratch copy.
+- Any surface that resolves a user-posted id to text needs the same read check: service, csvio and form redraw each missed it in turn. A check inside csvio's row loop runs up to 5000 times under the write lock, so bound it.
+- A late rebase can pass silently while an invariant change on main goes unmet: check new row-rights code against main before review. A right is checked before a version on every sibling path.
+- Rehearse a recovery procedure from the starting state it names, not from a prepared data directory. Label a limit inferred from a few runs as inferred.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
@@ -163,3 +166,5 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - AD session transcripts in the worktree folders did not survive the overnight pause (only their tool-results folders remained), so `claude --resume` can't bring an AD back. Before any pause, each AD writes its full resume steps to `.work/ad-tasks.md`; a restart is a fresh AD session briefed from that file and PROGRESS "RESUME HERE" (26 Oct).
 - Scripts that parse git output pin its format (`--src-prefix=a/ --dst-prefix=b/ --no-color --no-ext-diff`): a user's `diff.noprefix` made covertouched pass vacuously.
 - `make covertouched BASE=<commit before the task> PKGS="<patterns>"` lists every uncovered touched statement; use it in hand-ins and reviews (CD-185 tooling).
+- An addition belongs on the one condition it names, never on a generic path. A blocker link hung on any Danger text showed on every cancel refusal, and a positive-path test passed; add a negative test for the conditions it must skip (same family as catalogue messages, CD-147, CD-242).
+- The Go build cache grows fast with many worktrees and `-race`, `-tags` and `-count` runs: it reached 96 GB on 30 October and filled the disk, so `make ci` failed with `no space left on device`, and tests timed out. Read the log before blaming the merge, and trim entries unused for a few hours rather than clearing the cache while other sessions build.

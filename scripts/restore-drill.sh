@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 # Restore drill (spec section 10 item 4, WP3 Task 6, CD-226). In a temp directory:
-# Litestream replicates with deploy/litestream.dev.yml, a writer is killed with
-# SIGKILL mid-write, Litestream catches up and stops, files/ is synced twice with
-# a file removed in between, app.db is restored and files/ copied into a new
-# data directory, and restore-drill verify checks
+# Litestream replicates with deploy/litestream.dev.yml, an e2e-tag writer runs
+# real fixture.Order approvals on the real app and is killed with SIGKILL inside
+# an open transaction once 200 are committed, Litestream catches up and stops,
+# files/ is synced twice with a file removed in between, app.db is restored and
+# files/ copied into a new data directory, and restore-drill verify checks
 # PRAGMA integrity_check, the database content, the SHA-256 of every file and
-# the approved count against the committed count.
+# the approved documents against the writer's own output.
 #
-# Expected output ends with `integrity ok` ... `approvals 200/200`.
+# The count rule (checkApprovals in scripts/restore-drill/verify.go): every id
+# the writer printed is approved in the restored database, the source and the
+# restore hold exactly the same approved ids, and at most one of them went
+# unprinted (a commit the kill stopped from being printed). The final figure is
+# the writer's count.
+#
+# Expected output ends with `integrity ok` ... `approvals 200/200`. A kill that
+# lands after the next commit shows a higher count, still equal on both sides.
 # Needs Litestream v0.5.17 at bin/tools/litestream, or LITESTREAM=<path>.
 set -euo pipefail
 
@@ -15,7 +23,6 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LITESTREAM="${LITESTREAM:-$REPO/bin/tools/litestream}"
 CONFIG="$REPO/deploy/litestream.dev.yml"
 APPROVALS=200
-LIMIT_SECONDS=60
 
 if [ ! -x "$LITESTREAM" ]; then
 	echo "Litestream not found at $LITESTREAM: install v0.5.17 there or set LITESTREAM" >&2
@@ -38,44 +45,25 @@ cleanup() {
 trap cleanup EXIT
 
 DRILL="$WORK/restore-drill"
+WRITER="$WORK/writer"
 (cd "$REPO" && go build -o "$DRILL" ./scripts/restore-drill)
+(cd "$REPO" && go build -tags e2e -o "$WRITER" ./scripts/restore-drill/writer)
 cd "$WORK"
 mkdir data backup restored
 
-# wait_for_line <file> <line>: waits for a whole line, failing after LIMIT_SECONDS.
-wait_for_line() {
-	local tries=$((LIMIT_SECONDS * 10))
-	while ! grep -qx "$2" "$1" 2>/dev/null; do
-		tries=$((tries - 1))
-		if [ "$tries" -le 0 ]; then
-			echo "timed out waiting for '$2' in $1" >&2
-			return 1
-		fi
-		sleep 0.1
-	done
-}
-
-# ---- WRITER: the one part that changes when the e2e-tag app exists -----------
-# Today: a temporary stand-in (scripts/restore-drill/standin.go) doing real
-# committed WAL writes. Replace this block with: build `go build -tags e2e
-# -o "$WORK/app" ./cmd/app`, start `app serve --data data`, drive $APPROVALS
-# fixture approvals, and SIGKILL the app during the next one. Then set
-# COUNT_SQL to count approved documents and delete standin.go.
-#
-# Contract: run_writer leaves data/app.db and data/files/ as the crash left
-# them, with the writer dead, and sets COMMITTED to the approvals acknowledged.
-COUNT_SQL="SELECT count(*) FROM drill_approvals WHERE state = 'approved'"
+# Leaves data/app.db and data/files/ as the crash left them, with the writer
+# dead. Past $APPROVALS the orders are heavy, so kill-inflight finds a real
+# engine transaction's pages in the WAL with no commit frame and kills then.
+APPROVED_SQL="SELECT id FROM fixture_order WHERE state = 'approved'"
 run_writer() {
-	"$DRILL" standin-writer --data data --n "$APPROVALS" >writer.acks 2>writer.log &
+	"$WRITER" --data data --replica backup/app.db --n "$APPROVALS" >writer.acks 2>writer.log &
 	WRITER_PID=$!
-	wait_for_line writer.acks inflight
-	kill -9 "$WRITER_PID"
+	uncommitted="$("$DRILL" kill-inflight --acks writer.acks --after "$APPROVALS" --wal data/app.db-wal --pid "$WRITER_PID")"
 	wait "$WRITER_PID" 2>/dev/null || true
 	WRITER_PID=""
-	COMMITTED="$(grep -c '^committed ' writer.acks || true)"
-	echo "writer killed with SIGKILL mid-write: $COMMITTED committed, $(wc -c <data/app.db-wal | tr -d ' ') WAL bytes on disk"
+	committed="$(grep -c '^committed ' writer.acks || true)"
+	echo "writer killed with SIGKILL mid-write: $committed committed, $uncommitted uncommitted WAL frames at the kill"
 }
-# ---- END WRITER --------------------------------------------------------------
 
 "$LITESTREAM" replicate -config "$CONFIG" >litestream.log 2>&1 &
 LITESTREAM_PID=$!
@@ -107,4 +95,4 @@ mv removed-between-syncs "$removed"
 cp -R backup/files restored/files
 echo "restored into a new data directory"
 
-"$DRILL" verify --source data --restored restored --committed "$COMMITTED" --count-sql "$COUNT_SQL"
+"$DRILL" verify --source data --restored restored --acks writer.acks --approved-sql "$APPROVED_SQL"

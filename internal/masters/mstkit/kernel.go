@@ -1,7 +1,9 @@
 // Package mstkit holds the rules every master shares (code, name, audit,
-// disable, delete-if-unreferenced) and the registry wiring. This file is the
-// only one in WP2 that names kernel write APIs (db.Write, audit append,
-// Engine.References), so a kernel name change is fixed here.
+// disable, delete-if-unreferenced) and the registry wiring. Outside the test
+// helpers (msttest, mstfixture), this file names the kernel write APIs (db.Write,
+// audit append, Engine.References) for all of WP2, except that
+// company/web/logo.go and allmasters/web/store.go call db.Write directly, so a
+// kernel name change is fixed in these three files.
 //
 // Kernel reconciliation (MST Task 1 Step 1 against main d17fb3a; Task 1b
 // against main e2dd7d5, AUTH, DOC, NUM and UI merged). Every M2 contract
@@ -41,10 +43,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -101,6 +105,45 @@ func (e Env) CanRowTx(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, 
 // CanRow is CanRowTx in one read, for a screen that holds no transaction.
 func (e Env) CanRow(ctx context.Context, p auth.Principal, k Kind, r auth.Right, rec *auth.RecordRef) error {
 	return e.DB.Read(ctx, func(tx *db.Tx) error { return e.CanRowTx(ctx, tx, p, k, r, rec) })
+}
+
+// CanLinkTx checks that p may read row id of k, the target of a link p posted
+// to another master, inside tx (CD-227). A row p can't read, and any row when p
+// has no read right on k, is doctype.ErrNotFound, which a master answers with
+// its not-found text, so a hidden target looks like an unknown id. It runs ahead
+// of every message that describes the target. A master whose ProjectFields or
+// SiteFields is {"id"} is its own dimension value (CD-64).
+func (e Env) CanLinkTx(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, id int64) error {
+	rec := &auth.RecordRef{DocType: k.DocType, ID: id}
+	if dt, ok := doctype.Lookup(k.DocType); ok {
+		if slices.Equal(dt.ProjectFields, []string{"id"}) {
+			rec.ProjectIDs = []int64{id}
+		}
+		if slices.Equal(dt.SiteFields, []string{"id"}) {
+			rec.SiteIDs = []int64{id}
+		}
+	}
+	err := e.CanRowTx(ctx, tx, p, k, auth.RightRead, rec)
+	if errors.Is(err, auth.ErrForbidden) {
+		return doctype.ErrNotFound
+	}
+	return err
+}
+
+// CanLinkTargetTx is CanLinkTx for a registered DocType: CSV link cells and
+// posted form values name their target that way (CD-232, CD-233).
+func (e Env) CanLinkTargetTx(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) error {
+	return e.CanLinkTx(ctx, tx, p, Kind{DocType: target.Name, Label: target.Label, Table: target.Table}, id)
+}
+
+// LinkedTx reads the target of a link p posted with get, after CanLinkTx.
+func LinkedTx[T any](ctx context.Context, tx *db.Tx, e Env, p auth.Principal, k Kind, id int64,
+	get func(context.Context, *db.Tx, int64) (T, error)) (T, error) {
+	if err := e.CanLinkTx(ctx, tx, p, k, id); err != nil {
+		var zero T
+		return zero, err
+	}
+	return get(ctx, tx, id)
 }
 
 // Today is the business date in Asia/Kolkata.

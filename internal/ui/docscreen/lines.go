@@ -194,6 +194,9 @@ func (d Deps) linePage(dt *doctype.DocType, v DocView, no, version int, values m
 		lv.Opts.Title = "Line " + strconv.Itoa(no)
 		lv.Action = lineURL(dt.Name, v.Info.ID, no)
 	}
+	if no > 0 {
+		d = d.WithStored(v.Lines[no-1].Inputs)
+	}
 	for _, f := range dt.Fields {
 		if f.OnLine && editable(f) {
 			lv.Inputs = append(lv.Inputs, FieldInput(f, components.FieldID(f.Name), values[f.Name], lineError(errs, f.Name), d))

@@ -341,8 +341,8 @@ func (w *world) restrict(t *testing.T, user auth.UserID, ids ...int64) {
 	}
 }
 
-// Priya's fixture restriction names the stand-in table's ids, so this test
-// restricts her to the real PRJ-METRO. A read-only user gets AUTH's messages.
+// msttest.New restricts nobody (CD-199 item 4), so this test restricts Priya
+// to PRJ-METRO itself. A read-only user gets AUTH's messages.
 func TestScreens_ProjectReadOnlyForbidden(t *testing.T) {
 	w := newWorld(t)
 	priya := w.h.Env.Priya

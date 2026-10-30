@@ -6,15 +6,14 @@ for uploaded files. The files are in `deploy/`.
 
 ## Binary sizes
 
-Built on 2026-10-25 from commit `d17fb3a` with Go 1.27.3, as `make build` does
-(`CGO_ENABLED=0 go build -trimpath`), one build per target:
+Built on 2026-10-30 from commit `04e28f4` with Go 1.27.3
+(`CGO_ENABLED=0 GOOS=linux go build -trimpath`), one build per target. These
+sizes are for that commit; they are re-measured before the `core-v1` tag.
 
 | Target | Size |
 |---|---|
-| linux/amd64 | 22,009,771 bytes (21.0 MiB) |
-| linux/arm64 | 20,835,462 bytes (19.9 MiB) |
-
-These are WP0 binaries. They get re-measured at release (Task 6 Step 4).
+| linux/amd64 | 32,876,708 bytes (31.4 MiB) |
+| linux/arm64 | 30,431,462 bytes (29.0 MiB) |
 
 Build a release binary:
 
@@ -39,9 +38,11 @@ this list as written: it starts services. Go to [Restore](#restore) first.
    ```
 2. Copy the binary: `install -m 0755 app-linux-amd64 /usr/local/bin/app`.
 3. Install the unit: `cp deploy/app.service /etc/systemd/system/paperweight.service`,
-   then `systemctl daemon-reload && systemctl enable --now paperweight`.
+   replace `paperweight.example.com` in its `--trusted-origin` with the real
+   domain, then `systemctl daemon-reload && systemctl enable --now paperweight`.
    The app listens only on `127.0.0.1:8080`; check with
-   `curl http://127.0.0.1:8080/healthz` (prints `ok`).
+   `curl http://127.0.0.1:8080/healthz` (prints `ok`). The unit runs with
+   `--secure`, so `/setup` answers 404 from the start.
 4. Caddy: install it from the distribution or caddyserver.com, copy
    `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, replace
    `paperweight.example.com` with the real domain, and create the first admin
@@ -105,9 +106,29 @@ this list as written: it starts services. Go to [Restore](#restore) first.
 
 ## First admin
 
-The app is public with no 2FA, so the first admin is created with
-`app admin create` before ports 80 and 443 open (CD-228). The command's usage:
-pending (WP3 Task 2).
+The app is public with no 2FA, so nobody on the internet may claim the install.
+With `--secure`, as the unit runs it, `/setup` answers 404 and an empty database
+shows `/signin` (CD-228, CD-231). So the first admin is created on the server,
+before ports 80 and 443 open. The command asks for the password twice:
+
+```sh
+sudo -u paperweight app admin create --data /var/lib/paperweight --email <email> --name "<name>"
+```
+
+Once the ports are open, sign in. Signed-in `/` sends an Administrator to
+`/setup/company` while no company exists; fill that in once.
+
+An Administrator who forgets a password recovers without SQL. This sets a
+temporary password, asked for twice, that must be changed at the next sign-in. It
+also clears the lockout and ends that user's sessions. It accepts Administrators
+only:
+
+```sh
+sudo -u paperweight app admin reset-password --data /var/lib/paperweight --email <email>
+```
+
+Without `--secure` (development only), every page redirects to `/setup` until
+the first admin exists.
 
 ## Backup and restore
 
@@ -225,24 +246,43 @@ download against the release's `checksums.txt`.
 ### Restore drill
 
 `scripts/restore-drill.sh` proves the backup path in a temp directory, using
-`deploy/litestream.dev.yml` and `sync-files.sh` unchanged. A writer is killed
-with SIGKILL during an open transaction, Litestream catches up and stops, and
-`app.db` and `files/` are restored into a new data directory. A file removed
-between two syncs must still come back, so a `--delete` in the sync fails the
-drill. It then checks
-`PRAGMA integrity_check`, that the database file is byte-identical after a
-checkpoint, the SHA-256 of every file, and the approved count against the
-committed count. It ends with:
+`deploy/litestream.dev.yml` and `sync-files.sh` unchanged. The writer
+(`scripts/restore-drill/writer`, build tag `e2e`, because the release binary has
+no fixture DocTypes) opens the real app, creates a requester and an approver, and
+runs real `fixture.Order` approvals through the engine, with an attachment on
+every fourth. It prints each approval only after its commit and keeps going past
+200 with orders big enough to spill into the WAL. Once 200 are printed, the drill
+freezes the writer with SIGSTOP to read the WAL, resuming it until the WAL holds
+uncommitted frames, and only then sends SIGKILL, so the kill lands inside an open
+transaction. Litestream catches up and stops, and `app.db` and `files/` are
+restored into a new data directory. A
+file removed between two syncs must still come back, so a `--delete` in the sync
+fails the drill. It then checks `PRAGMA integrity_check`, that the database file
+is byte-identical after a checkpoint, the SHA-256 of every file, and the approved
+documents. It ends with:
 
 ```
 integrity ok
 database sha256 ok
-files 200/200 sha256 ok
+files 50/50 sha256 ok
 approvals 200/200
 ```
 
-Until the e2e-tag app exists, the writer is a stand-in doing real committed WAL
-writes on a test table (`run_writer` in the script says what replaces it).
+The approvals figure is the writer's own count, never a database's. The check
+passes only if every id the writer printed is approved in the restored database,
+the source and the restore hold exactly the same approved ids, and at most one of
+them went unprinted. That one is a commit the kill stopped from being printed;
+the drill then adds a line saying so. A kill that lands after a later commit shows that count on both sides,
+for example `approvals 201/201`.
+
+The writer waits for the replica before it starts approving. At full speed it
+starves the write Litestream needs for its first sync (`create _litestream_seq
+table: database is locked` in the log). Litestream retries and recovers, but one
+stopped before the retry has replicated nothing.
+
+Last run: 2026-10-30 on darwin/arm64, ten runs in a row, each `approvals 200/200`.
+Removing a restored file, adding or dropping acknowledgements, swapping an
+acknowledged id and a `--delete` in the sync each failed the drill.
 
 ### Go-live
 
@@ -259,7 +299,9 @@ storage:
   stays `active` while replication fails, and a failed timer run only shows in
   `systemctl --failed` and the journal. Options: Litestream's `heartbeat-url`
   setting with a monitor that alerts when the pings stop, and `OnFailure=` on
-  `paperweight-files-sync.service`.
+  `paperweight-files-sync.service`. In `journalctl -u litestream`, a single
+  `sync error ... SQLITE_BUSY` followed by `sync recovered` is harmless; a
+  climbing `consecutive_errors` means backups have stopped.
 - Drill against the real bucket: restore `app.db` and `files/` onto a spare data
   directory and check them as the steps above do (CD-226). Record the date and
   the result here.
@@ -298,7 +340,7 @@ storage:
 4. `systemctl start paperweight`.
 
 Migrations run on start: `app serve` opens the database and applies every
-pending migration before it listens (`openDB` in `cmd/app/main.go`). To apply
+pending migration before it listens (`app.OpenDB` in `internal/app/app.go`). To apply
 them without starting the server, run
 `sudo -u paperweight app migrate --data /var/lib/paperweight`. Leave Litestream
 running during steps 3 and 4; it carries on replicating.
@@ -331,17 +373,22 @@ still names, `rclone copy` it back from the bucket, which keeps every file.
 
 ## File garbage collection
 
-The app is to remove unreferenced files hourly on its own (spec §7), along
-with an hourly sweep of expired sessions, so there is nothing to schedule. The
-WP0 binary does not run these jobs yet: pending (WP3 integration).
+`app serve` removes unreferenced files hourly on its own (spec §7), along with
+expired sessions and lockouts, so there is nothing to schedule.
 
-`app files gc` (run a GC by hand): pending (WP3 Task 2).
+By hand, as the app user:
+
+```sh
+sudo -u paperweight app files gc --data /var/lib/paperweight      # delete unused files now
+sudo -u paperweight app files check --data /var/lib/paperweight   # compare attachment rows and files
+```
+
+`files check` prints what doesn't match and exits non-zero on any finding.
 
 ## Logs
 
-The app writes its logs to stdout and stderr, which systemd sends to journald.
-The spec (§7) asks for `log/slog` JSON on stdout; the WP0 binary still writes
-slog text to stderr: pending (WP3 integration). journald keeps both.
+The app writes `log/slog` JSON to stdout (spec §7), which systemd sends to
+journald.
 
 ```sh
 journalctl -u paperweight -f          # follow

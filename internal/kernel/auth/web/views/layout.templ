@@ -1,6 +1,5 @@
-// Package views is the default templ set for authweb.Views. The sign-in,
-// setup, password, session and message pages are built from internal/ui
-// components (CD-88); the user pages stay plain until WP3 (CD-91).
+// Package views is the default templ set for authweb.Views, built from
+// internal/ui components (CD-88, CD-91).
 package views
 
 import (
@@ -24,32 +23,7 @@ templ page(o uilayout.PageOpts, csrf, errText, errField string, warnings []strin
 	}
 	@uilayout.Page(o) {
 		@components.Warnings(warnings)
-		<input type="hidden" name="csrf_token" value={ csrf }/>
+		@components.Hidden("csrf_token", csrf)
 		{ children... }
 	}
-}
-
-// layout is the plain page shell: the title, the error in role="alert", the
-// warnings and the session's CSRF token.
-templ layout(title, csrf, errText string, warnings []string) {
-	<!DOCTYPE html>
-	<html lang="en">
-		<head>
-			<meta charset="utf-8"/>
-			<title>{ title }</title>
-		</head>
-		<body>
-			<main>
-				<h1>{ title }</h1>
-				if errText != "" {
-					<p role="alert">{ errText }</p>
-				}
-				for _, w := range warnings {
-					<p role="status">{ w }</p>
-				}
-				<input type="hidden" name="csrf_token" value={ csrf }/>
-				{ children... }
-			</main>
-		</body>
-	</html>
 }

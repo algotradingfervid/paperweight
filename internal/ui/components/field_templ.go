@@ -20,6 +20,8 @@ type FieldProps struct {
 	ID, Name, Label, Hint, Error, Value, Suffix, Echo string
 	Optional                                          bool
 	Attrs                                             templ.Attributes
+
+	labelFor string // the label's control, when it isn't ID (a chosen Picker)
 }
 
 // FieldID turns a field path into an element id: "lines[2].qty" becomes
@@ -45,6 +47,13 @@ func describedBy(p FieldProps) string {
 		return p.ID + "-msg"
 	}
 	return p.ID + "-hint " + p.ID + "-msg"
+}
+
+func labelTarget(p FieldProps) string {
+	if p.labelFor != "" {
+		return p.labelFor
+	}
+	return p.ID
 }
 
 // controlAttrs are the attributes every input, select and textarea shares.
@@ -92,9 +101,9 @@ func field(p FieldProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(labelTarget(p))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 63, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 72, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -107,7 +116,7 @@ func field(p FieldProps) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 64, Col: 12}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 73, Col: 12}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -125,7 +134,7 @@ func field(p FieldProps) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(" (optional)")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 66, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 75, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -189,7 +198,7 @@ func choiceGroup(p FieldProps) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 79, Col: 12}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 88, Col: 12}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -207,7 +216,7 @@ func choiceGroup(p FieldProps) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(" (optional)")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 81, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 90, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -271,7 +280,7 @@ func fieldHint(p FieldProps) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-hint")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 92, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 101, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {
@@ -284,7 +293,7 @@ func fieldHint(p FieldProps) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.Hint)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 92, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 101, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -330,7 +339,7 @@ func fieldMsg(id, errText, echo string) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(id + "-msg")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 100, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 109, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 			if templ_7745c5c3_Err != nil {
@@ -351,7 +360,7 @@ func fieldMsg(id, errText, echo string) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(errText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 102, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 111, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -369,7 +378,7 @@ func fieldMsg(id, errText, echo string) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(id + "-msg")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 105, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 114, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 			if templ_7745c5c3_Err != nil {
@@ -382,7 +391,7 @@ func fieldMsg(id, errText, echo string) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(echo)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 105, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/field.templ`, Line: 114, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {

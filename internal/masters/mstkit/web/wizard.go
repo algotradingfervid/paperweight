@@ -79,6 +79,63 @@ type CreateWizard[W any] struct {
 	// errors on that step's fields, except the blank Required field, which
 	// waits for Check and save.
 	Validate func(W) (W, error)
+	// Rows makes the steps it names by Slug row steps, which have no Fields:
+	// each holds rows of its own, so ToInput reads them with WizardRows. A row
+	// error carries its row's number as Line and one of the step's field names,
+	// so no two row steps share a field name.
+	Rows map[string]RowStep
+}
+
+// RowStep is a step that edits rows with a components.RowsEditor, which at the
+// wizard's form width draws each row as a card, so a row can hold many fields.
+// Wholly blank rows go at Back and Next, and at Check and save if they got past
+// both; the rest are numbered 1..n, so a row's number on the page is its Line.
+type RowStep struct {
+	Legend, AddLabel string
+	Fields           []doctype.Field
+	// Defaults is a new row's values, keyed by field name. A value equal to its
+	// default isn't typed, so it leaves a row blank.
+	Defaults map[string]string
+}
+
+// blank reports whether row no holds nothing typed.
+func (rs RowStep) blank(held map[string]string, no int) bool {
+	return !slices.ContainsFunc(rs.Fields, func(fd doctype.Field) bool {
+		v := strings.TrimSpace(held[rowKey(no, fd.Name)])
+		return v != "" && v != rs.Defaults[fd.Name]
+	})
+}
+
+// WizardRows is the rows held for the row step slug in a draft's values, each
+// keyed by field name; a row's Line is its index plus one.
+func WizardRows(values map[string]string, slug string) []map[string]string {
+	rows := map[int]map[string]string{}
+	for key, value := range heldRows(values, slug) {
+		no, field, _ := parseRowKey(key) // holdRows wrote the key
+		if rows[no] == nil {
+			rows[no] = map[string]string{}
+		}
+		rows[no][field] = value
+	}
+	out := make([]map[string]string, len(rows))
+	for no, row := range rows {
+		out[no-1] = row // numbered 1..n by renumberRows
+	}
+	return out
+}
+
+// heldRows is the row step's rows in form, as "lines[N].field" keys. Each row
+// step's rows are one JSON string under its slug, because SessionValues.Merge
+// can't drop a key and a removed row must go.
+func heldRows(values map[string]string, slug string) map[string]string {
+	held := map[string]string{}
+	_ = json.Unmarshal([]byte(values[slug]), &held) // written only by holdRows; absent is no rows
+	return held
+}
+
+func holdRows(held map[string]string) string {
+	b, _ := json.Marshal(held) // a map[string]string always marshals
+	return string(b)
 }
 
 // Wizard is a CreateWizard of any W.
@@ -88,6 +145,7 @@ type Wizard interface{ core() wizardCore }
 type wizardCore struct {
 	sessions *scs.SessionManager
 	steps    []docscreen.FormStep
+	rows     map[string]RowStep
 	// read parses the values into errs and Validate's rules; save is for when
 	// there are no errs.
 	read func(values map[string]string) (save saveFunc, errs, rules []doctype.FieldError)
@@ -100,6 +158,7 @@ func (c CreateWizard[W]) core() wizardCore {
 	wc := wizardCore{
 		sessions: c.Sessions,
 		steps:    append(slices.Clone(c.Steps), docscreen.FormStep{Slug: checkSlug, Label: "Check and save"}),
+		rows:     c.Rows,
 		read: func(values map[string]string) (saveFunc, []doctype.FieldError, []doctype.FieldError) {
 			in, errs := c.ToInput(values)
 			var rules []doctype.FieldError
@@ -113,6 +172,34 @@ func (c CreateWizard[W]) core() wizardCore {
 		panic("mstweb: " + err.Error())
 	}
 	return wc
+}
+
+// closeRows drops the wholly blank rows of every row step vals holds and numbers
+// the rest 1..n.
+func (c wizardCore) closeRows(vals map[string]string) {
+	for slug, rs := range c.rows {
+		if _, held := vals[slug]; !held {
+			continue
+		}
+		rows := heldRows(vals, slug)
+		nos := slices.DeleteFunc(rowNos(rs.Fields, rows), func(no int) bool { return rs.blank(rows, no) })
+		renumberRows(rs.Fields, rows, nos)
+		vals[slug] = holdRows(rows)
+	}
+}
+
+// owns reports whether e belongs to step s: a row step's errors have a Line.
+func (c wizardCore) owns(s docscreen.FormStep, e doctype.FieldError) bool {
+	rs, isRows := c.rows[s.Slug]
+	if !isRows {
+		return slices.Contains(s.Fields, e.Field)
+	}
+	return e.Line > 0 && slices.ContainsFunc(rs.Fields, func(fd doctype.Field) bool { return fd.Name == e.Field })
+}
+
+// stepErrors keeps the errors that belong to step s.
+func (c wizardCore) stepErrors(s docscreen.FormStep, errs []doctype.FieldError) []doctype.FieldError {
+	return slices.DeleteFunc(slices.Clone(errs), func(e doctype.FieldError) bool { return !c.owns(s, e) })
 }
 
 // model is the wizard's shape.
@@ -183,6 +270,11 @@ func (h *handlers[R, In]) wizardGet(w http.ResponseWriter, r *http.Request, p au
 		wizard.Respond(w, r, wizard.Finish, h.wizardURL(furthest), nil)
 		return nil
 	}
+	return h.wizardShow(w, r, p, i, furthest, vals)
+}
+
+// wizardShow is step i, 200.
+func (h *handlers[R, In]) wizardShow(w http.ResponseWriter, r *http.Request, p auth.Principal, i, furthest int, vals map[string]string) error {
 	v, err := h.wizardStep(r, p, i, furthest, vals, nil)
 	if err != nil {
 		return err
@@ -229,9 +321,25 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 	}
 	step := h.wiz.steps[i]
 	typed := h.postedStep(r, step)
+	rs, rowStep := h.wiz.rows[step.Slug]
+	action := r.PostFormValue(rowsButton)
+	editing := rowStep && action != ""
+	if editing {
+		rows := heldRows(typed, step.Slug)
+		if err := editRows(rs.Fields, rs.Defaults, rows, action); err != nil {
+			return err
+		}
+		typed[step.Slug] = holdRows(rows)
+	} else {
+		h.wiz.closeRows(typed)
+	}
 	maps.Copy(vals, typed)
 	if over := h.overLimit(step, typed, vals); len(over) > 0 { // never into the session
 		return h.wizardStay(w, r, p, i, furthest, vals, over)
+	}
+	if editing { // Add and Remove stay on the step, and a reload still shows them
+		session.Merge(ctx, typed)
+		return h.wizardShow(w, r, p, i, furthest, vals)
 	}
 	if nav == "back" {
 		session.Merge(ctx, typed)
@@ -241,7 +349,7 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 	if err != nil {
 		return err
 	}
-	if own := withRules(stepErrors(step, errs), stepErrors(step, answered(h.dt, vals, rules))); len(own) > 0 {
+	if own := withRules(h.wiz.stepErrors(step, errs), h.answered(step, vals, h.wiz.stepErrors(step, rules))); len(own) > 0 {
 		session.Merge(ctx, typed)
 		return h.wizardStay(w, r, p, i, furthest, vals, own)
 	}
@@ -266,6 +374,17 @@ func (h *handlers[R, In]) overLimit(s docscreen.FormStep, typed, vals map[string
 			errs = append(errs, doctype.FieldError{Field: name, Message: fd.Label + " can be at most " + types.FormatCount(int64(limit)) + " characters."})
 		}
 	}
+	if rs, ok := h.wiz.rows[s.Slug]; ok {
+		rows := heldRows(typed, s.Slug)
+		for _, no := range rowNos(rs.Fields, rows) {
+			for _, fd := range rs.Fields {
+				limit := max(fd.MaxLen, defaultMaxLen)
+				if utf8.RuneCountInString(rows[rowKey(no, fd.Name)]) > limit {
+					errs = append(errs, doctype.FieldError{Field: fd.Name, Line: no, Message: fd.Label + " can be at most " + types.FormatCount(int64(limit)) + " characters."})
+				}
+			}
+		}
+	}
 	if len(errs) > 0 {
 		return errs
 	}
@@ -276,12 +395,18 @@ func (h *handlers[R, In]) overLimit(s docscreen.FormStep, typed, vals map[string
 	return nil
 }
 
-// answered drops the errors on a blank Required field: they wait for Check and
-// save.
-func answered(dt *doctype.DocType, vals map[string]string, errs []doctype.FieldError) []doctype.FieldError {
+// answered drops the errors on a blank Required field of step s, in its row on a
+// row step: they wait for Check and save.
+func (h *handlers[R, In]) answered(s docscreen.FormStep, vals map[string]string, errs []doctype.FieldError) []doctype.FieldError {
+	rs, rowStep := h.wiz.rows[s.Slug]
+	rows := heldRows(vals, s.Slug)
 	return slices.DeleteFunc(slices.Clone(errs), func(e doctype.FieldError) bool {
-		fd, ok := dt.Field(e.Field)
-		return ok && fd.Required && strings.TrimSpace(vals[e.Field]) == ""
+		if !rowStep {
+			fd, ok := h.dt.Field(e.Field)
+			return ok && fd.Required && strings.TrimSpace(vals[e.Field]) == ""
+		}
+		i := slices.IndexFunc(rs.Fields, func(fd doctype.Field) bool { return fd.Name == e.Field })
+		return i >= 0 && rs.Fields[i].Required && strings.TrimSpace(rows[e.Path()]) == ""
 	})
 }
 
@@ -296,11 +421,20 @@ func withRules(errs, rules []doctype.FieldError) []doctype.FieldError {
 	return errs
 }
 
-// postedStep is the step's fields as typed.
+// postedStep is the step's fields as typed; a row step's rows go under its slug.
 func (h *handlers[R, In]) postedStep(r *http.Request, s docscreen.FormStep) map[string]string {
 	typed := make(map[string]string, len(s.Fields))
 	for _, name := range s.Fields {
 		typed[name] = r.PostFormValue(name)
+	}
+	if rs, ok := h.wiz.rows[s.Slug]; ok {
+		rows := map[string]string{}
+		for key := range r.PostForm {
+			if isRowKey(rs.Fields, key) {
+				rows[key] = r.PostFormValue(key)
+			}
+		}
+		typed[s.Slug] = holdRows(rows)
 	}
 	return typed
 }
@@ -371,6 +505,7 @@ func (h *handlers[R, In]) resolve(ctx context.Context, vals map[string]string, n
 // the session as it was; success clears the session.
 func (h *handlers[R, In]) wizardSave(w http.ResponseWriter, r *http.Request, p auth.Principal, session wizard.SessionValues, vals map[string]string) error {
 	ctx := r.Context()
+	h.wiz.closeRows(vals)
 	save, errs, _, err := h.wizardRead(ctx, vals) // the service runs the rules
 	if err != nil {
 		return err
@@ -403,11 +538,11 @@ func (h *handlers[R, In]) wizardSave(w http.ResponseWriter, r *http.Request, p a
 // when no step owns them. Save and continue comes straight back.
 func (h *handlers[R, In]) wizardRefused(w http.ResponseWriter, r *http.Request, p auth.Principal, vals map[string]string, errs []doctype.FieldError) error {
 	last := len(h.wiz.steps) - 1
-	i := slices.IndexFunc(h.wiz.steps, func(s docscreen.FormStep) bool { return len(stepErrors(s, errs)) > 0 })
+	i := slices.IndexFunc(h.wiz.steps, func(s docscreen.FormStep) bool { return len(h.wiz.stepErrors(s, errs)) > 0 })
 	if i < 0 {
 		i = last
 	} else {
-		errs = stepErrors(h.wiz.steps[i], errs)
+		errs = h.wiz.stepErrors(h.wiz.steps[i], errs)
 	}
 	v, err := h.wizardStep(r, p, i, last, vals, errs)
 	if err != nil {
@@ -461,7 +596,7 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 		m.ReturnTo = checkSlug
 	}
 	f := form{Values: vals, Errs: errs}
-	m.Errors = wizardSummary(f, h.wiz.steps[i])
+	m.Errors = h.wiz.summary(f, h.wiz.steps[i])
 	v := wizardView{M: m, Bar: wizard.Bar{Back: i > 0}, Back: components.Link{Label: h.Copy.Plural, Href: h.Base}}
 	if len(h.session(p).Get(ctx)) > 0 {
 		v.M.Below = wizardStartOverForm(h.Base + "/new/" + startOverSlug)
@@ -475,6 +610,11 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 		v.Bar.Primary = "Save"
 		return v, nil
 	}
+	if rs, ok := h.wiz.rows[h.wiz.steps[i].Slug]; ok {
+		f.Values = heldRows(vals, h.wiz.steps[i].Slug)
+		v.Inputs = []templ.Component{components.RowsEditor(*h.rowsEditor(rs.Legend, rs.AddLabel, rs.Fields, f))}
+		return v, nil
+	}
 	for _, name := range h.wiz.steps[i].Fields {
 		fd, _ := h.dt.Field(name) // handlers checked every step's fields
 		v.Inputs = append(v.Inputs, h.input(fd, name, f))
@@ -482,12 +622,12 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 	return v, nil
 }
 
-// wizardSummary is the step's error summary. An error the step has no input for
-// links to the heading.
-func wizardSummary(f form, s docscreen.FormStep) []components.FieldErr {
+// summary is the step's error summary. An error the step has no input for links
+// to the heading.
+func (c wizardCore) summary(f form, s docscreen.FormStep) []components.FieldErr {
 	out := f.summary()
 	for n, e := range f.Errs {
-		if !slices.Contains(s.Fields, e.Field) {
+		if !c.owns(s, e) {
 			out[n].ID = "step-title"
 		}
 	}
@@ -498,17 +638,43 @@ func wizardSummary(f form, s docscreen.FormStep) []components.FieldErr {
 // value a later save would refuse still shows.
 func (h *handlers[R, In]) wizardCards(ctx context.Context, vals map[string]string) ([]sectionCard, error) {
 	var cards []sectionCard
+	h.wiz.closeRows(vals)
 	err := h.Env.DB.Read(ctx, func(tx *db.Tx) error {
 		for i, s := range h.wiz.steps[:len(h.wiz.steps)-1] {
 			pairs, err := h.stepPairs(ctx, tx, s, vals, h.typedDisplay)
 			if err != nil {
 				return err
 			}
-			cards = append(cards, sectionCard{Title: s.Label, Pairs: pairs, Change: &components.Link{Label: "Change", Href: h.wizardURL(i) + "?return=" + checkSlug}})
+			rows, err := h.typedRows(ctx, tx, s, vals)
+			if err != nil {
+				return err
+			}
+			cards = append(cards, sectionCard{Title: s.Label, Pairs: pairs, Rows: rows, Change: &components.Link{Label: "Change", Href: h.wizardURL(i) + "?return=" + checkSlug}})
 		}
 		return nil
 	})
 	return cards, err
+}
+
+// typedRows is a row step's rows as typed, one summary each; none on another
+// step.
+func (h *handlers[R, In]) typedRows(ctx context.Context, tx *db.Tx, s docscreen.FormStep, vals map[string]string) ([][]components.Pair, error) {
+	var out [][]components.Pair
+	for i, row := range WizardRows(vals, s.Slug) {
+		pairs := []components.Pair{{Label: "Row", Value: strconv.Itoa(i + 1)}}
+		for _, fd := range h.wiz.rows[s.Slug].Fields {
+			if row[fd.Name] == "" {
+				continue
+			}
+			text, err := h.typedDisplay(ctx, tx, fd, row[fd.Name])
+			if err != nil {
+				return nil, err
+			}
+			pairs = append(pairs, components.Pair{Label: fd.Label, Value: text})
+		}
+		out = append(out, pairs)
+	}
+	return out, nil
 }
 
 // typedDisplay is a typed value's text: a Link's record when it has one, a
@@ -516,6 +682,12 @@ func (h *handlers[R, In]) wizardCards(ctx context.Context, vals map[string]strin
 func (h *handlers[R, In]) typedDisplay(ctx context.Context, tx *db.Tx, fd doctype.Field, value string) (string, error) {
 	if label := h.OptionLabels[fd.Name][value]; label != "" {
 		return label, nil
+	}
+	if i := slices.IndexFunc(h.Selects[fd.Name], func(o components.Option) bool { return o.Value == value }); i >= 0 {
+		return h.Selects[fd.Name][i].Label, nil
+	}
+	if fd.Type == doctype.Check {
+		return docscreen.Display(ctx, tx, h.Env.Engine, fd, value)
 	}
 	if fd.Type == doctype.Date {
 		if d, err := types.ParseDate(value); err == nil {
@@ -525,10 +697,18 @@ func (h *handlers[R, In]) typedDisplay(ctx context.Context, tx *db.Tx, fd doctyp
 	if fd.Type != doctype.Link {
 		return value, nil
 	}
-	if _, err := strconv.ParseInt(value, 10, 64); err != nil {
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
 		return value, nil //nolint:nilerr // the step's Next shows why; here it is only a summary
 	}
-	s, err := docscreen.Display(ctx, tx, h.Env.Engine, fd, value)
+	p, _ := auth.PrincipalFrom(ctx)
+	if target, ok := doctype.Lookup(fd.Link); ok && target.IsMaster() { // CD-233; else Display says what it can
+		err = h.Env.CanLinkTargetTx(ctx, tx, p, target, id)
+	}
+	s := value
+	if err == nil {
+		s, err = docscreen.Display(ctx, tx, h.Env.Engine, fd, value)
+	}
 	if errors.Is(err, doctype.ErrNotFound) {
 		return value, nil
 	}

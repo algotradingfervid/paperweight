@@ -761,16 +761,21 @@ func TestRefusals_RestrictedRowFunc(t *testing.T) {
 	w.wantUnclaimed(t)
 }
 
-func TestNoImporter_PlainMessage(t *testing.T) {
+// An Importable DocType without an importer is a programming error: a server
+// error on every step that runs the file, not a message for the user.
+func TestNoImporter_ServerError(t *testing.T) {
 	w := newWorld(t)
 	b := w.browser()
 	p := w.env.Kavya
 	b.choose(t, p, orphan)
 	b.upload(t, p, clean)
-	r := b.get(t, p, "/m/import/check")
-	webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
-	webtest.WantBanner(t, r, "Import isn't ready for Orphans yet.")
-	webtest.WantRedirect(t, b.post(t, p, "/m/import/import", nil), "/m/import/check")
+	for _, r := range []webtest.Response{
+		b.get(t, p, "/m/import/check"),
+		b.get(t, p, "/m/import/import"),
+		b.post(t, p, "/m/import/import", nil),
+	} {
+		webtest.WantStatus(t, r, http.StatusInternalServerError)
+	}
 	w.wantUnclaimed(t)
 }
 

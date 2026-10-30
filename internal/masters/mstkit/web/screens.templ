@@ -36,6 +36,12 @@ templ listBody(v listView) {
 // version it was rendered at), or the values for a user without write; a
 // refusal banner; the delete confirm step; and More actions.
 templ recordPage(v recordView) {
+	@recordPageCancelTo(v, v.Action)
+}
+
+// recordPageCancelTo is recordPage with the delete confirm step's Cancel going
+// to cancel.
+templ recordPageCancelTo(v recordView, cancel string) {
 	@layout.Page(layout.PageOpts{
 		Title:      v.Title,
 		Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
@@ -54,7 +60,7 @@ templ recordPage(v recordView) {
 					<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
 					@components.ActionBar(components.ActionBarProps{
 						Primary:   &components.ButtonProps{Label: "Delete", Variant: components.Danger, Busy: "Deleting…"},
-						Secondary: &components.ButtonProps{Label: "Cancel", Href: v.Action},
+						Secondary: &components.ButtonProps{Label: "Cancel", Href: cancel},
 					})
 				}
 			}

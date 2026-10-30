@@ -3,6 +3,10 @@ package csvio
 import (
 	"context"
 	"errors"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
 // ErrNoImporter is returned by Preview and Import for a DocType without a
@@ -21,6 +25,21 @@ func RegisterImporter(doctype string, fn RowFunc) {
 	}
 	importers[doctype] = fn
 }
+
+// LinkCheck reports whether p may link to row id of target, reading inside tx.
+// auth.ErrNotFound or auth.ErrForbidden means p may not; any other error stops
+// the import.
+type LinkCheck func(ctx context.Context, tx *db.Tx, a auth.Service, p auth.Principal, target *doctype.DocType, id int64) error
+
+var linkCheck LinkCheck
+
+// SetLinkCheck makes fn the check of every link cell and every suggestion
+// (CD-232). mstkit sets it in init, because the check needs each master's
+// created_by rule and csvio can't import mstkit. Without it nothing is hidden,
+// which is safe: every production master registers through mstkit, so a binary
+// with masters always has it, and only a binary or test that registers its own
+// tables runs without. Call it at startup: linkCheck has no lock.
+func SetLinkCheck(fn LinkCheck) { linkCheck = fn }
 
 type importKey struct{}
 

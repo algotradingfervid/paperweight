@@ -207,6 +207,12 @@ func (a *App) DB() *db.DB { return a.db }
 // Auth is the real AUTH service.
 func (a *App) Auth() *auth.Auth { return a.auth }
 
+// Engine is the document engine.
+func (a *App) Engine() doc.Engine { return a.engine }
+
+// Approvals is the real APR service.
+func (a *App) Approvals() *approval.Approvals { return a.approvals }
+
 // Masters is every master's service.
 func (a *App) Masters() *allmasters.Services { return a.masters }
 

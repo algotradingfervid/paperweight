@@ -229,6 +229,9 @@ func (s *Service) CreateContactTx(ctx context.Context, tx *db.Tx, p auth.Princip
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkOwnerReadable(ctx, tx, p, in.PartyID, in.BranchID); err != nil {
+		return mstkit.Saved{}, err
+	}
 	if err := s.checkContactOwner(ctx, tx, in); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -474,7 +477,7 @@ func (s *Service) checkContactOwner(ctx context.Context, tx *db.Tx, in ContactIn
 		b, err := s.company.Get(ctx, tx, in.BranchID)
 		switch {
 		case errors.Is(err, doctype.ErrNotFound):
-			es.Add("branch_id", "Branch not found. Pick one from the list.")
+			es.Add("branch_id", msgBranchNotFound)
 		case err != nil:
 			return err
 		case b.Disabled:
@@ -485,7 +488,7 @@ func (s *Service) checkContactOwner(ctx context.Context, tx *db.Tx, in ContactIn
 	pt, err := s.parties.Get(ctx, tx, in.PartyID)
 	switch {
 	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("party_id", "Party not found. Pick one from the list.")
+		es.Add("party_id", msgPartyNotFound)
 	case err != nil:
 		return err
 	case pt.Disabled:
