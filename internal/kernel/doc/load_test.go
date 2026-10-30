@@ -48,7 +48,7 @@ func engineLoad(t *testing.T, h *fixturetest.H, dt string, id int64) (doc.Record
 	return rec, err
 }
 
-// employeeID returns the testkit_employee id of code.
+// employeeID returns the seeded employee id of code.
 func employeeID(t *testing.T, h *fixturetest.H, code string) int64 {
 	t.Helper()
 	for _, e := range h.F.Employees {

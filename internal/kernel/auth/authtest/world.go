@@ -75,6 +75,7 @@ func NewWorld(t testing.TB) *World {
 	for _, u := range fx.Users {
 		w.insertUser(t, u.ID, u.Email, u.Name, !u.Disabled, u.Roles)
 	}
+	testkit.LinkEmployees(t, d, fx)
 	for _, r := range fx.Restrictions {
 		w.Restrict(t, r.Email, r.ProjectCodes, r.SiteCodes)
 	}

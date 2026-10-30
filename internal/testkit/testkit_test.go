@@ -163,7 +163,7 @@ func TestTestkit_NewDBMigrated(t *testing.T) {
 		t.Fatal("NewDB returned nil")
 	}
 	conn := d.SQL()
-	for _, name := range []string{"goose_db_version", "goose_testkit", "app_meta", "testkit_employee", "testkit_project", "testkit_site"} {
+	for _, name := range []string{"goose_db_version", "app_meta", "company", "branch", "party", "address", "item", "project", "site", "employee", "expense_type"} {
 		if !tableExists(t, conn, name) {
 			t.Errorf("table %q does not exist after NewDB", name)
 		}
@@ -242,6 +242,8 @@ func TestTestkit_DBPathMatchesNewDB(t *testing.T) {
 func TestTestkit_SeedMatchesFixturesDoc(t *testing.T) {
 	d := testkit.NewDB(t)
 	fx := testkit.Seed(t, d)
+	insertUsers(t, d, fx)
+	testkit.LinkEmployees(t, d, fx)
 
 	type user struct {
 		Email, Name string
@@ -318,23 +320,23 @@ func TestTestkit_SeedMatchesFixturesDoc(t *testing.T) {
 	managerOf := func(code string) string {
 		t.Helper()
 		var m sql.NullString
-		err := conn.QueryRowContext(t.Context(), `SELECT m.code FROM testkit_employee e
-			LEFT JOIN testkit_employee m ON m.id = e.manager_id WHERE e.code = ?`, code).Scan(&m)
+		err := conn.QueryRowContext(t.Context(), `SELECT m.code FROM employee e
+			LEFT JOIN employee m ON m.id = e.manager_id WHERE e.code = ?`, code).Scan(&m)
 		if err != nil {
 			t.Fatalf("query manager of %s: %v", code, err)
 		}
 		return m.String
 	}
 	if got := managerOf("EMP-003"); got != "EMP-002" {
-		t.Errorf("testkit_employee EMP-003 manager = %q, want EMP-002", got)
+		t.Errorf("employee EMP-003 manager = %q, want EMP-002", got)
 	}
 	if got := managerOf("EMP-007"); got != "EMP-004" {
-		t.Errorf("testkit_employee EMP-007 manager = %q, want EMP-004", got)
+		t.Errorf("employee EMP-007 manager = %q, want EMP-004", got)
 	}
 	for _, code := range []string{"EMP-003", "EMP-007"} {
 		var dbID int64
 		var dbUser int64
-		if err := conn.QueryRowContext(t.Context(), `SELECT id, user_id FROM testkit_employee WHERE code = ?`, code).Scan(&dbID, &dbUser); err != nil {
+		if err := conn.QueryRowContext(t.Context(), `SELECT id, user_id FROM employee WHERE code = ?`, code).Scan(&dbID, &dbUser); err != nil {
 			t.Fatalf("query %s: %v", code, err)
 		}
 		if idx, ok := byCode[code]; ok {
@@ -347,8 +349,8 @@ func TestTestkit_SeedMatchesFixturesDoc(t *testing.T) {
 		}
 	}
 	var name string
-	if err := conn.QueryRowContext(t.Context(), `SELECT name FROM testkit_project WHERE code = 'PRJ-METRO'`).Scan(&name); err != nil {
-		t.Errorf("testkit_project PRJ-METRO: %v", err)
+	if err := conn.QueryRowContext(t.Context(), `SELECT name FROM project WHERE code = 'PRJ-METRO'`).Scan(&name); err != nil {
+		t.Errorf("project PRJ-METRO: %v", err)
 	} else if name != "Pune Metro Depot" {
 		t.Errorf("PRJ-METRO name = %q, want %q", name, "Pune Metro Depot")
 	}
@@ -436,10 +438,10 @@ func TestTestkit_DirectoryFromFixtures(t *testing.T) {
 	// Project and site codes come from fx (database ids filled in by Seed).
 	conn := d.SQL()
 	var prjID, siteID int64
-	if err := conn.QueryRowContext(t.Context(), `SELECT id FROM testkit_project WHERE code = 'PRJ-METRO'`).Scan(&prjID); err != nil {
+	if err := conn.QueryRowContext(t.Context(), `SELECT id FROM project WHERE code = 'PRJ-METRO'`).Scan(&prjID); err != nil {
 		t.Fatalf("PRJ-METRO id: %v", err)
 	}
-	if err := conn.QueryRowContext(t.Context(), `SELECT id FROM testkit_site WHERE code = 'METRO-SITE'`).Scan(&siteID); err != nil {
+	if err := conn.QueryRowContext(t.Context(), `SELECT id FROM site WHERE code = 'METRO-SITE'`).Scan(&siteID); err != nil {
 		t.Fatalf("METRO-SITE id: %v", err)
 	}
 	pc, err := dir.ProjectCodes(ctx, nil, []int64{prjID})
@@ -452,27 +454,74 @@ func TestTestkit_DirectoryFromFixtures(t *testing.T) {
 	}
 }
 
-func TestTestkit_StandInColumnTypes(t *testing.T) {
-	d := testkit.NewDB(t)
-	want := map[string][]column{
-		"testkit_employee": {{"id", "INTEGER"}, {"code", "TEXT"}, {"user_id", "INTEGER"}, {"manager_id", "INTEGER"}, {"status", "TEXT"}},
-		"testkit_project":  {{"id", "INTEGER"}, {"code", "TEXT"}, {"name", "TEXT"}, {"enabled", "INTEGER"}},
-		"testkit_site":     {{"id", "INTEGER"}, {"code", "TEXT"}, {"name", "TEXT"}, {"branch_code", "TEXT"}, {"project_id", "INTEGER"}, {"enabled", "INTEGER"}},
-	}
-	for _, table := range []string{"testkit_employee", "testkit_project", "testkit_site"} {
-		cols := tableColumns(t, d.SQL(), table)
-		if len(cols) == 0 {
-			t.Errorf("%s has no columns (table missing?)", table)
-			continue
+// TestTestkit_NoStandInTables (Task 23): the Wave 1 stand-ins are gone, with
+// the migration set that made them.
+func TestTestkit_NoStandInTables(t *testing.T) {
+	conn := testkit.NewDB(t).SQL()
+	for _, name := range []string{"testkit_employee", "testkit_project", "testkit_site", "goose_testkit"} {
+		if tableExists(t, conn, name) {
+			t.Errorf("table %q exists; Seed writes the real master tables", name)
 		}
-		for _, c := range cols {
-			if c.Type != "INTEGER" && c.Type != "TEXT" {
-				t.Errorf("%s.%s declared type %q, want only INTEGER or TEXT (CD-34)", table, c.Name, c.Type)
+	}
+}
+
+// insertUsers adds the fixture users, which employee.user_id references.
+func insertUsers(t *testing.T, d *db.DB, fx testkit.Fixtures) {
+	t.Helper()
+	if err := d.Write(t.Context(), func(tx *db.Tx) error {
+		for _, u := range fx.Users {
+			if _, err := tx.SQL().ExecContext(t.Context(),
+				`INSERT INTO users (id, email, name, enabled, created_at, updated_at) VALUES (?, ?, ?, 1, 'x', 'x')`,
+				int64(u.ID), u.Email, u.Name); err != nil {
+				return err
 			}
 		}
-		if !reflect.DeepEqual(cols, want[table]) {
-			t.Errorf("%s columns = %v, want %v", table, cols, want[table])
+		return nil
+	}); err != nil {
+		t.Fatalf("insert users: %v", err)
+	}
+}
+
+// TestTestkit_SeedLeavesEmployeesUnlinked (CD-199 item 4): Seed works with no
+// users; the link comes from LinkEmployees, once they exist.
+func TestTestkit_SeedLeavesEmployeesUnlinked(t *testing.T) {
+	d := testkit.NewDB(t)
+	fx := testkit.Seed(t, d)
+	linked := func() int {
+		t.Helper()
+		var n int
+		if err := d.SQL().QueryRowContext(t.Context(), `SELECT count(user_id) FROM employee`).Scan(&n); err != nil {
+			t.Fatalf("count linked employees: %v", err)
 		}
+		return n
+	}
+	if n := linked(); n != 0 {
+		t.Errorf("after Seed, %d employees have a user_id; want 0", n)
+	}
+
+	// Without users the FK refuses the link, and that fails the test.
+	fake, returned := runWithFake(t, func(tb testing.TB) { testkit.LinkEmployees(tb, d, fx) })
+	if returned || !fake.fatal {
+		t.Errorf("LinkEmployees with no users: returned %v, fatal %v; want t.Fatalf", returned, fake.fatal)
+	}
+
+	insertUsers(t, d, fx)
+	testkit.LinkEmployees(t, d, fx)
+	if n := linked(); n != len(fx.Employees) {
+		t.Errorf("after LinkEmployees, %d employees have a user_id; want %d", n, len(fx.Employees))
+	}
+}
+
+// TestTestkit_LinkEmployeesFailsOnUnknownEmployee: an id Seed didn't produce
+// updates nothing, and that must not pass silently.
+func TestTestkit_LinkEmployeesFailsOnUnknownEmployee(t *testing.T) {
+	d := testkit.NewDB(t)
+	fx := testkit.Seed(t, d)
+	insertUsers(t, d, fx)
+	fx.Employees[0].ID = 9999
+	fake, returned := runWithFake(t, func(tb testing.TB) { testkit.LinkEmployees(tb, d, fx) })
+	if returned || !fake.fatal || !strings.Contains(fake.message, "EMP-001") {
+		t.Errorf("LinkEmployees on unknown id: returned %v, fatal %v, message %q; want Fatalf naming EMP-001", returned, fake.fatal, fake.message)
 	}
 }
 
@@ -484,10 +533,8 @@ func TestTestkit_ColumnTypesRuleSkipsGoose(t *testing.T) {
 	if len(violations) != 0 {
 		t.Errorf("column-type rule violations on a fresh NewDB: %q", violations)
 	}
-	for _, name := range []string{"goose_db_version", "goose_testkit"} {
-		if !slices.Contains(skipped, name) {
-			t.Errorf("skip list %q does not include %s", skipped, name)
-		}
+	if !slices.Contains(skipped, "goose_db_version") {
+		t.Errorf("skip list %q does not include goose_db_version", skipped)
 	}
 	// The skip matters: goose's own table declares a non-allowed type (tstamp TIMESTAMP).
 	var gooseBad bool

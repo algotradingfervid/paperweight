@@ -60,7 +60,7 @@ func TestMsttest_NewWiresRealKernel(t *testing.T) {
 	}
 	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
 		var n int
-		for _, table := range []string{"audit_log", "gst_state", "goose_db_version", "goose_testkit", "goose_mstfixture", "mst_order", "mst_order_line"} {
+		for _, table := range []string{"audit_log", "gst_state", "goose_db_version", "goose_mstfixture", "mst_order", "mst_order_line"} {
 			if err := tx.SQL().QueryRowContext(ctx, `SELECT count(*) FROM `+table).Scan(&n); err != nil { //nolint:gosec // G202: fixed table names
 				t.Errorf("table %s: %v; want it migrated", table, err)
 			}
