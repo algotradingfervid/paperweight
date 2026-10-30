@@ -8,96 +8,159 @@ import (
 	"go/types"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 )
 
-// plainAuthTwins maps each plain auth read to its argument count (which keeps
-// auth.Access.Can and unrelated methods out) and the twin a tx scope must call.
-var plainAuthTwins = map[string]struct {
-	args int
-	twin string
-}{
-	"Can":            {5, "CanTx"},
-	"HasRole":        {3, "HasRoleTx"},
-	"CheckValues":    {4, "CheckValuesTx"},
-	"CheckLink":      {4, "CheckLinkTx"},
-	"UsersWithRight": {4, "UsersWithRightTx"},
+// plainAuthTwins maps each plain auth read to the twin a tx scope must call.
+var plainAuthTwins = map[string]string{
+	"Can":            "CanTx",
+	"HasRole":        "HasRoleTx",
+	"CheckValues":    "CheckValuesTx",
+	"CheckLink":      "CheckLinkTx",
+	"UsersWithRight": "UsersWithRightTx",
 }
 
-func takesTx(ft *ast.FuncType) bool {
-	return slices.ContainsFunc(ft.Params.List, func(f *ast.Field) bool {
-		return types.ExprString(f.Type) == "*db.Tx"
-	})
+// authService supplies each read's argument count, so the rule follows the
+// interface; a call with another count (auth.Access.Can) is a different method.
+var authService = reflect.TypeFor[auth.Service]()
+
+// Floors for the real tree: a walk or a type match that stops finding anything
+// must fail, not pass with nothing checked.
+const (
+	minWalkedFiles = 250
+	minTxScopes    = 400
+)
+
+// txParamTypes lists the parameter types that make a func a tx scope, spelled
+// with the file's local package names. A file importing neither db nor a dbq
+// package has none.
+func txParamTypes(file *ast.File) map[string]bool {
+	txTypes := map[string]bool{}
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, "\"`")
+		local := path[strings.LastIndex(path, "/")+1:]
+		if imp.Name != nil {
+			local = imp.Name.Name
+		}
+		switch {
+		case strings.HasSuffix(path, "/internal/platform/db"):
+			txTypes["*"+local+".Tx"] = true
+			txTypes[local+".DBTX"] = true
+		case strings.HasSuffix(path, "/dbq"):
+			txTypes["*"+local+".Queries"] = true
+		}
+	}
+	return txTypes
 }
 
-// plainAuthCalls returns one failure for each plain auth read, and each nested
+// plainAuthCalls returns the number of tx scopes in the file and one failure
+// for each plain auth read, called or taken as a method value, and each nested
 // Read or Write, inside a tx scope: the body of a func or func literal with a
-// *db.Tx parameter, nested literals included. Inspect runs in source order, so
-// a node is inside a scope exactly when it starts before the scope's end.
-func plainAuthCalls(filename, src string) ([]string, error) {
+// tx parameter (see txParamTypes), nested literals included. Inspect runs in
+// source order, so a node is inside a scope exactly when it starts before the
+// scope's end.
+func plainAuthCalls(filename, src string) ([]string, int, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, filename, src, parser.SkipObjectResolution)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	txTypes := txParamTypes(file)
+	takesTx := func(ft *ast.FuncType) bool {
+		return slices.ContainsFunc(ft.Params.List, func(f *ast.Field) bool {
+			typ := f.Type
+			if v, ok := typ.(*ast.Ellipsis); ok {
+				typ = v.Elt
+			}
+			return txTypes[types.ExprString(typ)]
+		})
 	}
 	var found []string
+	scopes := 0
 	var txEnd token.Pos
+	otherMethod := map[*ast.SelectorExpr]bool{} // Fun of a call whose arg count isn't the interface's
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.FuncDecl:
 			if takesTx(n.Type) {
+				scopes++
 				txEnd = n.End()
 			}
 		case *ast.FuncLit:
 			if takesTx(n.Type) {
+				scopes++
 				txEnd = max(txEnd, n.End())
 			}
 		case *ast.CallExpr:
-			sel, ok := n.Fun.(*ast.SelectorExpr)
-			if !ok || n.Pos() >= txEnd {
+			sel, ok := ast.Unparen(n.Fun).(*ast.SelectorExpr)
+			if !ok {
 				return true
 			}
-			at, name := fset.Position(n.Pos()), sel.Sel.Name
-			if p, ok := plainAuthTwins[name]; ok && len(n.Args) == p.args {
-				found = append(found, fmt.Sprintf("%s: %s opens its own read inside a tx scope: use %s", at, types.ExprString(n.Fun), p.twin))
+			name := sel.Sel.Name
+			if m, ok := authService.MethodByName(name); ok && len(n.Args) != m.Type.NumIn() {
+				otherMethod[sel] = true
 			}
 			isTxLit := func(arg ast.Expr) bool {
 				lit, ok := arg.(*ast.FuncLit)
 				return ok && takesTx(lit.Type)
 			}
-			if (name == "Read" || name == "Write") && slices.ContainsFunc(n.Args, isTxLit) {
-				found = append(found, fmt.Sprintf("%s: %s opens a second transaction inside a tx scope: use the tx already held", at, types.ExprString(n.Fun)))
+			if n.Pos() < txEnd && (name == "Read" || name == "Write") && slices.ContainsFunc(n.Args, isTxLit) {
+				found = append(found, fmt.Sprintf("%s: %s opens a second transaction inside a tx scope: use the tx already held", fset.Position(n.Pos()), types.ExprString(n.Fun)))
+			}
+		case *ast.SelectorExpr:
+			if twin, ok := plainAuthTwins[n.Sel.Name]; ok && n.Pos() < txEnd && !otherMethod[n] {
+				found = append(found, fmt.Sprintf("%s: %s opens its own read inside a tx scope: use %s", fset.Position(n.Pos()), types.ExprString(n), twin))
 			}
 		}
 		return true
 	})
-	return found, nil
+	return found, scopes, nil
 }
 
 // TestContracts_NoPlainAuthReadInsideTx is the static half of CD-213's nested
 // transaction gate: plain auth reads open their own connection, so a tx scope
-// must call the Tx twin. It sees only code lexically inside a tx scope: a
-// helper taking no *db.Tx that is called from one is not followed (no call
-// graph), which the nestcheck gate covers when a non-admin test reaches it.
+// must call the Tx twin. It sees only code lexically inside a tx scope, with no
+// call graph, which the nestcheck gate covers when a non-admin test reaches it:
+// a helper taking no tx parameter that is called from a scope is not followed,
+// nor is a closure with no tx parameter defined outside the scope and called
+// inside it. A tx held in a struct field or a named type, or a dot import of
+// db, makes no scope.
 func TestContracts_NoPlainAuthReadInsideTx(t *testing.T) {
+	for plain, twin := range plainAuthTwins {
+		for _, name := range []string{plain, twin} {
+			if _, ok := authService.MethodByName(name); !ok {
+				t.Errorf("auth.Service has no method %s: update plainAuthTwins", name)
+			}
+		}
+	}
 	t.Run("real_tree", testNoPlainAuthRealTree)
 	t.Run("rules", testNoPlainAuthRules)
 }
 
-// The walk skips dbq, generated templ files and test doubles: every directory
-// whose name ends in "test" or "fake". A production package must not be named so.
+// skippedDouble names the directories of test doubles: their names end in
+// "test" or "fake". testNoPlainAuthRealTree fails if a binary links one.
+func skippedDouble(name string) bool {
+	return strings.HasSuffix(name, "test") || strings.HasSuffix(name, "fake")
+}
+
+// The walk skips dbq, generated templ files and test doubles.
 func testNoPlainAuthRealTree(t *testing.T) {
 	seen := map[string]bool{}
+	scopes := 0
 	for _, root := range []string{"../internal", "../cmd"} {
 		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
 			if d.IsDir() {
-				if name := d.Name(); name == "dbq" || strings.HasSuffix(name, "test") || strings.HasSuffix(name, "fake") {
+				if name := d.Name(); name == "dbq" || skippedDouble(name) {
 					return filepath.SkipDir
 				}
 				return nil
@@ -112,10 +175,11 @@ func testNoPlainAuthRealTree(t *testing.T) {
 			}
 			rel := filepath.ToSlash(strings.TrimPrefix(path, "../"))
 			seen[rel] = true
-			found, err := plainAuthCalls(rel, string(src))
+			found, n, err := plainAuthCalls(rel, string(src))
 			if err != nil {
 				return err
 			}
+			scopes += n
 			for _, f := range found {
 				t.Error(f)
 			}
@@ -128,6 +192,25 @@ func testNoPlainAuthRealTree(t *testing.T) {
 	for _, f := range []string{"internal/kernel/auth/service.go", "internal/masters/uom/uom.go", "internal/masters/mstkit/rules.go", "cmd/app/main.go"} {
 		if !seen[f] {
 			t.Errorf("the walk never reached %s", f)
+		}
+	}
+	t.Logf("files=%d scopes=%d", len(seen), scopes)
+	if len(seen) < minWalkedFiles {
+		t.Errorf("the walk read %d files, want at least %d", len(seen), minWalkedFiles)
+	}
+	if scopes < minTxScopes {
+		t.Errorf("found %d tx scopes, want at least %d: did db.Tx change name?", scopes, minTxScopes)
+	}
+
+	cmd := exec.CommandContext(t.Context(), "go", "list", "-deps", "-f", "{{with .Module}}{{if .Main}}{{$.ImportPath}}{{end}}{{end}}", "./cmd/...")
+	cmd.Dir = ".."
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go list: %v", err)
+	}
+	for _, pkg := range strings.Fields(string(out)) {
+		if slices.ContainsFunc(strings.Split(pkg, "/"), skippedDouble) {
+			t.Errorf("%s is linked into a binary but the walk skips it: rename it or walk it", pkg)
 		}
 	}
 }
@@ -160,6 +243,14 @@ func testNoPlainAuthRules(t *testing.T) {
 		{"after a nested literal closes", inTx("g := func(inner *db.Tx) {}; _ = g; " + canCall), refused("s.Auth.Can", "CanTx")},
 		{"nested Write", inTx("d.Write(ctx, func(tx2 *db.Tx) error { return nil })"), refused("d.Write", "inside a tx scope")},
 		{"nested Read", inTx("d.Read(ctx, func(tx2 *db.Tx) error { return nil })"), refused("d.Read", "inside a tx scope")},
+		{"method value assigned", inTx("can := s.Auth.Can; _ = can"), refused("s.Auth.Can", "CanTx")},
+		{"method value as a callback", inTx("each(xs, s.Auth.HasRole)"), refused("s.Auth.HasRole", "HasRoleTx")},
+		{"parenthesised call", inTx("(s.Auth.Can)(ctx, p, dt, r, rec)"), refused("s.Auth.Can", "CanTx")},
+		{"variadic tx param", "func f(txs ...*db.Tx) { s.Auth.HasRole(ctx, p, role) }", refused("s.Auth.HasRole", "HasRoleTx")},
+		{"aliased db import", "import dbx \"m/internal/platform/db\"\nfunc f(tx *dbx.Tx) { s.Auth.HasRole(ctx, p, role) }", refused("s.Auth.HasRole", "HasRoleTx")},
+		{"DBTX param", "func f(q db.DBTX) { s.Auth.HasRole(ctx, p, role) }", refused("s.Auth.HasRole", "HasRoleTx")},
+		{"dbq Queries param", "import \"m/internal/kernel/auth/dbq\"\nfunc f(q *dbq.Queries) { s.Auth.HasRole(ctx, p, role) }", refused("s.Auth.HasRole", "HasRoleTx")},
+		{"aliased dbq Queries param", "import authq \"m/internal/kernel/auth/dbq\"\nfunc f(q *authq.Queries) { s.Auth.HasRole(ctx, p, role) }", refused("s.Auth.HasRole", "HasRoleTx")},
 
 		{"CanTx allowed", inTx("s.Auth.CanTx(ctx, tx, p, dt, r, rec)"), nil},
 		{"HasRoleTx allowed", inTx("s.Auth.HasRoleTx(ctx, tx, p, role)"), nil},
@@ -168,6 +259,10 @@ func testNoPlainAuthRules(t *testing.T) {
 		{"UsersWithRightTx allowed", inTx("s.Auth.UsersWithRightTx(ctx, tx, dt, r, rec)"), nil},
 		{"plain Can outside any tx", "func f() { s.Auth.Can(ctx, p, dt, r, rec) }", nil},
 		{"Access.Can with three args", inTx("acc.Can(dt, r, rec)"), nil},
+		{"parenthesised Access.Can", inTx("(acc.Can)(dt, r, rec)"), nil},
+		{"file without the db import", "import \"m/internal/platform/other\"\nfunc f(tx *db.Tx) { s.Auth.HasRole(ctx, p, role) }", nil},
+		{"another package named db", "import \"m/other/db\"\nfunc f(tx *db.Tx) { s.Auth.HasRole(ctx, p, role) }", nil},
+		{"db.Tx in a file aliasing db", "import dbx \"m/internal/platform/db\"\nfunc f(tx *db.Tx) { s.Auth.HasRole(ctx, p, role) }", nil},
 		{"plain Can beside a tx literal", "func f() { g := func() { s.Auth.Can(ctx, p, dt, r, rec) }; _ = g; d.Write(ctx, func(tx *db.Tx) error { return nil }); s.Auth.Can(ctx, p, dt, r, rec) }", nil},
 		{"func-typed parameter is no tx scope", "func f(set func(*db.Tx) error) { s.Auth.Can(ctx, p, dt, r, rec) }", nil},
 		{"io Read inside a tx", inTx("r.Read(buf)"), nil},
@@ -176,7 +271,11 @@ func testNoPlainAuthRules(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := plainAuthCalls("a/b.go", "package p\n"+tt.src+"\n")
+			src := tt.src
+			if !strings.HasPrefix(src, "import") { // the row brings its own imports
+				src = "import \"m/internal/platform/db\"\n" + src
+			}
+			got, _, err := plainAuthCalls("a/b.go", "package p\n"+src+"\n")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -197,7 +296,11 @@ func testNoPlainAuthRules(t *testing.T) {
 			}
 		})
 	}
-	if _, err := plainAuthCalls("bad.go", "not go"); err == nil {
+	if _, _, err := plainAuthCalls("bad.go", "not go"); err == nil {
 		t.Error("unparsable source: want an error")
+	}
+	two := "package p\nimport \"m/internal/platform/db\"\nfunc f(tx *db.Tx) { d.Write(ctx, func(q db.DBTX) error { return nil }) }\nfunc g() {}\n"
+	if _, scopes, err := plainAuthCalls("a/b.go", two); err != nil || scopes != 2 {
+		t.Errorf("counted %d scopes (err %v), want 2", scopes, err)
 	}
 }
