@@ -128,7 +128,7 @@ Task 2 (composition root) also does:
 - Owns the signed-in `/` route, where `SafeNext` and the header brand link land.
 - Routes `/doc/{DocType}/export.csv`, which docscreen already links to.
 - Mounts `web.BodyCeiling(limit, files.MsgTooLarge)` with `r.Use` right after `web.NewRouter(opts)`, before any route, and tests a 413 with CSP and a log line through `app.Handler()` (CD-211). Passes `allmasters.WebDeps` to `Routes`.
-- Wires `files.New` Policies and Info, `Letterhead.LogoURL`, and merges `gstinweb.Parsers()` into ValidateHandler; a nil `Deps.Parse` 404s every kind (CD-209).
+- Wires `files.New` Policies and Info, `Letterhead.LogoURL`, and merges `gstinweb.Parsers()` and `itemweb.Parsers()` into ValidateHandler; a nil `Deps.Parse` 404s every kind (CD-209).
 - Mounts `GET /search` and wires `Deps.RecordURL` (CD-200).
 - Mounts `/ui/validate/*` for real pages; today only the gallery mounts it.
 - Calls `company.SetupTx` from first-run setup with CD-165's fields.
