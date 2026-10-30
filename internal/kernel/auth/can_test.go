@@ -383,6 +383,19 @@ func TestAuthfake_MatchesReal(t *testing.T) {
 			w.Restrict(t, clerk, nil, []string{"TECH-SITE"})
 			f.Restrict(w.Users[clerk], nil, []int64{w.Sites["TECH-SITE"]})
 		}, func(po *auth.RecordRef) { po.SiteIDs = nil }},
+		{"restricted to PUNE-WH and METRO-SITE (AUTH-100)", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
+			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
+			w.AddRole(t, clerk, "Clerk")
+			f.AddRole(w.Users[clerk], "Clerk")
+			w.Restrict(t, clerk, nil, []string{"PUNE-WH", "METRO-SITE"})
+			f.Restrict(w.Users[clerk], nil, []int64{w.Sites["PUNE-WH"], w.Sites["METRO-SITE"]})
+			f.Hide(authtest.DTOrder, poID)
+		}, nil},
+		{"Administrator restricted to PUNE-WH (CD-174)", "admin@vardhan.test", func(t *testing.T, w *authtest.World, f *authfake.Fake) {
+			f.AddRole(w.Users["admin@vardhan.test"], auth.RoleAdministrator)
+			w.Restrict(t, "admin@vardhan.test", nil, []string{"PUNE-WH"})
+			f.Restrict(w.Users["admin@vardhan.test"], nil, []int64{w.Sites["PUNE-WH"]})
+		}, nil},
 		{"role added then removed (CD-86)", clerk, func(t *testing.T, w *authtest.World, f *authfake.Fake) {
 			clerkGrants(t, w, f, auth.RightRead, auth.RightApprove)
 			w.AddRole(t, clerk, "Clerk")
@@ -453,6 +466,13 @@ func TestAuthfake_MatchesReal(t *testing.T) {
 				w.Auth.CheckValues(ctx, p, authtest.DTOrder, values), f.CheckValues(ctx, p, authtest.DTOrder, values))
 			compare("CheckLink(PO at TECH-SITE)",
 				w.Auth.CheckLink(ctx, p, authtest.DTOrder, poID), f.CheckLink(ctx, p, authtest.DTOrder, poID))
+			for _, dim := range []auth.Dimension{auth.DimProject, auth.DimSite} {
+				rid, rok, rerr := w.Auth.DefaultValue(ctx, p, dim)
+				fid, fok, ferr := f.DefaultValue(ctx, p, dim)
+				if rid != fid || rok != fok || t5Kind(rerr) != t5Kind(ferr) {
+					t.Errorf("DefaultValue(%s): real = (%d, %v, %v), authfake = (%d, %v, %v)", dim, rid, rok, rerr, fid, fok, ferr)
+				}
+			}
 
 			// The World also lists the seeded approvers; compare whether this
 			// case's user is listed.

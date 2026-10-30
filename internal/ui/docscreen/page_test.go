@@ -239,16 +239,27 @@ func TestDocPage_HiddenRecordIs404(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("hidden record: status = %d, want 404", rec.Code)
 	}
-	if text := uitest.Doc(t, rec).Text(); !strings.Contains(text, doctype.ErrNotFound.Error()) {
+	hidden := uitest.Doc(t, rec).Text()
+	if !strings.Contains(hidden, doctype.ErrNotFound.Error()) {
 		t.Errorf("hidden record: body lacks AUTH's text %q", doctype.ErrNotFound.Error())
 	}
 
+	// CD-245 (AUTH-108): a missing id reads the same as a hidden one.
 	rec = e.get(t, samplePath+"/99")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("missing record: status = %d, want 404", rec.Code)
 	}
+	if missing := uitest.Doc(t, rec).Text(); missing != hidden {
+		t.Errorf("missing record page differs from the hidden one:\n%s\n---\n%s", missing, hidden)
+	}
+
+	// DOC-031: a save of a missing draft keeps DOC's text.
+	rec = e.post(t, samplePath+"/99/edit/details", url.Values{"supplier_id": {"7"}, "order_date": {"24-10-2026"}})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("save of a missing record: status = %d, want 404", rec.Code)
+	}
 	if text := uitest.Doc(t, rec).Text(); !strings.Contains(text, doc.Gone().Message) {
-		t.Errorf("missing record: body lacks DOC's text %q", doc.Gone().Message)
+		t.Errorf("save of a missing record: body lacks DOC's text %q", doc.Gone().Message)
 	}
 }
 

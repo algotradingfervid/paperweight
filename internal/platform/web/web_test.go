@@ -67,7 +67,7 @@ var securityHeaders = map[string]string{
 	"X-Content-Type-Options":  "nosniff",
 	"Referrer-Policy":         "same-origin",
 	"X-Frame-Options":         "DENY",
-	"Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'",
+	"Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'",
 }
 
 // alertRe matches a role="alert" div and captures its text content.

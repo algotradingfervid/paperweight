@@ -26,6 +26,17 @@ func (f *Fake) ValueAllowedTx(ctx context.Context, tx *db.Tx, p auth.Principal, 
 	return list == nil || slices.Contains(list, id), nil
 }
 
+// DefaultValue returns p's only value in the Restrict list on dim, like the
+// real service: ok is false for any other length and for the Administrator
+// (AUTH-100).
+func (f *Fake) DefaultValue(ctx context.Context, p auth.Principal, dim auth.Dimension) (int64, bool, error) {
+	list, err := f.restrictionList(p, string(dim))
+	if err != nil || len(list) != 1 {
+		return 0, false, err
+	}
+	return list[0], true, nil
+}
+
 // restrictionList returns p's Restrict list on dimension, nil when p has none.
 func (f *Fake) restrictionList(p auth.Principal, dimension string) ([]int64, error) {
 	if err := auth.ValidDimension(dimension); err != nil {

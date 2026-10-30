@@ -120,6 +120,7 @@ var contractRows = []struct {
 	{"CD-199 UserByEmail", rowUserByEmail},
 	{"CD-213 Tx methods match their twins", rowTxParity},
 	{"CD-216 ValueAllowedTx", rowValueAllowedTx},
+	{"AUTH-100 DefaultValue", rowDefaultValue},
 	{"CD-240 link to an unregistered DocType is not found", rowLinkUnknownDocType},
 }
 
@@ -131,6 +132,7 @@ var refusalRows = []struct {
 	{"CD-174 unknown dimension", rowUnknownDimension},
 	{"CD-213 inapplicable rights refused in a tx", rowInapplicableTx},
 	{"CD-216 ValueAllowedTx unknown dimension", rowValueAllowedUnknownDimension},
+	{"CD-245 DefaultValue unknown dimension", rowDefaultValueUnknownDimension},
 }
 
 // order returns a probe Purchase Order record created by u.
@@ -1325,4 +1327,50 @@ func rowValueAllowedUnknownDimension(t *testing.T, svc auth.Service, admin auth.
 			}
 		}
 	})
+}
+
+// rowDefaultValue: AUTH-100 (CD-245). DefaultValue returns the only allowed
+// value on a dimension; none for two values, for no restriction, and for the
+// Administrator, who is never restricted (CD-174).
+func rowDefaultValue(t *testing.T, svc auth.Service, s Setup) {
+	d := s.DB()
+	ctx := context.Background()
+	metro, techpark := projects(t, s)
+	pune, tech := masterID(t, d, "probe_site", "PUNE-WH"), masterID(t, d, "probe_site", "TECH-SITE")
+	one := s.User(t, "one@contract.test")
+	s.Restrict(t, one.ID, []int64{metro}, []int64{pune})
+	two := s.User(t, "two@contract.test")
+	s.Restrict(t, two.ID, []int64{metro, techpark}, []int64{pune, tech})
+	open := s.User(t, "open@contract.test")
+	admin := s.Admin(t)
+	s.Restrict(t, admin.ID, []int64{metro}, []int64{pune})
+	cases := []struct {
+		p      auth.Principal
+		dim    auth.Dimension
+		want   int64
+		wantOK bool
+	}{
+		{one, auth.DimProject, metro, true},
+		{one, auth.DimSite, pune, true},
+		{two, auth.DimProject, 0, false},
+		{two, auth.DimSite, 0, false},
+		{open, auth.DimProject, 0, false},
+		{open, auth.DimSite, 0, false},
+		{admin, auth.DimProject, 0, false},
+		{admin, auth.DimSite, 0, false},
+	}
+	for _, c := range cases {
+		got, ok, err := svc.DefaultValue(ctx, c.p, c.dim)
+		if err != nil || got != c.want || ok != c.wantOK {
+			t.Errorf("DefaultValue(%s, %s) = (%d, %v, %v), want (%d, %v, nil)", c.p.Name, c.dim, got, ok, err, c.want, c.wantOK)
+		}
+	}
+}
+
+// rowDefaultValueUnknownDimension: an unknown dimension is a caller bug, an
+// error for everyone (CD-174), whatever is granted.
+func rowDefaultValueUnknownDimension(t *testing.T, svc auth.Service, admin auth.Principal, _ *db.DB) {
+	if _, ok, err := svc.DefaultValue(context.Background(), admin, "colour"); err == nil || ok {
+		t.Errorf("DefaultValue(colour) = (%v, %v), want an error", ok, err)
+	}
 }

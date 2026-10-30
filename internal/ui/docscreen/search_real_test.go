@@ -13,6 +13,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authtest"
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
@@ -99,6 +100,9 @@ func newRealSearch(t *testing.T) *realEnv {
 	w.Grant(t, "Stores", realGRN, "read", auth.ScopeAll)
 	w.Grant(t, "Search Buyer", realOrder, "read", auth.ScopeAll)
 	w.AddUser(t, realOpen, "Olga Open", "Stores", "Search Buyer")
+	// fixture.Order, registered in this binary, is searchable too (NUM-125) and
+	// Stores reads it by default, but this world has no fixture tables.
+	w.SetRights(t, "Stores", fixture.Order, nil)
 
 	l := realLister{&list.Service{DB: w.DB, Auth: w.Auth}}
 	screens := chi.NewRouter()

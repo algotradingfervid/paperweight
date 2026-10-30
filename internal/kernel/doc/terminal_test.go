@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -337,7 +338,9 @@ func TestDoc_Amend_CopiesToDraft(t *testing.T) {
 	if got := n.UpdatedAt.UTC().Format(tsLayout); got != "2026-10-24T09:15:00.000Z" {
 		t.Errorf("UpdatedAt = %s, want 2026-10-24T09:15:00.000Z", got)
 	}
-	fixturetest.Eq(t, n.Header, a.Header)
+	want := maps.Clone(a.Header)
+	want["state"] = string(doc.StateDraft) // the read-only state column (CD-162), checked above
+	fixturetest.Eq(t, n.Header, want)
 	if len(n.Lines) != 2 {
 		t.Fatalf("amendment has %d lines, want 2", len(n.Lines))
 	}

@@ -1,6 +1,7 @@
 package doc_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -118,5 +119,32 @@ func TestDoc_Draft_RequiredRestrictedDimension(t *testing.T) {
 	}
 	if n := h.AuditCount(t); n != count {
 		t.Errorf("AuditCount = %d after a refused save, want %d", n, count)
+	}
+}
+
+// CD-245: create checks the right alone before the values, so a restricted
+// user without create gets AUTH's denial, not the value error or the 422
+// Required errors, and nothing is written.
+func TestDoc_Create_RightBeforeValues(t *testing.T) {
+	h := fixturetest.New(t)
+	rqRestrictedEngine(t, h) // creates the rq_restricted tables
+	a := authfake.New()
+	a.Allow(h.Deepak.ID, rqRestricted, auth.RightRead)
+	a.Restrict(h.Deepak.ID, []int64{h.M.Project["PRJ-METRO"]}, nil)
+	e := doc.NewEngine(doc.Deps{
+		DB: h.DB, Clock: h.Clock, Auth: a, Naming: h.Naming, Numbers: fixturetest.Numbers(),
+		Approval: h.Approvals, Files: h.Files,
+	})
+	for _, project := range []string{fmt.Sprint(h.M.Project["PRJ-TECHPARK"]), ""} {
+		_, err := e.Do(t.Context(), h.Deepak, rqRestricted, 0, doc.ActionSave, doc.ActionInput{
+			Values: map[string]string{"project_id": project, "note": "step 1"},
+		})
+		var de *auth.DeniedError
+		if !errors.As(err, &de) || de.Right != auth.RightCreate {
+			t.Errorf("create with project %q and no create right: %v (%T), want AUTH's create denial", project, err, err)
+		}
+	}
+	if n := rqRestrictedRows(t, h); n != 0 {
+		t.Errorf("rows after refused creates = %d, want 0", n)
 	}
 }

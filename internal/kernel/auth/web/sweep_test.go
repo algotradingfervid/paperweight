@@ -22,12 +22,11 @@ import (
 
 // The role screens in the overflow and axe sweep (design-system §10, CD-219).
 
-// p8Skip is every GET route of the harness that isn't a role screen. WP3 Task 5
-// covers the authweb ones. Uncovered matches by prefix, so nothing here may be
-// a prefix of /roles: TestScreens_NewRoleRouteIsUncovered fails if one is.
-var p8Skip = slices.Concat(screens.DefaultSkip, []string{
-	"/_test", "/signin", "/setup", "/account/password", "/account/sessions", "/users", "/rights/who-can",
-})
+// p8Skip is every GET route of the harness that isn't an AUTH screen, and
+// /setup, which only an empty install shows, so the e2e sweep covers it there.
+// Uncovered matches by prefix, so nothing here may be a prefix of /roles or
+// /users: TestScreens_NewRoleRouteIsUncovered fails if one is.
+var p8Skip = slices.Concat(screens.DefaultSkip, []string{"/_test", "/setup"})
 
 // p8Plain are the variants a GET alone shows: what on the page proves it.
 var p8Plain = map[string]struct{ sel, text string }{
@@ -37,6 +36,14 @@ var p8Plain = map[string]struct{ sel, text string }{
 	"rights not shown":   {"main p", "Not shown because they don't apply to Item"},
 	"rights team":        {`main input[name=read][value=team]`, ""},
 	"copy rights":        {`main input[name=source_id]`, ""},
+	"sign in":            {`form input[name=password]`, ""},
+	"password":           {"main h1", "Change password"},
+	"sessions":           {"main h1", "Sessions"},
+	"users":              {"main h1", "Users"},
+	"user":               {"main h1", ""},
+	"user access":        {"main h1", ""},
+	"who can":            {"main h1", "Who can"},
+	"who can results":    {"main", "Administrator"},
 }
 
 // p8IDs is the fixture's Stores and Administrator roles, Item (a master, so
@@ -44,7 +51,7 @@ var p8Plain = map[string]struct{ sel, text string }{
 func p8IDs(t *testing.T, w *authtest.World) authscreens.SweepIDs {
 	t.Helper()
 	return authscreens.SweepIDs{
-		Role: t17RoleID(t, w, p6Stores), Admin: t17RoleID(t, w, auth.RoleAdministrator),
+		Role: t17RoleID(t, w, p6Stores), Admin: t17RoleID(t, w, auth.RoleAdministrator), User: 1,
 		NotShown: authtest.DTItem, Team: authtest.DTClaim,
 	}
 }
@@ -86,8 +93,9 @@ func TestScreens_NewRoleRouteIsUncovered(t *testing.T) {
 	}
 }
 
-// Every variant opens as the fixture admin, on the route it says it covers, and
-// the ones with no Setup show the state they are named for.
+// Every variant opens as the fixture admin, or signed out for the sign-in page,
+// on the route it says it covers, and the ones with no Setup show the state they
+// are named for.
 func TestScreens_VariantsOpenAsAdmin(t *testing.T) {
 	w, h, admin := p6World(t)
 	list := authscreens.Screens(p8IDs(t, w), nil)
@@ -95,13 +103,18 @@ func TestScreens_VariantsOpenAsAdmin(t *testing.T) {
 		t.Errorf("%d screens, want %d", len(list), len(p8Plain)+len(p8Stateful))
 	}
 	for _, s := range list {
-		if s.As != t13Admin {
-			t.Errorf("%s: As = %q, want %q", s.Name, s.As, t13Admin)
+		client, as := admin, t13Admin
+		if s.Route == "/signin" {
+			client, as = h.Client(), ""
 		}
-		if got := h.Router.Find(chi.NewRouteContext(), http.MethodGet, s.URL); got != s.Route {
+		if s.As != as {
+			t.Errorf("%s: As = %q, want %q", s.Name, s.As, as)
+		}
+		path, _, _ := strings.Cut(s.URL, "?")
+		if got := h.Router.Find(chi.NewRouteContext(), http.MethodGet, path); got != s.Route {
 			t.Errorf("%s: %s is route %q, screen says %q", s.Name, s.URL, got, s.Route)
 		}
-		doc := p6Get(t, admin, s.URL)
+		doc := p6Get(t, client, s.URL)
 		want, plain := p8Plain[s.Name]
 		if !plain {
 			if s.Setup == nil {
@@ -143,6 +156,9 @@ var p8Stateful = map[string]struct {
 	"copy rights 422": {func(t *testing.T, w *authtest.World, admin *webtest.Client, path string) webtest.Response {
 		return admin.Post(path, p1Post(t17RoleVersion(t, w, p6Stores), ""))
 	}, http.StatusUnprocessableEntity, auth.ErrCopySourceRequired.Msg},
+	"sign in refused": {func(t *testing.T, w *authtest.World, admin *webtest.Client, path string) webtest.Response {
+		return admin.Post(path, url.Values{"email": {"nobody@vardhan.test"}, "password": {"wrong"}})
+	}, http.StatusUnauthorized, "Invalid email or password."},
 }
 
 // p8Screen is the variant called name, which must have a Setup.

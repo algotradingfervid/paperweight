@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strconv"
 	"strings"
@@ -188,6 +189,10 @@ func (e extras) Audit(ctx context.Context, p auth.Principal, name string, id int
 		return nil, err
 	}
 	dt, _ := doctype.Lookup(name) // doc.History refused an unknown name
+	shown, err := e.readableCauses(ctx, p, entries)
+	if err != nil {
+		return nil, err
+	}
 	names := nameCache{auth: e.app.auth, names: map[types.UserID]string{}}
 	out := make([]docscreen.HistoryRow, 0, len(entries))
 	for _, entry := range slices.Backward(entries) {
@@ -195,29 +200,149 @@ func (e extras) Audit(ctx context.Context, p auth.Principal, name string, id int
 		if err != nil {
 			return nil, err
 		}
-		action := entry.Action
+		action := auditAction(entry, entry.CausedBy != nil && shown[causeKey{entry.CausedBy.DocType, entry.CausedBy.DocID}])
 		if entry.Reason != "" {
 			action += ": " + entry.Reason
 		}
-		out = append(out, docscreen.HistoryRow{At: types.FormatIST(entry.At), By: by, Action: action, Changes: changeRows(dt, entry.Changes)})
+		row := docscreen.HistoryRow{At: types.FormatIST(entry.At), By: by, Action: action}
+		if entry.Action != actionCreate { // DOC-089: a created row is the one line
+			row.Changes = changeRows(ctx, dt, entry.Changes)
+		}
+		out = append(out, row)
 	}
 	return out, nil
 }
 
-// changeRows are an audit entry's changes under their field labels.
-func changeRows(dt *doctype.DocType, changes []audit.Change) []docscreen.ChangeRow {
+// causeKey is the document a roll-up entry names as its cause.
+type causeKey struct {
+	docType string
+	id      int64
+}
+
+// readableCauses are the causing documents p may read, checked in one read
+// tx: History names only those (CD-240's rule, CD-248). A cause that is gone
+// or hidden is not shown.
+func (e extras) readableCauses(ctx context.Context, p auth.Principal, entries []audit.Entry) (map[causeKey]bool, error) {
+	out := map[causeKey]bool{}
+	err := e.app.db.Read(ctx, func(tx *db.Tx) error {
+		for _, entry := range entries {
+			c := entry.CausedBy
+			if c == nil {
+				continue
+			}
+			k := causeKey{c.DocType, c.DocID}
+			if _, done := out[k]; done {
+				continue
+			}
+			info, err := e.app.engine.Info(ctx, tx, c.DocType, c.DocID)
+			if err == nil {
+				rec := auth.RecordRef{
+					DocType: info.DocType, ID: info.ID, CreatedBy: info.CreatedBy,
+					EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
+				}
+				err = e.app.auth.CanTx(ctx, tx, p, c.DocType, auth.RightRead, &rec)
+			}
+			switch {
+			case errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrNotFound):
+				out[k] = false
+			case err != nil:
+				return err
+			default:
+				out[k] = true
+			}
+		}
+		return nil
+	})
+	return out, err
+}
+
+// actionCreate is the audit action of a new document; it is not a doctype.Action.
+const actionCreate = "create"
+
+// linkedUpdate is a roll-up whose cause the viewer may not read, or that has none.
+const linkedUpdate = "Updated by a linked document"
+
+// auditActions are the audit log's actions as History words them (DOC-089).
+var auditActions = map[string]string{
+	actionCreate:                   "Created",
+	string(doctype.ActionSave):     "Saved",
+	string(doctype.ActionSubmit):   "Submitted",
+	string(doctype.ActionWithdraw): "Withdrawn",
+	string(doctype.ActionApprove):  "Approved",
+	string(doctype.ActionReject):   "Rejected",
+	string(doctype.ActionRevise):   "Revised",
+	string(doctype.ActionClose):    "Closed",
+	string(doctype.ActionCancel):   "Cancelled",
+	string(doctype.ActionDelete):   "Deleted",
+	"amended":                      "Amended",
+	"attachment_added":             "Attachment added",
+	"attachment_removed":           "Attachment removed",
+	"imported":                     "Imported",
+	"effect":                       linkedUpdate,
+}
+
+// auditAction is an entry's action in words: a roll-up names the document that
+// caused it when the viewer may read it (causeShown). An action with no words
+// shows as it is, like approvalAction.
+func auditAction(e audit.Entry, causeShown bool) string {
+	if e.CausedBy != nil && causeShown {
+		return "Updated by " + e.CausedBy.Number
+	}
+	if words, ok := auditActions[e.Action]; ok {
+		return words
+	}
+	return e.Action
+}
+
+// changeRows are an audit entry's changes under their field labels, each value
+// as the document shows it. A change on a field the DocType doesn't declare
+// (auto_approved, number, snapshot) is left out: the page shows those itself.
+func changeRows(ctx context.Context, dt *doctype.DocType, changes []audit.Change) []docscreen.ChangeRow {
 	out := make([]docscreen.ChangeRow, 0, len(changes))
 	for _, c := range changes {
-		label := c.Field
-		if f, ok := dt.Field(c.Field); ok {
+		f, known := dt.Field(c.Field)
+		var label, before, after string
+		switch {
+		case known:
 			label = f.Label
+			before, after = changeText(ctx, f, c.Before), changeText(ctx, f, c.After)
+		case c.Field == "":
+			before, after = lineText(ctx, dt, c.Before), lineText(ctx, dt, c.After)
+		default:
+			continue
 		}
 		if c.LineNo > 0 {
 			label = strings.TrimSpace("Line " + strconv.Itoa(c.LineNo) + " " + label)
 		}
-		out = append(out, docscreen.ChangeRow{Field: label, Before: c.Before, After: c.After})
+		out = append(out, docscreen.ChangeRow{Field: label, Before: before, After: after})
 	}
 	return out
+}
+
+// changeText is one audit value as the document shows it. A link is its code
+// alone, so it never reads the master, whose row may have changed since.
+func changeText(ctx context.Context, f doctype.Field, raw string) string {
+	plain := doc.AuditPlain(f, raw)
+	if f.Type == doctype.Link {
+		return plain
+	}
+	text, err := docscreen.Display(ctx, nil, nil, f, plain)
+	if err != nil {
+		return plain // an entry older than the field's type
+	}
+	return text
+}
+
+// lineText is a whole added or removed line: "Item X, Quantity 5".
+func lineText(ctx context.Context, dt *doctype.DocType, raw string) string {
+	vals := doc.AuditLine(raw)
+	var parts []string
+	for _, f := range dt.LineFields() {
+		if v, ok := vals[f.Name]; ok {
+			parts = append(parts, f.Label+" "+changeText(ctx, f, v))
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (e extras) Attachments(ctx context.Context, p auth.Principal, rec auth.RecordRef) ([]components.Attachment, error) {

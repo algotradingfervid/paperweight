@@ -11,6 +11,7 @@ import (
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -197,8 +198,34 @@ func (d Deps) newGet(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sv := d.stepViewOf(r, dt, steps, 0, nil, nil, nil)
+	defaults, err := d.defaults(r, dt)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	sv := d.stepViewOf(r, dt, steps, 0, nil, defaults, nil)
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepFrame(sv))
+}
+
+// defaults holds each header ProjectFields and SiteFields field the user may
+// fill with exactly one value, prefilled with it (AUTH-100, CD-245).
+func (d Deps) defaults(r *http.Request, dt *doctype.DocType) (map[string]string, error) {
+	out := map[string]string{}
+	for dim, cols := range map[auth.Dimension][]string{auth.DimProject: dt.ProjectFields, auth.DimSite: dt.SiteFields} {
+		if len(cols) == 0 {
+			continue
+		}
+		id, ok, err := d.Auth.DefaultValue(r.Context(), d.principal(r), dim)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range dt.Fields {
+			if ok && !f.OnLine && slices.Contains(cols, f.Column) {
+				out[f.Name] = strconv.FormatInt(id, 10)
+			}
+		}
+	}
+	return out, nil
 }
 
 // newPost serves POST /doc/{doctype}/new: step 1 creates the draft.

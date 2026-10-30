@@ -5,10 +5,13 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
 
@@ -27,9 +32,11 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/kernel/print/printtest"
+	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/screens"
 	"github.com/vardhan/internaltools/internal/ui/uibrowser"
 )
 
@@ -45,20 +52,26 @@ const (
 	logTail      = 2000
 
 	fixturePick = "/pick/fixture."
+	cspHeader   = "Content-Security-Policy"
+	printPrefix = "/print/"
 )
 
 // Harness is one real App on a temp dir behind a random port: the canonical
 // seed, the fixture DocTypes, their print views and the fixture clock.
 type Harness struct {
-	t    *testing.T
-	App  *app.App
-	URL  string
-	Fx   testkit.Fixtures
-	M    fixture.Masters
-	logs *lockedBuffer
+	t     *testing.T
+	App   *app.App
+	URL   string
+	Fx    testkit.Fixtures
+	M     fixture.Masters
+	Clock *clock.Fixed
+	logs  *lockedBuffer
 
 	delayPath atomic.Pointer[string]
 	delay     atomic.Int64
+
+	mu         sync.Mutex
+	cspReports []string
 }
 
 // lockedBuffer is a log sink safe to read while the server writes to it.
@@ -84,13 +97,31 @@ func (l *lockedBuffer) tail() string {
 // they come here. A failing test prints the end of the server log.
 func Start(t *testing.T) *Harness {
 	t.Helper()
+	h := start(t, true)
+	h.restrict()
+	h.approvalRules()
+	return h
+}
+
+// StartEmpty is an install nobody has set up: the fixture DocTypes' tables, no
+// rows, no users.
+func StartEmpty(t *testing.T) *Harness {
+	t.Helper()
+	return start(t, false)
+}
+
+func start(t *testing.T, seed bool) *Harness {
+	t.Helper()
 	printtest.RegisterFixtureViews(print.Default)
-	h := &Harness{t: t, logs: &lockedBuffer{}}
+	h := &Harness{t: t, Clock: testkit.Clock(), logs: &lockedBuffer{}}
 	a, err := app.New(context.Background(), app.Config{
-		DataDir: t.TempDir(), Clock: testkit.Clock(), LogOutput: h.logs,
+		DataDir: t.TempDir(), Clock: h.Clock, LogOutput: h.logs,
 		Prepare: func(ctx context.Context, d *db.DB) error {
 			if err := db.Migrate(ctx, d, fixture.MigrationsFS, "goose_fixture"); err != nil {
 				return err
+			}
+			if !seed {
+				return nil
 			}
 			h.Fx = testkit.Seed(t, d)
 			h.M = fixture.SeedMasters(t, d)
@@ -112,8 +143,6 @@ func Start(t *testing.T) *Harness {
 			t.Logf("end of the server log:\n%s", h.logs.tail())
 		}
 	})
-	h.restrict()
-	h.approvalRules()
 	return h
 }
 
@@ -173,10 +202,18 @@ func (h *Harness) approvalRules() {
 }
 
 // handler adds what the app can't serve for test-only DocTypes: the stand-in
-// masters' pickers, since only real masters have /pick routes; and an optional
-// delay on one path, to hold a save in flight.
+// masters' pickers, since only real masters have /pick routes; an optional
+// delay on one path, to hold a save in flight; and the CSP reports' endpoint.
 func (h *Harness) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == screens.CSPReportPath {
+			body, _ := io.ReadAll(r.Body) // a short read is still a report
+			h.mu.Lock()
+			h.cspReports = append(h.cspReports, string(body))
+			h.mu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		if name, ok := strings.CutPrefix(r.URL.Path, fixturePick); ok {
 			h.pick(w, r, strings.ToLower(name))
 			return
@@ -184,7 +221,11 @@ func (h *Harness) handler(next http.Handler) http.Handler {
 		if p := h.delayPath.Load(); p != nil && r.Method == http.MethodPost && strings.Contains(r.URL.Path, *p) {
 			time.Sleep(time.Duration(h.delay.Load()))
 		}
-		next.ServeHTTP(w, r)
+		if strings.HasPrefix(r.URL.Path, printPrefix) {
+			next.ServeHTTP(w, r) // TestE2E_PrintNoExternal pins print's own policy; the browser still reports
+			return
+		}
+		next.ServeHTTP(&reportCSP{ResponseWriter: w}, r)
 	})
 }
 
@@ -456,4 +497,87 @@ func (s *Session) DocID() int64 {
 // DocPath is one document's page.
 func DocPath(dt string, id int64) string {
 	return fmt.Sprintf("/doc/%s/%d", dt, id)
+}
+
+// SecondTab is a new tab in the same browser, so it shares s's sign-in.
+func (s *Session) SecondTab() *Session {
+	s.t.Helper()
+	return s.tab()
+}
+
+// tab is a session on a tab of s's browser, by default a new one. A tab lives
+// as long as the context of its first run, so that run gets no timeout
+// context; it is waited for up to stepDeadline instead (CD-248).
+func (s *Session) tab(opts ...chromedp.ContextOption) *Session {
+	s.t.Helper()
+	ctx, cancel := chromedp.NewContext(s.ctx, opts...)
+	s.t.Cleanup(cancel)
+	opened := make(chan error, 1)
+	go func() { opened <- chromedp.Do(ctx) }()
+	select {
+	case err := <-opened:
+		if err != nil {
+			s.t.Fatalf("open a tab: %v", err)
+		}
+	case <-time.After(stepDeadline):
+		cancel()
+		s.t.Fatalf("open a tab: no answer in %s", stepDeadline)
+	}
+	return &Session{t: s.t, h: s.h, ctx: ctx, width: s.width, Email: s.Email}
+}
+
+// Front brings the tab to the front: a tab behind another takes no key events.
+func (s *Session) Front() {
+	s.t.Helper()
+	s.Do("bring the tab to the front", chromedp.Func(func(ctx context.Context, _ *chromedp.Target) error {
+		_, err := chromedp.Call(ctx, page.BringToFront, cdp.Empty{})
+		return err
+	}))
+}
+
+// Upload posts one file to path from the page, as a multipart fetch with the
+// page's CSRF header, and returns the status.
+func (s *Session) Upload(path, name string, data []byte) int {
+	s.t.Helper()
+	return Eval[int](s, `(async () => {
+  const bytes = Uint8Array.from(atob("`+base64.StdEncoding.EncodeToString(data)+`"), (c) => c.charCodeAt(0));
+  const body = new FormData();
+  body.append("file", new File([bytes], `+strconv.Quote(name)+`));
+  const headers = JSON.parse(document.body.getAttribute("hx-headers"));
+  return (await fetch(`+strconv.Quote(path)+`, {method: "POST", body, headers})).status;
+})()`, chromedp.EvalAwaitPromise)
+}
+
+// reportCSP adds report-uri to the policy of every response but print's, as an
+// e2e build does (plan Task 5). It works at the moment the header goes out because
+// platform/web sets the policy itself.
+type reportCSP struct {
+	http.ResponseWriter
+	done bool
+}
+
+func (w *reportCSP) add() {
+	if h := w.Header(); !w.done && h.Get(cspHeader) != "" {
+		h.Set(cspHeader, h.Get(cspHeader)+"; report-uri "+screens.CSPReportPath)
+	}
+	w.done = true
+}
+
+func (w *reportCSP) WriteHeader(code int) {
+	w.add()
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *reportCSP) Write(b []byte) (int, error) {
+	w.add()
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *reportCSP) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+// CSPReports returns the reports received so far.
+func (h *Harness) CSPReports() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return slices.Clone(h.cspReports)
 }

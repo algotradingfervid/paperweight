@@ -37,6 +37,7 @@ const (
 	adminID  = auth.UserID(1)
 	raviID   = auth.UserID(3)
 	priyaID  = auth.UserID(4)
+	sureshID = auth.UserID(5)
 	deepakID = auth.UserID(7)
 
 	adminEmail  = "admin@vardhan.test"
@@ -89,7 +90,10 @@ func newWorld(t *testing.T, mods ...func(*app.Config)) *world {
 	cfg := app.Config{
 		DataDir: t.TempDir(), Addr: "127.0.0.1:0", Clock: testkit.Clock(), LogOutput: logs,
 		Prepare: func(ctx context.Context, d *db.DB) error {
-			return db.Migrate(ctx, d, fixture.MigrationsFS, "goose_fixture")
+			if err := db.Migrate(ctx, d, fixture.MigrationsFS, "goose_fixture"); err != nil {
+				return err
+			}
+			return migrateGRN(ctx, d)
 		},
 	}
 	for _, m := range mods {
@@ -161,8 +165,8 @@ func (w *world) principal(id auth.UserID) auth.Principal {
 }
 
 // seedUsers creates the 8 canonical users, ids in fixture order. They go
-// through AUTH's admin API because testkit still seeds a stand-in for users
-// until Task 3 (CD-67).
+// through AUTH's admin API because these tests sign in with a password, which
+// testkit.Seed doesn't write.
 func (w *world) seedUsers() auth.Principal {
 	w.t.Helper()
 	ctx := context.Background()

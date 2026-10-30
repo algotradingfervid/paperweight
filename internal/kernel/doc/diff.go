@@ -71,6 +71,52 @@ func jsonString(s string) string {
 	return string(b)
 }
 
+// AuditPlain turns one audit value (rawJSON's form) back into a plain value
+// (CD-43): null is "", and a master link, whose name the entry doesn't hold, is
+// its code. Anything that isn't JSON comes back as it is.
+func AuditPlain(f Field, raw string) string {
+	if !json.Valid([]byte(raw)) {
+		return raw
+	}
+	var v any
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&v); err != nil {
+		return raw
+	}
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return x
+	case json.Number:
+		if n, err := x.Int64(); err == nil {
+			if sc, ok := scale(f.Type); ok {
+				return formatDecimal(n, sc)
+			}
+		}
+	case map[string]any:
+		if code, ok := x["code"].(string); ok {
+			return code
+		}
+	}
+	return raw
+}
+
+// AuditLine splits a line's audit object (lineJSON's form) into its values by
+// field name, each still in rawJSON's form.
+func AuditLine(raw string) map[string]string {
+	var vals map[string]json.RawMessage
+	if json.Unmarshal([]byte(raw), &vals) != nil {
+		return nil
+	}
+	out := make(map[string]string, len(vals))
+	for k, v := range vals {
+		out[k] = string(v)
+	}
+	return out
+}
+
 // saveChanges is the change set of saving after over before (CD-20): a set
 // change per changed header field, a set change per changed field of a kept
 // line (at its new line number), an add change per new line (its id from

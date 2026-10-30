@@ -90,3 +90,24 @@ func TestViews_UserPagesUseTheShell(t *testing.T) {
 		t.Errorf("access link = %q", got)
 	}
 }
+
+// The users list and the access link are 44 px targets (design-system §10):
+// each user is a list card, and the access link stands alone like a button.
+func TestViews_UserLinksAreTargets(t *testing.T) {
+	u := auth.UserInfo{ID: 7, Name: "Priya Nair", Email: "priya@vardhan.test"}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(render(t, views.Default{}.Users(authweb.UsersPage{Users: []auth.UserInfo{u}}))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := doc.Find(`main a.datalist-link[href="/users/7"]`)
+	if card.Length() != 1 || !strings.Contains(card.Text(), u.Name) || !strings.Contains(card.Text(), u.Email) {
+		t.Errorf("users: card %d %q, want one list card with the name and email", card.Length(), card.Text())
+	}
+	doc, err = goquery.NewDocumentFromReader(strings.NewReader(render(t, views.Default{}.User(authweb.UserPage{User: u, AccessURL: "/users/7/access"}))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Find(`main a.tap[href="/users/7/access"]`).Length() != 1 {
+		t.Error("user: the access link is not a tap target")
+	}
+}

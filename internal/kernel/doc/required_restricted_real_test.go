@@ -1,6 +1,7 @@
 package doc_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -123,5 +124,22 @@ func TestDoc_Draft_RequiredRestrictedRealAuth(t *testing.T) {
 	}
 	if n := h.AuditCount(t); n != count {
 		t.Errorf("AuditCount = %d after a refused save, want %d", n, count)
+	}
+}
+
+// AUTH-099 on create, on the real auth service: the proposed record is outside
+// the user's restriction, so Can on it answers not found; the user must get
+// CheckValues's 403 instead, which names the values they may use.
+func TestDoc_Create_DisallowedValueRealAuth(t *testing.T) {
+	h := fixturetest.New(t)
+	e, restricted, _ := rqRealEngine(t, h)
+	_, err := e.Do(t.Context(), restricted, rqRestricted, 0, doc.ActionSave, doc.ActionInput{
+		Values: map[string]string{"project_id": fmt.Sprint(h.M.Project["PRJ-TECHPARK"]), "note": "step 1"},
+	})
+	if !errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("create on a disallowed project: %v, want AUTH's 403", err)
+	}
+	if n := rqRestrictedRows(t, h); n != 0 {
+		t.Errorf("rows after a refused create = %d, want 0", n)
 	}
 }

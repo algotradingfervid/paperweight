@@ -204,7 +204,8 @@ func TestRights_AdminCannotBypassLifecycle(t *testing.T) {
 			t.Errorf("auth.RecordRef has field %s; AUTH must not carry state or a bypass", name)
 		}
 	}
-	// WP3: extend with doc.Engine refusing "Approved documents can't be edited. Cancel and amend instead." (CD-40)
+	// DOC's refusal through doc.Engine is AUTH-070's row in internal/app's
+	// TestAuthCases_RealRouter (CD-40).
 }
 
 // AUTH-071
@@ -321,8 +322,8 @@ func TestRights_Submit(t *testing.T) {
 func TestRights_Approve(t *testing.T) {
 	// AUTH's share: the probe's approve and reject call Can(approve, rec),
 	// which answers in the app's order (hidden → 404 first, then the right).
-	// On the real router DOC calls APR's CheckApprover instead (CD-52), so WP3
-	// expects 403 with APR's eligibility message there, not AUTH's.
+	// On the real router DOC calls APR's CheckApprover instead (CD-52), so
+	// internal/app's AUTH-075 row expects 403 with APR's eligibility message.
 	w := authtest.NewWorld(t)
 	h := t14Probe(t, w)
 	po := t14PO(t, h, webtest.Doc{State: string(doctype.StatePending)}) // Draft 6

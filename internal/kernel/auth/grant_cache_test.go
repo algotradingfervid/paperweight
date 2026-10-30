@@ -13,7 +13,7 @@ import (
 // grant without any reload step.
 func TestGrant_ReflectsSetRightsImmediately(t *testing.T) {
 	const dtName = "t3.GrantCache"
-	doctype.Register(doctype.DocType{
+	t3Register(doctype.DocType{
 		Name: dtName, Label: "Grant Order", PluralLabel: "Grant Orders",
 		DefaultRights: map[string]map[string]string{
 			"Purchase User": {"read": "all", "export": "all", "delete": "own"},

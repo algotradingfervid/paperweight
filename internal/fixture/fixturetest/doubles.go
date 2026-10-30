@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -195,6 +194,12 @@ func (a *Auth) Restricted(_ context.Context, _ *db.Tx, _ auth.Principal, dimensi
 func (a *Auth) ValueAllowedTx(_ context.Context, _ *db.Tx, _ auth.Principal, dimension string, _ int64) (bool, error) {
 	err := auth.ValidDimension(dimension)
 	return err == nil, err
+}
+
+// DefaultValue has no value, as nobody here is restricted, and refuses an
+// unknown dimension like the real service (AUTH-100).
+func (a *Auth) DefaultValue(_ context.Context, _ auth.Principal, dim auth.Dimension) (int64, bool, error) {
+	return 0, false, auth.ValidDimension(string(dim))
 }
 
 // HasRole reads the roles registered with Remember.
@@ -503,41 +508,7 @@ func (c *StepClock) SetTime(t time.Time) {
 	c.now = t
 }
 
-// Reference number rules (RefNumbers). DOC tests assert only the error kind
-// and field, never these texts.
-var (
-	errRefNumber     = errors.New("fixturetest: the number is assigned on approval and can't be entered or changed")
-	errRefAmendLimit = errors.New("fixturetest: a document can be amended at most 9 times")
-)
-
-var noteNumbers sync.Once
-
-// Numbers returns NAM's number rules when NAM is merged (GuardNumberField no
-// longer returns errs.ErrNotImplemented), otherwise RefNumbers with a one-line
-// note on stderr (CD-119). The fallback is removed in WP3.
+// Numbers returns NAM's number rules (CD-119).
 func Numbers() doc.NumberFuncs {
-	if !errors.Is(naming.GuardNumberField(nil, nil), errs.ErrNotImplemented) {
-		return doc.NumberFuncs{Guard: naming.GuardNumberField, CheckAmendment: naming.CheckAmendmentNo}
-	}
-	noteNumbers.Do(func() { fmt.Fprintln(os.Stderr, "doc: NAM not merged; using reference number rules") })
-	return RefNumbers()
-}
-
-// RefNumbers is the minimum Wave 1 behaviour of NAM's number rules: a supplied
-// number that differs from the stored one is refused, and so is amendment 10.
-func RefNumbers() doc.NumberFuncs {
-	return doc.NumberFuncs{
-		Guard: func(stored, supplied *string) error {
-			if supplied != nil && (stored == nil || *supplied != *stored) {
-				return errRefNumber
-			}
-			return nil
-		},
-		CheckAmendment: func(_ string, k int, _ string) error {
-			if k > 9 {
-				return errRefAmendLimit
-			}
-			return nil
-		},
-	}
+	return doc.NumberFuncs{Guard: naming.GuardNumberField, CheckAmendment: naming.CheckAmendmentNo}
 }
