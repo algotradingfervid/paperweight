@@ -4,6 +4,7 @@ CREATE TABLE approval_requests (
     doctype         TEXT    NOT NULL,
     doc_id          INTEGER NOT NULL,
     rule_id         INTEGER NOT NULL REFERENCES approval_rules (id) ON DELETE RESTRICT,
+    rule_from_amount INTEGER NOT NULL,
     amount          INTEGER NOT NULL,
     approver_roles  TEXT    NOT NULL,
     manager_user    INTEGER,

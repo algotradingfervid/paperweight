@@ -101,7 +101,7 @@ func (q *Queries) FindEnabledDuplicate(ctx context.Context, arg FindEnabledDupli
 }
 
 const getLatestRequest = `-- name: GetLatestRequest :one
-SELECT id, doctype, doc_id, rule_id, amount, approver_roles, manager_user, manager_name, allow_self, requester, requester_name, creator, claimant_user, submitted_at, outcome, decided_by, decided_by_name, decided_at, reason, version, created_at, created_by, updated_at, updated_by FROM approval_requests WHERE doctype = ? AND doc_id = ? ORDER BY id DESC LIMIT 1
+SELECT id, doctype, doc_id, rule_id, rule_from_amount, amount, approver_roles, manager_user, manager_name, allow_self, requester, requester_name, creator, claimant_user, submitted_at, outcome, decided_by, decided_by_name, decided_at, reason, version, created_at, created_by, updated_at, updated_by FROM approval_requests WHERE doctype = ? AND doc_id = ? ORDER BY id DESC LIMIT 1
 `
 
 type GetLatestRequestParams struct {
@@ -117,6 +117,7 @@ func (q *Queries) GetLatestRequest(ctx context.Context, arg GetLatestRequestPara
 		&i.DocType,
 		&i.DocID,
 		&i.RuleID,
+		&i.RuleFromAmount,
 		&i.Amount,
 		&i.ApproverRoles,
 		&i.ManagerUser,
@@ -142,7 +143,7 @@ func (q *Queries) GetLatestRequest(ctx context.Context, arg GetLatestRequestPara
 }
 
 const getOpenRequest = `-- name: GetOpenRequest :one
-SELECT id, doctype, doc_id, rule_id, amount, approver_roles, manager_user, manager_name, allow_self, requester, requester_name, creator, claimant_user, submitted_at, outcome, decided_by, decided_by_name, decided_at, reason, version, created_at, created_by, updated_at, updated_by FROM approval_requests WHERE doctype = ? AND doc_id = ? AND outcome IS NULL
+SELECT id, doctype, doc_id, rule_id, rule_from_amount, amount, approver_roles, manager_user, manager_name, allow_self, requester, requester_name, creator, claimant_user, submitted_at, outcome, decided_by, decided_by_name, decided_at, reason, version, created_at, created_by, updated_at, updated_by FROM approval_requests WHERE doctype = ? AND doc_id = ? AND outcome IS NULL
 `
 
 type GetOpenRequestParams struct {
@@ -158,6 +159,7 @@ func (q *Queries) GetOpenRequest(ctx context.Context, arg GetOpenRequestParams) 
 		&i.DocType,
 		&i.DocID,
 		&i.RuleID,
+		&i.RuleFromAmount,
 		&i.Amount,
 		&i.ApproverRoles,
 		&i.ManagerUser,
@@ -249,33 +251,34 @@ func (q *Queries) InsertHistory(ctx context.Context, arg InsertHistoryParams) (i
 
 const insertRequest = `-- name: InsertRequest :one
 INSERT INTO approval_requests (
-    doctype, doc_id, rule_id, amount, approver_roles, manager_user, manager_name, allow_self,
+    doctype, doc_id, rule_id, rule_from_amount, amount, approver_roles, manager_user, manager_name, allow_self,
     requester, requester_name, creator, claimant_user, submitted_at,
     created_at, created_by, updated_at, updated_by
 ) VALUES (
-    ?1, ?2, ?3, ?4, ?5,
-    ?6, ?7, ?8,
-    ?9, ?10, ?11, ?12, ?13,
-    ?13, ?14, ?13, ?14
+    ?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8, ?9,
+    ?10, ?11, ?12, ?13, ?14,
+    ?14, ?15, ?14, ?15
 )
 RETURNING id
 `
 
 type InsertRequestParams struct {
-	DocType       string
-	DocID         int64
-	RuleID        int64
-	Amount        int64
-	ApproverRoles string
-	ManagerUser   sql.NullInt64
-	ManagerName   string
-	AllowSelf     int64
-	Requester     int64
-	RequesterName string
-	Creator       int64
-	ClaimantUser  sql.NullInt64
-	SubmittedAt   string
-	CreatedBy     int64
+	DocType        string
+	DocID          int64
+	RuleID         int64
+	RuleFromAmount int64
+	Amount         int64
+	ApproverRoles  string
+	ManagerUser    sql.NullInt64
+	ManagerName    string
+	AllowSelf      int64
+	Requester      int64
+	RequesterName  string
+	Creator        int64
+	ClaimantUser   sql.NullInt64
+	SubmittedAt    string
+	CreatedBy      int64
 }
 
 func (q *Queries) InsertRequest(ctx context.Context, arg InsertRequestParams) (int64, error) {
@@ -283,6 +286,7 @@ func (q *Queries) InsertRequest(ctx context.Context, arg InsertRequestParams) (i
 		arg.DocType,
 		arg.DocID,
 		arg.RuleID,
+		arg.RuleFromAmount,
 		arg.Amount,
 		arg.ApproverRoles,
 		arg.ManagerUser,
@@ -455,7 +459,7 @@ func (q *Queries) ListHistory(ctx context.Context, arg ListHistoryParams) ([]App
 }
 
 const listLatestRequestsByRequester = `-- name: ListLatestRequestsByRequester :many
-SELECT r.id, r.doctype, r.doc_id, r.rule_id, r.amount, r.approver_roles, r.manager_user, r.manager_name, r.allow_self, r.requester, r.requester_name, r.creator, r.claimant_user, r.submitted_at, r.outcome, r.decided_by, r.decided_by_name, r.decided_at, r.reason, r.version, r.created_at, r.created_by, r.updated_at, r.updated_by FROM approval_requests r
+SELECT r.id, r.doctype, r.doc_id, r.rule_id, r.rule_from_amount, r.amount, r.approver_roles, r.manager_user, r.manager_name, r.allow_self, r.requester, r.requester_name, r.creator, r.claimant_user, r.submitted_at, r.outcome, r.decided_by, r.decided_by_name, r.decided_at, r.reason, r.version, r.created_at, r.created_by, r.updated_at, r.updated_by FROM approval_requests r
 WHERE r.requester = ?1
   AND r.id = (
     SELECT MAX(l.id) FROM approval_requests l
@@ -478,6 +482,7 @@ func (q *Queries) ListLatestRequestsByRequester(ctx context.Context, requester i
 			&i.DocType,
 			&i.DocID,
 			&i.RuleID,
+			&i.RuleFromAmount,
 			&i.Amount,
 			&i.ApproverRoles,
 			&i.ManagerUser,
@@ -513,7 +518,7 @@ func (q *Queries) ListLatestRequestsByRequester(ctx context.Context, requester i
 }
 
 const listOpenRequests = `-- name: ListOpenRequests :many
-SELECT id, doctype, doc_id, rule_id, amount, approver_roles, manager_user, manager_name, allow_self, requester, requester_name, creator, claimant_user, submitted_at, outcome, decided_by, decided_by_name, decided_at, reason, version, created_at, created_by, updated_at, updated_by FROM approval_requests WHERE outcome IS NULL ORDER BY submitted_at, id
+SELECT id, doctype, doc_id, rule_id, rule_from_amount, amount, approver_roles, manager_user, manager_name, allow_self, requester, requester_name, creator, claimant_user, submitted_at, outcome, decided_by, decided_by_name, decided_at, reason, version, created_at, created_by, updated_at, updated_by FROM approval_requests WHERE outcome IS NULL ORDER BY submitted_at, id
 `
 
 func (q *Queries) ListOpenRequests(ctx context.Context) ([]ApprovalRequest, error) {
@@ -530,6 +535,7 @@ func (q *Queries) ListOpenRequests(ctx context.Context) ([]ApprovalRequest, erro
 			&i.DocType,
 			&i.DocID,
 			&i.RuleID,
+			&i.RuleFromAmount,
 			&i.Amount,
 			&i.ApproverRoles,
 			&i.ManagerUser,

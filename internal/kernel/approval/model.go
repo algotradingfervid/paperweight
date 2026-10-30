@@ -52,6 +52,7 @@ type Rule struct {
 // Request is one approval request of a document.
 type Request struct {
 	ID, RuleID    int64
+	FromAmount    types.Money // the rule's from_amount at Open
 	DocType       string
 	DocID         int64
 	Amount        types.Money
@@ -87,6 +88,12 @@ type HistoryRow struct {
 type Status struct {
 	Line    string
 	Pending bool
+}
+
+// InboxType is one document type in an inbox, with how many requests it holds.
+type InboxType struct {
+	DocType, Label string
+	Count          int
 }
 
 // RequestItem is one row of "My requests".

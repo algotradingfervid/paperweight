@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/approval/dbq"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -18,6 +19,14 @@ import (
 // Inbox lists the open requests p may approve now, oldest first (§5, CD-01).
 // A request whose document can't be read is logged and skipped.
 func (a *Approvals) Inbox(ctx context.Context, p auth.Principal, page types.Page) (types.Result[InboxItem], error) {
+	res, _, err := a.InboxOfType(ctx, p, "", page)
+	return res, err
+}
+
+// InboxOfType is Inbox narrowed to doctype ("" = every type; a type that isn't
+// in the inbox gives no rows), with every type of p's whole inbox sorted by
+// Label, whatever the filter.
+func (a *Approvals) InboxOfType(ctx context.Context, p auth.Principal, doctype string, page types.Page) (types.Result[InboxItem], []InboxType, error) {
 	var items []InboxItem
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
 		rows, err := dbq.New(tx.SQL()).ListOpenRequests(ctx)
@@ -52,9 +61,28 @@ func (a *Approvals) Inbox(ctx context.Context, p auth.Principal, page types.Page
 		return nil
 	})
 	if err != nil {
-		return types.Result[InboxItem]{}, err
+		return types.Result[InboxItem]{}, nil, err
 	}
-	return pageOf(items, page), nil
+	all := inboxTypes(items)
+	if doctype != "" {
+		items = slices.DeleteFunc(items, func(it InboxItem) bool { return it.DocType != doctype })
+	}
+	return pageOf(items, page), all, nil
+}
+
+// inboxTypes counts items by type, sorted by Label.
+func inboxTypes(items []InboxItem) []InboxType {
+	var out []InboxType
+	for _, it := range items {
+		i := slices.IndexFunc(out, func(t InboxType) bool { return t.DocType == it.DocType })
+		if i < 0 {
+			i = len(out)
+			out = append(out, InboxType{DocType: it.DocType, Label: it.Label})
+		}
+		out[i].Count++
+	}
+	slices.SortStableFunc(out, func(a, b InboxType) int { return strings.Compare(a.Label, b.Label) })
+	return out
 }
 
 // MyRequests lists the latest request of each document p submitted, newest
@@ -207,6 +235,7 @@ func inboxItem(r Request, in doctype.Info) InboxItem {
 		RequestID: r.ID, DocType: r.DocType, Label: in.DocLabel, DocID: r.DocID,
 		Title: in.Display, Party: in.Party, Amount: r.Amount,
 		SubmittedBy: r.Requester, SubmittedByName: r.RequesterName, SubmittedAt: r.SubmittedAt,
+		Why: WhyText(r.FromAmount),
 	}
 }
 

@@ -9,6 +9,7 @@ type Chip struct{ Label, RemoveURL string }
 type Param struct{ Name, Value string }
 
 // FilterBarProps describes the search, sort and filter bar above a result set.
+// With no SearchLabel the bar has no search box.
 type FilterBarProps struct {
 	Action, Search, SearchLabel, Sort string
 	Sorts                             []Option
@@ -16,36 +17,48 @@ type FilterBarProps struct {
 	FilterURL, ClearURL, Count        string
 	New, Export                       *Link
 	Keep                              []Param // hidden inputs, e.g. the active filters
+	Links                             []Link  // plain GET links, e.g. one per filter value
 }
 
 // FilterBar is a GET form, so a filtered URL can be shared.
 templ FilterBar(p FilterBarProps) {
-	<form class="filterbar" method="get" action={ templ.SafeURL(p.Action) } hx-get={ p.Action } hx-target="#main" hx-swap="outerHTML" hx-push-url="true" hx-trigger="change, submit" role="search">
+	<form class="filterbar" method="get" action={ templ.SafeURL(p.Action) } hx-get={ p.Action } hx-target="#main" hx-swap="outerHTML" hx-push-url="true" hx-trigger="change, submit"
+		if p.SearchLabel != "" {
+			role="search"
+		}
+	>
 		for _, k := range p.Keep {
 			<input type="hidden" name={ k.Name } value={ k.Value }/>
 		}
-		<div class="filterbar-row">
-			<div class="filterbar-search">
-				<label for="filter-q">{ p.SearchLabel }</label>
-				<input id="filter-q" class="input" type="search" name="q" value={ p.Search }/>
+		if p.SearchLabel != "" || len(p.Sorts) > 0 || p.FilterURL != "" || len(p.Links) > 0 {
+			<div class="filterbar-row">
+				if p.SearchLabel != "" {
+					<div class="filterbar-search">
+						<label for="filter-q">{ p.SearchLabel }</label>
+						<input id="filter-q" class="input" type="search" name="q" value={ p.Search }/>
+					</div>
+				}
+				if len(p.Sorts) > 0 {
+					<div class="filterbar-sort">
+						<label for="filter-sort">Sort by</label>
+						<select id="filter-sort" class="select" name="sort">
+							for _, o := range p.Sorts {
+								<option value={ o.Value } selected?={ o.Value == p.Sort }>{ o.Label }</option>
+							}
+						</select>
+					</div>
+				}
+				if p.FilterURL != "" {
+					<a class="btn btn-outline" href={ templ.SafeURL(p.FilterURL) }>
+						@icons.Icon("filter")
+						Filter
+					</a>
+				}
+				for _, l := range p.Links {
+					@Button(ButtonProps{Label: l.Label, Href: l.Href})
+				}
 			</div>
-			if len(p.Sorts) > 0 {
-				<div class="filterbar-sort">
-					<label for="filter-sort">Sort by</label>
-					<select id="filter-sort" class="select" name="sort">
-						for _, o := range p.Sorts {
-							<option value={ o.Value } selected?={ o.Value == p.Sort }>{ o.Label }</option>
-						}
-					</select>
-				</div>
-			}
-			if p.FilterURL != "" {
-				<a class="btn btn-outline" href={ templ.SafeURL(p.FilterURL) }>
-					@icons.Icon("filter")
-					Filter
-				</a>
-			}
-		</div>
+		}
 		if len(p.Chips) > 0 {
 			<ul class="filterbar-chips">
 				for _, c := range p.Chips {

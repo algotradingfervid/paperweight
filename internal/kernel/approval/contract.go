@@ -15,6 +15,7 @@ import (
 type Requirement struct { // CD-24
 	Needed        bool
 	RuleID        int64
+	FromAmount    types.Money // the matched rule's from_amount
 	ApproverRoles []string
 	ManagerUser   auth.UserID
 	Amount        types.Money
@@ -31,6 +32,7 @@ type InboxItem struct {
 	SubmittedBy     types.UserID
 	SubmittedByName string
 	SubmittedAt     time.Time
+	Why             string // WhyText of the request's snapshot
 }
 
 type Service interface {
