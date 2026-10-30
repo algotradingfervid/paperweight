@@ -127,7 +127,7 @@ Task 2 (composition root) also does:
 - Fills `ui.Shell` navigation and the inbox count, and sets Shell CSRF from `authweb.CSRFToken`.
 - Owns the signed-in `/` route, where `SafeNext` and the header brand link land.
 - Routes `/doc/{DocType}/export.csv`, which docscreen already links to.
-- Mounts the request body ceiling before CSRF (CD-206) and passes `allmasters.WebDeps` to `Routes`.
+- Mounts `web.BodyCeiling(limit, files.MsgTooLarge)` with `r.Use` right after `web.NewRouter(opts)`, before any route, and tests a 413 with CSP and a log line through `app.Handler()` (CD-211). Passes `allmasters.WebDeps` to `Routes`.
 - Wires `files.New` Policies and Info, `Letterhead.LogoURL`, and merges `gstinweb.Parsers()` into ValidateHandler; a nil `Deps.Parse` 404s every kind (CD-209).
 - Mounts `GET /search` and wires `Deps.RecordURL` (CD-200).
 - Mounts `/ui/validate/*` for real pages; today only the gallery mounts it.
