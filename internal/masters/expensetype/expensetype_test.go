@@ -205,7 +205,7 @@ func TestExpenseType_DefaultTaxCode(t *testing.T) {
 	}
 
 	const missing = int64(999999)
-	const notFound = "Tax code not found. Pick one from the list."
+	const notFound = "Default tax code not found. Pick one from the list."
 	_, err = svc.Create(ctx, env.Kavya, expensetype.Input{Code: "FUEL", Name: "Fuel", DefaultTaxCodeID: missing})
 	wantOnlyMessage(t, "Create(missing tax code)", err, notFound)
 	_, err = svc.Update(ctx, env.Kavya, plain.ID, plain.Version, expensetype.Input{Code: "FOOD", Name: "Food", DefaultTaxCodeID: missing})

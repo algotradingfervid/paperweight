@@ -41,9 +41,11 @@ const (
 	msgTypeRequired  = "Item type is required (Goods or Service)."
 	msgTypeUnknown   = "Item type must be Goods or Service."
 	msgStockRequired = "Stock UoM is required."
-	msgTaxDisabled   = "Tax code %s is disabled. Pick another tax code."
+	msgServiceStock  = "Service items can't be stock items."
 	msgNotFound      = "%s not found. Pick one from the list." // DOC-032's wording
 	msgStockLocked   = "Stock UoM can't change after the item is used. Create a new item."
+	msgTypeLocked    = "Item type can't change after the item is used. Create a new item."
+	msgUoMDisabled   = "UoM %s is disabled. Pick another UoM."
 )
 
 func init() {
@@ -100,9 +102,10 @@ type Input struct {
 }
 
 // Validate normalises code, name and HSN/SAC and checks the item type, the
-// stock UoM (MST-069), the HSN or SAC (MST-070…MST-073) and the conversion
-// factors (MST-080, MST-081). A blank purchase UoM becomes the stock UoM and
-// a missing stock row is added first with factor 1 (MST-079, MST-083).
+// stock UoM (MST-069), the HSN or SAC (MST-070…MST-073), that a service isn't
+// a stock item (MST-076) and the conversion factors (MST-080, MST-081). A
+// blank purchase UoM becomes the stock UoM and a missing stock row is added
+// first with factor 1 (MST-079, MST-083).
 func Validate(in Input) (Input, error) {
 	var es mstkit.Errors
 	add := func(err error) {
@@ -129,6 +132,9 @@ func Validate(in Input) (Input, error) {
 	case TypeService:
 		if out.HSNSAC, err = gstin.ValidateSAC(in.HSNSAC); err != nil {
 			es.Add("hsn_sac", err.Error())
+		}
+		if in.IsStock {
+			es.Add("is_stock", msgServiceStock)
 		}
 	default:
 		es.Add("item_type", msgTypeUnknown)
@@ -188,7 +194,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in); err != nil {
+	if err := s.checkLinks(ctx, tx, in, nil); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
@@ -228,11 +234,11 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 	return saved, err
 }
 
-// UpdateTx is Update inside tx. A changed stock UoM is refused once a document
-// outside draft uses the item (MST-090); otherwise it resets the conversion
-// table to [(stock UoM, 1)] with a warning (MST-089). The version is checked
-// first, so a stale page gets the conflict, and the UPDATE is conditional on
-// the posted version (CD-94).
+// UpdateTx is Update inside tx. A changed item type or stock UoM is refused
+// once a document outside draft uses the item (MST-075, MST-090); otherwise a
+// changed stock UoM resets the conversion table to [(stock UoM, 1)] with a
+// warning (MST-089). The version is checked first, so a stale page gets the
+// conflict, and the UPDATE is conditional on the posted version (CD-94).
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
@@ -244,17 +250,17 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkLocks(ctx, tx, old, in); err != nil {
+		return mstkit.Saved{}, err
+	}
+	oldConv, err := s.Conversions(ctx, tx, id)
+	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	kept := oldConv // rows the item already has may use a UoM disabled since (MST-093)
 	var warnings []string
 	if in.StockUoMID != old.StockUoMID {
-		_, used, err := s.env.UsedOutsideDrafts(ctx, tx, Kind.Table, id)
-		if err != nil {
-			return mstkit.Saved{}, err
-		}
-		if used {
-			var es mstkit.Errors
-			es.Add("stock_uom_id", msgStockLocked)
-			return mstkit.Saved{}, es.Err()
-		}
+		kept = nil
 		// The reset comes before Validate, so the dropped rows aren't checked.
 		// The purchase UoM's row is gone too, so it falls back to the stock UoM.
 		in.Conversions = []Conversion{{UoMID: in.StockUoMID, Factor: uom.FactorOne}}
@@ -265,7 +271,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkLinks(ctx, tx, in); err != nil {
+	if err := s.checkLinks(ctx, tx, in, kept); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {
@@ -274,9 +280,22 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
-	oldConv, err := s.Conversions(ctx, tx, id)
+	beforeConv, err := s.conversionsText(ctx, tx, oldConv)
 	if err != nil {
 		return mstkit.Saved{}, err
+	}
+	afterConv, err := s.conversionsText(ctx, tx, in.Conversions)
+	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	before := auditFields(Input{
+		Code: old.Code, Name: old.Name, Type: old.Type, HSNSAC: old.HSNSAC,
+		StockUoMID: old.StockUoMID, PurchaseUoMID: old.PurchaseUoMID, DefaultTaxCodeID: old.DefaultTaxCodeID,
+		IsStock: old.IsStock, StandardRate: old.StandardRate,
+	}, beforeConv)
+	after := auditFields(in, afterConv)
+	if mstkit.Unchanged(before, after) {
+		return mstkit.Saved{ID: id, Version: version}, nil
 	}
 	n, err := dbq.New(tx.SQL()).UpdateItem(ctx, dbq.UpdateItemParams{
 		Code: in.Code, Name: in.Name, ItemType: string(in.Type), HsnSac: in.HSNSAC,
@@ -294,53 +313,66 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := writeConversions(ctx, tx, id, in.Conversions); err != nil {
 		return mstkit.Saved{}, err
 	}
-	beforeConv, err := s.conversionsText(ctx, tx, oldConv)
-	if err != nil {
-		return mstkit.Saved{}, err
-	}
-	afterConv, err := s.conversionsText(ctx, tx, in.Conversions)
-	if err != nil {
-		return mstkit.Saved{}, err
-	}
-	before := auditFields(Input{
-		Code: old.Code, Name: old.Name, Type: old.Type, HSNSAC: old.HSNSAC,
-		StockUoMID: old.StockUoMID, PurchaseUoMID: old.PurchaseUoMID, DefaultTaxCodeID: old.DefaultTaxCodeID,
-		IsStock: old.IsStock, StandardRate: old.StandardRate,
-	}, beforeConv)
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, auditFields(in, afterConv)); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: version + 1, Warnings: warnings}, nil
 }
 
+// checkLocks refuses a changed item type or stock UoM on an item in use. A
+// blank or unknown type is left to Validate.
+func (s *Service) checkLocks(ctx context.Context, tx *db.Tx, old Item, in Input) error {
+	stock := in.StockUoMID != old.StockUoMID
+	kind := in.Type != old.Type && (in.Type == TypeGoods || in.Type == TypeService)
+	if !stock && !kind {
+		return nil
+	}
+	_, used, err := s.env.UsedOutsideDrafts(ctx, tx, Kind.Table, old.ID)
+	if err != nil || !used {
+		return err
+	}
+	var es mstkit.Errors
+	if kind {
+		es.Add("item_type", msgTypeLocked)
+	}
+	if stock {
+		es.Add("stock_uom_id", msgStockLocked)
+	}
+	return es.Err()
+}
+
 // checkLinks checks, inside tx, that the stock and purchase UoMs and the
 // default tax code exist and the tax code is enabled (MST-074, CD-94), then
-// the conversion rows' UoMs (MST-082, MST-083). The foreign keys are only a
-// backstop.
-func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
+// the conversion rows' UoMs (MST-082, MST-083). A UoM with no row in kept is
+// new to the item and must be enabled (MST-093); the purchase UoM always has
+// a row. The foreign keys are only a backstop.
+func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input, kept []Conversion) error {
 	var es mstkit.Errors
-	codes := map[int64]string{}
+	found := map[int64]uom.UoM{}
 	uoms := uom.New(s.env)
-	lookup := func(id int64) (string, bool, error) {
-		if c, ok := codes[id]; ok {
-			return c, true, nil
+	lookup := func(id int64) (uom.UoM, bool, error) {
+		if u, ok := found[id]; ok {
+			return u, true, nil
 		}
 		u, err := uoms.Get(ctx, tx, id)
 		if errors.Is(err, doctype.ErrNotFound) {
-			return "", false, nil
+			return uom.UoM{}, false, nil
 		}
 		if err != nil {
-			return "", false, err
+			return uom.UoM{}, false, err
 		}
-		codes[id] = u.Code
-		return u.Code, true, nil
+		found[id] = u
+		return u, true, nil
 	}
 	stock, stockOK, err := lookup(in.StockUoMID)
 	if err != nil {
 		return err
 	}
-	if !stockOK {
+	switch {
+	case !stockOK:
 		es.Add("stock_uom_id", fmt.Sprintf(msgNotFound, "Stock UoM"))
+	case stock.Disabled && !hasRow(kept, in.StockUoMID):
+		es.Add("stock_uom_id", fmt.Sprintf(msgUoMDisabled, stock.Code))
 	}
 	purchase, purchaseOK, err := lookup(in.PurchaseUoMID)
 	if err != nil {
@@ -349,22 +381,20 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 	if !purchaseOK {
 		es.Add("purchase_uom_id", fmt.Sprintf(msgNotFound, "Purchase UoM"))
 	}
-	if in.DefaultTaxCodeID != 0 {
-		tc, err := taxcode.New(s.env).Get(ctx, tx, in.DefaultTaxCodeID)
-		switch {
-		case errors.Is(err, doctype.ErrNotFound):
-			es.Add("default_tax_code_id", fmt.Sprintf(msgNotFound, "Default tax code"))
-		case err != nil:
+	if err := taxcode.New(s.env).CheckEnabledTx(ctx, tx, in.DefaultTaxCodeID); err != nil {
+		var ve *mstkit.ValidationError
+		if !errors.As(err, &ve) {
 			return err
-		case tc.Disabled:
-			es.Add("default_tax_code_id", fmt.Sprintf(msgTaxDisabled, tc.Code))
+		}
+		for _, f := range ve.Fields {
+			es.Add(f.Field, f.Message)
 		}
 	}
-	if err := checkRows(&es, in, lookup); err != nil {
+	if err := checkRows(&es, in, kept, lookup); err != nil {
 		return err
 	}
 	if stockOK && purchaseOK && !hasRow(in.Conversions, in.PurchaseUoMID) {
-		es.Add("purchase_uom_id", fmt.Sprintf(msgPurchaseNoRow, purchase, purchase, stock))
+		es.Add("purchase_uom_id", fmt.Sprintf(msgPurchaseNoRow, purchase.Code, purchase.Code, stock.Code))
 	}
 	return es.Err()
 }

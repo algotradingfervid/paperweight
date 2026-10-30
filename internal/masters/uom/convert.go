@@ -1,8 +1,8 @@
 package uom
 
 import (
-	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/types"
@@ -10,10 +10,11 @@ import (
 
 const (
 	factorScale       = 1_000_000_000 // types.Factor is 1e-9
+	factorMaxDecimals = 6             // MST-085
 	factorSixDPUnit   = 1_000         // 1e-6 in Factor units
 	qtyUnit           = 1_000         // one whole unit in types.Qty
 	msgFactorDecimals = "Conversion factor can have at most 6 decimal places."
-	msgFactorNineDP   = "Conversion factor can have at most 9 decimal places." // types.ParseFactor's wording
+	blank             = " \t\u00a0" // what types.ParseFactor trims
 )
 
 // types.ParseFactor's wording.
@@ -41,14 +42,25 @@ func CheckFactor(f types.Factor) error {
 }
 
 // ParseFactor reads a conversion factor: more than 0 and at most 6 decimal
-// places (MST-085), stored at types.Factor's 1e-9 scale.
+// places (MST-085), stored at types.Factor's 1e-9 scale. Trailing zeros don't
+// count, as in types.ParseFactor. Past 6 decimals the whole part with a
+// non-zero fraction decides: a negative or too large number keeps that
+// message, and a malformed one goes back to types.ParseFactor, the only place
+// that quotes what was typed.
 func ParseFactor(s string) (types.Factor, error) {
-	f, err := types.ParseFactor(s)
-	var ie *types.InputError
-	if (errors.As(err, &ie) && ie.Msg == msgFactorNineDP) || (err == nil && f%factorSixDPUnit != 0) {
+	whole, frac, _ := strings.Cut(strings.Trim(s, blank), ".")
+	frac = strings.TrimRight(frac, "0")
+	if len(frac) <= factorMaxDecimals || strings.Trim(frac, "0123456789") != "" {
+		return types.ParseFactor(s)
+	}
+	_, err := types.ParseFactor(whole + ".1")
+	if err == nil {
 		return 0, &types.InputError{Msg: msgFactorDecimals}
 	}
-	return f, err
+	if msg := err.Error(); msg == msgFactorZero || msg == msgFactorLarge {
+		return 0, err
+	}
+	return types.ParseFactor(s)
 }
 
 // ToStock converts q to the stock UoM: q × f / 1e9, rounded half-up to the
@@ -61,8 +73,10 @@ func ToStock(q types.Qty, f types.Factor) types.Qty {
 }
 
 // RateToStock converts a rate per line UoM to a rate per stock UoM:
-// r × 1e9 / f, rounded half-up, with a 128-bit intermediate. f must be > 0;
-// with f >= 1e-6 (ParseFactor) and |r| <= MaxRate it cannot overflow.
+// r × 1e9 / f, rounded half-up, with a 128-bit intermediate. With f >= 1e-6
+// (ParseFactor, CheckFactor) and |r| <= types.MaxRate it cannot overflow.
+// Outside those bounds it returns 0 on overflow and for f == 0, so pass only
+// checked values.
 func RateToStock(r types.Rate, f types.Factor) types.Rate {
 	v, _ := types.MulDivRound(int64(r), factorScale, int64(f))
 	return types.Rate(v)

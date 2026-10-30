@@ -49,6 +49,14 @@ func (e Env) Audit(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, id 
 	})
 }
 
+// Unchanged reports that a save of before as after changes nothing, so it
+// writes nothing: no version bump, no updated_at, no audit entry (CD-208). A
+// second tab at the same version then still saves. Both maps must hold every
+// stored field and line.
+func Unchanged(before, after map[string]string) bool {
+	return len(diff(before, after)) == 0
+}
+
 // diff lists the changed fields in name order.
 func diff(before, after map[string]string) []audit.Change {
 	fields := make([]string, 0, len(before)+len(after))

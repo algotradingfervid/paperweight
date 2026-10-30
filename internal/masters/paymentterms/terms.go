@@ -167,6 +167,10 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before, after := auditFields(old.Code, old.Name, old.Rows), auditFields(in.Code, in.Name, in.Rows)
+	if mstkit.Unchanged(before, after) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	q := dbq.New(tx.SQL())
 	n, err := q.UpdateTerms(ctx, dbq.UpdateTermsParams{
 		Code: in.Code, Name: in.Name,
@@ -188,8 +192,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := insertRows(ctx, q, id, in.Rows); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save",
-		auditFields(old.Code, old.Name, old.Rows), auditFields(in.Code, in.Name, in.Rows)); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: old.Version + 1}, nil

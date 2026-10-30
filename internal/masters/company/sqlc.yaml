@@ -4,6 +4,8 @@ sql:
     schema:
       - ../../../migrations/01000_gst_state.sql
       - ../../../migrations/01050_company_branch.sql
+      - ../../../migrations/01200_address_contact.sql
+      - ../../../migrations/01450_site.sql
     queries: queries/
     gen:
       go:

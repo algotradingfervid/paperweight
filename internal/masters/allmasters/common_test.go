@@ -240,8 +240,8 @@ func TestMaster_RenameCodeKeepsLinks(t *testing.T) {
 	}
 }
 
-// TestMaster_RenameSameCodeNoop is Review Focus 2: no error against itself, no
-// audit entry.
+// TestMaster_RenameSameCodeNoop is Review Focus 2 and CD-208: no error against
+// itself, no audit entry, and no version or updated_at change.
 func TestMaster_RenameSameCodeNoop(t *testing.T) {
 	env, m, svc := seeded(t)
 	shree := m.Parties["SHREE"]
@@ -249,14 +249,23 @@ func TestMaster_RenameSameCodeNoop(t *testing.T) {
 	in := partyInput(p)
 	in.Code = "shree "
 	before := len(auditEntries(t, env, party.DocType, shree))
-	if _, err := svc.Party.Update(context.Background(), env.Kavya, p.ID, p.Version, in); err != nil {
+	row := readRow(t, env, "party", shree)
+	env.Clock.Advance(time.Hour)
+	saved, err := svc.Party.Update(context.Background(), env.Kavya, p.ID, p.Version, in)
+	if err != nil {
 		t.Fatalf("Update(shree ) = %v; want nil", err)
+	}
+	if saved.Version != p.Version {
+		t.Errorf("saved version = %d; want %d", saved.Version, p.Version)
 	}
 	if after := auditEntries(t, env, party.DocType, shree); len(after) != before {
 		t.Errorf("audit entries = %d; want %d: %+v", len(after), before, after)
 	}
 	if got := getParty(t, env, svc, shree); got.Code != "SHREE" {
 		t.Errorf("code = %q; want SHREE", got.Code)
+	}
+	if got := readRow(t, env, "party", shree); got != row {
+		t.Errorf("row = %+v; want %+v", got, row)
 	}
 }
 

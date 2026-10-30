@@ -42,6 +42,9 @@ const (
 	msgNoBranch  = "Branch not found. Pick one from the list."                                            // CD-170
 	msgNoProject = "Project not found. Pick one from the list."                                           // CD-170
 	msgRestrict  = "You can only work with your assigned sites. Ask your administrator to add this site." // CD-172
+	msgLocked    = "Branch can't change after the site is used."                                          // MST-107
+
+	msgRestrictProject = "You can only link sites to your assigned projects. Ask your administrator to add this project." // CD-214
 )
 
 func init() {
@@ -161,14 +164,34 @@ func (s *Service) checkUnrestricted(ctx context.Context, tx *db.Tx, p auth.Princ
 	return nil
 }
 
+// checkProjectAllowed refuses a project outside p's project restriction on
+// every save that posts one, reading inside tx (CD-213, CD-214). It runs before
+// checkLinks, whose messages name the project's and branch's codes.
+func (s *Service) checkProjectAllowed(ctx context.Context, tx *db.Tx, p auth.Principal, projectID int64) error {
+	if projectID == 0 {
+		return nil
+	}
+	restricted, err := s.env.Auth.Restricted(ctx, tx, p, string(auth.DimProject))
+	if err != nil || !restricted {
+		return err
+	}
+	allowed, err := dbq.New(tx.SQL()).UserHasRestrictionValue(ctx, dbq.UserHasRestrictionValueParams{
+		UserID: int64(p.ID), Dimension: string(auth.DimProject), ValueID: projectID,
+	})
+	if err != nil || allowed {
+		return err
+	}
+	return auth.Forbidden(msgRestrictProject)
+}
+
 func userID(p auth.Principal) sql.NullInt64 {
 	return sql.NullInt64{Int64: int64(p.ID), Valid: true}
 }
 
 func nullID(id int64) sql.NullInt64 { return sql.NullInt64{Int64: id, Valid: id != 0} }
 
-// checkLinks refuses an unknown or disabled branch or project, reading inside
-// tx (CD-94, CD-170).
+// checkLinks refuses an unknown or disabled branch or project and a project of
+// another branch, reading inside tx (CD-94, CD-170, MST-106).
 func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 	var es mstkit.Errors
 	b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
@@ -189,8 +212,29 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 			return err
 		case pr.Disabled:
 			es.Add("project_id", "Project "+pr.Code+" is disabled. Pick another project.")
+		case pr.BranchID != in.BranchID:
+			pb, err := company.New(s.env).Get(ctx, tx, pr.BranchID)
+			if err != nil {
+				return err
+			}
+			es.Add("project_id", "The site's branch must match the project's branch ("+pb.Code+").")
 		}
 	}
+	return es.Err()
+}
+
+// checkBranchLock refuses a branch change on a site a document other than a
+// draft uses (MST-107).
+func (s *Service) checkBranchLock(ctx context.Context, tx *db.Tx, old Site, in Input) error {
+	if in.BranchID == old.BranchID {
+		return nil
+	}
+	_, used, err := s.env.UsedOutsideDrafts(ctx, tx, Kind.Table, old.ID)
+	if err != nil || !used {
+		return err
+	}
+	var es mstkit.Errors
+	es.Add("branch_id", msgLocked)
 	return es.Err()
 }
 
@@ -215,6 +259,9 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	}
 	in, err := Validate(in)
 	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.checkLinks(ctx, tx, in); err != nil {
@@ -261,6 +308,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
+		return mstkit.Saved{}, err
+	}
 	if err := s.checkLinks(ctx, tx, in); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -270,8 +320,15 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkBranchLock(ctx, tx, old, in); err != nil {
+		return mstkit.Saved{}, err
+	}
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
+	}
+	before, after := auditFields(old), auditFields(fromInput(in))
+	if mstkit.Unchanged(before, after) {
+		return mstkit.Saved{ID: id, Version: version}, nil
 	}
 	n, err := dbq.New(tx.SQL()).UpdateSite(ctx, dbq.UpdateSiteParams{
 		Code: in.Code, Name: in.Name, BranchID: in.BranchID, ProjectID: nullID(in.ProjectID), Type: string(in.Type),
@@ -287,7 +344,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		}
 		return mstkit.Saved{}, doctype.ErrNotFound
 	}
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", auditFields(old), auditFields(fromInput(in))); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: old.Version + 1}, nil
@@ -300,12 +357,37 @@ func (s *Service) SetDisabled(ctx context.Context, p auth.Principal, id int64, v
 	})
 }
 
-// SetDisabledTx is SetDisabled inside tx.
+// SetDisabledTx is SetDisabled inside tx. Enabling needs an enabled branch, the
+// site's side of MST-108 (CD-170).
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return err
 	}
+	if !disabled {
+		if err := s.checkBranchEnabled(ctx, tx, id, version); err != nil {
+			return err
+		}
+	}
 	return s.env.SetDisabledTx(ctx, tx, p, Kind, id, version, disabled)
+}
+
+// checkBranchEnabled refuses a site at version whose branch is disabled; a
+// stale page gets the stale error first (CD-94).
+func (s *Service) checkBranchEnabled(ctx context.Context, tx *db.Tx, id int64, version int) error {
+	st, err := s.Get(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
+		return err
+	}
+	b, err := company.New(s.env).Get(ctx, tx, st.BranchID)
+	if err != nil || !b.Disabled {
+		return err
+	}
+	var es mstkit.Errors
+	es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
+	return es.Err()
 }
 
 // Delete deletes the site unless it is referenced.

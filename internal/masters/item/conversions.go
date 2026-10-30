@@ -26,6 +26,7 @@ const (
 	msgDuplicateUoM  = "UoM %s is entered more than once. Keep one row per UoM."
 	msgPurchaseNoRow = "Purchase UoM %s has no conversion for this item. Add a row such as 1 %s = 100 %s."
 	msgRowNotFound   = "Row %d: UoM not found. Pick one from the list."
+	msgRowDisabled   = msgRowPrefix + msgUoMDisabled
 	msgStockReset    = "Stock UoM changed. Re-enter the other conversions."
 )
 
@@ -50,14 +51,14 @@ func checkFactors(es *mstkit.Errors, stockUoMID int64, rows []Conversion) []Conv
 	return append(rows[:len(rows):len(rows)], Conversion{UoMID: stockUoMID, Factor: uom.FactorOne})
 }
 
-// checkRows adds an error for a row whose UoM doesn't exist (the stock UoM's
-// is reported on the stock UoM) and for each UoM entered more than once
-// (MST-082). lookup returns a UoM's code.
-func checkRows(es *mstkit.Errors, in Input, lookup func(id int64) (string, bool, error)) error {
+// checkRows adds an error for a row whose UoM doesn't exist or, when not in
+// kept, is disabled (MST-093; the stock UoM's are reported on the stock UoM)
+// and for each UoM entered more than once (MST-082). lookup returns a UoM.
+func checkRows(es *mstkit.Errors, in Input, kept []Conversion, lookup func(id int64) (uom.UoM, bool, error)) error {
 	seen := map[int64]int{}
 	for i, c := range in.Conversions {
 		seen[c.UoMID]++
-		code, ok, err := lookup(c.UoMID)
+		u, ok, err := lookup(c.UoMID)
 		if err != nil {
 			return err
 		}
@@ -65,7 +66,9 @@ func checkRows(es *mstkit.Errors, in Input, lookup func(id int64) (string, bool,
 		case !ok && c.UoMID != in.StockUoMID:
 			es.AddLine(i+1, "uom_id", fmt.Sprintf(msgRowNotFound, i+1))
 		case ok && seen[c.UoMID] == 2:
-			es.AddLine(i+1, "uom_id", fmt.Sprintf(msgDuplicateUoM, code))
+			es.AddLine(i+1, "uom_id", fmt.Sprintf(msgDuplicateUoM, u.Code))
+		case ok && u.Disabled && c.UoMID != in.StockUoMID && !hasRow(kept, c.UoMID):
+			es.AddLine(i+1, "uom_id", fmt.Sprintf(msgRowDisabled, i+1, u.Code))
 		}
 	}
 	return nil

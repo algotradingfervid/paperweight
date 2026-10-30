@@ -25,6 +25,9 @@ var Kind = mstkit.Kind{DocType: DocType, Label: "Branch", Table: "branch", HasCo
 const (
 	msgStateRequired = "State is required. Pick the state where this branch is located."
 	msgLastBranch    = "At least one branch must stay enabled."
+	// MsgAddressState is MST-029's refusal, from either side: the address's
+	// save or the branch's.
+	MsgAddressState = "Branch address state must match the branch state."
 )
 
 // owned are the branch's own rows, deleted with it. The kinds are literal
@@ -70,7 +73,7 @@ type BranchInput struct {
 
 // ValidateBranch normalises in and checks code, name, state and GSTIN
 // (MST-021…MST-024, MST-026). The GSTIN is checked in full first, then
-// against the state, then against companyPAN (skipped when "").
+// against the state, then for its PAN (panProblem).
 func ValidateBranch(in BranchInput, companyPAN string) (BranchInput, error) {
 	var es mstkit.Errors
 	code, err := mstkit.NormalizeCode(in.Code)
@@ -84,14 +87,29 @@ func ValidateBranch(in BranchInput, companyPAN string) (BranchInput, error) {
 		es.Add("gstin", err.Error())
 	} else {
 		out.StateCode = state
-		if pan := gstin.PANFromGSTIN(out.GSTIN); out.GSTIN != "" && companyPAN != "" && pan != companyPAN {
-			es.Add("gstin", "GSTIN "+out.GSTIN+" belongs to PAN "+pan+", not the company PAN "+companyPAN+".")
+		if msg := panProblem(out.GSTIN, companyPAN); msg != "" {
+			es.Add("gstin", msg)
 		}
 	}
 	if !gstin.IsIndianState(out.StateCode) {
 		es.Add("state_code", msgStateRequired)
 	}
 	return out, es.Err()
+}
+
+// panProblem is what is wrong with branch GSTIN g's PAN, "" when nothing: it
+// has none (CD-204) or isn't companyPAN (MST-023, skipped when "").
+func panProblem(g, companyPAN string) string {
+	pan := gstin.PANFromGSTIN(g)
+	switch {
+	case g == "":
+		return ""
+	case pan == "":
+		return "GSTIN " + g + " has no PAN in it. Check for typing mistakes."
+	case companyPAN != "" && pan != companyPAN:
+		return "GSTIN " + g + " belongs to PAN " + pan + ", not the company PAN " + companyPAN + "."
+	}
+	return ""
 }
 
 // Create wraps CreateTx in env.Write.
@@ -179,6 +197,13 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, cur.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkAddressStates(ctx, tx, id, in.StateCode); err != nil {
+		return mstkit.Saved{}, err
+	}
+	before := inputFields(BranchInput{Code: cur.Code, Name: cur.Name, StateCode: cur.StateCode, GSTIN: cur.GSTIN, IsHeadOffice: cur.IsHeadOffice})
+	if mstkit.Unchanged(before, inputFields(in)) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	if err := s.moveHeadOffice(ctx, tx, p, in, id); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -188,7 +213,6 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	}); err != nil {
 		return mstkit.Saved{}, err
 	}
-	before := inputFields(BranchInput{Code: cur.Code, Name: cur.Name, StateCode: cur.StateCode, GSTIN: cur.GSTIN, IsHeadOffice: cur.IsHeadOffice})
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, inputFields(in)); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -196,7 +220,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 }
 
 // SetDisabledTx disables or enables a branch; the last enabled branch can't
-// be disabled (MST-027).
+// be disabled (MST-027), nor one with enabled sites (MST-108).
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
 	cur, err := s.can(ctx, tx, p, id, auth.RightWrite)
 	if err != nil {
@@ -208,6 +232,13 @@ func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal
 	if disabled && !cur.Disabled {
 		if err := s.checkNotLastEnabled(ctx, tx, id); err != nil {
 			return err
+		}
+		codes, err := dbq.New(tx.SQL()).EnabledSiteCodes(ctx, id)
+		if err != nil {
+			return err
+		}
+		if len(codes) > 0 {
+			return refused("Disable the branch's sites first: " + strings.Join(codes, ", ") + ".")
 		}
 	}
 	return s.env.SetDisabledTx(ctx, tx, p, Kind, id, version, disabled)
@@ -309,6 +340,22 @@ func (s *Service) checkNotLastEnabled(ctx context.Context, tx *db.Tx, id int64) 
 		return refused(msgLastBranch)
 	}
 	return nil
+}
+
+// checkAddressStates refuses a state that leaves one of the branch's own
+// addresses behind (MST-029); the address's save checks the other side.
+func (s *Service) checkAddressStates(ctx context.Context, tx *db.Tx, id int64, state string) error {
+	n, err := dbq.New(tx.SQL()).CountBranchAddressesOutOfState(ctx, dbq.CountBranchAddressesOutOfStateParams{
+		BranchID: sql.NullInt64{Int64: id, Valid: true}, StateCode: sql.NullString{String: state, Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+	var es mstkit.Errors
+	if n != 0 {
+		es.Add("state_code", MsgAddressState)
+	}
+	return es.Err()
 }
 
 // moveHeadOffice clears the flag on any other branch when in is the head

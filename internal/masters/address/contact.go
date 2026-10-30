@@ -144,8 +144,9 @@ func NormalizeMobile(s string) (string, error) {
 }
 
 // ValidateContact normalises in and checks the rules that need no database:
-// one owner, a first name, email and mobile formats, and at most one primary
-// email and one primary phone. Phone entries with a blank number are dropped.
+// one owner, a first name, email and mobile formats, and exactly one primary
+// email and one primary phone (the first when none is marked, MST-065). Phone
+// entries with a blank number are dropped.
 func ValidateContact(in ContactInput) (ContactInput, error) {
 	var es mstkit.Errors
 	if (in.PartyID == 0) == (in.BranchID == 0) {
@@ -169,6 +170,9 @@ func ValidateContact(in ContactInput) (ContactInput, error) {
 	if primaries > 1 {
 		es.Add("emails", msgOneEmail)
 	}
+	if primaries == 0 && len(emails) > 0 {
+		emails[0].Primary = true // MST-065
+	}
 	var phones []PhoneInput
 	primaries = 0
 	for _, ph := range in.Phones {
@@ -189,6 +193,9 @@ func ValidateContact(in ContactInput) (ContactInput, error) {
 	}
 	if primaries > 1 {
 		es.Add("phones", msgOnePhone)
+	}
+	if primaries == 0 && len(phones) > 0 {
+		phones[0].Primary = true // MST-065
 	}
 	if err := es.Err(); err != nil {
 		return ContactInput{}, err
@@ -295,12 +302,19 @@ func (s *Service) UpdateContactTx(ctx context.Context, tx *db.Tx, p auth.Princip
 		es.Add("disabled", msgContactEnable)
 		return mstkit.Saved{}, es.Err()
 	}
+	c := contactFromInput(in)
+	before, after := contactAuditFields(old), contactAuditFields(c)
+	if mstkit.Unchanged(before, after) {
+		if err := checkContacts(ctx, tx, in.PartyID, in.BranchID); err != nil {
+			return mstkit.Saved{}, err
+		}
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	if in.Primary {
 		if err := s.clearOtherPrimaryContacts(ctx, tx, p, in.PartyID, in.BranchID, id); err != nil {
 			return mstkit.Saved{}, err
 		}
 	}
-	c := contactFromInput(in)
 	q := dbq.New(tx.SQL())
 	if err := q.UpdateContact(ctx, dbq.UpdateContactParams{
 		Name: FullName(c), FirstName: in.FirstName, MiddleName: in.MiddleName, LastName: in.LastName, IsPrimary: flag(in.Primary),
@@ -317,7 +331,7 @@ func (s *Service) UpdateContactTx(ctx context.Context, tx *db.Tx, p auth.Princip
 	if err := insertContactLists(ctx, tx, id, in); err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.env.Audit(ctx, tx, p, ContactKind, id, "save", contactAuditFields(old), contactAuditFields(c)); err != nil {
+	if err := s.env.Audit(ctx, tx, p, ContactKind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := checkContacts(ctx, tx, in.PartyID, in.BranchID); err != nil {
@@ -573,7 +587,7 @@ func contactFromInput(in ContactInput) Contact {
 }
 
 // contactAuditFields is the contact as audited; emails and phones are listed
-// in order, the primary one marked.
+// in order, the primary one and mobile numbers marked.
 func contactAuditFields(c Contact) map[string]string {
 	id := func(v int64) string {
 		if v == 0 {
@@ -586,7 +600,11 @@ func contactAuditFields(c Contact) map[string]string {
 		emails = append(emails, listEntry(e.Email, e.Primary))
 	}
 	for _, ph := range c.Phones {
-		phones = append(phones, listEntry(ph.Number, ph.Primary))
+		number := ph.Number
+		if ph.Mobile {
+			number += " (mobile)"
+		}
+		phones = append(phones, listEntry(number, ph.Primary))
 	}
 	return map[string]string{
 		"party_id": id(c.PartyID), "branch_id": id(c.BranchID),

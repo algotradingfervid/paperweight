@@ -44,6 +44,9 @@ const (
 	msgTaxableZero = "A Taxable tax code needs a GST rate above 0. Use Nil-Rated or Exempted for 0%."
 	msgNotNotified = "GST rate %s%% is not a notified rate. Use one of 0.1, 0.25, 1, 1.5, 3, 5, 6, 7.5, 12, 18, 28, 40."
 
+	msgDefaultDisabled = "Tax code %s is disabled. Pick another tax code."
+	msgDefaultNotFound = "Default tax code not found. Pick one from the list." // DOC-032's wording
+
 	msgRateLocked      = "Rate can't change after this tax code is used. Disable it and create a new one."
 	msgTreatmentLocked = "Treatment can't change after this tax code is used. Disable it and create a new one."
 )
@@ -211,6 +214,10 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before := auditFields(Input{Code: old.Code, Name: old.Name, Treatment: old.Treatment, Rate: old.Rate})
+	if mstkit.Unchanged(before, auditFields(in)) {
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	n, err := dbq.New(tx.SQL()).UpdateTaxCode(ctx, dbq.UpdateTaxCodeParams{
 		Code: in.Code, Name: in.Name, Treatment: string(in.Treatment), Rate: int64(in.Rate),
 		UpdatedAt: types.TimestampOf(s.env.Clock.Now()).String(), UpdatedBy: userID(p), ID: id, Version: int64(version),
@@ -222,7 +229,6 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		// CheckVersion passed inside BEGIN IMMEDIATE, so this can't happen.
 		return mstkit.Saved{}, fmt.Errorf("update tax code %d: no row changed", id)
 	}
-	before := auditFields(Input{Code: old.Code, Name: old.Name, Treatment: old.Treatment, Rate: old.Rate})
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, auditFields(in)); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -302,6 +308,25 @@ func (s *Service) ByCode(ctx context.Context, tx *db.Tx, code string) (TaxCode, 
 		return TaxCode{}, false, err
 	}
 	return fromRow(r), true, nil
+}
+
+// CheckEnabledTx refuses a default_tax_code_id that doesn't exist or is
+// disabled (MST-074, CD-170), reading inside tx (CD-94). 0 is none.
+func (s *Service) CheckEnabledTx(ctx context.Context, tx *db.Tx, id int64) error {
+	if id == 0 {
+		return nil
+	}
+	var es mstkit.Errors
+	tc, err := s.Get(ctx, tx, id)
+	switch {
+	case errors.Is(err, doctype.ErrNotFound):
+		es.Add("default_tax_code_id", msgDefaultNotFound)
+	case err != nil:
+		return err
+	case tc.Disabled:
+		es.Add("default_tax_code_id", fmt.Sprintf(msgDefaultDisabled, tc.Code))
+	}
+	return es.Err()
 }
 
 // Snapshot is the code, treatment and rate a document line copies.

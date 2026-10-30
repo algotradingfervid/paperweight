@@ -27,11 +27,6 @@ const DocType = "Expense Type"
 // Kind is the expense type master.
 var Kind = mstkit.Kind{DocType: DocType, Label: "Expense Type", Table: "expense_type", HasCode: true}
 
-const (
-	msgTaxDisabled = "Tax code %s is disabled. Pick another tax code."
-	msgNotFound    = "%s not found. Pick one from the list." // DOC-032's wording
-)
-
 func init() {
 	mstkit.RegisterMaster(doctype.DocType{
 		Name:        DocType,
@@ -134,7 +129,7 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkTaxCode(ctx, tx, in.DefaultTaxCodeID); err != nil {
+	if err := taxcode.New(s.env).CheckEnabledTx(ctx, tx, in.DefaultTaxCodeID); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
@@ -179,7 +174,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
-	if err := s.checkTaxCode(ctx, tx, in.DefaultTaxCodeID); err != nil {
+	if err := taxcode.New(s.env).CheckEnabledTx(ctx, tx, in.DefaultTaxCodeID); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, id); err != nil {
@@ -190,6 +185,10 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	}
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
 		return mstkit.Saved{}, err
+	}
+	before := auditFields(Input{Code: old.Code, Name: old.Name, DefaultHSNSAC: old.DefaultHSNSAC, DefaultTaxCodeID: old.DefaultTaxCodeID})
+	if mstkit.Unchanged(before, auditFields(in)) {
+		return mstkit.Saved{ID: id, Version: version}, nil
 	}
 	n, err := dbq.New(tx.SQL()).UpdateExpenseType(ctx, dbq.UpdateExpenseTypeParams{
 		Code: in.Code, Name: in.Name, DefaultHsnSac: in.DefaultHSNSAC, DefaultTaxCodeID: nullID(in.DefaultTaxCodeID),
@@ -202,30 +201,10 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		// CheckVersion passed inside BEGIN IMMEDIATE, so this can't happen.
 		return mstkit.Saved{}, fmt.Errorf("update expense type %d: no row changed", id)
 	}
-	before := auditFields(Input{Code: old.Code, Name: old.Name, DefaultHSNSAC: old.DefaultHSNSAC, DefaultTaxCodeID: old.DefaultTaxCodeID})
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, auditFields(in)); err != nil {
 		return mstkit.Saved{}, err
 	}
 	return mstkit.Saved{ID: id, Version: version + 1}, nil
-}
-
-// checkTaxCode refuses a default tax code that doesn't exist or is disabled
-// (MST-074's pattern), reading inside tx (CD-94). 0 is none.
-func (s *Service) checkTaxCode(ctx context.Context, tx *db.Tx, id int64) error {
-	if id == 0 {
-		return nil
-	}
-	var es mstkit.Errors
-	tc, err := taxcode.New(s.env).Get(ctx, tx, id)
-	switch {
-	case errors.Is(err, doctype.ErrNotFound):
-		es.Add("default_tax_code_id", fmt.Sprintf(msgNotFound, "Tax code"))
-	case err != nil:
-		return err
-	case tc.Disabled:
-		es.Add("default_tax_code_id", fmt.Sprintf(msgTaxDisabled, tc.Code))
-	}
-	return es.Err()
 }
 
 // SetDisabled disables or enables the expense type.
@@ -283,13 +262,24 @@ func (s *Service) ByCode(ctx context.Context, tx *db.Tx, code string) (ExpenseTy
 }
 
 // Defaults is the default HSN/SAC and tax code id an expense line starts
-// from ("" and 0 when none).
+// from ("" and 0 when none). A disabled tax code is no default (CD-180): it
+// reads as 0 while the expense type keeps it stored.
 func (s *Service) Defaults(ctx context.Context, tx *db.Tx, id int64) (hsnSAC string, taxCodeID int64, err error) {
 	et, err := s.Get(ctx, tx, id)
 	if err != nil {
 		return "", 0, err
 	}
-	return et.DefaultHSNSAC, et.DefaultTaxCodeID, nil
+	if et.DefaultTaxCodeID == 0 {
+		return et.DefaultHSNSAC, 0, nil
+	}
+	tc, err := taxcode.New(s.env).Get(ctx, tx, et.DefaultTaxCodeID)
+	if err != nil {
+		return "", 0, err
+	}
+	if tc.Disabled {
+		return et.DefaultHSNSAC, 0, nil
+	}
+	return et.DefaultHSNSAC, tc.ID, nil
 }
 
 func fromRow(r dbq.GetExpenseTypeByCodeRow) ExpenseType {

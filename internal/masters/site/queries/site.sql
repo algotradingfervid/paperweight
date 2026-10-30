@@ -17,3 +17,10 @@ FROM site WHERE id = ?;
 -- name: GetSiteByCode :one
 SELECT id, code, name, branch_id, project_id, type, disabled, version
 FROM site WHERE code = ?;
+
+-- AUTH's table, read here because auth.Service has no value check that takes
+-- the caller's tx (CD-213, CD-214).
+-- name: UserHasRestrictionValue :one
+SELECT EXISTS (
+    SELECT 1 FROM user_restrictions WHERE user_id = ? AND dimension = ? AND value_id = ?
+);

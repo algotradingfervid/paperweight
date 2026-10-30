@@ -95,9 +95,9 @@ type Input struct {
 
 // Validate normalises in and checks the rules that need no database: one
 // owner (MST-067), required fields (MST-053), type (MST-054), pincode format
-// (MST-055) and the GSTIN with the state it gives (MST-037). A blank country
-// is India; outside India the state is blank and the pincode is free text
-// (MST-057).
+// and state (MST-055, MST-056) and the GSTIN with the state it gives
+// (MST-037). A blank country is India; outside India the state is blank and
+// the pincode is free text (MST-057).
 func Validate(in Input) (Input, error) {
 	var es mstkit.Errors
 	if (in.PartyID == 0) == (in.BranchID == 0) {
@@ -133,6 +133,9 @@ func Validate(in Input) (Input, error) {
 			es.Add("state_code", msgState)
 		}
 		pin, err := gstin.ValidatePincode(in.Pincode)
+		if err == nil {
+			err = gstin.PincodeInState(pin, in.StateCode) // MST-056
+		}
 		if err != nil {
 			es.Add("pincode", err.Error())
 		}
@@ -227,7 +230,11 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err := s.checkGST(ctx, tx, in.PartyID); err != nil {
 		return mstkit.Saved{}, err
 	}
-	return mstkit.Saved{ID: id, Version: 1}, nil
+	warnings, err := s.panWarnings(ctx, tx, in)
+	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	return mstkit.Saved{ID: id, Version: 1, Warnings: warnings}, nil
 }
 
 // Update replaces the address's fields.
@@ -289,6 +296,13 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.checkOwner(ctx, tx, p, in, false); err != nil {
 		return mstkit.Saved{}, err
 	}
+	before, after := auditFields(old), auditFields(fromInput(in))
+	if mstkit.Unchanged(before, after) {
+		if err := s.checkGST(ctx, tx, in.PartyID); err != nil {
+			return mstkit.Saved{}, err
+		}
+		return mstkit.Saved{ID: id, Version: version}, nil
+	}
 	if err := s.clearPrimaries(ctx, tx, p, billingOthers, shippingOthers); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -308,13 +322,19 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		}
 		return mstkit.Saved{}, doctype.ErrNotFound
 	}
-	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", auditFields(old), auditFields(fromInput(in))); err != nil {
+	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.checkGST(ctx, tx, in.PartyID); err != nil {
 		return mstkit.Saved{}, err
 	}
-	return mstkit.Saved{ID: id, Version: version + 1}, nil
+	var warnings []string
+	if in.GSTIN != old.GSTIN {
+		if warnings, err = s.panWarnings(ctx, tx, in); err != nil {
+			return mstkit.Saved{}, err
+		}
+	}
+	return mstkit.Saved{ID: id, Version: version + 1, Warnings: warnings}, nil
 }
 
 // SetDisabled disables or enables the address.
@@ -389,6 +409,16 @@ func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return err
 	}
 	return s.checkGST(ctx, tx, a.PartyID)
+}
+
+// panWarnings warns of other parties with the PAN in the GSTIN of party
+// address in (MST-045).
+func (s *Service) panWarnings(ctx context.Context, tx *db.Tx, in Input) ([]string, error) {
+	if in.PartyID == 0 {
+		return nil, nil
+	}
+	state, _ := gstin.StateByCode(in.StateCode)
+	return s.parties.SamePANWarnings(ctx, tx, in.PartyID, gstin.PANFromGSTIN(in.GSTIN), state.Name)
 }
 
 // checkGST is party.CheckGST for a party's address, with its refusal on
@@ -594,12 +624,12 @@ func (s *Service) clearPrimaries(ctx context.Context, tx *db.Tx, p auth.Principa
 }
 
 // checkOwner checks the owner link (CD-170; a disabled owner only when
-// creating, since the owner never changes) and, for a party, the GST rules
-// that need the party (M5): Overseas outside India (MST-047), the GSTIN fits
-// the party's category (guessed for an Unregistered party only from its
-// primary billing address, MST-049), a registered party's primary billing
-// address has a GSTIN, the GSTIN is on no other party (MST-044), then
-// party.ApplyGSTINTx (MST-048, MST-049).
+// creating, since the owner never changes), for a branch its state (MST-029)
+// and, for a party, the GST rules that need the party (M5): Overseas outside
+// India (MST-047), the GSTIN fits the party's category (guessed for an
+// Unregistered party only from its primary billing address, MST-049), a
+// registered party's primary billing address has a GSTIN, the GSTIN is on no
+// other party (MST-044), then party.ApplyGSTINTx (MST-048, MST-049).
 func (s *Service) checkOwner(ctx context.Context, tx *db.Tx, p auth.Principal, in Input, create bool) error {
 	var es mstkit.Errors
 	if in.BranchID != 0 {
@@ -611,6 +641,8 @@ func (s *Service) checkOwner(ctx context.Context, tx *db.Tx, p auth.Principal, i
 			return err
 		case create && b.Disabled:
 			es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
+		case in.StateCode != b.StateCode:
+			es.Add("state_code", company.MsgAddressState)
 		}
 		return es.Err()
 	}

@@ -17,3 +17,6 @@ FROM project WHERE id = ?;
 -- name: GetProjectByCode :one
 SELECT id, code, name, branch_id, customer_id, start_date, end_date, status, disabled, version
 FROM project WHERE code = ?;
+
+-- name: SitesOutsideBranch :many
+SELECT code FROM site WHERE project_id = ? AND branch_id <> ? ORDER BY code;

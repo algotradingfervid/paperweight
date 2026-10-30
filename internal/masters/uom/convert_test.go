@@ -1,6 +1,8 @@
 package uom
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/types"
@@ -72,5 +74,16 @@ func TestUoM_LineQtyTooLarge(t *testing.T) {
 	}
 	if fe := CheckLineQty(2, types.MaxQty, kgs, kgs, FactorOne); fe != nil {
 		t.Errorf("CheckLineQty(MaxQty, factor 1) = %+v; want nil", fe)
+	}
+}
+
+// TestUoM_QtyUseUnknownDocType has no case ID: a QtyUse naming a DocType that
+// was never registered is a programming error, not a user message.
+func TestUoM_QtyUseUnknownDocType(t *testing.T) {
+	saved := qtyUses
+	t.Cleanup(func() { qtyUses = saved })
+	qtyUses = []QtyUse{{DocType: "no.such.type"}}
+	if _, _, err := fractionalUse(context.Background(), nil, 1); err == nil || !strings.Contains(err.Error(), "no.such.type") {
+		t.Errorf("fractionalUse(unknown DocType) err = %v; want one naming it", err)
 	}
 }

@@ -36,6 +36,7 @@ CREATE TABLE mst_order_line (
     uom_id          INTEGER REFERENCES uom (id) ON DELETE RESTRICT,
     tax_code_id     INTEGER REFERENCES tax_code (id) ON DELETE RESTRICT,
     expense_type_id INTEGER REFERENCES expense_type (id) ON DELETE RESTRICT,
+    hsn_sac         TEXT,
     qty             INTEGER,
     rate            INTEGER,
     snap_item_code  TEXT NOT NULL DEFAULT '',
