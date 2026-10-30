@@ -273,7 +273,7 @@ It relies on AUTH (who is signed in, read, write and print rights per DocType, r
 ### FILE-035 · A portrait phone photo shows upright in the preview
 - **Priority:** P2
 - **Level:** e2e
-- **Given** the FILE-034 JPEG (EXIF orientation 6) **When** its preview renders **Then** it shows taller than wide, because the browser applies `image-orientation: from-image`.
+- **Given** the FILE-034 JPEG (EXIF orientation 6) **When** its preview renders **Then** the served CSS has an `img` rule with `image-orientation: from-image`, so the full-size preview shows it upright (taller than wide). The square thumbnail (`object-fit: cover`) can't show orientation, and computed style can't prove the rule either, because `from-image` is CSS's initial value (CD-251).
 - **Go test:** `TestE2E_ExifOrientation`
 - **Sources:** `frappe/frappe/core/doctype/file/test_file.py:2279` (`test_image_header_guessing`)
 
