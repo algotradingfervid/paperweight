@@ -50,8 +50,9 @@ var errBadInput = &auth.Problem{Code: http.StatusBadRequest, Msg: "The form coul
 
 // WithProbe mounts the probe router: a reference implementation of every
 // channel 01-auth exercises, built only from AUTH's contract (Can, Scope,
-// CheckValues, CheckLink, UsersWithRight, RightFor) and the guards. WP3
-// replaces it with the real router.
+// CheckValues, CheckLink, UsersWithRight, RightFor) and the guards. It is
+// AUTH's unit level; internal/app's TestAuthCases_RealRouter runs the same ids
+// on the real router.
 func WithProbe() Option { return func(o *options) { o.probe = true } }
 
 // probe serves one DocType.
