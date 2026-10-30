@@ -34,10 +34,8 @@ func NewImporter(d *db.DB, a auth.Service, c clock.Clock, w audit.Writer) *Impor
 // Template is the import file for dt: a BOM and the Importable field labels.
 func Template(dt *doctype.DocType) []byte {
 	var labels []string
-	for _, f := range dt.Fields {
-		if f.Importable {
-			labels = append(labels, f.Label)
-		}
+	for _, f := range dt.ImportFields() {
+		labels = append(labels, f.Label)
 	}
 	var b bytes.Buffer
 	b.Write(utf8BOM)
@@ -51,8 +49,8 @@ func Template(dt *doctype.DocType) []byte {
 // RequiredColumns lists the labels of dt's Required Importable fields.
 func RequiredColumns(dt *doctype.DocType) []string {
 	var labels []string
-	for _, f := range dt.Fields {
-		if f.Required && f.Importable {
+	for _, f := range dt.ImportFields() {
+		if f.Required {
 			labels = append(labels, f.Label)
 		}
 	}

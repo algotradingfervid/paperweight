@@ -56,12 +56,12 @@ func init() {
 		Table:       Kind.Table,
 		Importable:  true,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1},
-			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Filterable: true, ListPriority: 3},
-			{Name: "type", Label: "Type", Column: "type", Type: doctype.Select, Required: true, ListPriority: 5, Options: options},
-			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType, Required: true, ListPriority: 6},
-			{Name: "project_id", Label: "Project", Column: "project_id", Type: doctype.Link, Link: project.DocType},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
+			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType, Required: true, Importable: true, ListPriority: 6},
+			{Name: "type", Label: "Type", Column: "type", Type: doctype.Select, Required: true, Importable: true, ListPriority: 5, Options: options},
+			{Name: "project_id", Label: "Project", Column: "project_id", Type: doctype.Link, Link: project.DocType, Importable: true},
+			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, Filterable: true, ListPriority: 3},
 		},
 		SearchFields: []string{"code", "name"},
 		DefaultSort:  []doctype.SortKey{{Field: "name"}}, // list adds id as the tie-breaker

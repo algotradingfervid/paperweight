@@ -13,7 +13,8 @@ var ErrNoImporter = errors.New("csvio: no importer registered for this DocType")
 var importers = map[string]RowFunc{}
 
 // RegisterImporter registers fn as the row importer of doctype (CD-32).
-// Call it at init; it panics on a duplicate name.
+// Call it at startup, before serving: importers has no lock. It panics on a
+// duplicate name.
 func RegisterImporter(doctype string, fn RowFunc) {
 	if _, ok := importers[doctype]; ok {
 		panic("csvio: importer registered twice: " + doctype)
