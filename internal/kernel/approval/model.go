@@ -86,8 +86,9 @@ type HistoryRow struct {
 
 // Status is the approval line shown on a document.
 type Status struct {
-	Line    string
-	Pending bool
+	Line      string
+	Pending   bool
+	WaitingOn string // who a pending document waits on, as named in Line
 }
 
 // InboxType is one document type in an inbox, with how many requests it holds.

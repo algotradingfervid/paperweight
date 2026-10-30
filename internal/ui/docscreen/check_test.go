@@ -277,3 +277,20 @@ func TestScreens_DocscreenCoversItsRoutes(t *testing.T) {
 		t.Errorf("%d edit-step screens have a Setup; want the 422 and the 409 variants", setups)
 	}
 }
+
+// An amended draft's page is the check page, so the link to the document it
+// amends is there (DOC-092).
+func TestCheckPage_AmendedFromLink(t *testing.T) {
+	e := newFormEnv(t, allRights...)
+	docscreentest.Seed(e.docs, sampleInfo(43, doctype.StateDraft), sampleRecord())
+	e.extras.SetOrigin(docscreentest.Sample, 43, docscreen.Origin{AmendedFrom: "SO/26-27/00001", AmendedFromID: 42})
+
+	page := uitest.Doc(t, e.get(t, samplePath+"/43/edit/check"))
+	if got := norm(page.Find(`a[href="` + doc42 + `"]`).First().Text()); got != "Amended from SO/26-27/00001" {
+		t.Errorf("link = %q, want the amended document", got)
+	}
+	page = uitest.Doc(t, e.get(t, doc42+"/edit/check"))
+	if strings.Contains(page.Text(), "Amended from") {
+		t.Error("a draft that amends nothing shows an Amended from link")
+	}
+}

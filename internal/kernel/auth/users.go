@@ -521,6 +521,51 @@ func (a *Auth) ResetPassword(ctx context.Context, actor Principal, target UserID
 	})
 }
 
+// ResetAdminPassword is the command line's recovery for a sole administrator
+// (CD-228, CD-231): it sets a temporary password on the Administrator with this
+// email, who must change it at the next sign-in, clears the account lockout and
+// ends their sessions, as the system (By 0). Any other user is refused.
+func (a *Auth) ResetAdminPassword(ctx context.Context, email, temp string) error {
+	email = NormalizeEmail(email)
+	if err := CheckPolicy(temp, email, ""); err != nil {
+		return err
+	}
+	hash, err := Hash(temp)
+	if err != nil {
+		return err
+	}
+	return a.db.Write(ctx, func(tx *db.Tx) error {
+		q := dbq.New(tx.SQL())
+		id, err := q.UserIDByEmail(ctx, email)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		admin, err := a.HasRoleTx(ctx, tx, UserID(id), RoleAdministrator)
+		if err != nil {
+			return err
+		}
+		if !admin {
+			return ErrResetNotAdmin
+		}
+		now := a.clock.Now()
+		if err := q.SetUserPassword(ctx, dbq.SetUserPasswordParams{
+			PasswordHash: hash, MustChange: 1, At: FormatTime(now), By: byArg(0), ID: id,
+		}); err != nil {
+			return err
+		}
+		if err := q.DeleteUserSessions(ctx, id); err != nil {
+			return err
+		}
+		if err := q.LockoutDelete(ctx, AccountKey(email)); err != nil {
+			return err
+		}
+		return a.audit.Append(ctx, tx, audit.Entry{DocType: "User", DocID: id, Action: "reset_password", At: now})
+	})
+}
+
 // ChangeOwnPassword changes u's password and ends u's other sessions; the
 // session whose token hash is keepTokenHash stays signed in.
 func (a *Auth) ChangeOwnPassword(ctx context.Context, u UserID, current, next, confirm, keepTokenHash string) error {

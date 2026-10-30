@@ -1,0 +1,10 @@
+# Litestream v0.5.17, development and testing (CD-226). Replicates to the
+# gitignored backup/ folder; production uses deploy/litestream.yml. Relative
+# paths resolve against the working directory, so run it from the repo root:
+#   bin/tools/litestream replicate -config deploy/litestream.dev.yml
+# scripts/restore-drill.sh runs this same file from its temp directory.
+dbs:
+  - path: ./data/app.db
+    replica:
+      type: file
+      path: ./backup/app.db

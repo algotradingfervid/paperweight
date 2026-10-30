@@ -2,6 +2,13 @@
 # Values in ${...} come from the environment (Litestream expands them unless
 # run with -no-expand-env); put them in /etc/paperweight/litestream.env, never
 # in this file. See docs/operations.md.
+
+# Top-level on purpose: Litestream ignores unknown keys, so a `retention` under
+# the replica would silently leave the 24h default. Go durations have no days.
+snapshot:
+  interval: 24h
+  retention: 2160h # 90 days (CD-228)
+
 dbs:
   - path: /var/lib/paperweight/app.db
     replica:

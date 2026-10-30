@@ -1,0 +1,22 @@
+# Copies uploaded files to the bucket Litestream uses (CD-141). Install as
+# /etc/systemd/system/paperweight-files-sync.service with its .timer (see
+# docs/operations.md). `copy` never deletes, so an older database restore still
+# finds its files. files/tmp holds uploads in progress and is left out.
+[Unit]
+Description=Paperweight files backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=paperweight
+Group=paperweight
+EnvironmentFile=/etc/paperweight/litestream.env
+ExecStart=/usr/bin/rclone copy --exclude /tmp/** /var/lib/paperweight/files paperweight:${LITESTREAM_BUCKET}/paperweight/files
+
+# Hardening: reads the data directory, writes nothing locally.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
