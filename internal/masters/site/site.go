@@ -43,6 +43,8 @@ const (
 	msgNoProject = "Project not found. Pick one from the list."                                           // CD-170
 	msgRestrict  = "You can only work with your assigned sites. Ask your administrator to add this site." // CD-172
 	msgLocked    = "Branch can't change after the site is used."                                          // MST-107
+
+	msgRestrictProject = "You can only link sites to your assigned projects. Ask your administrator to add this project." // CD-214
 )
 
 func init() {
@@ -162,6 +164,26 @@ func (s *Service) checkUnrestricted(ctx context.Context, tx *db.Tx, p auth.Princ
 	return nil
 }
 
+// checkProjectAllowed refuses a project outside p's project restriction on
+// every save that posts one, reading inside tx (CD-213, CD-214). It runs before
+// checkLinks, whose messages name the project's and branch's codes.
+func (s *Service) checkProjectAllowed(ctx context.Context, tx *db.Tx, p auth.Principal, projectID int64) error {
+	if projectID == 0 {
+		return nil
+	}
+	restricted, err := s.env.Auth.Restricted(ctx, tx, p, string(auth.DimProject))
+	if err != nil || !restricted {
+		return err
+	}
+	allowed, err := dbq.New(tx.SQL()).UserHasRestrictionValue(ctx, dbq.UserHasRestrictionValueParams{
+		UserID: int64(p.ID), Dimension: string(auth.DimProject), ValueID: projectID,
+	})
+	if err != nil || allowed {
+		return err
+	}
+	return auth.Forbidden(msgRestrictProject)
+}
+
 func userID(p auth.Principal) sql.NullInt64 {
 	return sql.NullInt64{Int64: int64(p.ID), Valid: true}
 }
@@ -239,6 +261,9 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
+		return mstkit.Saved{}, err
+	}
 	if err := s.checkLinks(ctx, tx, in); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -281,6 +306,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	}
 	old, err := s.Get(ctx, tx, id)
 	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
 		return mstkit.Saved{}, err
 	}
 	if err := s.checkLinks(ctx, tx, in); err != nil {
