@@ -127,6 +127,7 @@ Task 2 (composition root) also does:
 - Fills `ui.Shell` navigation and the inbox count, and sets Shell CSRF from `authweb.CSRFToken`.
 - Owns the signed-in `/` route, where `SafeNext` and the header brand link land.
 - Routes `/doc/{DocType}/export.csv`, which docscreen already links to.
+- Mounts `GET /search` and wires `Deps.RecordURL` (CD-200).
 - Calls `company.SetupTx` from first-run setup with CD-165's fields.
 - Adds `app admin create` before the site opens, and an admin password reset command, so a sole admin who forgets a password can recover without SQL.
 - `/healthz` reads the database. Logs are JSON to stdout (spec §7). HSTS is set.
