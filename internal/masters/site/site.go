@@ -45,6 +45,7 @@ const (
 	msgLocked    = "Branch can't change after the site is used."                                          // MST-107
 
 	msgRestrictProject = "You can only link sites to your assigned projects. Ask your administrator to add this project." // CD-214
+	msgReadOnly        = "This site is on a project you aren't assigned to. Ask your administrator to change it."         // CD-216(6)
 )
 
 func init() {
@@ -168,20 +169,45 @@ func (s *Service) checkUnrestricted(ctx context.Context, tx *db.Tx, p auth.Princ
 // every save that posts one, reading inside tx (CD-213, CD-214). It runs before
 // checkLinks, whose messages name the project's and branch's codes.
 func (s *Service) checkProjectAllowed(ctx context.Context, tx *db.Tx, p auth.Principal, projectID int64) error {
-	if projectID == 0 {
-		return nil
-	}
-	restricted, err := s.env.Auth.Restricted(ctx, tx, p, string(auth.DimProject))
-	if err != nil || !restricted {
-		return err
-	}
-	allowed, err := dbq.New(tx.SQL()).UserHasRestrictionValue(ctx, dbq.UserHasRestrictionValueParams{
-		UserID: int64(p.ID), Dimension: string(auth.DimProject), ValueID: projectID,
-	})
+	allowed, err := s.projectAllowed(ctx, tx, p, projectID)
 	if err != nil || allowed {
 		return err
 	}
 	return auth.Forbidden(msgRestrictProject)
+}
+
+// checkNotReadOnly refuses any write of the stored site st when its project is
+// outside p's project restriction (CD-216(6)). On Update it runs after Validate
+// and before the checks that read other rows for what was posted, so its text
+// wins over CD-214's and over any link check. It reads the stored row, so a
+// stale page gets the stale error first, and reloads to the refusal (CD-94).
+func (s *Service) checkNotReadOnly(ctx context.Context, tx *db.Tx, p auth.Principal, st Site, version int) error {
+	allowed, err := s.projectAllowed(ctx, tx, p, st.ProjectID)
+	if err != nil || allowed {
+		return err
+	}
+	if err := mstkit.CheckVersion(ctx, tx, Kind, st.ID, version); err != nil {
+		return err
+	}
+	return auth.Forbidden(msgReadOnly)
+}
+
+// projectAllowed reports whether projectID is none, or p isn't restricted on
+// projects, or it is in p's list, reading inside tx.
+func (s *Service) projectAllowed(ctx context.Context, tx *db.Tx, p auth.Principal, projectID int64) (bool, error) {
+	if projectID == 0 {
+		return true, nil
+	}
+	restricted, err := s.env.Auth.Restricted(ctx, tx, p, string(auth.DimProject))
+	if err != nil {
+		return false, err
+	}
+	if !restricted {
+		return true, nil
+	}
+	return dbq.New(tx.SQL()).UserHasRestrictionValue(ctx, dbq.UserHasRestrictionValueParams{
+		UserID: int64(p.ID), Dimension: string(auth.DimProject), ValueID: projectID,
+	})
 }
 
 func userID(p auth.Principal) sql.NullInt64 {
@@ -308,6 +334,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkNotReadOnly(ctx, tx, p, old, version); err != nil {
+		return mstkit.Saved{}, err
+	}
 	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -363,6 +392,13 @@ func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightWrite, ref(id)); err != nil {
 		return err
 	}
+	st, err := s.Get(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.checkNotReadOnly(ctx, tx, p, st, version); err != nil {
+		return err
+	}
 	if !disabled {
 		if err := s.checkBranchEnabled(ctx, tx, id, version); err != nil {
 			return err
@@ -400,6 +436,13 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id int64, versio
 // DeleteTx is Delete inside tx.
 func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int) error {
 	if err := s.env.Auth.Can(ctx, p, DocType, auth.RightDelete, ref(id)); err != nil {
+		return err
+	}
+	st, err := s.Get(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.checkNotReadOnly(ctx, tx, p, st, version); err != nil {
 		return err
 	}
 	return s.env.DeleteTx(ctx, tx, p, Kind, id, version)
