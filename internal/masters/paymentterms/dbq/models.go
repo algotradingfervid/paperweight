@@ -54,30 +54,31 @@ type ApprovalHistory struct {
 }
 
 type ApprovalRequest struct {
-	ID            int64
-	Doctype       string
-	DocID         int64
-	RuleID        int64
-	Amount        int64
-	ApproverRoles string
-	ManagerUser   sql.NullInt64
-	ManagerName   string
-	AllowSelf     int64
-	Requester     int64
-	RequesterName string
-	Creator       int64
-	ClaimantUser  sql.NullInt64
-	SubmittedAt   string
-	Outcome       sql.NullString
-	DecidedBy     sql.NullInt64
-	DecidedByName string
-	DecidedAt     sql.NullString
-	Reason        string
-	Version       int64
-	CreatedAt     string
-	CreatedBy     int64
-	UpdatedAt     string
-	UpdatedBy     int64
+	ID             int64
+	Doctype        string
+	DocID          int64
+	RuleID         int64
+	RuleFromAmount int64
+	Amount         int64
+	ApproverRoles  string
+	ManagerUser    sql.NullInt64
+	ManagerName    string
+	AllowSelf      int64
+	Requester      int64
+	RequesterName  string
+	Creator        int64
+	ClaimantUser   sql.NullInt64
+	SubmittedAt    string
+	Outcome        sql.NullString
+	DecidedBy      sql.NullInt64
+	DecidedByName  string
+	DecidedAt      sql.NullString
+	Reason         string
+	Version        int64
+	CreatedAt      string
+	CreatedBy      int64
+	UpdatedAt      string
+	UpdatedBy      int64
 }
 
 type ApprovalRule struct {

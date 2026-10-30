@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/a-h/templ"
@@ -19,6 +20,7 @@ import (
 
 const (
 	pageSize  = 25
+	inboxPath = "/approvals"
 	rulesPath = "/admin/approval-rules"
 	// badFormText is AUTH's errBadForm wording for a form missing its version (CD-146).
 	badFormText = "The form could not be read. Reload the page and try again."
@@ -49,13 +51,15 @@ func pageNumber(r *http.Request) int {
 	return n
 }
 
-func pageInfo(path, noun string, page, total int) components.PageInfo {
+// pageInfo builds the pager; list is the list's URL up to its page parameter,
+// ending in "?" or "&".
+func pageInfo(list, noun string, page, total int) components.PageInfo {
 	pi := components.PageInfo{
 		Page: page, From: (page-1)*pageSize + 1, To: min(page*pageSize, total), Total: total, Noun: noun,
-		NextURL: path + "?page=" + strconv.Itoa(page+1),
+		NextURL: list + "page=" + strconv.Itoa(page+1),
 	}
 	if page > 1 {
-		pi.PrevURL = path + "?page=" + strconv.Itoa(page-1)
+		pi.PrevURL = list + "page=" + strconv.Itoa(page-1)
 	}
 	return pi
 }
@@ -66,13 +70,41 @@ func (h *handlers) inbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := pageNumber(r)
-	res, err := h.d.Approvals.Inbox(r.Context(), p, types.Page{Number: page, Size: pageSize})
+	active := r.URL.Query().Get("type")
+	res, all, err := h.d.Approvals.InboxOfType(r.Context(), p, active, types.Page{Number: page, Size: pageSize})
 	if err != nil {
 		web.ErrorFrom(w, r, err)
 		return
 	}
+	list, empty := inboxPath+"?", "Nothing is waiting for your approval."
+	if active != "" {
+		list, empty = typeURL(active)+"&", "Nothing of this type is waiting for your approval."
+	}
 	h.render(w, r, http.StatusOK, "Waiting for my approval",
-		inboxPage(res.Rows, h.d.DocURL, pageInfo("/approvals", "requests", page, res.Total)))
+		inboxPage(res.Rows, h.d.DocURL, pageInfo(list, "requests", page, res.Total), h.typeBar(active, all), empty))
+}
+
+// typeURL is the inbox filtered to doctype.
+func typeURL(doctype string) string { return inboxPath + "?type=" + url.QueryEscape(doctype) }
+
+// typeBar is the filter by type, nil when there is nothing to choose between
+// and no filter to remove (§4 rule 12).
+func (h *handlers) typeBar(active string, all []approval.InboxType) *components.FilterBarProps {
+	if len(all) < 2 && active == "" {
+		return nil
+	}
+	bar := &components.FilterBarProps{Action: inboxPath, ClearURL: inboxPath}
+	for _, t := range all {
+		bar.Links = append(bar.Links, components.Link{Label: t.Label + " (" + strconv.Itoa(t.Count) + ")", Href: typeURL(t.DocType)})
+	}
+	if active != "" {
+		label, ok := h.labels()[active]
+		if !ok {
+			label = active
+		}
+		bar.Chips = []components.Chip{{Label: "Type: " + label, RemoveURL: inboxPath}}
+	}
+	return bar
 }
 
 func (h *handlers) count(w http.ResponseWriter, r *http.Request) {
@@ -100,7 +132,7 @@ func (h *handlers) mine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "My requests",
-		minePage(res.Rows, h.d.DocURL, pageInfo("/approvals/mine", "requests", page, res.Total)))
+		minePage(res.Rows, h.d.DocURL, pageInfo("/approvals/mine?", "requests", page, res.Total)))
 }
 
 func (h *handlers) stuck(w http.ResponseWriter, r *http.Request) {

@@ -102,6 +102,14 @@ func RoleExistsError(existing string) *Problem {
 	return &Problem{409, fmt.Sprintf("A role named %s already exists.", existing)}
 }
 
+// Copy rights refusals (CD-200).
+var (
+	ErrCopySourceRequired = &Problem{422, "Choose a role to copy from."}
+	ErrCopySourceMissing  = &Problem{422, "Role not found. Pick one from the list."}
+	ErrCopySourceSame     = &Problem{422, "Pick a different role to copy from."}
+	ErrCopySourceAdmin    = &Problem{422, "Administrator has every right that applies and can't be copied."}
+)
+
 // ReadRequiredError: a matrix row grants a right without read.
 func ReadRequiredError(label string) *Problem {
 	return &Problem{400, fmt.Sprintf("Read is needed for any other right on %s. Tick Read or clear the other rights.", label)}

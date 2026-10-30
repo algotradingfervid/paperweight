@@ -19,14 +19,18 @@ func inboxPairs(it approval.InboxItem) []components.Pair {
 	)
 }
 
-// inboxPage is "Waiting for my approval": one card per request, oldest first.
-templ inboxPage(rows []approval.InboxItem, docURL func(string, int64) string, pi components.PageInfo) {
-	if len(rows) == 0 {
-		@components.EmptyState("Nothing is waiting for your approval.", nil)
+// inboxPage is "Waiting for my approval": one card per request, oldest first,
+// under the filter by type when bar is set.
+templ inboxPage(rows []approval.InboxItem, docURL func(string, int64) string, pi components.PageInfo, bar *components.FilterBarProps, empty string) {
+	if bar != nil {
+		@components.FilterBar(*bar)
+	}
+	if pi.Total == 0 {
+		@components.EmptyState(empty, nil)
 	}
 	for _, it := range rows {
 		@components.Card(it.Title, &components.Link{Label: "Open", Href: docURL(it.DocType, it.DocID)}) {
-			@components.SummaryList(inboxPairs(it))
+			@components.SummaryList(append(inboxPairs(it), components.Pair{Label: "Why it is with you", Value: it.Why}))
 		}
 	}
 	@components.Pagination(pi)

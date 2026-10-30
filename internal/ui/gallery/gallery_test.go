@@ -37,6 +37,9 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		if d.Find(`input[hx-post="/ui/validate/money"]`).Not(`[aria-invalid]`).Length() == 0 {
 			t.Error("fields: no valid money input checked by /ui/validate/money")
 		}
+		if d.Find(`input.num[hx-post="/ui/validate/factor"][value="9,99,999.999999999"]`).Length() == 0 {
+			t.Error("fields: no Factor input holding the worst-case value 9,99,999.999999999")
+		}
 	},
 	"datalist": func(t *testing.T, d *goquery.Document) {
 		text := d.Text()

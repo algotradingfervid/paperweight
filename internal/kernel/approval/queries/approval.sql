@@ -52,11 +52,11 @@ SELECT COUNT(DISTINCT doctype || ':' || doc_id) FROM approval_requests WHERE rul
 
 -- name: InsertRequest :one
 INSERT INTO approval_requests (
-    doctype, doc_id, rule_id, amount, approver_roles, manager_user, manager_name, allow_self,
+    doctype, doc_id, rule_id, rule_from_amount, amount, approver_roles, manager_user, manager_name, allow_self,
     requester, requester_name, creator, claimant_user, submitted_at,
     created_at, created_by, updated_at, updated_by
 ) VALUES (
-    sqlc.arg(doctype), sqlc.arg(doc_id), sqlc.arg(rule_id), sqlc.arg(amount), sqlc.arg(approver_roles),
+    sqlc.arg(doctype), sqlc.arg(doc_id), sqlc.arg(rule_id), sqlc.arg(rule_from_amount), sqlc.arg(amount), sqlc.arg(approver_roles),
     sqlc.arg(manager_user), sqlc.arg(manager_name), sqlc.arg(allow_self),
     sqlc.arg(requester), sqlc.arg(requester_name), sqlc.arg(creator), sqlc.arg(claimant_user), sqlc.arg(submitted_at),
     sqlc.arg(submitted_at), sqlc.arg(created_by), sqlc.arg(submitted_at), sqlc.arg(created_by)

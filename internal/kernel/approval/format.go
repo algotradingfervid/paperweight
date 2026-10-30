@@ -16,6 +16,16 @@ func joinRoles(roles []string) string {
 	return strings.Join(roles[:len(roles)-1], ", ") + " or " + roles[len(roles)-1]
 }
 
+// WhyText says why a request is with its approver, from the from_amount of the
+// rule it was opened under: "₹50,000 or more" (paise only when present), or
+// "Any amount" from zero.
+func WhyText(from types.Money) string {
+	if from == 0 {
+		return "Any amount"
+	}
+	return strings.TrimSuffix(types.FormatINR(from), ".00") + " or more"
+}
+
 // stateLabel is the plain-English name of a document state.
 func stateLabel(s doctype.State) string {
 	switch s {

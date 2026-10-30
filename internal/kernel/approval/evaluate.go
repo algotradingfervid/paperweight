@@ -46,6 +46,7 @@ func (a *Approvals) Evaluate(ctx context.Context, tx *db.Tx, dt string, id int64
 	req := Requirement{
 		Needed:        true,
 		RuleID:        matched.ID,
+		FromAmount:    matched.FromAmount,
 		ApproverRoles: approverRoles(matched, higher),
 		ManagerUser:   manager,
 		Amount:        amount,
@@ -158,7 +159,7 @@ func (a *Approvals) insertRequest(ctx context.Context, tx *db.Tx, q *dbq.Queries
 		}
 	}
 	return q.InsertRequest(ctx, dbq.InsertRequestParams{
-		DocType: dt, DocID: id, RuleID: req.RuleID, Amount: int64(req.Amount), ApproverRoles: string(roles),
+		DocType: dt, DocID: id, RuleID: req.RuleID, RuleFromAmount: int64(req.FromAmount), Amount: int64(req.Amount), ApproverRoles: string(roles),
 		ManagerUser: manager, ManagerName: managerName, AllowSelf: rule.AllowSelfApproval,
 		Requester: int64(req.Requester), RequesterName: requesterName, Creator: int64(in.CreatedBy),
 		ClaimantUser: claimant, SubmittedAt: now, CreatedBy: int64(req.Requester),
@@ -187,7 +188,7 @@ func (a *Approvals) LatestRequest(ctx context.Context, tx *db.Tx, dt string, id 
 
 func requestOf(row dbq.ApprovalRequest) (Request, error) {
 	r := Request{
-		ID: row.ID, RuleID: row.RuleID, DocType: row.DocType, DocID: row.DocID, Amount: types.Money(row.Amount),
+		ID: row.ID, RuleID: row.RuleID, FromAmount: types.Money(row.RuleFromAmount), DocType: row.DocType, DocID: row.DocID, Amount: types.Money(row.Amount),
 		ManagerUser: types.UserID(row.ManagerUser.Int64), ManagerName: row.ManagerName, AllowSelf: row.AllowSelf != 0,
 		Requester: types.UserID(row.Requester), RequesterName: row.RequesterName, Creator: types.UserID(row.Creator),
 		Claimant: types.UserID(row.ClaimantUser.Int64), Outcome: row.Outcome.String,

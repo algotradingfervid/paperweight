@@ -27,8 +27,9 @@ func inboxPairs(it approval.InboxItem) []components.Pair {
 	)
 }
 
-// inboxPage is "Waiting for my approval": one card per request, oldest first.
-func inboxPage(rows []approval.InboxItem, docURL func(string, int64) string, pi components.PageInfo) templ.Component {
+// inboxPage is "Waiting for my approval": one card per request, oldest first,
+// under the filter by type when bar is set.
+func inboxPage(rows []approval.InboxItem, docURL func(string, int64) string, pi components.PageInfo, bar *components.FilterBarProps, empty string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -49,8 +50,14 @@ func inboxPage(rows []approval.InboxItem, docURL func(string, int64) string, pi 
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		if len(rows) == 0 {
-			templ_7745c5c3_Err = components.EmptyState("Nothing is waiting for your approval.", nil).Render(ctx, templ_7745c5c3_Buffer)
+		if bar != nil {
+			templ_7745c5c3_Err = components.FilterBar(*bar).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		if pi.Total == 0 {
+			templ_7745c5c3_Err = components.EmptyState(empty, nil).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -68,7 +75,7 @@ func inboxPage(rows []approval.InboxItem, docURL func(string, int64) string, pi 
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = components.SummaryList(inboxPairs(it)).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.SummaryList(append(inboxPairs(it), components.Pair{Label: "Why it is with you", Value: it.Why})).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

@@ -229,26 +229,103 @@ func (a *Auth) setRights(ctx context.Context, actor Principal, ref roleRef, doct
 		if err != nil || maps.Equal(before, rights) {
 			return err
 		}
-		if err := q.MarkRoleDocTypeCustomised(ctx, dbq.MarkRoleDocTypeCustomisedParams{RoleID: r.ID, Doctype: doctypeName}); err != nil {
+		if err := replaceRights(ctx, q, r.ID, doctypeName, rights); err != nil {
 			return err
 		}
-		if err := q.DeleteRoleRights(ctx, dbq.DeleteRoleRightsParams{RoleID: r.ID, Doctype: doctypeName}); err != nil {
+		return a.recordRights(ctx, tx, q, actor, r.ID, rightsChanges(doctypeName, before, rights))
+	})
+}
+
+// CopyRightsID replaces role targetID's rights, at the posted version, with
+// role sourceID's on every registered DocType: a DocType where the source has
+// none is cleared, and one that doesn't change is untouched. The source is
+// read inside the write and its version isn't posted (CD-94, CD-200). One
+// audit entry covers every changed DocType; a copy that changes nothing
+// writes nothing.
+func (a *Auth) CopyRightsID(ctx context.Context, actor Principal, targetID, sourceID, version int64) error {
+	if !isAdmin(actor) {
+		return ErrAdminOnlyRoles
+	}
+	return a.db.Write(ctx, func(tx *db.Tx) error {
+		q := dbq.New(tx.SQL())
+		target, source, err := copyRoles(ctx, q, roleRef{id: targetID, version: &version}, sourceID)
+		if err != nil {
 			return err
 		}
-		if err := insertRights(ctx, q, r.ID, doctypeName, rights); err != nil {
-			return err
+		var changes []audit.Change
+		for _, dt := range doctype.All() {
+			before, err := roleRights(ctx, q, target.Name, dt.Name)
+			if err != nil {
+				return err
+			}
+			rights, err := roleRights(ctx, q, source.Name, dt.Name)
+			if err != nil {
+				return err
+			}
+			if maps.Equal(before, rights) {
+				continue
+			}
+			if err := ValidateRow(dt, rights); err != nil {
+				return err
+			}
+			if err := replaceRights(ctx, q, target.ID, dt.Name, rights); err != nil {
+				return err
+			}
+			changes = append(changes, rightsChanges(dt.Name, before, rights)...)
 		}
-		now := a.clock.Now()
-		if err := q.BumpRoleVersion(ctx, dbq.BumpRoleVersionParams{At: FormatTime(now), ID: r.ID}); err != nil {
-			return err
+		if len(changes) == 0 {
+			return nil
 		}
-		if err := q.BumpPermVersion(ctx); err != nil {
-			return err
-		}
-		return a.audit.Append(ctx, tx, audit.Entry{
-			DocType: "Role", DocID: r.ID, Action: "rights", Changes: rightsChanges(doctypeName, before, rights),
-			By: actor.ID, At: now,
-		})
+		return a.recordRights(ctx, tx, q, actor, target.ID, changes)
+	})
+}
+
+// copyRoles loads and checks both roles of a copy, the target first.
+func copyRoles(ctx context.Context, q *dbq.Queries, ref roleRef, sourceID int64) (target, source dbq.Role, err error) {
+	if target, err = ref.load(ctx, q); err != nil {
+		return target, source, err
+	}
+	if target.IsAdmin != 0 {
+		return target, source, ErrAdminRoleFixed
+	}
+	if sourceID == target.ID {
+		return target, source, ErrCopySourceSame
+	}
+	source, err = roleRef{id: sourceID}.load(ctx, q)
+	if errors.Is(err, ErrNotFound) {
+		return target, source, ErrCopySourceMissing
+	}
+	if err == nil && source.IsAdmin != 0 {
+		err = ErrCopySourceAdmin
+	}
+	return target, source, err
+}
+
+// replaceRights makes rights the role's whole row on doctypeName and marks
+// the row customised.
+func replaceRights(ctx context.Context, q *dbq.Queries, roleID int64, doctypeName string, rights map[Right]Scope) error {
+	if err := q.MarkRoleDocTypeCustomised(ctx, dbq.MarkRoleDocTypeCustomisedParams{RoleID: roleID, Doctype: doctypeName}); err != nil {
+		return err
+	}
+	if err := q.DeleteRoleRights(ctx, dbq.DeleteRoleRightsParams{RoleID: roleID, Doctype: doctypeName}); err != nil {
+		return err
+	}
+	return insertRights(ctx, q, roleID, doctypeName, rights)
+}
+
+// recordRights bumps the role's version and perm_version once and writes the
+// one audit entry of a rights change.
+func (a *Auth) recordRights(ctx context.Context, tx *db.Tx, q *dbq.Queries, actor Principal, roleID int64, changes []audit.Change) error {
+	now := a.clock.Now()
+	if err := q.BumpRoleVersion(ctx, dbq.BumpRoleVersionParams{At: FormatTime(now), ID: roleID}); err != nil {
+		return err
+	}
+	if err := q.BumpPermVersion(ctx); err != nil {
+		return err
+	}
+	return a.audit.Append(ctx, tx, audit.Entry{
+		DocType: "Role", DocID: roleID, Action: "rights", Changes: changes,
+		By: actor.ID, At: now,
 	})
 }
 

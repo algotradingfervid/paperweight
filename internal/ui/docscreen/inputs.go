@@ -20,9 +20,9 @@ const maxRadios = 6
 // Textarea with a counter past 200 characters; Int a numeric TextInput;
 // Check one checkbox; Select radios up to 6 options, else a Select; Link a
 // Picker searching /pick/{Link} that shows the chosen master as "{Code}
-// {Name}" (CD-68); numbers a NumberInput checked by the server (CD-48);
-// Date a DateInput with d.Today; Timestamp read-only text. MST's master
-// forms reuse it.
+// {Name}" (CD-68); numbers (Money, Qty, Rate, Percent, Factor) a NumberInput
+// checked by the server (CD-48); Date a DateInput with d.Today; Timestamp
+// read-only text. MST's master forms reuse it.
 func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Component {
 	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Error: errMsg, Value: value, Optional: !f.Required}
 	switch f.Type {
@@ -36,9 +36,6 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 		return components.TextInput(p)
 	case doctype.Int:
 		p.Attrs = templ.Attributes{"inputmode": "numeric"}
-		return components.TextInput(p)
-	case doctype.Factor:
-		p.Attrs = templ.Attributes{"inputmode": "decimal"}
 		return components.TextInput(p)
 	case doctype.Check:
 		var checked []string
@@ -65,6 +62,8 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 		return components.NumberInput(p, components.Rate, false)
 	case doctype.Percent:
 		return components.NumberInput(p, components.Percent, false)
+	case doctype.Factor:
+		return components.NumberInput(p, components.Factor, false)
 	case doctype.Date:
 		dp := components.DateProps{FieldProps: p}
 		if d.Today != nil {
