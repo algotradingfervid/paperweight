@@ -279,7 +279,7 @@ func TestScreens_AddressWarning(t *testing.T) {
 	saved := b.Post(t, newAddressURL(p.ID), form)
 	webtest.WantRedirect(t, saved, recordURL(p.ID))
 	page := b.Get(t, saved.Location)
-	webtest.WantBanner(t, page, "Party SHREE has the same PAN AABCS1429B. You may be creating a duplicate; consider adding a Karnataka address to SHREE.")
+	wantAlert(t, page, "Party SHREE has the same PAN AABCS1429B. You may be creating a duplicate; consider adding a Karnataka address to SHREE.")
 	webtest.WantBanner(t, page, "Address saved.")
 	if got := w.get(t, "V-NEW"); got.PAN != "AABCS1429B" || got.GSTCategory != gstin.Regular {
 		t.Errorf("party not back-filled: %+v", got)

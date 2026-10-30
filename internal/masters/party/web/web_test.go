@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
@@ -305,10 +307,28 @@ func rows(all ...map[string]string) url.Values {
 	return v
 }
 
+// alerts is the banners of the alerts region, where a save's warnings show
+// (CD-80).
+func alerts(r webtest.Response) []string {
+	var out []string
+	r.Doc.Find("#alerts .banner").Each(func(_ int, s *goquery.Selection) {
+		out = append(out, webtest.Squash(s.Text()))
+	})
+	return out
+}
+
+func wantAlert(t *testing.T, r webtest.Response, msg string) {
+	t.Helper()
+	got := alerts(r)
+	if !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, msg) }) {
+		t.Errorf("no alert shows %q; alerts: %q", msg, got)
+	}
+}
+
 // row is r with kv set, field then value; a blank value is a blank box.
 func row(r map[string]string, kv ...string) map[string]string {
 	out := maps.Clone(r)
-	for i := 0; i < len(kv); i += 2 {
+	for i := 0; i+1 < len(kv); i += 2 {
 		out[kv[i]] = kv[i+1]
 	}
 	return out
@@ -318,7 +338,7 @@ func row(r map[string]string, kv ...string) map[string]string {
 func with(v url.Values, kv ...string) url.Values {
 	out := url.Values{}
 	maps.Copy(out, v)
-	for i := 0; i < len(kv); i += 2 {
+	for i := 0; i+1 < len(kv); i += 2 {
 		out.Set(kv[i], kv[i+1])
 	}
 	return out

@@ -941,7 +941,7 @@ func TestScreens_PartyWizardWarnings(t *testing.T) {
 	panBanners := func(t *testing.T, r webtest.Response) []string {
 		t.Helper()
 		var out []string
-		for _, s := range r.Banners() {
+		for _, s := range alerts(r) {
 			if strings.Contains(s, shreePANNote) {
 				out = append(out, s)
 			}
@@ -963,7 +963,7 @@ func TestScreens_PartyWizardWarnings(t *testing.T) {
 		if got := panBanners(t, page); len(got) != 1 {
 			t.Errorf("PAN warnings = %q; want exactly one", got)
 		}
-		webtest.WantBanner(t, page, "A party named Shree Steel Traders already exists (SHREE).")
+		wantAlert(t, page, "A party named Shree Steel Traders already exists (SHREE).")
 		webtest.WantBanner(t, page, "Party saved.")
 	})
 
@@ -990,7 +990,7 @@ func TestScreens_PartyWizardWarnings(t *testing.T) {
 		if got := panBanners(t, page); len(got) != 1 {
 			t.Errorf("PAN warnings = %q; want exactly one", got)
 		}
-		webtest.WantBanner(t, page, "Party SHREE has the same PAN AABCS1429B. You may be creating a duplicate; consider adding a Karnataka address to SHREE.")
+		wantAlert(t, page, "Party SHREE has the same PAN AABCS1429B. You may be creating a duplicate; consider adding a Karnataka address to SHREE.")
 	})
 }
 
