@@ -174,3 +174,4 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - A new control on an existing page: check the page-wide tests (ReadOnlyOutsideDraft, CSP, UI lint, JS budget) while writing the tests, not at hand-in (CD-249).
 - Shared test helpers (testkit, fixture) take UI values as parameters and never import a UI package (CD-89, CD-250).
 - After merging main into a lane, run `make ci` there before review: a lane test still quoted text CD-240 had changed on main.
+- A MERGE-READY claimed on `make ci` alone missed browser-test breaks caused by another lane (3c prefill vs 4a flows): run `make e2e` on the merged head before every MERGE-READY touching UI, auth or app.

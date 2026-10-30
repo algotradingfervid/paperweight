@@ -67,6 +67,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - An invariant between two records (or two masters) is checked on every write path of both sides: create, update, set-primary, enable, import. A rule on one path but missed on its siblings is the most common review finding in Wave 1. Best: one post-state check that reads the whole state after the change, inside the write tx, called last by every write, plus a property test over random write sequences (CD-180).
 - Every browser-test (chromedp) wait has a short per-step deadline: a request that never answers (e.g. a fake returning "not implemented yet") then fails one test fast, not the whole run at the 10-minute timeout.
 - The nested-transaction gate runs only in `make test` (`-tags nestcheck`): the fast check and hand-in are untagged, so a second connection inside a tx first fails there. Inside a tx use the Tx twins (`CanTx`, `HasRoleTx`, `ValueAllowedTx`) (CD-213, CD-224). Lint hand-ins for build-tagged files need `--build-tags`.
+- `make ci` runs no browser tests. Before a MERGE-READY or a merge that touches internal/ui, docscreen, auth or internal/app, run `make e2e` on the merged head too: a prefill from one lane broke three browser flows from another, and `make ci` stayed green (CD-245, 31 Oct).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
