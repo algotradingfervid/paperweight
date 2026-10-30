@@ -34,18 +34,6 @@ func t17xRolePath(t *testing.T, w *authtest.World, role, suffix string) string {
 	return fmt.Sprintf("/roles/%d%s", t17RoleID(t, w, role), suffix)
 }
 
-// t17xSection is the part of the roles page for the DocType labelled label.
-func t17xSection(t *testing.T, body, label string) string {
-	t.Helper()
-	for _, s := range strings.Split(body, "<section>")[1:] {
-		if strings.HasPrefix(strings.TrimSpace(s), "<h2>"+label+"</h2>") {
-			return s
-		}
-	}
-	t.Fatalf("roles page has no matrix section %q", label)
-	return ""
-}
-
 func TestRoles_WebCreateRenameDelete(t *testing.T) {
 	w := authtest.NewWorld(t)
 	h := webtest.New(t, w)
@@ -59,17 +47,17 @@ func TestRoles_WebCreateRenameDelete(t *testing.T) {
 
 	r = admin.Get("/roles")
 	wantStatus(t, "admin GET /roles", r, http.StatusOK)
-	wantBody(t, "GET /roles lists the new role", r, "Quality (0 users)")
-	po := t17xSection(t, r.Body, "Purchase Order")
-	for _, want := range []string{
-		fmt.Sprintf(`action="%s"`, t17RightsPath(t, w, "Stores", authtest.DTOrder)),
-		fmt.Sprintf(`name="version" value="%s"`, t17xVersion(t, w, "Stores")),
-		`action="/rights/` + authtest.DTOrder + `/reset"`,
-	} {
-		if !strings.Contains(po, want) {
-			t.Errorf("Purchase Order matrix has no %s", want)
-		}
+	if text := p1Text(p1Doc(t, "GET /roles", r).Find("main")); !strings.Contains(text, "Quality (0 users)") {
+		t.Fatalf("GET /roles text %q does not list the new role", text)
 	}
+	rights := t17RightsPath(t, w, "Stores", authtest.DTOrder)
+	r = admin.Get(rights)
+	wantStatus(t, "admin GET the rights page", r, http.StatusOK)
+	po := p1Doc(t, "GET the rights page", r)
+	if got, want := p1Hidden(t, "rights page", p1Form(t, "rights page", po, rights), "version"), t17xVersion(t, w, "Stores"); got != want {
+		t.Errorf("Purchase Order rights form version = %q, want %q", got, want)
+	}
+	p1Form(t, "rights page", po, "/rights/"+authtest.DTOrder+"/reset")
 
 	r = admin.Post(t17xRolePath(t, w, "Quality", "/rename"), url.Values{"name": {"QA"}, "version": {t17xVersion(t, w, "Quality")}})
 	wantRedirect(t, "admin renames Quality", r, http.StatusSeeOther, "/roles")
@@ -121,14 +109,18 @@ func TestRoles_WebNonAdminRefused(t *testing.T) {
 func TestMatrix_TeamOnlyWhereOffered(t *testing.T) {
 	w := authtest.NewWorld(t)
 	h := webtest.New(t, w)
-	r := signedIn(t, h, t13Admin).Get("/roles")
-	wantStatus(t, "admin GET /roles", r, http.StatusOK)
-	const team = `<option value="team"`
-	if s := t17xSection(t, r.Body, "Purchase Order"); strings.Contains(s, team) || !strings.Contains(s, `<option value="own"`) {
-		t.Errorf("Purchase Order matrix (no employee field): want Own and no Team option, got %q", s)
+	admin := signedIn(t, h, t13Admin)
+	const team, own = `input[type=radio][value="team"]`, `input[type=radio][value="own"]`
+	po, claim := t17RightsPath(t, w, "Stores", authtest.DTOrder), t17RightsPath(t, w, "Stores", authtest.DTClaim)
+	r := admin.Get(po)
+	wantStatus(t, "admin GET the Purchase Order rights page", r, http.StatusOK)
+	if s := p1Form(t, "Purchase Order", p1Doc(t, "Purchase Order", r), po); s.Find(team).Length() != 0 || s.Find(own).Length() == 0 {
+		t.Errorf("Purchase Order rights (no employee field): want Own and no Team option, got %q", p1Text(s))
 	}
-	if s := t17xSection(t, r.Body, "Expense Claim"); !strings.Contains(s, team) {
-		t.Errorf("Expense Claim matrix (employee field): no Team option in %q", s)
+	r = admin.Get(claim)
+	wantStatus(t, "admin GET the Expense Claim rights page", r, http.StatusOK)
+	if s := p1Form(t, "Expense Claim", p1Doc(t, "Expense Claim", r), claim); s.Find(team).Length() == 0 {
+		t.Errorf("Expense Claim rights (employee field): no Team option in %q", p1Text(s))
 	}
 }
 
@@ -156,14 +148,19 @@ func TestRoles_WebVersions(t *testing.T) {
 		t.Fatalf("Stores at version %s after the refused posts = %d rows, want 1", stale, n)
 	}
 
-	// A rights save bumps the version; the page it answers with carries it.
+	// A rights save bumps the version; the page it redirects to carries it.
 	r := admin.Post(rights, url.Values{"read": {"all"}, "print": {"all"}, "version": {stale}})
-	wantStatus(t, "rights save", r, http.StatusOK)
+	wantRedirect(t, "rights save", r, http.StatusSeeOther, rights)
 	current := t17xVersion(t, w, "Stores")
 	if current == stale {
 		t.Fatalf("Stores version after a rights save = %s, want it bumped", current)
 	}
-	wantBody(t, "rights save answer", r, fmt.Sprintf(`name="version" value="%s"`, current))
+	r = admin.Get(rights)
+	wantStatus(t, "the page after the rights save", r, http.StatusOK)
+	form := p1Form(t, "rights save answer", p1Doc(t, "rights save answer", r), rights)
+	if got := p1Hidden(t, "rights save answer", form, "version"); got != current {
+		t.Errorf("rights save answer: version = %q, want %q", got, current)
+	}
 
 	// Stale version: 409, nothing changes.
 	saved := t17Rights(t, w, "Stores", authtest.DTOrder)
@@ -209,13 +206,13 @@ func TestMatrix_ResetUsesConfigSeed(t *testing.T) {
 	admin := signedIn(t, h, t13Admin)
 
 	r := admin.Post("/seeded/rights/"+authtest.DTSite+"/reset", url.Values{})
-	wantStatus(t, "reset Site with LinkedMasterRead", r, http.StatusOK)
+	wantRedirect(t, "reset Site with LinkedMasterRead", r, http.StatusSeeOther, "/roles")
 	if got := t17Rights(t, w, "Purchase User", authtest.DTSite); !reflect.DeepEqual(got, read) {
 		t.Errorf("RoleRights(Purchase User, Site) after the production reset = %v, want %v", got, read)
 	}
 
 	r = admin.Post("/rights/"+authtest.DTSite+"/reset", url.Values{})
-	wantStatus(t, "reset Site with the default Config", r, http.StatusOK)
+	wantRedirect(t, "reset Site with the default Config", r, http.StatusSeeOther, "/roles")
 	if got := t17Rights(t, w, "Purchase User", authtest.DTSite); len(got) != 0 {
 		t.Errorf("RoleRights(Purchase User, Site) after the test-seed reset = %v, want none", got)
 	}
