@@ -336,9 +336,9 @@ func TestInboxCount_IgnoresTypeFilter(t *testing.T) {
 }
 
 // realDirectors builds an Approvals on the real auth.Service over e's database
-// and two Directors on it, the first restricted to PRJ-METRO. Their ids (2 and
-// 3) are not those of the document creators used below, whose ids are in the
-// auth fake only: a shared id would make them the owner.
+// and two new Directors on it, the first restricted to PRJ-METRO. Their ids (9
+// and 10) are not those of the document creators used below: a shared id would
+// make them the owner.
 func realDirectors(t *testing.T, e *at.Env) (svc *approval.Approvals, restricted, open auth.Principal) {
 	t.Helper()
 	ctx := t.Context()
@@ -352,9 +352,7 @@ func realDirectors(t *testing.T, e *at.Env) (svc *approval.Approvals, restricted
 		at.MustOK(t, err)
 		return p
 	}
-	adminID, err := a.CreateFirstAdmin(ctx, "inbox-admin@vardhan.test", "Inbox Admin", e.F.Password)
-	at.MustOK(t, err)
-	admin := principal(adminID)
+	admin := principal(e.Anil.ID)
 	for _, dt := range []string{at.Order, at.Claim} {
 		at.MustOK(t, a.SetRights(ctx, admin, "Director", dt, map[auth.Right]auth.Scope{"read": auth.ScopeAll, "approve": auth.ScopeAll}))
 	}

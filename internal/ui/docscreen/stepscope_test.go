@@ -165,10 +165,6 @@ func newScopeRealEnv(t *testing.T) (se *scopeEnv, open, restricted auth.Principa
 		DB: h.DB, Clock: h.Clock, Directory: testkit.Directory(h.F), Audit: auditfake.New(),
 		Refs: &authtest.Refs{}, Info: &authtest.Info{},
 	})
-	adminID, err := a.CreateFirstAdmin(ctx, "scope-admin@vardhan.test", "Scope Admin", scopePassword)
-	if err != nil {
-		t.Fatalf("CreateFirstAdmin: %v", err)
-	}
 	load := func(u auth.UserID) auth.Principal {
 		t.Helper()
 		p, _, err := a.LoadPrincipal(ctx, u)
@@ -177,7 +173,7 @@ func newScopeRealEnv(t *testing.T) (se *scopeEnv, open, restricted auth.Principa
 		}
 		return p
 	}
-	admin := load(adminID)
+	admin := h.Admin
 	if err := a.CreateRole(ctx, admin, "Scoper"); err != nil {
 		t.Fatalf("CreateRole: %v", err)
 	}

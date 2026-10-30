@@ -30,7 +30,7 @@ import (
 func sqlSeeded(t *testing.T) (*msttest.Env, testkit.Fixtures) {
 	t.Helper()
 	env := msttest.New(t)
-	fx := testkit.Seed(t, env.DB)
+	fx := testkit.SeedMasters(t, env.DB)
 	testkit.LinkEmployees(t, env.DB, fx)
 	return env, fx
 }
@@ -98,7 +98,7 @@ func tableRows(t *testing.T, d *db.DB, table string) []string {
 	return out
 }
 
-// TestSeed_MatchesServiceBuiltMasters (Task 23): testkit.Seed plus
+// TestSeed_MatchesServiceBuiltMasters (Task 23): testkit.SeedMasters plus
 // LinkEmployees writes exactly what msttest.SeedMasters writes. Only
 // created_at and updated_at are ignored: Seed writes the Admin's id as
 // created_by and updated_by, as the services do, so nothing is normalised.

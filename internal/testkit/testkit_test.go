@@ -16,6 +16,7 @@ import (
 
 	_ "modernc.org/sqlite" // driver "sqlite" for the raw second connection
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
@@ -242,8 +243,6 @@ func TestTestkit_DBPathMatchesNewDB(t *testing.T) {
 func TestTestkit_SeedMatchesFixturesDoc(t *testing.T) {
 	d := testkit.NewDB(t)
 	fx := testkit.Seed(t, d)
-	insertUsers(t, d, fx)
-	testkit.LinkEmployees(t, d, fx)
 
 	type user struct {
 		Email, Name string
@@ -482,11 +481,11 @@ func insertUsers(t *testing.T, d *db.DB, fx testkit.Fixtures) {
 	}
 }
 
-// TestTestkit_SeedLeavesEmployeesUnlinked (CD-199 item 4): Seed works with no
-// users; the link comes from LinkEmployees, once they exist.
-func TestTestkit_SeedLeavesEmployeesUnlinked(t *testing.T) {
+// TestTestkit_SeedMastersLeavesEmployeesUnlinked (CD-199 item 4): SeedMasters
+// works with no users; the link comes from LinkEmployees, once they exist.
+func TestTestkit_SeedMastersLeavesEmployeesUnlinked(t *testing.T) {
 	d := testkit.NewDB(t)
-	fx := testkit.Seed(t, d)
+	fx := testkit.SeedMasters(t, d)
 	linked := func() int {
 		t.Helper()
 		var n int
@@ -496,7 +495,7 @@ func TestTestkit_SeedLeavesEmployeesUnlinked(t *testing.T) {
 		return n
 	}
 	if n := linked(); n != 0 {
-		t.Errorf("after Seed, %d employees have a user_id; want 0", n)
+		t.Errorf("after SeedMasters, %d employees have a user_id; want 0", n)
 	}
 
 	// Without users the FK refuses the link, and that fails the test.
@@ -516,7 +515,7 @@ func TestTestkit_SeedLeavesEmployeesUnlinked(t *testing.T) {
 // updates nothing, and that must not pass silently.
 func TestTestkit_LinkEmployeesFailsOnUnknownEmployee(t *testing.T) {
 	d := testkit.NewDB(t)
-	fx := testkit.Seed(t, d)
+	fx := testkit.SeedMasters(t, d)
 	insertUsers(t, d, fx)
 	fx.Employees[0].ID = 9999
 	fake, returned := runWithFake(t, func(tb testing.TB) { testkit.LinkEmployees(tb, d, fx) })
@@ -582,8 +581,8 @@ func TestTestkit_PrincipalUnknownEmailFails(t *testing.T) {
 
 	// A known email works without failing and comes from Fixtures.Users.
 	p := testkit.Principal(t, "priya@vardhan.test")
-	if int64(p.ID) != 4 || p.Name != "Priya Shah" || !reflect.DeepEqual(p.Roles, []string{"Purchase User", "Employee"}) {
-		t.Errorf("Principal(priya) = %+v, want {ID:4 Name:Priya Shah Roles:[Purchase User Employee]}", p)
+	if int64(p.ID) != 4 || p.Name != "Priya Shah" || !reflect.DeepEqual(p.Roles, []string{"Employee", "Purchase User"}) {
+		t.Errorf("Principal(priya) = %+v, want {ID:4 Name:Priya Shah Roles:[Employee Purchase User]}", p)
 	}
 }
 
@@ -597,5 +596,115 @@ func TestTestkit_ClockIsIST1030(t *testing.T) {
 	}
 	if got := testkit.Clock().Now().In(clock.IST).Format("02-01-2006 15:04"); got != "24-10-2026 10:30" {
 		t.Errorf("Clock in IST = %q, want %q", got, "24-10-2026 10:30")
+	}
+}
+
+// TestTestkit_SeedUsesAuthTables (CD-67, CD-91): after Seed, the real AUTH
+// reads the fixture users, roles and rights from its own tables.
+func TestTestkit_SeedUsesAuthTables(t *testing.T) {
+	d := testkit.NewDB(t)
+	ctx := t.Context()
+	var before int64
+	if err := d.SQL().QueryRowContext(ctx, `SELECT perm_version FROM auth_meta`).Scan(&before); err != nil {
+		t.Fatalf("perm_version before Seed: %v", err)
+	}
+	fx := testkit.Seed(t, d)
+	a := auth.New(auth.Deps{DB: d, Clock: testkit.Clock()})
+
+	for _, u := range fx.Users {
+		var (
+			info auth.UserInfo
+			ok   bool
+		)
+		if err := d.Read(ctx, func(tx *db.Tx) error {
+			var err error
+			info, ok, err = a.User(ctx, tx, u.ID)
+			return err
+		}); err != nil {
+			t.Fatalf("User(%d): %v", u.ID, err)
+		}
+		if !ok {
+			t.Errorf("User(%d) (%s) not found", u.ID, u.Email)
+			continue
+		}
+		if info.Email != u.Email || info.Name != u.Name || info.Enabled == u.Disabled {
+			t.Errorf("User(%d) = %+v, want %q %q disabled %v", u.ID, info, u.Email, u.Name, u.Disabled)
+		}
+		p, state, err := a.LoadPrincipal(ctx, u.ID)
+		if err != nil {
+			t.Fatalf("LoadPrincipal(%s): %v", u.Email, err)
+		}
+		if want := testkit.Principal(t, u.Email); !reflect.DeepEqual(p, want) {
+			t.Errorf("LoadPrincipal(%s) = %+v, testkit.Principal = %+v", u.Email, p, want)
+		}
+		if state.Email != u.Email || state.Enabled == u.Disabled {
+			t.Errorf("LoadPrincipal(%s) state = %+v, disabled %v", u.Email, state, u.Disabled)
+		}
+	}
+
+	// Each row, with a right held at two scopes kept at the wider one: AUTH
+	// stores one scope per role, DocType and right.
+	type row struct{ role, doctype string }
+	want := map[row]map[auth.Right]auth.Scope{}
+	for _, r := range fx.Rights {
+		k := row{r.Role, r.DocType}
+		if want[k] == nil {
+			want[k] = map[auth.Right]auth.Scope{}
+		}
+		for _, w := range r.Rights {
+			want[k][auth.Right(w)] = auth.Wider(want[k][auth.Right(w)], auth.Scope(r.Scope))
+		}
+	}
+	for k, rights := range want {
+		got, err := a.RoleRights(ctx, k.role, k.doctype)
+		if err != nil {
+			t.Fatalf("RoleRights(%s, %s): %v", k.role, k.doctype, err)
+		}
+		if !reflect.DeepEqual(got, rights) {
+			t.Errorf("RoleRights(%s, %s) = %v, want %v", k.role, k.doctype, got, rights)
+		}
+	}
+	claim, err := a.RoleRights(ctx, "Employee", "fixture.Claim")
+	if err != nil {
+		t.Fatalf("RoleRights(Employee, fixture.Claim): %v", err)
+	}
+	wantClaim := map[auth.Right]auth.Scope{
+		auth.RightRead: auth.ScopeTeam, auth.RightApprove: auth.ScopeTeam,
+		auth.RightCreate: auth.ScopeOwn, auth.RightWrite: auth.ScopeOwn, auth.RightSubmit: auth.ScopeOwn, auth.RightPrint: auth.ScopeOwn,
+	}
+	if !reflect.DeepEqual(claim, wantClaim) {
+		t.Errorf("Employee -> fixture.Claim = %v, want %v", claim, wantClaim)
+	}
+	admin, err := a.RoleRights(ctx, "Administrator", "*")
+	if err != nil {
+		t.Fatalf("RoleRights(Administrator, *): %v", err)
+	}
+	if len(admin) != len(auth.AllRights) {
+		t.Errorf("Administrator -> * = %v, want all %d rights", admin, len(auth.AllRights))
+	}
+	for r, s := range admin {
+		if s != auth.ScopeAll {
+			t.Errorf("Administrator -> * %s scope = %q, want all", r, s)
+		}
+	}
+
+	// AUTH caches the matrix by perm_version, so the rows must move it.
+	var after int64
+	if err := d.SQL().QueryRowContext(ctx, `SELECT perm_version FROM auth_meta`).Scan(&after); err != nil {
+		t.Fatalf("perm_version after Seed: %v", err)
+	}
+	if after <= before {
+		t.Errorf("perm_version = %d after Seed, was %d; want it bumped", after, before)
+	}
+
+	// CD-199 item 4: every employee links to the fixture user with that id.
+	for _, e := range fx.Employees {
+		var user int64
+		if err := d.SQL().QueryRowContext(ctx, `SELECT user_id FROM employee WHERE id = ?`, e.ID).Scan(&user); err != nil {
+			t.Fatalf("employee %s user_id: %v", e.Code, err)
+		}
+		if user != int64(e.UserID) {
+			t.Errorf("employee %s user_id = %d, want %d", e.Code, user, e.UserID)
+		}
 	}
 }

@@ -57,11 +57,6 @@ func nsNew(t *testing.T) *nsEnv {
 		t.Fatalf("SeedDefaults: %v", err)
 	}
 	for _, u := range h.F.Users {
-		h.Exec(t, `INSERT INTO users (id, email, name, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			int64(u.ID), u.Email, u.Name, !u.Disabled, "2026-10-24T05:00:00.000Z", "2026-10-24T05:00:00.000Z")
-		for _, role := range u.Roles {
-			h.Exec(t, `INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE name_key = lower(?)`, int64(u.ID), role)
-		}
 		got, _, err := a.LoadPrincipal(ctx, u.ID)
 		if err != nil || len(got.Roles) != len(u.Roles) {
 			t.Fatalf("user %s: LoadPrincipal = (%+v, %v), want roles %v", u.Email, got, err, u.Roles)

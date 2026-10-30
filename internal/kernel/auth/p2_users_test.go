@@ -191,7 +191,8 @@ func TestRoles_UniqueAndAdminFixed(t *testing.T) {
 	if n := t7Count(t, w, `SELECT COUNT(*) FROM roles WHERE id = ? AND name = 'Administrator' AND is_admin = 1`, adminRole); n != 1 {
 		t.Errorf("Administrator role row after refusals: %d rows, want 1 unchanged", n)
 	}
-	if n := t7Count(t, w, `SELECT COUNT(*) FROM role_rights WHERE role_id = ?`, adminRole); n != 0 {
+	// testkit.Seed stores the fixtures' Administrator "*" row; nothing else may exist.
+	if n := t7Count(t, w, `SELECT COUNT(*) FROM role_rights WHERE role_id = ? AND doctype <> '*'`, adminRole); n != 0 {
 		t.Errorf("role_rights rows for Administrator = %d, want 0", n)
 	}
 }
