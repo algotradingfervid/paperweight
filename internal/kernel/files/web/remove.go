@@ -19,7 +19,7 @@ func (h *handlers) remove(w http.ResponseWriter, r *http.Request) {
 	}
 	id, ok := parseID(chi.URLParam(r, "id"))
 	if !ok {
-		http.Error(w, files.MsgNotFound, http.StatusNotFound)
+		refuse(w, r, files.MsgNotFound, http.StatusNotFound)
 		return
 	}
 	err := h.cfg.DB.Write(r.Context(), func(tx *db.Tx) error {
@@ -29,5 +29,6 @@ func (h *handlers) remove(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	refresh(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }

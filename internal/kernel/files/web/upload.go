@@ -31,18 +31,18 @@ func (h *handlers) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	id, ok := parseID(chi.URLParam(r, "id"))
 	if !ok {
-		http.Error(w, files.MsgNotFound, http.StatusNotFound)
+		refuse(w, r, files.MsgNotFound, http.StatusNotFound)
 		return
 	}
 	limit := files.MaxFileBytes + MultipartOverhead
 	if r.ContentLength > limit {
-		http.Error(w, files.MsgTooLarge, http.StatusRequestEntityTooLarge)
+		refuse(w, r, files.MsgTooLarge, http.StatusRequestEntityTooLarge)
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	mr, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, msgNoFilePart, http.StatusUnprocessableEntity)
+		refuse(w, r, msgNoFilePart, http.StatusUnprocessableEntity)
 		return
 	}
 	part, err := nextFilePart(mr)
@@ -59,7 +59,7 @@ func (h *handlers) upload(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = f.Cleanup() }()
 	switch _, err := nextFilePart(mr); {
 	case err == nil:
-		http.Error(w, MsgTwoFileParts, http.StatusUnprocessableEntity)
+		refuse(w, r, MsgTwoFileParts, http.StatusUnprocessableEntity)
 		return
 	case !errors.Is(err, io.EOF):
 		h.badPart(w, r, err)
@@ -80,6 +80,7 @@ func (h *handlers) upload(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	refresh(w, r)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(uploaded{ID: m.ID, FileName: m.Name, Size: m.Size, ContentType: m.MIME})
@@ -106,5 +107,5 @@ func (h *handlers) badPart(w http.ResponseWriter, r *http.Request, err error) {
 		h.fail(w, r, err)
 		return
 	}
-	http.Error(w, msgNoFilePart, http.StatusUnprocessableEntity)
+	refuse(w, r, msgNoFilePart, http.StatusUnprocessableEntity)
 }

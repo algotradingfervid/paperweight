@@ -78,8 +78,8 @@ func (e errorHeaders) WriteHeader(code int) {
 var errNotSeeker = errors.New("files/web: blob reader does not seek")
 
 // notFound answers 404 "File not found.", also for paths no route matches.
-func notFound(w http.ResponseWriter, _ *http.Request) {
-	http.Error(w, files.MsgNotFound, http.StatusNotFound)
+func notFound(w http.ResponseWriter, r *http.Request) {
+	refuse(w, r, files.MsgNotFound, http.StatusNotFound)
 }
 
 // contentDisposition builds `{kind}; filename="{ascii}"`, where ascii replaces
