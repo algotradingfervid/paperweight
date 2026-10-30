@@ -6,8 +6,8 @@ import (
 )
 
 // checkBody is the check page after the step form: the approval preview,
-// one summary card per step, the total in figures and words, and More
-// actions (design-system §8.3).
+// one summary card per step, the Attachments card, the total in figures and
+// words, and More actions (design-system §8.3).
 templ checkBody(cv checkView) {
 	if cv.AmendedFrom != "" {
 		<p>
@@ -34,6 +34,9 @@ templ checkBody(cv checkView) {
 				<p>Nothing needed here</p>
 			}
 		}
+	}
+	if cv.Attach != nil {
+		@attachCard(*cv.Attach)
 	}
 	if cv.GrandTotal != "" {
 		<div>

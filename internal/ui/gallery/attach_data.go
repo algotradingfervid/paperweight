@@ -65,8 +65,3 @@ func withRemove(files []components.Attachment, removable bool) []components.Atta
 	}
 	return files
 }
-
-// removeDialogID is file a's remove confirm.
-func removeDialogID(a components.Attachment) string {
-	return "remove-file-" + strconv.FormatInt(a.ID, 10)
-}
