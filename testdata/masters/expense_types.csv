@@ -1,0 +1,7 @@
+Code,Name,Default HSN/SAC,Default tax code,Disabled
+TRAVEL,Travel,996411,GST5,No
+FOOD,Food,996331,GST5,No
+FUEL,Fuel,2710,GST18,No
+LODGING,Lodging,996311,GST12,No
+STATIONERY,Stationery,4820,GST18,No
+SITE-MISC,Site miscellaneous,,,No

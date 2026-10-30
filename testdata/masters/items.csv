@@ -1,0 +1,8 @@
+Code,Name,Type,UoM,HSN/SAC,Tax Code,Standard Rate,Disabled
+MS-ANGLE-50,MS Angle 50x50x5,Goods,KGS,7216,GST18,62.5,No
+TMT-BAR-12,TMT Bar 12 mm,Goods,TON,7214,GST18,58000,No
+CEMENT-53,OPC Cement 53 Grade,Goods,BAG,2523,GST28,385.50,No
+GI-PIPE-25,GI Pipe 25 mm,Goods,MTR,73063090,GST18,210,No
+CABLE-2.5,Copper Cable 2.5 sqmm,Goods,ROLL,8544,GST18,,No
+BRICK-RED,Red Clay Bricks,Goods,PKT,6904,GST6,850,No
+LABOUR-HR,Labour Charges,Service,HRS,998513,GST18,450,No

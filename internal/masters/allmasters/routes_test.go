@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
@@ -55,17 +56,20 @@ func TestServices_RoutesMountTheImportWizard(t *testing.T) {
 	}
 }
 
-// Routes registers the real importers (CD-210), so the wizard's check step
-// runs a real master's RowFunc instead of the no-importer banner. Tasks 20 and
-// 21 aren't in yet: their stub refuses with a 500, and Task 21 turns this into
-// a clean file importing a real UoM.
+// Routes registers the real importers (CD-210), so a clean file goes through
+// the wizard's steps as a browser sends them and ends as a stored UoM with
+// csvio's audit entry. The row says Yes for Whole Number because No is also
+// what a dropped mapping stores.
 func TestServices_RoutesReachARealImporter(t *testing.T) {
+	var svc *allmasters.Services
 	h := webtest.NewSessions(t, func(k mstkit.Env, sm *scs.SessionManager) func(chi.Router) {
-		return func(r chi.Router) { allmasters.New(k).Routes(r, allmasters.WebDeps{Sessions: sm}) }
+		svc = allmasters.New(k)
+		return func(r chi.Router) { svc.Routes(r, allmasters.WebDeps{Sessions: sm}) }
 	})
 	kavya := h.Env.Kavya
 	var cookies []*http.Cookie
-	send := func(req *http.Request) *httptest.ResponseRecorder {
+	send := func(req *http.Request) webtest.Response {
+		t.Helper()
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
@@ -74,14 +78,20 @@ func TestServices_RoutesReachARealImporter(t *testing.T) {
 		if set := (&http.Response{Header: rec.Header()}).Cookies(); len(set) > 0 {
 			cookies = set
 		}
-		return rec
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(rec.Body.String()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return webtest.Response{Status: rec.Code, Location: rec.Header().Get("Location"), Header: rec.Header(), Body: rec.Body.String(), Doc: doc}
+	}
+	post := func(target string, form url.Values) webtest.Response {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return send(req)
 	}
 
-	choose := httptest.NewRequest(http.MethodPost, "/m/import/choose", strings.NewReader(url.Values{"doctype": {uom.DocType}}.Encode()))
-	choose.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if rec := send(choose); rec.Code != http.StatusSeeOther {
-		t.Fatalf("choose = %d; want 303", rec.Code)
-	}
+	webtest.WantRedirect(t, post("/m/import/choose", url.Values{"doctype": {uom.DocType}}), "/m/import/upload")
 
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
@@ -89,7 +99,7 @@ func TestServices_RoutesReachARealImporter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := part.Write([]byte("Code,Name,Whole Number,UQC,Disabled\r\nZED,Zed,No,NOS,No\r\n")); err != nil {
+	if _, err := part.Write([]byte("Code,Name,Whole Number,UQC,Disabled\r\nZED,Zed,Yes,NOS,No\r\n")); err != nil {
 		t.Fatal(err)
 	}
 	if err := mw.Close(); err != nil {
@@ -97,16 +107,42 @@ func TestServices_RoutesReachARealImporter(t *testing.T) {
 	}
 	upload := httptest.NewRequest(http.MethodPost, "/m/import/upload", &body)
 	upload.Header.Set("Content-Type", mw.FormDataContentType())
-	if rec := send(upload); rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/m/import/check" {
-		t.Fatalf("upload = %d to %q; want 303 to the check step", rec.Code, rec.Header().Get("Location"))
-	}
+	webtest.WantRedirect(t, send(upload), "/m/import/check")
 
-	rec := send(httptest.NewRequest(http.MethodGet, "/m/import/check", nil))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("check = %d; want 500 from the UoM stub", rec.Code)
+	check := send(httptest.NewRequest(http.MethodGet, "/m/import/check", nil))
+	webtest.WantStatus(t, check, http.StatusOK)
+	webtest.WantNoText(t, check, "Import isn't ready")
+	webtest.WantBanner(t, check, "1 row is ready, 0 rows have errors")
+
+	webtest.WantRedirect(t, post("/m/import/check", url.Values{}), "/m/import/import")
+	page := send(httptest.NewRequest(http.MethodGet, "/m/import/import", nil))
+	webtest.WantStatus(t, page, http.StatusOK)
+	form := page.Doc.Find(`form[action="/m/import/import"]`)
+	if got := webtest.Squash(form.Find(`button.btn--primary`).Text()); got != "Import 1 UoM" {
+		t.Fatalf("the import form's primary button = %q; want %q\ntext: %s", got, "Import 1 UoM", page.Text())
 	}
-	if strings.Contains(rec.Body.String(), "Import isn't ready") {
-		t.Error("check shows the no-importer banner; Routes didn't register the importers")
+	fields := url.Values{}
+	form.Find(`input[type="hidden"]`).Each(func(_ int, s *goquery.Selection) {
+		name, _ := s.Attr("name")
+		value, _ := s.Attr("value")
+		fields.Add(name, value)
+	})
+
+	webtest.WantRedirect(t, post("/m/import/import", fields), "/m/import/choose")
+	webtest.WantBanner(t, send(httptest.NewRequest(http.MethodGet, "/m/import/choose", nil)), "Imported 1 UoMs.")
+
+	zed := othersGet(t, h.Env, svc.UoM.ByCode, "ZED")
+	if zed.Name != "Zed" || !zed.WholeNumber || zed.UQC != "NOS" {
+		t.Errorf("ZED = %+v; want Name Zed, WholeNumber true, UQC NOS as in the file", zed)
+	}
+	var creates []string
+	for _, e := range auditEntries(t, h.Env, uom.DocType, zed.ID) {
+		if e.Action == "create" {
+			creates = append(creates, e.Reason)
+		}
+	}
+	if len(creates) != 1 || creates[0] != "created by import" {
+		t.Errorf("create entries' reasons = %q; want exactly one, %q", creates, "created by import")
 	}
 }
 

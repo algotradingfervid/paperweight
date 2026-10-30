@@ -1,0 +1,7 @@
+Code,Name,Treatment,Rate,Disabled
+GST0.1,GST 0.1%,Taxable,0.1,No
+GST1,GST 1%,Taxable,1,No
+GST1.5,GST 1.5%,Taxable,1.5,No
+GST6,GST 6%,Taxable,6,No
+GST7.5,GST 7.5%,Taxable,7.5,No
+ZERO,Zero-Rated,Zero-Rated,,No

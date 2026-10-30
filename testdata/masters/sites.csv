@@ -1,0 +1,5 @@
+Code,Name,Branch,Type,Project,Disabled
+PUNE-WH,Pune Central Warehouse,PUNE,Warehouse,,No
+BLR-WH,Bengaluru Warehouse,BLR,Warehouse,,No
+METRO-SITE,Metro Depot Site,PUNE,Site,PRJ-METRO,No
+TECH-SITE,Tech Park Site,BLR,Site,PRJ-TECHPARK,No

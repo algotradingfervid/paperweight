@@ -7,11 +7,7 @@ import (
 	"errors"
 	"maps"
 	"slices"
-	"strings"
 	"testing"
-
-	"github.com/alexedwards/scs/v2"
-	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/csvio"
@@ -62,27 +58,6 @@ func TestRegisterImporters_AllTenAndRepeatable(t *testing.T) {
 			}()
 			csvio.RegisterImporter(name, nil)
 		}()
-	}
-}
-
-// Routes makes its own Services the importers' (CD-210), so WP3 has nothing
-// to call.
-func TestRoutes_RegistersImporters(t *testing.T) {
-	s := New(msttest.New(t).Kit)
-	s.Routes(chi.NewRouter(), WebDeps{Sessions: scs.New()})
-	if got := importServices.Load(); got != s {
-		t.Errorf("importers use services %p; want %p", got, s)
-	}
-}
-
-// Tasks 20 and 21 take a DocType off this list as its RowFunc is built.
-func TestImporters_StubsSayNotImplemented(t *testing.T) {
-	all := allImporters()
-	for _, name := range importedMasters {
-		_, _, err := all[name](nil, context.Background(), nil, auth.Principal{}, nil)
-		if err == nil || !strings.Contains(err.Error(), "not implemented") {
-			t.Errorf("%s: err = %v, want not implemented", name, err)
-		}
 	}
 }
 

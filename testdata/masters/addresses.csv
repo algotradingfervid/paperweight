@@ -1,0 +1,6 @@
+Party,Title,Line 1,Line 2,City,State,Country,Pincode,GSTIN,Billing,Shipping,Disabled
+VEND-STEEL,Mumbai Office,12 Steel Market,Masjid Bunder,Mumbai,Maharashtra,India,400001,27AABCS1429B1ZU,Yes,No,No
+VEND-STEEL,Thane Godown,4 Wagle Estate,,Thane,27,India,400601,27AABCS1429B2ZT,No,Yes,No
+VEND-LOCAL,Pune Shop,8 Market Yard,,Pune,maharashtra,India,411001,,Yes,Yes,No
+VEND-OVERSEAS,Singapore Office,20 Harbour Drive,,Singapore,,Singapore,018956,,Yes,No,No
+CUST-SAMPLE,Chennai Office,7 Anna Salai,,Chennai,Tamil Nadu,India,600001,33AAACT2727Q1Z3,Yes,Yes,No

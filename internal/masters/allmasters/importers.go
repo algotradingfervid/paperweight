@@ -75,6 +75,14 @@ func cellOption(cell string, options []string) string {
 	return cell
 }
 
+// cellSelect reads a Select cell against the Options of docType's field; see
+// cellOption.
+func cellSelect(docType, field, cell string) string {
+	dt, _ := doctype.Lookup(docType)
+	f, _ := dt.Field(field)
+	return cellOption(cell, f.Options)
+}
+
 // cellInt64 reads a Link cell: the id csvio resolved, in decimal, or "" for
 // none (0).
 func cellInt64(cell string) (int64, error) {
@@ -88,6 +96,20 @@ func cellInt64(cell string) (int64, error) {
 	return id, nil
 }
 
+// cellValue reads a cell with csvio's parser for its type, "" being the zero
+// value. csvio has already refused a cell that doesn't parse.
+func cellValue[T any](cell string, parse func(string) (T, error)) (T, error) {
+	var zero T
+	if cell == "" {
+		return zero, nil
+	}
+	v, err := parse(cell)
+	if err != nil {
+		return zero, fmt.Errorf("allmasters: cell %q: %w", cell, err)
+	}
+	return v, nil
+}
+
 // applyDisabled disables the row just created when its Disabled cell is true.
 // No Input carries disabled. set is the master's SetDisabledTx.
 func applyDisabled(ctx context.Context, tx *db.Tx, p auth.Principal, saved mstkit.Saved, row map[string]string,
@@ -96,4 +118,23 @@ func applyDisabled(ctx context.Context, tx *db.Tx, p auth.Principal, saved mstki
 		return nil
 	}
 	return set(ctx, tx, p, saved.ID, saved.Version, true)
+}
+
+// rowResult ends a RowFunc on the master's create: it applies the Disabled cell
+// to the saved row and returns the id, or the row's field errors.
+func rowResult(ctx context.Context, tx *db.Tx, p auth.Principal, row map[string]string, saved mstkit.Saved, err error,
+	set func(context.Context, *db.Tx, auth.Principal, int64, int, bool) error) (int64, []doctype.FieldError, error) {
+	if err == nil {
+		err = applyDisabled(ctx, tx, p, saved, row, set)
+	}
+	return savedRow(saved, err)
+}
+
+// savedRow is a RowFunc's return for a row saved with err.
+func savedRow(saved mstkit.Saved, err error) (int64, []doctype.FieldError, error) {
+	if err != nil {
+		errs, err := fieldErrors(err)
+		return 0, errs, err
+	}
+	return saved.ID, nil, nil
 }
