@@ -118,3 +118,23 @@ Expected: prints `integrity ok` and `approvals 200/200`.
 Run: `make ci && make e2e && go run ./scripts/checktestids`
 Expected: all green; checker exits 0.
 - [ ] **Step 5: Commit and tag.** `git commit -m "chore: release build, deployment files and restore drill"` then `git tag core-v1`.
+
+## Added by CD-198 (30 Oct audit)
+
+Task 2 (composition root) also does:
+- `app.Config` gains `Secure` and `TrustProxy` and passes them to `authweb.Config`; a test proves a client IP behind the proxy and the Secure cookie flag.
+- Runs `auth.SeedDefaults` before serving, with `Config.Seed` (CD-158, CD-171), and sets `PickerURL` (CD-194), `LogoURL` (CD-154) and `LogoPolicy`.
+- Fills `ui.Shell` navigation and the inbox count, and sets Shell CSRF from `authweb.CSRFToken`.
+- Owns the signed-in `/` route, where `SafeNext` and the header brand link land.
+- Routes `/doc/{DocType}/export.csv`, which docscreen already links to.
+- Calls `company.SetupTx` from first-run setup with CD-165's fields.
+- Adds `app admin create` before the site opens, and an admin password reset command, so a sole admin who forgets a password can recover without SQL.
+- `/healthz` reads the database. Logs are JSON to stdout (spec §7). HSTS is set.
+- Deletes the empty `TestContracts_StubsReturnNotImplemented` (CD-154).
+
+Task 6 (release) also does:
+- Adds the hourly `files/` sync timer (CD-141) to `deploy/`.
+- Sets Litestream retention explicitly; the value is the owner's recovery target.
+- The restore drill covers `app.db` and `files/` and compares checksums (spec §10.4).
+- The 200-approvals drill runs on an e2e-tag build, because the release binary has no fixture DocTypes.
+- Adds a pre-upgrade backup and a rollback step to `docs/operations.md`.

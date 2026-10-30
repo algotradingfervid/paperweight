@@ -132,6 +132,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Generated-file rebase conflicts (`**/dbq/`, `*_templ.go`, `internal/ui/static/*`, `assets_gen.go`): take either side, `make generate`, commit, `make ci`. Any other conflicting file: stop and look.
 - Lanes: parallel tasks in one Go package get their own worktree; keep it until its review passes (removing it loses the worker's transcript). Tests for a package that doesn't exist yet are committed in the lane, never on the WP branch.
 - Every worktree lives in `.worktrees/<name>` inside the repo (gitignored), never beside it: `git worktree add .worktrees/<wp> -b wp/<wp> main`, then `ln -s ../../bin .worktrees/<wp>/bin` for the shared tools. Move one with `git worktree move`; a relative `bin` link then needs repointing.
+- A decision that gives WP2 or WP3 work is copied into that plan the same day: CD-141, 154, 165, 171 and 178 stayed only in the log and the work had no owner until the 30 Oct audit.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
