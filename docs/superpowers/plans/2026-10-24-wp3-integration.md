@@ -79,7 +79,7 @@ Expected: PASS for both. Any fake failure is fixed in the fake; any real failure
 - [ ] **Step 3: Move Wave 1 area templates onto UI components (CD-49, CD-91).** For each area screen package (`approval/web`, `files/web`, `print/web`, `naming/web`, and any other `internal/kernel/*/web` that still renders its own markup), replace hand-written layout, tables, buttons, form fields and alerts with the `internal/ui` components; behaviour and copy stay the same. Add `TestScreens_UseUIComponents` in `internal/app`: using `go/build`, every `internal/kernel/*/web` package (and subpackage) that has `.templ` files imports `internal/ui` or one of its subpackages, and a scan of those `.templ` files finds no raw `<table`, `<button`, `<input` or `role="alert"` markup (the UI components supply them). Each failure names the file and line. Run `go test ./internal/app/ -run UseUIComponents` → FAIL before, PASS after; `make generate` leaves no diff.
 - [ ] **Step 4:** Run `go run ./scripts/checktestids` (strict mode).
 Expected: every P1 in `docs/tests/core/README.md` (556) implemented, no `ERROR` lines, and exit 0. Any MISSING line is assigned back to its owning WP.
-- [ ] **Step 5:** Run `make test` with `-count=3 -race`.
+- [ ] **Step 5:** Run `make test` with `-count=3 -race`, and `-timeout 40m`: three race passes on one machine exceed Go's 10-minute default (CD-250).
 Expected: PASS three times (flushes order-dependent tests).
 - [ ] **Step 6: Commit.** `git commit -m "test: seed users through AUTH, move area screens onto UI components, run integration tests against real services"`
 
