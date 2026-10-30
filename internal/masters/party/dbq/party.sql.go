@@ -167,6 +167,75 @@ func (q *Queries) InsertParty(ctx context.Context, arg InsertPartyParams) (int64
 	return id, err
 }
 
+const otherPartiesNamed = `-- name: OtherPartiesNamed :many
+SELECT code, name FROM party WHERE lower(name) = lower(?1) AND id <> ?2 ORDER BY code
+`
+
+type OtherPartiesNamedParams struct {
+	Name string
+	ID   int64
+}
+
+type OtherPartiesNamedRow struct {
+	Code string
+	Name string
+}
+
+func (q *Queries) OtherPartiesNamed(ctx context.Context, arg OtherPartiesNamedParams) ([]OtherPartiesNamedRow, error) {
+	rows, err := q.db.QueryContext(ctx, otherPartiesNamed, arg.Name, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OtherPartiesNamedRow
+	for rows.Next() {
+		var i OtherPartiesNamedRow
+		if err := rows.Scan(&i.Code, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const otherPartiesWithPAN = `-- name: OtherPartiesWithPAN :many
+SELECT code FROM party WHERE pan = ? AND id <> ? ORDER BY code
+`
+
+type OtherPartiesWithPANParams struct {
+	Pan string
+	ID  int64
+}
+
+func (q *Queries) OtherPartiesWithPAN(ctx context.Context, arg OtherPartiesWithPANParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, otherPartiesWithPAN, arg.Pan, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		items = append(items, code)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const partyAddressesGST = `-- name: PartyAddressesGST :many
 SELECT country, gstin, is_primary_billing, is_primary_shipping, disabled FROM address WHERE party_id = ? ORDER BY id
 `
@@ -222,6 +291,33 @@ func (q *Queries) PrimaryBillingAddress(ctx context.Context, partyID sql.NullInt
 	var i PrimaryBillingAddressRow
 	err := row.Scan(&i.Gstin, &i.Country)
 	return i, err
+}
+
+const projectsOfCustomer = `-- name: ProjectsOfCustomer :many
+SELECT code FROM project WHERE customer_id = ? ORDER BY code
+`
+
+func (q *Queries) ProjectsOfCustomer(ctx context.Context, customerID sql.NullInt64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, projectsOfCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		items = append(items, code)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updatePANAndCategory = `-- name: UpdatePANAndCategory :exec

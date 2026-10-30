@@ -10,6 +10,33 @@ import (
 	"database/sql"
 )
 
+const branchGSTINs = `-- name: BranchGSTINs :many
+SELECT gstin FROM branch WHERE gstin <> '' GROUP BY gstin ORDER BY min(code)
+`
+
+func (q *Queries) BranchGSTINs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, branchGSTINs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var gstin string
+		if err := rows.Scan(&gstin); err != nil {
+			return nil, err
+		}
+		items = append(items, gstin)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const branchIDByCode = `-- name: BranchIDByCode :one
 SELECT id FROM branch WHERE code = ?
 `
@@ -35,6 +62,22 @@ type ClearHeadOfficeParams struct {
 func (q *Queries) ClearHeadOffice(ctx context.Context, arg ClearHeadOfficeParams) error {
 	_, err := q.db.ExecContext(ctx, clearHeadOffice, arg.UpdatedAt, arg.UpdatedBy, arg.ID)
 	return err
+}
+
+const countBranchAddressesOutOfState = `-- name: CountBranchAddressesOutOfState :one
+SELECT count(*) FROM address WHERE branch_id = ? AND coalesce(state_code, '') <> ?2
+`
+
+type CountBranchAddressesOutOfStateParams struct {
+	BranchID  sql.NullInt64
+	StateCode sql.NullString
+}
+
+func (q *Queries) CountBranchAddressesOutOfState(ctx context.Context, arg CountBranchAddressesOutOfStateParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countBranchAddressesOutOfState, arg.BranchID, arg.StateCode)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const countOtherEnabledBranches = `-- name: CountOtherEnabledBranches :one

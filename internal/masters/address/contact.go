@@ -144,8 +144,9 @@ func NormalizeMobile(s string) (string, error) {
 }
 
 // ValidateContact normalises in and checks the rules that need no database:
-// one owner, a first name, email and mobile formats, and at most one primary
-// email and one primary phone. Phone entries with a blank number are dropped.
+// one owner, a first name, email and mobile formats, and exactly one primary
+// email and one primary phone (the first when none is marked, MST-065). Phone
+// entries with a blank number are dropped.
 func ValidateContact(in ContactInput) (ContactInput, error) {
 	var es mstkit.Errors
 	if (in.PartyID == 0) == (in.BranchID == 0) {
@@ -169,6 +170,9 @@ func ValidateContact(in ContactInput) (ContactInput, error) {
 	if primaries > 1 {
 		es.Add("emails", msgOneEmail)
 	}
+	if primaries == 0 && len(emails) > 0 {
+		emails[0].Primary = true // MST-065
+	}
 	var phones []PhoneInput
 	primaries = 0
 	for _, ph := range in.Phones {
@@ -189,6 +193,9 @@ func ValidateContact(in ContactInput) (ContactInput, error) {
 	}
 	if primaries > 1 {
 		es.Add("phones", msgOnePhone)
+	}
+	if primaries == 0 && len(phones) > 0 {
+		phones[0].Primary = true // MST-065
 	}
 	if err := es.Err(); err != nil {
 		return ContactInput{}, err

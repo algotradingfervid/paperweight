@@ -34,5 +34,14 @@ SELECT gstin FROM address WHERE party_id = ? AND gstin <> '' ORDER BY id;
 -- name: PrimaryBillingAddress :one
 SELECT gstin, country FROM address WHERE party_id = ? AND is_primary_billing = 1;
 
+-- name: OtherPartiesNamed :many
+SELECT code, name FROM party WHERE lower(name) = lower(sqlc.arg(name)) AND id <> sqlc.arg(id) ORDER BY code;
+
+-- name: OtherPartiesWithPAN :many
+SELECT code FROM party WHERE pan = ? AND id <> ? ORDER BY code;
+
+-- name: ProjectsOfCustomer :many
+SELECT code FROM project WHERE customer_id = ? ORDER BY code;
+
 -- name: PartyAddressesGST :many
 SELECT country, gstin, is_primary_billing, is_primary_shipping, disabled FROM address WHERE party_id = ? ORDER BY id;

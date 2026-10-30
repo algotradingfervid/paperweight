@@ -184,6 +184,9 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 			return mstkit.Saved{}, err
 		}
 	}
+	if err := s.checkTerms(ctx, tx, in.DefaultPaymentTermsID); err != nil {
+		return mstkit.Saved{}, err
+	}
 	if err := mstkit.CheckCodeFree(ctx, tx, Kind, in.Code, 0); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -202,7 +205,11 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err := s.CheckGST(ctx, tx, id, "gst_category"); err != nil {
 		return mstkit.Saved{}, err
 	}
-	return mstkit.Saved{ID: id, Version: 1}, nil
+	warnings, err := s.saveWarnings(ctx, tx, id, in, Party{})
+	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	return mstkit.Saved{ID: id, Version: 1, Warnings: warnings}, nil
 }
 
 // Update replaces the party's fields.
@@ -229,6 +236,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	if err := s.checkTerms(ctx, tx, in.DefaultPaymentTermsID); err != nil {
+		return mstkit.Saved{}, err
+	}
 	if in, err = s.fromAddresses(ctx, tx, id, in, old.GSTCategory); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -239,6 +249,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return mstkit.Saved{}, err
 	}
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
+		return mstkit.Saved{}, err
+	}
+	if err := s.checkRolesInUse(ctx, tx, old, in); err != nil {
 		return mstkit.Saved{}, err
 	}
 	before, after := auditFields(old), auditFields(fromInput(in))
@@ -269,7 +282,11 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	if err := s.CheckGST(ctx, tx, id, "gst_category"); err != nil {
 		return mstkit.Saved{}, err
 	}
-	return mstkit.Saved{ID: id, Version: old.Version + 1}, nil
+	warnings, err := s.saveWarnings(ctx, tx, id, in, old)
+	if err != nil {
+		return mstkit.Saved{}, err
+	}
+	return mstkit.Saved{ID: id, Version: old.Version + 1, Warnings: warnings}, nil
 }
 
 // SetDisabled disables or enables the party.

@@ -37,3 +37,9 @@ SELECT count(*) FROM branch WHERE disabled = 0 AND id <> ?;
 
 -- name: EnabledSiteCodes :many
 SELECT code FROM site WHERE branch_id = ? AND disabled = 0 ORDER BY code;
+
+-- name: BranchGSTINs :many
+SELECT gstin FROM branch WHERE gstin <> '' GROUP BY gstin ORDER BY min(code);
+
+-- name: CountBranchAddressesOutOfState :one
+SELECT count(*) FROM address WHERE branch_id = ? AND coalesce(state_code, '') <> sqlc.arg(state_code);

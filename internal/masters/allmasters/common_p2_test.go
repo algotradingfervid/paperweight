@@ -346,9 +346,11 @@ func (c saveTarget[I]) run(env *msttest.Env) func(*testing.T) {
 
 func untidyCode(code *string) { *code = " " + strings.ToLower(*code) + " " }
 
-func companyTarget(env *msttest.Env, svc *allmasters.Services) func(*testing.T) {
+// companyTarget runs with no branch GSTIN left, so the PAN can change
+// (MST-023).
+func companyTarget(env *msttest.Env, m msttest.Masters, svc *allmasters.Services) func(*testing.T) {
 	const id = 1
-	return saveTarget[company.CompanyInput]{
+	run := saveTarget[company.CompanyInput]{
 		table: "company", docType: company.CompanyDocType, id: id,
 		load: func(ctx context.Context, tx *db.Tx) (company.CompanyInput, error) {
 			c, _, err := svc.Company.Company(ctx, tx)
@@ -372,13 +374,38 @@ func companyTarget(env *msttest.Env, svc *allmasters.Services) func(*testing.T) 
 			{"pan", func(in *company.CompanyInput) { in.PAN = "AAFCV2449H" }},
 		},
 	}.run(env)
+	return func(t *testing.T) {
+		ctx := context.Background()
+		for _, code := range []string{"PUNE", "BLR"} {
+			var b company.Branch
+			read(t, env, func(ctx context.Context, tx *db.Tx) error {
+				var err error
+				b, err = svc.Company.Get(ctx, tx, m.Branches[code])
+				return err
+			})
+			if _, err := svc.Company.Update(ctx, env.Kavya, b.ID, b.Version, company.BranchInput{
+				Code: b.Code, Name: b.Name, StateCode: b.StateCode, IsHeadOffice: b.IsHeadOffice,
+			}); err != nil {
+				t.Fatalf("clear %s GSTIN: %v", code, err)
+			}
+		}
+		run(t)
+	}
 }
 
-func branchTarget(env *msttest.Env, m msttest.Masters, svc *allmasters.Services) func(*testing.T) {
+// branchTarget is a new head office with no addresses, so its state can change
+// (MST-029).
+func branchTarget(t *testing.T, env *msttest.Env, svc *allmasters.Services) func(*testing.T) {
+	saved, err := svc.Company.Create(context.Background(), env.Kavya, company.BranchInput{
+		Code: "NASHIK", Name: "Nashik Works", StateCode: env.Fx.Branches[0].StateCode, GSTIN: env.Fx.Branches[0].GSTIN, IsHeadOffice: true,
+	})
+	if err != nil {
+		t.Fatalf("create branch: %v", err)
+	}
 	return saveTarget[company.BranchInput]{
-		table: "branch", docType: company.DocType, id: m.Branches["PUNE"],
+		table: "branch", docType: company.DocType, id: saved.ID,
 		load: func(ctx context.Context, tx *db.Tx) (company.BranchInput, error) {
-			b, err := svc.Company.Get(ctx, tx, m.Branches["PUNE"])
+			b, err := svc.Company.Get(ctx, tx, saved.ID)
 			return company.BranchInput{Code: b.Code, Name: b.Name, StateCode: b.StateCode, GSTIN: b.GSTIN, IsHeadOffice: b.IsHeadOffice}, err
 		},
 		update: svc.Company.Update,
@@ -388,8 +415,8 @@ func branchTarget(env *msttest.Env, m msttest.Masters, svc *allmasters.Services)
 			in.GSTIN = strings.ToLower(in.GSTIN)
 		},
 		edits: []edit[company.BranchInput]{
-			{"code", func(in *company.BranchInput) { in.Code = "PUNE-1" }},
-			{"name", func(in *company.BranchInput) { in.Name = "Pune Plant" }},
+			{"code", func(in *company.BranchInput) { in.Code = "NASHIK-1" }},
+			{"name", func(in *company.BranchInput) { in.Name = "Nashik Plant" }},
 			{"gstin", func(in *company.BranchInput) { in.GSTIN = "" }},
 			{"state_code", func(in *company.BranchInput) { in.StateCode = "29" }},
 			{"is_head_office", func(in *company.BranchInput) { in.IsHeadOffice = false }},
@@ -464,11 +491,16 @@ func addressLoad(svc *allmasters.Services, id int64) func(context.Context, *db.T
 	}
 }
 
-// addressTarget is a second billing address of a new branch, so it isn't
-// primary yet and no party rule stands in the way of the edits.
-func addressTarget(t *testing.T, env *msttest.Env, svc *allmasters.Services, branchID int64) func(*testing.T) {
+// addressTarget is a second billing address of a new Overseas party: it isn't
+// primary yet, it may lose billing and go abroad, and a GSTIN that fits the
+// category needs a country outside India, so the gstin edit comes last.
+func addressTarget(t *testing.T, env *msttest.Env, svc *allmasters.Services) func(*testing.T) {
 	ctx := context.Background()
-	in := address.Input{BranchID: branchID, Title: "Office", Line1: "1 Main Road", City: "Hyderabad", StateCode: "36", Pincode: "500001", IsBilling: true}
+	owner, err := svc.Party.Create(ctx, env.Kavya, party.Input{Code: "SG-SUPPLY", Name: "Singapore Supply Pte", IsVendor: true, GSTCategory: gstin.Overseas})
+	if err != nil {
+		t.Fatalf("create party: %v", err)
+	}
+	in := address.Input{PartyID: owner.ID, Title: "Office", Line1: "1 Main Road", City: "Hyderabad", StateCode: "36", Pincode: "500001", IsBilling: true}
 	if _, err := svc.Address.Create(ctx, env.Kavya, in); err != nil {
 		t.Fatalf("create first address: %v", err)
 	}
@@ -488,15 +520,13 @@ func addressTarget(t *testing.T, env *msttest.Env, svc *allmasters.Services, bra
 			{"line2", func(in *address.Input) { in.Line2 = "Near the gate" }},
 			{"city", func(in *address.Input) { in.City = "Secunderabad" }},
 			{"pincode", func(in *address.Input) { in.Pincode = "500003" }},
-			{"gstin", func(in *address.Input) {
-				in.GSTIN, in.StateCode = env.Fx.Branches[1].GSTIN, env.Fx.Branches[1].StateCode
-			}},
-			{"state_code", func(in *address.Input) { in.GSTIN, in.StateCode = "", "36" }},
+			{"state_code", func(in *address.Input) { in.StateCode, in.Pincode = "27", "411001" }},
 			{"is_shipping", func(in *address.Input) { in.IsShipping = true }},
 			{"is_primary_billing", func(in *address.Input) { in.PrimaryBilling = true }},
 			{"is_primary_shipping", func(in *address.Input) { in.IsShipping, in.PrimaryShipping = false, false }},
 			{"is_billing", func(in *address.Input) { in.IsBilling, in.PrimaryBilling, in.IsShipping = false, false, true }},
-			{"country", func(in *address.Input) { in.Country, in.StateCode = "Singapore", "" }},
+			{"country", func(in *address.Input) { in.Country, in.StateCode, in.Pincode = "Singapore", "", "118524" }},
+			{"gstin", func(in *address.Input) { in.GSTIN = "9917SGP29001OST" }},
 		},
 	}.run(env)
 }
@@ -783,10 +813,10 @@ func TestMaster_NoOpSave(t *testing.T) {
 		name string
 		run  func(*testing.T)
 	}{
-		{"Branch", branchTarget(env, m, svc)},
+		{"Branch", branchTarget(t, env, svc)},
 		{"Payment Terms", termsTarget(t, env, svc)},
 		{"Party", partyTarget(t, env, svc, terms.ID)},
-		{"Address", addressTarget(t, env, svc, branch.ID)},
+		{"Address", addressTarget(t, env, svc)},
 		{"Contact", contactTarget(t, env, svc, branch.ID)},
 		{"UoM", uomTarget(t, env, svc)},
 		{"Tax Code", taxTarget(t, env, svc)},
@@ -795,7 +825,7 @@ func TestMaster_NoOpSave(t *testing.T) {
 		{"Project", projectTarget(t, env, m, svc)},
 		{"Site", siteTarget(t, env, m, svc)},
 		{"Employee", employeeTarget(t, env, m, svc)},
-		{"Company", companyTarget(env, svc)}, // last: its PAN edit stops fitting the branch GSTINs
+		{"Company", companyTarget(env, m, svc)}, // last: it clears the branch GSTINs for its PAN edit
 	} {
 		t.Run(c.name, c.run)
 	}
