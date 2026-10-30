@@ -24,6 +24,14 @@ func (t3Master) Lookup(context.Context, *db.Tx, int64) (doctype.MasterInfo, bool
 	return doctype.MasterInfo{}, false, nil
 }
 
+// t3Register registers dt unless an earlier run of the same test in this
+// process did: the registry is global and panics on a repeat (-count=2).
+func t3Register(dt doctype.DocType) {
+	if _, ok := doctype.Lookup(dt.Name); !ok {
+		doctype.Register(dt)
+	}
+}
+
 // t3Auth builds an Auth over a fresh migrated database with a fixed clock and
 // an audit recorder.
 func t3Auth(t *testing.T) (*auth.Auth, *db.DB, *clock.Fixed, *auditfake.Recorder) {
@@ -227,11 +235,11 @@ func TestMatrix_TeamOnlyWithEmployeeField(t *testing.T) {
 	}
 
 	// Through SetRights: the save fails and nothing changes.
-	doctype.Register(doctype.DocType{
+	t3Register(doctype.DocType{
 		Name: "t3.TeamPO", Label: "Purchase Order", PluralLabel: "Purchase Orders",
 		Submittable: true, Approvable: true,
 	})
-	doctype.Register(doctype.DocType{
+	t3Register(doctype.DocType{
 		Name: "t3.TeamClaim", Label: "Expense Claim", PluralLabel: "Expense Claims",
 		Submittable: true, Approvable: true, EmployeeField: "employee_id",
 	})
@@ -259,7 +267,7 @@ func TestMatrix_TeamOnlyWithEmployeeField(t *testing.T) {
 func TestMatrix_SeedDefaultsIdempotentAndCacheBumps(t *testing.T) {
 	const dtName = "t3.Seed"
 	const newRole = "t3 Seed Clerk"
-	doctype.Register(doctype.DocType{
+	t3Register(doctype.DocType{
 		Name: dtName, Label: "Seed Order", PluralLabel: "Seed Orders",
 		Submittable: true, Approvable: true,
 		DefaultRights: map[string]map[string]string{
@@ -346,11 +354,12 @@ func TestMatrix_SeedDefaultsIdempotentAndCacheBumps(t *testing.T) {
 	}
 
 	// An unknown scope string in DefaultRights is an error naming the DocType and role.
-	doctype.Register(doctype.DocType{
+	t3Register(doctype.DocType{
 		Name: "t3.BadScope", Label: "Bad Scope",
 		DefaultRights: map[string]map[string]string{"t3 Bad Role": {"read": "some"}},
 	})
 	bad, _ := doctype.Lookup("t3.BadScope")
+	bad.DefaultRights = map[string]map[string]string{"t3 Bad Role": {"read": "some"}} // a repeat run finds it neutralised
 	// The registry is global: neutralise the bad row so later SeedDefaults calls work.
 	t.Cleanup(func() { bad.DefaultRights = nil })
 	a2, _, _, _ := t3Auth(t)
@@ -365,10 +374,10 @@ func TestMatrix_SeedDefaultsIdempotentAndCacheBumps(t *testing.T) {
 }
 
 func TestMatrix_LinkedMasterReadInProduction(t *testing.T) {
-	doctype.Register(doctype.DocType{Name: "t3.Site", Label: "Site", PluralLabel: "Sites", Master: t3Master{}})
-	doctype.Register(doctype.DocType{Name: "t3.LParty", Label: "Party", PluralLabel: "Parties", Master: t3Master{}})
-	doctype.Register(doctype.DocType{Name: "t3.LOther", Label: "Other", PluralLabel: "Others"})
-	doctype.Register(doctype.DocType{
+	t3Register(doctype.DocType{Name: "t3.Site", Label: "Site", PluralLabel: "Sites", Master: t3Master{}})
+	t3Register(doctype.DocType{Name: "t3.LParty", Label: "Party", PluralLabel: "Parties", Master: t3Master{}})
+	t3Register(doctype.DocType{Name: "t3.LOther", Label: "Other", PluralLabel: "Others"})
+	t3Register(doctype.DocType{
 		Name: "t3.Doc", Label: "Doc", PluralLabel: "Docs", Submittable: true,
 		Fields: []doctype.Field{
 			{Name: "site_id", Label: "Site", Column: "site_id", Type: doctype.Link, Link: "t3.Site"},

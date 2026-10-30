@@ -35,15 +35,18 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	if err != nil {
 		return Result{}, err
 	}
-	ref := recordRef(dt, d)
-	if len(requiredErrs) > 0 {
-		ref = nil
-	}
-	if err := e.Auth.CanTx(ctx, tx, p, dt.Name, "create", ref); err != nil {
+	// The right alone first, then the values (a disallowed one is AUTH's 403
+	// naming the allowed values), then the proposed record (CD-245).
+	if err := e.Auth.CanTx(ctx, tx, p, dt.Name, "create", nil); err != nil {
 		return Result{}, err
 	}
 	if err := e.checkRestrictions(ctx, tx, p, dt, &n); err != nil {
 		return Result{}, err
+	}
+	if len(requiredErrs) == 0 {
+		if err := e.Auth.CanTx(ctx, tx, p, dt.Name, "create", recordRef(dt, d)); err != nil {
+			return Result{}, err
+		}
 	}
 	readOnlyErrs := checkReadOnly(dt, in, nil)
 	fieldErrs, warnings := checkFields(ctx, tx, dt, &n, false, masters)

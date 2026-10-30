@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
@@ -253,10 +254,12 @@ func TestGallery_ScreensIncludeDocscreen(t *testing.T) {
 	}
 }
 
+var registerOnce sync.Once
+
 func TestGallery_RoutesCovered(t *testing.T) {
 	r := chi.NewRouter()
 	Routes()(r)
-	screens.Register(Screens("")...)
+	registerOnce.Do(func() { screens.Register(Screens("")...) }) // the registry panics on a repeat, as under -count=2
 	if missing := screens.Uncovered(r, screens.DefaultSkip); len(missing) != 0 {
 		t.Errorf("GET routes with no screen: %q", missing)
 	}

@@ -159,15 +159,31 @@ func TestNoSecondConn_DocCreate(t *testing.T) {
 	}
 }
 
-// A create outside the user's project is refused by Auth.CanTx on the proposed
-// record: a 404, because the draft would be hidden from them.
+// A create outside the user's project passes Auth.CanTx on the right alone and
+// is refused by CheckValues, with the allowed codes (CD-245: AUTH-099's 403,
+// not the 404 of the proposed record).
 func TestNoSecondConn_DocCreateOutsideRestriction(t *testing.T) {
 	e := nsNew(t)
 	_, err := e.do(t, e.Priya, fixture.Order, 0, doc.ActionSave, doc.ActionInput{Values: map[string]string{
 		"supplier_id": fmt.Sprint(e.M.Party["SHREE"]), "project_id": fmt.Sprint(e.M.Project[nsOtherProject]),
 		"order_date": "2026-10-24", "amount": "0",
 	}})
-	wantText(t, "create on PRJ-TECHPARK", err, auth.ErrNotFound, auth.MsgNotFound)
+	wantText(t, "create on PRJ-TECHPARK", err, auth.ErrForbidden, "You can only use Project PRJ-METRO. Choose one of your allowed projects.")
+}
+
+// A create with the optional project left empty passes CheckValues (no value
+// to check) and is refused by Auth.CanTx on the proposed record: a 404,
+// because the draft would be hidden from the restricted user (CD-245).
+func TestNoSecondConn_DocCreateEmptyRestrictedField(t *testing.T) {
+	e := nsNew(t)
+	count := e.AuditCount(t)
+	_, err := e.do(t, e.Priya, fixture.Order, 0, doc.ActionSave, doc.ActionInput{Values: map[string]string{
+		"supplier_id": fmt.Sprint(e.M.Party["SHREE"]), "order_date": "2026-10-24", "amount": "0",
+	}})
+	wantText(t, "create with no project", err, auth.ErrNotFound, auth.MsgNotFound)
+	if n := e.AuditCount(t); n != count {
+		t.Errorf("AuditCount = %d after a refused create, want %d", n, count)
+	}
 }
 
 // Save: Auth.CanTx on the stored record and CheckValues.

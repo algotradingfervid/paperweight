@@ -142,6 +142,11 @@ func problem(w http.ResponseWriter, r *http.Request, err error) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
+	if r.Method == http.MethodGet && pr.Status == http.StatusNotFound {
+		// A missing record reads the same as a hidden one; DOC's "no longer
+		// exists" stays for a save of a deleted draft (CD-245, AUTH-108).
+		pr.Message = doctype.ErrNotFound.Error()
+	}
 	ui.Render(w, r, pr.Status, problemPage(pr), problemMain(pr))
 }
 

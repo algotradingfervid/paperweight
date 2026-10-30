@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/vardhan/internaltools/internal/fixture" // FILE-066's doctype.All() half runs over the real fixture DocTypes
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/kernel/print/printtest"
