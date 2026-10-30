@@ -34,14 +34,22 @@ type Harness struct {
 // New builds msttest.New(t), then mounts routes(env.Kit) on web.NewRouter
 // with an scs session manager and no AUTH middleware (the principal is put on
 // each request by Get and Post). Register the masters under test (import
-// their packages) before calling it, so msttest grants their rights. A test
-// of the production wiring passes allmasters.New(k).Routes as routes; this
-// package can't call it, because allmasters reaches internal/ui (CD-89).
+// their packages) before calling it, so msttest grants their rights.
 func New(t testing.TB, routes func(k mstkit.Env) func(chi.Router)) *Harness {
 	t.Helper()
+	return NewSessions(t, func(k mstkit.Env, _ *scs.SessionManager) func(chi.Router) { return routes(k) })
+}
+
+// NewSessions is New for routes that use the router's session manager
+// themselves. A test of the production wiring calls allmasters.New(k).Routes
+// inside routes, with sm in its WebDeps; this package can't call it, because
+// allmasters reaches internal/ui (CD-89).
+func NewSessions(t testing.TB, routes func(k mstkit.Env, sm *scs.SessionManager) func(chi.Router)) *Harness {
+	t.Helper()
 	env := msttest.New(t)
-	r := web.NewRouter(web.Options{Sessions: scs.New()})
-	routes(env.Kit)(r)
+	sm := scs.New()
+	r := web.NewRouter(web.Options{Sessions: sm})
+	routes(env.Kit, sm)(r)
 	return &Harness{Env: env, Router: r, handler: r}
 }
 

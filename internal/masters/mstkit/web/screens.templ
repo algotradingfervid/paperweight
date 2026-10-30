@@ -39,7 +39,7 @@ templ recordPage(v recordView) {
 	@layout.Page(layout.PageOpts{
 		Title:      v.Title,
 		Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
-		Width:      layout.Form,
+		Width:      v.Width,
 		Back:       &v.Back,
 		BannerSlot: problemBanner(v),
 	}) {
@@ -73,6 +73,7 @@ templ recordPage(v recordView) {
 			}
 		} else {
 			@components.SummaryList(v.Pairs)
+			@readRows(v)
 		}
 		if !v.Confirm {
 			if v.Extra != nil {
@@ -83,12 +84,21 @@ templ recordPage(v recordView) {
 	}
 }
 
-// formRows is where a master's rows render inside the form. The rows editor
-// replaces this body (CD-201); until then they post back unchanged, so a
-// refused save keeps them.
-templ formRows(rows []components.Param) {
-	for _, row := range rows {
-		<input type="hidden" name={ row.Name } value={ row.Value }/>
+// formRows is the rows editor inside the form, for a master with rows.
+templ formRows(rows *components.RowsProps) {
+	if rows != nil {
+		@components.RowsEditor(*rows)
+	}
+}
+
+// readRows is the rows for a user without write, as text.
+templ readRows(v recordView) {
+	if len(v.RowPairs) > 0 {
+		@components.Card(v.Rows.Legend, nil) {
+			for _, row := range v.RowPairs {
+				@components.SummaryList(row)
+			}
+		}
 	}
 }
 

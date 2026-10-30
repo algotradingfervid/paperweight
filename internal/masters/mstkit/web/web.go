@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"path"
@@ -36,11 +37,15 @@ import (
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
+	"github.com/vardhan/internaltools/internal/ui/layout"
 )
 
 // pageSize is the list page size (list.PageSizes[0]); the picker asks for
 // the same and PickerResults shows the first 20.
 const pageSize = 25
+
+// rowsButton is the name of the rows editor's Add and Remove buttons.
+const rowsButton = "_rows"
 
 // noMatch is the empty list while a search is on: Copy.Empty's "yet" would be
 // untrue.
@@ -70,6 +75,10 @@ type Copy struct {
 	Empty  string // "No tax codes yet."
 	// Success banners after each write: "Tax code saved."
 	Saved, Disabled, Enabled, Deleted string
+	// Rows and AddRow are the rows editor's legend and Add button: "Unit
+	// conversions", "Add conversion"; required when the DocType has OnLine
+	// fields.
+	Rows, AddRow string
 }
 
 // Head is what the screens show of a stored record besides its fields.
@@ -87,10 +96,11 @@ type Screen[R, In any] struct {
 	Svc     Service[R, In]
 	Env     mstkit.Env
 	// ToInput turns the form's values into the service's input. values is
-	// keyed by Field.Name, as typed; a row's fields are "lines[N].field". A
-	// value that doesn't parse adds a FieldError with NUM's message on its
-	// field, and never becomes a zero or "none" (CD-37): the service is not
-	// called while there are any.
+	// keyed by Field.Name, as typed; a row's fields are "lines[N].field", with
+	// the rows numbered 1..n whatever was posted. A value that doesn't parse
+	// adds a FieldError with NUM's message on its field, and never becomes a
+	// zero or "none" (CD-37): the service is not called while there are any.
+	// A row's error carries Field and Line (N), as the service's do.
 	ToInput func(values map[string]string) (In, []doctype.FieldError)
 	// Validate is the master's pure Validate. With parse errors on the form
 	// it supplies the other fields' errors, because the service can't be
@@ -107,6 +117,10 @@ type Screen[R, In any] struct {
 	Ref func(id int64) *auth.RecordRef
 	// Codes names the fields that render through components.CodeInput.
 	Codes map[string]components.CodeKind
+	// Numbers names the fields that render through components.NumberInput
+	// with that kind, where the Field's own Type doesn't pick it: Item's
+	// 6-decimal factor (CD-203).
+	Numbers map[string]components.NumberKind
 	// ZeroIsNone names the list columns where a stored zero means no value
 	// and shows empty: Item's standard rate (CD-37), never Tax Code's 0%.
 	ZeroIsNone map[string]bool
@@ -116,6 +130,15 @@ type Screen[R, In any] struct {
 	// Extra is optional and renders on the record page for everyone who can
 	// read the record; what it posts to checks its own rights.
 	Extra func(R) templ.Component
+	// WideLines names the row fields that need a RowsEditor's wide track:
+	// Item's factor (CD-203).
+	WideLines map[string]bool
+	// CanCreate is optional and runs after AUTH's create right. It returns
+	// the 403 for a user who may not create this master although they hold
+	// that right (CD-172): New is hidden and the form is refused. It wraps
+	// the service's own check, so the message isn't copied: Project and Site
+	// pass their CheckUnrestricted.
+	CanCreate func(ctx context.Context, tx *db.Tx, p auth.Principal) error
 }
 
 // Routes mounts the screens under Base and the picker search at
@@ -149,15 +172,19 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 		panic("mstweb: " + s.DocType + ": Copy.Noun and Copy.One are required")
 	}
 	dt, _ := doctype.Lookup(s.DocType) // registered by the master package's init
+	rowFields := slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return !f.OnLine })
+	if len(rowFields) > 0 && (s.Copy.Rows == "" || s.Copy.AddRow == "") {
+		panic("mstweb: " + s.DocType + ": Copy.Rows and Copy.AddRow are required with OnLine fields")
+	}
 	return &handlers[R, In]{
 		Screen:   s,
 		dt:       sortable(dt),
 		list:     &list.Service{DB: s.Env.DB, Auth: s.Env.Auth},
 		exporter: csvio.NewExporter(s.Env.DB, s.Env.Auth),
 		deps:     docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine},
-		// disabled is set by Disable and Enable, never on the form; rows go
-		// through formRows.
-		fields: slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return f.Name == "disabled" || f.OnLine }),
+		// disabled is set by Disable and Enable, never on the form.
+		fields:    slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return f.Name == "disabled" || f.OnLine }),
+		rowFields: rowFields,
 	}
 }
 
@@ -182,6 +209,8 @@ type handlers[R, In any] struct {
 	exporter *csvio.Exporter
 	deps     docscreen.Deps
 	fields   []doctype.Field // the form's: no disabled, no rows
+	// rowFields is each row's: the OnLine fields.
+	rowFields []doctype.Field
 }
 
 // handlerFunc answers a request or returns the error fail renders.
@@ -254,7 +283,7 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 		return err
 	}
 	var newLink *components.Link
-	if !h.NoNew && h.can(ctx, p, auth.RightCreate, nil) {
+	if !h.NoNew && h.checkCreate(ctx, p) == nil {
 		newLink = &components.Link{Label: h.Copy.New, Href: h.Base + "/new"}
 	}
 	v := listView{
@@ -454,7 +483,7 @@ func (h *handlers[R, In]) pick(w http.ResponseWriter, r *http.Request, p auth.Pr
 }
 
 func (h *handlers[R, In]) newPage(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
-	if err := h.Env.Auth.Can(r.Context(), p, h.DocType, auth.RightCreate, nil); err != nil {
+	if err := h.checkCreate(r.Context(), p); err != nil {
 		return err
 	}
 	return h.render(w, r, p, http.StatusOK, 0, form{Values: map[string]string{}})
@@ -462,6 +491,10 @@ func (h *handlers[R, In]) newPage(w http.ResponseWriter, r *http.Request, p auth
 
 func (h *handlers[R, In]) create(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
 	f := h.posted(r)
+	if action := r.PostFormValue(rowsButton); action != "" {
+		return h.redrawRows(w, r, p, 0, f, action)
+	}
+	h.renumberRows(f.Values, h.rowNos(f.Values))
 	in, errs := h.ToInput(f.Values)
 	if len(errs) > 0 {
 		return h.unparsed(w, r, p, 0, f, in, errs)
@@ -486,6 +519,10 @@ func (h *handlers[R, In]) save(w http.ResponseWriter, r *http.Request, p auth.Pr
 		return err
 	}
 	f.Version = version
+	if action := r.PostFormValue(rowsButton); action != "" {
+		return h.redrawRows(w, r, p, id, f, action)
+	}
+	h.renumberRows(f.Values, h.rowNos(f.Values))
 	in, errs := h.ToInput(f.Values)
 	if len(errs) > 0 {
 		return h.unparsed(w, r, p, id, f, in, errs)
@@ -501,19 +538,21 @@ func (h *handlers[R, In]) save(w http.ResponseWriter, r *http.Request, p auth.Pr
 // in holds a zero for what failed, and the service might save it (CD-37). So
 // the right the service would check goes first, which keeps a 403 ahead of
 // the 422, and Validate adds the other fields' errors; checks that need the
-// database wait for the next post.
+// database wait for the next post. A row that failed isn't in in, so Validate
+// is only heard on the scalar fields then: its total of the rows, or a row
+// number shifted by the missing row, would be false.
 func (h *handlers[R, In]) unparsed(w http.ResponseWriter, r *http.Request, p auth.Principal, id int64, f form, in In, errs []doctype.FieldError) error {
-	right, ref := auth.RightCreate, (*auth.RecordRef)(nil)
-	if id != 0 {
-		right, ref = auth.RightWrite, h.Ref(id)
-	}
-	if err := h.Env.Auth.Can(r.Context(), p, h.DocType, right, ref); err != nil {
+	if err := h.checkSubmit(r.Context(), p, id); err != nil {
 		return err
 	}
+	rowFailed := slices.ContainsFunc(errs, func(e doctype.FieldError) bool { return e.Line > 0 })
 	var he doctype.HTTPError
 	if h.Validate != nil {
 		if _, err := h.Validate(in); errors.As(err, &he) {
 			for _, e := range he.FieldErrors() {
+				if rowFailed && (e.Field == "" || e.Line > 0) {
+					continue
+				}
 				// A failed field is empty in in: its parse error says why.
 				if !slices.ContainsFunc(errs, func(x doctype.FieldError) bool { return x.Field == e.Field && x.Line == e.Line }) {
 					errs = append(errs, e)
@@ -522,6 +561,73 @@ func (h *handlers[R, In]) unparsed(w http.ResponseWriter, r *http.Request, p aut
 		}
 	}
 	return h.refused(w, r, p, id, f, &mstkit.ValidationError{Fields: errs})
+}
+
+// checkSubmit is the right the service would check for this form: id 0 is the
+// new page's.
+func (h *handlers[R, In]) checkSubmit(ctx context.Context, p auth.Principal, id int64) error {
+	if id == 0 {
+		return h.checkCreate(ctx, p)
+	}
+	return h.Env.Auth.Can(ctx, p, h.DocType, auth.RightWrite, h.Ref(id))
+}
+
+// checkCreate is whether p may create at all: AUTH's right, then CanCreate.
+func (h *handlers[R, In]) checkCreate(ctx context.Context, p auth.Principal) error {
+	if err := h.Env.Auth.Can(ctx, p, h.DocType, auth.RightCreate, nil); err != nil {
+		return err
+	}
+	if h.CanCreate == nil {
+		return nil
+	}
+	return h.Env.DB.Read(ctx, func(tx *db.Tx) error { return h.CanCreate(ctx, tx, p) })
+}
+
+// redrawRows answers an Add or Remove button: the same page with the rows
+// changed and everything else as typed. Nothing is saved (CD-201), but the
+// right a save needs comes first, and a row that isn't there is a bad form.
+func (h *handlers[R, In]) redrawRows(w http.ResponseWriter, r *http.Request, p auth.Principal, id int64, f form, action string) error {
+	if err := h.checkSubmit(r.Context(), p, id); err != nil {
+		return err
+	}
+	if err := h.editRows(f.Values, action); err != nil {
+		return err
+	}
+	return h.render(w, r, p, http.StatusOK, id, f)
+}
+
+// editRows applies action, "add" or "remove:<no>", to values, and numbers the
+// rows from 1 again. A row's fields stay together; Add's are blank.
+func (h *handlers[R, In]) editRows(values map[string]string, action string) error {
+	nos := h.rowNos(values)
+	if action != "add" {
+		num, ok := strings.CutPrefix(action, "remove:")
+		no, err := strconv.Atoi(num)
+		if !ok || err != nil || !slices.Contains(nos, no) {
+			return auth.ErrBadForm
+		}
+		nos = slices.DeleteFunc(nos, func(n int) bool { return n == no })
+	}
+	h.renumberRows(values, nos)
+	if action == "add" {
+		for _, fd := range h.rowFields {
+			values[rowKey(len(nos)+1, fd.Name)] = ""
+		}
+	}
+	return nil
+}
+
+// renumberRows keeps rows nos of values, in that order, numbered from 1, so
+// a row's number on the page is its Line in the service's errors.
+func (h *handlers[R, In]) renumberRows(values map[string]string, nos []int) {
+	rows := make(map[string]string, len(values))
+	for i, no := range nos {
+		for _, fd := range h.rowFields {
+			rows[rowKey(i+1, fd.Name)] = values[rowKey(no, fd.Name)]
+		}
+	}
+	maps.DeleteFunc(values, func(key, _ string) bool { return h.isRowKey(key) })
+	maps.Copy(values, rows)
 }
 
 func (h *handlers[R, In]) setDisabled(off bool) handlerFunc {
@@ -605,7 +711,10 @@ func splitErrs(errs []doctype.FieldError) ([]doctype.FieldError, string) {
 // without write sees the values instead of the form.
 func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.Principal, status int, id int64, f form) error {
 	ctx := r.Context()
-	v := recordView{Title: h.Copy.New, Action: h.Base + "/new", Back: components.Link{Label: h.Copy.Plural, Href: h.Base}, CanWrite: true}
+	v := recordView{Title: h.Copy.New, Action: h.Base + "/new", Back: components.Link{Label: h.Copy.Plural, Href: h.Base}, CanWrite: true, Width: layout.Form}
+	if len(h.rowFields) > 0 {
+		v.Width = layout.Content // the editor's rows need more than a form's width (CD-201)
+	}
 	if id != 0 {
 		ref := h.Ref(id)
 		if err := h.Env.Auth.Can(ctx, p, h.DocType, auth.RightRead, ref); err != nil {
@@ -618,7 +727,11 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 			if rec, err = h.Svc.Get(ctx, tx, id); err != nil || v.CanWrite {
 				return err
 			}
-			v.Pairs, err = h.pairs(ctx, tx, h.stored(rec))
+			vals := h.stored(rec)
+			if v.Pairs, err = h.pairs(ctx, tx, vals); err != nil {
+				return err
+			}
+			v.RowPairs, err = h.rowPairs(ctx, tx, vals)
 			return err
 		})
 		if err != nil {
@@ -637,40 +750,60 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 	}
 	v.Form = f
 	for _, fd := range h.fields {
-		v.Inputs = append(v.Inputs, h.input(fd, f))
+		v.Inputs = append(v.Inputs, h.input(fd, fd.Name, f))
 	}
-	v.Rows = h.rows(f.Values)
+	if len(h.rowFields) > 0 {
+		v.Rows = h.rows(f)
+	}
 	ui.Render(w, r, status, recordPage(v), nil)
 	return nil
 }
 
-// input is fd's control: CodeInput for a Codes field, else docscreen's.
-func (h *handlers[R, In]) input(fd doctype.Field, f form) templ.Component {
-	id, value, msg := components.FieldID(fd.Name), f.Values[fd.Name], f.errFor(fd.Name)
-	if kind, ok := h.Codes[fd.Name]; ok {
-		p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Error: msg, Value: value, Optional: !fd.Required}
-		if fd.MaxLen > 0 {
-			p.Attrs = templ.Attributes{"maxlength": strconv.Itoa(fd.MaxLen)}
-		}
-		return components.CodeInput(p, kind)
+// input is fd's control at path, its name or a row's "lines[N].field":
+// CodeInput for a Codes field, NumberInput for a Numbers field, else
+// docscreen's.
+func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Component {
+	code, coded := h.Codes[fd.Name]
+	number, numbered := h.Numbers[fd.Name]
+	fd.Name = path
+	id, value, msg := components.FieldID(path), f.Values[path], f.errFor(path)
+	if !coded && !numbered {
+		return docscreen.FieldInput(fd, id, value, msg, h.deps)
 	}
-	return docscreen.FieldInput(fd, id, value, msg, h.deps)
+	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Error: msg, Value: value, Optional: !fd.Required}
+	if fd.MaxLen > 0 {
+		p.Attrs = templ.Attributes{"maxlength": strconv.Itoa(fd.MaxLen)}
+	}
+	if numbered {
+		return components.NumberInput(p, number, false)
+	}
+	return components.CodeInput(p, code)
 }
 
-// rows is values' "lines[N].field" entries for OnLine fields, by row number.
-func (h *handlers[R, In]) rows(values map[string]string) []components.Param {
-	var out []components.Param
-	for key, value := range values {
+// rows is the editor for f's rows, a cell for each OnLine field.
+func (h *handlers[R, In]) rows(f form) *components.RowsProps {
+	p := &components.RowsProps{ID: components.FieldID("lines"), Legend: h.Copy.Rows, AddLabel: h.Copy.AddRow}
+	for _, no := range h.rowNos(f.Values) {
+		row := components.RowsRow{No: no}
+		for _, fd := range h.rowFields {
+			row.Cells = append(row.Cells, components.GridCell{Label: fd.Label, Input: h.input(fd, rowKey(no, fd.Name), f), Wide: h.WideLines[fd.Name]})
+		}
+		p.Rows = append(p.Rows, row)
+	}
+	return p
+}
+
+// rowNos is the numbers of the rows in values, in order.
+func (h *handlers[R, In]) rowNos(values map[string]string) []int {
+	var nos []int
+	for key := range values {
 		if h.isRowKey(key) {
-			out = append(out, components.Param{Name: key, Value: value})
+			no, _, _ := parseRowKey(key)
+			nos = append(nos, no)
 		}
 	}
-	slices.SortFunc(out, func(a, b components.Param) int {
-		an, af, _ := parseRowKey(a.Name)
-		bn, bf, _ := parseRowKey(b.Name)
-		return cmp.Or(cmp.Compare(an, bn), cmp.Compare(af, bf))
-	})
-	return out
+	slices.Sort(nos)
+	return slices.Compact(nos)
 }
 
 func (h *handlers[R, In]) isRowKey(key string) bool {
@@ -678,7 +811,12 @@ func (h *handlers[R, In]) isRowKey(key string) bool {
 	return ok && slices.ContainsFunc(h.dt.Fields, func(f doctype.Field) bool { return f.OnLine && f.Name == field })
 }
 
-// parseRowKey splits "lines[N].field"; rows count from 1.
+func rowKey(no int, field string) string {
+	return doctype.FieldError{Field: field, Line: no}.Path()
+}
+
+// parseRowKey splits "lines[N].field"; rows count from 1, written as
+// strconv.Itoa does, so one row has one key.
 func parseRowKey(key string) (n int, field string, ok bool) {
 	rest, ok := strings.CutPrefix(key, "lines[")
 	if !ok {
@@ -689,7 +827,7 @@ func parseRowKey(key string) (n int, field string, ok bool) {
 		return 0, "", false
 	}
 	n, err := strconv.Atoi(num)
-	return n, field, err == nil && n > 0
+	return n, field, err == nil && n > 0 && strconv.Itoa(n) == num
 }
 
 // stored is rec's values for the form and the read-only view. A zero Link id
@@ -713,6 +851,23 @@ func (h *handlers[R, In]) pairs(ctx context.Context, tx *db.Tx, vals map[string]
 			return nil, err
 		}
 		out = append(out, components.Pair{Label: fd.Label, Value: s})
+	}
+	return out, nil
+}
+
+// rowPairs is the read-only view of the stored rows, one summary each.
+func (h *handlers[R, In]) rowPairs(ctx context.Context, tx *db.Tx, vals map[string]string) ([][]components.Pair, error) {
+	var out [][]components.Pair
+	for _, no := range h.rowNos(vals) {
+		row := []components.Pair{{Label: "Row", Value: strconv.Itoa(no)}}
+		for _, fd := range h.rowFields {
+			s, err := docscreen.Display(ctx, tx, h.Env.Engine, fd, vals[rowKey(no, fd.Name)])
+			if err != nil {
+				return nil, err
+			}
+			row = append(row, components.Pair{Label: fd.Label, Value: s})
+		}
+		out = append(out, row)
 	}
 	return out, nil
 }
@@ -841,10 +996,10 @@ type form struct {
 	Reload  bool
 }
 
-// errFor is the message on header field field, "" when none.
-func (f form) errFor(field string) string {
+// errFor is the message on the field at path, "" when none.
+func (f form) errFor(path string) string {
 	for _, e := range f.Errs {
-		if e.Field == field && e.Line == 0 {
+		if e.Path() == path {
 			return e.Message
 		}
 	}
@@ -883,8 +1038,10 @@ type recordView struct {
 	Disabled, CanWrite, Confirm bool
 	Form                        form
 	Inputs                      []templ.Component
-	Rows                        []components.Param // the form's "lines[N].field" values
+	Width                       layout.Width
+	Rows                        *components.RowsProps // nil for a master without rows
 	Pairs                       []components.Pair
+	RowPairs                    [][]components.Pair
 	More                        []components.MoreAction
 	Extra                       templ.Component
 }

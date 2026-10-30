@@ -35,28 +35,32 @@ type stubRecord map[string]string
 
 // stubService returns getErr from Get, and err from every write, with saved
 // from Create and Update. It writes nothing; calls, when set, counts the
-// Create and Update calls.
+// Create and Update calls, and in records their input.
 type stubService struct {
 	rec    stubRecord
 	saved  mstkit.Saved
 	getErr error
 	err    error
 	calls  *int
+	in     *stubRecord
 }
 
-func (s stubService) called() {
+func (s stubService) called(in stubRecord) {
 	if s.calls != nil {
 		*s.calls++
 	}
+	if s.in != nil {
+		*s.in = in
+	}
 }
 
-func (s stubService) Create(context.Context, auth.Principal, stubRecord) (mstkit.Saved, error) {
-	s.called()
+func (s stubService) Create(_ context.Context, _ auth.Principal, in stubRecord) (mstkit.Saved, error) {
+	s.called(in)
 	return s.saved, s.err
 }
 
-func (s stubService) Update(context.Context, auth.Principal, int64, int, stubRecord) (mstkit.Saved, error) {
-	s.called()
+func (s stubService) Update(_ context.Context, _ auth.Principal, _ int64, _ int, in stubRecord) (mstkit.Saved, error) {
+	s.called(in)
 	return s.saved, s.err
 }
 
@@ -92,7 +96,7 @@ func harness(t *testing.T, svc stubService, opts ...func(*screen)) *webtest.Harn
 			Base:    base,
 			Copy: mstweb.Copy{
 				Plural: "Stubs", Noun: "stubs", One: "stub", New: "New stub", Search: "Search stubs",
-				Empty: "No stubs yet.", Saved: "Stub saved.",
+				Empty: "No stubs yet.", Saved: "Stub saved.", Rows: "Conversions", AddRow: "Add conversion",
 			},
 			Svc:     svc,
 			Env:     k,

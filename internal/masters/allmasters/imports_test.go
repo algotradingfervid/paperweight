@@ -2,6 +2,7 @@ package allmasters_test
 
 import (
 	"bytes"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os/exec"
@@ -103,5 +104,61 @@ func TestMasters_RoutesUseWebSubpackages(t *testing.T) {
 				t.Errorf("%s imports %s; only routes.go may import the web/ subpackages", name, p)
 			}
 		}
+	}
+}
+
+// A web/ package that has a Routes function is called from routes.go. A
+// master whose web directory holds only tests isn't built yet; mstkit/web and
+// gstin/web have no Routes function.
+func TestMasters_BuiltScreensAreMounted(t *testing.T) {
+	fset := token.NewFileSet()
+	routes, err := parser.ParseFile(fset, "routes.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imports := map[string]string{} // alias → directory
+	for _, imp := range routes.Imports {
+		p, err := strconv.Unquote(imp.Path.Value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rel, ok := strings.CutPrefix(p, module+"/internal/masters/"); ok && imp.Name != nil {
+			imports[imp.Name.Name] = filepath.Join("..", rel)
+		}
+	}
+	mounted := map[string]bool{}
+	ast.Inspect(routes, func(n ast.Node) bool {
+		if sel, ok := n.(*ast.SelectorExpr); ok && sel.Sel.Name == "Routes" {
+			if x, ok := sel.X.(*ast.Ident); ok {
+				mounted[imports[x.Name]] = true
+			}
+		}
+		return true
+	})
+
+	files, err := filepath.Glob("../*/web/*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	built := 0
+	for _, name := range files {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+		for _, d := range f.Decls {
+			if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv == nil && fn.Name.Name == "Routes" {
+				built++
+				if dir := filepath.Dir(name); !mounted[dir] {
+					t.Errorf("%s has Routes; routes.go doesn't call it", dir)
+				}
+			}
+		}
+	}
+	if built == 0 {
+		t.Error("found no web/ package with a Routes function")
 	}
 }

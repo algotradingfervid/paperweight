@@ -176,8 +176,9 @@ func TestScreens_OnLineFieldsAreNotScalars(t *testing.T) {
 	webtest.WantNoText(t, h.Get(t, h.Env.Priya, record), "Conversion factor")
 }
 
-// Posted rows reach ToInput in the same flat map, only for OnLine fields, and
-// a refused save keeps them, in row order. Stored rows render too.
+// Posted rows reach ToInput in the same flat map, only for OnLine fields and
+// numbered 1..n, and a refused save keeps them, in row order. Stored rows
+// render too.
 func TestScreens_RowsStayFlat(t *testing.T) {
 	var got map[string]string
 	h := harness(t, stubService{
@@ -198,34 +199,35 @@ func TestScreens_RowsStayFlat(t *testing.T) {
 		"lines[1].name":    {"x"},
 		"lines[x].factor":  {"x"},
 		"lines[0].factor":  {"x"},
+		"lines[+1].factor": {"x"},
+		"lines[01].factor": {"x"},
 		"lines[3]factor":   {"x"},
 		"line[1].factor":   {"x"},
 	})
 	webtest.WantStatus(t, resp, http.StatusUnprocessableEntity)
-	want := map[string]string{"lines[10].factor": "5", "lines[2].uom_id": "8", "lines[2].factor": "100"}
-	for key, value := range want {
-		if got[key] != value {
-			t.Errorf("ToInput %s = %q; want %q", key, got[key], value)
+	rows := map[string]string{}
+	for key, value := range got {
+		if strings.HasPrefix(key, "line") {
+			rows[key] = value
 		}
 	}
-	for key := range got {
-		if strings.HasPrefix(key, "lines[") && want[key] == "" || strings.HasPrefix(key, "line[") {
-			t.Errorf("ToInput got %s, which no OnLine field posts", key)
-		}
+	want := map[string]string{"lines[1].uom_id": "8", "lines[1].factor": "100", "lines[2].uom_id": "", "lines[2].factor": "5"}
+	if !reflect.DeepEqual(rows, want) {
+		t.Errorf("ToInput rows = %v; want %v", rows, want)
 	}
-	if names := rowInputs(resp); !reflect.DeepEqual(names, []string{"lines[2].factor=100", "lines[2].uom_id=8", "lines[10].factor=5"}) {
+	if names := rowInputs(resp); !reflect.DeepEqual(names, []string{"lines[1].uom_id=8", "lines[1].factor=100", "lines[2].uom_id=", "lines[2].factor=5"}) {
 		t.Errorf("rows on the 422 page = %q", names)
 	}
 
 	page := h.Get(t, h.Env.Kavya, record)
-	if names := rowInputs(page); !reflect.DeepEqual(names, []string{"lines[1].factor=1", "lines[2].factor=100"}) {
+	if names := rowInputs(page); !reflect.DeepEqual(names, []string{"lines[1].uom_id=", "lines[1].factor=1", "lines[2].uom_id=", "lines[2].factor=100"}) {
 		t.Errorf("stored rows = %q", names)
 	}
 }
 
 func rowInputs(r webtest.Response) []string {
 	var out []string
-	r.Doc.Find(`form input[name^="lines["]`).Each(func(_ int, s *goquery.Selection) {
+	r.Doc.Find(`form input[name^="lines["]:not([type="search"]):not([role="combobox"])`).Each(func(_ int, s *goquery.Selection) {
 		name, _ := s.Attr("name")
 		value, _ := s.Attr("value")
 		out = append(out, name+"="+value)
@@ -317,8 +319,9 @@ func TestScreens_ListWithoutDefaultSort(t *testing.T) {
 	}
 }
 
-// A blank Noun or One would print broken sentences on a live page, so a
-// Screen without them refuses to mount.
+// A blank Noun or One would print broken sentences on a live page, and a
+// DocType with rows has no editor without Rows and AddRow, so a Screen without
+// them refuses to mount.
 func TestScreens_CopyMustBeComplete(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -326,6 +329,8 @@ func TestScreens_CopyMustBeComplete(t *testing.T) {
 	}{
 		{"Noun", func(c *mstweb.Copy) { c.Noun = "" }},
 		{"One", func(c *mstweb.Copy) { c.One = "" }},
+		{"Rows", func(c *mstweb.Copy) { c.Rows = "" }},
+		{"AddRow", func(c *mstweb.Copy) { c.AddRow = "" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer func() {
@@ -333,7 +338,7 @@ func TestScreens_CopyMustBeComplete(t *testing.T) {
 					t.Errorf("Routes with a blank Copy.%s did not panic", tc.name)
 				}
 			}()
-			c := mstweb.Copy{Noun: "stubs", One: "stub"}
+			c := mstweb.Copy{Noun: "stubs", One: "stub", Rows: "Conversions", AddRow: "Add conversion"}
 			tc.blank(&c)
 			screen{DocType: item.DocType, Copy: c}.Routes()
 		})
@@ -487,6 +492,11 @@ func TestScreens_Extra(t *testing.T) {
 			t.Errorf("GET %s shows Extra", target)
 		}
 	}
+}
+
+// Rows and AddRow are only for a DocType with rows.
+func TestScreens_RowCopyIsOptionalWithoutRows(t *testing.T) {
+	screen{DocType: noSortDocType, Copy: mstweb.Copy{Noun: "stubs", One: "stub"}}.Routes()
 }
 
 // With nothing at all, every view says "yet"; include_disabled changes nothing

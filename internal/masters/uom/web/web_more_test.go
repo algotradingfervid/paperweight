@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -207,12 +208,13 @@ func TestScreens_UoMNoMatch(t *testing.T) {
 // picker from them, as production will (CD-195).
 func TestScreens_UoMThroughAllmasters(t *testing.T) {
 	var svcs *allmasters.Services
-	h := webtest.New(t, func(k mstkit.Env) func(chi.Router) {
+	h := webtest.NewSessions(t, func(k mstkit.Env, sm *scs.SessionManager) func(chi.Router) {
 		svcs = allmasters.New(k)
-		return svcs.Routes
+		return func(r chi.Router) { svcs.Routes(r, allmasters.WebDeps{Sessions: sm}) }
 	})
 	if svcs.Company == nil || svcs.Terms == nil || svcs.Party == nil || svcs.Address == nil || svcs.UoM == nil ||
 		svcs.TaxCode == nil || svcs.Item == nil || svcs.ExpenseType == nil ||
+		svcs.Project == nil || svcs.Site == nil || svcs.Employee == nil || svcs.Directory == nil ||
 		svcs.Letterhead.S == nil || svcs.Letterhead.AddressLines == nil {
 		t.Errorf("allmasters.New left a service nil: %+v", svcs)
 	}
