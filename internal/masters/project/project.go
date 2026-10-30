@@ -45,7 +45,7 @@ const (
 	msgBranch   = "Branch is required."
 	msgNoBranch = "Branch not found. Pick one from the list."                                                  // CD-170
 	msgRestrict = "You can only work with your assigned projects. Ask your administrator to add this project." // CD-172
-	msgCustomer = "Customer not found. Pick one from the list."                                                // DOC-032's wording; the role check is Task 27
+	msgCustomer = "Customer not found. Pick one from the list."                                                // DOC-032's wording
 )
 
 func init() {
@@ -196,8 +196,8 @@ func nullDate(d types.Date) sql.NullString {
 	return sql.NullString{String: d.ISO(), Valid: true}
 }
 
-// checkLinks refuses an unknown or disabled branch and an unknown customer,
-// reading inside tx (CD-94, CD-170).
+// checkLinks refuses an unknown or disabled branch and an unknown, disabled or
+// non-customer party, reading inside tx (CD-94, CD-170, MST-103).
 func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 	var es mstkit.Errors
 	b, err := company.New(s.env).Get(ctx, tx, in.BranchID)
@@ -210,12 +210,36 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, in Input) error {
 		es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
 	}
 	if in.CustomerID != 0 {
-		if _, err := party.New(s.env).Get(ctx, tx, in.CustomerID); errors.Is(err, doctype.ErrNotFound) {
+		pt, err := party.New(s.env).Get(ctx, tx, in.CustomerID)
+		switch {
+		case errors.Is(err, doctype.ErrNotFound):
 			es.Add("customer_id", msgCustomer)
-		} else if err != nil {
+		case err != nil:
 			return err
+		case pt.Disabled:
+			es.Add("customer_id", "Customer "+pt.Code+" is disabled. Pick another customer.")
+		default:
+			var ve *mstkit.ValidationError
+			if err := party.New(s.env).CheckRole(ctx, tx, in.CustomerID, party.Customer); errors.As(err, &ve) {
+				es.Add("customer_id", ve.Fields[0].Message)
+			} else if err != nil {
+				return err
+			}
 		}
 	}
+	return es.Err()
+}
+
+// checkSites refuses a branch other than that of every site on the project:
+// MST-106 from the project's side. A site can't move first, because its branch
+// must match the project's, so the sites are unlinked instead.
+func (s *Service) checkSites(ctx context.Context, tx *db.Tx, id, branchID int64) error {
+	codes, err := dbq.New(tx.SQL()).SitesOutsideBranch(ctx, dbq.SitesOutsideBranchParams{ProjectID: nullID(id), BranchID: branchID})
+	if err != nil || len(codes) == 0 {
+		return err
+	}
+	var es mstkit.Errors
+	es.Add("branch_id", "Unlink the project's sites first: "+strings.Join(codes, ", ")+".")
 	return es.Err()
 }
 
@@ -297,6 +321,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 		return mstkit.Saved{}, err
 	}
 	if err := s.env.CheckCodeChange(ctx, p, old.Code, in.Code); err != nil {
+		return mstkit.Saved{}, err
+	}
+	if err := s.checkSites(ctx, tx, id, in.BranchID); err != nil {
 		return mstkit.Saved{}, err
 	}
 	before, after := auditFields(old), auditFields(fromInput(in))

@@ -48,6 +48,33 @@ func (q *Queries) CountOtherEnabledBranches(ctx context.Context, id int64) (int6
 	return count, err
 }
 
+const enabledSiteCodes = `-- name: EnabledSiteCodes :many
+SELECT code FROM site WHERE branch_id = ? AND disabled = 0 ORDER BY code
+`
+
+func (q *Queries) EnabledSiteCodes(ctx context.Context, branchID int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, enabledSiteCodes, branchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		items = append(items, code)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getBranch = `-- name: GetBranch :one
 SELECT id, code, name, state_code, gstin, is_head_office, disabled, version, created_at, created_by, updated_at, updated_by FROM branch WHERE id = ?
 `

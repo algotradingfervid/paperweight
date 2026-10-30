@@ -122,6 +122,38 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (i
 	return id, err
 }
 
+const sitesOutsideBranch = `-- name: SitesOutsideBranch :many
+SELECT code FROM site WHERE project_id = ? AND branch_id <> ? ORDER BY code
+`
+
+type SitesOutsideBranchParams struct {
+	ProjectID sql.NullInt64
+	BranchID  int64
+}
+
+func (q *Queries) SitesOutsideBranch(ctx context.Context, arg SitesOutsideBranchParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, sitesOutsideBranch, arg.ProjectID, arg.BranchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		items = append(items, code)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateProject = `-- name: UpdateProject :execrows
 UPDATE project
 SET code = ?, name = ?, branch_id = ?, customer_id = ?, start_date = ?, end_date = ?, status = ?,

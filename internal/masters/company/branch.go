@@ -199,7 +199,7 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 }
 
 // SetDisabledTx disables or enables a branch; the last enabled branch can't
-// be disabled (MST-027).
+// be disabled (MST-027), nor one with enabled sites (MST-108).
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
 	cur, err := s.can(ctx, tx, p, id, auth.RightWrite)
 	if err != nil {
@@ -211,6 +211,13 @@ func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal
 	if disabled && !cur.Disabled {
 		if err := s.checkNotLastEnabled(ctx, tx, id); err != nil {
 			return err
+		}
+		codes, err := dbq.New(tx.SQL()).EnabledSiteCodes(ctx, id)
+		if err != nil {
+			return err
+		}
+		if len(codes) > 0 {
+			return refused("Disable the branch's sites first: " + strings.Join(codes, ", ") + ".")
 		}
 	}
 	return s.env.SetDisabledTx(ctx, tx, p, Kind, id, version, disabled)

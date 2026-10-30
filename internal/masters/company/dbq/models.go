@@ -39,3 +39,18 @@ type GstState struct {
 	Code string
 	Name string
 }
+
+type Site struct {
+	ID        int64
+	Code      string
+	Name      string
+	BranchID  int64
+	ProjectID sql.NullInt64
+	Type      string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
+}

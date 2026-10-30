@@ -34,3 +34,6 @@ WHERE id = ?;
 
 -- name: CountOtherEnabledBranches :one
 SELECT count(*) FROM branch WHERE disabled = 0 AND id <> ?;
+
+-- name: EnabledSiteCodes :many
+SELECT code FROM site WHERE branch_id = ? AND disabled = 0 ORDER BY code;

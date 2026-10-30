@@ -677,6 +677,10 @@ func projectTarget(t *testing.T, env *msttest.Env, m msttest.Masters, svc *allma
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	customer, err := svc.Party.Create(context.Background(), env.Kavya, party.Input{Code: "PRJ-CUSTOMER", Name: "Project Customer", IsCustomer: true})
+	if err != nil {
+		t.Fatalf("create customer: %v", err)
+	}
 	return saveTarget[project.Input]{
 		table: "project", docType: project.DocType, id: saved.ID,
 		load: func(ctx context.Context, tx *db.Tx) (project.Input, error) {
@@ -689,7 +693,7 @@ func projectTarget(t *testing.T, env *msttest.Env, m msttest.Masters, svc *allma
 			{"code", func(in *project.Input) { in.Code = "PRJ-OLD" }},
 			{"name", func(in *project.Input) { in.Name = "Old Project" }},
 			{"branch_id", func(in *project.Input) { in.BranchID = m.Branches["BLR"] }},
-			{"customer_id", func(in *project.Input) { in.CustomerID = m.Parties["SHREE"] }},
+			{"customer_id", func(in *project.Input) { in.CustomerID = customer.ID }},
 			{"start_date", func(in *project.Input) { in.Start = orderDate }},
 			{"end_date", func(in *project.Input) { in.End = orderDate }},
 			{"status", func(in *project.Input) { in.Status = project.OnHold }},
