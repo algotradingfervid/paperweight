@@ -401,7 +401,7 @@ NUM provides the financial-year function to NAM and the formatters to FILE.
 ### NUM-059 · Amount fields reformat on blur
 - **Priority:** P2
 - **Level:** e2e
-- **Given** the PO line form **When** the user types "1411200" in Rate and tabs out **Then** the field shows "14,11,200.00" and the line amount updates. Typing "1.234,56" shows the inline error from NUM-057 and keeps the typed text.
+- **Given** the PO line form **When** the user types "1411200" in Rate and tabs out **Then** the field shows "14,11,200.00" and the line amount updates. Typing "1.234,56" shows Rate's inline error from NUM-149 ("is not a valid number. Write it like 1234.50.", the same parser as save and CSV import) and keeps the typed text (CD-248).
 - **Go test:** `TestE2E_AmountInputFormatting`
 - **Sources:** `frappe/frappe/utils/data.py:1428` (`fmt_money`)
 
