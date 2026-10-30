@@ -162,6 +162,15 @@ type Screen[R, In any] struct {
 	// not mounted, because a section posts only its fields (CD-50). Steps
 	// makes them from Field.Step.
 	Sections []docscreen.FormStep
+	// Selects names the Text fields that render through components.Select with
+	// these options, wherever the field is: a wizard's row or a section.
+	Selects map[string][]components.Option
+	// PickRole is optional and answers a picker search that names a role
+	// (?role=, CD-218); without a role the search is the kit's.
+	PickRole func(ctx context.Context, p auth.Principal, role, search string) ([]components.PickRow, error)
+	// Mount is optional and adds the master's own routes beside the kit's: its
+	// child records' pages (pages.go).
+	Mount func(Pages) func(chi.Router)
 	// Lookups names the fields a person fills in by something they know, not
 	// the stored value (Employee's user, by email). Only the wizard and
 	// sections read them.
@@ -218,6 +227,9 @@ func (s Screen[R, In]) Routes() func(chi.Router) {
 			r.Post(s.Base+idPattern+"/delete", h.handle(h.delete))
 		}
 		r.Get("/pick/"+s.DocType, h.handle(h.pick))
+		if s.Mount != nil {
+			s.Mount(h.pages())(r)
+		}
 	}
 }
 
@@ -279,12 +291,9 @@ type handlers[R, In any] struct {
 	wiz       wizardCore // zero without a Wizard
 }
 
-// handlerFunc answers a request or returns the error fail renders.
-type handlerFunc func(w http.ResponseWriter, r *http.Request, p auth.Principal) error
-
 // handle runs fn as the signed-in user. A request without one carries the
 // zero Principal, which AUTH refuses.
-func (h *handlers[R, In]) handle(fn handlerFunc) http.HandlerFunc {
+func (h *handlers[R, In]) handle(fn HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		p, _ := auth.PrincipalFrom(r.Context())
 		if err := fn(w, r, p); err != nil {
@@ -561,9 +570,23 @@ func title(lr list.Row) string {
 // "{Code} {Name}" (CD-68). htmx names the listbox it fills in HX-Target.
 func (h *handlers[R, In]) pick(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
 	q := r.URL.Query().Get("q")
-	res, err := h.list.Picker(r.Context(), p, h.dt, q, pageSize)
+	rows, err := h.pickRows(r, p, q)
 	if err != nil {
 		return err
+	}
+	frag := components.PickerResults(cmp.Or(r.Header.Get("HX-Target"), "pick-"+h.dt.Table), rows, q)
+	ui.Render(w, r, http.StatusOK, frag, frag)
+	return nil
+}
+
+// pickRows is the search's rows: PickRole's when the URL names a role.
+func (h *handlers[R, In]) pickRows(r *http.Request, p auth.Principal, q string) ([]components.PickRow, error) {
+	if role := r.URL.Query().Get("role"); role != "" && h.PickRole != nil {
+		return h.PickRole(r.Context(), p, role, q)
+	}
+	res, err := h.list.Picker(r.Context(), p, h.dt, q, pageSize)
+	if err != nil {
+		return nil, err
 	}
 	rows := make([]components.PickRow, len(res.Rows))
 	for i, lr := range res.Rows {
@@ -571,9 +594,7 @@ func (h *handlers[R, In]) pick(w http.ResponseWriter, r *http.Request, p auth.Pr
 		name, _ := lr.Values["name"].(string)
 		rows[i] = components.PickRow{ID: lr.ID, Code: code, Name: name}
 	}
-	frag := components.PickerResults(cmp.Or(r.Header.Get("HX-Target"), "pick-"+h.dt.Table), rows, q)
-	ui.Render(w, r, http.StatusOK, frag, frag)
-	return nil
+	return rows, nil
 }
 
 func (h *handlers[R, In]) newPage(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
@@ -595,7 +616,7 @@ func (h *handlers[R, In]) create(w http.ResponseWriter, r *http.Request, p auth.
 	if action := r.PostFormValue(rowsButton); action != "" {
 		return h.redrawRows(w, r, p, 0, f, action)
 	}
-	h.renumberRows(f.Values, h.rowNos(f.Values))
+	renumberRows(h.rowFields, f.Values, rowNos(h.rowFields, f.Values))
 	in, errs := h.ToInput(f.Values)
 	if len(errs) > 0 {
 		return h.unparsed(w, r, p, 0, f, in, errs)
@@ -604,18 +625,18 @@ func (h *handlers[R, In]) create(w http.ResponseWriter, r *http.Request, p auth.
 	if err != nil {
 		return h.refused(w, r, p, 0, f, err)
 	}
-	return done(w, r, h.Copy.Saved, h.recordPath(saved.ID), saved.Warnings...)
+	return Done(w, r, h.Copy.Saved, h.recordPath(saved.ID), saved.Warnings...)
 }
 
 func (h *handlers[R, In]) page(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
-	return h.render(w, r, p, http.StatusOK, recordID(r), form{})
+	return h.render(w, r, p, http.StatusOK, RecordID(r), form{})
 }
 
 // save updates the record at the version the page posted (CD-94).
 func (h *handlers[R, In]) save(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
-	id := recordID(r)
+	id := RecordID(r)
 	f := h.posted(r)
-	version, err := postedVersion(r)
+	version, err := PostedVersion(r)
 	if err != nil {
 		return err
 	}
@@ -623,7 +644,7 @@ func (h *handlers[R, In]) save(w http.ResponseWriter, r *http.Request, p auth.Pr
 	if action := r.PostFormValue(rowsButton); action != "" {
 		return h.redrawRows(w, r, p, id, f, action)
 	}
-	h.renumberRows(f.Values, h.rowNos(f.Values))
+	renumberRows(h.rowFields, f.Values, rowNos(h.rowFields, f.Values))
 	in, errs := h.ToInput(f.Values)
 	if len(errs) > 0 {
 		return h.unparsed(w, r, p, id, f, in, errs)
@@ -632,7 +653,7 @@ func (h *handlers[R, In]) save(w http.ResponseWriter, r *http.Request, p auth.Pr
 	if err != nil {
 		return h.refused(w, r, p, id, f, err)
 	}
-	return done(w, r, h.Copy.Saved, h.recordPath(id), saved.Warnings...)
+	return Done(w, r, h.Copy.Saved, h.recordPath(id), saved.Warnings...)
 }
 
 // unparsed answers a form ToInput couldn't read. The service is not called:
@@ -701,16 +722,17 @@ func (h *handlers[R, In]) redrawRows(w http.ResponseWriter, r *http.Request, p a
 	if err := h.checkSubmit(r.Context(), p, id); err != nil {
 		return err
 	}
-	if err := h.editRows(f.Values, action); err != nil {
+	if err := editRows(h.rowFields, nil, f.Values, action); err != nil {
 		return err
 	}
 	return h.render(w, r, p, http.StatusOK, id, f)
 }
 
-// editRows applies action, "add" or "remove:<no>", to values, and numbers the
-// rows from 1 again. A row's fields stay together; Add's are blank.
-func (h *handlers[R, In]) editRows(values map[string]string, action string) error {
-	nos := h.rowNos(values)
+// editRows applies action, "add" or "remove:<no>", to the rows of fields in
+// values, and numbers them from 1 again. A row's fields stay together; Add's
+// are their defaults.
+func editRows(fields []doctype.Field, defaults, values map[string]string, action string) error {
+	nos := rowNos(fields, values)
 	if action != "add" {
 		num, ok := strings.CutPrefix(action, "remove:")
 		no, err := strconv.Atoi(num)
@@ -719,10 +741,10 @@ func (h *handlers[R, In]) editRows(values map[string]string, action string) erro
 		}
 		nos = slices.DeleteFunc(nos, func(n int) bool { return n == no })
 	}
-	h.renumberRows(values, nos)
+	renumberRows(fields, values, nos)
 	if action == "add" {
-		for _, fd := range h.rowFields {
-			values[rowKey(len(nos)+1, fd.Name)] = ""
+		for _, fd := range fields {
+			values[rowKey(len(nos)+1, fd.Name)] = defaults[fd.Name]
 		}
 	}
 	return nil
@@ -730,21 +752,21 @@ func (h *handlers[R, In]) editRows(values map[string]string, action string) erro
 
 // renumberRows keeps rows nos of values, in that order, numbered from 1, so
 // a row's number on the page is its Line in the service's errors.
-func (h *handlers[R, In]) renumberRows(values map[string]string, nos []int) {
+func renumberRows(fields []doctype.Field, values map[string]string, nos []int) {
 	rows := make(map[string]string, len(values))
 	for i, no := range nos {
-		for _, fd := range h.rowFields {
+		for _, fd := range fields {
 			rows[rowKey(i+1, fd.Name)] = values[rowKey(no, fd.Name)]
 		}
 	}
-	maps.DeleteFunc(values, func(key, _ string) bool { return h.isRowKey(key) })
+	maps.DeleteFunc(values, func(key, _ string) bool { return isRowKey(fields, key) })
 	maps.Copy(values, rows)
 }
 
-func (h *handlers[R, In]) setDisabled(off bool) handlerFunc {
+func (h *handlers[R, In]) setDisabled(off bool) HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
-		id := recordID(r)
-		version, err := postedVersion(r)
+		id := RecordID(r)
+		version, err := PostedVersion(r)
 		if err != nil {
 			return err
 		}
@@ -755,27 +777,27 @@ func (h *handlers[R, In]) setDisabled(off bool) handlerFunc {
 		if off {
 			msg = h.Copy.Disabled
 		}
-		return done(w, r, msg, h.recordPath(id))
+		return Done(w, r, msg, h.recordPath(id))
 	}
 }
 
 // delete deletes an unused record; a used one is refused with mstkit's
 // "Cannot delete …" (422, no field), shown on the record page.
 func (h *handlers[R, In]) delete(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
-	id := recordID(r)
-	version, err := postedVersion(r)
+	id := RecordID(r)
+	version, err := PostedVersion(r)
 	if err != nil {
 		return err
 	}
 	if err := h.Svc.Delete(r.Context(), p, id, version); err != nil {
 		return h.refused(w, r, p, id, form{}, err)
 	}
-	return done(w, r, h.Copy.Deleted, h.Base)
+	return Done(w, r, h.Copy.Deleted, h.Base)
 }
 
-// done is a successful write: its warnings and a success banner on the next
+// Done is a successful write: its warnings and a success banner on the next
 // page (CD-80) and 303 to it.
-func done(w http.ResponseWriter, r *http.Request, msg, next string, warnings ...string) error {
+func Done(w http.ResponseWriter, r *http.Request, msg, next string, warnings ...string) error {
 	for _, warning := range warnings {
 		web.Flash(r.Context(), "warning", warning)
 	}
@@ -889,21 +911,25 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 
 // input is fd's control at path, its name or a row's "lines[N].field":
 // EmailInput for a Lookups field, CodeInput for a Codes field, NumberInput for a Numbers field, Radios for an
-// OptionLabels field, else docscreen's.
+// OptionLabels field, Select for a Selects field, else docscreen's.
 func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Component {
 	lookup, looked := h.Lookups[fd.Name]
 	code, coded := h.Codes[fd.Name]
 	number, numbered := h.Numbers[fd.Name]
 	labels, labelled := h.OptionLabels[fd.Name]
+	opts, selected := h.Selects[fd.Name]
 	fd.Name = path
 	id, value, msg := components.FieldID(path), f.Values[path], f.errFor(path)
-	if !looked && !coded && !numbered && !labelled {
+	if !looked && !coded && !numbered && !labelled && !selected {
 		return docscreen.FieldInput(fd, id, value, msg, h.deps)
 	}
 	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Error: msg, Value: value, Optional: !fd.Required}
 	if looked {
 		p.Hint = lookup.Hint
 		return components.EmailInput(p, "off")
+	}
+	if selected {
+		return components.Select(p, opts)
 	}
 	if labelled {
 		opts := make([]components.Option, len(fd.Options))
@@ -923,10 +949,15 @@ func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Com
 
 // rows is the editor for f's rows, a cell for each OnLine field.
 func (h *handlers[R, In]) rows(f form) *components.RowsProps {
-	p := &components.RowsProps{ID: components.FieldID("lines"), Legend: h.Copy.Rows, AddLabel: h.Copy.AddRow}
-	for _, no := range h.rowNos(f.Values) {
+	return h.rowsEditor(h.Copy.Rows, h.Copy.AddRow, h.rowFields, f)
+}
+
+// rowsEditor is the editor for f's rows of fields.
+func (h *handlers[R, In]) rowsEditor(legend, addLabel string, fields []doctype.Field, f form) *components.RowsProps {
+	p := &components.RowsProps{ID: components.FieldID("lines"), Legend: legend, AddLabel: addLabel}
+	for _, no := range rowNos(fields, f.Values) {
 		row := components.RowsRow{No: no}
-		for _, fd := range h.rowFields {
+		for _, fd := range fields {
 			row.Cells = append(row.Cells, components.GridCell{Label: fd.Label, Input: h.input(fd, rowKey(no, fd.Name), f), Wide: h.WideLines[fd.Name]})
 		}
 		p.Rows = append(p.Rows, row)
@@ -934,11 +965,11 @@ func (h *handlers[R, In]) rows(f form) *components.RowsProps {
 	return p
 }
 
-// rowNos is the numbers of the rows in values, in order.
-func (h *handlers[R, In]) rowNos(values map[string]string) []int {
+// rowNos is the numbers of the rows of fields in values, in order.
+func rowNos(fields []doctype.Field, values map[string]string) []int {
 	var nos []int
 	for key := range values {
-		if h.isRowKey(key) {
+		if isRowKey(fields, key) {
 			no, _, _ := parseRowKey(key)
 			nos = append(nos, no)
 		}
@@ -947,9 +978,9 @@ func (h *handlers[R, In]) rowNos(values map[string]string) []int {
 	return slices.Compact(nos)
 }
 
-func (h *handlers[R, In]) isRowKey(key string) bool {
+func isRowKey(fields []doctype.Field, key string) bool {
 	_, field, ok := parseRowKey(key)
-	return ok && slices.ContainsFunc(h.dt.Fields, func(f doctype.Field) bool { return f.OnLine && f.Name == field })
+	return ok && slices.ContainsFunc(fields, func(f doctype.Field) bool { return f.Name == field })
 }
 
 func rowKey(no int, field string) string {
@@ -1017,7 +1048,7 @@ func (h *handlers[R, In]) pairs(ctx context.Context, tx *db.Tx, vals map[string]
 // rowPairs is the read-only view of the stored rows, one summary each.
 func (h *handlers[R, In]) rowPairs(ctx context.Context, tx *db.Tx, vals map[string]string) ([][]components.Pair, error) {
 	var out [][]components.Pair
-	for _, no := range h.rowNos(vals) {
+	for _, no := range rowNos(h.rowFields, vals) {
 		row := []components.Pair{{Label: "Row", Value: strconv.Itoa(no)}}
 		for _, fd := range h.rowFields {
 			s, err := h.display(ctx, tx, fd, vals[rowKey(no, fd.Name)])
@@ -1062,7 +1093,7 @@ func (h *handlers[R, In]) posted(r *http.Request) form {
 		f.Values[fd.Name] = r.PostFormValue(fd.Name)
 	}
 	for key := range r.PostForm {
-		if h.isRowKey(key) {
+		if isRowKey(h.rowFields, key) {
 			f.Values[key] = r.PostFormValue(key)
 		}
 	}
@@ -1116,9 +1147,9 @@ func (h *handlers[R, In]) pageInfo(q url.Values, page, total int) components.Pag
 	}
 }
 
-// postedVersion is the version the page was rendered at; a missing or
+// PostedVersion is the version the page was rendered at; a missing or
 // non-numeric one is AUTH's 400 form error (CD-146, CD-183).
-func postedVersion(r *http.Request) (int, error) {
+func PostedVersion(r *http.Request) (int, error) {
 	v, err := strconv.Atoi(r.PostFormValue("version"))
 	if err != nil {
 		return 0, auth.ErrBadForm
@@ -1126,9 +1157,9 @@ func postedVersion(r *http.Request) (int, error) {
 	return v, nil
 }
 
-// recordID is the {id} in the URL. The routes only match digits; one too
+// RecordID is the {id} in the URL. The routes only match digits; one too
 // large for int64 is math.MaxInt64 here, which no record has (404 from Get).
-func recordID(r *http.Request) int64 {
+func RecordID(r *http.Request) int64 {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	return id
 }

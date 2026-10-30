@@ -1,0 +1,29 @@
+package partyweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// partyRows is a record's addresses and contacts, each row with its actions.
+templ partyRows(views []rowsView) {
+	for _, v := range views {
+		@components.Card(v.Title, v.Add) {
+			if len(v.Rows) == 0 {
+				<p>{ v.Empty }</p>
+			}
+			for _, row := range v.Rows {
+				@components.SummaryList(row.Pairs)
+				for _, b := range row.Links {
+					@components.Button(b)
+				}
+				for _, a := range row.Posts {
+					@components.Form(components.FormProps{Action: a.Action}) {
+						<input type="hidden" name="version" value={ a.Version }/>
+						if a.Kind != "" {
+							<input type="hidden" name="kind" value={ a.Kind }/>
+						}
+						@components.Button(components.ButtonProps{Label: a.Label, Busy: a.Label + "…", Variant: components.Ghost})
+					}
+				}
+			}
+		}
+	}
+}

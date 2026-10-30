@@ -33,6 +33,9 @@ var owned = []mstkit.Child{
 	{Kind: mstkit.Kind{DocType: "Contact", Label: "Contact", Table: "contact"}, FKColumn: "party_id"},
 }
 
+// MsgTermsNotFound refuses payment terms that don't exist (CD-216).
+const MsgTermsNotFound = "Payment Terms not found. Pick one from the list."
+
 const (
 	msgRole     = "Tick Vendor, Customer or both."
 	msgCategory = "GST category must be Registered Regular, Registered Composition, Unregistered, SEZ or Overseas."

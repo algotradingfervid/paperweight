@@ -33,6 +33,9 @@ templ wizardCheck(cards []sectionCard) {
 	for _, c := range cards {
 		@wizard.CheckSection(c.Title, "", c.Change.Href) {
 			@components.SummaryList(c.Pairs)
+			for _, row := range c.Rows {
+				@components.SummaryList(row)
+			}
 		}
 	}
 }
