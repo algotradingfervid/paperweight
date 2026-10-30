@@ -246,6 +246,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | WP1-AUTH | 20 user restrictions editor (CD-194) | Standard | crew-test-writer, crew-implementer ×4, crew-reviewer ×3, crew-verifier ×2 (AD-1) | 26 Oct | 30 Oct | 3 | 0/2/12 | lane/auth-20 9a97448 |
 | WP1-AUTH | CD-199 UserByEmail | High | crew-implementer, crew-reviewer, crew-verifier (AD-1) | 30 Oct | 30 Oct | 1 | 0/0/2 | 87e54a4 |
 | Merges | WP1-AUTH complete 8d56a19; WP2 Organisation (Tasks 12-14), CD-165, RunDirectory, CD-199 draft fix f8bc71b; P1 531/556; `make ci` green after each | — | director | | 30 Oct | — | — | — |
+| Merges | WP2 Tasks 15-19 and 23 (rows in .worktrees/masters/.work/ad-tasks.md) 0c274e7; MST P1 96/96; repo P1 550/556; `make ci` green | — | director | | 30 Oct | — | — | — |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
