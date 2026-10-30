@@ -139,6 +139,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - A check a test executes but never asserts passes covertouched (Update's CheckVersion, CheckCodeFree, CheckCodeChange): reviewers run a mutation pass over touched `Check*` calls.
 - Test helpers use the faithful constructor (`filesfake.NewWith`), never the lenient legacy `filesfake.New`.
 - Inside `db.Write` or an open read tx, never call anything that takes its own connection: a `files.Service.List` inside `db.Write` stalled every writer for about 5 s. Read with the caller's tx.
+- Concurrency tests run as a non-admin user: `Can` returns early for an Administrator, which hid a second connection in every record-level write (CD-213).
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
