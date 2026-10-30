@@ -67,7 +67,7 @@ func New(t testing.TB) *Env {
 	a := auth.New(auth.Deps{DB: d, Clock: clk, Directory: testkit.Directory(fx), Audit: audit.Default, Refs: refs, Info: refs})
 	namer := naming.New(d, clk, a, audit.Default)
 	refs.Engine = doc.NewEngine(doc.Deps{
-		DB: d, Clock: clk, Auth: a, Naming: namer, Files: filesfake.New(clk), Audit: audit.Default,
+		DB: d, Clock: clk, Auth: a, Naming: namer, Files: filesfake.NewWith(clk, a, refs), Audit: audit.Default,
 	})
 	if err := namer.EnsureSeries(ctx, orderDocType, "Purchase Order", "PO/{FY}/{#####}"); err != nil {
 		t.Fatalf("msttest.New: EnsureSeries: %v", err)

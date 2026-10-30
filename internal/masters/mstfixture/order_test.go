@@ -14,6 +14,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/allmasters"
 	"github.com/vardhan/internaltools/internal/masters/employee"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
+	"github.com/vardhan/internaltools/internal/masters/item"
 	"github.com/vardhan/internaltools/internal/masters/mstfixture"
 	"github.com/vardhan/internaltools/internal/masters/msttest"
 	"github.com/vardhan/internaltools/internal/masters/party"
@@ -308,6 +309,62 @@ func TestMstFixture_SaveUsesCurrentVersion(t *testing.T) {
 	if got := mstfixture.Snapshot(t, w.env, res.ID).VendorGSTIN; got != "" {
 		t.Errorf("VendorGSTIN with no address = %q; want empty", got)
 	}
+
+	// Clearing the vendor clears its snapshot too.
+	h.AddressID = w.m.Addresses["Thane"]
+	if _, err := mstfixture.Save(ctx, w.env, w.env.Kavya, res.ID, h, []mstfixture.Line{w.line("WIRE-18G", "KGS", qtyUnit)}); err != nil {
+		t.Fatalf("fourth Save: %v", err)
+	}
+	h.VendorID, h.AddressID = 0, 0
+	if _, err := mstfixture.Save(ctx, w.env, w.env.Kavya, res.ID, h, []mstfixture.Line{w.line("WIRE-18G", "KGS", qtyUnit)}); err != nil {
+		t.Fatalf("fifth Save: %v", err)
+	}
+	if got := mstfixture.Snapshot(t, w.env, res.ID); got.VendorName != "" || got.VendorGSTIN != "" {
+		t.Errorf("Snapshot with no vendor = %+v; want no vendor name or GSTIN", got)
+	}
+}
+
+// TestMstFixture_ResaveAfterLostConversion: a draft's line keeps its values,
+// but resaving them after the item lost that UoM gets CD-199's refusal.
+func TestMstFixture_ResaveAfterLostConversion(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	h, lines := w.shree(), []mstfixture.Line{w.line("BOLT-M12", "BOX", qtyUnit)}
+	res, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, h, lines)
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	id := w.m.Items["BOLT-M12"]
+	var in item.Input
+	var version int
+	w.read(t, func(ctx context.Context, tx *db.Tx) error {
+		it, err := w.svc.Item.Get(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		convs, err := w.svc.Item.Conversions(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		in = item.Input{
+			Code: it.Code, Name: it.Name, Type: it.Type, HSNSAC: it.HSNSAC, StockUoMID: it.StockUoMID,
+			PurchaseUoMID: it.PurchaseUoMID, DefaultTaxCodeID: it.DefaultTaxCodeID, IsStock: it.IsStock, StandardRate: it.StandardRate,
+		}
+		for _, c := range convs {
+			if c.UoMID != w.m.UoMs["BOX"] {
+				in.Conversions = append(in.Conversions, c)
+			}
+		}
+		version = it.Version
+		return nil
+	})
+	if _, err := w.svc.Item.Update(ctx, w.env.Admin, id, version, in); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	_, err = mstfixture.Save(ctx, w.env, w.env.Kavya, res.ID, h, lines)
+	wantFieldError(t, err, doctype.FieldError{Field: "uom_id", Line: 1, Message: "Row 1: Item BOLT-M12 has no conversion for UoM BOX. Pick another UoM."})
 }
 
 // TestMstFixture_HookRefusals: the rules Hooks.Validate runs through the
@@ -349,7 +406,7 @@ func TestMstFixture_HookRefusals(t *testing.T) {
 
 // TestMstFixture_BlankLinks: the hook leaves blank links to the engine: a draft
 // may have no vendor, whose Required error comes at submit, and an expense
-// line has no item to snapshot.
+// line has no item to snapshot and submits.
 func TestMstFixture_BlankLinks(t *testing.T) {
 	w := newWorld(t)
 	ctx := context.Background()
@@ -373,6 +430,36 @@ func TestMstFixture_BlankLinks(t *testing.T) {
 	want := []mstfixture.SnapLine{{}}
 	if got := mstfixture.Snapshot(t, w.env, res.ID).Lines; !reflect.DeepEqual(got, want) {
 		t.Errorf("Snapshot lines = %+v; want %+v", got, want)
+	}
+	mstfixture.Approve(t, w.env, res.ID)
+}
+
+// TestMstFixture_IncompleteLines: a draft may keep an unfinished line, but
+// submit refuses it on its own row, after a good expense line.
+func TestMstFixture_IncompleteLines(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	expense := mstfixture.Line{ExpenseTypeID: w.m.ExpenseTypes["TRAVEL"], Qty: qtyUnit, Rate: 62_5000}
+	for _, c := range []struct {
+		name string
+		line mstfixture.Line
+		want string
+	}{
+		{"item with no UoM", mstfixture.Line{ItemID: w.m.Items["MS-ANGLE-50"], Qty: qtyUnit}, "Row 2: UoM is required."},
+		{"UoM with no item", mstfixture.Line{UoMID: w.m.UoMs["KGS"], Qty: qtyUnit}, "Row 2: Item is required."},
+		{"neither item nor expense type", mstfixture.Line{Qty: qtyUnit}, "Row 2: Item is required."},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			res, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, w.shree(), []mstfixture.Line{expense, c.line})
+			if err != nil {
+				t.Fatalf("Save: %v", err)
+			}
+			_, err = w.env.Kit.Engine.Do(ctx, w.env.Kavya, mstfixture.DocType, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
+			var de *doc.Error
+			if !errors.As(err, &de) || de.Message != c.want {
+				t.Errorf("submit = %v; want %q", err, c.want)
+			}
+		})
 	}
 }
 

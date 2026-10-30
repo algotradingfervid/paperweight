@@ -108,7 +108,8 @@ func idText(id int64) string {
 // Save saves an order as p: a new one with id 0, otherwise the draft id. This
 // test helper reads the draft's current version itself, so a stale save can't
 // be expressed through it. Lines are sent without ids, which replaces them, so
-// every save of a draft runs Hooks.Validate.
+// a save with lines always runs Hooks.Validate; one with no lines and no header
+// change takes DOC-029's shortcut and doesn't.
 func Save(ctx context.Context, env *msttest.Env, p auth.Principal, id int64, h Header, lines []Line) (doc.Result, error) {
 	in := doc.ActionInput{Values: map[string]string{
 		"vendor_id": idText(h.VendorID), "address_id": idText(h.AddressID), "branch_id": idText(h.BranchID),
@@ -219,15 +220,15 @@ func validateVendor(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldErr
 		Scan(&vendorID, &addressID); err != nil {
 		return fieldErrors(err)
 	}
-	if vendorID == 0 {
-		return nil // a draft may have no vendor; submit reports the required field
-	}
-	if err := parties.CheckRole(ctx, tx, vendorID, party.Vendor); err != nil {
-		return fieldErrors(err)
-	}
-	snap, err := addresses.PartySnapshot(ctx, tx, vendorID, addressID)
-	if err != nil {
-		return fieldErrors(err)
+	var snap party.Snapshot // a draft may have no vendor; submit reports the required field
+	if vendorID != 0 {
+		if err := parties.CheckRole(ctx, tx, vendorID, party.Vendor); err != nil {
+			return fieldErrors(err)
+		}
+		var err error
+		if snap, err = addresses.PartySnapshot(ctx, tx, vendorID, addressID); err != nil {
+			return fieldErrors(err)
+		}
 	}
 	if _, err := tx.SQL().ExecContext(ctx, `UPDATE mst_order SET snap_vendor_name = ?, snap_vendor_gstin = ? WHERE id = ?`,
 		snap.Name, snap.GSTIN, id); err != nil {
@@ -237,14 +238,14 @@ func validateVendor(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldErr
 }
 
 type storedLine struct {
-	id, itemID, uomID int64
-	lineNo            int
-	qty               types.Qty
+	id, itemID, uomID, expenseTypeID int64
+	lineNo                           int
+	qty                              types.Qty
 }
 
 func readLines(ctx context.Context, tx *db.Tx, id int64) ([]storedLine, error) {
 	rows, err := tx.SQL().QueryContext(ctx,
-		`SELECT id, line_no, COALESCE(item_id, 0), COALESCE(uom_id, 0), COALESCE(qty, 0) FROM mst_order_line WHERE parent_id = ? ORDER BY line_no`, id)
+		`SELECT id, line_no, COALESCE(item_id, 0), COALESCE(uom_id, 0), COALESCE(expense_type_id, 0), COALESCE(qty, 0) FROM mst_order_line WHERE parent_id = ? ORDER BY line_no`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +253,7 @@ func readLines(ctx context.Context, tx *db.Tx, id int64) ([]storedLine, error) {
 	var out []storedLine
 	for rows.Next() {
 		var l storedLine
-		if err := rows.Scan(&l.id, &l.lineNo, &l.itemID, &l.uomID, &l.qty); err != nil {
+		if err := rows.Scan(&l.id, &l.lineNo, &l.itemID, &l.uomID, &l.expenseTypeID, &l.qty); err != nil {
 			return nil, err
 		}
 		out = append(out, l)
@@ -262,7 +263,7 @@ func readLines(ctx context.Context, tx *db.Tx, id int64) ([]storedLine, error) {
 
 func validateLine(ctx context.Context, tx *db.Tx, l storedLine) []doctype.FieldError {
 	if l.itemID == 0 || l.uomID == 0 {
-		return nil // an expense line has no item to snapshot
+		return nil // an expense line, or a draft line BeforeSubmit will refuse: nothing to snapshot
 	}
 	_, ok, err := items.Factor(ctx, tx, l.itemID, l.uomID)
 	if err != nil {
@@ -313,7 +314,24 @@ func fieldErrors(err error) []doctype.FieldError {
 	panic(err)
 }
 
-func (orderHooks) BeforeSubmit(context.Context, *db.Tx, int64) error   { return nil }
+// BeforeSubmit refuses an unfinished line. Item and UoM aren't Required fields
+// because an expense line (an expense type, no item) has neither.
+func (orderHooks) BeforeSubmit(ctx context.Context, tx *db.Tx, id int64) error {
+	lines, err := readLines(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	for _, l := range lines {
+		switch {
+		case l.itemID == 0 && l.expenseTypeID == 0:
+			return doc.Refused(fmt.Sprintf("Row %d: Item is required.", l.lineNo))
+		case l.itemID != 0 && l.uomID == 0:
+			return doc.Refused(fmt.Sprintf("Row %d: UoM is required.", l.lineNo))
+		}
+	}
+	return nil
+}
+
 func (orderHooks) ApplyEffects(context.Context, *db.Tx, int64) error   { return nil }
 func (orderHooks) ReverseEffects(context.Context, *db.Tx, int64) error { return nil }
 
