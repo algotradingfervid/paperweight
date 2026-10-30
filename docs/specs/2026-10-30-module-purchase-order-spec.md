@@ -65,7 +65,7 @@ Every money, quantity and rate is a kernel fixed-point type. Field names are uni
 | `remarks` | Remarks | Text, max 500 | Internal; never printed. Step `terms` |
 | `earlier_po_no` | Earlier PO no. | Text, max 40 | Cutover only (§12). Step `terms`, inside a Disclosure |
 | `earlier_po_date` | Earlier PO date | Date | Cutover only |
-| `copied_from_no` | Copied from | Text, read-only | Set by Copy (§24.1) to the source's display (`naming.Label`); shown on the check and document pages, never printed |
+| `copied_from_no` | Copied from | Text, max 40, not read-only (the kernel refuses read-only values on create, `doc/validate.go` `checkReadOnly`) | Hidden by `Module.Hide`, so a crafted post is dropped. Set only by Copy (§24.1) to the source's display (`naming.Label`); shown on the check and document pages through `PageExtra.Pairs`, never printed |
 | `net_total` | Taxable value | Money, read-only | Sum of line amounts |
 | `cgst_total`, `sgst_total`, `igst_total` | CGST, SGST, IGST | Money, read-only | From `gstcalc.Totals` |
 | `grand_total` | Grand total | Money, read-only | Net + tax, or net alone under reverse charge (§7) |
@@ -94,7 +94,7 @@ Snapshot columns, not Fields, written in `Validate` while draft (D-MST-03): `sna
 | `cgst`, `sgst`, `igst` | | Money, read-only | Per line (D-NUM-08) |
 | `already_received` | Already received | Qty | Default 0. Not negative. Above `qty` warns only (CD-234): `Row {n}: Already received is more than the quantity.` Cutover only: copies through amend, and is shown only when `earlier_po_no` is set (§12) |
 | `received_qty` | Received | Qty, `RollUp` | Sum of accepted quantities on approved and closed GRN lines |
-| `request_line_id` | Request row | Link to a `purchase.Request` line, read-only on the form | Set only by Add from requests (§20.4). `LinkSpec{Field: "request_line_id", Target: "purchase.Request", OnLine: true}` and `RollUp{TargetDocType: "purchase.Request", TargetField: "ordered_qty", SourceField: "qty", JoinField: "request_line_id"}` |
+| `request_line_id` | Request row | Int, not read-only (like `fixture.Receipt`'s `order_line_id`) | Hidden by `Module.Hide`. Set only by Create PO from a request and Add from requests (§20.4). `LinkSpec{Field: "request_line_id", Target: "purchase.Request", OnLine: true}`. No `RollUp`: ordered quantities are the module's (§20.3) |
 
 `uom.RegisterQtyUse` is called from the package `init` with `purchase_order_line`, `parent_id`, `uom_id`, `qty`.
 
@@ -223,7 +223,7 @@ Production `DefaultRights`, matching `00-fixtures.md`:
 
 | Role | Rights (scope) |
 |---|---|
-| Purchase User | read, create, amend, print, export (all); write, submit, delete (own) (§21, CD-246) |
+| Purchase User | read, create, amend, print, export (all); write, submit, delete (own) (§21, CD-246). `purchase.Order`'s `CloseRight` is `amend`, so any Purchase User closes an approved PO, as in v0.4; `amend` has no other effect on an approved PO (CD-247) |
 | Purchase Manager | read, approve, cancel, print, export (all); hand over any draft (§21.2) |
 | Director | read, approve, print, export (all) |
 | Stores | read (all) |
@@ -357,11 +357,13 @@ I don't edit the core spec or the decision log. Rulings of 30 October: items 8 a
 9. **Spec §1 and §11 and BRIEF** still say Zoho sync is the first module after Expenses; CD-228 says it's decided after the modules are in use.
 10. **`docs/ux/` design documents** for PO, GRN and Expense: one `crew-ux-designer` task per module once these specs are approved.
 11. **`docscreen` module hooks (additive, in MOD-0).** Specified in `docs/specs/2026-10-30-module-docscreen-hooks-spec.md`. Its §3 is authoritative for names: `Steps`, `Line`, `Hide`, `Check`, `Page`, `Reason`.
-12. **Fixture seed.** `amend` moves as §10 says (ruled). `00-fixtures.md` moves with it, so tests and production agree.
+12. **Fixture seed.** Amended by CD-247: `fixture.Order` keeps its seed, because 51 core test files use it. `00-fixtures.md` gains separate rows for `purchase.Order` and `purchase.Request` with §10's and §20.6's rights.
 13. **`doc.Engine` reassign (v0.5, §21.2).** DOC gains a `reassign` path: a draft or rejected document's `OwnerField` changes to another user, with the posted `version`, an audit entry and a history row. Generic, so GRN and Expense can opt in later. Owned by DOC; High tier; MOD-0.
 14. **Comments in `modkit` (v0.5, §22).** One append-only `module_comment` table and a panel component, used by every module DocType that opts in.
 15. **Module routes calling `Engine.Do` (v0.5).** Copy (§24.1) and Create PO from a request (§20.4) create drafts through `Engine.Do` from a module handler. Hooks spec §5 rule 2 forbids hooks from calling it, not module routes; this item makes that explicit.
 16. **Fixture seed for requests.** `00-fixtures.md` gains the Purchase Request rights rows (§20.6) and two request fixtures.
+17. **State labels per DocType (CD-247).** `DocType.StateLabels map[State]string`, additive; blank keeps the global label. Request shows `approved` as `Submitted`.
+18. **Close hook (CD-247).** An optional `doctype.Closer` interface (`OnClose(ctx, tx, id) error`) that the kernel's close calls inside its transaction after the state is set. PO uses it to refresh linked requests (§20.3). A hooks value without it is unchanged.
 
 ## 16. Open points for owner review
 
@@ -383,7 +385,9 @@ The owner has answered both batches (CD-234, CD-235).
 - A PO line pulled from a request keeps the request's item and UoM; only the quantity and price change (§20.5).
 - Hand-over moves a draft to another Purchase User; a Purchase Manager can hand over anyone's draft, but never edits it (§21.2).
 - Comments can't be edited or deleted, and nobody is notified; the Purchase home shows recent comments on your documents (§22).
-- Mark as sent is recorded by the PO's owner, and can be undone (§23).
+- Mark as sent is recorded by the PO's owner or a Purchase Manager or Director, and can be undone (§23).
+- Only the requester closes a request; a buyer who won't order something says so in a comment (§20.3).
+- A short-closed PO counts only what was received as ordered, so the rest can go on a new PO (§20.2).
 - The default price is the last price paid to the same vendor for the same item and UoM on the same project, else the item's standard rate (§24.2).
 
 ## 17. Sources
@@ -513,7 +517,7 @@ Steps: Details → Items → Check and submit. There is no Terms step.
 | `order_status` | Ordered | Select, read-only: `not_ordered`, `part_ordered`, `ordered` | §20.3. List priority 2, filterable |
 | `state` | State | Select, read-only | List priority 3 |
 
-**Lines (1 to 200 at submit; zero on a draft)**
+**Lines (1 to 500 at submit, DOC's limit; zero on a draft)**
 
 | Field | Label | Type | Rule |
 |---|---|---|---|
@@ -522,25 +526,36 @@ Steps: Details → Items → Check and submit. There is no Terms step.
 | `uom_id` | Unit | Link UoM | Required; default stock UoM; whole-number check through `uom.CheckLineQty`; `uom.RegisterQtyUse` for this table |
 | `qty` | Quantity | Qty | Required, more than 0 |
 | `note` | Note | Text, max 200 | Optional, e.g. a brand or size |
-| `ordered_qty` | Ordered | Qty, `RollUp` from PO lines (§3.2 `request_line_id`) | Sum of `qty` on approved and closed PO lines |
+| `ordered_qty` | Ordered | Qty, `System`, read-only | Written by `RefreshOrderStatus` (§20.3) |
 
 No line field name repeats a header field name (CD-151).
 
-**Pending to order** (never stored) = `max(0, qty − ordered_qty − held)`. `held` is the quantity on draft, pending-approval and rejected PO lines pointing at this line. A closed request has 0 pending.
+**What a PO line counts towards its request row** (one function, `lineOrdered`, used everywhere):
+
+| PO state | Ordered | Held |
+|---|---|---|
+| draft, pending approval, rejected | 0 | `qty` |
+| approved | `qty` | 0 |
+| closed | `min(qty, already_received + received_qty)`: a short-closed PO frees the rest, so it can go on a new PO (§5) | 0 |
+| cancelled | 0 | 0 |
+
+**Pending to order** (never stored) = `max(0, qty − ordered − held)`, summed over the row's PO lines. A closed request has 0 pending.
+
+**Messages (request).** `Request date can't be in the future.` `Needed by can't be before the request date.` The site and project rules and texts are the PO's (§4).
 
 ### 20.3 States
 
 - **Submit** moves a request straight to approved and numbers it (no approval rule applies, F5). The screen calls the state **Submitted**: the state label for a non-approvable DocType is a docscreen display label, which the plan check confirms.
-- **Close** means "no longer needed". It asks for a reason (3 to 500 characters). It can be done by the owner or by a Purchase User (§20.6). A closed request can't be pulled into a PO, and lines already ordered stay ordered.
-- **Cancel** is done by the owner, and is blocked while any PO line links the request (DOC-052, through `LinkSpec`).
+- **Close** means "no longer needed". Only the owner closes (the default close right, `submit`, is `own`). It asks for a reason (3 to 500 characters). A buyer who won't order something says so in a comment (§22) and the requester closes it: one owner, no fight. A closed request can't be pulled into a PO, and lines already ordered stay ordered. When a draft, pending or rejected PO still holds its lines, the close page warns, through the Reason hook: `{n} rows are on orders not yet approved: {list}. Those orders can't be approved until the rows are removed.` The kernel then refuses to approve such a PO with DOC's closed text (§20.5); the approver rejects it and the buyer removes the rows.
+- **Cancel** is done by the owner. The kernel blocks it while a pending, approved or closed PO links the request (DOC-052, `LinkSpec`). A draft or rejected PO still holding the row gets DOC's cancelled text on its next save.
 - There is no amend or withdraw: to change a submitted request, the owner closes it and raises a new one.
-- **`order_status`** is `not_ordered` when nothing is ordered, `ordered` when every line's ordered quantity reaches its requested quantity, and `part_ordered` otherwise. `purchase.RefreshOrderStatus(ctx, tx, requestIDs []int64)` sets it. PO's `ApplyEffects` (on approve) and `ReverseEffects` (on cancel) call it. They compute the ordered totals from approved and closed PO lines themselves, counting the PO being approved, because `ApplyEffects` runs before the kernel's roll-up (the same reason as §6.3).
+- **`order_status`** is `not_ordered` when nothing is ordered, `ordered` when every line's ordered quantity reaches its requested quantity, and `part_ordered` otherwise. `purchase.RefreshOrderStatus(ctx, tx, requestIDs []int64)` recomputes `ordered_qty` and `order_status` from `lineOrdered`, counting the PO in its new state. It writes them as the kernel's roll-up writes system fields: no version bump and no audit entry (the plan check confirms against `rollup.go`). Callers: PO `ApplyEffects` (approve), `ReverseEffects` (cancel), `OnClose` (close, §15 item 18), and MOD-GRN wherever it calls `RefreshReceiptStatus` on a closed PO, because a GRN cancelled against a closed PO changes that PO's ordered amount.
 
 ### 20.4 Turning requests into a PO
 
 There are two ways in, and both are a buyer's action.
 
-1. **Create PO** on a request's page or list card (needs `create` on Purchase Order). A module route, `POST /modules/purchase/requests/{id}/order`, posts the request's `version`. It creates a PO draft through `Engine.Do` (§15 item 15) with the request's site, project and needed-by date, and one PO line per line with pending to order above 0: item, description, UoM, quantity equal to the pending amount, and `request_line_id`. It then opens the PO wizard's Details step, where the buyer picks the vendor. Defaults such as price and tax code fill on that save (§8). A request with nothing pending answers `Everything on {PR} is already on an order.`
+1. **Create PO** on a request's page (needs `create` on Purchase Order). `GET /modules/purchase/requests/{id}/order` shows one small page: the request's pending rows and a Vendor picker. `POST` posts the request's `version` and the vendor, and creates a PO draft through `Engine.Do` (§15 item 15) with that vendor, the request's site, project and needed-by date, and one PO line per row with pending to order above 0: item, description, UoM, quantity equal to the pending amount, and `request_line_id`. Because the vendor is known at create, `Validate` fills the last price (§24.2) and the other defaults on that first save. It then opens the PO wizard at Details. A request with nothing pending answers `Everything on {PR} is already on an order.` A blank vendor answers `Pick a vendor.`
 2. **Add from requests** on a PO's Items step: a link, `Add from requests ({n} open)`, shown when open request lines exist for the PO's site and project. Its custom step body (hooks spec `Steps["items"]` with `Body` and `Save`) lists pending request lines for that site and project, grouped by request. Each line shows the requester, needed-by date, item, unit and pending quantity, with a tick and a quantity input that defaults to the pending amount. Lines with nothing pending because other POs hold them show `On {PO display} ({owner})` and can't be ticked. That tells a buyer whom to talk to, instead of ordering twice. `Add selected` appends the lines (`Save.Lines` keeps the existing ones), and the buyer returns to Items.
 
 One PO can take lines from many requests. A request line can be split across POs, for example two vendors, until nothing is pending.
@@ -551,23 +566,25 @@ One PO can take lines from many requests. A request line can be split across POs
 
 | Condition | Message |
 |---|---|
-| The request isn't submitted (draft, closed or cancelled) | The kernel's `LinkSpec` refusal (DOC-017's text) |
+| The request is a draft | DOC's `{PR} isn't approved yet. Pick an approved purchase request.` |
+| The request is closed | DOC's `{PR} is closed. Remove the line or pick another purchase request.` |
+| The request is cancelled | DOC's `{PR} is cancelled. Remove the line or pick another purchase request.` |
 | The request's site differs from the PO's site | `Row {n}: Request {PR} is for site {code}. This order delivers to {code}.` |
 | The request's project differs from the PO's project | `Row {n}: Request {PR} is for project {code}. This order is for {code}.` |
 | The item differs from the request row's | `Row {n}: Request {PR} row {m} is for {item code}. Remove the row to order a different item.` |
 | The UoM differs from the request row's | `Row {n}: Request {PR} row {m} is in {uom code}. Keep that unit.` |
 | The same request row is on two rows of this PO | `Row {n}: Request {PR} row {m} is already on row {k}.` |
-| Other non-cancelled POs already hold the request row's whole quantity | `Row {n}: Request {PR} row {m} is already on {PO display}.` (the oldest such PO) |
+| Other POs' ordered plus held (`lineOrdered`) already reach the request row's quantity | `Row {n}: Request {PR} row {m} is already on {PO display}.` (the oldest such PO) |
 
-Ordering more than was requested is allowed. The check page warns: `Row {n}: ordering {x} more than request {PR} asked for.` The quantity check reads the other POs inside the write, so when two buyers save at once the second is refused (CD-94). This is a cross-record invariant. Its write paths are: PO save, PO submit, PO approve (the kernel re-validates), PO amend (copies `request_line_id`, so the check runs again on the amendment's first save), PO cancel (frees the quantity), request close and request cancel. One post-state function, `checkRequestRows(ctx, tx, poID)`, is called by every PO path (§1 item 6 of the engineering lessons).
+Ordering more than was requested is allowed. The check page warns: `Row {n}: ordering {x} more than request {PR} asked for.` The quantity check reads the other POs inside the write, so when two buyers save at once the second is refused (CD-94). This is a cross-record invariant. Its write paths, and what guards each: PO save and submit (`Validate`, `BeforeSubmit`); PO approve (the kernel re-validates); PO amend (copies `request_line_id`; M0 makes amend run `Validate`); PO cancel and close (free quantity; `RefreshOrderStatus`); request close and cancel (call no hook; the kernel's `LinkSpec` refuses the PO on its next save or approve). One post-state function, `checkRequestRows(ctx, tx, poID)`, is called last by `Validate` and `BeforeSubmit`.
 
 ### 20.6 Rights (production `DefaultRights`)
 
 | Role | Rights on Purchase Request (scope) |
 |---|---|
-| Employee | read, create, write, submit, cancel, delete (own) |
+| Employee | read, create, write, submit, cancel, delete (own); close through `submit` (own) |
 | Stores | read (all) |
-| Purchase User | read (all); close (all) through the DocType's `CloseRight` (CD-237), which the plan check names against MOD-0's implementation |
+| Purchase User | read (all) |
 | Purchase Manager, Director | read (all) |
 | Administrator | every applicable right |
 
@@ -577,9 +594,9 @@ Site and project restrictions apply, so Suresh raises and sees requests for PUNE
 
 | Screen | Notes |
 |---|---|
-| List `/doc/purchase.Request` | Phone cards: number or `Draft {id}`, site, needed by, `Ordered` badge, item count. Filters: state, order status, site, project, mine. Button `New request` |
+| List `/doc/purchase.Request` | Phone cards: number or `Draft {id}`, site, needed by, order status. Filters: state, order status, site, project (declared `Filterable`). "Mine" and "to order" are Purchase home queues (§25). Button `New request` |
 | Wizard | Details (Needed at, Project, Needed by, What is it for?) → Items (add-to-a-list cards at every width; `CardsOnly`) → Check and submit, whose button reads `Submit request` |
-| Document page | Lines with Requested, Ordered and Pending to order, plus a line note when a draft PO holds the line (`On {PO display} ({owner})`). A Linked orders card lists number, vendor, state and receipt status, read through `LinkRead`. Then Comments (§22) and attachments. Buyers see `Create PO` |
+| Document page | Lines with Requested, Ordered and Pending to order, plus a line note when an unapproved PO holds the line: `On {PO display} ({owner})` when `LinkRead` lets the viewer read that PO, else `On another order` (CD-233). A Linked orders card lists number, vendor, state and receipt status, read through `LinkRead`. Then Comments (§22) and attachments. Buyers see `Create PO` |
 
 The UX design document covers these screens (protocol §9).
 
@@ -599,19 +616,20 @@ People holding the hand-over right also see `Hand over`. Approvers never edit: t
 |---|---|
 | When | The PO is in draft or rejected |
 | Who | The owner, or anyone with `approve` on Purchase Order (Purchase Manager, Director). They hand the draft over; they never edit it |
-| To whom | An enabled user, other than the owner, who holds `create` and `write` on Purchase Order and whose restrictions let them read this PO |
+| To whom | An enabled user, other than the owner, who holds `create` and `read` on this PO (`CanTx` as that user with the PO's `RecordRef`) and `write` on a copy of the `RecordRef` with `CreatedBy` set to them. `UsersWithRightTx(write, rec)` can't be used: with `own` scope it returns only the current owner |
 | How | `GET/POST /modules/purchase/orders/{id}/handover`: pick a person (radios of the eligible users, read with `UsersWithRightTx` and the restriction check), add an optional note, then `Hand over`. The form posts the PO's `version` |
-| Effect | DOC's reassign path (§15 item 13) sets `created_by`, bumps `version`, writes an audit entry and a history row (`Handed over from {a} to {b}`). If a note was given, it is posted as a comment (§22) by the person handing over |
+| Effect | DOC's reassign path (§15 item 13) returns a typed `*doc.ReassignError` whose `Reason` is one of `NotDraft`, `Pending`, `SameOwner`, `CantCreate`, `CantSee`, `Disabled`; the module maps each to the text below. It sets `created_by`, bumps `version`, writes an audit entry and a history row (`Handed over from {a} to {b}`). If a note was given, it is posted as a comment (§22) by the person handing over |
 
 **Messages**
 
 | Condition | Message |
 |---|---|
-| The PO isn't draft or rejected | `Only a draft or rejected order can be handed over.` |
+| The PO is approved, closed or cancelled | `An approved, closed or cancelled order can't be handed over.` |
 | The PO is pending approval | `Withdraw this order before handing it over.` |
 | The person picked is the current owner | `This order is already {name}'s.` |
 | The person can't raise POs | `{name} can't raise purchase orders. Pick someone with the Purchase User role.` |
 | The person can't see the PO's project or site | `{name} can't see this order's project or site. Pick someone else.` |
+| The person's sign-in is disabled | `{name} can't sign in at the moment. Pick someone else.` |
 | The person handing over has no right to | AUTH's 403 text |
 
 An amendment belongs to whoever amends (§10). Requests have no hand-over: the requester closes the request and someone raises a new one [Assumption].
@@ -629,11 +647,11 @@ A shared feature in `modkit`. PO and Request opt in now; GRN and Expense can opt
 
 ## 23. Sending to the vendor
 
-- **Table.** `purchase_order_sent`, one row per PO: `po_id`, `sent_on` Date, `sent_via` (`email`, `whatsapp`, `courier`, `by_hand`, `other`), `note` (max 200), `by`, `at`. It is separate from the PO because an approved PO doesn't change (R7). It follows the GRN Bill details pattern (GRN spec §3.3) for version, audit and rights: the plan copies that task's mechanism, not new rules.
+- **Table.** `purchase_order_sent`, at most one row per PO: `po_id` (primary key, references `purchase_order` ON DELETE CASCADE), `sent_on` Date, `sent_via` (CHECK in `email`, `whatsapp`, `courier`, `by_hand`, `other`), `note` (max 200), `sent_by`, `sent_at`, `version`. It is separate from the PO because an approved PO doesn't change (R7). The form posts the row's `version`, 0 when there is no row. Mark as sent inserts (posted 0) or updates (posted current) with `version + 1`; Mark as not sent deletes the row (posted current). A stale version is a 409 with DOC's stale text. Each change writes an audit entry on the PO (`Marked as sent`, `Marked as not sent`) through `audit.Writer`.
 - **Page.** `/modules/purchase/orders/{id}/send`, for approved POs only. It has `Download PDF`, and `Share` on devices with the Web Share API for files (the PDF goes to WhatsApp, a mail app and so on; the button is hidden where unsupported, so the page works without JavaScript). Below those is a form: Sent on (default today), How (radios: Email, WhatsApp, Courier, By hand, Other), Note, and the button `Mark as sent`. Once sent, the page shows `Mark as not sent`.
-- **Who.** Anyone with `write` on the PO, which means the owner, plus Administrator.
+- **Who.** The PO's owner (`write`), or anyone with `approve` on Purchase Order (Purchase Manager, Director), or an Administrator. Anyone else gets AUTH's 403 text.
 - **Document page.** It shows `Sent to vendor on {date} by {how} ({name})`, or `Not sent yet` with `Send to vendor`. After approval, the owner finds the PO in the To send queue (§25).
-- **List.** Filter `Sent: Yes / No`.
+- **Queue.** The To send queue (§25) lists approved POs with no row.
 - **Messages.** Not approved: `Only an approved order can be marked as sent.` Future date: `Sent on can't be in the future.` Before the order date: `Sent on can't be before the order date.` No method chosen: `Choose how it was sent.`
 
 ## 24. Faster entry
@@ -646,12 +664,12 @@ A shared feature in `modkit`. PO and Request opt in now; GRN and Expense can opt
 |---|---|
 | vendor, vendor address, site, project, payment terms, terms, reverse charge; lines' item, description, UoM, qty, price, discount, tax code, HSN/SAC | number, dates (order date is today), required by, vendor quote ref, remarks, earlier PO fields, `already_received`, `request_line_id`, attachments, comments, sent record |
 
-`copied_from_no` holds the source's display. A site or project the copier may not use is refused by AUTH's create check (AUTH-099's text). Disabled masters are copied, and the next save shows the usual errors. The check page note reads: `Copied from {display}. Rates are as on that order; check them before you submit.`
+`copied_from_no` holds the source's display. A site or project the copier may not use is refused by AUTH's create check (AUTH-099's text). Create runs link checks and `Validate`, so a disabled master is never copied: a disabled header link (vendor, address, payment terms) is left blank, and a line whose item, UoM or tax code is disabled is left out. The check page notes read: `Copied from {display}. Rates are as on that order; check them before you submit.`, then for each blank `{Label} {code} is disabled, so it was left blank.` and for each line `Row {n} of {display} was left out: {label} {code} is disabled.`
 
 ### 24.2 Last price
 
-- **Default.** When a line is saved with a blank price, the default is the price and discount of the newest line on an approved or closed PO with the same vendor, item, UoM and project. If there is none, it is the item's standard rate. Restricting the lookup to the same project means the default never reveals a price from a project the user can't see: `Validate` has no principal, so it can't apply scope.
-- **Hint.** The line page and the grid row show `Last bought at ₹{rate} from {vendor} on {date} ({PO})` under the rate, at most the three newest across vendors. The hint is read through `Auth.Scope` (AUTH-110), from a hook that has the principal.
+- **Default.** When a line is saved with a blank price, the default is the price and discount of the newest line (latest `order_date`, then highest id) on an approved or closed PO with the same vendor, item, UoM and project. If there is none, it is the item's standard rate. Restricting the lookup to the same project means the default never reveals a price from a project the user can't see: `Validate` has no principal, so it can't apply scope.
+- **Hint.** After a line is saved, its card and grid row on the Items step carry the note `Last bought at ₹{rate} from {vendor} on {date} ({PO})`, the newest for that item and UoM across vendors, through `Module.LineCard`'s `Note` (hooks spec §3). It is read through `Auth.Scope` (AUTH-110) in the hook, which has the principal. `LastPrices(ctx, p, itemID, uomID, limit)` returns up to three for the document page's line notes.
 - A rate above the last price raises no warning [Assumption]. It is a price, not a rule.
 
 ### 24.3 Everything else stays
@@ -660,7 +678,7 @@ Item entry is docscreen's grid on desktop and add-to-a-list on phones (§11). Ve
 
 ## 25. Purchase home
 
-`/modules/purchase`, the nav's Purchase entry. Guarded by `read` on Purchase Order or Purchase Request. One column of cards on a phone and two from 64rem. Each card shows a count and links to the filtered list or report. A user sees only the cards they have rights for. Every count goes through `Auth.Scope` (AUTH-110).
+`/modules/purchase`, the nav's Purchase entry. Guarded by `read` on Purchase Order or Purchase Request. One column of cards on a phone and two from 64rem. Each card shows a count and links to a queue page, `/modules/purchase/q/{queue}`, which the module renders with the list components from its own scoped query; the pending report covers Overdue deliveries. The generic list can only filter declared fields, so queues don't go through it. A user sees only the cards they have rights for. Every count goes through `Auth.Scope` (AUTH-110).
 
 | Card | Shows | Who sees it |
 |---|---|---|
@@ -674,7 +692,7 @@ Item entry is docscreen's grid on desktop and add-to-a-list on phones (§11). Ve
 | My requests | My open requests, each with its order status | create on Request |
 | Recent comments | §22 | anyone |
 
-The two main buttons are `New purchase order` and `New request`. When nothing is waiting, the page says: `Nothing waiting for you.` The list gains the filters this needs: owner `me`, Sent, and receipt status (already present). The plan check confirms that docscreen's list takes these as query parameters.
+The two main buttons are `New purchase order` and `New request`. When nothing is waiting, the page says: `Nothing waiting for you.`
 
 ## 26. v0.5 tests
 
@@ -684,12 +702,12 @@ These are added to §18. They are in the same area, PO, so `checktestids` needs 
 |---|---|---|---|---|
 | PO-048 | Request submit numbers `PR/26-27/00001` with no approval; the request date sets the FY | `TestRequest_SubmitNumbers` | P1 | integration |
 | PO-049 | Suresh raises and sees requests only for his sites, on the real `auth.Service` | `TestRequest_SiteRestrictionReal` | P1 | integration |
-| PO-050 | Request rights: owner edits; another employee and a Purchase User can't; a Purchase User closes | `TestRequest_Rights` | P1 | integration |
+| PO-050 | Request rights: owner edits and closes; another employee and a Purchase User can neither edit nor close | `TestRequest_Rights` | P1 | integration |
 | PO-051 | Create PO from a request: draft with site, project, needed-by and only pending lines with `request_line_id`; nothing pending refused | `TestRequest_CreatePO` | P1 | integration |
 | PO-052 | Add from requests lists only same site and project with pending above 0, and shows `On {PO}` for held lines | `TestRequest_AddFromRequests` | P1 | integration |
 | PO-053 | Each §20.5 condition gives its own message | `TestPO_RequestRowRules` | P1 | integration |
 | PO-054 | Two buyers save the same request row at once: the second is refused, on two connections | `TestPO_RequestRowRace` | P1 | integration |
-| PO-055 | `ordered_qty` and `order_status` after PO approve, cancel and close, and an amend with request rows | `TestRequest_OrderStatus` | P1 | integration |
+| PO-055 | `ordered_qty` and `order_status` after PO approve, cancel, short close (rest freed for a new PO) and an amend with request rows | `TestRequest_OrderStatus` | P1 | integration |
 | PO-056 | Request cancel blocked while a PO links it, naming the PO | `TestRequest_CancelBlocked` | P1 | integration |
 | PO-057 | Random request and PO sequences: pending to order never below 0, held plus ordered never above requested unless one PO over-orders, status matches | `FuzzRequest_OrderInvariants` | P1 | unit (fuzz) |
 | PO-058 | Only the owner edits, submits, withdraws, revises and deletes a draft; Ravi and a second Purchase User get 403, on the real `auth.Service` | `TestPO_OwnerOnlyReal` | P1 | integration |
@@ -702,6 +720,8 @@ These are added to §18. They are in the same area, PO, so `checktestids` needs 
 | PO-065 | Last price default from same vendor, item, UoM and project, else standard rate; hint scoped | `TestPO_LastPrice` | P1 | integration |
 | PO-066 | Purchase home cards and counts for Priya, Ravi, Suresh and Deepak, scoped | `TestPurchaseHome_Cards` | P1 | integration |
 | PO-067 | Default rights for Purchase Request match `00-fixtures.md` | `TestRequest_DefaultRights` | P1 | unit |
+| PO-069 | Closing a request held by an unapproved PO warns; the PO's approve is then refused with DOC's closed text | `TestRequest_CloseWhileHeld` | P1 | integration |
+| PO-070 | Queue pages list only the user's scoped rows, matching the home counts | `TestPurchaseHome_Queues` | P1 | integration |
 | PO-068 | Phone flow: Suresh requests, Priya creates the PO, Ravi approves, Priya marks it sent, Suresh sees Ordered | `TestE2E_RequestToSentFlow` | P1 | e2e |
 
 PO-041 changes with §10: Purchase User `write`, `submit` and `delete` become `own`.

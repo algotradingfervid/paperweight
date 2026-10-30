@@ -1,6 +1,6 @@
 # Progress
 
-Status on 31 October 2026: **WP0, Wave 1 (NUM, NAM, APR, DOC, FILE, UI, AUTH) and WP2 complete (tag `wp2-masters`). WP3 Tasks 1, 2 and 6 Phase B, and Task 3 parts a and b, are on main; Task 3c, Tasks 4 and 5 and the release are with AD-7; WP3 ends with the tag `core-v1`. Module specs accepted (CD-238). PO is the first module: spec v0.5 adds Purchase Requests, one owner per draft, comments, Mark as sent, Copy, last price and a Purchase home (CD-246, owner review of §16 assumptions pending); plan `docs/superpowers/plans/2026-10-31-mod-po.md` (MOD-0 groundwork + MOD-PO, 31 tasks). GRN and Expense follow PO.** `make ci` green on main, P1 550/556 (the six missing are Task 4 browser tests).
+Status on 31 October 2026: **WP0, Wave 1 (NUM, NAM, APR, DOC, FILE, UI, AUTH) and WP2 complete (tag `wp2-masters`). WP3 Tasks 1, 2 and 6 Phase B, and Task 3 parts a and b, are on main; Task 3c, Tasks 4 and 5 and the release are with AD-7; WP3 ends with the tag `core-v1`. Module specs accepted (CD-238). PO is the first module: spec v0.5 adds Purchase Requests, one owner per draft, comments, Mark as sent, Copy, last price and a Purchase home (CD-246, owner review of §16 assumptions pending); plan `docs/superpowers/plans/2026-10-31-mod-po.md` (MOD-0 groundwork + MOD-PO, 38 tasks; plan-checked, CD-247). GRN and Expense follow PO.** `make ci` green on main, P1 550/556 (the six missing are Task 4 browser tests).
 
 ## Read in this order
 
