@@ -185,12 +185,11 @@ func (w *world) wantRejoinRefused(t *testing.T, code string, u auth.UserID, stor
 }
 
 // TestEmployee_LeaveStoresUserVersionRejoinReenables (CD-189, the normal
-// path; was TestEmployee_LeaveFlagRejoinReenables under CD-185): leaving an
-// employee whose user is enabled disables it and stores the user's
-// users.version right after DisableUser in user_version_on_leave; re-joining
-// with no Administrator change in between calls EnableUser (one "enable"
-// entry), leaves the user enabled and clears the column. Through Update and
-// through SetDisabled.
+// path): leaving an employee whose user is enabled disables it and stores the
+// user's users.version right after DisableUser in user_version_on_leave;
+// re-joining with no Administrator change in between calls EnableUser (one
+// "enable" entry), leaves the user enabled and clears the column. Through
+// Update and through SetDisabled.
 func TestEmployee_LeaveStoresUserVersionRejoinReenables(t *testing.T) { // MST-119, CD-189
 	w := newWorld(t)
 	deepak := userID(t, "deepak@vardhan.test")
@@ -484,11 +483,11 @@ func TestEmployee_AdminDisabledUserRejoinRefused(t *testing.T) { // MST-112, MST
 	w.wantAdminEnableThenRejoin(t, "EMP-007", deepak)
 }
 
-// TestEmployee_LeftCreateNeverStoresVersion (CD-185 (c), CD-189; was
-// TestEmployee_LeftCreateNeverSetsFlag): a create with status Left leaves
-// user_version_on_leave NULL, so re-joining with its disabled user is refused
-// like the bypass; with an enabled user the re-join saves without an enable,
-// and a later leave is a real one that stores the user's version.
+// TestEmployee_LeftCreateNeverStoresVersion (CD-185 (c), CD-189): a create
+// with status Left leaves user_version_on_leave NULL, so re-joining with its
+// disabled user is refused like the bypass; with an enabled user the re-join
+// saves without an enable, and a later leave is a real one that stores the
+// user's version.
 func TestEmployee_LeftCreateNeverStoresVersion(t *testing.T) { // MST-112, MST-119, CD-189
 	w := newWorld(t)
 	old, deepak := userID(t, "old@vardhan.test"), userID(t, "deepak@vardhan.test")
