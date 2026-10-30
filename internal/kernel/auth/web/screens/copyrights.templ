@@ -1,0 +1,63 @@
+package authscreens
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// maxRadios is the most sources shown as radios; more use a Select.
+const maxRadios = 6
+
+// CopyRightsPage copies another role's rights to Role (design-system §8.6,
+// CD-200). Post is the URL the form posts to with Version: the role's version,
+// or on a re-render the one the page posted (CD-94). Sources are the roles
+// that can be picked. Error, when set, shows on the field and in the summary.
+type CopyRightsPage struct {
+	Role, Post string
+	Version    int64
+	Sources    []auth.RoleInfo
+	Error      string
+}
+
+var copySourceID = components.FieldID("source_id")
+
+// CopyRights is the confirm step (design-system §4 rule 9): the warning, the
+// source field and the Copy rights button, with no dialog. With no role to
+// copy from it is only the EmptyState.
+templ CopyRights(p CopyRightsPage) {
+	{{ o := uilayout.PageOpts{Title: "Copy rights to " + p.Role, Error: p.Error != "", Back: &components.Link{Label: "Roles", Href: "/roles"}} }}
+	if o.Error {
+		{{ o.BannerSlot = components.ErrorSummary([]components.FieldErr{{ID: copySourceID, Message: p.Error}}) }}
+	}
+	@uilayout.Page(o) {
+		if len(p.Sources) == 0 {
+			@components.EmptyState("There is no other role to copy from.", &components.Link{Label: "Back to roles", Href: "/roles"})
+		} else {
+			@components.Banner(components.BannerProps{Kind: components.Warning, Message: "This replaces every right " + p.Role + " has with the rights of the role you pick."})
+			@components.Form(components.FormProps{Action: p.Post}) {
+				<input type="hidden" name="version" value={ strconv.FormatInt(p.Version, 10) }/>
+				<div class="stack">
+					{{ f := components.FieldProps{ID: copySourceID, Name: "source_id", Label: "Role to copy from", Error: p.Error} }}
+					if len(p.Sources) > maxRadios {
+						@components.Select(f, append([]components.Option{{Label: "Choose a role"}}, sourceOptions(p.Sources)...))
+					} else {
+						@components.Radios(f, sourceOptions(p.Sources))
+					}
+					@components.Button(components.ButtonProps{Label: "Copy rights", Type: "submit", Variant: components.Primary})
+				</div>
+			}
+		}
+	}
+}
+
+// sourceOptions are the source field's options, value ID, label Name.
+func sourceOptions(roles []auth.RoleInfo) []components.Option {
+	var out []components.Option
+	for _, r := range roles {
+		out = append(out, components.Option{Value: strconv.FormatInt(r.ID, 10), Label: r.Name})
+	}
+	return out
+}

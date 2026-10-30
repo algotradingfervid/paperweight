@@ -47,6 +47,7 @@ templ roles(p authweb.RolesPage) {
 							<input type="hidden" name="version" value={ strconv.FormatInt(r.Version, 10) }/>
 							<button type="submit">Delete</button>
 						</form>
+						<a href={ templ.SafeURL(fmt.Sprintf("/roles/%d/copy-rights", r.ID)) }>Copy rights</a>
 					}
 				</li>
 			}

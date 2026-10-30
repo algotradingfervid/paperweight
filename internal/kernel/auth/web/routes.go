@@ -51,6 +51,9 @@ func (s *Server) Mount(r chi.Router) {
 	r.Method(http.MethodPost, "/rights/{doctype}/reset", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.resetRights)))
 	// Who can… (Task 19).
 	r.Method(http.MethodGet, "/rights/who-can", s.Admin(auth.ErrAdminOnlyWhoCan.Msg, http.HandlerFunc(s.getWhoCan)))
+	// Copy rights from another role (CD-200).
+	r.Method(http.MethodGet, "/roles/{id}/copy-rights", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.getCopyRights)))
+	r.Method(http.MethodPost, "/roles/{id}/copy-rights", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.postCopyRights)))
 }
 
 // CheckRoutes returns one "METHOD path: problem" line per route that does not
