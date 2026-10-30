@@ -2,12 +2,16 @@ package docscreen
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -45,6 +49,7 @@ type reasonView struct {
 	Question string // the delete page's question
 	Button   components.ButtonProps
 	Danger   string
+	Link     *components.Link // the document that refused a cancel
 	Errors   []components.FieldErr
 }
 
@@ -70,13 +75,49 @@ func (d Deps) reasonGet(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 // reasonPost re-renders the page after a refused POST, keeping the typed
 // reason and the posted version (CD-94), with pr's status.
 func (d Deps) reasonPost(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, name string, rp reasonPage, version int, pr Problem) {
-	v, err := d.View(r.Context(), d.principal(r), dt.Name, id)
+	p := d.principal(r)
+	v, err := d.View(r.Context(), p, dt.Name, id)
 	if err != nil {
 		problem(w, r, err)
 		return
 	}
 	rv := reasonViewOf(dt, v, name, rp, version, r.PostFormValue("reason"), pr)
+	if pr.Blocked {
+		rv.Link = d.blockerLink(r.Context(), p, dt.Name, id)
+	}
 	ui.Render(w, r, pr.Status, reasonPageFull(rv), reasonPageMain(rv))
+}
+
+// blockerLink links the one document that blocks a cancel, for a user who may
+// read it: no dead links (DOC-092). Several are only listed, in the message.
+// The message stands alone, so a failed check is logged and loses only the link.
+func (d Deps) blockerLink(ctx context.Context, p auth.Principal, name string, id int64) *components.Link {
+	var link *components.Link
+	err := d.DB.Read(ctx, func(tx *db.Tx) error {
+		bs, err := doc.LinkedBlockers(ctx, tx, name, id)
+		if err != nil || len(bs) != 1 {
+			return err
+		}
+		b := bs[0]
+		info, err := d.Engine.Info(ctx, tx, b.DocType, b.ID)
+		if err != nil {
+			return err
+		}
+		rec := recordRef(info)
+		switch err := d.Auth.CanTx(ctx, tx, p, b.DocType, auth.RightRead, &rec); {
+		case errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrNotFound):
+			return nil
+		case err != nil:
+			return err
+		}
+		link = &components.Link{Label: naming.Label(b.Number, b.ID), Href: docURL(b.DocType, b.ID)}
+		return nil
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, "docscreen: blocker link", "doctype", name, "id", id, "user", p.ID, "err", err)
+		return nil
+	}
+	return link
 }
 
 func reasonViewOf(dt *doctype.DocType, v DocView, name string, rp reasonPage, version int, typed string, pr Problem) reasonView {
