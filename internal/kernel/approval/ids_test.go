@@ -36,9 +36,9 @@ func TestApprovalIDs_RequestIDNotReused(t *testing.T) {
 	var newest int64
 	at.MustOK(t, e.DB.Write(t.Context(), func(tx *db.Tx) error {
 		err := tx.SQL().QueryRowContext(t.Context(), `INSERT INTO approval_requests (
-			doctype, doc_id, rule_id, amount, approver_roles, allow_self, requester, requester_name, creator,
+			doctype, doc_id, rule_id, rule_from_amount, amount, approver_roles, allow_self, requester, requester_name, creator,
 			submitted_at, created_at, created_by, updated_at, updated_by
-		) VALUES (?, 99, ?, 6000000, '[]', 0, ?, 'Priya', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', ?, '2026-01-01T00:00:00Z', ?)
+		) VALUES (?, 99, ?, 0, 6000000, '[]', 0, ?, 'Priya', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', ?, '2026-01-01T00:00:00Z', ?)
 		RETURNING id`, at.Order, e.R1, e.Priya.ID, e.Priya.ID, e.Priya.ID, e.Priya.ID).Scan(&newest)
 		if err != nil {
 			return err
