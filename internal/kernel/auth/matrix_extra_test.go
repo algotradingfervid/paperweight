@@ -13,7 +13,7 @@ import (
 
 func TestSetRights_Guards(t *testing.T) {
 	const dtName = "t3.Guard"
-	doctype.Register(doctype.DocType{Name: dtName, Label: "Guard Order", PluralLabel: "Guard Orders"})
+	t3Register(doctype.DocType{Name: dtName, Label: "Guard Order", PluralLabel: "Guard Orders"})
 	a, d, _, rec := t3Auth(t)
 	ctx := context.Background()
 	admin := testkit.Principal(t, "admin@vardhan.test")
@@ -53,7 +53,7 @@ func TestSetRights_Guards(t *testing.T) {
 
 func TestSetRights_NoChangeNoAuditNoBump(t *testing.T) {
 	const dtName = "t3.NoChange"
-	doctype.Register(doctype.DocType{
+	t3Register(doctype.DocType{
 		Name: dtName, Label: "Same Order", PluralLabel: "Same Orders",
 		DefaultRights: map[string]map[string]string{"Stores": {"read": "all", "print": "own"}},
 	})

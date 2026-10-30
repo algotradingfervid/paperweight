@@ -16,8 +16,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 )
 
-const sureshID = 5
-
 // receivedOrder is an approved order by Priya with an approved receipt for
 // 400.000 of line 1, made by Suresh. It returns the order's and receipt's ids.
 func receivedOrder(t *testing.T, w *world, m fixture.Masters) (order, receipt int64) {

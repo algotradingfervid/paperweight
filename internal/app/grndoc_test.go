@@ -58,7 +58,7 @@ func init() {
 			"Purchase User":    {"read": "own"},
 		},
 		Fields: []doctype.Field{
-			{Name: "site_id", Label: "Site", Type: doctype.Link, Link: "Site", Filterable: true, Sortable: true, ListPriority: 1},
+			{Name: "site_id", Label: "Site", Type: doctype.Link, Link: "Site", Required: true, Filterable: true, Sortable: true, ListPriority: 1},
 			{Name: "project_id", Label: "Project", Type: doctype.Link, Link: "Project", ListPriority: 2},
 			{Name: "receipt_date", Label: "Receipt date", Type: doctype.Date, Sortable: true, ListPriority: 3},
 			{Name: "ref", Label: "Reference", Type: doctype.Text},

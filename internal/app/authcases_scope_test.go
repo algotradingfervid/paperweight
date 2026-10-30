@@ -244,6 +244,14 @@ func caseRestrictionSingleDefault(t *testing.T, c *authCase) {
 	if v, _ := siteInput().doc.Find(`input[name="site_id"]`).First().Attr("value"); v != "" {
 		t.Errorf("with two Sites the form prefilled %q, want it empty", v)
 	}
+	r := suresh.post(grnPath+"/new", url.Values{"receipt_date": {"24-10-2026"}})
+	wantStatus(t, "Suresh posts no Site", r, http.StatusUnprocessableEntity)
+	if !strings.Contains(r.pageText(), "Site is required.") {
+		t.Errorf("Suresh posts no Site: page %q, want %q", r.pageText(), "Site is required.")
+	}
+	if n := c.count(`SELECT count(*) FROM apptest_grn`); n != 0 {
+		t.Errorf("GRNs after the refused post = %d, want 0", n)
+	}
 	if err := c.app.Auth().ChangeRestrictions(context.Background(), c.admin, sureshID, auth.DimSite, nil, []int64{c.site("METRO-SITE")}, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +273,7 @@ func caseRestrictionLinkedDocument(t *testing.T, c *authCase) {
 	r := suresh.post("/doc/"+fixture.Receipt+"/"+idText(receipt)+"/lines/new", url.Values{
 		"version": {c.text(`SELECT CAST(version AS TEXT) FROM fixture_receipt WHERE id = ?`, receipt)}, "order_line_id": {line}, "qty": {"1.000"},
 	})
-	want403(t, "Suresh links the hidden PO", r, "You can't use Purchase Order PO/26-27/00030. It isn't available to you.")
+	want403(t, "Suresh links the hidden PO", r, "You can't use this Purchase Order. It isn't available to you.")
 	if n := c.count(`SELECT count(*) FROM fixture_receipt_line`); n != 0 {
 		t.Errorf("receipt lines after the refused post = %d, want 0", n)
 	}
