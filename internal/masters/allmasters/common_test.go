@@ -181,7 +181,10 @@ func TestMaster_CodeRequired(t *testing.T) {
 			_, err := paymentterms.Validate(paymentterms.Input{Name: name, Rows: []paymentterms.Row{{Portion: 100_000, Days: 30}}})
 			return err
 		}},
-		{"Branch", func() error { _, err := company.ValidateBranch(company.BranchInput{Name: name, StateCode: "27"}, pan); return err }},
+		{"Branch", func() error {
+			_, err := company.ValidateBranch(company.BranchInput{Name: name, StateCode: "27"}, pan)
+			return err
+		}},
 	} {
 		t.Run(c.master, func(t *testing.T) {
 			err := c.validate()

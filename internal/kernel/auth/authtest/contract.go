@@ -120,6 +120,7 @@ var contractRows = []struct {
 	{"CD-199 UserByEmail", rowUserByEmail},
 	{"CD-213 Tx methods match their twins", rowTxParity},
 	{"CD-216 ValueAllowedTx", rowValueAllowedTx},
+	{"CD-240 link to an unregistered DocType is not found", rowLinkUnknownDocType},
 }
 
 var refusalRows = []struct {
@@ -1080,6 +1081,12 @@ func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
 		id   int64
 		want string
 	}
+	// CD-240: the refusal names only the DocType, never the record.
+	linkText := map[string]string{
+		DTOrder:   "You can't use this Purchase Order. It isn't available to you.",
+		DTClaim:   "You can't use this Expense Claim. It isn't available to you.",
+		DTProject: "You can't use this Project. It isn't available to you.",
+	}
 	var calls []call
 	seen := map[string]bool{}
 	for _, tg := range targets {
@@ -1087,7 +1094,12 @@ func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
 			err := svc.CheckLink(ctx, p, tg.dt, tg.id)
 			var le *auth.LinkError
 			seen["allowed"] = seen["allowed"] || err == nil
-			seen["link error"] = seen["link error"] || errors.As(err, &le)
+			if errors.As(err, &le) {
+				seen["link error"] = true
+				if got := err.Error(); got != linkText[tg.dt] {
+					t.Errorf("CheckLink(%s, %s, %d) text = %q, want %q", p.Name, tg.dt, tg.id, got, linkText[tg.dt])
+				}
+			}
 			calls = append(calls, call{p, tg.dt, tg.id, outcome(err)})
 		}
 	}
@@ -1096,6 +1108,28 @@ func parityCheckLink(t *testing.T, svc auth.Service, s Setup, x parity) {
 		for _, c := range calls {
 			if got := outcome(svc.CheckLinkTx(ctx, tx, c.p, c.dt, c.id)); got != c.want {
 				t.Errorf("CheckLinkTx(%s, %s, %d) = %s, want what CheckLink gave: %s", c.p.Name, c.dt, c.id, got, c.want)
+			}
+		}
+	})
+}
+
+// CD-240 follow-up: CheckLink and CheckLinkTx to a DocType that isn't
+// registered answer ErrNotFound with its text, as the real service's Info
+// does, for the Administrator and for a user with no roles.
+func rowLinkUnknownDocType(t *testing.T, svc auth.Service, s Setup) {
+	ctx := context.Background()
+	const dt = "authtest.Unknown"
+	want := outcome(auth.ErrNotFound)
+	people := []auth.Principal{s.Admin(t), s.User(t, "none@contract.test")}
+	for _, p := range people {
+		if got := outcome(svc.CheckLink(ctx, p, dt, 1)); got != want {
+			t.Errorf("%s CheckLink(%s, 1) = %s, want %s", p.Name, dt, got, want)
+		}
+	}
+	inTxs(t, s.DB(), func(t *testing.T, tx *db.Tx) {
+		for _, p := range people {
+			if got := outcome(svc.CheckLinkTx(ctx, tx, p, dt, 1)); got != want {
+				t.Errorf("%s CheckLinkTx(%s, 1) = %s, want %s", p.Name, dt, got, want)
 			}
 		}
 	})

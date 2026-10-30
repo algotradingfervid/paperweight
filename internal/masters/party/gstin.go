@@ -110,8 +110,8 @@ func (s *Service) fromAddresses(ctx context.Context, tx *db.Tx, id int64, in Inp
 // MsgNeedPrimaryBilling is CheckGST's D1 refusal (CD-180).
 const MsgNeedPrimaryBilling = "A registered party needs a primary billing address with a GSTIN. Add the billing address first."
 
-// msgEnableFirst is CheckGST's D2 refusal (CD-177 (3)).
-const msgEnableFirst = "Enable this address before making it primary."
+// MsgEnableFirst is CheckGST's D2 refusal (CD-177 (3)).
+const MsgEnableFirst = "Enable this address before making it primary."
 
 // CheckGST checks M5 on the party and all its addresses as they stand after
 // a write, inside that write's tx (CD-180); every address and party write
@@ -134,7 +134,7 @@ func (s *Service) CheckGST(ctx context.Context, tx *db.Tx, partyID int64, field 
 	for _, a := range rows {
 		switch {
 		case a.Disabled != 0 && (a.IsPrimaryBilling != 0 || a.IsPrimaryShipping != 0):
-			es.Add(field, msgEnableFirst)
+			es.Add(field, MsgEnableFirst)
 			return es.Err()
 		case a.Country != "India" && pt.GSTCategory != gstin.Overseas:
 			es.Add(field, msgOverseas)

@@ -4,7 +4,6 @@ package authfake
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strconv"
 	"sync"
@@ -406,16 +405,17 @@ func valueError(ctx context.Context, dir auth.Directory, d auth.Dimension, ids [
 }
 
 // CheckLink refuses a Hide record, or a target p can't read (the
-// Administrator reads every DocType, as in Can).
+// Administrator reads every DocType, as in Can). An unregistered target is
+// ErrNotFound for everyone, as the real service's Info answers it.
 func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, id int64) error {
+	dt, ok := doctype.Lookup(target)
+	if !ok {
+		return auth.ErrNotFound
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.hidden[record{target, id}] || f.accessLocked(p, target, auth.RightRead).Read == "" {
-		label := target
-		if dt, ok := doctype.Lookup(target); ok {
-			label = dt.Label
-		}
-		return &auth.LinkError{Label: label, Display: fmt.Sprintf("#%d", id)} // CD-125
+		return &auth.LinkError{Label: dt.Label} // CD-125
 	}
 	return nil
 }

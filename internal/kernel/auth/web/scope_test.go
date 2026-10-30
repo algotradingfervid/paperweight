@@ -362,7 +362,7 @@ func TestRestriction_LinkedDocumentMustBeVisible(t *testing.T) {
 			"site_id":           {t14ID(w.Sites["PUNE-WH"])},
 			"purchase_order_id": {t14ID(po30)},
 		}),
-		"You can't use Purchase Order PO/26-27/00030. It isn't available to you.")
+		"You can't use this Purchase Order. It isn't available to you.")
 	if n := receipts(); n != 0 {
 		t.Fatalf("probe_receipt rows after the rejected POST = %d, want 0", n)
 	}

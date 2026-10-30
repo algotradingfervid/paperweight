@@ -1,6 +1,6 @@
 # Progress
 
-Status on 25 October 2026: **specs, tests and plans complete; crew harness built and verified (CD-101). App build paused at WP0** (Tasks 1–2 done, 3/7/7b partial on branch `wip/wp0-start`, unreviewed). Next: resume WP0 under the harness.
+Status on 31 October 2026: **WP0, Wave 1 (NUM, NAM, APR, DOC, FILE, UI, AUTH) and WP2 complete (tag `wp2-masters`). WP3 Tasks 1, 2 and 6 Phase B, and Task 3 parts a and b, are on main; Task 3c, Tasks 4 and 5 and the release are with AD-7; WP3 ends with the tag `core-v1`. Module specs accepted (CD-238). PO is the first module: spec v0.5 adds Purchase Requests, one owner per draft, comments, Mark as sent, Copy, last price and a Purchase home (CD-246, owner review of §16 assumptions pending); plan `docs/superpowers/plans/2026-10-31-mod-po.md` (MOD-0 groundwork + MOD-PO, 38 tasks; plan-checked, CD-247). GRN and Expense follow PO.** `make ci` green on main, P1 550/556 (the six missing are Task 4 browser tests).
 
 ## Read in this order
 
@@ -258,6 +258,11 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | CD-213 | Static test refusing plain auth reads in a tx | Standard | AD-1 | 30 Oct | 30 Oct | 2 | 0/3/7 | lane/auth-cantx 760e1b8 |
 | CD-223 | Sessions commit only on change | High | AD-4 | 30 Oct | 30 Oct | 1 | APPROVE, 2 minors fixed | wp/polish 9875cb2 |
 | Polish | Factor, inbox why and filter, copy rights, body ceiling (rows in .worktrees/polish/.work/ad-tasks.md) | Standard | AD-4 | | 30 Oct | 1 | each reviewed | wp/polish 1c3d103 |
+| Merges | WP3 Tasks 2, 3a, 3b (8212ff9), CD-227, CD-232, CD-233 (b1612b2); `make ci` green after each | — | director | | 30 Oct | — | — | — |
+| WP3-T6 | Phase B restore drill on real approvals, app.service flags, operations notes; 10 of 10 runs | High | AD-7 | 30 Oct | 30 Oct | 1 | APPROVE, minors fixed | fa3a43d (wp/wp3 c91e6db) |
+| Merges | WP2 done gate 5075621 (tag wp2-masters), module specs b70be1c; `make ci` green 31 Oct after a disk-full rerun | — | director | | 31 Oct | — | — | — |
+| CD-240 | LinkError names no hidden record (AUTH-101) | Standard | impl opus, rev opus (AD-8) | 31 Oct 00:20 | 01:10 | 1 | 0/0/2 | 3d2cc78 (lane/cd240 8ae6529) |
+| WP3-T4a | e2e harness, six P1 browser ids, the plan's five flows; LinkRead wired | High | AD-7 | 31 Oct | 31 Oct | 2 | fix round APPROVE | fb2ac51 (wp/wp3 cc9e80c); P1 556/556 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 

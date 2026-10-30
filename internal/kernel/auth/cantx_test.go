@@ -279,7 +279,7 @@ func TestCheckLinkTx_NonAdminInsideWriteNoSecondConn(t *testing.T) {
 		t.Errorf("CheckLinkTx(PO-1) = %v, want nil", visible)
 	}
 	var le *auth.LinkError
-	if !errors.As(hidden, &le) || hidden.Error() != "You can't use Purchase Order PO-2. It isn't available to you." {
+	if !errors.As(hidden, &le) || hidden.Error() != "You can't use this Purchase Order. It isn't available to you." {
 		t.Errorf("CheckLinkTx(PO-2) = %v (%T), want the *auth.LinkError", hidden, hidden)
 	}
 	t5WantNotFound(t, "CheckLinkTx(missing)", missing)

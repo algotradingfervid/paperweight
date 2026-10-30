@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -194,13 +195,22 @@ func cancelDoc(s *Session, path, label, reason string) {
 	s.Press(label)
 }
 
-// openHistory opens the document's History disclosure and returns its text.
-func openHistory(s *Session, path string) string {
+// openHistory opens the document's History disclosure and returns each row's
+// "{By} · {Action}", newest first: the time comes first and the clock is fixed.
+func openHistory(s *Session, path string) []string {
 	s.t.Helper()
 	s.Open(path)
 	s.Do("open History", chromedp.Click(chromedp.CSS(".doc-audit summary")))
 	s.Until("the history rows", `document.querySelector(".doc-audit .history-row")?.checkVisibility() === true`)
-	return Eval[string](s, `document.querySelector(".doc-audit").innerText`)
+	return Eval[[]string](s, `[...document.querySelectorAll(".doc-audit .history-head")].map((e) => e.textContent.trim().split(" · ").slice(1).join(" · "))`)
+}
+
+// wantHistory compares every row of a document's history.
+func wantHistory(t *testing.T, what string, got, want []string) {
+	t.Helper()
+	if !slices.Equal(got, want) {
+		t.Errorf("%s history:\n got %q\nwant %q", what, got, want)
+	}
 }
 
 // TestE2E_Doc_PurchaseLifecycle: DOC-092.
@@ -229,9 +239,16 @@ func TestE2E_Doc_PurchaseLifecycle(t *testing.T) {
 	grnPath := DocPath(fixture.Receipt, receipt)
 	cancelDoc(r, path, "Cancel purchase order", reasonPO)
 	r.WaitText("Can't cancel " + firstNumber + " because " + firstGRN + " (approved) is linked to it. Cancel " + firstGRN + " first.")
-	r.Until("the link to the GRN", `document.querySelector('[role=alert] a[href="`+grnPath+`"]') !== null`)
+	if Eval[bool](r, `document.querySelector('[role=alert] a') !== null`) {
+		t.Error("Ravi can't read the GRN but the refusal links it")
+	}
+	cancelDoc(a, path, "Cancel purchase order", reasonPO)
+	a.WaitText("Can't cancel " + firstNumber + " because " + firstGRN + " (approved) is linked to it. Cancel " + firstGRN + " first.")
+	a.Press(firstGRN)
+	a.Until("the GRN", `location.pathname === "`+grnPath+`"`)
+	a.WaitText(firstGRN)
 	if got := docState(h, "fixture_order", order); got != "approved" {
-		t.Errorf("order state after the refused cancel = %q, want approved", got)
+		t.Errorf("order state after the refused cancels = %q, want approved", got)
 	}
 
 	cancelDoc(a, grnPath, "Cancel goods receipt", reasonGRN)
@@ -252,18 +269,31 @@ func TestE2E_Doc_PurchaseLifecycle(t *testing.T) {
 	r.WaitText(draft(amended))
 	r.Until("the link to the original", `document.querySelector('a[href="`+path+`"]')?.textContent === "Amended from `+firstNumber+`"`)
 
-	history := openHistory(r, path)
-	for _, want := range []string{"Priya Shah · submit", "Ravi Kulkarni · approve", "Ravi Kulkarni · cancel: " + reasonPO} {
-		if !strings.Contains(history, want) {
-			t.Errorf("order history has no %q:\n%s", want, history)
-		}
-	}
-	history = openHistory(a, grnPath)
-	for _, want := range []string{"Suresh Patil · submit", "Anil Kapoor · cancel: " + reasonGRN} {
-		if !strings.Contains(history, want) {
-			t.Errorf("receipt history has no %q:\n%s", want, history)
-		}
-	}
+	// Newest first. Priya's wizard saves twice; the GRN's approval and its
+	// cancel each leave an effect row on the order.
+	wantHistory(t, "order", openHistory(r, path), []string{
+		"Ravi Kulkarni · amended",
+		"Ravi Kulkarni · cancel: " + reasonPO,
+		"Anil Kapoor · effect",
+		"Suresh Patil · effect",
+		"Ravi Kulkarni · approve",
+		"Priya Shah · submit",
+		"Priya Shah · save",
+		"Priya Shah · save",
+		"Priya Shah · create",
+	})
+	wantHistory(t, "receipt", openHistory(a, grnPath), []string{
+		"Anil Kapoor · cancel: " + reasonGRN,
+		"Suresh Patil · submit",
+		"Suresh Patil · save",
+		"Suresh Patil · create",
+	})
+}
+
+// stateBadge is the text of the state badge sel selects, or "" with none.
+func stateBadge(s *Session, sel string) string {
+	s.t.Helper()
+	return Eval[string](s, `document.querySelector(`+strconv.Quote(sel)+`)?.textContent.trim() ?? ""`)
 }
 
 // TestE2E_ApprovalWithdraw: APR-097.
@@ -275,8 +305,11 @@ func TestE2E_ApprovalWithdraw(t *testing.T) {
 
 	p.Open(path)
 	p.Press(sendApproval)
-	p.WaitText("Pending approval")
+	p.Until("the state badge", `document.querySelector(".doc-state .badge") !== null`)
 	p.WaitText("Withdraw")
+	if got := stateBadge(p, ".doc-state .badge"); got != "Pending approval" {
+		t.Errorf("state badge while pending = %q", got)
+	}
 
 	r.Open("/approvals")
 	r.WaitText(draft(id))
@@ -292,6 +325,14 @@ func TestE2E_ApprovalWithdraw(t *testing.T) {
 	p.WaitText(sendApproval)
 	if got := docState(h, "fixture_order", id); got != "draft" {
 		t.Errorf("state after withdraw = %q, want draft", got)
+	}
+	// A draft's document page redirects to its check step, which has no state
+	// badge: the list row shows the state.
+	p.Open("/doc/" + fixture.Order)
+	row := `.datalist-rows a[href^="` + path + `"] .badge`
+	p.Until("the draft's row", `document.querySelector(`+strconv.Quote(row)+`) !== null`)
+	if got := stateBadge(p, row); got != "Draft" {
+		t.Errorf("state badge after withdraw = %q, want Draft", got)
 	}
 	p.Open(path + "/edit/details")
 	p.Fill("remarks", "Revised after withdraw")
@@ -361,7 +402,7 @@ func TestE2E_PrintA4(t *testing.T) {
 		t.Errorf("page is %.2f × %.2f pt, want 595 × 842 (±1)", pg.Width, pg.Height)
 	}
 	css := Eval[string](p, `fetch("/print/assets/print.css").then((r) => r.text())`, chromedp.EvalAwaitPromise)
-	if !strings.Contains(strings.Join(strings.Fields(css), " "), "@page { size: A4 portrait; margin: 15mm;") {
+	if !strings.Contains(strings.Join(strings.Fields(css), " "), "@page { size: A4 portrait; margin: 15mm; }") {
 		t.Errorf("print.css has no @page rule for A4 portrait with 15 mm margins:\n%s", css[:min(len(css), 400)])
 	}
 }
@@ -741,7 +782,7 @@ func receiptPhoto(t *testing.T) string {
 // TestE2E_ExpenseFromPhoneWithReceipt: Deepak at 360 px, Take photo, submit;
 // Priya sees it through the team scope and approves.
 func TestE2E_ExpenseFromPhoneWithReceipt(t *testing.T) {
-	t.Skip("no document screen has a Take photo control yet: AD-7 CONTRACT-CR on document attachments")
+	t.Skip("no document screen has a Take photo control yet: CD-241, pending its UX design")
 	h := Start(t)
 	d := h.SignIn(deepak, phone360)
 	var employee int64

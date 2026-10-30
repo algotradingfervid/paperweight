@@ -192,11 +192,11 @@ func (e *ValueError) FieldErrors() []doctype.FieldError { return nil }
 
 // LinkError: a linked record isn't visible to the user.
 type LinkError struct {
-	Label, Display string
+	Label string
 }
 
 func (e *LinkError) Error() string {
-	return fmt.Sprintf("You can't use %s %s. It isn't available to you.", e.Label, e.Display)
+	return "You can't use this " + e.Label + ". It isn't available to you."
 }
 func (e *LinkError) Is(target error) bool              { return target == ErrForbidden }
 func (e *LinkError) Status() int                       { return 403 }
