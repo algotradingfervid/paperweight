@@ -143,6 +143,7 @@ Task 5 (sweep) also does:
 - Picks a Role no sweep user depends on, because the read-notice save changes that role's rights.
 - Runs the scripts with real ui.Shell wiring; they have only run with a CSRF fill.
 - Removes the `/users` skip prefix and sweeps the other authweb GET routes.
+- Sweeps the wizard and section routes `/m/employee/new`, `/new/{step}`, `/{id}/edit/{section}`, and Party's.
 
 Task 6 (release) also does:
 - Adds the hourly `files/` sync timer (CD-141) to `deploy/`.
