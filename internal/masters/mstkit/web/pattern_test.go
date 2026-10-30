@@ -142,6 +142,21 @@ func TestScreens_ParseErrorForbidden(t *testing.T) {
 
 // The save's right is checked on the record: a restricted user's refusal
 // comes from the RecordRef, which a kind-level check would miss.
+// A record page builds the record AUTH checks once, for all its rights.
+func TestScreens_RecordPageBuildsOneRef(t *testing.T) {
+	refs := 0
+	h := harness(t, stubService{rec: stubRecord{}}, func(s *screen) {
+		s.Ref = func(id int64) *auth.RecordRef {
+			refs++
+			return &auth.RecordRef{DocType: item.DocType, ID: id}
+		}
+	})
+	webtest.WantStatus(t, h.Get(t, h.Env.Kavya, record), http.StatusOK)
+	if refs != 1 {
+		t.Errorf("Ref called %d times on one page; want 1", refs)
+	}
+}
+
 func TestScreens_ParseErrorChecksTheRecord(t *testing.T) {
 	refs := 0
 	h := harness(t, stubService{rec: stubRecord{}}, func(s *screen) {

@@ -39,6 +39,8 @@ package mstkit
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -59,14 +61,46 @@ type Env struct {
 
 // Write checks that p has right r on k, then runs fn inside db.Write
 // (BEGIN IMMEDIATE). It checks the kind-level right only (RecordRef nil): a
-// master's UpdateTx, SetDisabledTx and DeleteTx must call Auth.CanTx with a
-// RecordRef themselves, because the Tx twins called by importers and other
-// masters never pass through Write (AUTH-102 restrictions on Project/Site).
+// master's UpdateTx, SetDisabledTx and DeleteTx must call CanRowTx themselves,
+// because the Tx twins called by importers and other masters never pass
+// through Write (AUTH-102 restrictions on Project/Site).
 func (e Env) Write(ctx context.Context, p auth.Principal, k Kind, r auth.Right, fn func(tx *db.Tx) error) error {
 	if err := e.Auth.Can(ctx, p, k.DocType, r, nil); err != nil {
 		return err
 	}
 	return e.DB.Write(ctx, fn)
+}
+
+// CreatedBy reads who created row id of k, inside tx. It is 0, which is nobody's
+// user, for a row seeded by a migration (created_by NULL), so such a row is
+// outside every own scope. A missing row is 0 too: AUTH then refuses as it
+// does for any row it can't place, and doesn't tell a user with no right
+// whether the id exists.
+func CreatedBy(ctx context.Context, tx *db.Tx, k Kind, id int64) (auth.UserID, error) {
+	var by sql.NullInt64
+	err := tx.SQL().QueryRowContext(ctx, "SELECT created_by FROM "+k.Table+" WHERE id = ?", id).Scan(&by) //nolint:gosec // G202: Table comes from each master's package-level Kind, never from a request
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	return auth.UserID(by.Int64), nil
+}
+
+// CanRowTx is Auth.CanTx on rec, a stored row of k, with rec.CreatedBy read
+// inside tx, so own scope decides as the list does (CD-223, CD-213). A create
+// has no row: it passes a nil RecordRef to Auth.CanTx, where the right alone
+// decides.
+func (e Env) CanRowTx(ctx context.Context, tx *db.Tx, p auth.Principal, k Kind, r auth.Right, rec *auth.RecordRef) error {
+	by, err := CreatedBy(ctx, tx, k, rec.ID)
+	if err != nil {
+		return err
+	}
+	rec.CreatedBy = by
+	return e.Auth.CanTx(ctx, tx, p, k.DocType, r, rec)
+}
+
+// CanRow is CanRowTx in one read, for a screen that holds no transaction.
+func (e Env) CanRow(ctx context.Context, p auth.Principal, k Kind, r auth.Right, rec *auth.RecordRef) error {
+	return e.DB.Read(ctx, func(tx *db.Tx) error { return e.CanRowTx(ctx, tx, p, k, r, rec) })
 }
 
 // Today is the business date in Asia/Kolkata.

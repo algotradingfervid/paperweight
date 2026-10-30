@@ -316,7 +316,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id int64, versio
 
 // UpdateTx is Update inside tx.
 func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in Input) (mstkit.Saved, error) {
-	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.CanRowTx(ctx, tx, p, Kind, auth.RightWrite, ref(id)); err != nil {
 		return mstkit.Saved{}, err
 	}
 	in, err := Validate(in)
@@ -382,7 +382,7 @@ func (s *Service) SetDisabled(ctx context.Context, p auth.Principal, id int64, v
 // SetDisabledTx is SetDisabled inside tx. Enabling needs an enabled branch, the
 // site's side of MST-108 (CD-170).
 func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
-	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref(id)); err != nil {
+	if err := s.env.CanRowTx(ctx, tx, p, Kind, auth.RightWrite, ref(id)); err != nil {
 		return err
 	}
 	st, err := s.Get(ctx, tx, id)
@@ -428,7 +428,7 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id int64, versio
 
 // DeleteTx is Delete inside tx.
 func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int) error {
-	if err := s.env.Auth.CanTx(ctx, tx, p, DocType, auth.RightDelete, ref(id)); err != nil {
+	if err := s.env.CanRowTx(ctx, tx, p, Kind, auth.RightDelete, ref(id)); err != nil {
 		return err
 	}
 	st, err := s.Get(ctx, tx, id)

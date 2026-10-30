@@ -83,7 +83,11 @@ func (i companyInfo) Info(ctx context.Context, tx *db.Tx, dt string, id int64) (
 	if err != nil {
 		return doctype.Info{}, err
 	}
-	return doctype.Info{DocType: dt, DocLabel: company.CompanyKind.Label, ID: c.ID, Display: c.LegalName}, nil
+	by, err := mstkit.CreatedBy(ctx, tx, company.CompanyKind, c.ID)
+	if err != nil {
+		return doctype.Info{}, err
+	}
+	return doctype.Info{DocType: dt, DocLabel: company.CompanyKind.Label, ID: c.ID, Display: c.LegalName, CreatedBy: by}, nil
 }
 
 // logoLink is Screen.Extra: the link to the logo page. Extra is given no
@@ -92,7 +96,7 @@ func logoLink(env mstkit.Env) func(company.Company) templ.Component {
 	return func(c company.Company) templ.Component {
 		return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 			p, _ := auth.PrincipalFrom(ctx)
-			if env.Auth.Can(ctx, p, company.CompanyDocType, auth.RightWrite, companyRef(c.ID)) != nil {
+			if env.CanRow(ctx, p, company.CompanyKind, auth.RightWrite, companyRef(c.ID)) != nil {
 				return nil
 			}
 			return components.Button(components.ButtonProps{Label: "Company logo", Href: logoPath, Variant: components.Secondary}).Render(ctx, w)
@@ -110,7 +114,7 @@ type logoHandlers struct {
 func (h *logoHandlers) handle(fn func(http.ResponseWriter, *http.Request, auth.Principal) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		p, _ := auth.PrincipalFrom(r.Context())
-		err := h.env.Auth.Can(r.Context(), p, company.CompanyDocType, auth.RightWrite, companyRef(companyID))
+		err := h.env.CanRow(r.Context(), p, company.CompanyKind, auth.RightWrite, companyRef(companyID))
 		if err == nil {
 			err = fn(w, r, p)
 		}

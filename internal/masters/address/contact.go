@@ -156,6 +156,9 @@ func ValidateContact(in ContactInput) (ContactInput, error) {
 	if in.FirstName == "" {
 		es.Add("first_name", msgContactName)
 	}
+	es.CheckLen("first_name", "First name", in.FirstName)
+	es.CheckLen("middle_name", "Middle name", in.MiddleName)
+	es.CheckLen("last_name", "Last name", in.LastName)
 	emails, primaries := make([]EmailInput, len(in.Emails)), 0
 	for i, e := range in.Emails {
 		addr, err := NormalizeEmail(e.Email)
@@ -271,7 +274,7 @@ func (s *Service) UpdateContact(ctx context.Context, p auth.Principal, id int64,
 // (CD-94). The owner is fixed once saved (CD-190); a blank owner keeps the
 // stored one.
 func (s *Service) UpdateContactTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, in ContactInput) (mstkit.Saved, error) {
-	if err := s.env.Auth.CanTx(ctx, tx, p, ContactDocType, auth.RightWrite, contactRef(id)); err != nil {
+	if err := s.env.CanRowTx(ctx, tx, p, ContactKind, auth.RightWrite, contactRef(id)); err != nil {
 		return mstkit.Saved{}, err
 	}
 	old, err := s.GetContact(ctx, tx, id)
@@ -350,7 +353,7 @@ func (s *Service) SetContactDisabled(ctx context.Context, p auth.Principal, id i
 // SetContactDisabledTx is SetContactDisabled inside tx. Disabling the primary
 // contact clears its flag and promotes nothing (CD-190).
 func (s *Service) SetContactDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error {
-	if err := s.env.Auth.CanTx(ctx, tx, p, ContactDocType, auth.RightWrite, contactRef(id)); err != nil {
+	if err := s.env.CanRowTx(ctx, tx, p, ContactKind, auth.RightWrite, contactRef(id)); err != nil {
 		return err
 	}
 	c, err := s.GetContact(ctx, tx, id)
@@ -378,7 +381,7 @@ func (s *Service) DeleteContact(ctx context.Context, p auth.Principal, id int64,
 // DeleteContactTx is DeleteContact inside tx. Deleting the primary contact
 // promotes nothing (CD-190).
 func (s *Service) DeleteContactTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int) error {
-	if err := s.env.Auth.CanTx(ctx, tx, p, ContactDocType, auth.RightDelete, contactRef(id)); err != nil {
+	if err := s.env.CanRowTx(ctx, tx, p, ContactKind, auth.RightDelete, contactRef(id)); err != nil {
 		return err
 	}
 	c, err := s.GetContact(ctx, tx, id)
@@ -395,7 +398,7 @@ func (s *Service) DeleteContactTx(ctx context.Context, tx *db.Tx, p auth.Princip
 // the previous one first (MST-066). The contact must be one of the party's
 // (MST-051) and enabled (CD-190).
 func (s *Service) SetPrimaryContactTx(ctx context.Context, tx *db.Tx, p auth.Principal, partyID, contactID int64) error {
-	if err := s.env.Auth.CanTx(ctx, tx, p, ContactDocType, auth.RightWrite, contactRef(contactID)); err != nil {
+	if err := s.env.CanRowTx(ctx, tx, p, ContactKind, auth.RightWrite, contactRef(contactID)); err != nil {
 		return err
 	}
 	var es mstkit.Errors

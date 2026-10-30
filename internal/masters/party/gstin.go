@@ -19,7 +19,9 @@ import (
 // so it never upgrades a category from a non-primary address. A GSTIN whose PAN differs
 // from the party's is refused (MST-048). A party without a PAN takes the
 // GSTIN's, and an Unregistered party takes the category guessed from it
-// (MST-049); the change is audited as a "save" of the party.
+// (MST-049); the change is audited as a "save" of the party. It checks no right
+// of its own: the address twin that calls it is the gate, so a user who may
+// change the address needs no right on Party.
 func (s *Service) ApplyGSTINTx(ctx context.Context, tx *db.Tx, p auth.Principal, partyID int64, g string) error {
 	if g == "" {
 		return nil

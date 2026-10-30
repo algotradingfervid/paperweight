@@ -317,7 +317,7 @@ func (s *Service) can(ctx context.Context, tx *db.Tx, p auth.Principal, id int64
 	if err != nil {
 		return Branch{}, err
 	}
-	return b, s.env.Auth.CanTx(ctx, tx, p, DocType, r, &auth.RecordRef{DocType: DocType, ID: id})
+	return b, s.env.CanRowTx(ctx, tx, p, Kind, r, &auth.RecordRef{DocType: DocType, ID: id})
 }
 
 // validate runs ValidateBranch against the stored company PAN.

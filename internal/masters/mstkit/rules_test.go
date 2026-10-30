@@ -56,3 +56,22 @@ func TestMaster_NameRequiredTrimmed(t *testing.T) {
 		t.Errorf("NormalizeName = %q, %v; want %q, nil", got, err, "Shree Steel")
 	}
 }
+
+// CD-223: the limit is on the trimmed name, in characters; the refusal names
+// the field's label.
+func TestNormalizeName_Length(t *testing.T) {
+	fit := strings.Repeat("a", mstkit.MaxNameLen)
+	if got, err := mstkit.NormalizeName("  " + fit + "  "); err != nil || got != fit {
+		t.Errorf("NormalizeName(padded %d) = %q, %v", mstkit.MaxNameLen, got, err)
+	}
+	over := fit + "a"
+	if got, err := mstkit.NormalizeName(over); err == nil || got != "" || err.Error() != "Name can be at most 140 characters." {
+		t.Errorf("NormalizeName(%d) = %q, %v", len(over), got, err)
+	}
+	if _, err := mstkit.NormalizeLabelledName(over, "Legal name"); err == nil || err.Error() != "Legal name can be at most 140 characters." {
+		t.Errorf("NormalizeLabelledName = %v", err)
+	}
+	if _, err := mstkit.NormalizeLabelledName(" ", "Legal name"); err == nil || err.Error() != "Name is required." {
+		t.Errorf("NormalizeLabelledName(blank) = %v", err)
+	}
+}

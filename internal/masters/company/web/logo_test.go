@@ -533,6 +533,44 @@ func TestLogo_ReadOnlyIsForbidden(t *testing.T) {
 	}
 }
 
+// CD-223: own scope follows the company's created_by on the page, the link, the
+// upload and files.Store's own check, which reads it through Info.
+func TestLogo_OwnScopeFollowsTheCreator(t *testing.T) {
+	lw := newLogoWorld(t)
+	ctx := context.Background()
+	env := lw.h.Env
+	a := env.Kit.Auth.(*auth.Auth)
+	const role = "Own Company"
+	if err := a.CreateRole(ctx, env.Admin, role); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SetRights(ctx, env.Admin, role, company.CompanyDocType, map[auth.Right]auth.Scope{
+		auth.RightRead: auth.ScopeOwn, auth.RightWrite: auth.ScopeOwn,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	own := auth.Principal{ID: 7, Name: "Own", Roles: []string{role}}
+	other := auth.Principal{ID: 3, Name: "Other", Roles: []string{role}}
+	if err := lw.svc.SaveCompany(ctx, own, company.CompanyInput{LegalName: legalName, PAN: pan}, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	if n := lw.h.Get(t, own, "/m/company/1").Doc.Find(`a[href="` + logoPath + `"]`).Length(); n != 1 {
+		t.Errorf("the owner's page has %d links to the logo page; want 1", n)
+	}
+	webtest.WantStatus(t, lw.h.Get(t, own, logoPath), http.StatusOK)
+	webtest.WantRedirect(t, lw.upload(t, own, logoPath+"?version=1", "logo.png", filestest.PNG(1024), false), logoPath)
+	if got := lw.logos(t); len(got) != 1 {
+		t.Fatalf("logos = %+v", got)
+	}
+
+	webtest.WantStatus(t, lw.h.Get(t, other, logoPath), http.StatusNotFound)
+	webtest.WantStatus(t, lw.upload(t, other, logoPath+"?version=1", "new.png", filestest.PNG(2048), false), http.StatusNotFound)
+	if got := lw.logos(t); len(got) != 1 || got[0].Name != "logo.png" {
+		t.Errorf("logos after a refused upload = %+v", got)
+	}
+}
+
 // The company's version guards both writes; attachments have none of their
 // own, so a logo change does not move it.
 func TestLogo_StaleVersion(t *testing.T) {
@@ -738,7 +776,7 @@ func TestInfo_AnswersTheCompanyAndPassesTheRestOn(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.DocLabel != "Company" || got.ID != 1 || got.Display != legalName || got.State != "" {
+		if got.DocLabel != "Company" || got.ID != 1 || got.Display != legalName || got.State != "" || got.CreatedBy != w.h.Env.Kavya.ID {
 			t.Errorf("Info(Company, 1) = %+v", got)
 		}
 		if _, err := info.Info(ctx, tx, company.CompanyDocType, 2); !errors.Is(err, doctype.ErrNotFound) {
