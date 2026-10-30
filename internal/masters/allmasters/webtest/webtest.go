@@ -242,6 +242,13 @@ func (r Response) Value(name string) (string, bool) {
 	return "", false
 }
 
+// FormValue is the value of the input named name in the form posting to
+// action, and whether it exists. A page can have several such inputs: the save
+// form and each More action carry their own hidden version.
+func (r Response) FormValue(action, name string) (string, bool) {
+	return r.Doc.Find(`form[action="` + action + `"] input[name="` + name + `"]`).First().Attr("value")
+}
+
 // CheckboxValue is the value a ticked checkbox named name posts ("on" when it
 // has no value attribute, as in a browser), and whether it exists.
 func (r Response) CheckboxValue(name string) (string, bool) {

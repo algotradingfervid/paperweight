@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/masters/uom"
@@ -20,7 +21,7 @@ func Routes(svc *uom.Service, env mstkit.Env) func(chi.Router) {
 		DocType: uom.DocType,
 		Base:    "/m/uom",
 		Copy: mstweb.Copy{
-			Plural: "UoMs", New: "New UoM", Search: "Search UoMs", Empty: "No UoMs yet.",
+			Plural: "UoMs", Noun: "UoMs", One: "UoM", New: "New UoM", Search: "Search UoMs", Empty: "No UoMs yet.",
 			Saved: "UoM saved.", Disabled: "UoM disabled.", Enabled: "UoM enabled.", Deleted: "UoM deleted.",
 		},
 		Svc:     svc,
@@ -33,8 +34,9 @@ func Routes(svc *uom.Service, env mstkit.Env) func(chi.Router) {
 }
 
 // toInput is the form's values (keyed by Field.Name) as the service input.
-func toInput(v map[string]string) uom.Input {
-	return uom.Input{Code: v["code"], Name: v["name"], UQC: v["uqc"], WholeNumber: v["whole_number"] != ""}
+// A UoM has only text and a checkbox, so nothing can fail to parse.
+func toInput(v map[string]string) (uom.Input, []doctype.FieldError) {
+	return uom.Input{Code: v["code"], Name: v["name"], UQC: v["uqc"], WholeNumber: v["whole_number"] != ""}, nil
 }
 
 // values is a stored UoM as the form's values: Check fields "1" or "0".

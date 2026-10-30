@@ -34,19 +34,29 @@ const (
 type stubRecord map[string]string
 
 // stubService returns getErr from Get, and err from every write, with saved
-// from Create and Update. It writes nothing.
+// from Create and Update. It writes nothing; calls, when set, counts the
+// Create and Update calls.
 type stubService struct {
 	rec    stubRecord
 	saved  mstkit.Saved
 	getErr error
 	err    error
+	calls  *int
+}
+
+func (s stubService) called() {
+	if s.calls != nil {
+		*s.calls++
+	}
 }
 
 func (s stubService) Create(context.Context, auth.Principal, stubRecord) (mstkit.Saved, error) {
+	s.called()
 	return s.saved, s.err
 }
 
 func (s stubService) Update(context.Context, auth.Principal, int64, int, stubRecord) (mstkit.Saved, error) {
+	s.called()
 	return s.saved, s.err
 }
 
@@ -71,21 +81,31 @@ func (e *refusal) Error() string                     { return e.text }
 func (e *refusal) Status() int                       { return e.status }
 func (e *refusal) FieldErrors() []doctype.FieldError { return e.fields }
 
-func harness(t *testing.T, svc stubService) *webtest.Harness {
+// screen is the test Screen; a harness option changes it before it mounts.
+type screen = mstweb.Screen[stubRecord, stubRecord]
+
+func harness(t *testing.T, svc stubService, opts ...func(*screen)) *webtest.Harness {
 	t.Helper()
 	return webtest.New(t, func(k mstkit.Env) func(chi.Router) {
-		return mstweb.Screen[stubRecord, stubRecord]{
+		s := screen{
 			DocType: item.DocType,
 			Base:    base,
-			Copy:    mstweb.Copy{Plural: "Stubs", New: "New stub", Search: "Search stubs", Empty: "No stubs yet.", Saved: "Stub saved."},
+			Copy: mstweb.Copy{
+				Plural: "Stubs", Noun: "stubs", One: "stub", New: "New stub", Search: "Search stubs",
+				Empty: "No stubs yet.", Saved: "Stub saved.",
+			},
 			Svc:     svc,
 			Env:     k,
-			ToInput: func(v map[string]string) stubRecord { return v },
+			ToInput: func(v map[string]string) (stubRecord, []doctype.FieldError) { return v, nil },
 			// A copy, as a master builds a fresh map for each call.
 			Values: func(r stubRecord) map[string]string { return maps.Clone(r) },
 			Head:   func(stubRecord) mstweb.Head { return mstweb.Head{Code: "STUB", Name: "Stub", Version: 3} },
 			Ref:    func(id int64) *auth.RecordRef { return &auth.RecordRef{DocType: item.DocType, ID: id} },
-		}.Routes()
+		}
+		for _, opt := range opts {
+			opt(&s)
+		}
+		return s.Routes()
 	})
 }
 

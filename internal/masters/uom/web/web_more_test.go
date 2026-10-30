@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -188,8 +190,8 @@ func TestScreens_UoMListKeepsSearch(t *testing.T) {
 	}
 }
 
-// With a search or the disabled filter on, an empty result says the search
-// found nothing: "No UoMs yet." would be untrue.
+// With a search on, an empty result says it found nothing: "No UoMs yet."
+// would be untrue. The disabled filter doesn't change that.
 func TestScreens_UoMNoMatch(t *testing.T) {
 	w := newWorld(t)
 	kavya := w.h.Env.Kavya
@@ -209,8 +211,9 @@ func TestScreens_UoMThroughAllmasters(t *testing.T) {
 		svcs = allmasters.New(k)
 		return svcs.Routes
 	})
-	if svcs.Company == nil || svcs.Terms == nil || svcs.Party == nil || svcs.UoM == nil ||
-		svcs.TaxCode == nil || svcs.Item == nil || svcs.ExpenseType == nil {
+	if svcs.Company == nil || svcs.Terms == nil || svcs.Party == nil || svcs.Address == nil || svcs.UoM == nil ||
+		svcs.TaxCode == nil || svcs.Item == nil || svcs.ExpenseType == nil ||
+		svcs.Letterhead.S == nil || svcs.Letterhead.AddressLines == nil {
 		t.Errorf("allmasters.New left a service nil: %+v", svcs)
 	}
 
@@ -221,4 +224,170 @@ func TestScreens_UoMThroughAllmasters(t *testing.T) {
 		t.Errorf("pick?q=Kilo = %v; want one row", got)
 	}
 	webtest.WantStatus(t, h.Get(t, h.Env.Kavya, "/m/uom/pick"), http.StatusNotFound)
+}
+
+// A record's id starts at 1: /0 is no route, for any user, on any method.
+func TestScreens_UoMZeroIDIsNotFound(t *testing.T) {
+	w := newWorld(t)
+	for _, p := range []auth.Principal{w.h.Env.Ravi, w.h.Env.Kavya} {
+		for _, target := range []string{"/m/uom/0", "/m/uom/007"} {
+			webtest.WantStatus(t, w.h.Get(t, p, target), http.StatusNotFound)
+			webtest.WantStatus(t, w.h.Post(t, p, target, url.Values{"version": {"1"}, "code": {"X"}, "name": {"X"}}), http.StatusNotFound)
+		}
+		webtest.WantStatus(t, w.h.Post(t, p, "/m/uom/0/disable", url.Values{"version": {"1"}}), http.StatusNotFound)
+	}
+}
+
+// Ravi has no right on UoM: 403 with AUTH's message on the list and on the
+// record page. Service.Get has no auth, so the page's read check is the only
+// guard.
+func TestScreens_UoMNoReadForbidden(t *testing.T) {
+	w := newWorld(t)
+	ravi := w.h.Env.Ravi
+	kgs := w.mustGet(t, "KGS")
+	deny := (&auth.DeniedError{Right: auth.RightRead, Label: "UoM"}).Error()
+	for _, target := range []string{"/m/uom", path(kgs.ID, "")} {
+		resp := w.h.Get(t, ravi, target)
+		webtest.WantStatus(t, resp, http.StatusForbidden)
+		webtest.WantText(t, resp, deny)
+		webtest.WantNoText(t, resp, "Kilograms")
+	}
+}
+
+// A stale save keeps the version the page posted, in the form and in More
+// actions, on the real service (CD-94): loading the row's would turn the
+// next save into a silent overwrite.
+func TestScreens_UoMStaleSaveKeepsPostedVersion(t *testing.T) {
+	w := newWorld(t)
+	kavya := w.h.Env.Kavya
+	saved, err := w.svc.Create(context.Background(), kavya, uom.Input{Code: "GRAM", Name: "Grams", UQC: "GMS"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 2 {
+		if _, err := w.svc.Update(context.Background(), kavya, saved.ID, saved.Version+i, uom.Input{Code: "GRAM", Name: "Grams " + ver(i), UQC: "GMS"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stale := ver(saved.Version + 1)
+	resp := w.h.Post(t, kavya, path(saved.ID, ""), url.Values{"version": {stale}, "code": {"GRAM"}, "name": {"Mine"}, "uqc": {"GMS"}})
+	webtest.WantStatus(t, resp, http.StatusConflict)
+	for _, action := range []string{path(saved.ID, ""), path(saved.ID, "/disable")} {
+		if v, ok := resp.FormValue(action, "version"); !ok || v != stale {
+			t.Errorf("version in the form posting to %s = %q (found %v); want the posted %s", action, v, ok, stale)
+		}
+	}
+}
+
+// The bar's sort reorders the list, shows what is chosen, and survives the
+// links around it. An unknown sort is the list's own refusal.
+func TestScreens_UoMListSort(t *testing.T) {
+	w := newWorld(t)
+	kavya := w.h.Env.Kavya
+	firstRow := func(target string) string {
+		resp := w.h.Get(t, kavya, target)
+		webtest.WantStatus(t, resp, http.StatusOK)
+		return webtest.Squash(resp.Doc.Find("a.datalist-link").First().Text())
+	}
+
+	page := w.h.Get(t, kavya, "/m/uom")
+	var got []string
+	for _, c := range page.Choices("sort") {
+		got = append(got, c.Value+"="+c.Label)
+	}
+	want := "name.asc=Name low to high,code.asc=Code low to high,code.desc=Code high to low,name.desc=Name high to low"
+	if strings.Join(got, ",") != want {
+		t.Errorf("sort options = %q; want %s", got, want)
+	}
+	if v, _ := page.Value("sort"); v != "name.asc" {
+		t.Errorf("default sort shown = %q; want name.asc", v)
+	}
+
+	byName, byNameDown := firstRow("/m/uom"), firstRow("/m/uom?sort=name.desc")
+	if byName == byNameDown {
+		t.Errorf("sort=name.desc changed nothing: first row %q", byName)
+	}
+	if got := firstRow("/m/uom?sort=code.asc"); !strings.Contains(got, "BAG Bags") {
+		t.Errorf("sort=code.asc first row = %q; want BAG Bags", got)
+	}
+
+	sorted := w.h.Get(t, kavya, "/m/uom?sort=code.desc&q=K")
+	if v, _ := sorted.Value("sort"); v != "code.desc" {
+		t.Errorf("chosen sort shown = %q; want code.desc", v)
+	}
+	if _, ok := sorted.RowLink("/m/uom?include_disabled=true&q=K&sort=code.desc"); !ok {
+		t.Error("Show disabled link drops the sort")
+	}
+	if _, ok := w.h.Get(t, kavya, "/m/uom?include_disabled=true&sort=code.desc").RowLink("/m/uom?sort=code.desc"); !ok {
+		t.Error("Disabled included chip drops the sort")
+	}
+
+	for _, target := range []string{"/m/uom?sort=uqc.asc", "/m/uom/export.csv?sort=uqc.asc"} {
+		resp := w.h.Get(t, kavya, target)
+		webtest.WantStatus(t, resp, http.StatusUnprocessableEntity)
+		webtest.WantText(t, resp, "You can't sort UoMs by 'uqc'.")
+	}
+}
+
+// Kavya's list offers Export; the file is the list she sees, with csvio's BOM
+// and field labels. Read is the route's guard (CD-145): Ravi gets the read
+// message and Priya, who reads, the export message and no button.
+func TestScreens_UoMExport(t *testing.T) {
+	w := newWorld(t)
+	kavya := w.h.Env.Kavya
+	box := w.mustGet(t, "BOX")
+	if err := w.svc.SetDisabled(context.Background(), kavya, box.ID, box.Version, true); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := w.h.Get(t, kavya, "/m/uom").RowLink("/m/uom/export.csv"); !ok {
+		t.Error("Kavya's list has no Export link")
+	}
+	if _, ok := w.h.Get(t, kavya, "/m/uom?include_disabled=true&q=Kilo&page=1").RowLink("/m/uom/export.csv?include_disabled=true&q=Kilo"); !ok {
+		t.Error("Export link doesn't follow the list's search and filter")
+	}
+
+	file := w.h.Get(t, kavya, "/m/uom/export.csv")
+	webtest.WantStatus(t, file, http.StatusOK)
+	if got := file.Header.Get("Content-Type"); got != "text/csv; charset=utf-8" {
+		t.Errorf("Content-Type = %q", got)
+	}
+	if got := file.Header.Get("Content-Disposition"); got != `attachment; filename="uom.csv"` {
+		t.Errorf("Content-Disposition = %q", got)
+	}
+	if !strings.HasPrefix(file.Body, "\xef\xbb\xbfCode,Name,") {
+		t.Errorf("file starts %.30q; want the BOM and the labels", file.Body)
+	}
+	if !strings.Contains(file.Body, "KGS,Kilograms,") || strings.Contains(file.Body, "BOX,") {
+		t.Errorf("export = %q; want KGS and not the disabled BOX", file.Body)
+	}
+	if _, ok := w.h.Get(t, kavya, "/m/uom?sort=code.desc&q=K").RowLink("/m/uom/export.csv?q=K&sort=code.desc"); !ok {
+		t.Error("Export link drops the sort")
+	}
+	var codes []string
+	for _, line := range strings.Split(strings.TrimSpace(w.h.Get(t, kavya, "/m/uom/export.csv?sort=code.desc").Body), "\r\n")[1:] {
+		code, _, _ := strings.Cut(line, ",")
+		codes = append(codes, code)
+	}
+	if len(codes) < 2 || !slices.IsSortedFunc(codes, func(a, b string) int { return strings.Compare(b, a) }) {
+		t.Errorf("export?sort=code.desc codes = %q; want descending", codes)
+	}
+	all := w.h.Get(t, kavya, "/m/uom/export.csv?include_disabled=true&q=Box")
+	if !strings.Contains(all.Body, "BOX,") || strings.Contains(all.Body, "KGS,") {
+		t.Errorf("filtered export = %q; want only BOX", all.Body)
+	}
+
+	resp := w.h.Get(t, w.h.Env.Ravi, "/m/uom/export.csv")
+	webtest.WantStatus(t, resp, http.StatusForbidden)
+	webtest.WantText(t, resp, (&auth.DeniedError{Right: auth.RightRead, Label: "UoM"}).Error())
+
+	resp = w.h.Get(t, w.h.Env.Priya, "/m/uom/export.csv")
+	webtest.WantStatus(t, resp, http.StatusForbidden)
+	webtest.WantText(t, resp, (&auth.DeniedError{Right: auth.RightExport, Label: "UoM"}).Error())
+	if got := resp.Header.Get("Content-Disposition"); got != "" {
+		t.Errorf("refused export has Content-Disposition %q: the 403 page would download", got)
+	}
+	if _, ok := w.h.Get(t, w.h.Env.Priya, "/m/uom").RowLink("/m/uom/export.csv"); ok {
+		t.Error("Priya's list links to Export without the export right")
+	}
 }

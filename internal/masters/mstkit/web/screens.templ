@@ -66,6 +66,7 @@ templ recordPage(v recordView) {
 				for _, in := range v.Inputs {
 					@in
 				}
+				@formRows(v.Rows)
 				@components.ActionBar(components.ActionBarProps{
 					Primary: &components.ButtonProps{Label: "Save", Variant: components.Primary, Busy: "Saving…"},
 				})
@@ -74,8 +75,20 @@ templ recordPage(v recordView) {
 			@components.SummaryList(v.Pairs)
 		}
 		if !v.Confirm {
+			if v.Extra != nil {
+				@v.Extra
+			}
 			@components.MoreActions(v.More)
 		}
+	}
+}
+
+// formRows is where a master's rows render inside the form. The rows editor
+// replaces this body (CD-201); until then they post back unchanged, so a
+// refused save keeps them.
+templ formRows(rows []components.Param) {
+	for _, row := range rows {
+		<input type="hidden" name={ row.Name } value={ row.Value }/>
 	}
 }
 
