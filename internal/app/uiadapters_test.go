@@ -170,13 +170,30 @@ func TestApp_UIAdaptersMatchServices(t *testing.T) {
 	})
 
 	t.Run("origin", func(t *testing.T) {
-		r := priya.get(orderPath + "/" + amended)
+		// The amendment is a draft, so its page is the check page. Ravi's next
+		// full page shows the flash the amend left.
+		path := orderPath + "/" + amended + "/edit/check"
+		r := ravi.get(path)
 		if r.status != http.StatusOK {
 			t.Fatalf("GET the amendment = %d, want 200", r.status)
 		}
-		link := r.doc.Find(`a[href="` + orderURL(id) + `"]`)
+		if want := "Amending " + number; !strings.Contains(r.pageText(), want) {
+			t.Errorf("page %q, want the flash %q", r.pageText(), want)
+		}
+		link := priya.get(path).doc.Find(`a[href="` + orderURL(id) + `"]`)
 		if got := strings.TrimSpace(link.First().Text()); got != "Amended from "+number {
 			t.Errorf("origin link = %q, want %q", got, "Amended from "+number)
+		}
+
+		// state_reason: a rejected document's banner.
+		const reason = "Rate too high"
+		rejected := priya.newOrder(m, "PRJ-METRO", "94164.00")
+		priya.addLine(m, rejected)
+		priya.act(rejected, "submit", nil)
+		ravi.act(rejected, "reject", url.Values{"reason": {reason}})
+		banner := priya.get(orderURL(rejected)).doc.Find(`.banner`).Text()
+		if !strings.Contains(banner, reason) {
+			t.Errorf("banner of a rejected document = %q, want the reason %q", banner, reason)
 		}
 	})
 }

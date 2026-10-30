@@ -17,6 +17,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
+
 	"github.com/vardhan/internaltools/internal/app"
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -151,20 +153,27 @@ func TestApp_PickerURL(t *testing.T) {
 // CD-154, CD-209: files.New's Policies and Info, and Letterhead.LogoURL.
 func TestApp_CompanyLogo(t *testing.T) {
 	w := newWorld(t)
-	w.canonical()
+	adminP, _, _ := w.canonical()
 	ctx := context.Background()
 	version := w.text(`SELECT CAST(version AS TEXT) FROM company`)
 
-	r := w.signedIn(adminEmail).upload("/m/company/1/logo", "logo.png", filestest.PNG(2000), map[string]string{"version": version})
+	admin := w.signedIn(adminEmail)
+	// LogoPolicy, not DefaultPolicy, which takes a PDF.
+	r := admin.upload("/m/company/1/logo?version="+version, "logo.pdf", filestest.PDF(2000), nil)
+	if !strings.Contains(r.pageText(), "Logo must be a PNG or JPG image.") {
+		t.Errorf("PDF logo = %d (%q), want LogoPolicy's refusal", r.status, r.pageText())
+	}
+	r = admin.upload("/m/company/1/logo?version="+version, "logo.png", filestest.PNG(2000), nil)
 	if r.status >= http.StatusBadRequest {
 		t.Fatalf("logo upload = %d (%q)", r.status, r.pageText())
 	}
 	id := w.text(`SELECT CAST(id AS TEXT) FROM attachment WHERE parent_doctype = ?`, company.CompanyDocType)
 
 	var got string
+	asUser := auth.WithPrincipal(ctx, w.principal(priyaID)) // CD-209: Latest reads the user from ctx
 	err := w.app.DB().Read(ctx, func(tx *db.Tx) error {
 		var err error
-		got, err = w.app.Masters().Letterhead.LogoURL(ctx, tx)
+		got, err = w.app.Masters().Letterhead.LogoURL(asUser, tx)
 		return err
 	})
 	if err != nil {
@@ -174,8 +183,15 @@ func TestApp_CompanyLogo(t *testing.T) {
 		t.Errorf("Letterhead.LogoURL = %q, want %q", got, want)
 	}
 	// FILE-048: LogoPolicy lets any signed-in user read the logo.
-	if r := w.signedIn(deepakEmail).get(got); r.status != http.StatusOK {
-		t.Errorf("GET %s as Deepak (no Company read) = %d, want 200", got, r.status)
+	nobody, _, err := w.app.Auth().CreateUser(ctx, adminP, auth.NewUser{Email: nobodyEmail, Name: "Nina Bose", Password: testPassword, Roles: []string{}})
+	if err != nil {
+		t.Fatalf("CreateUser with no roles: %v", err)
+	}
+	if err := w.app.Auth().Can(ctx, w.principal(nobody), company.CompanyDocType, "read", nil); err == nil {
+		t.Fatal("the role-less user can read Company, so the check below proves nothing")
+	}
+	if r := w.signedIn(nobodyEmail).get(got); r.status != http.StatusOK {
+		t.Errorf("GET %s with no Company read = %d, want 200", got, r.status)
 	}
 }
 
@@ -200,6 +216,13 @@ func TestApp_ShellNavInboxCSRF(t *testing.T) {
 				t.Errorf("Administrator's nav has no %s", href)
 			}
 		}
+		// A master whose screens aren't built has no item: every link opens.
+		r.doc.Find(`.app-sidebar .nav-list a`).Each(func(_ int, s *goquery.Selection) {
+			href, _ := s.Attr("href")
+			if page := admin.get(href); page.status != http.StatusOK {
+				t.Errorf("nav item %s = %d, want 200", href, page.status)
+			}
+		})
 	})
 
 	t.Run("approver", func(t *testing.T) {
@@ -659,7 +682,7 @@ func TestApp_RunJobsHourly(t *testing.T) {
 		if strings.HasSuffix(path, "_test.go") {
 			continue
 		}
-		src, err := os.ReadFile(path)
+		src, err := os.ReadFile(path) //nolint:gosec // G304: a path from the source walk
 		if err != nil {
 			t.Fatal(err)
 		}

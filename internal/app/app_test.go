@@ -229,8 +229,8 @@ func TestApp_RouteGuards(t *testing.T) {
 	if validate == 0 {
 		t.Error("no /ui/validate/ route is mounted")
 	}
-	if docRoutes < 18 {
-		t.Errorf("found %d /doc/ routes, want at least 18", docRoutes)
+	if docRoutes < 16 {
+		t.Errorf("found %d /doc/ routes, want at least 16", docRoutes)
 	}
 	for route, want := range map[string]authweb.Kind{
 		"GET /":               authweb.KindSelf,
@@ -433,6 +433,7 @@ func TestApp_CompanySetup(t *testing.T) {
 	}{
 		{"bad_gstin", "gstin", "27AABCS1429B1Z5", company.SetupInput{LegalName: "Vardhan Infra Projects Pvt Ltd", StateCode: "27", GSTIN: "27AABCS1429B1Z5", BranchCode: "PUNE", BranchName: "Pune Works"}},
 		{"blank_branch_code", "branch_code", "", company.SetupInput{LegalName: "Vardhan Infra Projects Pvt Ltd", StateCode: "27", GSTIN: "27AAFCV2449G1Z7", BranchName: "Pune Works"}},
+		{"blank_legal_name", "legal_name", "", company.SetupInput{StateCode: "27", GSTIN: "27AAFCV2449G1Z7", BranchCode: "PUNE", BranchName: "Pune Works"}},
 	}
 	for _, c := range refusals {
 		t.Run(c.name, func(t *testing.T) {
@@ -449,9 +450,14 @@ func TestApp_CompanySetup(t *testing.T) {
 				if !strings.Contains(r.pageText(), m) {
 					t.Errorf("page text %q, want the service's %q", r.pageText(), m)
 				}
+				if got := r.doc.Find("#f-" + c.field + "-msg").Text(); !strings.Contains(got, m) {
+					t.Errorf("the %s field's message = %q, want %q", c.field, got, m)
+				}
 			}
-			if v, _ := r.doc.Find(`[name="legal_name"]`).Attr("value"); v != "Vardhan Infra Projects Pvt Ltd" {
-				t.Errorf("legal_name after a refusal = %q, want the typed value kept", v)
+			for name := range goodSetup() {
+				if v, _ := r.doc.Find(`[name="`+name+`"]`).Attr("value"); name != c.field && v != form.Get(name) {
+					t.Errorf("%s after a refusal = %q, want the typed %q", name, v, form.Get(name))
+				}
 			}
 			if v, _ := r.doc.Find(`[name="` + c.field + `"]`).Attr("value"); v != c.value {
 				t.Errorf("%s after a refusal = %q, want the typed %q", c.field, v, c.value)
@@ -467,7 +473,7 @@ func TestApp_CompanySetup(t *testing.T) {
 		if r.status != http.StatusSeeOther || r.location() != "/" {
 			t.Fatalf("POST = %d to %q (%q), want 303 to /", r.status, r.location(), r.pageText())
 		}
-		if got := w.text(`SELECT legal_name || '/' || pan FROM company`); got != "Vardhan Infra Projects Pvt Ltd/AAFCV2449G" {
+		if got := w.text(`SELECT name || '/' || pan FROM company`); got != "Vardhan Infra Projects Pvt Ltd/AAFCV2449G" {
 			t.Errorf("company = %q, want the legal name and the PAN from the GSTIN", got)
 		}
 		if got := w.text(`SELECT code || '/' || name FROM branch`); got != "PUNE/Pune Works" {

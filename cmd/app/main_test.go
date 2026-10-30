@@ -8,8 +8,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -112,6 +114,31 @@ func TestApp_UnexpectedArgument(t *testing.T) {
 	}
 }
 
+func TestApp_UnknownSubcommand(t *testing.T) {
+	for _, c := range []struct {
+		args []string
+		name string
+	}{
+		{[]string{"admin"}, "admin"},
+		{[]string{"files", "frobnicate", "--data", t.TempDir()}, "files frobnicate"},
+	} {
+		err := run(context.Background(), c.args)
+		want := "unknown command \"" + c.name + "\". Run `app help` to see the commands."
+		if err == nil || err.Error() != want {
+			t.Errorf("run(%q) = %v, want %q", c.args, err, want)
+		}
+	}
+}
+
+func TestApp_DataNotSet(t *testing.T) {
+	const want = "--data is not set. Pass the data directory, for example --data ./data."
+	for _, args := range [][]string{{"migrate"}, {"serve"}, {"files", "gc"}} {
+		if err := run(context.Background(), args); err == nil || err.Error() != want {
+			t.Errorf("run(%q) = %v, want %q", args, err, want)
+		}
+	}
+}
+
 // feedStdin makes text what the next command reads as its password prompts.
 func feedStdin(t *testing.T, text string) {
 	t.Helper()
@@ -119,7 +146,7 @@ func feedStdin(t *testing.T, text string) {
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: a path under t.TempDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,6 +221,15 @@ func (w *world) exec(t *testing.T, q string, args ...any) {
 	if _, err := w.d.SQL().ExecContext(context.Background(), q, args...); err != nil {
 		t.Fatalf("exec %q: %v", q, err)
 	}
+}
+
+func (w *world) text(t *testing.T, q string, args ...any) string {
+	t.Helper()
+	var s string
+	if err := w.d.SQL().QueryRowContext(context.Background(), q, args...).Scan(&s); err != nil {
+		t.Fatalf("query %q: %v", q, err)
+	}
+	return s
 }
 
 func (w *world) count(t *testing.T, q string, args ...any) int {
@@ -457,7 +493,11 @@ func TestApp_ServeRunsTheApp(t *testing.T) {
 
 // serve's new flags reach app.Config.
 func TestApp_ServeFlags(t *testing.T) {
-	addr, _ := startServe(t, "--secure", "--trust-proxy", "--trusted-origin", "https://a.vardhan.test", "--trusted-origin", "https://b.vardhan.test")
+	dir := t.TempDir()
+	if err := adminCreate(t, dir); err != nil {
+		t.Fatalf("admin create: %v", err)
+	}
+	addr, _ := startServe(t, "--data", dir, "--secure", "--trust-proxy", "--trusted-origin", "https://a.vardhan.test", "--trusted-origin", "https://b.vardhan.test")
 	if resp := getNoRedirect(t, "http://"+addr+"/setup"); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("GET /setup with --secure = %d, want 404", resp.StatusCode)
 	}
@@ -480,12 +520,65 @@ func TestApp_ServeFlags(t *testing.T) {
 			t.Errorf("POST from %s = %d %q, want past the cross-origin check to %q", origin, resp.StatusCode, body, auth.ErrCSRF.Msg)
 		}
 	}
+	const proxyEntry = "203.0.113.9"
+	signInBehindProxy(t, addr, "198.51.100.7, "+proxyEntry)
+	if got := open(t, dir).text(t, `SELECT ip FROM auth_log WHERE event = 'login_success'`); got != proxyEntry {
+		t.Errorf("logged client IP = %q, want the entry the proxy added (--trust-proxy)", got)
+	}
+}
+
+var csrfField = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
+
+// signInBehindProxy signs Anil in with X-Forwarded-For set. The __Host- cookie
+// is Secure and the test server plain HTTP, so it is carried by hand.
+func signInBehindProxy(t *testing.T, addr, forwarded string) {
+	t.Helper()
+	page, err := http.Get("http://" + addr + "/signin") //nolint:gosec,noctx // G107: the test server's own address
+	if err != nil {
+		t.Fatalf("GET /signin: %v", err)
+	}
+	body, err := io.ReadAll(page.Body)
+	_ = page.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := csrfField.FindSubmatch(body)
+	if m == nil {
+		t.Fatalf("GET /signin = %d, no csrf_token in %q", page.StatusCode, body)
+	}
+	form := url.Values{"email": {adminEmail}, "password": {testPassword}, "csrf_token": {string(m[1])}}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://"+addr+"/signin", strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Forwarded-For", forwarded)
+	for _, c := range page.Cookies() {
+		req.Header.Add("Cookie", c.Name+"="+c.Value)
+	}
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("POST /signin: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("POST /signin = %d, want 303", resp.StatusCode)
+	}
+}
+
+// A bad --trusted-origin is a message, not web.NewRouter's panic.
+func TestApp_ServeRefusesBadOrigin(t *testing.T) {
+	err := run(context.Background(), []string{"serve", "--data", t.TempDir(), "--trusted-origin", "not an origin"})
+	if err == nil || !strings.Contains(err.Error(), "isn't an origin") {
+		t.Errorf("serve with a bad origin = %v, want the flag's message", err)
+	}
 }
 
 // Spec §7: logs are JSON on stdout.
 func TestApp_ServeLogsJSONToStdout(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "stdout")
-	f, err := os.Create(path)
+	f, err := os.Create(path) //nolint:gosec // G304: a path under t.TempDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -500,7 +593,7 @@ func TestApp_ServeLogsJSONToStdout(t *testing.T) {
 	getNoRedirect(t, "http://"+addr+"/healthz")
 	stop()
 
-	logs, err := os.ReadFile(path)
+	logs, err := os.ReadFile(path) //nolint:gosec // G304: a path under t.TempDir()
 	if err != nil {
 		t.Fatal(err)
 	}
