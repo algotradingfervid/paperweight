@@ -179,7 +179,7 @@ Odoo's duplicate checks work the same way and are soft there too. A cancelled cl
 
 **Close is optional.** It's the app's only "done" state for a claim, and CD-234 tracks no payments. A closed claim can't be cancelled or amended (R6). A claim left approved forever is harmless. The page shows the kernel's words: button `Close`, field `Reason for closing`, hint `For example how it was paid`.
 
-**Fallback approver (owner's answer, relayed 30 October; the role itself awaits the owner's confirmation, CD-236).** The Director keeps the Employee role and files claims in the app. Someone else must approve them, so:
+**Fallback approver (owner's answer, confirmed 30 October, CD-236, CD-238).** The Director keeps the Employee role and files claims in the app. Someone else must approve them, so:
 
 - A rule has one fallback role (`approval.Rule.FallbackRole`). A new canonical role, **Fallback Approver**, holds read and approve (all) on Expense Claim and Employee Advance, and nothing else. A second Director also works, but the Director role carries PO approval and cancel rights, which this person may not need.
 - The owner gives Fallback Approver to the Director and to at least one other person. That person may be the Administrator, who still needs the role, because eligibility goes by role (`holdsAny`), not by right alone.
