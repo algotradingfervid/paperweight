@@ -235,15 +235,19 @@ func checkAutoincrement(ctx context.Context, d *db.DB, table string) error {
 	return nil
 }
 
+// genericSeq numbers generic values across the whole test: a parent row one
+// table's check inserts (a party for address) stays, so another table's
+// values must not start again from 1. The subtests run one at a time.
+var genericSeq int
+
 // checkNoReuse is the behaviour half: insert a row (now the newest), delete
 // it, insert again; the second id must differ from (and exceed) the first.
 func checkNoReuse(ctx context.Context, d *db.DB, table string) error {
-	seq := 0
 	insert := func() (int64, error) {
 		var id int64
 		err := d.Write(ctx, func(tx *db.Tx) error {
 			var err error
-			id, err = insertGenericRow(ctx, tx.SQL(), table, &seq, 0)
+			id, err = insertGenericRow(ctx, tx.SQL(), table, &genericSeq, 0)
 			return err
 		})
 		return id, err
@@ -272,12 +276,20 @@ func checkNoReuse(ctx context.Context, d *db.DB, table string) error {
 // constraints that span columns or need a value other than a fresh positive
 // one. Each entry names the constraint it satisfies. An override is always
 // set, even on a column with a default; one naming a column the table lacks
-// fails the test, so a stale entry can't hide.
+// fails the test, so a stale entry can't hide. The value parentRow fills a
+// nullable foreign-key column with a parent's key, as for a NOT NULL one.
 var rowOverrides = map[string]map[string]any{
-	"party":    {"is_vendor": int64(1)},                     // CHECK (is_vendor = 1 OR is_customer = 1)
-	"item":     {"item_type": "Goods"},                      // CHECK (item_type IN ('Goods', 'Service')); item_uom's parent row too
-	"tax_code": {"treatment": "Exempted", "rate": int64(0)}, // CHECK (treatment IN (...)); CHECK ((treatment = 'Taxable') = (rate > 0))
+	"party":         {"is_vendor": int64(1)},                           // CHECK (is_vendor = 1 OR is_customer = 1)
+	"address":       {"party_id": parentRow{}, "is_billing": int64(1)}, // CHECK ((party_id IS NULL) <> (branch_id IS NULL)); CHECK (is_billing = 1 OR is_shipping = 1)
+	"contact":       {"party_id": parentRow{}},                         // CHECK ((party_id IS NULL) <> (branch_id IS NULL)); contact_email's and contact_phone's parent row too
+	"contact_phone": {"kind": "mobile"},                                // CHECK (kind IN ('mobile', 'phone'))
+	"item":          {"item_type": "Goods"},                            // CHECK (item_type IN ('Goods', 'Service')); item_uom's parent row too
+	"tax_code":      {"treatment": "Exempted", "rate": int64(0)},       // CHECK (treatment IN (...)); CHECK ((treatment = 'Taxable') = (rate > 0))
 }
+
+// parentRow as a rowOverrides value asks for the key of a parent row through
+// the column's foreign key.
+type parentRow struct{}
 
 // insertGenericRow inserts a row giving a value to the table's rowOverrides
 // columns and to NOT NULL columns without a default (other than id): a
@@ -313,13 +325,16 @@ func insertGenericRow(ctx context.Context, q db.DBTX, table string, seq *int, de
 			continue
 		}
 		var v any
-		if hasOv {
+		_, wantParent := ov.(parentRow)
+		if hasOv && !wantParent {
 			v = ov
 		} else if fk, ok := fks[c.name]; ok {
 			v, err = parentKey(ctx, q, fk, seq, depth)
 			if err != nil {
 				return 0, fmt.Errorf("column %s: parent %s: %w", c.name, fk.table, err)
 			}
+		} else if wantParent {
+			return 0, fmt.Errorf("rowOverrides[%q] asks for a parent row for column %s, which has no foreign key", table, c.name)
 		} else {
 			*seq++
 			v = genericValue(c.typ, *seq)

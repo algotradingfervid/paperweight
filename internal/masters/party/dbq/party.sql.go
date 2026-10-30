@@ -10,6 +10,33 @@ import (
 	"database/sql"
 )
 
+const addressGSTINs = `-- name: AddressGSTINs :many
+SELECT gstin FROM address WHERE party_id = ? AND gstin <> '' ORDER BY id
+`
+
+func (q *Queries) AddressGSTINs(ctx context.Context, partyID sql.NullInt64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, addressGSTINs, partyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var gstin string
+		if err := rows.Scan(&gstin); err != nil {
+			return nil, err
+		}
+		items = append(items, gstin)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDefaults = `-- name: GetDefaults :one
 SELECT p.default_payment_terms_id, coalesce(t.disabled, 0) AS terms_disabled
 FROM party p LEFT JOIN payment_terms t ON t.id = p.default_payment_terms_id
@@ -138,6 +165,63 @@ func (q *Queries) InsertParty(ctx context.Context, arg InsertPartyParams) (int64
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const partyAddressesGST = `-- name: PartyAddressesGST :many
+SELECT country, gstin, is_primary_billing, is_primary_shipping, disabled FROM address WHERE party_id = ? ORDER BY id
+`
+
+type PartyAddressesGSTRow struct {
+	Country           string
+	Gstin             string
+	IsPrimaryBilling  int64
+	IsPrimaryShipping int64
+	Disabled          int64
+}
+
+func (q *Queries) PartyAddressesGST(ctx context.Context, partyID sql.NullInt64) ([]PartyAddressesGSTRow, error) {
+	rows, err := q.db.QueryContext(ctx, partyAddressesGST, partyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PartyAddressesGSTRow
+	for rows.Next() {
+		var i PartyAddressesGSTRow
+		if err := rows.Scan(
+			&i.Country,
+			&i.Gstin,
+			&i.IsPrimaryBilling,
+			&i.IsPrimaryShipping,
+			&i.Disabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const primaryBillingAddress = `-- name: PrimaryBillingAddress :one
+SELECT gstin, country FROM address WHERE party_id = ? AND is_primary_billing = 1
+`
+
+type PrimaryBillingAddressRow struct {
+	Gstin   string
+	Country string
+}
+
+func (q *Queries) PrimaryBillingAddress(ctx context.Context, partyID sql.NullInt64) (PrimaryBillingAddressRow, error) {
+	row := q.db.QueryRowContext(ctx, primaryBillingAddress, partyID)
+	var i PrimaryBillingAddressRow
+	err := row.Scan(&i.Gstin, &i.Country)
+	return i, err
 }
 
 const updatePANAndCategory = `-- name: UpdatePANAndCategory :exec

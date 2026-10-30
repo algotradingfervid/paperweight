@@ -8,6 +8,31 @@ import (
 	"database/sql"
 )
 
+type Address struct {
+	ID                int64
+	PartyID           sql.NullInt64
+	BranchID          sql.NullInt64
+	Name              string
+	Title             string
+	Line1             string
+	Line2             string
+	City              string
+	StateCode         sql.NullString
+	Country           string
+	Pincode           string
+	Gstin             string
+	IsBilling         int64
+	IsShipping        int64
+	IsPrimaryBilling  int64
+	IsPrimaryShipping int64
+	Disabled          int64
+	Version           int64
+	CreatedAt         string
+	CreatedBy         sql.NullInt64
+	UpdatedAt         string
+	UpdatedBy         sql.NullInt64
+}
+
 type AppMetum struct {
 	Key   string
 	Value string
@@ -141,6 +166,38 @@ type Company struct {
 	CreatedBy sql.NullInt64
 	UpdatedAt string
 	UpdatedBy sql.NullInt64
+}
+
+type Contact struct {
+	ID         int64
+	PartyID    sql.NullInt64
+	BranchID   sql.NullInt64
+	Name       string
+	FirstName  string
+	MiddleName string
+	LastName   string
+	IsPrimary  int64
+	Disabled   int64
+	Version    int64
+	CreatedAt  string
+	CreatedBy  sql.NullInt64
+	UpdatedAt  string
+	UpdatedBy  sql.NullInt64
+}
+
+type ContactEmail struct {
+	ID        int64
+	ContactID int64
+	Email     string
+	IsPrimary int64
+}
+
+type ContactPhone struct {
+	ID        int64
+	ContactID int64
+	Number    string
+	Kind      string
+	IsPrimary int64
 }
 
 type ExpenseType struct {
