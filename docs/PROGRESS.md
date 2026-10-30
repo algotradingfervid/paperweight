@@ -239,6 +239,10 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Merges | WP2 part 1 (Tasks 1–5, 8–11) e2cb5cb + dbq 5e65428; AUTH CD-171 5a793ca; `make ci` green after each | — | director | | 18:52 | — | — | — |
 | Merges | AUTH CD-173 + CD-174 cd10b67; `make ci` green | — | director | | 19:17 | — | — | — |
 | Budgets | WP3 Task 1 split across idle ADs (CD-182): head 2, AD-1 5, AD-2 3, AD-3 3, AD-4 3, AD-5 6, reserve 3 | — | director | | 19:45 | — | — | — |
+| WP3-T1 | NAM and APR contract suites, CD-193 docscreen Approver | High | crew-test-writer, crew-implementer, crew-reviewer (AD-3) | 25 Oct | 26 Oct | 3 | r1 0/1/4, r2 0/1/5, r3 APPROVE; CD-193 0/0/1 | 8f5e0d7 |
+| WP1-AUTH | CD-189 UserInfo.Version | High | crew-implementer ×2, crew-reviewer (AD-1) | 26 Oct | 26 Oct | 2 | 0/1/1 | 0cf537e |
+| WP3 | CD-191 contracts_test off lenient filesfake.New() | Standard | crew-implementer (AD-4) | 26 Oct | 26 Oct | 1 | 0/0/0 | b2f41da |
+| Merges | Four MERGE-READYs held undelivered since 26 Oct merged in order; `make ci` green after each; main feb67ba | — | director | | 30 Oct | — | — | — |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
