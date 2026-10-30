@@ -1,15 +1,12 @@
 package authweb
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
-
-	"github.com/a-h/templ"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	authscreens "github.com/vardhan/internaltools/internal/kernel/auth/web/screens"
@@ -88,18 +85,4 @@ func (s *Server) postCopyRights(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.WriteError(w, r, err)
 	}
-}
-
-// renderPage renders c into a buffer before writing, then sends status, so
-// the flash the layout takes is saved with the session and a render error is
-// a 500 (CD-160).
-func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, status int, c templ.Component) {
-	var buf bytes.Buffer
-	if err := c.Render(r.Context(), &buf); err != nil {
-		s.WriteError(w, r, err)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = buf.WriteTo(w)
 }
