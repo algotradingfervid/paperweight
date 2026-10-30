@@ -560,3 +560,100 @@ func TestScreens_PartyWizardRowKeepsItsOwnErrors(t *testing.T) {
 	webtest.WantFieldErrorID(t, refused, components.FieldID(line(1, "country")), msgOverseas)
 	webtest.WantFieldErrorID(t, refused, components.FieldID(line(1, "gstin")), msgNeedGSTIN)
 }
+
+// Rows that aren't the first billing row keep their real errors, whoever is
+// refused: only a refused first billing row excuses the rows after it.
+func TestScreens_PartyWizardOtherRowsKeepTheirErrors(t *testing.T) {
+	unreg := with(details("MEHTA"), "gst_category", "Unregistered", "pan", "")
+	bill := func(title string) map[string]string {
+		return row(blrRow, "title", title, "is_billing", "1", "is_shipping", "")
+	}
+	blank := row(mumbaiRow, "gstin", "", "is_billing", "1", "is_shipping", "")
+	for name, c := range map[string]struct {
+		rows  url.Values
+		lines []int
+	}{
+		"two shipping rows":                 {rows(blrRow, row(blrRow, "title", "Two")), []int{1, 2}},
+		"two billing rows after a good one": {rows(blank, bill("B"), bill("C")), []int{2, 3}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			w := newWorld(t)
+			b := w.kavya()
+			toCheck(t, b, unreg, c.rows, url.Values{})
+			r := b.Post(t, stepCheck, url.Values{})
+			webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
+			for _, n := range c.lines {
+				webtest.WantFieldErrorID(t, r, components.FieldID(line(n, "gstin")), msgUnreg)
+			}
+		})
+	}
+}
+
+// Set-primary on a row an own-scope user can't see answers as for a row that
+// isn't there, stale version or not, and moves nothing.
+func TestScreens_SetPrimaryHiddenRow(t *testing.T) {
+	own := map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeOwn, auth.RightCreate: auth.ScopeOwn, auth.RightWrite: auth.ScopeOwn, auth.RightDelete: auth.ScopeOwn}
+	w := newWorld(t)
+	env := w.h.Env
+	w.grant(t, "Employee", map[auth.Right]auth.Scope{}, address.DocType, address.ContactDocType)
+	w.grant(t, "Purchase User", own, address.DocType, address.ContactDocType)
+	p := w.create(t, party.Input{Code: "V-NEW", Name: "New Vendor", IsVendor: true})
+	ctx := context.Background()
+	input := address.Input{PartyID: p.ID, Title: "Theirs", Line1: "L1", City: "Pune", StateCode: "27", IsShipping: true}
+	if _, err := w.addresses.Create(ctx, env.Kavya, input); err != nil {
+		t.Fatal(err)
+	}
+	hidden, err := w.addresses.Create(ctx, env.Kavya, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.addresses.CreateContact(ctx, env.Kavya, address.ContactInput{PartyID: p.ID, FirstName: "First"}); err != nil {
+		t.Fatal(err)
+	}
+	theirs, err := w.addresses.CreateContact(ctx, env.Kavya, address.ContactInput{PartyID: p.ID, FirstName: "Theirs"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := w.h.Browser(env.Priya)
+	for _, version := range []int{hidden.Version, 99} {
+		r := b.Post(t, addressURL(p.ID, hidden.ID)+"/set-primary", with(versionOf(version), "kind", "shipping"))
+		webtest.WantStatus(t, r, http.StatusNotFound)
+	}
+	if w.address(t, hidden.ID).PrimaryShipping {
+		t.Error("a row the user can't see was made primary")
+	}
+	for _, version := range []int{theirs.Version, 99} {
+		r := b.Post(t, contactURL(p.ID, theirs.ID)+"/set-primary", versionOf(version))
+		webtest.WantStatus(t, r, http.StatusNotFound)
+	}
+	if w.contact(t, theirs.ID).Primary {
+		t.Error("a contact the user can't see was made primary")
+	}
+}
+
+// Own read on Party: the rows of a party the user created open.
+func TestScreens_RowsOfOwnParty(t *testing.T) {
+	w := newWorld(t)
+	env := w.h.Env
+	own := map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeOwn, auth.RightCreate: auth.ScopeOwn}
+	w.grant(t, "Employee", map[auth.Right]auth.Scope{}, party.DocType)
+	w.grant(t, "Purchase User", own, party.DocType, address.DocType, address.ContactDocType)
+	saved, err := w.parties.Create(context.Background(), env.Priya, party.Input{Code: "MINE", Name: "Mine Ltd", IsVendor: true, GSTCategory: gstin.Unregistered})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := w.h.Browser(env.Priya)
+	webtest.WantStatus(t, b.Get(t, recordURL(saved.ID)), http.StatusOK)
+	webtest.WantStatus(t, b.Get(t, newAddressURL(saved.ID)), http.StatusOK)
+}
+
+// A pincode outside India is free text but not without limit (CD-227).
+func TestScreens_OverseasPincodeLimit(t *testing.T) {
+	w := newWorld(t)
+	p := w.create(t, party.Input{Code: "OVS", Name: "Overseas Ltd", IsVendor: true, GSTCategory: gstin.Overseas})
+	form := addressForm(address.Address{Title: "London", Line1: "1 High St", City: "London", Country: "United Kingdom", Pincode: strings.Repeat("9", 141), IsBilling: true})
+	form.Del("version")
+	r := w.kavya().Post(t, newAddressURL(p.ID), form)
+	webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
+	webtest.WantFieldErrorID(t, r, components.FieldID("pincode"), "Pincode can be at most 140 characters.")
+}

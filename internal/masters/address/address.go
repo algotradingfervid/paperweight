@@ -148,6 +148,7 @@ func Validate(in Input) (Input, error) {
 	} else {
 		in.StateCode = ""
 		in.Pincode = strings.TrimSpace(in.Pincode)
+		es.CheckLen("pincode", "Pincode", in.Pincode)
 	}
 	if !in.IsBilling && !in.IsShipping {
 		es.Add("is_billing", msgType)

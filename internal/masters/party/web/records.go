@@ -513,6 +513,10 @@ func (s records) setPrimaryContact(pages mstweb.Pages) mstweb.HandlerFunc {
 				return err
 			}
 			if err == nil && c.PartyID == pt.ID {
+				// The right first: a hidden row is not told apart by its version.
+				if err := s.env.CanRowTx(ctx, tx, p, address.ContactKind, auth.RightWrite, s.contactKind().ref(id)); err != nil {
+					return err
+				}
 				if err := mstkit.CheckVersion(ctx, tx, address.ContactKind, id, version); err != nil {
 					return err
 				}

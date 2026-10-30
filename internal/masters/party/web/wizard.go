@@ -174,8 +174,10 @@ func billingFirst(rows []address.Input) []int {
 // written, so the rows after it look like the party's first: saying D1, or the
 // two GSTIN errors of a first billing row, would be false. D1 is about the
 // draft, so a row that shows it counts the same and it shows once (CD-180).
-// Billing rows save first, so a real error on one has no such row above it.
+// Only the first billing row explains the rest: billing rows save first, and
+// once it is written the others are ordinary rows with real errors.
 func withoutFollowOns(rows []address.Input, es []doctype.FieldError) []doctype.FieldError {
+	firstBilling := 1 + slices.IndexFunc(rows, func(in address.Input) bool { return in.IsBilling })
 	cause := 0 // the Line that explains the rest
 	var kept []doctype.FieldError
 	for _, e := range es {
@@ -183,7 +185,7 @@ func withoutFollowOns(rows []address.Input, es []doctype.FieldError) []doctype.F
 		if cause != 0 && e.Line != cause && (needBilling || e.Message == gstin.MsgNeedGSTIN || e.Message == gstin.MsgUnregisteredGSTIN) {
 			continue
 		}
-		if cause == 0 && (needBilling || rows[e.Line-1].IsBilling) {
+		if cause == 0 && (needBilling || e.Line == firstBilling) {
 			cause = e.Line
 		}
 		kept = append(kept, e)
