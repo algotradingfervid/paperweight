@@ -111,7 +111,6 @@ func TestServices_RoutesReachARealImporter(t *testing.T) {
 
 	check := send(httptest.NewRequest(http.MethodGet, "/m/import/check", nil))
 	webtest.WantStatus(t, check, http.StatusOK)
-	webtest.WantNoText(t, check, "Import isn't ready")
 	webtest.WantBanner(t, check, "1 row is ready, 0 rows have errors")
 
 	webtest.WantRedirect(t, post("/m/import/check", url.Values{}), "/m/import/import")

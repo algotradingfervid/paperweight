@@ -61,6 +61,32 @@ func TestRegisterImporters_AllTenAndRepeatable(t *testing.T) {
 	}
 }
 
+// Nothing can reach csvio.ErrNoImporter on a real master: the import wizard
+// offers every Importable DocType, so each one needs an importer.
+func TestRegisterImporters_EveryImportableDocType(t *testing.T) {
+	RegisterImporters(&Services{})
+	seen := map[string]bool{}
+	for _, dt := range doctype.All() {
+		if !dt.Importable {
+			continue
+		}
+		seen[dt.Name] = true
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%s is Importable but csvio has no importer for it", dt.Name)
+				}
+			}()
+			csvio.RegisterImporter(dt.Name, nil)
+		}()
+	}
+	for _, name := range importedMasters {
+		if !seen[name] {
+			t.Errorf("%s has an importer but is not Importable", name)
+		}
+	}
+}
+
 func TestWithServices_ReadsLatestServices(t *testing.T) {
 	var got *Services
 	fn := withServices(func(s *Services, _ context.Context, _ *db.Tx, _ auth.Principal, _ map[string]string) (int64, []doctype.FieldError, error) {

@@ -3,6 +3,7 @@ package docscreen
 import (
 	"context"
 	"io"
+	"net/url"
 	"strconv"
 
 	"github.com/a-h/templ"
@@ -76,11 +77,19 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 	return components.TextInput(p)
 }
 
+// searchURL is what f's Picker searches; a LinkRole narrows it (CD-218).
+func searchURL(f doctype.Field) string {
+	if f.LinkRole != "" {
+		return "/pick/" + f.Link + "?role=" + url.QueryEscape(f.LinkRole)
+	}
+	return "/pick/" + f.Link
+}
+
 // linkInput is f's Picker. The chosen id is looked up when it renders, so
 // the summary shows the master's "{Code} {Name}" (CD-68).
 func linkInput(f doctype.Field, p components.FieldProps, d Deps) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		pp := components.PickerProps{Field: p, SearchURL: "/pick/" + f.Link, HiddenName: f.Name, ListboxID: p.ID + "-list"}
+		pp := components.PickerProps{Field: p, SearchURL: searchURL(f), HiddenName: f.Name, ListboxID: p.ID + "-list"}
 		if id, err := strconv.ParseInt(p.Value, 10, 64); err == nil {
 			row := components.PickRow{ID: id, Code: p.Value}
 			if dt, ok := doctype.Lookup(f.Link); ok && dt.Master != nil && d.DB != nil {

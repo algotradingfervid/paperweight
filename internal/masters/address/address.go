@@ -60,7 +60,7 @@ func init() {
 			{Name: "city", Label: "City", Column: "city", Type: doctype.Text, Required: true, Importable: true, ListPriority: 5},
 			{Name: "state_code", Label: "State", Column: "state_code", Type: doctype.Text, Importable: true},
 			{Name: "country", Label: "Country", Column: "country", Type: doctype.Text, Importable: true},
-			{Name: "pincode", Label: "Pincode", Column: "pincode", Type: doctype.Text, Importable: true, MaxLen: 6},
+			{Name: "pincode", Label: "Pincode", Column: "pincode", Type: doctype.Text, Importable: true},
 			{Name: "gstin", Label: "GSTIN", Column: "gstin", Type: doctype.Text, Importable: true, MaxLen: 15},
 			{Name: "is_billing", Label: "Billing", Column: "is_billing", Type: doctype.Check, Importable: true},
 			{Name: "is_shipping", Label: "Shipping", Column: "is_shipping", Type: doctype.Check, Importable: true},
@@ -148,6 +148,7 @@ func Validate(in Input) (Input, error) {
 	} else {
 		in.StateCode = ""
 		in.Pincode = strings.TrimSpace(in.Pincode)
+		es.CheckLen("pincode", "Pincode", in.Pincode)
 	}
 	if !in.IsBilling && !in.IsShipping {
 		es.Add("is_billing", msgType)

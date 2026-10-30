@@ -363,23 +363,19 @@ type outcome struct {
 
 func (o outcome) blocked() bool { return o.problem != "" || len(o.report.Errors) > 0 }
 
-// outcomeOf sorts what csvio returned: a refused file or a missing importer is
-// a message on the page; anything else (403, 503) stays an error.
-func outcomeOf(dt *doctype.DocType, rep csvio.Report, err error) (outcome, error) {
+// outcomeOf sorts what csvio returned: a refused file is a message on the page;
+// anything else (403, 503) stays an error.
+func outcomeOf(rep csvio.Report, err error) (outcome, error) {
 	var fe *csvio.FileError
-	switch {
-	case errors.As(err, &fe):
+	if errors.As(err, &fe) {
 		return outcome{problem: fe.Msg}, nil
-	case errors.Is(err, csvio.ErrNoImporter):
-		// Goes when MST Tasks 20 and 21 have registered every importer.
-		return outcome{problem: "Import isn't ready for " + dt.PluralLabel + " yet."}, nil
 	}
 	return outcome{report: rep}, err
 }
 
 func (h *handlers) preview(ctx context.Context, p auth.Principal, j job) (outcome, error) {
 	rep, err := h.importer.Preview(ctx, p, j.dt, bytes.NewReader(j.file))
-	return outcomeOf(j.dt, rep, err)
+	return outcomeOf(rep, err)
 }
 
 func (h *handlers) checkPage(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
@@ -516,7 +512,7 @@ func (h *handlers) doImport(w http.ResponseWriter, r *http.Request, p auth.Princ
 		return nil
 	}
 	rep, err := h.importer.Import(ctx, p, j.dt, bytes.NewReader(j.file))
-	o, err := outcomeOf(j.dt, rep, err)
+	o, err := outcomeOf(rep, err)
 	if err != nil || o.blocked() {
 		if err := h.files.release(context.WithoutCancel(ctx), j.token, p.ID); err != nil {
 			slog.ErrorContext(ctx, "mastersweb: release claim", "err", err) // a new upload replaces the row

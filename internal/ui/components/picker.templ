@@ -13,8 +13,8 @@ templ Picker(p PickerProps) {
 		@Select(pickerSelectField(p), p.Options)
 	} else {
 		{{ id, text := pickerChosen(p) }}
-		@field(p.Field) {
-			<div class="picker" role="group" aria-label={ p.Field.Label } tabindex="-1" x-data="combobox">
+		@field(pickerField(p)) {
+			<div class="picker" role="group" aria-label={ p.Field.Label } tabindex="-1" x-data="combobox" { pickerGroupAttrs(p)... }>
 				<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
 					<p class="picker__summary" data-picker-summary>{ text }</p>
 					@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-picker-change": true}})
@@ -37,7 +37,7 @@ templ Picker(p PickerProps) {
 							hx-target={ "#" + p.ListboxID }
 							hx-swap="innerHTML"
 							hx-sync="this:replace"
-							{ controlAttrs(pickerSearchField(p), "input field__input")... }
+							{ pickerInputAttrs(p)... }
 						/>
 						@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})
 					</div>

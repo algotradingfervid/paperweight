@@ -157,6 +157,12 @@ func wizardCheck(cards []sectionCard) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				for _, row := range c.Rows {
+					templ_7745c5c3_Err = components.SummaryList(row).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
 				return nil
 			})
 			templ_7745c5c3_Err = wizard.CheckSection(c.Title, "", c.Change.Href).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)

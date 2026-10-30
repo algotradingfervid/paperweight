@@ -12,6 +12,8 @@ type FieldProps struct {
 	ID, Name, Label, Hint, Error, Value, Suffix, Echo string
 	Optional                                          bool
 	Attrs                                             templ.Attributes
+
+	labelFor string // the label's control, when it isn't ID (a chosen Picker)
 }
 
 // FieldID turns a field path into an element id: "lines[2].qty" becomes
@@ -39,6 +41,13 @@ func describedBy(p FieldProps) string {
 	return p.ID + "-hint " + p.ID + "-msg"
 }
 
+func labelTarget(p FieldProps) string {
+	if p.labelFor != "" {
+		return p.labelFor
+	}
+	return p.ID
+}
+
 // controlAttrs are the attributes every input, select and textarea shares.
 func controlAttrs(p FieldProps, class string) templ.Attributes {
 	a := templ.Attributes{
@@ -60,7 +69,7 @@ func controlAttrs(p FieldProps, class string) templ.Attributes {
 // field is the label, hint and message region around a control.
 templ field(p FieldProps) {
 	<div class="fieldset field">
-		<label for={ p.ID } class="fieldset-legend field__label">
+		<label for={ labelTarget(p) } class="fieldset-legend field__label">
 			{ p.Label }
 			if p.Optional {
 				<span class="field__optional">{ " (optional)" }</span>
