@@ -160,6 +160,17 @@ func TestItemUoM_StockUoMLocked(t *testing.T) { // MST-090
 			t.Errorf("Update(KGS → TON, stale version) = %v (%T); want DOC's stale error", err, err)
 		}
 
+		// A blank or unknown stock UoM is a change too, so it gets the lock.
+		for _, c := range []struct {
+			what string
+			id   int64
+		}{{"blank", 0}, {"unknown", 999999}} {
+			in.StockUoMID = c.id
+			_, err := w.svc.Update(ctx, w.env.Kavya, angle, version, in)
+			wantOnlyMessage(t, "Update("+c.what+" stock UoM)", err, stockLockedMsg)
+			wantSaveError(t, "Update("+c.what+" stock UoM)", err, doctype.FieldError{Field: "stock_uom_id", Message: stockLockedMsg})
+		}
+
 		// Other edits stay allowed.
 		in.StockUoMID = w.m.UoMs["KGS"]
 		in.Name = "MS Angle 50 x 50 x 5"
