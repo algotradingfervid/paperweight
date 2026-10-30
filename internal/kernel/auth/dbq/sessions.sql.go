@@ -199,6 +199,41 @@ func (q *Queries) ListLiveSessionsForUser(ctx context.Context, arg ListLiveSessi
 	return items, nil
 }
 
+const sessionLastSeen = `-- name: SessionLastSeen :one
+SELECT last_seen_at FROM sessions WHERE token_hash = ?
+`
+
+func (q *Queries) SessionLastSeen(ctx context.Context, tokenHash string) (string, error) {
+	row := q.db.QueryRowContext(ctx, sessionLastSeen, tokenHash)
+	var last_seen_at string
+	err := row.Scan(&last_seen_at)
+	return last_seen_at, err
+}
+
+const touchSession = `-- name: TouchSession :exec
+UPDATE sessions SET last_seen_at = ?1, ip = ?2, user_agent = ?3
+WHERE token_hash = ?4 AND last_seen_at < ?5
+`
+
+type TouchSessionParams struct {
+	Now       string
+	Ip        string
+	UserAgent string
+	TokenHash string
+	Cutoff    string
+}
+
+func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
+	_, err := q.db.ExecContext(ctx, touchSession,
+		arg.Now,
+		arg.Ip,
+		arg.UserAgent,
+		arg.TokenHash,
+		arg.Cutoff,
+	)
+	return err
+}
+
 const updateSession = `-- name: UpdateSession :exec
 UPDATE sessions SET data = ?, user_id = ?, last_seen_at = ?, ip = ?, user_agent = ?
 WHERE token_hash = ?

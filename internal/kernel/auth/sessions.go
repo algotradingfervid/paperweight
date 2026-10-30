@@ -17,6 +17,9 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
+// touchEvery is the most often a request moves a session's last_seen_at.
+const touchEvery = time.Minute
+
 // Session data keys.
 const (
 	SessionKeyUser = "uid" // int64 user id
@@ -75,12 +78,14 @@ func NewSessionStore(d *db.DB, clk clock.Clock, cfg SessionConfig) *SessionStore
 }
 
 // NewSessionManager builds the scs manager over st: hashed tokens and a
-// browser-session cookie (CD-14).
+// browser-session cookie (CD-14). IdleTimeout must stay unset: with it scs marks
+// every loaded session Modified, so each request rewrites the blob it loaded and
+// an overlapping request's change is lost. The store decides idle expiry from
+// last_seen_at, which Touch keeps current (CD-223).
 func NewSessionManager(st *SessionStore, cfg SessionConfig) *scs.SessionManager {
 	sm := scs.New()
 	sm.Store = st
 	sm.HashTokenInStore = true
-	sm.IdleTimeout = cfg.Idle
 	sm.Lifetime = cfg.Absolute
 	name := "session"
 	if cfg.Secure {
@@ -151,6 +156,36 @@ func (st *SessionStore) CommitCtx(ctx context.Context, hash string, data []byte,
 		}
 		return q.InsertSession(ctx, dbq.InsertSessionParams{
 			TokenHash: hash, UserID: uid, Data: data, CreatedAt: now, LastSeenAt: now, Ip: m.ip, UserAgent: m.userAgent,
+		})
+	})
+}
+
+// Touch records that the session is in use: last_seen_at, ip and user_agent, at
+// most once every touchEvery, and never data, so an unchanged session is not
+// rewritten (CD-223). The cutoff is in the UPDATE's WHERE so overlapping requests
+// write once. Matching no row (touched meanwhile, or revoked) is not an error.
+func (st *SessionStore) Touch(ctx context.Context, hash string) error {
+	now := st.clk.Now()
+	cutoff := FormatTime(now.Add(-touchEvery))
+	var lastSeen string
+	err := st.db.Read(ctx, func(tx *db.Tx) error {
+		var err error
+		lastSeen, err = dbq.New(tx.SQL()).SessionLastSeen(ctx, hash)
+		return err
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if lastSeen >= cutoff {
+		return nil
+	}
+	m, _ := ctx.Value(requestMetaKey{}).(requestMeta)
+	return st.db.Write(ctx, func(tx *db.Tx) error {
+		return dbq.New(tx.SQL()).TouchSession(ctx, dbq.TouchSessionParams{
+			Now: FormatTime(now), Ip: m.ip, UserAgent: m.userAgent, TokenHash: hash, Cutoff: cutoff,
 		})
 	})
 }

@@ -237,7 +237,8 @@ func TestSession_HashNotReplayable(t *testing.T) {
 
 // AUTH-037
 func TestSession_IdleExpiry(t *testing.T) {
-	e := newSessionEnv(t)
+	// A read-only request reaches the store only as Middleware's touch (CD-223).
+	e := newServedSessionEnv(t)
 	t0 := authtest.T0 // 24-10-2026 10:30:00 IST
 	e.w.Clock.Set(t0)
 	priya := e.w.Users["priya@vardhan.test"]
