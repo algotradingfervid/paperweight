@@ -4,7 +4,6 @@ package authfake
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strconv"
 	"sync"
@@ -415,7 +414,7 @@ func (f *Fake) CheckLink(ctx context.Context, p auth.Principal, target string, i
 		if dt, ok := doctype.Lookup(target); ok {
 			label = dt.Label
 		}
-		return &auth.LinkError{Label: label, Display: fmt.Sprintf("#%d", id)} // CD-125
+		return &auth.LinkError{Label: label} // CD-125
 	}
 	return nil
 }

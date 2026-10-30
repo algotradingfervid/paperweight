@@ -325,7 +325,7 @@ func TestNoSecondConn_DocLinkRefused(t *testing.T) {
 		Values: map[string]string{"receipt_date": "2026-10-24"},
 		Lines:  []map[string]string{{"order_line_id": fmt.Sprint(order.Lines[0].ID), "qty": "5.000"}},
 	})
-	wantText(t, "receipt on a hidden order", err, auth.ErrForbidden, "You can't use Purchase Order "+nsPO1+". It isn't available to you.")
+	wantText(t, "receipt on a hidden order", err, auth.ErrForbidden, "You can't use this Purchase Order. It isn't available to you.")
 	var le *auth.LinkError
 	if !errors.As(err, &le) {
 		t.Errorf("err = %T, want *auth.LinkError", err)
