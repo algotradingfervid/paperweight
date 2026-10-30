@@ -1,5 +1,6 @@
-// Command app runs Paperweight: serve the web app, apply migrations or print
-// the version. WP3 adds admin create, user disable and files gc (CD-18).
+// Command app runs Paperweight: serve the web app, apply migrations, create or
+// recover an administrator, disable a user, look after the attachment files or
+// print the version (CD-18, CD-228).
 package main
 
 import (
@@ -7,18 +8,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
+	"strings"
 	"syscall"
-	"time"
 
-	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/web"
-	"github.com/vardhan/internaltools/migrations"
+	"github.com/vardhan/internaltools/internal/app"
+	"github.com/vardhan/internaltools/internal/kernel/auth/cli"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -28,10 +25,17 @@ var version = "dev"
 var listening func(addr string)
 
 const usage = `Usage:
-  app serve --data <dir> [--addr :8080]   run the web app
-  app migrate --data <dir>                apply database migrations
-  app version                             print the version
-  app help                                show this help
+  app serve --data <dir> [--addr :8080] [--secure] [--trust-proxy]
+            [--trusted-origin <origin>]...          run the web app
+  app migrate --data <dir>                          apply database migrations
+  app admin create --data <dir> --email <e> --name <n>
+                                                    create the first administrator
+  app admin reset-password --data <dir> --email <e> set an administrator's temporary password
+  app user disable --data <dir> --email <e>         disable a user
+  app files gc --data <dir>                         delete unused attachment files
+  app files check --data <dir>                      compare attachment rows and files
+  app version                                       print the version
+  app help                                          show this help
 `
 
 func main() {
@@ -58,11 +62,13 @@ func run(ctx context.Context, args []string) error {
 		if err := parse(fs, args[1:]); err != nil {
 			return err
 		}
-		d, err := openDB(ctx, *data)
+		d, err := app.OpenDB(ctx, *data)
 		if err != nil {
 			return err
 		}
 		return d.Close()
+	case "admin", "user", "files":
+		return subcommand(ctx, args[0], args[1:])
 	case "version":
 		fmt.Println(version)
 		return nil
@@ -70,7 +76,7 @@ func run(ctx context.Context, args []string) error {
 		fmt.Print(usage)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q. Run `app help` to see the commands.", args[0])
+		return unknown(args[0])
 	}
 }
 
@@ -85,72 +91,72 @@ func parse(fs *flag.FlagSet, args []string) error {
 	return nil
 }
 
-// openDB opens <dir>/app.db and applies the migrations.
-func openDB(ctx context.Context, dir string) (*db.DB, error) {
-	if dir == "" {
-		return nil, errors.New("--data is not set. Pass the data directory, for example --data ./data.")
+// subcommand runs `app <group> <name>`. Each needs the data directory; the
+// password prompts of the admin commands read standard input.
+func subcommand(ctx context.Context, group string, args []string) (err error) {
+	if len(args) == 0 {
+		return unknown(group)
 	}
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return nil, fmt.Errorf("create data directory %s: check the path and its permissions: %w", dir, err)
+	name := group + " " + args[0]
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	data := fs.String("data", "", "data directory holding app.db")
+	email := fs.String("email", "", "the user's email")
+	adminName := fs.String("name", "", "the administrator's name")
+	if err := parse(fs, args[1:]); err != nil {
+		return err
 	}
-	d, err := db.Open(filepath.Join(dir, "app.db"))
+	switch name {
+	case "admin create", "admin reset-password", "user disable", "files gc", "files check":
+	default:
+		return unknown(name)
+	}
+	c, err := app.OpenCore(ctx, *data)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := db.Migrate(ctx, d, migrations.FS, "goose_db_version"); err != nil {
-		_ = d.Close()
-		return nil, err
+	defer func() { err = errors.Join(err, c.Close()) }()
+	switch name {
+	case "admin create":
+		return cli.AdminCreate(ctx, c.Auth, []string{"--email", *email, "--name", *adminName}, os.Stdin, os.Stdout)
+	case "admin reset-password":
+		return cli.AdminResetPassword(ctx, c.Auth, []string{"--email", *email}, os.Stdin, os.Stdout)
+	case "user disable":
+		return cli.UserDisable(ctx, c.Auth, []string{*email}, os.Stdout)
+	case "files gc":
+		return c.FilesGC(ctx, os.Stdout)
+	default:
+		return c.FilesCheck(ctx, os.Stdout)
 	}
-	return d, nil
+}
+
+func unknown(name string) error {
+	return fmt.Errorf("unknown command %q. Run `app help` to see the commands.", name)
 }
 
 func serve(ctx context.Context, args []string) (err error) {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	data := fs.String("data", "", "data directory holding app.db")
 	addr := fs.String("addr", ":8080", "address to listen on")
+	secure := fs.Bool("secure", false, "served over HTTPS on a public host: Secure cookies, HSTS, /setup closed")
+	trustProxy := fs.Bool("trust-proxy", false, "take the client IP from X-Forwarded-For")
+	var origins []string
+	fs.Func("trusted-origin", "an origin allowed to post here (repeatable)", func(v string) error {
+		origin := strings.TrimSpace(v)
+		if err := http.NewCrossOriginProtection().AddTrustedOrigin(origin); err != nil {
+			return fmt.Errorf("%q isn't an origin: use the form https://host[:port]", v)
+		}
+		origins = append(origins, origin)
+		return nil
+	})
 	if err := parse(fs, args); err != nil {
 		return err
 	}
-	d, err := openDB(ctx, *data)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Join(err, d.Close()) }()
-
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	r := web.NewRouter(web.Options{Logger: logger})
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("ok"))
+	a, err := app.New(ctx, app.Config{
+		DataDir: *data, Addr: *addr, Secure: *secure, TrustProxy: *trustProxy, TrustedOrigins: origins, OnListen: listening,
 	})
-
-	l, err := net.Listen("tcp", *addr)
 	if err != nil {
-		return fmt.Errorf("listen on %s: is another program using the address? %w", *addr, err)
-	}
-	logger.Info("listening", "addr", l.Addr().String())
-	if listening != nil {
-		listening(l.Addr().String())
-	}
-
-	srv := &http.Server{Handler: r, ReadHeaderTimeout: 10 * time.Second}
-	failed := make(chan error, 1)
-	go func() {
-		if err := srv.Serve(l); !errors.Is(err, http.ErrServerClosed) {
-			failed <- fmt.Errorf("serve on %s: %w", l.Addr(), err)
-		}
-		close(failed)
-	}()
-
-	select {
-	case err := <-failed:
-		return err
-	case <-ctx.Done():
-	}
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		_ = srv.Close()
 		return err
 	}
-	return nil
+	defer func() { err = errors.Join(err, a.Close()) }()
+	return a.Run(ctx)
 }

@@ -553,6 +553,8 @@ func headerError(errs []doctype.FieldError, name string) string {
 // checkView is the check page's part after the step form.
 type checkView struct {
 	Preview           string
+	AmendedFrom       string // the original's number on an amended draft
+	AmendedURL        string
 	Sections          []checkSection
 	GrandTotal, Words string
 	More              []components.MoreAction
@@ -584,6 +586,9 @@ func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, 
 		sv.Bar = wizard.Bar{Primary: bar.Primary.Label}
 	}
 	cv := checkView{Preview: v.Approval.Preview, GrandTotal: v.GrandTotal, Words: v.InWords, More: more}
+	if v.Origin.AmendedFrom != "" {
+		cv.AmendedFrom, cv.AmendedURL = v.Origin.AmendedFrom, docURL(dt.Name, v.Origin.AmendedFromID)
+	}
 	problems := v.Problems
 	if dt.LinesTable != "" && len(v.Lines) == 0 {
 		problems = append(slices.Clip(problems), doctype.FieldError{Field: "lines", Message: "Add at least one line."})

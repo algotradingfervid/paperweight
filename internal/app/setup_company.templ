@@ -1,0 +1,24 @@
+package app
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// companyPage asks for CD-165's fields, built only from internal/ui components.
+templ companyPage(v companyView) {
+	@layout.Page(layout.PageOpts{
+		Title: "Set up your company", Width: layout.Form, Error: len(v.Errors) > 0,
+		BannerSlot: components.ErrorSummary(v.Errors),
+	}) {
+		@components.Form(components.FormProps{Action: companyPath}) {
+			@components.TextInput(v.field("legal_name", "Legal name", "", false))
+			@components.TextInput(v.field("state_code", "State code", "The two-digit GST state code, for example 27.", false))
+			@components.CodeInput(v.field("gstin", "GSTIN", "Leave blank for an unregistered company.", true), components.GSTIN)
+			@components.CodeInput(v.field("pan", "PAN", "Taken from the GSTIN when you leave it blank.", true), components.PAN)
+			@components.TextInput(v.field("branch_code", "Head office code", "", false))
+			@components.TextInput(v.field("branch_name", "Head office name", "Head Office when you leave it blank.", true))
+			@components.Button(components.ButtonProps{Label: "Save company", Variant: components.Primary})
+		}
+	}
+}

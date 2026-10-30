@@ -39,6 +39,7 @@ var (
 	ErrSignInRequired       = &Problem{401, "Sign in to continue."}
 	ErrCSRF                 = &Problem{403, "Your form has expired. Reload the page and try again."}
 	ErrNotAdminPassword     = &Problem{403, "You don't have permission to change other users' passwords."}
+	ErrResetNotAdmin        = &Problem{403, "This command only resets an administrator's password. Sign in as an administrator to reset other users' passwords."}
 	ErrAdminOnlyField       = &Problem{403, "Only an administrator can change this."}
 	ErrAdminOnlyRoles       = &Problem{403, "Only an administrator can change roles."}
 	ErrAdminOnlyAccess      = &Problem{403, "Only an administrator can change site and project access."}

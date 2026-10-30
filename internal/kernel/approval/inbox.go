@@ -197,7 +197,7 @@ func (a *Approvals) Status(ctx context.Context, tx *db.Tx, dt string, id int64) 
 		if r.ManagerName != "" {
 			who = r.ManagerName + " or " + who
 		}
-		return Status{Line: "Waiting for approval from " + who, Pending: true}, nil
+		return Status{Line: "Waiting for approval from " + who, Pending: true, WaitingOn: who}, nil
 	}
 	return Status{}, nil
 }

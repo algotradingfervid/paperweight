@@ -33,7 +33,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/platform/errs"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
@@ -162,18 +161,6 @@ func TestContracts_ErrorsImplementHTTPError(t *testing.T) {
 		}
 		if fe := he.FieldErrors(); fe != nil {
 			t.Errorf("%s FieldErrors() = %v, want nil", c.name, fe)
-		}
-	}
-}
-
-func TestContracts_StubsReturnNotImplemented(t *testing.T) {
-	cases := []struct {
-		name string
-		err  error
-	}{}
-	for _, c := range cases {
-		if !errors.Is(c.err, errs.ErrNotImplemented) {
-			t.Errorf("%s error = %v, want errs.ErrNotImplemented", c.name, c.err)
 		}
 	}
 }

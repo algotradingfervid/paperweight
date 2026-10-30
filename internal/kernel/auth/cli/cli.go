@@ -49,6 +49,35 @@ func AdminCreate(ctx context.Context, a *auth.Auth, args []string, in io.Reader,
 	return nil
 }
 
+// AdminResetPassword gives the Administrator named by --email a temporary
+// password, reading it twice from in like AdminCreate, so a sole administrator
+// who forgets a password recovers without SQL (CD-228).
+func AdminResetPassword(ctx context.Context, a *auth.Auth, args []string, in io.Reader, out io.Writer) error {
+	fs := flag.NewFlagSet("admin reset-password", flag.ContinueOnError)
+	fs.SetOutput(out)
+	email := fs.String("email", "", "the administrator's email")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	read := passwordReader(in, out)
+	pw, err := read("Temporary password: ")
+	if err != nil {
+		return err
+	}
+	confirm, err := read("Confirm password: ")
+	if err != nil {
+		return err
+	}
+	if pw != confirm {
+		return auth.ErrPasswordMismatch
+	}
+	if err := a.ResetAdminPassword(ctx, *email, pw); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(out, "Set a temporary password for %s. It must be changed at the next sign-in.\n", auth.NormalizeEmail(*email))
+	return nil
+}
+
 // passwordReader returns a prompt-and-read function: term.ReadPassword when
 // in is a terminal, else one line at a time (the line ending removed, the
 // password itself never trimmed).
