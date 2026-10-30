@@ -152,6 +152,9 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 - Test harnesses use production session settings: `scs.New()` has IdleTimeout 0 while production had 12 h, which hid draft-overwrite races from every test.
 - A conversion task also greps comments for the old name: three comments describing the old state survived CD-213.
 - A contract test that scans source needs floors on what it scanned, or a rename leaves it green with nothing checked. `go test -overlay` can't reach a test that reads source from disk: prove those on a scratch copy.
+- Any surface that resolves a user-posted id to text needs the same read check: service, csvio and form redraw each missed it in turn. A check inside csvio's row loop runs up to 5000 times under the write lock, so bound it.
+- A late rebase can pass silently while an invariant change on main goes unmet: check new row-rights code against main before review. A right is checked before a version on every sibling path.
+- Rehearse a recovery procedure from the starting state it names, not from a prepared data directory. Label a limit inferred from a few runs as inferred.
 - After every merge to `main`, run `make generate` and commit regenerated `dbq/` before `make ci`; then every AD rebases.
 - High-tier lint base is the commit before the tests commit, or the committed test file is never linted.
 - Temp files carry the task label (the scratchpad is shared).
