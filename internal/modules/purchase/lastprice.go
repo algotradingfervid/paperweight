@@ -54,7 +54,7 @@ func (s *Service) LastPricesFor(ctx context.Context, p auth.Principal, keys []It
 	}
 	out := map[ItemUoM]LastPrice{}
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		readable, err := scopedOrders(ctx, tx, pred)
+		readable, err := ReadableOrders(ctx, tx, pred)
 		if err != nil {
 			return err
 		}
@@ -84,9 +84,13 @@ func (s *Service) LastPricesFor(ctx context.Context, p auth.Principal, keys []It
 	return out, nil
 }
 
-// scopedOrders reports whether a PO id is in pred, the viewer's read scope
-// ("" is every PO).
-func scopedOrders(ctx context.Context, tx *db.Tx, pred auth.Predicate) (func(int64) bool, error) {
+// ReadableOrders reports whether a PO id is in pred, the viewer's read
+// scope. pred comes from Auth.Scope(ctx, p, DocType, auth.RightRead), called
+// before the tx (Scope has no Tx twin); an empty pred.SQL means every PO is
+// readable. On a DeniedError from Scope the caller fails closed (treats
+// nothing as readable) and must not pass an empty Predicate then. The ids
+// are read inside the caller's tx.
+func ReadableOrders(ctx context.Context, tx *db.Tx, pred auth.Predicate) (func(poID int64) bool, error) {
 	if pred.SQL == "" {
 		return func(int64) bool { return true }, nil
 	}
