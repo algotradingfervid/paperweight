@@ -29,8 +29,8 @@ e2e:
 	go test -tags e2e -count=1 ./...
 
 lint:
-	$(GOLANGCI_LINT) run
-	$(GOLANGCI_LINT) run --build-tags nestcheck ./internal/platform/db/...
+	$(GOLANGCI_LINT) run --allow-serial-runners
+	$(GOLANGCI_LINT) run --allow-serial-runners --build-tags nestcheck ./internal/platform/db/...
 
 # WP done-check (spec section 9 rule 3). Usage: make checkids AREA=<AREA>
 checkids:
