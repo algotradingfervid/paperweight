@@ -3,6 +3,7 @@ package doctype
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"sort"
@@ -221,6 +222,11 @@ func (r *registry) Check() error {
 			if f.Type == Link {
 				if _, ok := r.Lookup(f.Link); !ok {
 					bad("field %q links to unknown DocType %q", f.Name, f.Link)
+				}
+			}
+			for _, v := range slices.Sorted(maps.Keys(f.OptionLabels)) {
+				if !slices.Contains(f.Options, v) {
+					bad("field %q: OptionLabels names %q, which is not one of its Options", f.Name, v) // CD-325
 				}
 			}
 		}
