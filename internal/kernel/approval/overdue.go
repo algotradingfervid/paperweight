@@ -82,5 +82,6 @@ func (a *Approvals) Overdue(ctx context.Context, p auth.Principal) ([]OverdueIte
 	if err != nil {
 		return nil, err
 	}
+	hideParties(ctx, a, p, items, func(it *OverdueItem) *InboxItem { return &it.InboxItem })
 	return items, nil
 }
