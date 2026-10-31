@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/modules/expense/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
 )
@@ -12,11 +13,10 @@ import (
 
 // settleOnSave checks the claim's advance on save and returns the effective
 // less advance for net_payable. E2's validateClaim calls it. The stub adds no
-// rule and returns 0.
-//
-//nolint:unused // E2's validateClaim calls it
-func settleOnSave(_ context.Context, _ *db.Tx, _ Deps, _ int64, _ types.Money) (types.Money, []doctype.FieldError, error) {
-	return 0, nil, nil
+// rule and returns the stored less_advance, 0 when NULL.
+func settleOnSave(ctx context.Context, tx *db.Tx, _ Deps, id int64, _ types.Money) (types.Money, []doctype.FieldError, error) {
+	h, err := dbq.New(tx.SQL()).ClaimHeader(ctx, id)
+	return types.Money(h.LessAdvance.Int64), nil, err
 }
 
 // submitAdvanceFields is the claim's submit-only advance field rules. The
