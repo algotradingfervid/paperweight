@@ -449,3 +449,30 @@ Request IDs: AUTH `C1–C14` (wp1-auth), NAM `C1–C9` (wp1-naming), DOC (wp1-do
 New PO ids are PO-071 to PO-084. | AD-13 DECISION, head accepted. |
 | CD-277 | **GRN plan-check cross-WP rulings (AD-12).** (1) When `dt.CloseRight` is `none`, docscreen shows no Close action and GET /close answers 404. POST goes through the engine, where GRN's G0a refuses with `{PluralLabel} can't be closed.` AD-10 adds the constant `doctype.CloseNone = "none"` and this docscreen behaviour in M0-4, and G0a uses the constant. (2) P15b (AD-13) shows a line note `Over by {qty} {uom}` (`types.FormatQtyUoM`) on a PO line whose received quantity exceeds its qty (GRN spec §4). (3) PO-M1 is P1, P2 and P4, as CD-273 says; this corrects CD-276's "P1, P4". (4) `uom.CheckLineQty` follows CD-264 (8): the rendered text is `Line {n}: Quantity …` exactly once. Whether the helper writes the prefix or leaves it to DOC's line prefix depends on how DOC renders a module FieldError that has a Line. AD-9 checks that and builds it as M0-23 (Light), with MST-086 and MST-087's texts in 06-masters.md updated to match. Modules remap only the Field. | AD-12 CROSS-WP and DECISION, head ruled. |
 | CD-278 | **CD-199 (2)'s no-conversion text reads `Line {n}: Item {code} has no conversion for UoM {uom}. Pick another UoM.`** (CD-264 (8)). mstfixture and its three tests follow, as part of M0-23, and PO and GRN use this text. CD-264 (8) covers document line texts only: master sub-rows such as the payment-terms schedule keep `Row {n}`, as do CSV import rows. | AD-9 DECISION, head accepted. |
+| CD-279 | **MOD-GRN plan rulings (AD-12 Phase A; two plan-check rounds, then APPROVE).**
+
+*Rules and texts.*
+- (2) G0a: close on a `doctype.CloseNone` DocType is refused after the read check with `{PluralLabel} can't be closed.`, as doc.Refused, and nothing is written.
+- (3) A hidden duplicate invoice reads `Invoice {no} is also on another receipt.`
+- (4) Bill details: `Vendor invoice no. is required.`, `Invoice date is required.`, `Invoice date can't be in the future.` and `Invoice total can't be negative.`. A stale save uses DOC's wording with the label Bill details.
+- (5) Snapshot columns `snap_po_id` (header) and `snap_is_service` (line).
+- (6) `Choose a purchase order.` on every save. For a restricted user, DraftFromPO returns it before the engine's 404.
+- (7) Over-delivery pending excludes this GRN's own accepted quantity in every state.
+- (8) grntest seeds no approval rules.
+- (9) GRN-006, 014 and 043 are each one Go test.
+- (10) G0c: in DOC checkSource, an amendment may keep a link to a closed target that its amended-from document held: the same LinkSpec and target id, header or line, with amended_from_id read in the tx. Pending, cancelled, any new link and fresh documents are refused as today. It is built after M0-13, with header-link and line-link tests.
+- (11) Further v0.5 texts:
+  - `Choose Delivery challan or Tax invoice.`
+  - `Copied from the tax invoice entered at the gate. Check and save.`
+  - on the cancel page: `{PO number} is closed. After this cancel, only an amendment of this receipt can receive against it again.`
+  - in the audit: `Copied from {GR number}`
+- (12) Bill details move when the amendment is approved (ApplyEffects), and the cancelled GRN keeps its read-only row.
+- (14) A duplicate PO line reads `Line {n}: This PO line is already on line {m}.`
+- (15) `Challan or invoice no. is required for goods.`
+
+*Gates.*
+- G1 also gates on MOD-EXP's X1 (doc.Invalid).
+- G0b gates on X3 (print/trade.go).
+- Each G0 task is its own MOD-0 MERGE-READY.
+
+Items 1, 13 and 16 are recorded in the plan. | AD-12 DECISION, head accepted. |
