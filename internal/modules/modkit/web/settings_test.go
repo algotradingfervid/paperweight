@@ -25,6 +25,7 @@ import (
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
 // The page (M0-7 AD rulings): GET and POST /settings/business, titled
@@ -307,5 +308,87 @@ func TestSettingsPage_MissingOrBadVersionIs400(t *testing.T) {
 	}
 	if n := len(s.rec.Entries()); n != 0 {
 		t.Errorf("%d audit entries after the bad POSTs, want 0", n)
+	}
+}
+
+// A date the date parser refuses is 422 with its message on the field (in the
+// error summary, linked to the input), the typed values kept, and nothing
+// stored or audited.
+func TestSettingsPage_BadDateIs422(t *testing.T) {
+	const (
+		badDate    = "31-13-2026"
+		msgBadDate = "31-13-2026 is not a valid date. Use dd-mm-yyyy, for example 31-03-2025." // types.ParseDate
+	)
+	s := newScreen(t)
+	resp := s.post(adminEmail, form("1", badDate, terms))
+	wantStatus(t, "POST with locked_up_to "+badDate, resp, http.StatusUnprocessableEntity)
+	id := components.FieldID("locked_up_to")
+	link := resp.doc.Find(`.error-summary a[href="#` + id + `"]`)
+	if link.Length() != 1 || norm(link.Text()) != msgBadDate {
+		t.Errorf("error summary links to #%s: %d, text %q; want 1 with %q", id, link.Length(), norm(link.Text()), msgBadDate)
+	}
+	if got, _ := resp.doc.Find(`input[name="locked_up_to"]`).Attr("id"); got != id {
+		t.Errorf("locked_up_to input id = %q, want %q (the error summary's target)", got, id)
+	}
+	wantFields(t, "422 page", resp, map[string]string{"version": "1", "locked_up_to": badDate, "default_po_terms": terms})
+	if got := s.settings(); got != (modkit.Settings{Version: 1}) {
+		t.Errorf("settings after the bad date = %+v, want the seeded row at version 1", got)
+	}
+	if n := len(s.rec.Entries()); n != 0 {
+		t.Errorf("%d audit entries after the bad date, want 0", n)
+	}
+}
+
+// AD ruling (company's unchanged-save rule, CD-208): posting the form with
+// the stored values redirects with the success flash and writes nothing: the
+// version stays and no audit entry is added.
+func TestSettingsPage_UnchangedSaveWritesNothing(t *testing.T) {
+	s := newScreen(t)
+	wantStatus(t, "first save", s.post(adminEmail, form("1", "31-03-2026", terms)), http.StatusSeeOther)
+	s.get(adminEmail) // takes the first save's flash
+
+	again := s.post(adminEmail, form("2", "31-03-2026", terms))
+	wantStatus(t, "unchanged save at version 2", again, http.StatusSeeOther)
+	if again.location != settingsPath {
+		t.Errorf("Location = %q, want %q", again.location, settingsPath)
+	}
+	back := s.get(adminEmail)
+	if got := norm(back.doc.Find("main .banner--success").Text()); got == "" {
+		t.Errorf("no success flash after the unchanged save; page text %q", back.text())
+	}
+	want := modkit.Settings{LockedUpTo: sql.Null[types.Date]{V: mar31, Valid: true}, DefaultPOTerms: terms, Version: 2}
+	if got := s.settings(); got != want {
+		t.Errorf("stored settings after the unchanged save %+v, want %+v (version unchanged)", got, want)
+	}
+	if n := len(s.rec.Entries()); n != 1 {
+		t.Errorf("%d audit entries, want 1 (the first save only)", n)
+	}
+}
+
+// The right is checked before the form is read: a non-Administrator posting a
+// bad date or no version gets the 403 with the settings refusal, never the
+// 422 or 400, and nothing is stored or audited.
+func TestSettingsPage_NonAdminRefusedBeforeFormChecks(t *testing.T) {
+	s := newScreen(t)
+	noVersion := form("", "31-03-2026", terms)
+	noVersion.Del("version")
+	for _, c := range []struct {
+		name string
+		form url.Values
+	}{
+		{"bad date", form("1", "31-13-2026", terms)},
+		{"missing version", noVersion},
+	} {
+		resp := s.post(deepakEmail, c.form)
+		wantStatus(t, "POST as Deepak with "+c.name, resp, http.StatusForbidden)
+		if got := norm(resp.doc.Find(`[role="alert"]`).Text()); got != msgAdminOnly {
+			t.Errorf("POST as Deepak with %s: alert %q, want %q", c.name, got, msgAdminOnly)
+		}
+	}
+	if got := s.settings(); got != (modkit.Settings{Version: 1}) {
+		t.Errorf("settings after the refused POSTs = %+v, want the seeded row at version 1", got)
+	}
+	if n := len(s.rec.Entries()); n != 0 {
+		t.Errorf("%d audit entries after the refused POSTs, want 0", n)
 	}
 }

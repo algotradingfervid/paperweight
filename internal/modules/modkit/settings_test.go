@@ -319,3 +319,24 @@ func TestSettings_NoSecondConnection(t *testing.T) {
 	}
 	wantSettings(t, "GetSettings on one connection", got, modkit.Settings{LockedUpTo: lock(mar31), DefaultPOTerms: terms, Version: 2})
 }
+
+// AD ruling (company's unchanged-save rule, CD-208): a save whose values
+// equal the stored ones succeeds and writes nothing: the version stays and no
+// audit entry is added. Checked on the seeded row and after a real save.
+func TestSettings_UnchangedSaveWritesNothing(t *testing.T) {
+	e := newEnv(t)
+
+	e.save(t, 1, modkit.SettingsInput{})
+	wantSettings(t, "after an unchanged save of the seeded row", e.get(t), modkit.Settings{Version: 1})
+	if n := len(e.rec.Entries()); n != 0 {
+		t.Errorf("%d audit entries after an unchanged save of the seeded row, want 0", n)
+	}
+
+	in := modkit.SettingsInput{LockedUpTo: lock(mar31), DefaultPOTerms: terms}
+	e.save(t, 1, in)
+	e.save(t, 2, in)
+	wantSettings(t, "after saving the same values again", e.get(t), modkit.Settings{LockedUpTo: lock(mar31), DefaultPOTerms: terms, Version: 2})
+	if n := len(e.rec.Entries()); n != 1 {
+		t.Errorf("%d audit entries, want 1 (the real save only)", n)
+	}
+}
