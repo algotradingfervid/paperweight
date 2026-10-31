@@ -79,7 +79,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Hand-in test lists that touch UI include `./internal/ui/...`; the assets and UI lint tests live there, and a list of only the changed packages misses them (AD-10).
 - golangci-lint here doesn't run gofmt, so unformatted Go reached committed files three times. `make ci` now fails on `gofmt -l`; run `gofmt -l` on your files before a hand-in (AD-10).
 - One `make ci` at a time in `.worktrees/ci-check`: checking out a new head while a run is going changes files under it, and that run's result is void (head director, 31 Oct).
-- internal/kernel/auth/web needs about 6 minutes alone under -race. With several ADs' suites running it crossed go test's 10-minute default, so `make test` passes `-timeout 20m`; use the same flag for hand-ins that include it.
+- internal/kernel/auth/web needs about 6 minutes alone under -race. With several ADs' suites running it crossed go test's 10-minute default, so `make test` passes `-timeout 40m` (raised from 20m when load reached ~110); hand-ins that include it use at least `-timeout 20m`.
 - A widened predicate (`x || field == v`) needs a test row for every other non-empty value of that field, not only for the new one (M0-24).
 - A director edit to a protected file that a test compares against code (the research tokens block, test docs read by checkers) lands in the same commit as the code, never ahead of it: an early research token line broke TestTokens_MatchResearch on main (head director, 31 Oct).
 - A rights test needs a user holding only the right the rule names. With only all-rights users, swapping read for submit in the code survived every test (G0a; same family as lessons §11).
