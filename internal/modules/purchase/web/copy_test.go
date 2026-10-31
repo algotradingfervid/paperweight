@@ -14,11 +14,16 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	"github.com/vardhan/internaltools/internal/masters/project"
+	"github.com/vardhan/internaltools/internal/masters/site"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
+	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/types"
 )
@@ -237,4 +242,71 @@ func TestPurchaseWeb_CopyPost(t *testing.T) {
 			t.Errorf("orders after the refusal = %d, want %d", after, n)
 		}
 	})
+}
+
+// DOC's disabled-link texts for the default PO's project and site (kernel/doc
+// msgLinkDisabled).
+const (
+	p12MsgProjectOff = "Project PRJ-METRO Pune Metro Depot is disabled. Pick an active project, or ask an admin to enable it."
+	p12MsgSiteOff    = "Deliver to METRO-SITE METRO-SITE is disabled. Pick an active deliver to, or ask an admin to enable it."
+)
+
+// p12Disable disables the site or project with code through its service.
+func p12Disable(t *testing.T, env *purchasetest.Env, table, code string) {
+	t.Helper()
+	kit := mstkit.Env{DB: env.DB, Auth: env.Auth, Engine: env.Engine, Auditor: audit.Default, Clock: env.Clock}
+	var svc interface {
+		SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal, id int64, version int, disabled bool) error
+	}
+	switch table {
+	case "site":
+		svc = site.New(kit)
+	case "project":
+		svc = project.New(kit)
+	default:
+		t.Fatalf("p12Disable: no service for %s", table)
+	}
+	ctx := t.Context()
+	id, _ := strconv.ParseInt(p12ID(t, env, table, code), 10, 64)
+	if err := env.DB.Write(ctx, func(tx *db.Tx) error {
+		var version int
+		if err := tx.SQL().QueryRowContext(ctx, `SELECT version FROM `+table+` WHERE id = ?`, id).Scan(&version); err != nil { //nolint:gosec // G202: fixed table names
+			return err
+		}
+		return svc.SetDisabledTx(ctx, tx, env.Admin, id, version, true)
+	}); err != nil {
+		t.Fatalf("disable %s %s: %v", table, code, err)
+	}
+}
+
+// PO-064 handler, plan P12 fix round 1 (AD-13 ruling (a) and its test-4
+// ruling): a disabled site or project isn't pre-filtered, so create refuses it
+// with DOC's disabled text. That refusal is UX §5's "Copy refused": a 303 back
+// to the PO page with one danger flash holding DOC's field message(s), joined
+// with a space, and nothing created.
+func TestPurchaseWeb_CopyPostDisabledSiteProject(t *testing.T) {
+	for _, c := range []struct{ name, table, code, text string }{
+		{"disabled project", "project", "PRJ-METRO", p12MsgProjectOff},
+		{"disabled site", "site", "METRO-SITE", p12MsgSiteOff},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			env := purchasetest.New(t)
+			w := newP12Web(t, env, env.Service)
+			po := purchasetest.NewOrder(t, env) // METRO-SITE / PRJ-METRO
+			p12Disable(t, env, c.table, c.code)
+			n, _ := w.orders(t)
+
+			a := w.post(t, env.Arjun, p12Path(strconv.FormatInt(po.ID, 10)))
+
+			if a.status != http.StatusSeeOther || a.location != p12PO(po.ID) {
+				t.Errorf("Copy = %d Location %q (%q), want 303 to %s", a.status, a.location, a.body, p12PO(po.ID))
+			}
+			if len(a.flash) != 1 || a.flash[0].Text != c.text || !p12Danger(a.flash[0].Level) {
+				t.Errorf("flash = %+v, want one danger %q", a.flash, c.text)
+			}
+			if after, _ := w.orders(t); after != n {
+				t.Errorf("orders after the refusal = %d, want %d", after, n)
+			}
+		})
+	}
 }

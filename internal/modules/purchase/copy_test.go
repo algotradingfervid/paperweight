@@ -13,9 +13,12 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
+	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/item"
 	"github.com/vardhan/internaltools/internal/masters/party"
 	"github.com/vardhan/internaltools/internal/masters/paymentterms"
+	"github.com/vardhan/internaltools/internal/masters/project"
+	"github.com/vardhan/internaltools/internal/masters/site"
 	"github.com/vardhan/internaltools/internal/masters/taxcode"
 	"github.com/vardhan/internaltools/internal/masters/uom"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
@@ -30,6 +33,13 @@ import (
 // p12AUTH099 is AUTH-099's text for a copier whose sites are PUNE-WH and
 // METRO-SITE (CD-149: the codes sorted).
 const p12AUTH099 = "You can only use Sites METRO-SITE, PUNE-WH. Choose one of your allowed sites."
+
+// DOC's disabled-link texts (kernel/doc msgLinkDisabled: "{code} {name}",
+// the field label lower-cased) for the default PO's project and site.
+const (
+	p12MsgProjectOff = "Project PRJ-METRO Pune Metro Depot is disabled. Pick an active project, or ask an admin to enable it."
+	p12MsgSiteOff    = "Deliver to METRO-SITE METRO-SITE is disabled. Pick an active deliver to, or ask an admin to enable it."
+)
 
 // p12First is the first copy note for a source shown as display (spec §24.1).
 func p12First(display string) string {
@@ -94,6 +104,10 @@ func p12Disable(t *testing.T, env *purchasetest.Env, table, code string) {
 		svc = uom.New(kit)
 	case "tax_code":
 		svc = taxcode.New(kit)
+	case "site":
+		svc = site.New(kit)
+	case "project":
+		svc = project.New(kit)
 	default:
 		t.Fatalf("p12Disable: no service for %s", table)
 	}
@@ -107,6 +121,23 @@ func p12Disable(t *testing.T, env *purchasetest.Env, table, code string) {
 		return svc.SetDisabledTx(ctx, tx, env.Admin, id, version, true)
 	}); err != nil {
 		t.Fatalf("disable %s %s: %v", table, code, err)
+	}
+}
+
+// p12DisableAddress disables party's address in city through the address
+// service.
+func p12DisableAddress(t *testing.T, env *purchasetest.Env, party, city string) {
+	t.Helper()
+	ctx := t.Context()
+	id := p2Int(t, p2AddressID(t, env, party, city))
+	if err := env.DB.Write(ctx, func(tx *db.Tx) error {
+		var version int
+		if err := tx.SQL().QueryRowContext(ctx, `SELECT version FROM address WHERE id = ?`, id).Scan(&version); err != nil {
+			return err
+		}
+		return address.New(p2Kit(env)).SetDisabledTx(ctx, tx, env.Admin, id, version, true)
+	}); err != nil {
+		t.Fatalf("disable %s's %s address: %v", party, city, err)
 	}
 }
 
@@ -332,6 +363,11 @@ func TestPO_Copy(t *testing.T) {
 		if got := p2Snap(t, env, newID, "vendor_id")["vendor_id"]; got != "" {
 			t.Errorf("copy vendor_id = %q, want blank (SHREE is disabled)", got)
 		}
+		// CD-302: with the vendor blank, its address and the vendor the
+		// address was defaulted for are blank too.
+		if got := p2Snap(t, env, newID, "vendor_address_id", "snap_vendor_id"); got["vendor_address_id"] != "" || got["snap_vendor_id"] != "" {
+			t.Errorf("copy vendor_address_id %q snap_vendor_id %q, want both blank (CD-302)", got["vendor_address_id"], got["snap_vendor_id"])
+		}
 		if n := countRows(t, env.DB, "purchase_order_line", "parent_id = ?", newID); n != 1 {
 			t.Errorf("copy has %d lines, want the source's 1", n)
 		}
@@ -340,6 +376,58 @@ func TestPO_Copy(t *testing.T) {
 			t.Errorf("copy_notes =\n%q\nwant\n%q", got, want)
 		}
 	})
+
+	// AD-13 ruling (b), plan P12 fix round 1: an address has no code, so the
+	// note names it as DOC does (kernel/doc/validate.go: the name alone),
+	// never "Vendor address  is disabled". Validate then gives the copy the
+	// vendor's default address (§24.3).
+	t.Run("disabled vendor address: the note names it, the vendor's default comes back", func(t *testing.T) {
+		env := purchasetest.New(t)
+		src := p12Rich(t, env)
+		display := naming.Label(src.Number, src.ID)
+		thane, primary := p2AddressID(t, env, "SHREE", "Thane"), p2PrimaryBilling(t, env, "SHREE")
+		if thane == primary {
+			t.Fatalf("Thane is SHREE's primary billing address; want another so the default is visible")
+		}
+		if got := p2Snap(t, env, src.ID, "vendor_address_id")["vendor_address_id"]; got != thane {
+			t.Fatalf("source vendor_address_id = %q, want Thane %s", got, thane)
+		}
+		p12DisableAddress(t, env, "SHREE", "Thane")
+
+		newID := p12Copy(t, env.Service, env.Arjun, src.ID)
+
+		want := strings.Join([]string{p12First(display), "Vendor address Thane is disabled, so it was left blank."}, "\n")
+		if got := p12Notes(t, env, newID); got != want {
+			t.Errorf("copy_notes =\n%q\nwant\n%q", got, want)
+		}
+		if got := p2Snap(t, env, newID, "vendor_id", "vendor_address_id"); got["vendor_address_id"] != primary || got["vendor_id"] != masterID(t, env.DB, "party", "SHREE") {
+			t.Errorf("copy vendor_id %q vendor_address_id %q, want SHREE and its primary billing address %s (Validate's default)",
+				got["vendor_id"], got["vendor_address_id"], primary)
+		}
+	})
+
+	// AD-13 ruling (a), plan P12 fix round 1: Copy checks only §24.1's three
+	// header links. A disabled site or project goes to create, which refuses
+	// it with DOC's disabled text; Copy returns that and writes nothing.
+	for _, c := range []struct{ name, table, code, field, text string }{
+		{"disabled project: DOC's refusal, nothing written", "project", "PRJ-METRO", "project_id", p12MsgProjectOff},
+		{"disabled site: DOC's refusal, nothing written", "site", "METRO-SITE", "site_id", p12MsgSiteOff},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			env := purchasetest.New(t)
+			src := purchasetest.NewOrder(t, env) // METRO-SITE / PRJ-METRO
+			p12Disable(t, env, c.table, c.code)
+			before := p2CountAll(t, env)
+
+			newID, err := env.Service.Copy(t.Context(), env.Arjun, src.ID)
+
+			p2WantInvalid(t, c.name, err, doctype.FieldError{Field: c.field, Message: c.text})
+			if newID != 0 {
+				t.Errorf("%s: new id %d, want 0", c.name, newID)
+			}
+			p2SameCounts(t, c.name, before, env)
+		})
+	}
 
 	t.Run("a draft source, and the copy never carries copy_notes", func(t *testing.T) {
 		env := purchasetest.New(t)
