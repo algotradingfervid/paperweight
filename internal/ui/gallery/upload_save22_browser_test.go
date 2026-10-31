@@ -15,6 +15,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/chromedp/chromedp"
+	"github.com/chromedp/chromedp/kb"
 
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -37,6 +38,7 @@ const (
 	m22Upload  = "m22-receipt"
 	m22Form    = "m22-form"
 	m22Amount  = "m22-amount"
+	m22SaveURL = "/_m22/save"
 	m22SaveSel = "button[form=" + m22Form + "]"
 )
 
@@ -63,6 +65,7 @@ type m22Server struct {
 	arrived chan struct{}
 	answer  chan m22Answer
 	dropAll atomic.Bool   // after a drop, drop every post (a browser may retry one)
+	saves   atomic.Int32  // posts of the line form
 	done    chan struct{} // closed when the test ends, so a held post returns
 }
 
@@ -75,7 +78,11 @@ func m22Start(t *testing.T) *m22Server {
 	r.Handle("/static/ui/*", http.StripPrefix("/static/ui", ui.Static()))
 	r.Handle("/static/brand/*", brand.Static())
 	r.Get(m22Page, func(w http.ResponseWriter, r *http.Request) {
-		render(w, r, http.StatusOK, layout.PageOpts{Title: "Add an expense", Width: layout.Form, BarSlot: m22Bar()}, m22Body())
+		render(w, r, http.StatusOK, layout.PageOpts{Title: "Add an expense", Width: layout.Form, BarSlot: m22Bar()}, m22Body(r.URL.Query().Has("copy")))
+	})
+	r.Post(m22SaveURL, func(w http.ResponseWriter, r *http.Request) {
+		s.saves.Add(1)
+		_, _ = io.WriteString(w, "saved")
 	})
 	r.Post(m22Action, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
@@ -119,8 +126,10 @@ func m22Start(t *testing.T) *m22Server {
 	return s
 }
 
-// m22Body is the receipt area (outside the form) and the line form.
-func m22Body() templ.Component {
+// m22Body is the receipt area (outside the form) and the line form; with
+// withCopy the form starts with components.EnterSubmit of Save line, the shape
+// HOOK-041's Enter case must catch.
+func m22Body(withCopy bool) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 		up := components.UploadProps{ID: m22Upload, Label: "Receipt", Action: m22Action, Target: "#m22-files", AlsoDisable: m22SaveSel}
 		if err := components.FileUpload(up).Render(ctx, w); err != nil {
@@ -130,7 +139,10 @@ func m22Body() templ.Component {
 			return err
 		}
 		amount := components.TextInput(components.FieldProps{ID: m22Amount, Name: "amount", Label: "Amount"})
-		return components.Form(components.FormProps{ID: m22Form, Action: "/_m22/save"}).Render(templ.WithChildren(ctx, amount), w)
+		if withCopy {
+			amount = templ.Join(components.EnterSubmit(components.ButtonProps{Label: "Save line", Variant: components.Primary}), amount)
+		}
+		return components.Form(components.FormProps{ID: m22Form, Action: m22SaveURL}).Render(templ.WithChildren(ctx, amount), w)
 	})
 }
 
@@ -234,6 +246,49 @@ func TestUploadBrowser_SaveDisabledFocus(t *testing.T) {
 			s.reply(t, a)
 			m22WantSaveAfter(t, ctx, a)
 			attachWait(t, ctx, m22Upload, "focus back on Choose file", `document.activeElement === `+m22InputJS)
+		})
+	}
+}
+
+// HOOK-041 (CD-275 UX-E5, EUX-030): while a file uploads, Enter in Amount
+// posts no save, because the form's default button is the bar's disabled
+// Save line. The page with an EnterSubmit copy in the form shows the check
+// catches that regression: the copy isn't named by AlsoDisable, so Enter
+// saves the line without its receipt.
+func TestUploadBrowser_EnterDuringUpload(t *testing.T) {
+	ctx := uibrowser.New(t)
+	file := attJPEG(t)
+	for _, c := range []struct {
+		name  string
+		query string
+		saved bool
+	}{
+		{name: "bar Save only: Enter posts nothing"},
+		{name: "with an Enter copy: Enter saves (the regression)", query: "?copy=1", saved: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s := m22Start(t)
+			if err := uibrowser.At(ctx, 360, s.URL+m22Page+c.query); err != nil {
+				t.Fatal(err)
+			}
+			attachDo(t, ctx, "choose a file", chromedp.SetUploadFiles(chromedp.CSS("#"+m22Upload+"-file"), []string{file}))
+			s.held(t)
+			m22WantSaveDuring(t, ctx)
+			attachDo(t, ctx, "Enter in Amount", chromedp.Evaluate[chromedp.Void](m22AmountJS+`.focus()`), chromedp.KeyEvent(kb.Enter))
+			deadline := time.Now().Add(400 * time.Millisecond)
+			if c.saved {
+				deadline = time.Now().Add(attachStep)
+			}
+			for time.Now().Before(deadline) && s.saves.Load() == 0 {
+				time.Sleep(20 * time.Millisecond)
+			}
+			if got := s.saves.Load() > 0; got != c.saved {
+				t.Errorf("Enter in Amount while uploading: line form posted = %v, want %v", got, c.saved)
+			}
+			if !c.saved {
+				s.reply(t, m22Answer{ok: true, fileName: "receipt.jpg"})
+				m22WantSaveAfter(t, ctx, m22Answer{ok: true, fileName: "receipt.jpg"})
+			}
 		})
 	}
 }

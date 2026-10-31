@@ -92,7 +92,7 @@ type Line struct {
 type CheckExtra struct {
 	Notes    []string          // info banners under the approval preview
 	Warnings []string          // components.Warnings
-	Totals   []components.Pair // above the grand total
+	Totals   []components.Pair // after the grand total and its words (UX-E6)
 	Cards    []templ.Component // after Attachments, before the grand total
 }
 
