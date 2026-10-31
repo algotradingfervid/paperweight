@@ -268,7 +268,7 @@ func (a *App) docDeps() docscreen.Deps {
 
 // expenseWeb is what the Expense screens and module routes need.
 func (a *App) expenseWeb() expenseweb.Deps {
-	return expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files}
+	return expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files, Employee: a.masters.Employee}
 }
 
 // pickerURL is a master's picker search (CD-194, CD-195).
