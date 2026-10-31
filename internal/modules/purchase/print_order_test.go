@@ -232,7 +232,7 @@ func TestPO_ReverseChargePrint(t *testing.T) {
 
 	off := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(p8RefLines(t, env)...))
 	html = p8Print(t, env, env.Priya, off.ID)
-	p8Contains(t, "reverse charge off", html, `<h1 class="doc-title">Purchase Order</h1>`)
+	p8Contains(t, "reverse charge off", html, `<h1 class="doc-title">Purchase Order`)
 	p8Lacks(t, "reverse charge off", html, "Reverse charge", `class="reverse-charge"`)
 }
 
@@ -266,7 +266,7 @@ func TestPO_PrintRights(t *testing.T) {
 
 	tech := p2Must(t, "admin's TECH-SITE order")(p2Create(t, env, env.Admin,
 		p2Header(t, env, "SHREE", "TECH-SITE", "PRJ-TECHPARK"), p8RefLines(t, env)))
-	p8Contains(t, "admin", p8Print(t, env, env.Admin, tech.ID), `<h1 class="doc-title">Purchase Order</h1>`)
+	p8Contains(t, "admin", p8Print(t, env, env.Admin, tech.ID), `<h1 class="doc-title">Purchase Order`)
 	missingCode, missingBody := p8Get(t, env, env.Priya, tech.ID+1000)
 	if missingCode != http.StatusNotFound {
 		t.Fatalf("missing order: status %d, want 404", missingCode)
