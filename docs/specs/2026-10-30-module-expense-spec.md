@@ -143,25 +143,25 @@ Required at submit (CD-178). `Validate` reads inside the transaction, computes t
 | Creator has no employee | `Your user isn't linked to an employee. Ask your administrator.` | Save |
 | Another employee, creator not Administrator | `You can only raise claims for yourself.` | Save |
 | Claim date in the future | `Claim date can't be in the future.` | Save |
-| Line date in the future | `Row {n}: Date can't be in the future.` | Save |
-| Line date after claim date | `Row {n}: Date can't be after the claim date.` | Save |
+| Line date in the future | `Line {n}: Date can't be in the future.` | Save |
+| Line date after claim date | `Line {n}: Date can't be after the claim date.` | Save |
 | Less advance with no advance | `Choose the advance to set this against.` | Save |
 | Advance named, less advance 0 | `Enter the amount to set against {advance}, or remove the advance.` | Submit |
-| Less advance above total | `Less advance can't be more than the total.` | Save |
+| Less advance above total | `Less advance can't be more than the total.` | Submit (CD-264: blank means as much as the advance allows) |
 | Advance of another employee, readable by this user (a manager's team, a Director) | `{advance} belongs to another employee.` An unreadable advance gets AUTH's link refusal first | Save |
 | Less advance above what's left | `Less advance can't be more than the ₹{x} left on {advance}.` | Submit, Approve |
-| No receipt, no reason | `Row {n}: Add a receipt or say why there isn't one.` | Submit |
+| No receipt, no reason | `Line {n}: Add a receipt or say why there isn't one.` | Submit |
 | Receipt hash not on this claim | FILE-045's text (§3.3) | Save |
-| Ticked with no GSTIN | `Row {n}: Supplier GSTIN is required for a bill in the company GSTIN.` | Submit |
-| Ticked with no invoice no. | `Row {n}: Invoice no. is required for a bill in the company GSTIN.` | Submit |
-| Bad GSTIN | MST-031's text with `Row {n}: ` (CD-38) | Save |
-| GST above amount | `Row {n}: GST can't be more than the amount.` | Save |
+| Ticked with no GSTIN | `Line {n}: Supplier GSTIN is required for a bill in the company GSTIN.` | Submit |
+| Ticked with no invoice no. | `Line {n}: Invoice no. is required for a bill in the company GSTIN.` | Submit |
+| Bad GSTIN | MST-031's text with `Line {n}: ` (CD-38) | Save |
+| GST above amount | `Line {n}: GST can't be more than the amount.` | Save |
 
 An advance's employee and date rules use the same text, with `Advance date` as the label and `advances` for `claims`.
 
 **Warnings, never refusals.** Shown on the check and approval pages through `Module.Check`:
-- Same receipt hash on another live claim: `Row {n}: This receipt is also on {claim}.`
-- Same employee, date, type and amount on another live claim: `Row {n}: This looks the same as a line on {claim}.`
+- Same receipt hash on another live claim: `Line {n}: This receipt is also on {claim}.`
+- Same employee, date, type and amount on another live claim: `Line {n}: This looks the same as a line on {claim}.`
 
 Odoo's duplicate checks work the same way and are soft there too. A cancelled claim doesn't count.
 

@@ -114,9 +114,9 @@ Required fields are checked at submit (CD-178). `Validate` copies header and lin
 |---|---|---|
 | Receipt date after today | `Receipt date can't be in the future.` | Save |
 | Challan date after receipt date | `Challan date can't be after the receipt date.` | Save |
-| Line from another PO | `Row {n}: This line isn't on {PO number}.` | Save |
-| Rejected above received | `Row {n}: Rejected can't be more than received.` | Save |
-| Rejected with no reason | `Row {n}: Reason for rejecting is required.` | Submit |
+| Line from another PO | `Line {n}: This line isn't on {PO number}.` | Save |
+| Rejected above received | `Line {n}: Rejected can't be more than received.` | Save |
+| Rejected with no reason | `Line {n}: Reason for rejecting is required.` | Submit |
 | Blank challan with a goods line | `Vendor challan no. is required for goods.` | Submit |
 | No line with a quantity | R8's text | Submit |
 | Blank purchase order | `Choose a purchase order.` | Create |
@@ -127,7 +127,7 @@ Source-state wording is DOC's: DOC-017, DOC-038, `msgSourcePending` and so on (C
 
 **Over-delivery warns only (CD-234).** Nothing refuses it, so there is no allowance setting and no quantity invariant.
 
-- On the Received quantities step, the check page and the document page: `Row {n}: Accepted {x} is more than the {y} pending on {PO number}.`, through `Module.Check` and `Module.Page`. It compares accepted, so goods rejected at the gate never trigger it.
+- On the Received quantities step, the check page and the document page: `Line {n}: Accepted {x} is more than the {y} pending on {PO number}.`, through `Module.Check` and `Module.Page`. It compares accepted, so goods rejected at the gate never trigger it.
 - Pending is computed with `already_received`, accepted on other approved or closed GRNs, and this GRN's accepted.
 - The PO's pending floors at 0, its `received_qty` can exceed `qty`, and the document page shows `Over by {x}`.
 - A receipt date before the PO's order date also warns, not refuses, because back-entered paper can run that way (`Receipt date is before the order date {date}.`) [Assumption].

@@ -42,14 +42,14 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-005 · Date rules: future claim, future line, line after claim; past dates pass
 - **Priority:** P1
 - **Level:** unit
-- **Given** the clock at 2026-10-24 **Then** claim date 2026-10-25 gives "Claim date can't be in the future."; a line dated 2026-10-25 gives "Row 1: Date can't be in the future."; a line dated 2026-10-23 on a claim dated 2026-10-22 gives "Row 1: Date can't be after the claim date."; a claim dated 2026-03-31 with a line of 2026-03-30 passes. An advance dated 2026-10-25 gives "Advance date can't be in the future."
+- **Given** the clock at 2026-10-24 **Then** claim date 2026-10-25 gives "Claim date can't be in the future."; a line dated 2026-10-25 gives "Line 1: Date can't be in the future."; a line dated 2026-10-23 on a claim dated 2026-10-22 gives "Line 1: Date can't be after the claim date."; a claim dated 2026-03-31 with a line of 2026-03-30 passes. An advance dated 2026-10-25 gives "Advance date can't be in the future."
 - **Go test:** `TestExp_DateRules`
 - **Sources:** Expense spec §3.1, §3.2, §5, §17
 
 ### EXP-006 · No receipt and no reason is refused at submit and passes on a draft
 - **Priority:** P1
 - **Level:** integration
-- **Given** a claim whose line 1 has no `receipt_sha256` and no `no_receipt_reason` **When** it is saved as a draft **Then** it saves. **When** it is submitted **Then** it is refused with "Row 1: Add a receipt or say why there isn't one." on that line, with state and version unchanged. With reason `Paper file` it submits.
+- **Given** a claim whose line 1 has no `receipt_sha256` and no `no_receipt_reason` **When** it is saved as a draft **Then** it saves. **When** it is submitted **Then** it is refused with "Line 1: Add a receipt or say why there isn't one." on that line, with state and version unchanged. With reason `Paper file` it submits.
 - **Go test:** `TestExp_ReceiptOrReason`
 - **Sources:** Expense spec §3.2, §5, §14, §17; CD-178, CD-234
 
@@ -84,14 +84,14 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-011 · The GST tick requires GSTIN and invoice no.; a bad GSTIN uses MST-031's text
 - **Priority:** P1
 - **Level:** integration
-- **Given** line 1 with `company_bill` ticked **When** the claim is submitted with no supplier GSTIN and no invoice no. **Then** it is refused with "Row 1: Supplier GSTIN is required for a bill in the company GSTIN." and "Row 1: Invoice no. is required for a bill in the company GSTIN." (both pass on a draft save). **When** the supplier GSTIN is `27AABCS1429B1Z5` **Then** the save is refused with "Row 1: GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes." `27AABCS1429B1ZU` with invoice no. `INV-778` submits.
+- **Given** line 1 with `company_bill` ticked **When** the claim is submitted with no supplier GSTIN and no invoice no. **Then** it is refused with "Line 1: Supplier GSTIN is required for a bill in the company GSTIN." and "Line 1: Invoice no. is required for a bill in the company GSTIN." (both pass on a draft save). **When** the supplier GSTIN is `27AABCS1429B1Z5` **Then** the save is refused with "Line 1: GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes." `27AABCS1429B1ZU` with invoice no. `INV-778` submits.
 - **Go test:** `TestExp_GSTFields`
 - **Sources:** Expense spec §3.2, §5, §8, §17; `06-masters.md` MST-031; CD-38, CD-234
 
 ### EXP-012 · GST above the amount is refused
 - **Priority:** P1
 - **Level:** unit
-- **Given** a line of ₹1,500.00 **Then** `gst_amount` ₹1,500.01 gives "Row 1: GST can't be more than the amount."; ₹1,500.00 and ₹160.71 pass.
+- **Given** a line of ₹1,500.00 **Then** `gst_amount` ₹1,500.01 gives "Line 1: GST can't be more than the amount."; ₹1,500.00 and ₹160.71 pass.
 - **Go test:** `TestExp_GSTAboveAmount`
 - **Sources:** Expense spec §3.2, §5, §17
 
@@ -105,7 +105,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-014 · Duplicate receipt and duplicate line warn, never refuse; cancelled claims are ignored
 - **Priority:** P1
 - **Level:** integration
-- **Given** Deepak's approved `EX/26-27/00001` with a line on 2026-10-20, `TRAVEL`, ₹1,250.00 and receipt hash H **When** his new claim has line 1 with the same hash and line 2 with the same date, type and amount **Then** the check page and the approval page warn "Row 1: This receipt is also on EX/26-27/00001." and "Row 2: This looks the same as a line on EX/26-27/00001.", and submit still succeeds. **When** `EX/26-27/00001` is cancelled **Then** neither warning appears. **When** the other claim is one the viewer can't read **Then** the warning doesn't name it ("another claim", proposed CD; CD-240, CD-248), on the real `auth.Service`.
+- **Given** Deepak's approved `EX/26-27/00001` with a line on 2026-10-20, `TRAVEL`, ₹1,250.00 and receipt hash H **When** his new claim has line 1 with the same hash and line 2 with the same date, type and amount **Then** the check page and the approval page warn "Line 1: This receipt is also on EX/26-27/00001." and "Line 2: This looks the same as a line on EX/26-27/00001.", and submit still succeeds. **When** `EX/26-27/00001` is cancelled **Then** neither warning appears. **When** the other claim is one the viewer can't read **Then** the warning doesn't name it ("another claim", proposed CD; CD-240, CD-248), on the real `auth.Service`.
 - **Go test:** `TestExp_DuplicateWarnings`
 - **Sources:** Expense spec §5 (Warnings), §17
 

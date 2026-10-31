@@ -200,7 +200,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-027 · Reverse charge refused on a nil-rated line at submit
 - **Priority:** P1
 - **Level:** integration
-- **Given** a PO with `reverse_charge` on and a line with a Nil-Rated, Exempted or Non-GST tax code **When** it is submitted **Then** it is refused with "Row {n}: Reverse charge needs a taxable tax code on every line." for that row. The draft save is not refused.
+- **Given** a PO with `reverse_charge` on and a line with a Nil-Rated, Exempted or Non-GST tax code **When** it is submitted **Then** it is refused with "Line {n}: Reverse charge needs a taxable tax code on every line." for that row. The draft save is not refused.
 - **Go test:** `TestPO_ReverseChargeNeedsTaxable`
 - **Sources:** PO spec §4, §18
 
@@ -236,7 +236,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-032 · Already received above qty warns and saves; needs Earlier PO no.
 - **Priority:** P1
 - **Level:** unit
-- **Given** a line whose `already_received` is above its `qty` **When** it is saved **Then** it saves with the warning "Row {n}: Already received is more than the quantity." (CD-234). **When** a line has `already_received` and `earlier_po_no` is blank **Then** "Earlier PO no. is required when a line has Already received."
+- **Given** a line whose `already_received` is above its `qty` **When** it is saved **Then** it saves with the warning "Line {n}: Already received is more than the quantity." (CD-234). **When** a line has `already_received` and `earlier_po_no` is blank **Then** "Earlier PO no. is required when a line has Already received."
 - **Go test:** `TestPO_AlreadyReceivedRules`
 - **Sources:** PO spec §3.2, §4, §18
 
@@ -389,19 +389,19 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
   - request is a draft: DOC's "{PR} isn't approved yet. Pick an approved purchase request."
   - request is closed: DOC's "{PR} is closed. Remove the line or pick another purchase request."
   - request is cancelled: DOC's "{PR} is cancelled. Remove the line or pick another purchase request."
-  - request's site differs: "Row {n}: Request {PR} is for site {code}. This order delivers to {code}."
-  - request's project differs: "Row {n}: Request {PR} is for project {code}. This order is for {code}."
-  - item differs: "Row {n}: Request {PR} row {m} is for {item code}. Remove the row to order a different item."
-  - UoM differs: "Row {n}: Request {PR} row {m} is in {uom code}. Keep that unit."
-  - same request row on two rows: "Row {n}: Request {PR} row {m} is already on row {k}."
-  - other POs' ordered plus held reach the row's qty: "Row {n}: Request {PR} row {m} is already on {PO display}." (the oldest such PO)
+  - request's site differs: "Line {n}: Request {PR} is for site {code}. This order delivers to {code}."
+  - request's project differs: "Line {n}: Request {PR} is for project {code}. This order is for {code}."
+  - item differs: "Line {n}: Request {PR} line {m} is for {item code}. Remove the row to order a different item."
+  - UoM differs: "Line {n}: Request {PR} line {m} is in {uom code}. Keep that unit."
+  - same request row on two rows: "Line {n}: Request {PR} line {m} is already on line {k}."
+  - other POs' ordered plus held reach the row's qty: "Line {n}: Request {PR} line {m} is already on {PO display}." (the oldest such PO)
 - **Go test:** `TestPO_RequestRowRules`
 - **Sources:** PO spec §20.5, §26
 
 ### PO-054 · Two buyers save the same request row at once: the second is refused, on two connections
 - **Priority:** P1
 - **Level:** integration
-- **Given** a request row and two buyers' draft POs **When** both save a line for that row's full pending quantity at once, on two connections **Then** one saves and the other is refused with "Row {n}: Request {PR} row {m} is already on {PO display}." (the check reads the other POs inside the write, CD-94).
+- **Given** a request row and two buyers' draft POs **When** both save a line for that row's full pending quantity at once, on two connections **Then** one saves and the other is refused with "Line {n}: Request {PR} line {m} is already on {PO display}." (the check reads the other POs inside the write, CD-94).
 - **Go test:** `TestPO_RequestRowRace`
 - **Sources:** PO spec §20.5, §26
 
@@ -479,7 +479,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-064 · Copy: copied and not-copied columns; copier owns it; restricted refused; check note
 - **Priority:** P1
 - **Level:** integration
-- **Given** a PO the user can read **When** a user with `create` copies it **Then** the draft is owned by the copier and copies vendor, vendor address, site, project, payment terms, terms, reverse charge and the lines' item, description, UoM, qty, price, discount, tax code, HSN/SAC; it does not copy number, dates (order date is today), required by, vendor quote ref, remarks, earlier PO fields, `already_received`, `request_line_id`, attachments, comments or the sent record. `copied_from_no` holds the source's display. A site or project the copier may not use is refused with AUTH-099's text. A disabled header link is left blank and a line with a disabled item, UoM or tax code is left out. The check page notes read "Copied from {display}. Rates are as on that order; check them before you submit.", then "{Label} {code} is disabled, so it was left blank." per blank and "Row {n} of {display} was left out: {label} {code} is disabled." per line.
+- **Given** a PO the user can read **When** a user with `create` copies it **Then** the draft is owned by the copier and copies vendor, vendor address, site, project, payment terms, terms, reverse charge and the lines' item, description, UoM, qty, price, discount, tax code, HSN/SAC; it does not copy number, dates (order date is today), required by, vendor quote ref, remarks, earlier PO fields, `already_received`, `request_line_id`, attachments, comments or the sent record. `copied_from_no` holds the source's display. A site or project the copier may not use is refused with AUTH-099's text. A disabled header link is left blank and a line with a disabled item, UoM or tax code is left out. The check page notes read "Copied from {display}. Rates are as on that order; check them before you submit.", then "{Label} {code} is disabled, so it was left blank." per blank and "Line {n} of {display} was left out: {label} {code} is disabled." per line.
 - **Go test:** `TestPO_Copy`
 - **Sources:** PO spec §24.1, §26; CD-247 (7)
 

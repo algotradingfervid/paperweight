@@ -92,7 +92,7 @@ Snapshot columns, not Fields, written in `Validate` while draft (D-MST-03): `sna
 | `hsn_sac` | HSN/SAC | Text | Default from the item; editable, validated by item rules |
 | `amount` | Amount | Money, read-only | `gstcalc.LineAmount(qty, rate)` |
 | `cgst`, `sgst`, `igst` | | Money, read-only | Per line (D-NUM-08) |
-| `already_received` | Already received | Qty | Default 0. Not negative. Above `qty` warns only (CD-234): `Row {n}: Already received is more than the quantity.` Cutover only: copies through amend, and is shown only when `earlier_po_no` is set (§12) |
+| `already_received` | Already received | Qty | Default 0. Not negative. Above `qty` warns only (CD-234): `Line {n}: Already received is more than the quantity.` Cutover only: copies through amend, and is shown only when `earlier_po_no` is set (§12) |
 | `received_qty` | Received | Qty, `RollUp` | Sum of accepted quantities on approved and closed GRN lines |
 | `request_line_id` | Request row | Int, not read-only (like `fixture.Receipt`'s `order_line_id`) | Hidden by `Module.Hide`. Set only by Create PO from a request and Add from requests (§20.4). `LinkSpec{Field: "request_line_id", Target: "purchase.Request", OnLine: true}`. No `RollUp`: ordered quantities are the module's (§20.3) |
 
@@ -117,7 +117,7 @@ Line snapshot columns: `snap_item_code`, `snap_item_name`, `snap_uom_code`, `sna
 | Earlier PO no. blank while a line has Already received | `Earlier PO no. is required when a line has Already received.` | Save |
 | Earlier PO date with no Earlier PO no. | `Earlier PO no. is required with an earlier PO date.` | Save |
 | Tax code disabled | CD-170 pattern | Save |
-| Reverse charge on with a Nil-Rated, Exempted or Non-GST line | `Row {n}: Reverse charge needs a taxable tax code on every line.` | Submit |
+| Reverse charge on with a Nil-Rated, Exempted or Non-GST line | `Line {n}: Reverse charge needs a taxable tax code on every line.` | Submit |
 | Request rows: the five conditions in §20.5 | §20.5's texts | Save and submit |
 
 `BeforeSubmit` re-reads what can change under a pending document: vendor still enabled, site and project still valid, and the line UoM conversions. The kernel re-runs validation on approve (D-APR-15), so a document pending when a master is disabled fails at approve with the kernel's text.
@@ -569,14 +569,14 @@ One PO can take lines from many requests. A request line can be split across POs
 | The request is a draft | DOC's `{PR} isn't approved yet. Pick an approved purchase request.` |
 | The request is closed | DOC's `{PR} is closed. Remove the line or pick another purchase request.` |
 | The request is cancelled | DOC's `{PR} is cancelled. Remove the line or pick another purchase request.` |
-| The request's site differs from the PO's site | `Row {n}: Request {PR} is for site {code}. This order delivers to {code}.` |
-| The request's project differs from the PO's project | `Row {n}: Request {PR} is for project {code}. This order is for {code}.` |
-| The item differs from the request row's | `Row {n}: Request {PR} row {m} is for {item code}. Remove the row to order a different item.` |
-| The UoM differs from the request row's | `Row {n}: Request {PR} row {m} is in {uom code}. Keep that unit.` |
-| The same request row is on two rows of this PO | `Row {n}: Request {PR} row {m} is already on row {k}.` |
-| Other POs' ordered plus held (`lineOrdered`) already reach the request row's quantity | `Row {n}: Request {PR} row {m} is already on {PO display}.` (the oldest such PO) |
+| The request's site differs from the PO's site | `Line {n}: Request {PR} is for site {code}. This order delivers to {code}.` |
+| The request's project differs from the PO's project | `Line {n}: Request {PR} is for project {code}. This order is for {code}.` |
+| The item differs from the request row's | `Line {n}: Request {PR} line {m} is for {item code}. Remove the row to order a different item.` |
+| The UoM differs from the request row's | `Line {n}: Request {PR} line {m} is in {uom code}. Keep that unit.` |
+| The same request row is on two rows of this PO | `Line {n}: Request {PR} line {m} is already on line {k}.` |
+| Other POs' ordered plus held (`lineOrdered`) already reach the request row's quantity | `Line {n}: Request {PR} line {m} is already on {PO display}.` (the oldest such PO) |
 
-Ordering more than was requested is allowed. The check page warns: `Row {n}: ordering {x} more than request {PR} asked for.` The quantity check reads the other POs inside the write, so when two buyers save at once the second is refused (CD-94). This is a cross-record invariant. Its write paths, and what guards each: PO save and submit (`Validate`, `BeforeSubmit`); PO approve (the kernel re-validates); PO amend (copies `request_line_id`; M0 makes amend run `Validate`); PO cancel and close (free quantity; `RefreshOrderStatus`); request close and cancel (call no hook; the kernel's `LinkSpec` refuses the PO on its next save or approve). One post-state function, `checkRequestRows(ctx, tx, poID)`, is called last by `Validate` and `BeforeSubmit`.
+Ordering more than was requested is allowed. The check page warns: `Line {n}: ordering {x} more than request {PR} asked for.` The quantity check reads the other POs inside the write, so when two buyers save at once the second is refused (CD-94). This is a cross-record invariant. Its write paths, and what guards each: PO save and submit (`Validate`, `BeforeSubmit`); PO approve (the kernel re-validates); PO amend (copies `request_line_id`; M0 makes amend run `Validate`); PO cancel and close (free quantity; `RefreshOrderStatus`); request close and cancel (call no hook; the kernel's `LinkSpec` refuses the PO on its next save or approve). One post-state function, `checkRequestRows(ctx, tx, poID)`, is called last by `Validate` and `BeforeSubmit`.
 
 ### 20.6 Rights (production `DefaultRights`)
 
@@ -664,7 +664,7 @@ A shared feature in `modkit`. PO and Request opt in now; GRN and Expense can opt
 |---|---|
 | vendor, vendor address, site, project, payment terms, terms, reverse charge; lines' item, description, UoM, qty, price, discount, tax code, HSN/SAC | number, dates (order date is today), required by, vendor quote ref, remarks, earlier PO fields, `already_received`, `request_line_id`, attachments, comments, sent record |
 
-`copied_from_no` holds the source's display. A site or project the copier may not use is refused by AUTH's create check (AUTH-099's text). Create runs link checks and `Validate`, so a disabled master is never copied: a disabled header link (vendor, address, payment terms) is left blank, and a line whose item, UoM or tax code is disabled is left out. The check page notes read: `Copied from {display}. Rates are as on that order; check them before you submit.`, then for each blank `{Label} {code} is disabled, so it was left blank.` and for each line `Row {n} of {display} was left out: {label} {code} is disabled.`
+`copied_from_no` holds the source's display. A site or project the copier may not use is refused by AUTH's create check (AUTH-099's text). Create runs link checks and `Validate`, so a disabled master is never copied: a disabled header link (vendor, address, payment terms) is left blank, and a line whose item, UoM or tax code is disabled is left out. The check page notes read: `Copied from {display}. Rates are as on that order; check them before you submit.`, then for each blank `{Label} {code} is disabled, so it was left blank.` and for each line `Line {n} of {display} was left out: {label} {code} is disabled.`
 
 ### 24.2 Last price
 
