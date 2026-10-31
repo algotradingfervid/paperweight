@@ -48,6 +48,7 @@ func init() {
 	doctype.Register(doctype.DocType{
 		Name: DocType, Label: "Purchase Order", PluralLabel: "Purchase Orders",
 		Table: "mst_order", LinesTable: "mst_order_line", Series: "PO/{FY}/{#####}",
+		TestOnly:      true, // CD-291
 		Submittable:   true, // not Approvable: msttest's engine has no approval service
 		ProjectFields: []string{"project_id"},
 		SiteFields:    []string{"site_id"},

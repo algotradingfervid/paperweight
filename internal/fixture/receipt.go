@@ -17,6 +17,7 @@ func receiptDocType() doctype.DocType {
 	return doctype.DocType{
 		Name: Receipt, Label: "Goods Receipt", PluralLabel: "Goods Receipts",
 		Table: "fixture_receipt", LinesTable: "fixture_receipt_line", Series: "GR/{FY}/{#####}", // CD-113
+		TestOnly:    true,                                    // CD-291
 		Submittable: true, Approvable: true, Printable: true, // CD-82
 		OwnerField: "created_by",
 		DefaultRights: map[string]map[string]string{

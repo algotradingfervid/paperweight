@@ -16,6 +16,7 @@ func claimDocType() doctype.DocType {
 	return doctype.DocType{
 		Name: Claim, Label: "Expense Claim", PluralLabel: "Expense Claims",
 		Table: "fixture_claim", LinesTable: "fixture_claim_line", Series: "EX/{FY}/{#####}",
+		TestOnly:    true, // CD-291
 		Submittable: true, Approvable: true, Printable: true, Attachable: true,
 		OwnerField:    "created_by",
 		EmployeeField: "employee_id",
