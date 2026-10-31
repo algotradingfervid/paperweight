@@ -11,9 +11,10 @@ import (
 // SearchMaxLen is the longest search text, in characters (CD-200 part 4).
 const SearchMaxLen = 100
 
-// header is the 56 px app header: menu button (phones), brand, page title,
-// search form (from 64rem, signed in), inbox link and user menu. Bare drops
-// the menu button, the search form and the inbox.
+// header is the 56 px app header (UI v2 §5.2): menu button (phones), brand
+// (logo and the app name, once), search form (from 64rem, signed in), inbox
+// link and the account chip with its menu. Bare drops the menu button, the
+// search form and the inbox.
 templ header(o PageOpts, s ui.Shell) {
 	<header class="app-header">
 		if !o.Bare {
@@ -21,22 +22,21 @@ templ header(o PageOpts, s ui.Shell) {
 				@icons.Icon("menu")
 			</button>
 		}
-		<a class={ "brand", templ.KV("brand-bare", o.Bare) } href="/">
+		<a class="brand" href="/">
 			<img class="brand-logo" src={ brand.AppLogoURL } width={ strconv.Itoa(brand.AppLogoWidth) } height={ strconv.Itoa(brand.AppLogoHeight) } alt=""/>
-			<span class="brand-name">{ s.AppName }</span>
+			<span class="brand-name truncate">{ s.AppName }</span>
 		</a>
-		if !o.Bare {
-			<span class="header-title truncate">{ o.Title }</span>
-		}
 		if s.SignedIn && !o.Bare {
 			<form class="header-search" role="search" method="get" action="/search">
+				@icons.Icon("search")
 				<label class="visually-hidden" for="header-q">Search</label>
-				<input id="header-q" class="input" type="search" name="q" maxlength={ strconv.Itoa(SearchMaxLen) }/>
+				<input id="header-q" class="input" type="search" name="q" maxlength={ strconv.Itoa(SearchMaxLen) } placeholder="Search orders, parties, items…"/>
+				<kbd aria-hidden="true">/</kbd>
 			</form>
 		}
 		<div class="header-end">
 			if !o.Bare {
-				<a class="btn btn-ghost inbox-link" href="/approvals" aria-label={ inboxLabel(s.InboxCount) }>
+				<a class="btn btn-ghost inbox-link" href={ templ.SafeURL(inboxPath) } aria-label={ inboxLabel(s.InboxCount) }>
 					@icons.Icon("inbox")
 					if s.InboxCount > 0 {
 						<span class="badge badge-primary" aria-hidden="true">{ strconv.Itoa(s.InboxCount) }</span>
@@ -46,7 +46,7 @@ templ header(o PageOpts, s ui.Shell) {
 			if s.SignedIn {
 				<details class="user-menu">
 					<summary class="btn btn-ghost" aria-label={ "Account menu: " + s.User }>
-						@icons.Icon("user")
+						<span class="avatar-initials" aria-hidden="true" data-initials={ initials(s.User) }></span>
 						<span class="user-name truncate">{ s.User }</span>
 					</summary>
 					<div class="user-menu-panel">

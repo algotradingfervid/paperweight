@@ -34,18 +34,25 @@
   @media (min-width: 64rem) { display: none; }
 }
 
-/* Brand (CD-99): the logo slot holds any logo size; the name is written next to it. */
+/* Brand (CD-99): the logo slot holds any logo size; the name is written next
+   to it, once (UI v2 A-1). From 64rem it spans the sidebar's width. */
 @utility brand {
-  display: none;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex: 0 1 auto;
   min-block-size: var(--target-min);
-  min-inline-size: 0;
+  min-inline-size: var(--target-min);
   color: var(--color-text);
+  font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
   text-decoration: none;
-  &.brand-bare { display: flex; }
-  @media (min-width: 48rem) { display: flex; }
+  & .brand-logo { flex: 0 1 auto; min-inline-size: var(--space-8); }
+  & .brand-name { min-inline-size: 0; }
+  @media (min-width: 64rem) {
+    flex: none;
+    inline-size: calc(var(--space-16) * 4 - var(--space-4));
+  }
 }
 
 @utility brand-logo {
@@ -61,25 +68,56 @@
   max-block-size: var(--logo-signin-h);
 }
 
-@utility header-title {
-  flex: 1 1 0;
-  min-inline-size: 0;
-  font-weight: var(--weight-semibold);
-  @media (min-width: 48rem) { display: none; }
-}
-
-/* The header's search form, from 64rem only (design-system §6). */
+/* The header's search form, from 64rem only (design-system §6): 44 px tall
+   inside the 56 px header (the mock's 40 px is below the 44 px target), a magnifier at the start and the "/" hint at the
+   end (UI v2 §5.2). */
 @utility header-search {
   display: none;
+  position: relative;
   flex: 1 1 0;
   min-inline-size: 0;
-  max-inline-size: calc(var(--space-16) * 6);
-  & .input { inline-size: 100%; min-block-size: var(--control-h); text-overflow: ellipsis; }
+  max-inline-size: calc(var(--space-16) * 8.5);
+  & .input {
+    inline-size: 100%;
+    min-block-size: var(--target-min);
+    block-size: var(--target-min);
+    padding-inline: var(--space-10);
+    border-color: var(--color-border-subtle);
+    background: var(--color-canvas);
+    text-overflow: ellipsis;
+  }
+  & .input::placeholder { color: var(--color-text-muted); }
+  & > .icon {
+    position: absolute;
+    inset-inline-start: var(--space-3);
+    inset-block-start: 50%;
+    z-index: 1;
+    inline-size: var(--icon-md);
+    block-size: var(--icon-md);
+    translate: 0 -50%;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+  & > kbd {
+    position: absolute;
+    inset-inline-end: var(--space-2);
+    inset-block-start: 50%;
+    translate: 0 -50%;
+    padding-inline: var(--space-2);
+    border: var(--border-w) solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font: var(--weight-semibold) var(--text-xs) var(--font-sans);
+    line-height: var(--space-5);
+    pointer-events: none;
+  }
   @media (min-width: 64rem) { display: block; }
 }
 
 @utility header-end {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-2);
   margin-inline-start: auto;
@@ -134,10 +172,6 @@
     padding: var(--space-2);
     border-inline-end: var(--border-w) solid var(--color-border-subtle);
   }
-}
-
-@utility nav-list {
-  & a { min-block-size: var(--target-min); font-size: var(--text-base); }
 }
 
 @utility nav-sheet-box {

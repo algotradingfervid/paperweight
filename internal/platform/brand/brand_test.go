@@ -190,8 +190,8 @@ func TestParse_RejectsWrongTypeAndLargeFile(t *testing.T) {
 
 func TestParse_LogoSizes(t *testing.T) {
 	// The generated sizes are the default files' intrinsic sizes.
-	if brand.AppLogoWidth != 160 || brand.AppLogoHeight != 32 {
-		t.Errorf("AppLogo = %d × %d, want 160 × 32", brand.AppLogoWidth, brand.AppLogoHeight)
+	if brand.AppLogoWidth != 32 || brand.AppLogoHeight != 32 {
+		t.Errorf("AppLogo = %d × %d, want 32 × 32 (a mark: the header writes the name, UI v2 A-1)", brand.AppLogoWidth, brand.AppLogoHeight)
 	}
 	if brand.DocumentLogoWidth != 600 || brand.DocumentLogoHeight != 200 {
 		t.Errorf("DocumentLogo = %d × %d, want 600 × 200", brand.DocumentLogoWidth, brand.DocumentLogoHeight)

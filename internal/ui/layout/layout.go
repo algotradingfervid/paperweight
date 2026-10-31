@@ -6,8 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/a-h/templ"
 
@@ -88,6 +90,70 @@ func currentHref(items []ui.NavItem, path string) string {
 		}
 	}
 	return best
+}
+
+// inboxPath is the approvals inbox, linked from the header and the sidebar.
+const inboxPath = "/approvals"
+
+// navGroup is one sidebar group: its heading (blank for items with no
+// group), its items and those under its More disclosure.
+type navGroup struct {
+	Name        string
+	Items, More []ui.NavItem
+}
+
+// groupNav groups items by Group, in the order each group first appears.
+func groupNav(items []ui.NavItem) []navGroup {
+	var out []navGroup
+	at := map[string]int{}
+	for _, it := range items {
+		i, ok := at[it.Group]
+		if !ok {
+			i = len(out)
+			at[it.Group] = i
+			out = append(out, navGroup{Name: it.Group})
+		}
+		if it.More {
+			out[i].More = append(out[i].More, it)
+		} else {
+			out[i].Items = append(out[i].Items, it)
+		}
+	}
+	return out
+}
+
+// groupID is the id of a group's heading; prefix keeps the sidebar's and the
+// phone sheet's apart.
+func groupID(prefix, group string) string {
+	return prefix + "-" + strings.ReplaceAll(strings.ToLower(group), " ", "-")
+}
+
+// groupAttrs labels a group's links by its heading; a group with no name has
+// no heading.
+func groupAttrs(prefix, group string) templ.Attributes {
+	if group == "" {
+		return templ.Attributes{}
+	}
+	return templ.Attributes{"aria-labelledby": groupID(prefix, group)}
+}
+
+// moreOpen reports whether the current item is under the More disclosure.
+func moreOpen(more []ui.NavItem, cur string) bool {
+	return slices.ContainsFunc(more, func(it ui.NavItem) bool { return it.Href == cur })
+}
+
+// initials are the first letters of the first and last words of name.
+func initials(name string) string {
+	w := strings.Fields(name)
+	if len(w) == 0 {
+		return ""
+	}
+	first := func(s string) string { r, _ := utf8.DecodeRuneInString(s); return string(r) }
+	out := first(w[0])
+	if len(w) > 1 {
+		out += first(w[len(w)-1])
+	}
+	return strings.ToUpper(out)
 }
 
 func inboxLabel(n int) string {

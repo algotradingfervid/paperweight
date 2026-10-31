@@ -20,3 +20,18 @@ func (a *App) SetJobEvery(d time.Duration) { a.jobEvery = d }
 
 // DocDeps is the generic document screens' Deps as routes built them.
 func (a *App) DocDeps() docscreen.Deps { return a.docDeps() }
+
+// NavIcon is the sidebar icon of DocType name, and whether it has one.
+func NavIcon(name string) (string, bool) {
+	i := docNavIndex(name)
+	if i < 0 {
+		return "", false
+	}
+	return docNav[i].icon, true
+}
+
+// ListURL is a DocType's list path.
+var ListURL = listURL
+
+// HasScreen reports whether the master list at href has screens.
+func (a *App) HasScreen(href string) bool { return a.screens[href] }
