@@ -305,3 +305,41 @@ func countOrders(t *testing.T, env *purchasetest.Env) int {
 	}
 	return n
 }
+
+// Every web write posts version (CD-94, CD-146, CD-183): a hand-over POST
+// with version missing or not a number is 400 with AUTH's bad-form text, and
+// the PO keeps its owner and version.
+func TestPurchaseWeb_HandOverPostBadVersion(t *testing.T) {
+	env := purchasetest.New(t)
+	h := hwHandler(env)
+	for _, c := range []struct {
+		name string
+		form func() url.Values
+	}{
+		{"without version", func() url.Values {
+			f := hwForm(0, env.Arjun.ID, "")
+			f.Del("version")
+			return f
+		}},
+		{"with version abc", func() url.Values {
+			f := hwForm(0, env.Arjun.ID, "")
+			f.Set("version", "abc")
+			return f
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			calls := hwRecordRender(t)
+			po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
+			rec := hwPost(t, h, env.Priya, hwPath(po.ID), c.form())
+			if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), auth.ErrBadForm.Msg) {
+				t.Errorf("POST = %d %q, want 400 with %q", rec.Code, rec.Body.String(), auth.ErrBadForm.Msg)
+			}
+			if len(*calls) != 0 {
+				t.Errorf("renderHandover called for a 400: %+v", *calls)
+			}
+			if owner, v := hwOwner(t, env, po.ID); owner != env.Priya.ID || v != po.Version {
+				t.Errorf("after a bad-version POST: owner %d version %d, want Priya (%d), %d", owner, v, env.Priya.ID, po.Version)
+			}
+		})
+	}
+}
