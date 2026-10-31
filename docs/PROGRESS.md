@@ -303,6 +303,12 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | M0-28 | Register refuses Hooks without LinesTable | Light | impl, rev opus (AD-9) | 14:40 | 15:20 | 1 | 0/0/3 | 23ea180; main 89cb180 make ci 0, P1 585/782 |
 | M0-15 | Read-only drafts for non-writers (G1), CD-263 types | High | tw, impl, rev opus (AD-10) | 13:20 | 16:30 | 1 | 0/1/4 | d59fe3d |
 | M0-25 | WaitingDays, HasRules, CheckCommentBody | Light | impl, rev opus (AD-9) | 15:20 | 16:30 | 1 | 0/0/1 | AD-9 complete (CD-293) |
+| M0-32 | TestOnly fixture DocTypes (CD-291, CD-295) | Standard | impl, rev opus (AD-11) | — | — | 1 | 0/0/3 | ad0293d |
+| G0a | Close refused on CloseNone (CD-279, CD-294) | High | tw, impl, rev opus (AD-12) | — | — | 2 | 0/1/x | 70cb1fa |
+| E1 | Expense skeleton | High | tw, impl, rev opus (AD-11) | — | — | 1 | — | dfbd2c7 |
+| E3, E6, E9 | Receipts; period lock and warnings; Mark as paid | High | tw, impl, rev opus (AD-11) | — | — | 1–2 | see CD-299 | e261e82 |
+| M0-16..19, 26q, 31 | Page/check extras, step stay/Top/Bar, state labels, approver line, LargeQtyInput, suffix size | High/Std/Light | tw, impl, rev opus (AD-10) | — | — | 1 | 0/1/3 max | 50eb406; main 090a05b make ci 0 (P1 625/799), make e2e 0 FAIL |
+| E8 | Expense reports and CSV | Standard | impl, rev opus (AD-11) | — | — | 2 | — | ff229f4 |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
