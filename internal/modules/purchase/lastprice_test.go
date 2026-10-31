@@ -410,4 +410,146 @@ func TestPO_LastPrice(t *testing.T) {
 			t.Errorf("LastPricesFor as Priya, only CABLE-4C (on a PO she can't read) = %+v, want an empty map", got)
 		}
 	})
+
+	// AD-13: a line saved with no price (no last price, no standard rate) is
+	// never the last price; both paths skip it for the older priced line.
+	t.Run("a line with no price is skipped", func(t *testing.T) {
+		env := purchasetest.New(t)
+		wire := p7Key(t, env, "WIRE-18G", "KGS")
+		unpriced := p7Priya(t, env, "SHREE", "22-10-2026", purchasetest.StopAtApproved(), p7Line(t, env, "WIRE-18G", "KGS", "", ""))
+		if v := loadPO(t, env, unpriced.ID).Lines[0].Values["price"]; v != nil {
+			t.Fatalf("setup: PO %d line 1 price = %v (%T), want none (WIRE-18G has no standard rate)", unpriced.ID, v, v)
+		}
+		priced := p7Priya(t, env, "SHREE", "20-10-2026", purchasetest.StopAtApproved(), p7Line(t, env, "WIRE-18G", "KGS", "90", "0"))
+
+		p7Want(t, env, "a newer line with no price", "SHREE", "WIRE-18G", "KGS", "PRJ-METRO", "90", "0")
+		want := map[purchase.ItemUoM]purchase.LastPrice{
+			wire: {POID: priced.ID, PODisplay: priced.Number, VendorName: "Shree Steel Traders", Rate: p7Rate(t, "90"), OrderDate: p7On(20)},
+		}
+		if got := p7Last(t, env, env.Priya, []purchase.ItemUoM{wire}); !maps.Equal(got, want) {
+			t.Errorf("LastPricesFor with a newer line with no price = %+v,\nwant %+v", got, want)
+		}
+	})
+
+	// On one date the higher PO id wins even when the other PO's line has the
+	// higher line id: the earlier-created PO gets its MS-ANGLE-50 line in a
+	// later save.
+	t.Run("same date, the higher PO id beats a higher line id", func(t *testing.T) {
+		env := purchasetest.New(t)
+		ms := p7Key(t, env, "MS-ANGLE-50", "KGS")
+		first := p7Priya(t, env, "SHREE", "23-10-2026", purchasetest.StopAtDraft(), p7Line(t, env, "BOLT-M12", "NOS", "9", "0"))
+		second := p7Priya(t, env, "SHREE", "23-10-2026", purchasetest.StopAtApproved(), p7Line(t, env, "MS-ANGLE-50", "KGS", "64", "2"))
+		res, err := env.Engine.Do(t.Context(), env.Priya, purchase.DocType, first.ID, doctype.ActionSave, doc.ActionInput{
+			Version: first.Version,
+			Values: map[string]string{
+				"vendor_id": masterID(t, env.DB, "party", "SHREE"), "site_id": masterID(t, env.DB, "site", "METRO-SITE"),
+				"project_id": masterID(t, env.DB, "project", "PRJ-METRO"), "order_date": "2026-10-23",
+			},
+			Lines: []map[string]string{p7Line(t, env, "BOLT-M12", "NOS", "9", "0"), p7Line(t, env, "MS-ANGLE-50", "KGS", "63", "1")},
+		})
+		if err != nil {
+			t.Fatalf("setup: add the MS-ANGLE-50 line to PO %d: %v", first.ID, err)
+		}
+		p7Approve(t, env, env.Priya, res)
+
+		firstLine, secondLine := p7LineID(t, env, first.ID, ms), p7LineID(t, env, second.ID, ms)
+		if first.ID >= second.ID || firstLine <= secondLine {
+			t.Fatalf("setup: PO ids %d, %d and MS-ANGLE-50 line ids %d, %d; want the first PO's id lower and its line id higher",
+				first.ID, second.ID, firstLine, secondLine)
+		}
+
+		p7Want(t, env, "same date, higher PO id", "SHREE", "MS-ANGLE-50", "KGS", "PRJ-METRO", "64", "2")
+		want := map[purchase.ItemUoM]purchase.LastPrice{
+			ms: {POID: second.ID, PODisplay: second.Number, VendorName: "Shree Steel Traders", Rate: p7Rate(t, "64"), OrderDate: p7On(23)},
+		}
+		if got := p7Last(t, env, env.Priya, []purchase.ItemUoM{ms}); !maps.Equal(got, want) {
+			t.Errorf("LastPricesFor, same date = %+v,\nwant %+v (the higher PO id)", got, want)
+		}
+	})
+
+	// LastPricesFor's order: a PO created later with an earlier date loses
+	// to the newer date, and on one PO the higher line id wins.
+	t.Run("LastPricesFor order", func(t *testing.T) {
+		env := purchasetest.New(t)
+		ms := p7Key(t, env, "MS-ANGLE-50", "KGS")
+		newer := p7Priya(t, env, "SHREE", "23-10-2026", purchasetest.StopAtApproved(), p7Line(t, env, "MS-ANGLE-50", "KGS", "63", "0"))
+		p7Priya(t, env, "BHARAT", "21-10-2026", purchasetest.StopAtApproved(), p7Line(t, env, "MS-ANGLE-50", "KGS", "61", "0"))
+		want := map[purchase.ItemUoM]purchase.LastPrice{
+			ms: {POID: newer.ID, PODisplay: newer.Number, VendorName: "Shree Steel Traders", Rate: p7Rate(t, "63"), OrderDate: p7On(23)},
+		}
+		if got := p7Last(t, env, env.Priya, []purchase.ItemUoM{ms}); !maps.Equal(got, want) {
+			t.Errorf("LastPricesFor, a later-created PO with an earlier date = %+v,\nwant %+v (the newer date)", got, want)
+		}
+
+		two := p7Priya(t, env, "COROM", "24-10-2026", purchasetest.StopAtApproved(),
+			p7Line(t, env, "MS-ANGLE-50", "KGS", "67", "0"), p7Line(t, env, "MS-ANGLE-50", "KGS", "68", "4"))
+		want = map[purchase.ItemUoM]purchase.LastPrice{
+			ms: {POID: two.ID, PODisplay: two.Number, VendorName: "Coromandel Cables", Rate: p7Rate(t, "68"), OrderDate: p7On(24)},
+		}
+		if got := p7Last(t, env, env.Priya, []purchase.ItemUoM{ms}); !maps.Equal(got, want) {
+			t.Errorf("LastPricesFor, two lines of the item on one PO = %+v,\nwant %+v (the higher line id)", got, want)
+		}
+	})
+
+	// Only approved and closed count: a newer pending PO and a newer
+	// rejected one (Ravi rejects) are ignored by both paths.
+	t.Run("pending and rejected don't count", func(t *testing.T) {
+		env := purchasetest.New(t)
+		ms := p7Key(t, env, "MS-ANGLE-50", "KGS")
+		base := p7Priya(t, env, "SHREE", "20-10-2026", purchasetest.StopAtApproved(), p7Line(t, env, "MS-ANGLE-50", "KGS", "60", "0"))
+		// ₹50,000 before tax: the Purchase Manager rule applies.
+		p7Priya(t, env, "SHREE", "22-10-2026", purchasetest.StopAtPending(), p7Line(t, env, "MS-ANGLE-50", "KGS", "5000", "1"))
+		pending := p7Priya(t, env, "SHREE", "23-10-2026", purchasetest.StopAtPending(), p7Line(t, env, "MS-ANGLE-50", "KGS", "5100", "2"))
+		if d := hoAct(t, env, env.Ravi, pending, doctype.ActionReject, "Rate too high"); d.State != doctype.StateRejected {
+			t.Fatalf("setup: PO %d is %s, want rejected", d.ID, d.State)
+		}
+
+		p7Want(t, env, "newer pending and rejected POs", "SHREE", "MS-ANGLE-50", "KGS", "PRJ-METRO", "60", "0")
+		want := map[purchase.ItemUoM]purchase.LastPrice{
+			ms: {POID: base.ID, PODisplay: base.Number, VendorName: "Shree Steel Traders", Rate: p7Rate(t, "60"), OrderDate: p7On(20)},
+		}
+		if got := p7Last(t, env, env.Priya, []purchase.ItemUoM{ms}); !maps.Equal(got, want) {
+			t.Errorf("LastPricesFor with newer pending and rejected POs = %+v,\nwant %+v", got, want)
+		}
+	})
+}
+
+// p7Key is the LastPricesFor key of the item and unit codes.
+func p7Key(t *testing.T, env *purchasetest.Env, itm, unit string) purchase.ItemUoM {
+	t.Helper()
+	return purchase.ItemUoM{ItemID: p7ID(t, env, "item", itm), UoMID: p7ID(t, env, "uom", unit)}
+}
+
+// p7On is a day of October 2026.
+func p7On(day int) types.Date { return types.Date{Year: 2026, Month: 10, Day: day} }
+
+// p7Approve submits the saved PO as owner and approves it as each eligible
+// fixture user until it is approved.
+func p7Approve(t *testing.T, env *purchasetest.Env, owner auth.Principal, res doc.Result) {
+	t.Helper()
+	res = p7Step(t, env, owner, res, doctype.ActionSubmit)
+	for res.State == doctype.StatePending {
+		res = p7Step(t, env, p7Approver(t, env, res.ID), res, doctype.ActionApprove)
+	}
+	if res.State != doctype.StateApproved {
+		t.Fatalf("PO %d is %s, want approved", res.ID, res.State)
+	}
+}
+
+// p7LineID is the id of PO id's only line of key k.
+func p7LineID(t *testing.T, env *purchasetest.Env, id int64, k purchase.ItemUoM) int64 {
+	t.Helper()
+	var found int64
+	for _, l := range loadPO(t, env, id).Lines {
+		if fmt.Sprint(l.Values["item_id"]) == strconv.FormatInt(k.ItemID, 10) && fmt.Sprint(l.Values["uom_id"]) == strconv.FormatInt(k.UoMID, 10) {
+			if found != 0 {
+				t.Fatalf("PO %d has two lines of item %d unit %d", id, k.ItemID, k.UoMID)
+			}
+			found = l.ID
+		}
+	}
+	if found == 0 {
+		t.Fatalf("PO %d has no line of item %d unit %d", id, k.ItemID, k.UoMID)
+	}
+	return found
 }
