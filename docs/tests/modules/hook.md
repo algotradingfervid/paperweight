@@ -405,3 +405,59 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** Hooked with a 4-cell row (and a 3-cell control) **When** the Items step is shown, a line is saved over htmx and a submit lands on Items with a line error **Then** no grid input or row renders, the save answers 303 to the Items step, and the error links to `#step-title`.
 - **Go test:** `TestLineGrid_FallbackOnEveryPath`
 - **Sources:** CD-315; M0-40
+
+### HOOK-058 · A line page error on a hidden field is a plain message
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module hiding a line field and a line save with an error on it **When** the line page redraws **Then** the summary shows the message without a link and the hidden input is not rendered.
+- **Go test:** `TestHide46_LinePageSummary`
+- **Sources:** CD-319 (1); M0-46
+
+### HOOK-059 · A refused submit for a submit-only user lists no hidden field
+- **Priority:** P1
+- **Level:** integration
+- **Given** a user with read and submit only, on the real auth.Service, and a Required error on a hidden field **When** submit is refused **Then** the error list has no link to the hidden field and no dead link.
+- **Go test:** `TestHide46_RefusedWithoutWrite`
+- **Sources:** CD-319 (2); M0-46
+
+### HOOK-060 · The default line card leaves hidden fields out
+- **Priority:** P1
+- **Level:** integration
+- **Given** fixture.Order with uom hidden **When** the Items step, check page and document page render **Then** the card reads quantity and rate without the unit.
+- **Go test:** `TestHide46_DefaultCard`
+- **Sources:** CD-319 (3); M0-46
+
+### HOOK-061 · Reason pages filter hidden-field errors
+- **Priority:** P1
+- **Level:** integration
+- **Given** a reason page with a DOC error on a hidden field **When** it renders **Then** the error is a plain message with no dead link.
+- **Go test:** `TestHide46_ReasonPage`
+- **Sources:** CD-319 (5); M0-46
+
+### HOOK-062 · A refused grid row shows its hidden-field error
+- **Priority:** P1
+- **Level:** integration
+- **Given** an editable grid row save refused on a hidden field **When** the row answers **Then** the alert carries the message.
+- **Go test:** `TestHide46_GridAlert`
+- **Sources:** CD-319; M0-46
+
+### HOOK-063 · A hidden item Link blanks the card name
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module hiding the line item Link **When** the card renders **Then** it has no item name.
+- **Go test:** `TestHide46_DefaultCardItem`
+- **Sources:** CD-319 (3); M0-46
+
+### HOOK-064 · Hide on the card sees the stored line
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Hide that depends on the line inputs **When** the default card is built **Then** the line stored inputs decide what is hidden, as on the grid.
+- **Go test:** `TestHide46_DefaultCardLineDeps`
+- **Sources:** CD-319 (3); M0-46
+
+### HOOK-065 · The party is left out when its field is hidden
+- **Priority:** P1
+- **Level:** integration
+- **Given** fixture.Order with its party field hidden **When** the document page and every reason page Screens lists render **Then** no party line shows.
+- **Go test:** `TestHide46_PartyHidden`
+- **Sources:** CD-319 (4); M0-46

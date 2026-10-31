@@ -9,10 +9,10 @@ Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18
 | File | Area | Cases | P1 | P2 | unit | integration | e2e |
 |---|---|---|---|---|---|---|---|
 | [`po.md`](po.md) | PO — purchase orders and requests | 70 | 69 | 1 | 8 | 60 | 2 |
-| [`hook.md`](hook.md) | HOOK — docscreen module hooks | 57 | 57 | 0 | 4 | 47 | 6 |
+| [`hook.md`](hook.md) | HOOK — docscreen module hooks | 65 | 65 | 0 | 4 | 55 | 6 |
 | [`exp.md`](exp.md) | EXP — expense claims and advances | 67 | 67 | 0 | 5 | 56 | 6 |
 | [`grn.md`](grn.md) | GRN — goods receipts | 50 | 50 | 0 | 7 | 40 | 3 |
-| **Total** | | **244** | **243** | **1** | **24** | **203** | **17** |
+| **Total** | | **252** | **251** | **1** | **24** | **211** | **17** |
 
 Level counts group variants as in core: "unit (fuzz)" counts as unit, "integration (golden file)" as integration. Every e2e case's Go test starts with `TestE2E_`.
 
@@ -99,7 +99,7 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 
 ### hook.md — HOOK — docscreen module hooks
 
-57 cases: 57 P1 / 0 P2; 4 unit, 47 integration, 6 e2e.
+65 cases: 65 P1 / 0 P2; 4 unit, 55 integration, 6 e2e.
 
 | ID | Go test | P | Level |
 |---|---|---|---|
@@ -160,6 +160,14 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 | HOOK-055 | `TestLineGrid_EveryDocTypeFits` | P1 | integration |
 | HOOK-056 | `TestLineGrid_FallsBackToCards` | P1 | integration |
 | HOOK-057 | `TestLineGrid_FallbackOnEveryPath` | P1 | integration |
+| HOOK-058 | `TestHide46_LinePageSummary` | P1 | integration |
+| HOOK-059 | `TestHide46_RefusedWithoutWrite` | P1 | integration |
+| HOOK-060 | `TestHide46_DefaultCard` | P1 | integration |
+| HOOK-061 | `TestHide46_ReasonPage` | P1 | integration |
+| HOOK-062 | `TestHide46_GridAlert` | P1 | integration |
+| HOOK-063 | `TestHide46_DefaultCardItem` | P1 | integration |
+| HOOK-064 | `TestHide46_DefaultCardLineDeps` | P1 | integration |
+| HOOK-065 | `TestHide46_PartyHidden` | P1 | integration |
 
 ### exp.md — EXP — expense claims and advances
 
