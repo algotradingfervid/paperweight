@@ -121,12 +121,20 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 	return termsView(shown, earlier, open), nil
 }
 
+// declaredProps is f's control props with the element id id: its name,
+// label, hint, tip and Required, as docscreen's FieldInput fills them
+// (CD-341 (2), CD-350).
+func declaredProps(f doctype.Field, id string) components.FieldProps {
+	return components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Required: f.Required}
+}
+
 // addressInput is the vendor address radios, `{city} · {GSTIN}` with the
 // address as hint, value checked when it is one of them or else the primary
 // billing address; with no vendor, or a vendor with no address, the text
 // that says so instead, msg and an empty posted address.
 func addressInput(c docscreen.Ctx, f doctype.Field, value, msg, details string) (templ.Component, error) {
-	p := components.FieldProps{ID: components.FieldID(f.Name), Name: f.Name, Label: f.Label, Error: msg}
+	p := declaredProps(f, components.FieldID(f.Name))
+	p.Error = msg
 	vendor := c.View.Inputs["vendor_id"]
 	if vendor == "" {
 		href := "/doc/" + c.DT.Name + "/" + strconv.FormatInt(c.View.Info.ID, 10) + "/edit/" + details

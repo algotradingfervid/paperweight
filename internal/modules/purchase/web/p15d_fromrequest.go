@@ -109,7 +109,10 @@ func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, statu
 	if len(v.cards) == 0 {
 		v.nothing = fmt.Sprintf(msgNothingPending, req.Display)
 	}
-	fp := components.FieldProps{ID: components.FieldID(vendorField), Name: vendorField, Label: "Vendor", Hint: vendorHint}
+	dt, _ := doctype.Lookup(purchase.DocType)
+	f, _ := dt.Field(vendorField)
+	fp := declaredProps(f, components.FieldID(vendorField))
+	fp.Hint = vendorHint
 	for _, e := range errs {
 		switch {
 		case e.Field == vendorField:
