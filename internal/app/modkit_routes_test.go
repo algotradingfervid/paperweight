@@ -7,11 +7,21 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/vardhan/internaltools/internal/fixture"
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/modules/modkit"
 )
+
+// fixture.Order opts in to comments here, so the comment route has a real
+// document to post on (M0-14).
+var _ = func() bool {
+	modkit.RegisterComments(fixture.Order)
+	return true
+}()
 
 // modkit's routes are mounted behind the signed-in guard (M0-6). The business
 // settings page (M0-7) is Administrator-only by its own check; the comments
-// route answers 501 until M0-14 builds it and changes its expectation here.
+// route is M0-14's.
 func TestApp_ModkitRoutesMounted(t *testing.T) {
 	const (
 		settingsPath = "/settings/business"
@@ -19,7 +29,7 @@ func TestApp_ModkitRoutesMounted(t *testing.T) {
 		terms        = "Payment within 30 days of the invoice."
 	)
 	w := newWorld(t)
-	w.canonical()
+	_, _, m := w.canonical()
 
 	guest := w.browser()
 	if r := guest.get(settingsPath); r.status != http.StatusSeeOther || !strings.HasPrefix(r.location(), "/signin") {
@@ -66,8 +76,37 @@ func TestApp_ModkitRoutesMounted(t *testing.T) {
 		t.Errorf("business_settings version after Deepak's POST = %d, want 2 (unchanged)", got)
 	}
 
-	if r := b.post("/modules/comments/purchase.Order/1", url.Values{}); r.status != http.StatusNotImplemented {
-		t.Errorf("POST /modules/comments/purchase.Order/1 = %d, want 501", r.status)
+	// Comments (PO spec §22): mounted with AUTH's guard and CSRF, read checked
+	// on the record; a DocType that didn't opt in answers AUTH's 404.
+	if r := b.post("/modules/comments/purchase.Order/1", url.Values{"body": {"Is this still needed?"}}); r.status != http.StatusNotFound || r.alert() != auth.MsgNotFound {
+		t.Errorf("POST comment on an unregistered DocType = %d %q, want 404 %q", r.status, r.alert(), auth.MsgNotFound)
+	}
+
+	priya := w.signedIn(priyaEmail)
+	id := priya.newOrder(m, "PRJ-METRO", "100.00")
+	path := "/modules/comments/" + fixture.Order + "/" + idText(id)
+	comments := func() int {
+		return w.count(`SELECT count(*) FROM module_comment WHERE doctype = ? AND record_id = ?`, fixture.Order, id)
+	}
+	if r := priya.post(path, url.Values{"body": {"Checked the rate with the vendor."}}); r.status != http.StatusSeeOther || r.location() != orderURL(id) {
+		t.Errorf("POST %s = %d Location %q, want 303 to %q", path, r.status, r.location(), orderURL(id))
+	}
+	if n := comments(); n != 1 {
+		t.Errorf("comments after Priya's post = %d, want 1", n)
+	}
+
+	// No CSRF token: AUTH's refusal, nothing saved.
+	noToken := *priya
+	noToken.csrf = ""
+	if r := noToken.post(path, url.Values{"body": {"Without a token."}}); r.status != http.StatusForbidden || r.alert() != auth.ErrCSRF.Msg {
+		t.Errorf("POST %s without CSRF = %d %q, want 403 %q", path, r.status, r.alert(), auth.ErrCSRF.Msg)
+	}
+	// No read on orders (Deepak): the same 404 as a missing record.
+	if r := deepak.post(path, url.Values{"body": {"Can I see this?"}}); r.status != http.StatusNotFound || r.alert() != auth.MsgNotFound {
+		t.Errorf("POST %s as Deepak = %d %q, want 404 %q", path, r.status, r.alert(), auth.MsgNotFound)
+	}
+	if n := comments(); n != 1 {
+		t.Errorf("comments after refused posts = %d, want 1", n)
 	}
 }
 
