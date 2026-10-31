@@ -11,23 +11,80 @@
     min-block-size: var(--control-h);
     font-size: var(--text-base);
   }
+  /* Placeholders are examples in the muted colour (5.6:1; UI v2 §5.5 item 5). */
+  & :where(.input, .textarea)::placeholder { color: var(--color-text-muted); opacity: 1; }
   /* A value longer than the box ends in an ellipsis until it is edited; never a number (CD-169). */
   & .input:not(.num) { text-overflow: ellipsis; }
   /* A control checked on blur keeps one message line reserved, so the reply
      that fills it never moves Save from under a pressed mouse (CD-287). */
   &:has([hx-post^="/ui/validate/"]) > .field__msg { min-block-size: 1lh; }
   &:has([hx-post^="/ui/validate/"]) > .field__msg:empty { display: block; }
+  /* A choice group with a tip: a floated legend is laid out as a grid item
+     (not the fieldset's caption), so the "i" can share its row. */
+  &:has(> legend + .infotip) {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    & > * { grid-column: 1 / -1; }
+    & > legend { float: inline-start; grid-column: 1; margin-inline-end: 0; }
+    & > .infotip { grid-column: 2; justify-self: start; }
+  }
 }
 
 @utility field__label {
+  gap: 0; /* daisyUI's legend puts 8 px between the label and its asterisk */
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
   color: var(--color-text);
 }
 
-@utility field__optional {
-  font-weight: var(--weight-regular);
-  color: var(--color-text-secondary);
+/* The required asterisk: a shape as well as a colour (UI v2 §5.5 item 2). */
+@utility field__req {
+  margin-inline-start: 0; /* the space after the label text is the only gap: field__label has none */
+  color: var(--color-danger-700);
+  font-weight: var(--weight-bold);
+}
+
+/* The label row when the field has an info tip: label, "i", and the tip body
+   on its own line below while the tip is open (UI v2 §5.5 item 4). */
+@utility field__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-1);
+  & > .field__label { margin-inline-end: 0; }
+}
+
+@utility infotip {
+  & > summary { list-style: none; }
+  & > summary::-webkit-details-marker { display: none; }
+  &[open] > summary { color: var(--color-primary-700); }
+  &:not([open]) + .infotip__body { display: none; }
+}
+
+/* 44 × 44: the target gate and WCAG 2.5.8 with room to spare. */
+@utility infotip__btn {
+  display: grid;
+  place-items: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  &:active { background: var(--color-primary-100); }
+}
+
+@utility infotip__body {
+  flex-basis: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border-inline-start: 3px solid var(--color-info-600);
+  background: var(--color-info-50);
+  color: var(--color-info-800);
+  font-size: var(--text-sm);
+  /* Fades in when the tip opens: a transition, so pages wait for it to end (axe reads colours mid-fade). */
+  transition: opacity var(--dur-base) var(--ease-out);
+  @starting-style { opacity: 0; }
 }
 
 @utility field__hint {
@@ -46,7 +103,8 @@
   display: flex;
   gap: var(--space-1);
   align-items: flex-start;
-  color: var(--color-danger-700);
+  &.field__msg { color: var(--color-danger-800); } /* field__msg's own colour comes later in the bundle */
+  font-weight: 550; /* between medium and semibold, as the design asks (UI v2 §5.5 item 6) */
   & .icon {
     flex: none;
     inline-size: var(--icon-sm);
@@ -58,6 +116,7 @@
 /* The error state: a 2 px danger border on the control (the message carries the icon). */
 @utility field--error {
   border: var(--border-w-strong) solid var(--color-danger-600);
+  &:focus { box-shadow: 0 0 0 3px var(--color-danger-50); }
 }
 
 /* Input plus suffix, input plus toggle, and the date buttons. */

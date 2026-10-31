@@ -320,8 +320,8 @@ func TestFieldInput_ByType(t *testing.T) {
 		if _, ok := doc.Find(`input[type="radio"][value="Urgent"]`).Attr("checked"); !ok {
 			t.Error("the value Urgent is not checked")
 		}
-		if !strings.Contains(text, "(optional)") {
-			t.Error("Required false: no \"(optional)\"")
+		if strings.Contains(text, "(optional)") || strings.Contains(text, "(required)") {
+			t.Error("Required false: marked (optional) or (required); CD-341 (2) marks only required fields")
 		}
 	})
 	t.Run("select with 7 options", func(t *testing.T) {
@@ -347,9 +347,54 @@ func TestFieldInput_ByType(t *testing.T) {
 			t.Errorf("textarea text = %q", ta.Text())
 		}
 		text := norm(doc.Text())
-		for _, want := range []string{"Shown on the printed order.", "(optional)", "Too long.", "Remarks"} {
+		for _, want := range []string{"Shown on the printed order.", "Too long.", "Remarks"} {
 			if !strings.Contains(text, want) {
 				t.Errorf("remarks lacks %q", want)
+			}
+		}
+		if strings.Contains(text, "(optional)") {
+			t.Error("remarks is marked (optional); CD-341 (2) drops the marker")
+		}
+	})
+	// UI v2 B1: Required marks the label and the control (CD-341 (2), A-9);
+	// a short hint stays visible under the label and a longer one moves
+	// behind the info tip (§5.5 item 4).
+	t.Run("required and tip", func(t *testing.T) {
+		const long = "Use the number printed at the top of the supplier's bill."
+		f := doctype.Field{Name: "ref", Label: "Reference", Type: doctype.Text, MaxLen: 100, Required: true, Hint: long}
+		doc := render(f, "", "")
+		in := doc.Find("input#f-ref")
+		if got, _ := in.Attr("aria-required"); got != "true" {
+			t.Errorf("Required: aria-required = %q, want true", got)
+		}
+		if got := doc.Find("label[for=f-ref] .visually-hidden").Text(); got != " (required)" {
+			t.Errorf("Required: hidden label text = %q", got)
+		}
+		if got := norm(doc.Find("#f-ref-tip").Text()); got != long {
+			t.Errorf("long hint: tip = %q, want the hint", got)
+		}
+		if doc.Find("#f-ref-hint").Length() != 0 {
+			t.Error("long hint: still shown as a visible hint")
+		}
+		if got, _ := in.Attr("aria-describedby"); got != "f-ref-tip f-ref-msg" {
+			t.Errorf("long hint: aria-describedby = %q", got)
+		}
+		f.Required, f.Hint = false, "As printed on the bill."
+		doc = render(f, "", "")
+		if _, ok := doc.Find("input#f-ref").Attr("aria-required"); ok {
+			t.Error("not Required: aria-required set")
+		}
+		if got := norm(doc.Find("#f-ref-hint").Text()); got != f.Hint {
+			t.Errorf("short hint: visible hint = %q", got)
+		}
+		if doc.Find("details.infotip").Length() != 0 {
+			t.Error("short hint: moved behind a tip")
+		}
+		// One line at 320 px holds 40 characters (runes, so Hindi counts right).
+		for n, want := range map[int]string{40: "#f-ref-hint", 41: "#f-ref-tip"} {
+			f.Hint = strings.Repeat("क", n)
+			if render(f, "", "").Find(want).Length() != 1 {
+				t.Errorf("hint of %d runes: no %s", n, want)
 			}
 		}
 	})
