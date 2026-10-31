@@ -2,7 +2,7 @@
 
 GOLANGCI_LINT := bin/tools/golangci-lint
 
-.PHONY: generate build test e2e lint checkids covertouched ci
+.PHONY: generate build test e2e lint checkids covertouched mutate ci handin e2e-quick briefcds
 
 # CD-45: go generate (CSS bundle and icons), then sqlc for every sqlc.yaml, then templ.
 # Generated files are committed.
@@ -51,9 +51,50 @@ covertouched:
 	echo "go run ./scripts/covertouched -base $(BASE) -profile $$p"; \
 	go run ./scripts/covertouched -base $(BASE) -profile "$$p"
 
+# Mutation pass over touched lines and queries (CD-299). Usage: make mutate BASE=<rev> PKGS=<pkgs> [RUN=<regex>] [TAGS=<tags>]
+mutate:
+	@test -n "$(BASE)" -a -n "$(PKGS)" || { echo "Run: make mutate BASE=<rev> PKGS=./internal/<pkg>/... [RUN=<regex>] [TAGS=<tags>]"; exit 1; }
+	go run ./scripts/mutate -base '$(BASE)' -pkgs '$(PKGS)' $(if $(RUN),-run '$(RUN)') $(if $(TAGS),-tags '$(TAGS)')
+
 ci:
 	$(MAKE) generate
 	git diff --exit-code
-	@out=$$(gofmt -l $$(git ls-files '*.go' | grep -v '_templ.go$$')); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
+	@out=$$($$(go env GOROOT)/bin/gofmt -l $$(git ls-files '*.go' | grep -v '_templ.go$$')); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 	$(MAKE) lint test build
 	go run ./scripts/checktestids --report
+
+# Hand-in checks for one task (scripts/handin): gofmt, generated files up to
+# date, tests (plus ./internal/ui/... for UI changes), the e2e route and sweep
+# gates, checkids and lint. Every step runs; the exit code is 1 if any failed.
+# Usage: make handin BASE=<rev> PKGS="<go package patterns>" [TAGS=<build tags>] [AREA=<test-id area>]
+handin:
+	@test -n "$(BASE)" -a -n "$(PKGS)" || { echo 'Run: make handin BASE=<rev> PKGS="./internal/<pkg>/..." [TAGS=<tags>] [AREA=<AREA>]'; exit 1; }
+	go run ./scripts/handin -base '$(BASE)' -pkgs '$(PKGS)' -tags '$(TAGS)' -area '$(AREA)'
+
+# Every package holding a _test.go file with an e2e build constraint.
+E2E_PKGS = $(shell git grep --untracked -l -E '^//go:build.*e2e' -- '*_test.go' ':(exclude)*/testdata/*' | xargs -n1 dirname | sort -u | sed 's|^|./|')
+
+# Some browser tests, across every package that holds them. Usage: make e2e-quick RUN=<regex>
+# RUN is go test's -run regex. For a DocType, name its words as the tests do
+# plus the shared document flows: RUN='Purchase|Doc_' for purchase.Order
+# (TestE2E_Doc_PurchaseLifecycle, TestE2E_Doc_ButtonsPerState, ...),
+# RUN='Expense|Attachment' for expense.Claim. After adding a GET route also run
+# RUN='EveryRouteCovered|NotPagesAreChecked|EveryDocTypeSwept'. With no RUN it
+# lists the tests in each package's e2e-tagged files.
+e2e-quick:
+	@if [ -z "$(RUN)" ]; then \
+		echo "Usage: make e2e-quick RUN=<regex>   (go test -run; e.g. RUN='Purchase|Doc_')"; \
+		echo "Tests in e2e-tagged files, by package:"; \
+		for p in $(E2E_PKGS); do \
+			echo "$$p"; \
+			grep -l -E '^//go:build.*e2e' $$p/*_test.go | xargs grep -h -o -E '^func Test[A-Za-z0-9_]+' | sed 's/^func /  /' | sort; \
+		done; \
+		exit 1; \
+	fi
+	go test -tags e2e -count=1 -timeout 10m -run '$(RUN)' $(E2E_PKGS)
+
+# CD entries new or changed between BASE and main that mention the given paths
+# or packages (scripts/briefcds). Usage: make briefcds BASE=<rev> FILES="<paths or packages>"
+briefcds:
+	@test -n "$(BASE)" -a -n "$(FILES)" || { echo 'Run: make briefcds BASE=<rev> FILES="<paths or packages>"'; exit 1; }
+	go run ./scripts/briefcds -base '$(BASE)' $(FILES)

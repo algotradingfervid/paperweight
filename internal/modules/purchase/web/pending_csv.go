@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -53,18 +54,9 @@ func (h *handlers) writePendingCSV(w http.ResponseWriter, r *http.Request) error
 	if err := h.d.Service.CanExport(ctx, p); err != nil {
 		return err
 	}
-	q := r.URL.Query()
-	f := purchase.PendingFilter{OverdueOnly: q.Get("overdue") == "1"}
-	for key, dst := range map[string]*int64{"vendor": &f.VendorID, "project": &f.ProjectID, "site": &f.SiteID, "item": &f.ItemID} {
-		v := q.Get(key)
-		if v == "" {
-			continue
-		}
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return auth.ErrBadForm
-		}
-		*dst = id
+	f, err := pendingFilterOf(r.URL.Query())
+	if err != nil {
+		return err
 	}
 	view, err := h.d.Service.PendingReport(ctx, p, f, 0)
 	if err != nil {
@@ -92,6 +84,24 @@ func (h *handlers) writePendingCSV(w http.ResponseWriter, r *http.Request) error
 	w.Header().Set("Content-Disposition", `attachment; filename="purchase-pending.csv"`)
 	_, _ = w.Write(buf.Bytes()) //nolint:gosec // G705: CSV cells through csvio.FormatCell, sent as an attachment
 	return nil
+}
+
+// pendingFilterOf reads the report's query: the vendor, project, site and
+// item ids and overdue=1. An id that isn't a number is AUTH's bad form.
+func pendingFilterOf(q url.Values) (purchase.PendingFilter, error) {
+	f := purchase.PendingFilter{OverdueOnly: q.Get("overdue") == "1"}
+	for key, dst := range map[string]*int64{"vendor": &f.VendorID, "project": &f.ProjectID, "site": &f.SiteID, "item": &f.ItemID} {
+		v := q.Get(key)
+		if v == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return purchase.PendingFilter{}, auth.ErrBadForm
+		}
+		*dst = id
+	}
+	return f, nil
 }
 
 // tooMany is the generic export's refusal of more than csvio.MaxExportRows

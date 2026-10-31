@@ -55,14 +55,6 @@ func Routes(d Deps) func(r chi.Router) {
 	}
 }
 
-// msgNotBuilt answers a route whose owner hasn't built it yet.
-const msgNotBuilt = "This page isn't built yet."
-
-// notBuilt is every stub route's answer: 501, never success.
-func notBuilt(w http.ResponseWriter, _ *http.Request) {
-	http.Error(w, msgNotBuilt, http.StatusNotImplemented)
-}
-
 // plainErrors is the stub page redraw: status with the messages as plain
 // text, one per line. The screen tasks replace the render functions with
 // their pages (P15d, P15e).

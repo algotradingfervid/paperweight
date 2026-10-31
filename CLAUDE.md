@@ -77,7 +77,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A plan's stub returns nil or zero only where that means "no extra rule". Date and Amount hooks are real from the skeleton task, because a zero Date makes naming.Assign refuse every approve (MOD-PO plan check).
 - A contract stated for one producer is written out in full for each sibling, never "as X does" (render error mapping, GET-state 403/404; MOD-PO plan check).
 - Hand-in test lists that touch UI include `./internal/ui/...`; the assets and UI lint tests live there, and a list of only the changed packages misses them (AD-10).
-- golangci-lint here doesn't run gofmt, so unformatted Go reached committed files three times. `make ci` now fails on `gofmt -l`; run `gofmt -l` on your files before a hand-in (AD-10).
+- golangci-lint here doesn't run gofmt, so unformatted Go reached committed files three times. `make ci` now fails on `gofmt -l`; run gofmt on your files before a hand-in (AD-10). Use the toolchain's gofmt, `$(go env GOROOT)/bin/gofmt`: the shell's /usr/local/go gofmt is 1.25 and disagrees with 1.27's on some lines; make ci and make handin both use the toolchain's (AD-11).
 - One `make ci` at a time in `.worktrees/ci-check`: checking out a new head while a run is going changes files under it, and that run's result is void (head director, 31 Oct).
 - internal/kernel/auth/web needs about 6 minutes alone under -race. With several ADs' suites running it crossed go test's 10-minute default, so `make test` passes `-timeout 40m` (raised from 20m when load reached ~110); hand-ins that include it use at least `-timeout 20m`.
 - A widened predicate (`x || field == v`) needs a test row for every other non-empty value of that field, not only for the new one (M0-24).
@@ -106,6 +106,15 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A head-lane kernel change that alters rendered output runs every module's tests on the current main before merging, not on the lane's older base: M0-43 (PartyBlock) was green on its base but broke a purchase test that merged in between.
 - A module's scope helper returns a match-nothing predicate when the right is missing, never the empty "all rows" Predicate; and a module write that checks a version itself calls CanTx before the version and before parsing input, even though Engine.Do checks again (P13, P14; CD-259 REPEAT).
 - The head merges the exact commit a MERGE-READY names (`git merge --no-ff <sha>`), never the branch name: an AD advanced wp/mod0-hooks after its MERGE-READY and an unverified task rode in (M0-46, 31 Oct). ADs don't move a WP branch between MERGE-READY and merge.
+- A docscreen redraw status must be one the htmx config swaps (422, 409; layout.go): recorder tests never apply the swap table, so each new redraw status gets a browser test or a test that reads htmxConfig (M0-50, REPEAT).
+- Hand in with `make handin BASE=<base> PKGS="<pkgs>"` (CD-328): it runs the gates make ci skips (route gate, generated files, ./internal/ui/... for UI changes) and fails on a gate that didn't run. High tasks also run `make mutate BASE=<base> PKGS=<pkgs>` and hand in its survivor list.
+- A new document DocType or GET route fails TestToolingRedraw and TestTooling_VisibilitySweep until the same task adds its seeder (rsEnv.seeder, sweepSeeders) and its sweepStatuses row. Never skip there: the sweeps check Hide and hidden-record rules for every module (CD-317, CD-318 and CD-319 came from them).
+- Before dispatching a task, run `make briefcds BASE=<lane base> FILES="<task files>"`; it reads main's CD log, not the lane's.
+- Split a task estimated over ~90 worker-minutes (P2 took 299, E1 232): review rounds on a big diff cost more than two small reviews.
+- Two lanes that are each green can fail together: a new DocType (fixture.Quote, not submittable) met the tooling sweeps, which probed submit on every DocType, and main went red (31 Oct). A sweep or gate derives what it probes from the DocType's own declarations, never assumes a right.
+- A sweep or gate that needs a module's flags (NoLinePages, CardsOnly, Hide) reads them from the app's real Deps (`App.DocDeps()`), never from a test-local Modules map: a hand-written copy is a lenient double (M0-55, REPEAT).
+- After a new gate or sweep lands on main, the head merges only MERGE-READYs whose ci ran on a head that includes it: PO batch 4 was green on a base without the tooling sweeps and turned main red (11 purchase.Request cells, 31 Oct).
+- A module page extra (pairs, cards) that shows a stored field's value checks the registered Module.Hide, and so does anything derived from it (Left from Used); the redraw sweep's read-only probe fails otherwise (MOD-EXP S3, REPEAT).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here

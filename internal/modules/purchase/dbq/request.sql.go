@@ -94,6 +94,23 @@ func (q *Queries) RequestLinesForValidate(ctx context.Context, parentID int64) (
 	return items, nil
 }
 
+const setRequestDate = `-- name: SetRequestDate :exec
+UPDATE purchase_request SET request_date = ?1 WHERE id = ?2
+`
+
+type SetRequestDateParams struct {
+	RequestDate sql.NullString
+	ID          int64
+}
+
+// Validate's draft write of today's business date into a blank request date
+// (CD-258 Q8 (a): the Details step hides it). A plain UPDATE inside DOC's
+// write.
+func (q *Queries) SetRequestDate(ctx context.Context, arg SetRequestDateParams) error {
+	_, err := q.db.ExecContext(ctx, setRequestDate, arg.RequestDate, arg.ID)
+	return err
+}
+
 const setRequestLineDefaults = `-- name: SetRequestLineDefaults :exec
 UPDATE purchase_request_line
 SET description = ?1,

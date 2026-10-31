@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/approval"
@@ -75,6 +76,7 @@ type App struct {
 	logger    *slog.Logger
 	auth      *auth.Auth
 	sessions  *auth.SessionStore
+	sm        *scs.SessionManager // the one the module screens were built with
 	srv       *authweb.Server
 	engine    doc.Engine
 	approvals *approval.Approvals
@@ -218,6 +220,7 @@ func New(ctx context.Context, cfg Config) (a *App, err error) {
 	sessions := auth.DefaultSessionConfig(cfg.Secure)
 	a.sessions = auth.NewSessionStore(d, cfg.Clock, sessions)
 	sm := auth.NewSessionManager(a.sessions, sessions)
+	a.sm = sm
 	a.srv = authweb.New(a.auth, a.sessions, sm, views.Default{}, authweb.Config{
 		Secure: cfg.Secure, TrustProxy: cfg.TrustProxy, Seed: seedOptions, PickerURL: pickerURL,
 	})

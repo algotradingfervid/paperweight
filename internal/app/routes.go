@@ -33,6 +33,7 @@ import (
 	expenseweb "github.com/vardhan/internaltools/internal/modules/expense/web"
 	grnweb "github.com/vardhan/internaltools/internal/modules/goodsreceipt/web"
 	modkitweb "github.com/vardhan/internaltools/internal/modules/modkit/web"
+	"github.com/vardhan/internaltools/internal/modules/purchase"
 	purchaseweb "github.com/vardhan/internaltools/internal/modules/purchase/web"
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -424,8 +425,12 @@ const (
 	groupAdmin     = "Administration"
 )
 
-// nav is p's navigation: the two approval pages, one item per DocType p may
-// read, then the administrator's pages. The rights are read in one
+// purchaseHomePath is the Purchase home, the nav entry for anyone who may read
+// purchase.Order or purchase.Request (MOD-PO P1 Do 4).
+const purchaseHomePath = "/modules/purchase"
+
+// nav is p's navigation: the two approval pages, Purchase, one item per
+// DocType p may read, then the administrator's pages. The rights are read in one
 // transaction, through CanTx.
 func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 	ctx := r.Context()
@@ -434,6 +439,7 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 		{Label: "My requests", Href: inboxPath + "/mine", Icon: "clock", Group: groupWork},
 	}
 	var docs, masters []ui.NavItem
+	purchases := false
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
 		for _, dt := range doctype.All() {
 			href := listURL(dt.Name)
@@ -447,6 +453,7 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 			if err != nil {
 				return err
 			}
+			purchases = purchases || dt.Name == purchase.DocType || dt.Name == purchase.RequestDocType
 			if dt.IsMaster() {
 				masters = append(masters, ui.NavItem{Label: dt.PluralLabel, Href: href, Icon: "file", Group: groupMasters})
 			} else {
@@ -455,6 +462,9 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 		}
 		return nil
 	})
+	if purchases {
+		items = append(items, ui.NavItem{Label: "Purchase", Href: purchaseHomePath, Icon: "file-text", Group: groupWork})
+	}
 	items = append(append(items, docs...), masters...)
 	if slices.Contains(p.Roles, auth.RoleAdministrator) {
 		items = append(items,

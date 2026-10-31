@@ -24,6 +24,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
@@ -49,16 +50,18 @@ const (
 // sweepState is what the screens need beyond the canonical seed: a row of
 // worst-case values in every master and a document in every state.
 type sweepState struct {
-	long   testkit.LongRows
-	order  docscreen.SampleIDs
-	exp    map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
-	amend  int64
-	claim  int64
-	file   int64
-	role   int64
-	admin  int64
-	rule   int64
-	master map[string]int64 // record id by /m/ slug
+	long     testkit.LongRows
+	order    docscreen.SampleIDs
+	amend    int64
+	claim    int64
+	pr       int64 // Suresh's submitted purchase request (P15d's Create PO page)
+	file     int64
+	role     int64
+	admin    int64
+	rule     int64
+	master   map[string]int64               // record id by /m/ slug
+	purchase int64                          // a purchase.Order draft of Priya's (P15e)
+	exp      map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
 }
 
 // prepareSweep seeds sweepState. The stand-in masters' rows the reference order
@@ -121,8 +124,24 @@ func (h *Harness) prepareSweep() sweepState {
 	})
 	s.claim = c.ID
 	s.file = h.attach(deepak, fixture.Claim, c.ID, uitest.LongName100+".jpg")
+	s.pr = h.purchaseRequest()
+	s.purchase = h.purchaseDraft()
 	s.exp = h.expenseSamples(s.long)
 	return s
+}
+
+// purchaseRequest is Suresh's submitted METRO-SITE / PRJ-METRO purchase
+// request with one row of 100 kg MS-ANGLE-50.
+func (h *Harness) purchaseRequest() int64 {
+	h.t.Helper()
+	code := func(table, c string) string {
+		return strconv.FormatInt(Scalar[int64](h, `SELECT id FROM `+table+` WHERE code = ?`, c), 10)
+	}
+	r := h.Do(suresh, purchase.RequestDocType, 0, doctype.ActionSave, doc.ActionInput{
+		Values: map[string]string{"site_id": code("site", "METRO-SITE"), "project_id": code("project", "PRJ-METRO"), "request_date": plainDate},
+		Lines:  []map[string]string{{"item_id": code("item", "MS-ANGLE-50"), "uom_id": code("uom", "KGS"), "qty": "100"}},
+	})
+	return h.Do(suresh, purchase.RequestDocType, r.ID, doctype.ActionSubmit, doc.ActionInput{Version: r.Version}).ID
 }
 
 // Expense samples: three lines whose amounts add up to maxAmount, and 500
@@ -298,6 +317,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		{Name: "claim new", Route: "/doc/{doctype}/new", URL: "/doc/" + fixture.Claim + "/new", As: deepak},
 		{Name: "claim page", Route: "/doc/{doctype}/{id}", URL: DocPath(fixture.Claim, s.claim), As: deepak},
 		{Name: "receipt new", Route: "/doc/{doctype}/new", URL: "/doc/" + fixture.Receipt + "/new", As: suresh},
+		{Name: "create PO from request", Route: "/modules/purchase/requests/{id}/order", URL: "/modules/purchase/requests/" + strconv.FormatInt(s.pr, 10) + "/order", As: priya},
 		{Name: "company logo", Route: "/m/company/1/logo", URL: "/m/company/1/logo", As: admin},
 	}
 	for _, sc := range docscreen.Screens(fixture.Order, s.order) {
@@ -324,7 +344,41 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
 	out = append(out, expenseReportScreens()...)
+	out = append(out, purchasePageScreens(s.purchase)...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
+}
+
+// purchasePageScreens are MOD-PO P15e's module pages as Priya: the home, a
+// queue, the pending report and its filter page, and the hand-over, Send and
+// Expected on pages of her draft po (the last two show their refusal).
+func purchasePageScreens(po int64) []screens.Screen {
+	order := "/modules/purchase/orders/" + strconv.FormatInt(po, 10)
+	return []screens.Screen{
+		{Name: "purchase home", Route: "/modules/purchase", URL: "/modules/purchase", As: priya},
+		{Name: "purchase queue", Route: "/modules/purchase/q/{queue}", URL: "/modules/purchase/q/drafts", As: priya},
+		{Name: "purchase hand over", Route: "/modules/purchase/orders/{id}/handover", URL: order + "/handover", As: priya},
+		{Name: "purchase send", Route: "/modules/purchase/orders/{id}/send", URL: order + "/send", As: priya},
+		{Name: "purchase expected on", Route: "/modules/purchase/orders/{id}/expected", URL: order + "/expected", As: priya},
+		{Name: "purchase pending report", Route: "/reports/purchase/pending", URL: "/reports/purchase/pending", As: priya},
+		{Name: "purchase pending filter", Route: "/reports/purchase/pending/filter", URL: "/reports/purchase/pending/filter", As: priya},
+	}
+}
+
+// purchaseDraft is a purchase.Order draft of Priya's, for the P15e pages.
+func (h *Harness) purchaseDraft() int64 {
+	h.t.Helper()
+	id := func(table, code string) string {
+		return strconv.FormatInt(Scalar[int64](h, `SELECT id FROM `+table+` WHERE code = ?`, code), 10)
+	}
+	return h.Do(priya, "purchase.Order", 0, doctype.ActionSave, doc.ActionInput{
+		Values: map[string]string{
+			"vendor_id": id("party", "SHREE"), "site_id": id("site", "METRO-SITE"), "project_id": id("project", "PRJ-METRO"), "order_date": plainDate,
+		},
+		Lines: []map[string]string{{
+			"item_id": id("item", "MS-ANGLE-50"), "uom_id": id("uom", "KGS"), "qty": "100", "price": "62.5",
+			"tax_code_id": id("tax_code", "GST18"), "hsn_sac": "7216",
+		}},
+	}).ID
 }
 
 // expenseReportScreens are MOD-EXP S4's report pages and their filter pages,
@@ -550,12 +604,12 @@ func freshScreens() (setup, company []screens.Screen) {
   f.requestSubmit();
 })()`
 	return []screens.Screen{
-			{Name: "setup", Route: "/setup", URL: "/setup"},
-			{Name: "setup refused", Route: "/setup", URL: "/setup", Setup: func(ctx context.Context) error { return submit(ctx, empty, ".error-summary") }},
-		}, []screens.Screen{
-			{Name: "setup company", Route: "/setup/company", URL: "/setup/company", As: freshAdmin},
-			{Name: "setup company refused", Route: "/setup/company", URL: "/setup/company", As: freshAdmin, Setup: func(ctx context.Context) error { return submit(ctx, noCompany, ".error-summary") }},
-		}
+		{Name: "setup", Route: "/setup", URL: "/setup"},
+		{Name: "setup refused", Route: "/setup", URL: "/setup", Setup: func(ctx context.Context) error { return submit(ctx, empty, ".error-summary") }},
+	}, []screens.Screen{
+		{Name: "setup company", Route: "/setup/company", URL: "/setup/company", As: freshAdmin},
+		{Name: "setup company refused", Route: "/setup/company", URL: "/setup/company", As: freshAdmin, Setup: func(ctx context.Context) error { return submit(ctx, noCompany, ".error-summary") }},
+	}
 }
 
 // notPage is a GET route with no screen, because it answers with no page: the
@@ -572,19 +626,9 @@ var expenseStubs = []string{
 }
 
 // purchaseStubs are MOD-PO's GET routes that still answer P1's 501 stub,
-// whatever the id, each with the task that builds it (AD-13). P15e and P15d
-// give the pages screens and remove their routes here; P16 checks the list
-// is empty.
-var purchaseStubs = []struct{ route, owner string }{
-	{"/modules/purchase", "P15e"},
-	{"/modules/purchase/q/{queue}", "P15e"},
-	{"/modules/purchase/orders/{id}/handover", "P15e"},
-	{"/modules/purchase/orders/{id}/send", "P15e"},
-	{"/modules/purchase/orders/{id}/expected", "P15e"},
-	{"/modules/purchase/requests/{id}/order", "P15d"},
-	{"/reports/purchase/pending", "P15e"},
-	{"/reports/purchase/pending/filter", "P15e"},
-}
+// whatever the id, each with the task that builds it (AD-13). P15d and P15e
+// gave their pages screens; P16 checks the list is empty.
+var purchaseStubs = []struct{ route, owner string }{}
 
 // grnStubs are MOD-GRN's GET routes that still answer G1's 501 stub, each
 // with the task that builds it (AD-12). S4 gives the report pages screens and

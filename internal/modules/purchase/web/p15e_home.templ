@@ -1,0 +1,57 @@
+package purchaseweb
+
+import (
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// homePage is the Purchase home (UX §5.1): one column of cards, two from
+// 64rem with Recent comments across both, or the empty text.
+templ homePage(v homeView) {
+	@layout.Page(layout.PageOpts{Title: homeTitle, BarSlot: components.ActionBar(v.bar)}) {
+		if len(v.cards) == 0 && len(v.comments) == 0 {
+			@components.EmptyState(msgNothingHome, nil)
+		} else {
+			<div class="grid gap-4 lg:grid-cols-2">
+				for _, c := range v.cards {
+					@components.Card(cardTitles[c.Key], &components.Link{Label: openLabel, Href: c.Href}) {
+						<p class="num text-3xl">{ types.FormatCount(int64(c.Count)) }</p>
+						<p>{ cardLine(c) }</p>
+					}
+				}
+				if len(v.comments) > 0 {
+					<div class="lg:col-span-2">
+						@components.Card(recentTitle, nil) {
+							<ol class="grid gap-3">
+								for _, c := range v.comments {
+									<li>
+										<a href={ templ.SafeURL(commentHref(c)) }>
+											<p>{ c.CreatedByName } on { c.Display }</p>
+											<p>{ types.FormatIST(c.CreatedAt) }</p>
+											<p class="wrap-anywhere">{ cutComment(c.Body) }</p>
+										</a>
+									</li>
+								}
+							</ol>
+						}
+					</div>
+				}
+			</div>
+		}
+	}
+}
+
+// queuePage is one queue (UX §5.2): its count line, the rows and the pager,
+// with Back to the home.
+templ queuePage(v queueView) {
+	@layout.Page(layout.PageOpts{
+		Title: v.title, Back: &components.Link{Label: homeTitle, Href: homePath}, BarSlot: components.ActionBar(v.bar),
+	}) {
+		if v.count != "" {
+			<p>{ v.count }</p>
+		}
+		@components.DataList(v.list)
+		@components.Pagination(v.pages)
+	}
+}
