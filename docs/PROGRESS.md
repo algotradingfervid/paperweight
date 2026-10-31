@@ -311,7 +311,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | E8 | Expense reports and CSV | Standard | impl, rev opus (AD-11) | — | — | 2 | — | ff229f4 |
 | M0-33 | CSV export of document links (CD-297, CD-301) | Standard | impl, rev opus (AD-10) | — | — | 1 | ci 0, P1 628/799 | 901ed9d |
 | M0-20, M0-26, M0-5 | Line Top/nouns; line error links and Enter copy; screens per DocType and module sweep | High/Std/High | tw, impl, rev opus (AD-10) | — | — | 1/2/3 | 0/0/1; 0/1/3→0; 0/3/4→0 | 8820720; fa33f45 make ci 0 (P1 634/812), make e2e 0 FAIL |
-| E5, E7, E2b | Approvals tests; prints; computed-or-cleared (CD-302, CD-304) | High/Std/High | tw, impl, rev opus (AD-11) | — | — | 1/2/1 | E7 round 1 changes | 971acc6 |
+| E5, E7, E2b | Approvals tests; prints; computed-or-cleared (CD-302, CD-304) | High/Std/High | tw, impl, rev opus (AD-11) | — | — | 1/2/1 | E7 round 1 changes | 971acc6; f694ec3 make ci 0 (P1 651/812) |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
