@@ -376,7 +376,11 @@ func waitingLine(pv pageView) string {
 	if pv.V.Info.State != doctype.StatePending {
 		return ""
 	}
-	if pv.Bar.Primary != nil && pv.Bar.Primary.Label == "Approve" && a.Preview != "" {
+	approver := pv.Bar.Primary != nil && pv.Bar.Primary.Label == "Approve"
+	if approver && a.Roles != "" {
+		return "Needs your approval: " + a.Roles + ", " + a.Why
+	}
+	if approver && a.Preview != "" {
 		return "Needs your approval: " + a.Preview
 	}
 	if a.WaitingOn != "" {
