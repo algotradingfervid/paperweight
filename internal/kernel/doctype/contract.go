@@ -157,6 +157,7 @@ type DocType struct {
 	Master                                                          MasterLookup                 // non-nil only for masters (CD-21)
 	CloseRight                                                      string                       // the right close needs; blank is "submit" (CD-247, CD-255)
 	StateLabels                                                     map[State]string             // per-DocType state labels; missing or blank is the global label (CD-247, CD-255)
+	TestOnly                                                        bool                         // registered only by test packages; its series prefix may match a real DocType's (CD-291)
 
 	importOnly []importOnlyField // what Register took out of Fields
 }
