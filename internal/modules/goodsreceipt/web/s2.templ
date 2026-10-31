@@ -1,0 +1,41 @@
+package grnweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// itemsView is step 3 (UX doc §5.4): the order, the two fill buttons, a
+// card per PO line, and the fully received lines last, closed, when some
+// lines are pending.
+templ itemsView(f itemsForm) {
+	<p>{ f.Summary }</p>
+	<div class="cluster">
+		@components.Button(f.FillAll)
+		@components.Button(f.Clear)
+	</div>
+	for _, c := range f.Cards {
+		@itemCardView(c)
+	}
+	if len(f.Full) > 0 {
+		@components.Disclosure(f.FullLabel, f.FullOpen) {
+			for _, c := range f.Full {
+				@itemCardView(c)
+			}
+		}
+	}
+}
+
+// itemCardView is one PO line's card: Received now at 56 px, its warning,
+// and Rejected with its reason under Some rejected.
+templ itemCardView(c itemCard) {
+	@components.Card(c.Title, nil) {
+		<p class="code">{ c.Code }</p>
+		@components.LargeQtyInput(c.Received, c.Whole, c.UoM)
+		@components.Warnings(c.Warnings)
+		@components.Disclosure(labelSomeRejected, c.Open) {
+			@components.QtyInput(c.Rejected, c.Whole, c.UoM)
+			@components.TextInput(c.Reason)
+			if c.Accepted != "" {
+				<p>{ c.Accepted }</p>
+			}
+		}
+	}
+}
