@@ -4,6 +4,7 @@
    Low-priority values show from 64rem. */
 @utility datalist {
   container-type: inline-size;
+  --datalist-nowrap-min: 15ch;
   & .datalist-head { display: none; }
   & .datalist-rows { gap: var(--space-2); margin: 0; padding: 0; list-style: none; font-size: var(--text-base); }
   & .datalist-link {
@@ -38,6 +39,19 @@
     & > * { min-inline-size: 0; }
   }
   & [data-priority="low"] { display: none; }
+  /* A blank value is not drawn on cards; aligned rows keep its track. */
+  & .datalist-link dl.datalist-blank { display: none; }
+  /* A NoWrap track is never narrower than its values (dates, codes,
+     GSTINs), so they never run into the next track. Set on the container,
+     outside its own container query. */
+  &[data-nowrap~="1"] { --dl-t1: var(--datalist-nowrap-min); }
+  &[data-nowrap~="2"] { --dl-t2: var(--datalist-nowrap-min); }
+  &[data-nowrap~="3"] { --dl-t3: var(--datalist-nowrap-min); }
+  &[data-nowrap~="4"] { --dl-t4: var(--datalist-nowrap-min); }
+  &[data-nowrap~="5"] { --dl-t5: var(--datalist-nowrap-min); }
+  &[data-nowrap~="6"] { --dl-t6: var(--datalist-nowrap-min); }
+  &[data-nowrap~="7"] { --dl-t7: var(--datalist-nowrap-min); }
+  &[data-nowrap~="8"] { --dl-t8: var(--datalist-nowrap-min); }
 
   @container (min-width: 48rem) {
     &:is([data-cols="3"], [data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"], [data-cols="8"]) {
@@ -53,17 +67,22 @@
       & .datalist-link { border-radius: var(--radius-md); }
       & :is(.datalist-r1, .datalist-r2, .datalist-r3) { display: contents; }
       & .datalist-sep { display: none; }
+      & .datalist-link dl.datalist-blank:not([data-priority="low"]) { display: block; }
+      /* Opted-in values (dates, codes, GSTINs) break only where words do. */
+      & .datalist-nowrap dd { overflow-wrap: normal; }
       & .datalist-title { grid-column: 1; grid-row: 1; }
       & .datalist-party { grid-column: 1; grid-row: 2; }
     }
-    &[data-cols="3"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); }
-    &[data-cols="4"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
-    &[data-cols="5"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr)); }
-    &[data-cols="6"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(0, 2fr) repeat(5, minmax(0, 1fr)); }
-    &[data-cols="7"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(0, 2fr) repeat(6, minmax(0, 1fr)); }
-    &[data-cols="8"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(0, 2fr) repeat(7, minmax(0, 1fr)); }
+    &[data-cols="3"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr); }
+    &[data-cols="4"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr); }
+    &[data-cols="5"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr); }
+    &[data-cols="6"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr) minmax(var(--dl-t6, 0), 1fr); }
+    &[data-cols="7"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr) minmax(var(--dl-t6, 0), 1fr) minmax(var(--dl-t7, 0), 1fr); }
+    &[data-cols="8"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr) minmax(var(--dl-t6, 0), 1fr) minmax(var(--dl-t7, 0), 1fr) minmax(var(--dl-t8, 0), 1fr); }
   }
   @container (min-width: 64rem) {
-    & [data-priority="low"] { display: block; }
+    & dl[data-priority="low"] { display: block; }
+    & span[data-priority="low"] { display: inline; }
+    &:is([data-cols="3"], [data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"], [data-cols="8"]) .datalist-link dl.datalist-blank { display: block; }
   }
 }

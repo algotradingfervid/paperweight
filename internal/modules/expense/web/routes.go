@@ -27,6 +27,7 @@ func Routes(d Deps) func(r chi.Router) {
 		r.Post("/modules/expense/claims/{id}/receipt", h.receipt)
 		for _, report := range []string{"open", "lines", "advances"} {
 			r.Get("/reports/expense/"+report, h.report)
+			r.Get("/reports/expense/"+report+"/filter", h.filterPage)
 			r.Get("/reports/expense/"+report+"/export.csv", h.exportCSV)
 		}
 		r.Get("/modules/expense/advances/{id}/paid", h.paidPage)
@@ -49,10 +50,13 @@ var guards = map[string]guard{
 	"/modules/expense/claims/{id}/receipt":  {expense.ClaimDocType, auth.RightWrite},
 	"/reports/expense/open":                 {expense.ClaimDocType, auth.RightRead},
 	"/reports/expense/open/export.csv":      {expense.ClaimDocType, auth.RightRead},
+	"/reports/expense/open/filter":          {expense.ClaimDocType, auth.RightRead},
 	"/reports/expense/lines":                {expense.ClaimDocType, auth.RightRead},
 	"/reports/expense/lines/export.csv":     {expense.ClaimDocType, auth.RightRead},
+	"/reports/expense/lines/filter":         {expense.ClaimDocType, auth.RightRead},
 	"/reports/expense/advances":             {expense.AdvanceDocType, auth.RightRead},
 	"/reports/expense/advances/export.csv":  {expense.AdvanceDocType, auth.RightRead},
+	"/reports/expense/advances/filter":      {expense.AdvanceDocType, auth.RightRead},
 	"/modules/expense/advances/{id}/paid":   {expense.AdvanceDocType, auth.RightRead},
 	"/modules/expense/advances/{id}/unpaid": {expense.AdvanceDocType, auth.RightRead},
 }

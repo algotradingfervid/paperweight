@@ -2,6 +2,8 @@ package components
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/a-h/templ"
 
@@ -22,11 +24,12 @@ const (
 )
 
 // Column is one list field. Num values are right-aligned figures; Code
-// values may break anywhere.
+// values may break anywhere. NoWrap values (dates, codes, GSTINs) keep
+// whole tokens in aligned rows.
 type Column struct {
-	Key, Label string
-	Priority   Priority
-	Num, Code  bool
+	Key, Label        string
+	Priority          Priority
+	Num, Code, NoWrap bool
 }
 
 // Row is one list entry. Values are keyed by Column.Key; the PState column
@@ -49,17 +52,25 @@ type DataListProps struct {
 
 // Validate checks the columns: 1 to 8 and at most 8 grid tracks, every
 // priority PTitle or more, at most one PTitle, PFigure and PState each, and
-// with no PTitle column every row has a Title.
+// with no PTitle column every row has a Title. At most 3 columns are
+// NoWrap: 4 minimum-width tracks don't fit an 8-track list at 48rem.
 func (p DataListProps) Validate() error {
 	if len(p.Columns) < 1 || len(p.Columns) > 8 {
 		return errors.New("components.DataList: 1 to 8 columns are allowed")
 	}
 	n := map[Priority]int{}
+	nowrap := 0
 	for _, c := range p.Columns {
 		if c.Priority < PTitle {
 			return errors.New("components.DataList: a column priority is below 1")
 		}
 		n[c.Priority]++
+		if c.NoWrap {
+			nowrap++
+		}
+	}
+	if nowrap > 3 {
+		return errors.New("components.DataList: at most 3 NoWrap columns")
 	}
 	if n[PTitle] > 1 || n[PFigure] > 1 || n[PState] > 1 {
 		return errors.New("components.DataList: at most one title, figure and state column")
@@ -118,6 +129,28 @@ func (l listLayout) tracks() int {
 	return n
 }
 
+// nowrapTracks is the 1-based grid tracks of the NoWrap columns, space
+// separated; the CSS gives each a minimum width that fits its value.
+func (l listLayout) nowrapTracks() string {
+	cols := []*Column{l.title, l.figure}
+	for i := range l.meta {
+		cols = append(cols, &l.meta[i])
+	}
+	cols = append(cols, l.state)
+	var tracks []string
+	n := 0
+	for i, c := range cols {
+		if c == nil && i > 0 {
+			continue
+		}
+		n++
+		if c != nil && c.NoWrap {
+			tracks = append(tracks, strconv.Itoa(n))
+		}
+	}
+	return strings.Join(tracks, " ")
+}
+
 // listSecond is the column shown on card row 2 when the row has no Party:
 // the first PMeta column, if any.
 func (l listLayout) listSecond(r Row) *Column {
@@ -135,19 +168,42 @@ func (l listLayout) listThird(r Row) []Column {
 	return l.meta
 }
 
-// stateSep reports whether the state badge has a separator before it, and
-// whether that separator is low priority because every value before it is.
-func (l listLayout) stateSep(r Row) (sep, low bool) {
-	third := l.listThird(r)
-	if len(third) == 0 {
-		return false, false
+// listSep ends a card value that has a drawn value after it. The no-break
+// space keeps the dot on the value's line.
+const listSep = "\u00a0\u00b7 "
+
+// cardCell is one value on a card: title marks the first-row title, state the
+// state badge, blank a value with no text. sep and sepLow are listCell's.
+type cardCell struct {
+	Column
+	title, state, blank, sep, sepLow bool
+}
+
+// thirdCells is card row 3: the listThird values, then the state badge.
+// Each drawn value gets a separator when a drawn value follows it, low
+// priority when every drawn value after it is.
+func (l listLayout) thirdCells(r Row) []cardCell {
+	var cells []cardCell
+	for _, c := range l.listThird(r) {
+		cells = append(cells, cardCell{Column: c, blank: strings.TrimSpace(r.Values[c.Key]) == ""})
 	}
-	for _, c := range third {
-		if c.Priority < PLow {
-			return true, false
+	if l.state != nil {
+		cells = append(cells, cardCell{Column: *l.state, state: true})
+	}
+	for i := range cells {
+		if cells[i].blank {
+			continue
 		}
+		low := true
+		for _, n := range cells[i+1:] {
+			if !n.blank {
+				cells[i].sep = true
+				low = low && n.Priority >= PLow
+			}
+		}
+		cells[i].sepLow = cells[i].sep && low
 	}
-	return true, true
+	return cells
 }
 
 // listCellClass is a value's classes, written out whole for the CSS build.

@@ -31,7 +31,7 @@ func claimFields() []doctype.Field {
 		{Name: "claim_date", Label: "Claim date", Type: doctype.Date, Required: true},
 		{Name: "purpose", Label: "Purpose", Type: doctype.Text, Required: true, MaxLen: 140},
 		{Name: "advance_id", Label: "Advance", Type: doctype.Link, Link: AdvanceDocType},
-		{Name: "less_advance", Label: "Less advance", Type: doctype.Money},
+		{Name: "less_advance", Label: "Less advance", Type: doctype.Money, NonNegative: true},
 		{Name: "total", Label: "Total", Type: doctype.Money, ReadOnly: true, ListPriority: 2},
 		{Name: "net_payable", Label: "To pay", Type: doctype.Money, ReadOnly: true},
 		{Name: "period_from", Label: "Period from", Type: doctype.Date, ReadOnly: true},

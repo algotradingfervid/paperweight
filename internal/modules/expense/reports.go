@@ -2,10 +2,13 @@ package expense
 
 import (
 	"context"
+	"errors"
+	"slices"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/masters/expensetype"
 	"github.com/vardhan/internaltools/internal/modules/expense/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -28,11 +31,14 @@ type OpenClaimRow struct {
 	NoReceipt                int // lines without a receipt
 }
 
+// OpenClaimsFilter narrows the open claims report; 0 is every employee.
+type OpenClaimsFilter struct{ EmployeeID int64 }
+
 // OpenClaimsReport is the approved, not closed claims p may read.
-func (s *Service) OpenClaimsReport(ctx context.Context, p auth.Principal) ([]OpenClaimRow, error) {
+func (s *Service) OpenClaimsReport(ctx context.Context, p auth.Principal, f OpenClaimsFilter) ([]OpenClaimRow, error) {
 	var out []OpenClaimRow
 	err := s.scoped(ctx, p, ClaimDocType, func(tx *db.Tx, in func(int64) bool) error {
-		rows, err := dbq.New(tx.SQL()).E8OpenClaims(ctx)
+		rows, err := dbq.New(tx.SQL()).E8OpenClaims(ctx, f.EmployeeID)
 		if err != nil {
 			return err
 		}
@@ -124,6 +130,7 @@ type LinesFilter struct {
 type LineRow struct {
 	ClaimID                                 int64
 	Claim, Employee                         string
+	LineNo                                  int
 	Date                                    types.Date
 	Type, Project, Site, Note               string
 	Amount, GST                             types.Money
@@ -158,7 +165,7 @@ func (s *Service) ExpenseLinesReport(ctx context.Context, p auth.Principal, f Li
 				return err
 			}
 			rep.Rows = append(rep.Rows, LineRow{
-				ClaimID: r.ClaimID, Claim: r.Number, Employee: r.SnapEmployeeName, Date: date,
+				ClaimID: r.ClaimID, Claim: r.Number, Employee: r.SnapEmployeeName, LineNo: int(r.LineNo), Date: date,
 				Type: r.SnapTypeName, Project: r.SnapProjectCode, Site: r.SnapSiteCode, Note: r.Description,
 				Amount: types.Money(r.Amount), GST: types.Money(r.GstAmount),
 				SupplierGSTIN: r.SupplierGstin, InvoiceNo: r.InvoiceNo, BilledToGSTIN: r.SnapBilledGstin,
@@ -169,6 +176,68 @@ func (s *Service) ExpenseLinesReport(ctx context.Context, p auth.Principal, f Li
 		return nil
 	})
 	return rep, err
+}
+
+// LinesChoices are the expense lines report's filter choices.
+type LinesChoices struct {
+	Months []string     // the last 24 months, newest first, as "YYYY-MM"
+	Types  []TypeChoice // nil when p can't read Expense Type: no Type filter
+}
+
+// TypeChoice is one expense type in the Type filter.
+type TypeChoice struct {
+	ID   int64
+	Name string
+}
+
+// LinesChoices is the months up to the IST business date and, when p may
+// read Expense Type, every expense type by name.
+func (s *Service) LinesChoices(ctx context.Context, p auth.Principal) (LinesChoices, error) {
+	today := types.Today(s.deps.Clock)
+	first := types.Date{Year: today.Year, Month: today.Month, Day: 1}
+	var c LinesChoices
+	for i := range 24 {
+		c.Months = append(c.Months, types.AddMonths(first, -i).ISO()[:7])
+	}
+	if err := s.deps.Auth.Can(ctx, p, expensetype.DocType, auth.RightRead, nil); errors.Is(err, auth.ErrForbidden) {
+		return c, nil
+	} else if err != nil {
+		return c, err
+	}
+	err := s.db.Read(ctx, func(tx *db.Tx) error {
+		rows, err := dbq.New(tx.SQL()).S4ExpenseTypes(ctx)
+		for _, r := range rows {
+			c.Types = append(c.Types, TypeChoice{ID: r.ID, Name: r.Name})
+		}
+		return err
+	})
+	return c, err
+}
+
+// MasterLabel is master row id of DocType dt as p may see it: ok is false
+// when p can't read that row or there is none (CD-233). A master whose
+// ProjectFields or SiteFields is {"id"} is its own dimension value (CD-64).
+func (s *Service) MasterLabel(ctx context.Context, p auth.Principal, dt string, id int64) (info doctype.MasterInfo, ok bool, err error) {
+	typ, _ := doctype.Lookup(dt) // a registered master
+	rec := &auth.RecordRef{DocType: dt, ID: id}
+	if slices.Equal(typ.ProjectFields, []string{"id"}) {
+		rec.ProjectIDs = []int64{id}
+	}
+	if slices.Equal(typ.SiteFields, []string{"id"}) {
+		rec.SiteIDs = []int64{id}
+	}
+	err = s.db.Read(ctx, func(tx *db.Tx) error {
+		err := s.deps.Auth.CanTx(ctx, tx, p, dt, auth.RightRead, rec)
+		if errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		info, ok, err = typ.Master.Lookup(ctx, tx, id)
+		return err
+	})
+	return info, ok, err
 }
 
 // scoped runs fn in one read transaction with in, which reports whether a
