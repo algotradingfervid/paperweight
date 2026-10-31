@@ -24,6 +24,16 @@ type Module struct {
 	Check       func(c Ctx) (CheckExtra, error)             // check page additions
 	Page        func(c Ctx) (PageExtra, error)              // document page additions
 	Reason      func(c Ctx, a doctype.Action) (ReasonExtra, error)
+	LineNoun    LineNoun // the words for a line; zero keeps docscreen's (CD-275)
+	AddTop      bool     // the add button above the cards, again below from 4 lines (CD-275)
+}
+
+// LineNoun names a module's lines (UX-E2, CD-270 Q1): Add labels the add
+// button and the new-line page, Title prefixes a line's number on its page,
+// Empty is the Items step's text with no lines. An empty field keeps
+// docscreen's words.
+type LineNoun struct {
+	Add, Title, Empty string
 }
 
 // Ctx is what a hook reads. View is nil only on a new document's first step.
@@ -74,6 +84,7 @@ type Save struct {
 type Line struct {
 	Body func(c Ctx, no int, s StepState) (templ.Component, error)
 	Save func(c Ctx, no int) (Save, error)
+	Top  func(c Ctx, no int, s StepState) (templ.Component, error) // after the h1, outside the line form (UX-E1)
 }
 
 // CheckExtra is what Module.Check adds to the check page.
@@ -95,6 +106,13 @@ type PageExtra struct {
 	Notice    *components.BannerProps // last among the document banners
 	More      []components.MoreAction // before docscreen's own More actions
 	Primary   *components.ButtonProps // the main button when the bar has none
+	Files     *FilesCard              // replaces the read-only Attachments (UX-E7)
+}
+
+// FilesCard is the read-only files a module shows in place of Attachments (UX-E7, CD-275).
+type FilesCard struct {
+	Title string
+	Items []components.Attachment
 }
 
 // ReasonExtra is what Module.Reason adds to a reason page.
