@@ -210,7 +210,8 @@ func attachmentKind(mime string) string {
 }
 
 // totalsFields are the fields the check page's totals show or reveal: none
-// is drawn when the registered Hide hides one of them (CD-319).
+// is drawn when the registered Hide hides one of them (CD-319), and the
+// steps' details leave them out when the totals are drawn (CD-326 (4)).
 var totalsFields = []string{"advance_id", "total", "less_advance", "net_payable"}
 
 // claimCheck adds the claim's warnings (ClaimWarnings, which names another
@@ -266,6 +267,7 @@ func claimCheck(d Deps) func(docscreen.Ctx) (docscreen.CheckExtra, error) {
 			{Label: label, Value: minus + types.FormatINR(t-n), Num: true},
 			{Label: "To pay", Value: types.FormatINR(n), Num: true},
 		}
+		ex.Covers = totalsFields
 		return ex, nil
 	}
 }

@@ -72,8 +72,8 @@ func advancePage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
 	return func(c docscreen.Ctx) (docscreen.PageExtra, error) { return advanceExtra(c, d) }
 }
 
-// advanceReason adds, on Close, the note on what's left (EXP-059) and the
-// hint for how it was settled; with nothing left, or Used hidden, the
+// advanceReason adds, on Close, the note on what's left (EXP-059) as a
+// warning (CD-326 (7)) and the hint for how it was settled; with nothing left, or Used hidden, the
 // claims' hint.
 func advanceReason(d Deps) func(docscreen.Ctx, doctype.Action) (docscreen.ReasonExtra, error) {
 	return func(c docscreen.Ctx, a doctype.Action) (docscreen.ReasonExtra, error) {
@@ -87,7 +87,7 @@ func advanceReason(d Deps) func(docscreen.Ctx, doctype.Action) (docscreen.Reason
 		if left <= 0 || pairHides(c, "used_amount") { // what's left reveals Used
 			return docscreen.ReasonExtra{Hint: hintHowPaid}, nil
 		}
-		return docscreen.ReasonExtra{Note: fmt.Sprintf(noteLeftOnClose, types.FormatINR(left)), Hint: hintReturned}, nil
+		return docscreen.ReasonExtra{Note: fmt.Sprintf(noteLeftOnClose, types.FormatINR(left)), NoteWarn: true, Hint: hintReturned}, nil
 	}
 }
 

@@ -10,7 +10,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/modules/expense"
-	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
@@ -162,10 +161,10 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 }
 
 // receiptAttachment is m as the receipt area shows it: S1's attachmentOf
-// plus the upload line (the compact form waits for CD-326 (6), M0-53).
+// as the compact item (CD-326 (6)).
 func receiptAttachment(m files.Meta) components.Attachment {
 	a := attachmentOf(m)
-	a.UploadedBy, a.UploadedAt = "Uploaded", types.FormatIST(m.UploadedAt)
+	a.Compact = true
 	return a
 }
 
