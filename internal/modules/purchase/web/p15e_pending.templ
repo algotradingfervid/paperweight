@@ -1,0 +1,31 @@
+package purchaseweb
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// pendingPage is the pending items report (UX §5.19): the FilterBar over
+// the DataList and the pager.
+templ pendingPage(v pendingView) {
+	@layout.Page(layout.PageOpts{Title: pendingTitle}) {
+		@components.FilterBar(v.bar)
+		@components.DataList(v.list)
+		@components.Pagination(v.pages)
+	}
+}
+
+// pendingFilterScreen is the page that narrows the report (UX §5.19).
+templ pendingFilterScreen(v pendingFilterView) {
+	@layout.Page(pendingFilterOpts(v.back)) {
+		@components.Form(components.FormProps{Method: "get", Action: pendingBase}) {
+			if v.overdue {
+				@components.Hidden("overdue", "1")
+			}
+			for _, f := range v.fields {
+				@f
+			}
+			@components.Button(components.ButtonProps{Label: "Show results", Busy: "Finding…", Variant: components.Primary})
+		}
+	}
+}
