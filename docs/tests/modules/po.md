@@ -429,7 +429,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-058 · Only the owner edits, submits, withdraws, revises and deletes a draft, on the real auth.Service
 - **Priority:** P1
 - **Level:** integration
-- **Given** a draft PO owned by `priya`, on the real `auth.Service` **Then** `priya` can edit, submit, withdraw, revise and delete it. `ravi` and a second Purchase User get 403 on each.
+- **Given** a draft PO owned by `priya`, on the real `auth.Service` **Then** `priya` can edit, submit, withdraw, revise and delete it. `ravi` and a second Purchase User (`arjun`) get 403 on each.
 - **Go test:** `TestPO_OwnerOnlyReal`
 - **Sources:** PO spec §10, §21.1, §26
 

@@ -95,15 +95,25 @@ Scopes are `own`, `team` and `all` (CD-11). So Priya creates and submits orders,
 
 | Role | Rights (scope) |
 |---|---|
-| Employee | read, create, write, submit, cancel, delete (own); close through `submit` (own) |
+| Employee | read, create, write, submit, cancel, delete, approve (own); close through `CloseRight` `approve` (CD-253, CD-255) |
 | Stores | read (all) |
 | Purchase User | read (all) |
-| Purchase Manager, Director | read (all) |
+| Purchase Manager, Director | read, approve (all); `approve` only closes, since requests aren't approvable (CD-253) |
 | Administrator | every applicable right |
 
 Site and project restrictions apply, so Suresh raises and sees requests for PUNE-WH and METRO-SITE only. Every user has Employee by default (D-AUTH-22), so everyone can request.
 
 Permission-denied (403) message, owned by AUTH and used everywhere: "You don't have permission to {right} {DocType}. Ask your administrator for a role that allows it."
+
+## Module-only users (MOD-PO)
+
+Seeded by the purchase test environment only, not by core `testkit` (core counts stay unchanged):
+
+| User (email) | Name | Roles | Employee / reporting manager | Restrictions |
+|---|---|---|---|---|
+| `arjun@vardhan.test` | Arjun Mehta | Purchase User, Employee | EMP-009, reports to EMP-003 | none |
+
+Arjun is the "second Purchase User" in PO-058, PO-059 and the UX design's PUX cases (hand-over target, non-owner buyer).
 
 ## Purchase Request fixtures (MOD-PO)
 
