@@ -20,3 +20,9 @@ const (
 	auditBillCopied = "bill_copied"
 	billNoMaxLen    = 40 // characters of the invoice no. (spec §3.3)
 )
+
+// G11's texts (CD-337 (6)), G7's duplicate invoice shape.
+const (
+	msgChallanDup       = "Challan %s is also on %s."
+	msgChallanDupHidden = "Challan %s is also on another receipt."
+)
