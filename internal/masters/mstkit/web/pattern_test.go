@@ -395,8 +395,8 @@ func TestScreens_CodesUseCodeInput(t *testing.T) {
 	if id, _ := in.Attr("id"); id != "f-hsn_sac" {
 		t.Errorf("hsn_sac id = %q; want f-hsn_sac", id)
 	}
-	if label := webtest.Squash(page.Doc.Find(`label[for="f-hsn_sac"]`).Text()); label != "HSN/SAC (optional)" {
-		t.Errorf("hsn_sac label = %q; want HSN/SAC (optional)", label)
+	if label := webtest.Squash(page.Doc.Find(`label[for="f-hsn_sac"]`).Text()); label != "HSN/SAC" {
+		t.Errorf("hsn_sac label = %q; want HSN/SAC (CD-341 (2): no optional marker)", label)
 	}
 	if label := webtest.Squash(page.Doc.Find(`label[for="f-code"]`).Text()); label != "Code" {
 		t.Errorf("required code label = %q; want Code", label)

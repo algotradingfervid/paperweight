@@ -27,7 +27,7 @@ const maxRadios = 6
 // checked by the server (CD-48); Date a DateInput with d.Today; Timestamp
 // read-only text. MST's master forms reuse it.
 func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Component {
-	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Error: errMsg, Value: value, Optional: !f.Required}
+	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Error: errMsg, Value: value, Required: f.Required, Optional: !f.Required}
 	switch f.Type {
 	case doctype.Text:
 		if f.MaxLen > 200 {

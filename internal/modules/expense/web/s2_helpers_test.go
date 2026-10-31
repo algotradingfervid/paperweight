@@ -383,8 +383,21 @@ func s2Hint(t *testing.T, s *goquery.Selection, name string) string {
 // s2Label is the field label (label or legend) of the control named name.
 func s2Label(t *testing.T, s *goquery.Selection, name string) string {
 	t.Helper()
-	// FieldProps.Optional adds " (optional)"; the UX copy gives the label.
-	return strings.TrimSuffix(s2Text(s2Field(t, s, name).ChildrenFiltered(".field__label")), " (optional)")
+	// The UX copy gives the label's name: a required field's asterisk and
+	// hidden " (required)" (CD-341 (2)) are left out by class.
+	l := s2Field(t, s, name).ChildrenFiltered(".field__label").Clone()
+	l.Find(".field__req, .visually-hidden").Remove()
+	return s2Text(l)
+}
+
+// s2Required tells whether the field named name is marked required: the
+// label's asterisk and hidden " (required)", and aria-required on its control.
+func s2Required(t *testing.T, s *goquery.Selection, name string) bool {
+	t.Helper()
+	l := s2Field(t, s, name).ChildrenFiltered(".field__label")
+	return strings.TrimSpace(l.Find(".field__req").Text()) == "*" &&
+		l.Find(".visually-hidden").Text() == " (required)" &&
+		s.Find(`[name="`+name+`"][aria-required="true"]`).Length() > 0
 }
 
 // s2Option is one radio or checkbox option: label, hint, value, checked.

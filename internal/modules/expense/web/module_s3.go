@@ -2,9 +2,7 @@ package expenseweb
 
 import (
 	"fmt"
-	"slices"
 
-	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -92,17 +90,16 @@ func advanceReason(d Deps) func(docscreen.Ctx, doctype.Action) (docscreen.Reason
 }
 
 // advanceHide hides used_amount and paid_on as fields, which the page shows
-// as pairs (asPair), and, as an input only, the employee from everyone but
-// an Administrator: on a new advance (no View) and a draft (UX §5 intro,
-// CD-327 (2)).
+// as pairs (asPair), and, as an input only (asInput), the employee from
+// everyone but an Administrator: on a new advance and a draft, never on a
+// listing (UX §5 intro, CD-327 (2)).
 func advanceHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool {
 	return func(c docscreen.Ctx, f doctype.Field) bool {
 		switch f.Name {
 		case "used_amount", "paid_on":
 			return !asPair(c)
 		case "employee_id":
-			input := c.View == nil || c.View.Info.State == doctype.StateDraft
-			return input && !slices.Contains(c.Principal.Roles, auth.RoleAdministrator)
+			return !isAdmin(c.Principal) && asInput(c)
 		}
 		return false
 	}

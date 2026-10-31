@@ -52,10 +52,11 @@ const requestCardsOnly = true
 
 // requestHide hides Request date only as an input, on a new request or a
 // draft: Validate fills today and submit sets it again (CD-258 Q8 (a),
-// CD-327, CD-330 (1)). A nil View is a new record, except on the list and
-// search pages (Listing), which show it as a sort (CD-327 (1), CD-334).
+// CD-327, CD-330 (1)); Ordered the same way (P34). A nil View is a new
+// record, except on the list and search pages (Listing), which show them as
+// a sort and a filter (CD-327 (1), CD-334).
 func (m *module) requestHide(c docscreen.Ctx, f doctype.Field) bool {
-	return f.Name == "request_date" && !c.Listing && (c.View == nil || c.View.Info.State == doctype.StateDraft)
+	return (f.Name == "request_date" || f.Name == "order_status") && editing(c)
 }
 
 // requestLineCard is a request line's card: the quantity with its unit and
