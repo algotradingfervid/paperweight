@@ -99,6 +99,11 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		}
 		r.Method(http.MethodPost, "/ui/validate/{kind}", a.srv.Self(components.ValidateHandler(parsers())))
 
+		pw := purchaseweb.Deps{
+			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
+			CSRF: func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
+		}
+		a.docModules = purchaseweb.Modules(pw)
 		docs := chi.NewRouter()
 		docscreen.Routes(a.docDeps())(docs)
 		mount(r, docs, func(route string, h http.Handler) http.Handler {
@@ -120,10 +125,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		mount(r, modkit, self)
 
 		purchases := chi.NewRouter()
-		purchaseweb.Routes(purchaseweb.Deps{
-			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
-			CSRF: func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
-		})(purchases)
+		purchaseweb.Routes(pw)(purchases)
 		mount(r, purchases, self)
 		exp := chi.NewRouter()
 		expenseweb.Routes(expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files})(exp)
@@ -225,6 +227,7 @@ func (a *App) docDeps() docscreen.Deps {
 		Parse:     parsers(),
 		// A posted link shows its target's label only to a reader (CD-233).
 		LinkRead: mstkit.Env{Auth: a.auth}.CanLinkTargetTx,
+		Modules:  a.docModules,
 	}
 }
 
