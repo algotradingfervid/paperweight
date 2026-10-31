@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,27 +17,57 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// MOD-PO P1 Do 3 (CD-46, CD-256; review focus): every P1 module route is
-// mounted behind AUTH's guard and answers 501 until its owner builds it. A
-// guest is sent to sign in (a POST gets 401), and a POST without the CSRF token gets AUTH's
-// refusal before the stub.
+// MOD-PO P1 Do 3 (CD-46, CD-256; AD-13 ruling on the route tests): every
+// purchase module route is mounted behind AUTH's guard. A signed-in
+// Administrator, on a real approved PO and submitted request, gets neither
+// 404 nor 405, and no handler panics (500). A guest is sent to sign in: a GET
+// is redirected (303) and a POST gets 401. A POST without the CSRF token gets
+// AUTH's 403. What each route answers is its owner's test.
 func TestApp_PurchaseRoutesStubbed(t *testing.T) {
 	w := newWorld(t)
-	w.seedUsers()
+	admin, _, _ := w.canonical()
+	ctx := context.Background()
+	id := func(table, code string) string {
+		t.Helper()
+		return w.text(`SELECT CAST(id AS TEXT) FROM `+table+` WHERE code = ?`, code)
+	}
+	header := map[string]string{"site_id": id("site", "METRO-SITE"), "project_id": id("project", "PRJ-METRO")}
+	line := map[string]string{"item_id": id("item", "MS-ANGLE-50"), "uom_id": id("uom", "KGS"), "qty": "100"}
+	approved := func(dt string, values, line map[string]string) int64 {
+		t.Helper()
+		res, err := w.app.Engine().Do(ctx, admin, dt, 0, doctype.ActionSave, doc.ActionInput{Values: values, Lines: []map[string]string{line}})
+		if err != nil {
+			t.Fatalf("save %s as admin: %v", dt, err)
+		}
+		res, err = w.app.Engine().Do(ctx, admin, dt, res.ID, doctype.ActionSubmit, doc.ActionInput{Version: res.Version})
+		if err != nil || res.State != doctype.StateApproved {
+			t.Fatalf("submit %s %d as admin = %s, %v; want approved", dt, res.ID, res.State, err)
+		}
+		return res.ID
+	}
+	poValues := map[string]string{"vendor_id": id("party", "SHREE"), "order_date": "2026-10-24"}
+	maps.Copy(poValues, header)
+	poLine := map[string]string{"price": "62.5", "tax_code_id": id("tax_code", "GST18"), "hsn_sac": "7216"}
+	maps.Copy(poLine, line)
+	prValues := map[string]string{"request_date": "2026-10-24"}
+	maps.Copy(prValues, header)
+	po := strconv.FormatInt(approved(purchase.DocType, poValues, poLine), 10)
+	pr := strconv.FormatInt(approved(purchase.RequestDocType, prValues, line), 10)
+
 	routes := []struct{ method, path string }{
 		{http.MethodGet, "/modules/purchase"},
 		{http.MethodGet, "/modules/purchase/q/to-send"},
-		{http.MethodGet, "/modules/purchase/orders/1/handover"},
-		{http.MethodPost, "/modules/purchase/orders/1/handover"},
-		{http.MethodGet, "/modules/purchase/orders/1/send"},
-		{http.MethodPost, "/modules/purchase/orders/1/send"},
-		{http.MethodPost, "/modules/purchase/orders/1/send/undo"},
-		{http.MethodPost, "/modules/purchase/orders/1/copy"},
-		{http.MethodGet, "/modules/purchase/orders/1/expected"},
-		{http.MethodPost, "/modules/purchase/orders/1/expected"},
-		{http.MethodPost, "/modules/purchase/orders/1/expected/clear"},
-		{http.MethodGet, "/modules/purchase/requests/1/order"},
-		{http.MethodPost, "/modules/purchase/requests/1/order"},
+		{http.MethodGet, "/modules/purchase/orders/" + po + "/handover"},
+		{http.MethodPost, "/modules/purchase/orders/" + po + "/handover"},
+		{http.MethodGet, "/modules/purchase/orders/" + po + "/send"},
+		{http.MethodPost, "/modules/purchase/orders/" + po + "/send"},
+		{http.MethodPost, "/modules/purchase/orders/" + po + "/send/undo"},
+		{http.MethodPost, "/modules/purchase/orders/" + po + "/copy"},
+		{http.MethodGet, "/modules/purchase/orders/" + po + "/expected"},
+		{http.MethodPost, "/modules/purchase/orders/" + po + "/expected"},
+		{http.MethodPost, "/modules/purchase/orders/" + po + "/expected/clear"},
+		{http.MethodGet, "/modules/purchase/requests/" + pr + "/order"},
+		{http.MethodPost, "/modules/purchase/requests/" + pr + "/order"},
 		{http.MethodGet, "/reports/purchase/pending"},
 		{http.MethodGet, "/reports/purchase/pending/filter"},
 		{http.MethodGet, "/reports/purchase/pending/export.csv"},
@@ -45,7 +76,7 @@ func TestApp_PurchaseRoutesStubbed(t *testing.T) {
 	b := w.signedIn(adminEmail)
 	noToken := *b
 	noToken.csrf = ""
-	form := url.Values{"version": {"1"}}
+	form := url.Values{"version": {w.text(`SELECT CAST(version AS TEXT) FROM purchase_order WHERE id = ?`, po)}}
 	for _, rt := range routes {
 		send := func(br *browser) *response {
 			if rt.method == http.MethodPost {
@@ -61,8 +92,9 @@ func TestApp_PurchaseRoutesStubbed(t *testing.T) {
 		} else if r := guest.get(rt.path); r.status != http.StatusSeeOther || r.location() != "/signin?next="+url.QueryEscape(rt.path) {
 			t.Errorf("guest GET %s = %d Location %q, want 303 to the sign-in page", rt.path, r.status, r.location())
 		}
-		if r := send(b); r.status != http.StatusNotImplemented {
-			t.Errorf("signed in %s %s = %d (%q), want 501", rt.method, rt.path, r.status, r.pageText())
+		switch r := send(b); r.status {
+		case http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusInternalServerError:
+			t.Errorf("signed in %s %s = %d (%q), want the route mounted (not 404, 405 or a 500 panic)", rt.method, rt.path, r.status, r.pageText())
 		}
 		if rt.method == http.MethodPost {
 			if r := send(&noToken); r.status != http.StatusForbidden || r.alert() != auth.ErrCSRF.Msg {
