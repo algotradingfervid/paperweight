@@ -90,6 +90,9 @@ func (e *engine) do(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocTyp
 	}
 	decision := a == ActionApprove || a == ActionReject
 	right, known := rights[a]
+	if a == ActionClose && dt.CloseRight != "" {
+		right = auth.Right(dt.CloseRight) // CD-255
+	}
 	if !known {
 		// approve, reject: visibility only, CheckApprover owns the approve
 		// right (CD-52); an unknown action is refused by guard below.
@@ -109,9 +112,9 @@ func (e *engine) do(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocTyp
 	}
 	var refusal *Error
 	if decision && d.State != StatePending {
-		refusal = e.notWaiting(ctx, tx, d, x)
+		refusal = e.notWaiting(ctx, tx, dt, d, x)
 	} else {
-		refusal = guard(d.State, a, x)
+		refusal = guard(dt, d.State, a, x)
 	}
 	if refusal != nil {
 		return Result{}, refusal

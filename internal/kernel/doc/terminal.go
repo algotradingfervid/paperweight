@@ -12,6 +12,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
@@ -44,6 +45,11 @@ func (e *engine) close(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Doc
 	}
 	if err := e.transition(ctx, tx, p, d, ActionClose, StateClosed, why, nil); err != nil {
 		return Result{}, err
+	}
+	if c, ok := dt.Hooks.(doctype.Closer); ok {
+		if err := c.OnClose(ctx, tx, d.ID); err != nil {
+			return Result{}, err // returned as is, like any hook error (CD-247)
+		}
 	}
 	return Result{ID: d.ID, State: StateClosed, Number: d.Number, Version: d.Version + 1}, nil
 }
@@ -176,6 +182,7 @@ func (e *engine) amend(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Doc
 	if err := e.Files.CopyAll(ctx, tx, *recordRef(dt, d), *recordRef(dt, n)); err != nil {
 		return Result{}, err
 	}
+	_ = dt.Hooks.Validate(ctx, tx, n.ID) // its writes (snapshots) stay; a draft may hold problems (PO spec §15 item 8)
 	links := normalized{links: map[linkKey]MasterInfo{}}
 	if err := storedLinks(ctx, tx, dt, n, &links); err != nil {
 		return Result{}, err

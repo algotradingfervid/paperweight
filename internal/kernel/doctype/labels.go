@@ -14,8 +14,14 @@ var stateLabels = map[State]string{
 	StateCancelled: "Cancelled",
 }
 
-// StateLabel is the label users see for s.
-func StateLabel(s State) string { return stateLabels[s] }
+// StateLabel is the label users see for s on dt: dt's StateLabels entry when
+// non-blank, else the global label (CD-255).
+func StateLabel(dt DocType, s State) string {
+	if l := dt.StateLabels[s]; l != "" {
+		return l
+	}
+	return stateLabels[s]
+}
 
 // Actions returns every Action in §5 order.
 func Actions() []Action {
