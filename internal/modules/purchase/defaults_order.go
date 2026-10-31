@@ -34,8 +34,20 @@ func vendorAddress(ctx context.Context, tx *db.Tx, h dbq.OrderForValidateRow) (i
 }
 
 // paymentTerms is the PO's payment terms: the chosen ones, else the vendor's
-// (MST-050; 0 when it has none or they are disabled).
+// (MST-050; 0 when it has none or they are disabled). When the vendor
+// changed since the last save (snap_vendor_id differs), terms equal to the
+// old vendor's default (as set, even if now disabled) were not chosen and
+// take the new vendor's (CD-309 (4)).
 func paymentTerms(ctx context.Context, tx *db.Tx, h dbq.OrderForValidateRow) (int64, error) {
+	if h.PaymentTermsID != 0 && h.SnapVendorID != 0 && h.SnapVendorID != h.VendorID {
+		old, err := parties.Get(ctx, tx, h.SnapVendorID)
+		if err != nil {
+			return 0, err
+		}
+		if old.DefaultPaymentTermsID == h.PaymentTermsID {
+			h.PaymentTermsID = 0
+		}
+	}
 	if h.PaymentTermsID != 0 {
 		return h.PaymentTermsID, nil
 	}

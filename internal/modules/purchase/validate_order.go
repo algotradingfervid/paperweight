@@ -112,36 +112,59 @@ func validateOrder(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldErro
 	errs = append(errs, fe...)
 	lines, lineOK, fe := checkLines(ctx, tx, h, site.ProjectID.Int64, rows)
 	errs = append(errs, fe...)
+	t := lineTotals(lines, lineOK, category, supplierState, placeState, h.ReverseCharge != 0)
+	over := overLimit(t)
+	if over {
+		errs = append(errs, doctype.FieldError{Field: "lines", Message: fmt.Sprintf(msgTotalTooLarge, types.FormatINR(types.MaxMoney))})
+	}
 	errs = append(errs, checkEarlierPO(h, rows)...)
 
 	if h.State == string(doctype.StateDraft) {
 		must(q.SetOrderVendor(ctx, vendor))
 		must(q.SetOrderSite(ctx, site))
-		writeOrder(ctx, q, id, h, rows, lines, lineOK, category, supplierState, placeState)
+		writeOrder(ctx, q, id, h, rows, lines, lineOK, t, over)
 	}
 	return append(errs, checkRequestRows(ctx, tx, id)...)
 }
 
-// writeOrder writes every line, with its GST (a line whose own check failed
-// has its amount and GST cleared), and the header's terms default, totals
-// (the sums of the lines as written) and receipt_status.
+// lineTotals are the order's totals over its lines (a line whose own check
+// failed counts as 0).
+func lineTotals(lines []dbq.SetOrderLineValidatedParams, lineOK []bool, category, supplierState, placeState string, reverseCharge bool) gstcalc.DocTotals {
+	amounts, rates := make([]types.Money, len(lines)), make([]types.Percent, len(lines))
+	for i, l := range lines {
+		if lineOK[i] {
+			amounts[i], rates[i] = types.Money(l.Amount.Int64), types.Percent(l.SnapGstRate)
+		}
+	}
+	return orderTotals(category, supplierState, placeState, reverseCharge, amounts, rates)
+}
+
+// overLimit: a header total is above the money maximum (CD-308).
+func overLimit(t gstcalc.DocTotals) bool {
+	for _, m := range []types.Money{t.Net, t.CGST, t.SGST, t.IGST, t.Grand, t.Rounded} {
+		if m > types.MaxMoney {
+			return true
+		}
+	}
+	return false
+}
+
+// writeOrder writes every line, with its GST from t (a line whose own check
+// failed has its amount and GST cleared), and the header's terms default,
+// totals (t, the sums of the lines as written; all 0 when over the maximum,
+// CD-308) and receipt_status.
 func writeOrder(ctx context.Context, q *dbq.Queries, id int64, h dbq.OrderForValidateRow, rows []dbq.OrderLinesForValidateRow,
-	lines []dbq.SetOrderLineValidatedParams, lineOK []bool, category, supplierState, placeState string) {
+	lines []dbq.SetOrderLineValidatedParams, lineOK []bool, t gstcalc.DocTotals, over bool) {
 	tot := dbq.SetOrderTotalsParams{ID: id, Terms: h.Terms}
 	if h.Terms == "" {
 		var err error
 		tot.Terms, err = q.DefaultPOTerms(ctx)
 		must(err)
 	}
-	amounts, rates := make([]types.Money, len(lines)), make([]types.Percent, len(lines))
 	receipt := make([]ReceiptLine, len(lines))
-	for i, l := range lines {
-		if lineOK[i] {
-			amounts[i], rates[i] = types.Money(l.Amount.Int64), types.Percent(l.SnapGstRate)
-		}
+	for i := range lines {
 		receipt[i] = ReceiptLine{Qty: types.Qty(rows[i].Qty), Already: types.Qty(rows[i].AlreadyReceived), Received: types.Qty(rows[i].ReceivedQty)}
 	}
-	t := orderTotals(category, supplierState, placeState, h.ReverseCharge != 0, amounts, rates)
 	for i := range lines {
 		if lineOK[i] {
 			lines[i].Cgst, lines[i].Sgst, lines[i].Igst = valid(int64(t.Lines[i].CGST)), valid(int64(t.Lines[i].SGST)), valid(int64(t.Lines[i].IGST))
@@ -150,8 +173,10 @@ func writeOrder(ctx context.Context, q *dbq.Queries, id int64, h dbq.OrderForVal
 		}
 		must(q.SetOrderLineValidated(ctx, lines[i]))
 	}
-	tot.NetTotal, tot.CgstTotal, tot.SgstTotal, tot.IgstTotal = int64(t.Net), int64(t.CGST), int64(t.SGST), int64(t.IGST)
-	tot.GrandTotal, tot.RoundedTotal = int64(t.Grand), int64(t.Rounded)
+	if !over {
+		tot.NetTotal, tot.CgstTotal, tot.SgstTotal, tot.IgstTotal = int64(t.Net), int64(t.CGST), int64(t.SGST), int64(t.IGST)
+		tot.GrandTotal, tot.RoundedTotal = int64(t.Grand), int64(t.Rounded)
+	}
 	tot.ReceiptStatus = receiptStatusOf(receipt)
 	must(q.SetOrderTotals(ctx, tot))
 }
