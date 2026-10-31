@@ -30,6 +30,7 @@ import (
 	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	expenseweb "github.com/vardhan/internaltools/internal/modules/expense/web"
+	grnweb "github.com/vardhan/internaltools/internal/modules/goodsreceipt/web"
 	modkitweb "github.com/vardhan/internaltools/internal/modules/modkit/web"
 	purchaseweb "github.com/vardhan/internaltools/internal/modules/purchase/web"
 	"github.com/vardhan/internaltools/internal/platform/brand"
@@ -127,6 +128,15 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		purchases := chi.NewRouter()
 		purchaseweb.Routes(pw)(purchases)
 		mount(r, purchases, self)
+		grns := chi.NewRouter()
+		grnweb.Routes(grnweb.Deps{Service: a.grn})(grns)
+		mount(r, grns, func(route string, h http.Handler) http.Handler {
+			dt, right, ok := grnweb.Guard(route)
+			if !ok {
+				panic("app: goodsreceipt route " + route + " has no guard")
+			}
+			return a.srv.Right(dt, right, h)
+		})
 		exp := chi.NewRouter()
 		expenseweb.Routes(expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files})(exp)
 		mount(r, exp, func(route string, h http.Handler) http.Handler {

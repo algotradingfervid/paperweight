@@ -39,7 +39,7 @@ func (s *Service) AdvanceChoices(ctx context.Context, p auth.Principal, employee
 			return err
 		}
 		for _, r := range rows {
-			ok, err := s.readsAdvance(ctx, tx, p, r.ID, r.CreatedBy, r.EmployeeID)
+			ok, err := s.readsAdvance(ctx, tx, p, r.ID)
 			if err != nil {
 				return err
 			}
@@ -98,7 +98,7 @@ func (s *Service) AdvanceWarnings(ctx context.Context, p auth.Principal, advance
 			if r.ID == advanceID {
 				continue
 			}
-			ok, err := s.readsAdvance(ctx, tx, p, r.ID, r.CreatedBy, r.EmployeeID)
+			ok, err := s.readsAdvance(ctx, tx, p, r.ID)
 			if err != nil {
 				return err
 			}
@@ -126,19 +126,19 @@ func (s *Service) readAdvance(ctx context.Context, tx *db.Tx, p auth.Principal, 
 	if err != nil {
 		return a, err
 	}
-	ok, err := s.readsAdvance(ctx, tx, p, id, a.CreatedBy, a.EmployeeID)
+	ok, err := s.readsAdvance(ctx, tx, p, id)
 	if err == nil && !ok {
 		err = doc.Gone()
 	}
 	return a, err
 }
 
-// readsAdvance reports whether p may read advance id: a record outside p's
-// read scope is ErrNotFound, no read grant at all is ErrForbidden. The
-// advance declares no ProjectFields or SiteFields (spec §4).
-func (s *Service) readsAdvance(ctx context.Context, tx *db.Tx, p auth.Principal, id, createdBy int64, employee sql.NullInt64) (bool, error) {
-	rec := auth.RecordRef{DocType: AdvanceDocType, ID: id, CreatedBy: auth.UserID(createdBy), EmployeeID: employee.Int64}
-	err := s.deps.Auth.CanTx(ctx, tx, p, AdvanceDocType, auth.RightRead, &rec)
+// readsAdvance reports whether p may read advance id. AUTH builds the
+// record from the document's Info in tx (CD-312), so the check follows the
+// DocType's rights fields; a missing advance is ErrNotFound and one p can't
+// read a *LinkError (ErrForbidden).
+func (s *Service) readsAdvance(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) (bool, error) {
+	err := s.deps.Auth.CheckLinkTx(ctx, tx, p, AdvanceDocType, id)
 	if errors.Is(err, auth.ErrNotFound) || errors.Is(err, auth.ErrForbidden) {
 		return false, nil
 	}

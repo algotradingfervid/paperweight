@@ -3,6 +3,7 @@ package gallery
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -255,7 +256,24 @@ func gridRows(n int) []components.LineGridRow {
 			out[i].MoveDownURL = "/_gallery/lines"
 		}
 	}
+	// Line 2, with both move buttons, holds the largest rate and line
+	// amount the app accepts, so the widest row is checked (M0-35).
+	if n > 1 {
+		out[1] = largestGridRow(out[1])
+	}
 	return out
+}
+
+// largestRate is types.MaxRate as typed, with all four decimals.
+const largestRate = "10,00,00,000.0000"
+
+// largestGridRow is row r with the largest rate and line amount.
+func largestGridRow(r components.LineGridRow) components.LineGridRow {
+	id := "grid-" + strconv.Itoa(r.No)
+	cells := slices.Clone(r.Cells)
+	cells[3].Input = components.RateInput(components.FieldProps{ID: id + "-rate", Name: "rate", Label: "Rate", Value: largestRate})
+	r.Cells, r.Amount = cells, types.FormatINR(types.MaxMoney)
+	return r
 }
 
 // gridRow is line no of the grid with its item, quantity and quantity error.

@@ -206,22 +206,15 @@ func checkSource(ctx context.Context, tx *db.Tx, t *DocType, field string, line 
 	if !ok {
 		return nil, nil // an empty value is the required check's job
 	}
-	q := "SELECT id, number, state FROM " + quote(t.Table) + " WHERE id = ?"
-	missing := msgLinkNotFound
-	if line > 0 {
-		q = "SELECT sh.id, sh.number, sh.state FROM " + quote(t.LinesTable) + " tl JOIN " + quote(t.Table) +
-			" sh ON sh.id = tl.parent_id WHERE tl.id = ?"
-		missing = msgSourceLineNotFound
-	}
-	rows, err := scanHeads(ctx, tx, q, id)
+	rows, err := sourceHeads(ctx, tx, t, line, id)
 	if err != nil {
-		return nil, fmt.Errorf("doc: read source %s %d: %w", t.Name, id, err)
+		return nil, err
 	}
 	fe := func(msg string) *FieldError {
 		return &FieldError{Field: field, Line: line, Message: linePrefix(line) + msg}
 	}
 	if len(rows) == 0 {
-		return fe(fmt.Sprintf(missing, missingLabel)), nil
+		return missingSource(field, line, missingLabel), nil
 	}
 	s, label := naming.Label(rows[0].Number, rows[0].ID), strings.ToLower(t.Label)
 	switch rows[0].State {
@@ -238,6 +231,64 @@ func checkSource(ctx context.Context, tx *db.Tx, t *DocType, field string, line 
 		return fe(fmt.Sprintf(msgSourceClosed, s, label)), nil
 	}
 	return fe(fmt.Sprintf(msgSourceNotApproved, s, label)), nil // draft, rejected
+}
+
+// sourceHeads reads the source document of header id (line 0) or, with
+// line > 0, of line id of t: one row, or none when it doesn't exist.
+func sourceHeads(ctx context.Context, tx *db.Tx, t *DocType, line int, id int64) ([]head, error) {
+	q := "SELECT id, number, state FROM " + quote(t.Table) + " WHERE id = ?"
+	if line > 0 {
+		q = "SELECT sh.id, sh.number, sh.state FROM " + quote(t.LinesTable) + " tl JOIN " + quote(t.Table) +
+			" sh ON sh.id = tl.parent_id WHERE tl.id = ?"
+	}
+	rows, err := scanHeads(ctx, tx, q, id)
+	if err != nil {
+		return nil, fmt.Errorf("doc: read source %s %d: %w", t.Name, id, err)
+	}
+	return rows, nil
+}
+
+// missingSource is checkSource's error for a source that doesn't exist.
+func missingSource(field string, line int, label string) *FieldError {
+	missing := msgLinkNotFound
+	if line > 0 {
+		missing = msgSourceLineNotFound
+	}
+	return &FieldError{Field: field, Line: line, Message: linePrefix(line) + fmt.Sprintf(missing, label)}
+}
+
+// missingSources returns missingSource for every LinkSpec value of n that
+// names no row of its target, in line order (CD-314). create and save refuse
+// with them before anything is written, so a foreign key never fails.
+func missingSources(ctx context.Context, tx *db.Tx, dt *DocType, n *normalized) ([]FieldError, error) {
+	var errs []FieldError
+	check := func(t *DocType, field string, line int, v any, label string) error {
+		id, ok := intOf(v)
+		if !ok {
+			return nil
+		}
+		rows, err := sourceHeads(ctx, tx, t, line, id)
+		if err == nil && len(rows) == 0 {
+			errs = append(errs, *missingSource(field, line, label))
+		}
+		return err
+	}
+	for _, ls := range dt.Links {
+		t, _ := Lookup(ls.Target) // NewEngine's CheckRegistry refuses an unknown target
+		if !ls.OnLine {
+			f, _ := dt.Field(ls.Field)
+			if err := check(t, ls.Field, 0, n.Header[ls.Field], f.Label); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		for i, l := range n.Lines {
+			if err := check(t, ls.Field, i+1, l.Values[ls.Field], t.Label); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return errs, nil
 }
 
 // checkBlockers refuses cancelling d (display x) while linked documents are

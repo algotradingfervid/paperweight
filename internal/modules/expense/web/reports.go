@@ -53,10 +53,12 @@ var reportSpecs = map[string]reportSpec{
 	},
 }
 
-// The DataList columns of each report (UX §5.13 to §5.15).
+// The DataList columns of each report (UX §5.13 to §5.15). NoWrap (at most
+// 3): record numbers, GSTINs, project and site codes and a bare date; never
+// a cell that also holds free text (a name or purpose could widen the track).
 var (
 	openColumns = []components.Column{
-		{Key: "claim", Label: "Claim", Priority: components.PTitle, Code: true},
+		{Key: "claim", Label: "Claim", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "to_pay", Label: "To pay", Priority: components.PFigure, Num: true},
 		{Key: "employee", Label: "Employee", Priority: components.PMeta},
 		{Key: "purpose", Label: "Purpose", Priority: components.PMeta},
@@ -65,21 +67,21 @@ var (
 		{Key: "totals", Label: "Total and less advance", Priority: components.PLow},
 	}
 	linesColumns = []components.Column{
-		{Key: "line", Label: "Claim and line", Priority: components.PTitle, Code: true},
+		{Key: "line", Label: "Claim and line", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "amount", Label: "Amount", Priority: components.PFigure, Num: true},
 		{Key: "type_date", Label: "Type and date", Priority: components.PMeta},
 		{Key: "employee", Label: "Employee", Priority: components.PMeta},
 		{Key: "receipt", Label: "Receipt", Priority: components.PMeta},
-		{Key: "place", Label: "Project and site", Priority: components.PLow, Code: true},
-		{Key: "gst", Label: "GST details", Priority: components.PLow},
+		{Key: "place", Label: "Project and site", Priority: components.PLow, Code: true, NoWrap: true},
+		{Key: "gst", Label: "GST details", Priority: components.PLow, NoWrap: true},
 		{Key: "state", Label: "State", Priority: components.PState},
 	}
 	advancesColumns = []components.Column{
-		{Key: "advance", Label: "Advance", Priority: components.PTitle, Code: true},
+		{Key: "advance", Label: "Advance", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "left", Label: "Left", Priority: components.PFigure, Num: true},
 		{Key: "employee", Label: "Employee", Priority: components.PMeta},
 		{Key: "date_purpose", Label: "Date and purpose", Priority: components.PMeta},
-		{Key: "paid", Label: "Paid on", Priority: components.PMeta},
+		{Key: "paid", Label: "Paid on", Priority: components.PMeta, NoWrap: true},
 		{Key: "amounts", Label: "Amount and used", Priority: components.PLow},
 		{Key: "age", Label: "Age", Priority: components.PMeta},
 	}

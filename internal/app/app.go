@@ -34,6 +34,7 @@ import (
 	companyweb "github.com/vardhan/internaltools/internal/masters/company/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/modkit"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/clock"
@@ -81,6 +82,7 @@ type App struct {
 	masters   *allmasters.Services
 	comments  *modkit.Comments
 	purchase  *purchase.Service
+	grn       *goodsreceipt.Service
 	expense   *expense.Service
 	router    chi.Router
 	screens   map[string]bool // the mounted master list paths
@@ -189,6 +191,10 @@ func New(ctx context.Context, cfg Config) (a *App, err error) {
 	a.purchase = purchase.New(purchase.ServiceDeps{
 		DB: d, Engine: a.engine, Auth: a.auth, Audit: audit.Default, Approvals: a.approvals, Comments: a.comments, Clock: cfg.Clock,
 	})
+	// goodsreceipt's hooks read their dependencies for this database only (CD-284).
+	grnDeps := goodsreceipt.Deps{DB: d, Clock: cfg.Clock, Auth: a.auth, Audit: audit.Default, Files: a.files}
+	goodsreceipt.Wire(d, grnDeps)
+	a.grn = goodsreceipt.New(grnDeps)
 	// Expense's hooks reach their dependencies through its Wiring, per
 	// database (CD-284).
 	expenseDeps := expense.Deps{

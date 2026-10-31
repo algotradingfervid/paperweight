@@ -1,0 +1,23 @@
+version: "2"
+sql:
+  - engine: sqlite
+    # Only goodsreceipt's own migrations and those of the tables it reads
+    # (CD-117): add every later migration that alters one of them.
+    schema:
+      - ../../../migrations/00100_auth_users.sql
+      - ../../../migrations/00300_audit_log.sql
+      - ../../../migrations/00500_attachment.sql
+      - ../../../migrations/01150_party.sql
+      - ../../../migrations/01200_address_contact.sql
+      - ../../../migrations/01250_uom.sql
+      - ../../../migrations/01350_item.sql
+      - ../../../migrations/01400_project.sql
+      - ../../../migrations/01450_site.sql
+      - ../../../migrations/10050_purchase_order.sql
+      - ../../../migrations/10200_goods_receipt.sql
+      - ../../../migrations/10210_grn_bill.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq

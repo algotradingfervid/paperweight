@@ -345,6 +345,74 @@ type ExpenseType struct {
 	UpdatedBy        sql.NullInt64
 }
 
+type GoodsReceipt struct {
+	ID                int64
+	Number            sql.NullString
+	State             string
+	StateReason       string
+	AmendedFromID     sql.NullInt64
+	AmendmentRootID   sql.NullInt64
+	AmendmentNo       int64
+	Version           int64
+	CreatedAt         string
+	CreatedBy         int64
+	UpdatedAt         string
+	UpdatedBy         int64
+	PurchaseOrderID   sql.NullInt64
+	VendorID          sql.NullInt64
+	SiteID            sql.NullInt64
+	ProjectID         sql.NullInt64
+	ReceiptDate       sql.NullString
+	ChallanKind       string
+	ChallanNo         string
+	ChallanDate       sql.NullString
+	VehicleNo         string
+	Transporter       string
+	EwayBillNo        string
+	Remarks           string
+	RestNotComing     int64
+	AcceptedValue     sql.NullInt64
+	SnapVendorName    sql.NullString
+	SnapVendorGstin   sql.NullString
+	SnapVendorAddress sql.NullString
+	SnapPoNumber      sql.NullString
+	SnapPoDate        sql.NullString
+	SnapSiteName      sql.NullString
+	SnapProjectCode   sql.NullString
+	SnapBranchID      sql.NullInt64
+}
+
+type GoodsReceiptLine struct {
+	ID            int64
+	ParentID      int64
+	LineNo        int64
+	PoLineID      sql.NullInt64
+	UomID         sql.NullInt64
+	ReceivedQty   sql.NullInt64
+	RejectedQty   sql.NullInt64
+	AcceptedQty   sql.NullInt64
+	RejectReason  string
+	SnapItemCode  sql.NullString
+	SnapItemName  sql.NullString
+	SnapHsnSac    sql.NullString
+	SnapUomCode   sql.NullString
+	SnapRate      sql.NullInt64
+	SnapIsService sql.NullInt64
+}
+
+type GrnBill struct {
+	ID            int64
+	GrnID         int64
+	InvoiceNo     string
+	InvoiceDate   string
+	InvoiceAmount sql.NullInt64
+	Version       int64
+	CreatedAt     string
+	CreatedBy     int64
+	UpdatedAt     string
+	UpdatedBy     int64
+}
+
 type GstState struct {
 	Code string
 	Name string

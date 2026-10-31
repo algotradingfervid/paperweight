@@ -318,7 +318,16 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | S4 | Expense report pages and filter pages | Standard | impl, rev opus (AD-11) | — | — | 2 | 19/19 mutants | faf02b1; make ci 0 (P1 720/813), e2e 0 |
 | M0-37 | Letterhead prints state and GSTIN once (CD-309 (6)) | Light | impl opus (head) | — | — | 1 | head review | ad3f595; make ci 0 |
 | M0-36 | DataList blank cells, separators, NoWrap tracks; Picker (CD-307) | Standard | impl, rev opus (head) | — | — | 2 | 0/3/2→0/0/1 | fc3bfc2; make ci 0, e2e 0 |
-| E10 | Document total limit; less_advance NonNegative (CD-308, CD-311) | Standard | impl, rev opus (AD-11) | — | — | 2 | — | 0a374fe |
+| E10 | Document total limit; less_advance NonNegative (CD-308, CD-311) | Standard | impl, rev opus (AD-11) | — | — | 2 | — | 0a374fe; c673e99 make ci 0 (P1 720/813) |
+| M0-22 | Upload hooks: AlsoDisable, focus (CD-310), Enter during upload | Standard | tw, impl, rev opus (AD-10) | — | — | 5 | 0/1/2→…→0/0/0 | 8625703; make ci 0 (P1 727/816), e2e 0 |
+| M0-35 | Line grid content minimums, subgrid; fixture.Order received_qty ReadOnly (CD-308; folds M0-39) | Standard | impl, rev opus (AD-10) | — | — | 4 | 0/2/2→…→0/0/0 | 8625703 |
+| M0-38 | Screens filtered list for DocTypes without a filterable state | Light | impl, rev opus (AD-10) | — | — | 2 | 0/2/1→0/0/0 | 8625703 |
+| S4b | Report NoWrap opt-in (records, project/site, GSTIN, Paid on) | Light | impl, rev opus (AD-11) | — | — | 1 | — | b17d4e4 |
+| MOD-PO batch 2 | P3, P8, P9, P12, P15-0, P20, P21 (CD-312, CD-316) | High/Std | tw, impl, rev opus (AD-13) | — | — | 1–2 | — | 3d10fa1 |
+| P6 | Request rows and order status | High | tw, impl, rev opus (AD-13) | 13:55 | 15:38 | 3 | rev 1 test gaps; fix 2 closed by 8 mutant kills | 3d10fa1 (b4b2316) |
+| E11 | Expense document reads through CheckLinkTx (CD-312) | Standard | impl, rev opus (AD-11) | — | — | 1 | 6/6 mutants | 3d10fa1 |
+| G1 | GRN skeleton | High | tw, impl, rev opus (AD-12) | — | — | 1 | — | 7b4a554 |
+| M0-43 | PartyBlock prints nothing for an empty party (CD-316 (5)) | Light | impl opus (head) | — | — | 1 | head review | e50ceff |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 

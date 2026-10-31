@@ -53,8 +53,12 @@ func (e *engine) create(ctx context.Context, tx *db.Tx, p auth.Principal, dt *Do
 	if n.err != nil {
 		return Result{}, n.err
 	}
-	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs, requiredErrs))
-	if len(parseErrs) > 0 || len(readOnlyErrs) > 0 || missingLink(dt, &n) {
+	sourceErrs, err := missingSources(ctx, tx, dt, &n)
+	if err != nil {
+		return Result{}, err
+	}
+	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs, requiredErrs, sourceErrs))
+	if len(parseErrs) > 0 || len(readOnlyErrs) > 0 || len(sourceErrs) > 0 || missingLink(dt, &n) {
 		return Result{}, invalid(errs) // nothing written: a foreign key would fail
 	}
 
@@ -123,8 +127,12 @@ func (e *engine) save(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocT
 	if pos := foreignLine(d, &n); pos > 0 {
 		return Result{}, Refused(fmt.Sprintf(msgForeignLine, pos))
 	}
-	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs, requiredErrs))
-	if len(parseErrs) > 0 || len(readOnlyErrs) > 0 || missingLink(dt, &n) {
+	sourceErrs, err := missingSources(ctx, tx, dt, &n)
+	if err != nil {
+		return Result{}, err
+	}
+	errs := byPosition(dt, slices.Concat(parseErrs, readOnlyErrs, fieldErrs, requiredErrs, sourceErrs))
+	if len(parseErrs) > 0 || len(readOnlyErrs) > 0 || len(sourceErrs) > 0 || missingLink(dt, &n) {
 		return Result{}, invalid(errs) // nothing written: a foreign key would fail
 	}
 	if err := storedLinks(ctx, tx, dt, d, &n); err != nil {
