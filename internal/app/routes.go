@@ -227,6 +227,9 @@ func parsers() map[string]components.ParseFunc {
 	return out
 }
 
+// DocDeps is the generic document screens' Deps as routes built them.
+func (a *App) DocDeps() docscreen.Deps { return a.docDeps() }
+
 // docDeps is what the generic document screens read from (CD-78, CD-200).
 func (a *App) docDeps() docscreen.Deps {
 	return docscreen.Deps{

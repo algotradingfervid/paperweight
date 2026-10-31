@@ -57,10 +57,23 @@ type entry struct {
 	pos                        int
 }
 
+// lineInputs are the card fields, each drawn and posted only when Hide
+// shows it (CD-319).
+var lineInputs = []string{"received_qty", "rejected_qty", "reject_reason"}
+
+// shownInputs reports, by field name, whether Hide shows each card field.
+func shownInputs(c docscreen.Ctx) map[string]bool {
+	show := map[string]bool{}
+	for _, name := range lineInputs {
+		show[name] = shown(c, name)
+	}
+	return show
+}
+
 // entries are the cards' values by PO line id: posted (with the fill the
-// pressed button asked for) when posted, else the stored lines'. A posted
-// card's position counts the cards with a quantity in PO line order; a
-// stored line's is its line number.
+// pressed button asked for) when posted, else the stored lines'; a field
+// Hide hides keeps its stored value. A posted card's position counts the
+// cards with a quantity in PO line order; a stored line's is its line number.
 func entries(c docscreen.Ctx, lines []goodsreceipt.POLine, posted bool) map[int64]entry {
 	out := map[int64]entry{}
 	for _, lv := range c.View.Lines {
@@ -70,11 +83,17 @@ func entries(c docscreen.Ctx, lines []goodsreceipt.POLine, posted bool) map[int6
 	if !posted {
 		return out
 	}
-	fill, pos := c.Req.URL.Query().Get("fill"), 0
+	fill, pos, show := c.Req.URL.Query().Get("fill"), 0, shownInputs(c)
 	for _, l := range lines {
-		n := strconv.Itoa(l.No)
-		e := entry{received: c.Req.PostFormValue("received-" + n), rejected: c.Req.PostFormValue("rejected-" + n),
-			reason: c.Req.PostFormValue("reason-" + n), id: out[l.ID].id}
+		n, st := strconv.Itoa(l.No), out[l.ID]
+		read := func(name, key, stored string) string {
+			if show[name] {
+				return c.Req.PostFormValue(key + "-" + n)
+			}
+			return stored
+		}
+		e := entry{received: read("received_qty", "received", st.received), rejected: read("rejected_qty", "rejected", st.rejected),
+			reason: read("reject_reason", "reason", st.reason), id: st.id}
 		switch {
 		case fill == fillClear:
 			e.received = ""
@@ -170,6 +189,7 @@ func checkQty(l goodsreceipt.POLine, pos int, field, s string) (types.Qty, *doct
 type itemCard struct {
 	Title, Code                string
 	Received, Rejected, Reason components.FieldProps
+	Show                       map[string]bool // the fields Hide shows
 	Whole                      bool
 	UoM                        string
 	Open                       bool   // Some rejected
@@ -227,12 +247,13 @@ func (m *module) itemsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compon
 	}
 	rf, _ := c.DT.Field("reject_reason")
 	reasonMax := rf.MaxLen
-	somePending := false
+	somePending, show := false, shownInputs(c)
 	for _, l := range lines {
 		somePending = somePending || l.Pending > 0
 	}
 	for _, l := range lines {
 		card := cardOf(l, es[l.ID], s, warn[l.ID], reasonMax)
+		card.Show = show
 		if !somePending || l.Pending > 0 {
 			f.Cards = append(f.Cards, card)
 			continue

@@ -24,15 +24,22 @@ templ itemsView(f itemsForm) {
 }
 
 // itemCardView is one PO line's card: Received now at 56 px, its warning,
-// and Rejected with its reason under Some rejected.
+// and Rejected with its reason under Some rejected; each input only when
+// Hide shows its field (CD-319).
 templ itemCardView(c itemCard) {
 	@components.Card(c.Title, nil) {
 		<p class="code">{ c.Code }</p>
-		@components.LargeQtyInput(c.Received, c.Whole, c.UoM)
+		if c.Show["received_qty"] {
+			@components.LargeQtyInput(c.Received, c.Whole, c.UoM)
+		}
 		@components.Warnings(c.Warnings)
 		@components.Disclosure(labelSomeRejected, c.Open) {
-			@components.QtyInput(c.Rejected, c.Whole, c.UoM)
-			@components.TextInput(c.Reason)
+			if c.Show["rejected_qty"] {
+				@components.QtyInput(c.Rejected, c.Whole, c.UoM)
+			}
+			if c.Show["reject_reason"] {
+				@components.TextInput(c.Reason)
+			}
 			if c.Accepted != "" {
 				<p>{ c.Accepted }</p>
 			}
