@@ -44,8 +44,14 @@ func (b Bar) props(m Model) components.ActionBarProps {
 	}
 	if !b.NoPrimary {
 		p.Primary = &components.ButtonProps{Label: b.primary(), Variant: components.Primary}
+		if b.PrimaryNav != "" {
+			p.Primary.Name, p.Primary.Value = "nav", b.PrimaryNav
+		}
 	}
-	if b.Back {
+	switch {
+	case b.Back && b.BackLink != nil:
+		p.Secondary = &components.ButtonProps{Label: b.BackLink.Label, Href: b.BackLink.Href, Variant: components.Secondary}
+	case b.Back:
 		p.Secondary = &components.ButtonProps{Label: "Back", Name: "nav", Value: "back", Variant: components.Secondary}
 	}
 	return p
