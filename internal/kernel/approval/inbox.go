@@ -203,6 +203,46 @@ func (a *Approvals) Status(ctx context.Context, tx *db.Tx, dt string, id int64) 
 	return Status{}, nil
 }
 
+// StatusFor is Status with, while pending, why viewer is eligible and the
+// rule's reason (CD-263 G9(a)). Roles is "{claimant}'s reporting manager"
+// when viewer is the request's manager (CD-266, CD-290), or "Reporting
+// manager" when the claimant's employee has no linked user (CD-292); else the
+// request's roles viewer holds now, joined; "" when neither.
+func (a *Approvals) StatusFor(ctx context.Context, tx *db.Tx, viewer auth.Principal, dt string, id int64) (Status, error) {
+	st, err := a.Status(ctx, tx, dt, id)
+	if err != nil || !st.Pending {
+		return st, err
+	}
+	r, ok, err := a.openRequest(ctx, tx, dt, id)
+	if err != nil || !ok {
+		return st, err
+	}
+	st.Why = WhyText(r.FromAmount)
+	if r.ManagerUser != 0 && viewer.ID == r.ManagerUser {
+		name, err := a.userName(ctx, tx, r.Claimant)
+		if err != nil {
+			return Status{}, err
+		}
+		st.Roles = name + "'s reporting manager"
+		if name == "" { // no claimant user: User(0) finds no one
+			st.Roles = "Reporting manager"
+		}
+		return st, nil
+	}
+	var held []string
+	for _, role := range r.ApproverRoles {
+		ok, err := a.auth.HasRoleTx(ctx, tx, viewer.ID, role)
+		if err != nil {
+			return Status{}, err
+		}
+		if ok {
+			held = append(held, role)
+		}
+	}
+	st.Roles = joinRoles(held)
+	return st, nil
+}
+
 // resolve reads r's document; on error it logs and reports false (Review Focus 4).
 func (a *Approvals) resolve(ctx context.Context, tx *db.Tx, r Request) (doctype.Info, bool) {
 	in, err := a.info.Info(ctx, tx, r.DocType, r.DocID)

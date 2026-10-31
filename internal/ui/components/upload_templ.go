@@ -27,6 +27,7 @@ type UploadProps struct {
 	Accept, Target                 string
 	NoCamera                       bool
 	Files                          []Attachment
+	AlsoDisable                    string // more elements to disable while uploading (UX-E5)
 }
 
 // UploadInputID is the id of the Choose file input of the FileUpload with id
@@ -66,7 +67,7 @@ func FileUpload(p UploadProps) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 34, Col: 15}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 35, Col: 15}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -119,7 +120,7 @@ func FileUpload(p UploadProps) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-status")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 44, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 45, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
@@ -220,7 +221,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-hint " + p.ID + "-msg")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 69, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 70, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 				if templ_7745c5c3_Err != nil {
@@ -252,7 +253,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(UploadInputID(p.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 78, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 79, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 				if templ_7745c5c3_Err != nil {
@@ -265,7 +266,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(orDefault(p.Accept, "image/*,application/pdf"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 81, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 82, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 				if templ_7745c5c3_Err != nil {
@@ -278,7 +279,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-hint " + p.ID + "-msg")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 83, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 84, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 				if templ_7745c5c3_Err != nil {

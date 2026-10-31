@@ -73,7 +73,7 @@ The line link gives DOC-017's closed-source refusal, DOC-038's cancelled-source 
 - `vendor_id` and `uom_id` carry no restriction, so `System` plus `ReadOnly` keeps them out of input and out of master checks. Audit diffs leave them out (DOC-088).
 - A plain save never trusts the posted `site_id`: `Validate` resets it from the PO.
 
-Snapshot columns: `snap_vendor_name`, `snap_vendor_gstin`, `snap_vendor_address`, `snap_po_number`, `snap_po_date`, `snap_site_name`, `snap_project_code`, `snap_branch_id`. Amend copies none of these and runs no hook today (PO spec §15 item 8).
+Every save writes the snapshots and copied fields from the current PO, or clears them, never leaving an old value beside a changed input (CD-302). Snapshot columns: `snap_vendor_name`, `snap_vendor_gstin`, `snap_vendor_address`, `snap_po_number`, `snap_po_date`, `snap_site_name`, `snap_project_code`, `snap_branch_id`. Amend copies none of these and runs no hook today (PO spec §15 item 8).
 
 ### 3.2 Lines
 

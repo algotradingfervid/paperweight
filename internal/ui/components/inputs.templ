@@ -87,8 +87,14 @@ templ Textarea(p FieldProps, maxLen int) {
 // NumberInput is a text input checked by the server on change (CD-48); the
 // suffix sits outside the input.
 templ NumberInput(p FieldProps, k NumberKind, whole bool) {
+	@numberInput(p, k, whole, "join field__control")
+}
+
+// numberInput is NumberInput's body; control is the class of the box that
+// holds the input and its suffix.
+templ numberInput(p FieldProps, k NumberKind, whole bool, control string) {
 	@field(p) {
-		<div class="join field__control">
+		<div class={ control }>
 			<input
 				type="text"
 				if whole {
@@ -117,6 +123,12 @@ templ MoneyInput(p FieldProps) {
 // QtyInput shows the unit as the suffix; whole is for whole-number units.
 templ QtyInput(p FieldProps, whole bool, uom string) {
 	@NumberInput(withSuffix(p, uom), Qty, whole)
+}
+
+// LargeQtyInput is QtyInput at 56 px with 20 px figures, for a quantity
+// typed with gloves under time pressure (CD-282 Q4, CD-286).
+templ LargeQtyInput(p FieldProps, whole bool, uom string) {
+	@numberInput(withSuffix(p, uom), Qty, whole, "join field__control field__control--lg")
 }
 
 templ RateInput(p FieldProps) {
