@@ -88,6 +88,7 @@ package app_test
 
 import (
 	"cmp"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -290,8 +291,9 @@ type rsTally struct {
 	swept   map[string]bool // DocTypes whose subtest reached its end
 	lines   map[string]bool // DocTypes that went through the line cells
 	noLines map[string]bool // DocTypes whose line routes the NoLinePages skip checked
-	body    map[string]bool // DocTypes whose step Body drew a line error's input (lineTarget)
-	generic map[string]bool // DocTypes whose items step linked a line error by linesTarget
+	body    map[string]bool // DocTypes where lineTarget's first branch ran: the step's Body drew the line error's input
+	generic map[string]bool // DocTypes where lineTarget's last branch ran: no Body, so linesTarget
+	skipped map[string]bool // DocTypes whose subtest was skipped as a whole
 }
 
 func (y *rsTally) add(set *map[string]bool, name string) {
@@ -303,9 +305,18 @@ func (y *rsTally) add(set *map[string]bool, name string) {
 	(*set)[name] = true
 }
 
-// check runs when every DocType's subtest has finished; it checks nothing
-// when -run left one out or one stopped early (that one fails on its own).
+// check runs when every DocType's subtest has finished. A DocType skipped as
+// a whole fails it. It checks nothing more when -run filters below the
+// DocType level (the cells it counts may not run), left a DocType out, or one
+// stopped early (that one fails on its own).
 func (y *rsTally) check(t *testing.T) {
+	for name := range y.skipped {
+		t.Errorf("%s's subtest was skipped as a whole: the tally can't count its cells", name)
+	}
+	if f := flag.Lookup("test.run"); f != nil && len(strings.Split(f.Value.String(), "/")) > 2 {
+		t.Logf("tally not checked: -run %q filters below the DocType level, so cells it counts may not run", f.Value.String())
+		return
+	}
 	all := rsDocTypes()
 	if len(y.swept) < len(all) {
 		return
@@ -327,7 +338,7 @@ func (y *rsTally) check(t *testing.T) {
 		t.Errorf("no DocType's step Body drew a line error's input: the LineFieldID branch of lineTarget is untested")
 	}
 	if len(y.generic) == 0 {
-		t.Errorf("no DocType's items step linked a line error by linesTarget: the generic branch of lineTarget is untested")
+		t.Errorf("no DocType's items step without a Body linked a line error by linesTarget: the generic branch of lineTarget is untested")
 	}
 }
 
@@ -836,11 +847,11 @@ func (d *rsDoc) wantProbe(i, lines int, hide bool, page *goquery.Document) []str
 	var out []string
 	if d.steps[i].Lines {
 		if f, ok := d.shownLine(); ok {
-			out = append(out, d.lineTarget(i, lines, hide, page, f.Name)+"|"+rsMsgVisible)
+			out = append(out, d.lineTarget(i, 1, lines, hide, page, f.Name)+"|"+rsMsgVisible)
 		}
 		if f, ok := d.hiddenLine(); ok {
 			if !hide {
-				hidden = d.lineTarget(i, lines, hide, page, f.Name) + "|" + rsMsgHidden
+				hidden = d.lineTarget(i, 1, lines, hide, page, f.Name) + "|" + rsMsgHidden
 			}
 			out = append(out, hidden)
 		}
@@ -877,14 +888,18 @@ func (d *rsDoc) grid(hide bool) bool {
 	return n == 3 || n == 5
 }
 
-// lineTarget is where step i's error on line 1's field links in page: the
+// lineTarget is where step i's error on field of line links in page: the
 // field's input when the step's Body draws that id (CD-286 R1), read from the
-// rendered page, else linesTarget.
-func (d *rsDoc) lineTarget(i, lines int, hide bool, page *goquery.Document, field string) string {
-	id := docscreen.LineFieldID(1, field)
-	if d.mod.Steps[d.steps[i].Slug].Body != nil && page.Find(`#wizard-form [id="`+id+`"]`).Length() > 0 {
-		d.tally.add(&d.tally.body, d.dt.Name)
-		return "#" + id
+// rendered page; the step heading when a Body draws no such id (its component
+// replaces the line editor); else linesTarget.
+func (d *rsDoc) lineTarget(i, line, lines int, hide bool, page *goquery.Document, field string) string {
+	id := docscreen.LineFieldID(line, field)
+	if d.mod.Steps[d.steps[i].Slug].Body != nil {
+		if page.Find(`#wizard-form [id="`+id+`"]`).Length() > 0 {
+			d.tally.add(&d.tally.body, d.dt.Name)
+			return "#" + id
+		}
+		return "#step-title"
 	}
 	d.tally.add(&d.tally.generic, d.dt.Name)
 	return d.linesTarget(lines, hide)
@@ -1494,6 +1509,11 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 	t.Cleanup(func() { tally.check(t) }) // after every parallel subtest
 	for _, dt := range rsDocTypes() {
 		t.Run(dt.Name, func(t *testing.T) {
+			defer func() {
+				if t.Skipped() {
+					tally.add(&tally.skipped, dt.Name)
+				}
+			}()
 			// An App per DocType: parallel writes to one database answered 503
 			// on a loaded machine.
 			t.Parallel()
@@ -1881,6 +1901,10 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			for _, path := range []string{d.lineURL(id, "new"), d.lineURL(id, "1"), d.lineURL(id, "1") + "/remove"} {
 				e.do(t, "plain", rsAdmin, http.MethodGet, path, nil, false).want(t, "GET "+path+" on a NoLinePages module", http.StatusNotFound)
 				d.tally.add(&d.tally.noLines, d.dt.Name)
+			}
+			form := url.Values{"version": {strconv.Itoa(d.version(t, id))}}
+			for _, path := range []string{d.lineURL(id, "1"), d.lineURL(id, "1") + "/move?dir=down", d.lineURL(id, "1") + "/remove"} {
+				e.do(t, "plain", rsAdmin, http.MethodPost, path, form, false).want(t, "POST "+path+" on a NoLinePages module", http.StatusNotFound)
 			}
 			t.Skip("NoLinePages: the module has no line pages, and its line routes answer 404 (checked; CD-256 (7), CD-329)")
 		})
@@ -2290,7 +2314,7 @@ func (d *rsDoc) linesRefused(t *testing.T) {
 			r := d.both(t, "POST move, DOC refuses ("+route.name+")", "plain", false, func(t *testing.T, mode string) rsResp {
 				return move(t, mode, &errs, &lines)
 			})
-			if got, want := summary(r.page), d.wantErrors(errs, items, lines, true); !eq(got, want) {
+			if got, want := summary(r.page), d.wantErrors(errs, items, lines, true, r.page); !eq(got, want) {
 				t.Errorf("POST move, DOC refuses (%s): error summary\n  %q\nwant\n  %q", route.name, got, want)
 			}
 			var posted string
@@ -2394,7 +2418,7 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {strconv.Itoa(d.version(t, id))}}, false).want(t, "POST submit", http.StatusUnprocessableEntity)
 		})
 		i := d.failing(errs)
-		if got, want := summary(r.page), d.wantErrors(errs, i, len(e.load(t, d.dt.Name, id).Lines), false); !eq(got, want) {
+		if got, want := summary(r.page), d.wantErrors(errs, i, len(e.load(t, d.dt.Name, id).Lines), false, r.page); !eq(got, want) {
 			t.Errorf("POST submit 422 on step %s: error summary\n  %q\nwant\n  %q", d.steps[i].Slug, got, want)
 		}
 	})
@@ -2622,7 +2646,7 @@ func (d *rsDoc) failing(errs []doctype.FieldError) int {
 // wantErrors is the summary step i shows for DOC's errs: its own errors and
 // unowned ones, an error on a hidden field as a plain message (CD-256 (1));
 // for a refusal with none of those left, every error as a plain message.
-func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool) []string {
+func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool, page *goquery.Document) []string {
 	var out []string
 	for _, e := range errs {
 		if j := d.owner(e); e.Field != "" && j >= 0 && j != i {
@@ -2631,7 +2655,9 @@ func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool
 		switch {
 		case e.Field == "" || d.hide[e.Field]:
 			out = append(out, "#step-title|"+e.Message)
-		case e.Line > 0 || e.Field == "lines":
+		case e.Line > 0:
+			out = append(out, d.lineTarget(i, e.Line, lines, true, page, e.Field)+"|"+e.Message)
+		case e.Field == "lines":
 			out = append(out, d.linesTarget(lines, true)+"|"+e.Message)
 		default:
 			out = append(out, "#"+components.FieldID(e.Field)+"|"+e.Message)
@@ -2644,6 +2670,54 @@ func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool
 		}
 	}
 	return out
+}
+
+// TestToolingRedraw_LineTarget checks lineTarget's three branches on a
+// synthetic page, as docscreen's error link rule (form.go): no swept module
+// has a Body on a step whose generic form would show the line editor, so the
+// sweep alone can't tell the Body-without-the-id branch from linesTarget.
+func TestToolingRedraw_LineTarget(t *testing.T) {
+	body := func(docscreen.Ctx, docscreen.StepState) (templ.Component, error) { return nil, nil }
+	d := &rsDoc{
+		dt:    &doctype.DocType{Name: "Synthetic", Fields: []doctype.Field{{Name: "a", OnLine: true}, {Name: "b", OnLine: true}, {Name: "c", OnLine: true}}},
+		steps: []docscreen.FormStep{{Slug: "items", Lines: true}},
+		tally: &rsTally{},
+	}
+	page := func(html string) *goquery.Document {
+		p, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	id := docscreen.LineFieldID(2, "b")
+	drawn := page(`<form id="wizard-form"><input id="` + id + `"></form>`)
+	empty := page(`<form id="wizard-form"></form>`)
+	for _, c := range []struct {
+		name string
+		body bool
+		page *goquery.Document
+		want string
+	}{
+		{"Body draws the id", true, drawn, "#" + id},
+		{"Body without the id", true, empty, "#step-title"},
+		{"no Body", false, empty, "#line-editor"},
+	} {
+		d.mod = docscreen.Module{Steps: map[string]docscreen.Step{"items": {}}}
+		if c.body {
+			d.mod.Steps["items"] = docscreen.Step{Body: body}
+		}
+		if got := d.lineTarget(0, 2, 2, false, c.page, "b"); got != c.want {
+			t.Errorf("%s: lineTarget = %q, want %q", c.name, got, c.want)
+		}
+	}
+	// wantErrors links a line error by the error's own line: no swept
+	// module's errors name a line past 1 on a Body that draws its inputs.
+	d.mod = docscreen.Module{Steps: map[string]docscreen.Step{"items": {Body: body}}}
+	errs := []doctype.FieldError{{Field: "b", Line: 2, Message: "m"}}
+	if got, want := d.wantErrors(errs, 0, 2, false, drawn), []string{"#" + id + "|m"}; !slices.Equal(got, want) {
+		t.Errorf("wantErrors on line 2 = %q, want %q", got, want)
+	}
 }
 
 // TestToolingRedraw_TableMatchesCode is the staleness guard: docscreen's
