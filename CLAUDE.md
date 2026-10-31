@@ -72,6 +72,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Derived lists, cards, warnings and history name nothing about a record the viewer can't read, not even its state or amount; show at most an aggregate the viewer can already see (CD-233, CD-240, CD-248, and again in the expense UX review).
 - `scripts/covertouched` only sees tracked files, so a new untracked `.go` file is skipped and the run still says "all touched statements covered". Run `git add -N <new files>` before the coverage hand-in (AD-11, X3).
 - In docscreen every `stepViewOf(` caller passes errors through `stepErrors`/`refusalErrors` (or nil). newPost's 422/409 redraw skipped the hidden-field filter in M0-1b: a rule applied on most redraw paths but missed on one.
+- Before a ruling changes a text pattern (a prefix or wording rule), search the CD table and the code for older texts it overrides; CD-264's `Line {n}:` rule missed CD-199's text (CD-278).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
