@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema:
+      - ../../../migrations/10000_business_settings.sql
+      - ../../../migrations/10010_module_comment.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq

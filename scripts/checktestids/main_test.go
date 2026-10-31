@@ -185,3 +185,24 @@ func TestCheckTestIDs_MissingGoTestIsError(t *testing.T) {
 		t.Errorf("a case without a Go test must not print MISSING, got %q", got)
 	}
 }
+
+func TestCheckTestIDs_ReadsModuleDocs(t *testing.T) {
+	out, code := check(t, "modules", "PO", "--exclude-level", "e2e")
+	if code != 1 {
+		t.Errorf("exit code = %d, want 1\n%s", code, out)
+	}
+	got := lines(out, "MISSING ")
+	if len(got) != 1 || got[0] != "MISSING PO-001 TestPO_ReferenceTotals P1" {
+		t.Errorf("MISSING lines = %q, want only PO-001\n%s", got, out)
+	}
+	if !strings.Contains(out, "P1 implemented: 1/2 (excluded 1 e2e)") {
+		t.Errorf("summary missing \"P1 implemented: 1/2 (excluded 1 e2e)\":\n%s", out)
+	}
+
+	out, _ = check(t, "modules")
+	got = lines(out, "MISSING ")
+	want := []string{"MISSING NUM-001 TestMoney_Add P1", "MISSING PO-001 TestPO_ReferenceTotals P1", "MISSING PO-045 TestE2E_PurchaseOrderFlow P1"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("all areas: MISSING lines = %q, want %q (core and module docs both read, README adds no case)\n%s", got, want, out)
+	}
+}
