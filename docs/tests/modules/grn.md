@@ -82,7 +82,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-009 · Accepted = received − rejected; value at the PO's net rate
 - **Priority:** P1
 - **Level:** unit
-- **Given** line 1 received 800.000 kg, rejected 40.000 kg, and line 2 received 50.000 kg **When** it is saved **Then** line 1 `accepted_qty` is 760.000 and line 2 50.000, and `accepted_value` is ₹52,300.00 (760 × ₹62.5000 + 50 × ₹96.0000), before tax. **When** rejected on line 1 is then raised to 900.000 (refused) **Then** line 1's `accepted_qty` is 0 and `accepted_value` is the sum of the lines as stored (CD-302).
+- **Given** line 1 received 800.000 kg, rejected 40.000 kg, and line 2 received 50.000 kg **When** it is saved **Then** line 1 `accepted_qty` is 760.000 and line 2 50.000, and `accepted_value` is ₹52,300.00 (760 × ₹62.5000 + 50 × ₹96.0000), before tax. **When** rejected on line 1 is then raised to 900.000 (refused) **Then** line 1's `accepted_qty` is 0 and `accepted_value` is the sum of the lines as stored (CD-302). **Given** lines, each valid, whose accepted values sum above ₹10,00,00,00,000.00 **When** saved **Then** "The total is too large. The most a Goods Receipt can be is ₹10,00,00,00,000.00. Split it into more than one Goods Receipt." on the lines, and `accepted_value` is cleared (CD-308).
 - **Go test:** `TestGRN_AcceptedValue`
 - **Sources:** GRN spec §3.1, §3.2, §16
 - **Built in:** G2
