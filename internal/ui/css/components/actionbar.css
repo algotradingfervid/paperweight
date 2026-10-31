@@ -14,6 +14,8 @@
   border-block-start: var(--border-w) solid var(--color-border-subtle);
   & > .btn { flex: 1 1 0; min-block-size: var(--target-primary); }
   & .actionbar-note { margin: 0; flex: 1 1 100%; color: var(--color-text-secondary); }
+  /* Static while uibrowser.Axe runs (data-axe on html, CD-344 (3)). */
+  :root[data-axe] & { position: static; }
   @media (min-width: 48rem) {
     position: static;
     padding: var(--space-4) 0;
