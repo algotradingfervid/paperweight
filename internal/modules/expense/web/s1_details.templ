@@ -1,0 +1,27 @@
+package expenseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// detailsBodyView is Claim details' inputs (UX §5.3): the employee code for
+// an Administrator, purpose, date, the advance disclosure and remarks.
+templ detailsBodyView(v detailsView) {
+	if v.code != nil {
+		@components.TextInput(*v.code)
+	}
+	@v.purpose
+	@v.date
+	if v.advance {
+		@components.Disclosure(summaryAdv, v.open) {
+			if v.drawn {
+				@components.Hidden(advanceDrawn, "1")
+				if v.radios != nil {
+					@components.Radios(*v.radios, v.options)
+				}
+				@v.less
+			} else {
+				<p>{ hintPaidOnly }</p>
+			}
+		}
+	}
+	@v.remarks
+}

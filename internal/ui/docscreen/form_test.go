@@ -320,8 +320,8 @@ func TestFieldInput_ByType(t *testing.T) {
 		if _, ok := doc.Find(`input[type="radio"][value="Urgent"]`).Attr("checked"); !ok {
 			t.Error("the value Urgent is not checked")
 		}
-		if !strings.Contains(text, "(optional)") {
-			t.Error("Required false: no \"(optional)\"")
+		if strings.Contains(text, "(optional)") || strings.Contains(text, "(required)") {
+			t.Error("Required false: marked (optional) or (required); CD-341 (2) marks only required fields")
 		}
 	})
 	t.Run("select with 7 options", func(t *testing.T) {
@@ -347,10 +347,53 @@ func TestFieldInput_ByType(t *testing.T) {
 			t.Errorf("textarea text = %q", ta.Text())
 		}
 		text := norm(doc.Text())
-		for _, want := range []string{"Shown on the printed order.", "(optional)", "Too long.", "Remarks"} {
+		for _, want := range []string{"Shown on the printed order.", "Too long.", "Remarks"} {
 			if !strings.Contains(text, want) {
 				t.Errorf("remarks lacks %q", want)
 			}
+		}
+		if strings.Contains(text, "(optional)") {
+			t.Error("remarks is marked (optional); CD-341 (2) drops the marker")
+		}
+	})
+	// UI v2 B1: Required marks the label and the control (CD-341 (2), A-9).
+	// A Hint always shows under the label, whatever its length; a declared
+	// Tip sits behind the info "i" (CD-350).
+	t.Run("required, hint and tip", func(t *testing.T) {
+		const long = "Use the number printed at the top of the supplier's bill, as on the GST invoice."
+		const tip = "Suppliers print it near the top right; it is not the order number."
+		f := doctype.Field{Name: "ref", Label: "Reference", Type: doctype.Text, MaxLen: 100, Required: true, Hint: long, Tip: tip}
+		doc := render(f, "", "")
+		in := doc.Find("input#f-ref")
+		if got, _ := in.Attr("aria-required"); got != "true" {
+			t.Errorf("Required: aria-required = %q, want true", got)
+		}
+		if got := doc.Find("label[for=f-ref] .visually-hidden").Text(); got != " (required)" {
+			t.Errorf("Required: hidden label text = %q", got)
+		}
+		if got := norm(doc.Find("p#f-ref-hint").Text()); got != long {
+			t.Errorf("hint and tip: visible hint = %q, want the long hint", got)
+		}
+		if got := norm(doc.Find("#f-ref-tip").Text()); got != tip {
+			t.Errorf("hint and tip: tip = %q, want the Tip", got)
+		}
+		if got, _ := doc.Find("details.infotip > summary").Attr("aria-label"); got != "Help for Reference" {
+			t.Errorf("tip summary aria-label = %q", got)
+		}
+		if got, _ := in.Attr("aria-describedby"); got != "f-ref-hint f-ref-tip f-ref-msg" {
+			t.Errorf("hint and tip: aria-describedby = %q", got)
+		}
+
+		f.Required, f.Tip = false, ""
+		doc = render(f, "", "")
+		if _, ok := doc.Find("input#f-ref").Attr("aria-required"); ok {
+			t.Error("not Required: aria-required set")
+		}
+		if got := norm(doc.Find("p#f-ref-hint").Text()); got != long {
+			t.Errorf("long hint, no tip: visible hint = %q", got)
+		}
+		if doc.Find("details.infotip").Length() != 0 || doc.Find("#f-ref-tip").Length() != 0 {
+			t.Error("no Tip: an info tip rendered (a hint never moves behind it)")
 		}
 	})
 	t.Run("short text", func(t *testing.T) {

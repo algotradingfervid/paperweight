@@ -67,7 +67,8 @@ templ fieldsBody() {
 // field's message region.
 templ fieldSet(pre, errText string) {
 	<div class="stack">
-		@components.TextInput(components.FieldProps{ID: pre + "-name", Name: pre + "_name", Label: "Supplier name", Value: uitest.LongName100, Error: errText})
+		@components.TextInput(components.FieldProps{ID: pre + "-name", Name: pre + "_name", Label: "Supplier name", Value: uitest.LongName100, Error: errText, Required: true})
+		@components.TextInput(components.FieldProps{ID: pre + "-code", Name: pre + "_code", Label: "Code", Placeholder: "e.g. SHREE01", Tip: codeTip, Error: errText, Required: true})
 		@components.EmailInput(components.FieldProps{ID: pre + "-email", Name: pre + "_email", Label: "Email", Value: uitest.LongEmail, Error: errText}, "email")
 		@components.PasswordInput(components.FieldProps{ID: pre + "-password", Name: pre + "_password", Label: "Password", Error: errText}, "current-password")
 		@components.Textarea(components.FieldProps{ID: pre + "-remarks", Name: pre + "_remarks", Label: "Remarks", Hint: "Shown on the printed order.", Value: uitest.LongDevanagari, Optional: true, Error: errText}, 1000)
@@ -78,7 +79,7 @@ templ fieldSet(pre, errText string) {
 		@components.NumberInput(components.FieldProps{ID: pre + "-factor", Name: pre + "_factor", Label: "Conversion factor", Value: "9,99,999.999999999", Error: errText}, components.Factor, false)
 		@components.DateInput(components.DateProps{FieldProps: components.FieldProps{ID: pre + "-date", Name: pre + "_date", Label: "Order date", Value: "24-10-2026", Echo: "Saturday, 24 October 2026", Error: errText}, Today: "24-10-2026", Yesterday: "23-10-2026"})
 		@components.CodeInput(components.FieldProps{ID: pre + "-gstin", Name: pre + "_gstin", Label: "GSTIN", Value: uitest.LongCode60, Error: errText}, components.GSTIN)
-		@components.Radios(components.FieldProps{ID: pre + "-delivery", Name: pre + "_delivery", Label: "Delivery", Value: "site", Error: errText}, deliveryOptions)
+		@components.Radios(components.FieldProps{ID: pre + "-delivery", Name: pre + "_delivery", Label: "Delivery", Value: "site", Error: errText, Required: true, Tip: deliveryTip}, deliveryOptions)
 		@components.Checkboxes(components.FieldProps{ID: pre + "-docs", Name: pre + "_docs", Label: "Documents to send", Error: errText}, docOptions, []string{"invoice"})
 		@components.Segmented(components.FieldProps{ID: pre + "-priority", Name: pre + "_priority", Label: "Priority", Value: "Normal", Error: errText}, priorityOptions)
 		@components.Select(components.FieldProps{ID: pre + "-terms", Name: pre + "_terms", Label: "Payment terms", Value: "30", Error: errText}, termOptions)

@@ -33,8 +33,8 @@ func (p s1Page) label(id string) string {
 }
 
 // GUX-008 (GRN-007, GRN-045): on a goods PO step 2 has the kind radios
-// with neither checked, the number without "(optional)", the optional
-// transport fields with their input hints, Remarks (optional), the tick as
+// with neither checked, no label marked "(optional)" (CD-341 (2)), the optional
+// transport fields with their input hints, Remarks, the tick as
 // one unticked row, and the photo line; on a PO whose only line is
 // SVC-CRANE only Remarks, the tick and the photo line.
 func TestGRNWeb_DeliveryStep(t *testing.T) {
@@ -52,11 +52,11 @@ func TestGRNWeb_DeliveryStep(t *testing.T) {
 		attrs     map[string]string
 	}{
 		{"f-challan_no", "Challan or invoice no.", map[string]string{"maxlength": "40", "autocapitalize": "characters", "spellcheck": "false"}},
-		{"f-challan_date", "Challan date (optional)", nil},
-		{"f-vehicle_no", "Vehicle no. (optional)", map[string]string{"maxlength": "20", "autocapitalize": "characters", "spellcheck": "false"}},
-		{"f-transporter", "Transporter (optional)", map[string]string{"maxlength": "140"}},
-		{"f-eway_bill_no", "E-way bill no. (optional)", map[string]string{"maxlength": "20", "inputmode": "numeric"}},
-		{"f-remarks", "Remarks (optional)", map[string]string{"maxlength": "500"}},
+		{"f-challan_date", "Challan date", nil},
+		{"f-vehicle_no", "Vehicle no.", map[string]string{"maxlength": "20", "autocapitalize": "characters", "spellcheck": "false"}},
+		{"f-transporter", "Transporter", map[string]string{"maxlength": "140"}},
+		{"f-eway_bill_no", "E-way bill no.", map[string]string{"maxlength": "20", "inputmode": "numeric"}},
+		{"f-remarks", "Remarks", map[string]string{"maxlength": "500"}},
 	} {
 		if got := r.label(c.id); got != c.label {
 			t.Errorf("%s label = %q, want %q", c.id, got, c.label)

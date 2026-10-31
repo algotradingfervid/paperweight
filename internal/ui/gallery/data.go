@@ -333,3 +333,9 @@ var attachments = []components.Attachment{
 	{ID: 2, Kind: "heic", Name: "IMG_0042.HEIC", Size: "3.1 MB", UploadedBy: "Priya Shah", UploadedAt: "24-10-2026 10:31", URL: "/_gallery/upload", RemoveURL: "/_gallery/upload"},
 	{ID: 3, Kind: "pdf", Name: uitest.LongCode60 + ".pdf", Size: "180 KB", UploadedBy: uitest.LongName100, UploadedAt: "24-10-2026 10:32", URL: "/_gallery/upload"},
 }
+
+// The fields page's info tips: one on a text input, one on a radio group.
+const (
+	codeTip     = "A short name you can type to find this party fast, up to 20 letters or digits."
+	deliveryTip = "Goods sent to the site need a gate pass; goods to the office don't."
+)
