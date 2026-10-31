@@ -340,6 +340,9 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | M0-40 (b), (c2) | Display line grid (CD-313); fixture.Quote | High/Std | tw, impl, rev opus (AD-10) | — | — | 2/1 | 0/2/5→0/0/1; 0/0/7 | 092c22a |
 | Tooling T1-T5 + fix1 | make handin, make mutate, e2e-quick, briefcds, redraw and visibility sweeps (CD-328) | Std | impl, rev opus (internaltools-5f) | — | — | 1–3 | approved; fix1 after Quote clash | 849a8c8, a7baa87; ci 0 (P1 810/842), e2e 0 |
 | MOD-PO batch 4 | P23, P15d, P15e (CD-330) | High/Std | tw, impl, rev opus (AD-13) | — | — | 1–2 | fix 1 each | see merge |
+| P26 | Sweep fixes: shared session manager, parse probe, purchase sweepStatuses | Std | impl, rev opus (AD-13) | — | — | 1 | 5f review: coverage gaps → fix3 | 81703b9; ci 0 (P1 810/842), e2e 0 |
+| Tooling fix2–fix4 | Derived rows; buyer principal and per-queue statuses; typing probes follow Hide | Std | impl, rev opus (internaltools-5f) | — | — | 1–2 | fix3 re-review APPROVE | 1439d42, see merge |
+| M0-52 | Select option labels; state via StateLabel, out of Details (CD-325) | Std | impl, rev opus (head) | — | — | 3 | 0/0/2; sweep clash → fix2 | 609b1e1; ci 0, e2e 0 |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
