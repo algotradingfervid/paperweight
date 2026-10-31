@@ -301,6 +301,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | M0-24 | approve applies when CloseRight is approve (CD-280 D2) | High | tw, impl, rev opus (AD-9) | 14:00 | 15:20 | 1 | 0/1/3 | 23ea180 |
 | M0-30 | covertouched names exempt blocks, -strict (CD-288) | Light | impl, rev opus (AD-9) | 14:30 | 15:20 | 1 | 0/0/3 | 23ea180 |
 | M0-28 | Register refuses Hooks without LinesTable | Light | impl, rev opus (AD-9) | 14:40 | 15:20 | 1 | 0/0/3 | 23ea180; main 89cb180 make ci 0, P1 585/782 |
+| M0-15 | Read-only drafts for non-writers (G1), CD-263 types | High | tw, impl, rev opus (AD-10) | 13:20 | 16:30 | 1 | 0/1/4 | d59fe3d |
+| M0-25 | WaitingDays, HasRules, CheckCommentBody | Light | impl, rev opus (AD-9) | 15:20 | 16:30 | 1 | 0/0/1 | AD-9 complete (CD-293) |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 

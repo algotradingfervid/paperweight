@@ -21,14 +21,14 @@
   "max_parallel_agents": 25,
   "assistant_directors": {
     "head": {
-      "workers": 1,
+      "workers": 2,
       "does": "merges, decision log, PROGRESS.md, escalations, D0, U1/U2, owner"
     },
     "AD-9": {
       "wps": [
-        "mod0 (M0-6..M0-14)"
+        "mod0 (done)"
       ],
-      "workers": 8
+      "workers": 0
     },
     "AD-10": {
       "wps": [
@@ -40,7 +40,7 @@
       "wps": [
         "mod-exp (MOD-EXP plan, EXP test docs, UX, build)"
       ],
-      "workers": 5
+      "workers": 6
     },
     "AD-12": {
       "wps": [
@@ -52,7 +52,7 @@
       "wps": [
         "mod-po (P1..P17)"
       ],
-      "workers": 2
+      "workers": 8
     }
   },
   "models": {
