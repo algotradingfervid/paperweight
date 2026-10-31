@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -37,15 +39,20 @@ var p1Routes = []string{
 	"GET /reports/purchase/pending/export.csv",
 }
 
-// MOD-PO P1 Do 3 (review focus: a stub route answers 501, never success;
-// CD-256 one stub file per owner; CD-283 Deps.ReceiveLink): Routes registers
-// exactly P1's module routes, with no middleware (internal/app puts AUTH's
-// guard on each, CD-46), and every one answers 501 Not Implemented.
+// MOD-PO P1 Do 3 (CD-46, CD-256, CD-283; AD-13 ruling on the route tests):
+// Routes registers exactly the plan's module routes, with no middleware
+// (internal/app puts AUTH's guard on each). Each route is mounted: for an
+// Administrator on real records it answers neither 404 nor 405, and no
+// handler panics. What a route answers is its owner's test; the 501 of a stub
+// is pinned next to one stub (stubs_web_p9_test.go).
 func TestPurchaseWeb_RoutesStubbed(t *testing.T) {
 	env := purchasetest.New(t)
+	po := purchasetest.NewOrder(t, env, purchasetest.StopAtApproved())
+	pr := purchasetest.NewRequest(t, env, purchasetest.StopAtApproved())
+	sessions := scs.New()
 	r := chi.NewRouter()
 	purchaseweb.Routes(purchaseweb.Deps{
-		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: scs.New(),
+		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: sessions,
 		CSRF: func(*http.Request) string { return "token" },
 		ReceiveLink: func(context.Context, auth.Principal, int64) (string, bool) {
 			return "", false
@@ -69,17 +76,30 @@ func TestPurchaseWeb_RoutesStubbed(t *testing.T) {
 		t.Errorf("routes =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
-	fill := strings.NewReplacer("{id}", "1", "{queue}", "to-send")
+	h := sessions.LoadAndSave(r)
 	for _, rt := range p1Routes {
 		method, pattern, _ := strings.Cut(rt, " ")
-		req := httptest.NewRequestWithContext(t.Context(), method, fill.Replace(pattern), strings.NewReader("version=1"))
+		id := strconv.FormatInt(po.ID, 10)
+		if strings.Contains(pattern, "/requests/") {
+			id = strconv.FormatInt(pr.ID, 10)
+		}
+		path := strings.NewReplacer("{id}", id, "{queue}", "to-send").Replace(pattern)
+		form := url.Values{"version": {strconv.Itoa(po.Version)}}
+		req := httptest.NewRequestWithContext(auth.WithPrincipal(t.Context(), env.Admin), method, path, strings.NewReader(form.Encode()))
 		if method == http.MethodPost {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
-		if rec.Code != http.StatusNotImplemented {
-			t.Errorf("%s = %d, want 501 (a stub never answers success)", rt, rec.Code)
+		func() {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Errorf("%s %s panicked: %v", method, path, p)
+				}
+			}()
+			h.ServeHTTP(rec, req)
+		}()
+		if rec.Code == http.StatusNotFound || rec.Code == http.StatusMethodNotAllowed {
+			t.Errorf("%s %s = %d, want the route mounted (neither 404 nor 405)", method, path, rec.Code)
 		}
 	}
 }
