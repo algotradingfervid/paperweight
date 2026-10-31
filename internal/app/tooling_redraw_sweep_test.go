@@ -279,6 +279,56 @@ type rsDoc struct {
 	itemsNone bool             // the probe draft's items step draws no probe field; see draft
 	rows      atomic.Bool      // a 422/409 redraw compared non-empty read-only rows
 	drawnRO   []string         // read-only fields a draft's step draws, nothing hidden; see sweepSteps
+	tally     *rsTally         // what every DocType's cells ran; see TestToolingRedraw_Sweep
+}
+
+// rsTally is what the DocTypes' cells ran, checked once all have finished:
+// the NoLinePages skip and the step Body's line-error links must each leave
+// other DocTypes going through the cells they skip or don't take.
+type rsTally struct {
+	mu      sync.Mutex
+	swept   map[string]bool // DocTypes whose subtest reached its end
+	lines   map[string]bool // DocTypes that went through the line cells
+	noLines map[string]bool // DocTypes whose line routes the NoLinePages skip checked
+	body    map[string]bool // DocTypes whose step Body drew a line error's input (lineTarget)
+	generic map[string]bool // DocTypes whose items step linked a line error by linesTarget
+}
+
+func (y *rsTally) add(set *map[string]bool, name string) {
+	y.mu.Lock()
+	defer y.mu.Unlock()
+	if *set == nil {
+		*set = map[string]bool{}
+	}
+	(*set)[name] = true
+}
+
+// check runs when every DocType's subtest has finished; it checks nothing
+// when -run left one out or one stopped early (that one fails on its own).
+func (y *rsTally) check(t *testing.T) {
+	all := rsDocTypes()
+	if len(y.swept) < len(all) {
+		return
+	}
+	if len(y.lines) == 0 {
+		t.Errorf("no DocType went through the line cells: the NoLinePages skip covers every module")
+	}
+	for _, name := range []string{purchase.DocType, expense.ClaimDocType} {
+		if !y.lines[name] {
+			t.Errorf("%s didn't go through the line cells: the NoLinePages skip took a module without the flag", name)
+		}
+	}
+	for _, dt := range all {
+		if dt.LinesTable != "" && !y.lines[dt.Name] && !y.noLines[dt.Name] {
+			t.Errorf("%s has lines but neither went through the line cells nor had the NoLinePages skip check its routes", dt.Name)
+		}
+	}
+	if len(y.body) == 0 {
+		t.Errorf("no DocType's step Body drew a line error's input: the LineFieldID branch of lineTarget is untested")
+	}
+	if len(y.generic) == 0 {
+		t.Errorf("no DocType's items step linked a line error by linesTarget: the generic branch of lineTarget is untested")
+	}
 }
 
 // newRSEnv is one App with the canonical seed, the sweep's users, an
@@ -781,16 +831,16 @@ func (d *rsDoc) probeErrors(i int) []doctype.FieldError {
 // wantProbe is the summary step i shows for probeErrors, with the probe
 // hiding (hide) or not: CD-256 (1) and stepErrors' rule, written from the
 // spec, not the code.
-func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
+func (d *rsDoc) wantProbe(i, lines int, hide bool, page *goquery.Document) []string {
 	hidden := "#step-title|" + rsMsgHidden
 	var out []string
 	if d.steps[i].Lines {
-		if _, ok := d.shownLine(); ok {
-			out = append(out, d.linesTarget(lines, hide)+"|"+rsMsgVisible)
+		if f, ok := d.shownLine(); ok {
+			out = append(out, d.lineTarget(i, lines, hide, page, f.Name)+"|"+rsMsgVisible)
 		}
-		if _, ok := d.hiddenLine(); ok {
+		if f, ok := d.hiddenLine(); ok {
 			if !hide {
-				hidden = d.linesTarget(lines, hide) + "|" + rsMsgHidden
+				hidden = d.lineTarget(i, lines, hide, page, f.Name) + "|" + rsMsgHidden
 			}
 			out = append(out, hidden)
 		}
@@ -825,6 +875,19 @@ func (d *rsDoc) grid(hide bool) bool {
 		}
 	}
 	return n == 3 || n == 5
+}
+
+// lineTarget is where step i's error on line 1's field links in page: the
+// field's input when the step's Body draws that id (CD-286 R1), read from the
+// rendered page, else linesTarget.
+func (d *rsDoc) lineTarget(i, lines int, hide bool, page *goquery.Document, field string) string {
+	id := docscreen.LineFieldID(1, field)
+	if d.mod.Steps[d.steps[i].Slug].Body != nil && page.Find(`#wizard-form [id="`+id+`"]`).Length() > 0 {
+		d.tally.add(&d.tally.body, d.dt.Name)
+		return "#" + id
+	}
+	d.tally.add(&d.tally.generic, d.dt.Name)
+	return d.linesTarget(lines, hide)
 }
 
 // linesTarget is where a line error links on the generic items step, with
@@ -1427,12 +1490,15 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 	if n := len(rsDocTypes()); n < 8 {
 		t.Fatalf("%d document DocTypes registered, want at least the 8 registered at a04f8f3d", n)
 	}
+	tally := &rsTally{}
+	t.Cleanup(func() { tally.check(t) }) // after every parallel subtest
 	for _, dt := range rsDocTypes() {
 		t.Run(dt.Name, func(t *testing.T) {
 			// An App per DocType: parallel writes to one database answered 503
 			// on a loaded machine.
 			t.Parallel()
 			d := newRSEnv(t).doc[dt.Name]
+			d.tally = tally
 			if len(d.hide) == 0 {
 				t.Fatalf("the probe hides nothing on %s: its rule picks no field", dt.Name)
 			}
@@ -1466,6 +1532,7 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 				}
 				t.Skip("no wizard step of the draft draws a read-only field with a value, nothing hidden (checked)")
 			})
+			tally.add(&tally.swept, dt.Name)
 		})
 	}
 }
@@ -1553,12 +1620,12 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 				}
 			}, false).want(t, "POST new with probe errors", http.StatusUnprocessableEntity)
 			if isShow(mode) {
-				d.sameSummary(t, "POST new 422, nothing hidden", r, d.wantProbe(0, 0, false))
+				d.sameSummary(t, "POST new 422, nothing hidden", r, d.wantProbe(0, 0, false, r.page))
 			}
 			return r
 		})
 		d.sameNames(t, "POST new 422", r, shown)
-		d.sameSummary(t, "POST new 422", r, d.wantProbe(0, 0, true))
+		d.sameSummary(t, "POST new 422", r, d.wantProbe(0, 0, true, r.page))
 		if typed && inputValue(r.page, f.Name) != rsTyped {
 			t.Errorf("POST new 422: %s = %q, want the typed %q kept", f.Name, inputValue(r.page, f.Name), rsTyped)
 		}
@@ -1662,13 +1729,13 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 					}
 				}, false).want(t, where, http.StatusUnprocessableEntity)
 				if isShow(mode) {
-					d.sameSummary(t, where+", nothing hidden", r, d.wantProbe(i, lines, false))
+					d.sameSummary(t, where+", nothing hidden", r, d.wantProbe(i, lines, false, r.page))
 					d.sameRows(t, where+", nothing hidden", r, beforeShow)
 				}
 				return r
 			})
 			d.sameNames(t, where, r, shown)
-			d.sameSummary(t, where, r, d.wantProbe(i, lines, true))
+			d.sameSummary(t, where, r, d.wantProbe(i, lines, true, r.page))
 			d.keeps(t, where, r, posted, before)
 			if typed && inputValue(r.page, f.Name) != rsTyped {
 				t.Errorf("%s: %s = %q, want the typed %q kept", where, f.Name, inputValue(r.page, f.Name), rsTyped)
@@ -1807,6 +1874,18 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		})
 		return
 	}
+	if d.mod.NoLinePages {
+		d.cell(t, "lines", func(t *testing.T) {
+			// The skip's check: the module's line routes really are absent.
+			// The tally counts the module only once a route has answered 404.
+			for _, path := range []string{d.lineURL(id, "new"), d.lineURL(id, "1"), d.lineURL(id, "1") + "/remove"} {
+				e.do(t, "plain", rsAdmin, http.MethodGet, path, nil, false).want(t, "GET "+path+" on a NoLinePages module", http.StatusNotFound)
+				d.tally.add(&d.tally.noLines, d.dt.Name)
+			}
+			t.Skip("NoLinePages: the module has no line pages, and its line routes answer 404 (checked; CD-256 (7), CD-329)")
+		})
+		return
+	}
 	lineOwn := d.ownLineHide(t, d.draftView(t, id))
 	getLine := func(no string) func(t *testing.T, mode string) rsResp {
 		return func(t *testing.T, mode string) rsResp {
@@ -1817,6 +1896,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 	d.cell(t, "line GET", func(t *testing.T) {
 		d.both(t, "GET line new", "plain", false, getLine("new"))
 		fresh = d.both(t, "GET line 1", "plain", false, getLine("1"))
+		d.tally.add(&d.tally.lines, d.dt.Name)
 	})
 	if fresh.page == nil {
 		return
@@ -2268,6 +2348,11 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 				continue
 			}
 			g := e.do(t, "plain", rsReader, http.MethodGet, path, nil, false)
+			if d.mod.NoLinePages && strings.Contains(path, "/lines/") {
+				// A NoLinePages module has no line routes (CD-256 (7), CD-329).
+				g.want(t, "GET "+path+" as a reader on a NoLinePages module", http.StatusNotFound)
+				continue
+			}
 			if g.code != http.StatusSeeOther || g.hdr.Get("Location") != d.url(id) {
 				t.Errorf("GET %s as a reader = %d to %q, want 303 to the document page", path, g.code, g.hdr.Get("Location"))
 			}

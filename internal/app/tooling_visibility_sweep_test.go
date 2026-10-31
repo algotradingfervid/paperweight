@@ -54,8 +54,21 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 	bodies := map[string]string{}
 	got := map[string]map[bool]map[int]bool{} // route → hidden page → statuses seen
 	pinned := s.urlStatuses()
+	mods := s.w.app.DocDeps().Modules
+	probed := 0 // line pages of other modules, which still answer as sweepStatuses says
 	for _, p := range pages {
 		r := v.get(p.url)
+		want := sweepStatus(p.route, p.hidden)
+		if dt, ok := linePage(p.route, p.url); ok {
+			// A NoLinePages module has no line routes (CD-256 (7), CD-329):
+			// each of its line pages must answer 404, which is the check that
+			// this exception still holds.
+			if mods[dt].NoLinePages {
+				want = []int{http.StatusNotFound}
+			} else {
+				probed++
+			}
+		}
 		bodies[p.url] = r.body
 		if want, ok := pinned[p.url]; ok && r.status != want {
 			t.Errorf("GET %s (route %s) = %d, want %d: update urlStatuses if the change is right", p.url, p.route, r.status, want)
@@ -67,8 +80,8 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 			got[p.route][p.hidden] = map[int]bool{}
 		}
 		got[p.route][p.hidden][r.status] = true
-		if !slices.Contains(sweepStatus(p.route, p.hidden), r.status) {
-			t.Errorf("GET %s (route %s, hidden id %v) = %d, want one of %v: update sweepStatuses if the change is right", p.url, p.route, p.hidden, r.status, sweepStatus(p.route, p.hidden))
+		if !slices.Contains(want, r.status) {
+			t.Errorf("GET %s (route %s, hidden id %v) = %d, want one of %v: update sweepStatuses if the change is right", p.url, p.route, p.hidden, r.status, want)
 		}
 		for prefix, name := range hiddenMasters {
 			if strings.HasPrefix(p.url, prefix) && strings.Contains(r.body, name) {
@@ -88,6 +101,9 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 				t.Errorf("GET %s (route %s) names hidden %s %d: %q", p.url, p.route, h.r.label, h.r.id, m)
 			}
 		}
+	}
+	if probed == 0 {
+		t.Errorf("no line page of a module without NoLinePages was swept: the NoLinePages exception covers every module")
 	}
 	// The table is exact: a status it allows that no page answered is stale.
 	for route, byHidden := range got {
@@ -228,6 +244,15 @@ func (s *sweepSeed) urlStatuses() map[string]int {
 		out["/modules/purchase/requests/"+c.value+"/order"] = want
 	}
 	return out
+}
+
+// linePage reports whether route is a document's line page and, if so, the
+// DocType its url names.
+func linePage(route, url string) (string, bool) {
+	if !strings.HasPrefix(route, "/doc/{doctype}/{id}/lines/") {
+		return "", false
+	}
+	return strings.Split(url, "/")[2], true
 }
 
 // sweepStatus is what route may answer the viewer.
