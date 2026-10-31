@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
@@ -46,6 +47,17 @@ func TestGRNWeb_StepsHonourHide(t *testing.T) {
 			if r.doc.Find(`[name="`+n+`"]`).Length() != 0 {
 				t.Errorf("GET %s draws the hidden %s", path, n)
 			}
+		}
+	}
+	// Step 1, choosing the order (a new draft) and with it fixed (a draft
+	// with lines): no date input of any name, nor its label.
+	for _, path := range []string{s1New, stepPath(id, "details")} {
+		r := w.get(w.Suresh, path)
+		if n := r.doc.Find(`main [data-set-date]`).Length(); n != 0 {
+			t.Errorf("GET %s draws a date input (%d Today/Yesterday buttons) with receipt_date hidden", path, n)
+		}
+		if strings.Contains(r.doc.Find("main").Text(), "Receipt date") {
+			t.Errorf("GET %s shows the Receipt date label with receipt_date hidden", path)
 		}
 	}
 	if w.get(w.Suresh, delivery).doc.Find(`input[name="rest_not_coming"]`).Length() != 1 {

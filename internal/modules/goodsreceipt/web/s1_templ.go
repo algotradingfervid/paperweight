@@ -12,9 +12,9 @@ import "github.com/vardhan/internaltools/internal/ui/components"
 
 // choosePOView is step 1 with the order still open to choose (UX doc §5.2):
 // the radios or the select, or the empty text, then the link that widens or
-// narrows the orders, then the receipt date (none when date is zero: Hide
-// hides it, CD-319).
-func choosePOView(p poPick, date components.DateProps) templ.Component {
+// narrows the orders, then the receipt date when showDate (Hide shows it,
+// CD-319).
+func choosePOView(p poPick, date components.DateProps, showDate bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -80,7 +80,7 @@ func choosePOView(p poPick, date components.DateProps) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		if date.Name != "" {
+		if showDate {
 			templ_7745c5c3_Err = components.DateInput(date).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -92,8 +92,8 @@ func choosePOView(p poPick, date components.DateProps) templ.Component {
 
 // fixedPOView is step 1 of a draft with lines: its order as text, the hint
 // that says how to change it, Delete draft for a user who may, and the
-// receipt date unless date is zero (UX doc §5.2, spec §3.1).
-func fixedPOView(po []components.Pair, deleteHref string, date components.DateProps) templ.Component {
+// receipt date when showDate (UX doc §5.2, spec §3.1).
+func fixedPOView(po []components.Pair, deleteHref string, date components.DateProps, showDate bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -141,7 +141,7 @@ func fixedPOView(po []components.Pair, deleteHref string, date components.DatePr
 				return templ_7745c5c3_Err
 			}
 		}
-		if date.Name != "" {
+		if showDate {
 			templ_7745c5c3_Err = components.DateInput(date).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

@@ -107,8 +107,7 @@ func (m *module) hide(c docscreen.Ctx, f doctype.Field) bool {
 // steps' renders and posts too (CD-319).
 func shown(c docscreen.Ctx, name string) bool {
 	f, _ := c.DT.Field(name)
-	h := c.Deps.Modules[c.DT.Name].Hide
-	return h == nil || !h(c, f)
+	return !c.Deps.Modules[c.DT.Name].Hide(c, f)
 }
 
 // ticked reports whether a Check field's value is on.
@@ -166,22 +165,20 @@ func (m *module) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Comp
 	if date.Value == "" && !s.Posted && c.View == nil {
 		date.Value = date.Today
 	}
-	if !shown(c, "receipt_date") {
-		date = components.DateProps{}
-	}
+	dated := shown(c, "receipt_date")
 	if c.View != nil && len(c.View.Lines) > 0 {
-		return m.fixedPO(c, date)
+		return m.fixedPO(c, date, dated)
 	}
 	p, err := m.pick(c, s)
 	if err != nil {
 		return nil, err
 	}
-	return choosePOView(p, date), nil
+	return choosePOView(p, date, dated), nil
 }
 
 // fixedPO is step 1 of a draft with lines (spec §3.1): its order from the
 // GRN's own snapshot, and Delete draft for a user with delete on it.
-func (m *module) fixedPO(c docscreen.Ctx, date components.DateProps) (templ.Component, error) {
+func (m *module) fixedPO(c docscreen.Ctx, date components.DateProps, dated bool) (templ.Component, error) {
 	ctx := c.Req.Context()
 	f, err := m.receiptFacts(c)
 	if err != nil {
@@ -195,7 +192,7 @@ func (m *module) fixedPO(c docscreen.Ctx, date components.DateProps) (templ.Comp
 		return nil, err
 	}
 	po := []components.Pair{{Label: labelPO, Value: f.PONumber + " · " + f.VendorName}, {Label: labelSite, Value: f.SiteName}}
-	return fixedPOView(po, href, date), nil
+	return fixedPOView(po, href, date, dated), nil
 }
 
 // pick builds the choice of order (UX doc §5.2). The chosen order is the
@@ -344,9 +341,12 @@ func pickURL(c docscreen.Ctx, all bool) string {
 // its 422, another site's order its 403 (CD-240).
 func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 	dated := shown(c, "receipt_date")
-	date, fe := posted(c, "receipt_date")
-	if fe != nil && dated {
-		return docscreen.Save{Errors: []doctype.FieldError{*fe}}, nil
+	var date string
+	if dated {
+		var fe *doctype.FieldError
+		if date, fe = posted(c, "receipt_date"); fe != nil {
+			return docscreen.Save{Errors: []doctype.FieldError{*fe}}, nil
+		}
 	}
 	if c.View != nil && len(c.View.Lines) > 0 {
 		v := map[string]string{}

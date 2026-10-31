@@ -216,9 +216,11 @@ func (d *rsDoc) cell(t *testing.T, name string, fn func(t *testing.T)) {
 // both runs a request in mode's control twin, where the probe hides nothing
 // and the page must draw a probe field (none says it draws none, which is
 // checked), then in mode, where it must draw none; it returns the second.
+// Neither response may hold an input for an own field (noOwn).
 func (d *rsDoc) both(t *testing.T, where, mode string, none bool, run func(t *testing.T, mode string) rsResp) rsResp {
 	t.Helper()
 	ctl := run(t, mode+rsShow)
+	d.noOwn(t, where+" ("+rsShow+")", ctl)
 	drawn := d.marks(ctl)
 	switch {
 	case none && len(drawn) > 0:
@@ -227,8 +229,24 @@ func (d *rsDoc) both(t *testing.T, where, mode string, none bool, run func(t *te
 		t.Errorf("%s: with nothing hidden the page draws no probe field, so hiding checks nothing", where)
 	}
 	r := run(t, mode)
+	d.noOwn(t, where, r)
 	d.noHidden(t, where, r)
 	return r
+}
+
+// noOwn checks owned's reason: r, a page the sweep draws, holds no input
+// named after a field the module's own Hide hides on a new document. When a
+// page draws one, the probe's leaving it out (own) is no longer true.
+func (d *rsDoc) noOwn(t *testing.T, where string, r rsResp) {
+	t.Helper()
+	if r.page == nil {
+		return
+	}
+	for _, n := range names(r.page, "body") {
+		if d.own[n] {
+			t.Errorf("%s: the page draws an input for %s, which the module's Hide hides on a new document: owned's exception no longer holds", where, n)
+		}
+	}
 }
 
 type rsEnv struct {
@@ -521,8 +539,9 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 
 // owned fills own with the fields the module's own Hide hides from the admin
 // on a new document (nil View, CD-327), such as the goods receipt's site_id
-// and po_line_id: no page draws them, so the probe neither hides nor types
-// into them, and a step or line error on one is never a shown field's.
+// and po_line_id: no page draws them (noOwn checks it on every page both
+// draws), so the probe neither hides nor types into them, and a step or line
+// error on one is never a shown field's.
 func (d *rsDoc) owned() {
 	d.own = map[string]bool{}
 	if d.mod.Hide == nil {
@@ -535,6 +554,26 @@ func (d *rsDoc) owned() {
 	for _, f := range d.dt.Fields {
 		if d.mod.Hide(c, f) {
 			d.own[f.Name] = true
+		}
+	}
+}
+
+// ownOnDraft checks owned's reason on a saved draft: the module's Hide still
+// hides every own field with draft id's View, so the step and line pages,
+// whose cells leave own out, draw none of them either.
+func (d *rsDoc) ownOnDraft(t *testing.T, id int64) {
+	deps := d.e.w.app.ToolingRedrawDeps()
+	v, err := deps.View(t.Context(), d.e.who[rsAdmin], d.dt.Name, id)
+	if err != nil {
+		t.Fatalf("view the probe draft: %v", err)
+	}
+	c := docscreen.Ctx{
+		Req:       httptest.NewRequestWithContext(t.Context(), http.MethodGet, d.stepURL(id, 0), nil),
+		Principal: d.e.who[rsAdmin], DT: d.dt, Deps: deps, View: &v,
+	}
+	for _, f := range d.dt.Fields {
+		if d.own[f.Name] && !d.mod.Hide(c, f) {
+			t.Fatalf("the module's Hide shows %s on a saved draft but hides it on a new one: owned's exception no longer holds", f.Name)
 		}
 	}
 }
@@ -1401,6 +1440,7 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 			d.names(t)
 			d.sweepNew(t)
 			id := d.draft(t)
+			d.cell(t, "own on the draft", func(t *testing.T) { d.ownOnDraft(t, id) })
 			d.itemsNone = d.itemsDrawNone(t, id)
 			d.sweepSteps(t, id)
 			d.cell(t, "body inputs", d.bodyInputs)
