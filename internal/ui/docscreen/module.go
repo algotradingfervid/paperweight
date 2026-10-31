@@ -39,6 +39,16 @@ type Ctx struct {
 type Step struct {
 	Body func(c Ctx, s StepState) (templ.Component, error) // nil → the generic form
 	Save func(c Ctx) (Save, error)                         // nil → the generic post
+	Bar  func(c Ctx, s StepState) (StepBar, error)         // nil → the generic bar
+}
+
+// StepBar is what Step.Bar changes in the step's action bar (CD-263 G6).
+// Each zero field keeps docscreen's: Primary "" keeps the label, Stay false
+// keeps the default nav, Back nil keeps the Back button.
+type StepBar struct {
+	Primary string           // the primary button's label
+	Stay    bool             // the primary posts nav=stay and redraws the step
+	Back    *components.Link // a Back link in place of the Back button
 }
 
 // StepState is the redraw input: Posted is true on a 422 or 409, when the
@@ -70,14 +80,20 @@ type CheckExtra struct {
 	Notes    []string          // info banners under the approval preview
 	Warnings []string          // components.Warnings
 	Totals   []components.Pair // above the grand total
+	Cards    []templ.Component // after Attachments, before the grand total
 }
 
-// PageExtra is what Module.Page adds to the document page.
+// PageExtra is what Module.Page adds to the document page. A LineNotes
+// entry replaces the Note a Module.LineCard put on the same line; other
+// lines keep theirs.
 type PageExtra struct {
 	Warnings  []string
-	LineNotes map[int]string    // line no → a note on that line
-	Pairs     []components.Pair // added to Details, for a hidden field's display value
-	Cards     []templ.Component // after Lines, before History
+	LineNotes map[int]string          // line no → a note on that line
+	Pairs     []components.Pair       // added to Details, for a hidden field's display value
+	Cards     []templ.Component       // after Lines, before History
+	Notice    *components.BannerProps // last among the document banners
+	More      []components.MoreAction // before docscreen's own More actions
+	Primary   *components.ButtonProps // the main button when the bar has none
 }
 
 // ReasonExtra is what Module.Reason adds to a reason page.

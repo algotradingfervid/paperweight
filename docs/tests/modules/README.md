@@ -9,10 +9,10 @@ Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18
 | File | Area | Cases | P1 | P2 | unit | integration | e2e |
 |---|---|---|---|---|---|---|---|
 | [`po.md`](po.md) | PO — purchase orders and requests | 70 | 69 | 1 | 8 | 60 | 2 |
-| [`hook.md`](hook.md) | HOOK — docscreen module hooks | 18 | 18 | 0 | 0 | 18 | 0 |
+| [`hook.md`](hook.md) | HOOK — docscreen module hooks | 33 | 33 | 0 | 0 | 32 | 1 |
 | [`exp.md`](exp.md) | EXP — expense claims and advances | 67 | 67 | 0 | 5 | 56 | 6 |
 | [`grn.md`](grn.md) | GRN — goods receipts | 50 | 50 | 0 | 7 | 40 | 3 |
-| **Total** | | **205** | **204** | **1** | **20** | **174** | **11** |
+| **Total** | | **220** | **219** | **1** | **20** | **188** | **12** |
 
 Level counts group variants as in core: "unit (fuzz)" counts as unit, "integration (golden file)" as integration. Every e2e case's Go test starts with `TestE2E_`.
 
@@ -99,7 +99,7 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 
 ### hook.md — HOOK — docscreen module hooks
 
-18 cases: 18 P1 / 0 P2; 0 unit, 18 integration, 0 e2e.
+33 cases: 33 P1 / 0 P2; 0 unit, 32 integration, 1 e2e.
 
 | ID | Go test | P | Level |
 |---|---|---|---|
@@ -121,6 +121,21 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 | HOOK-016 | `TestModule_LineIDs` | P1 | integration |
 | HOOK-017 | `TestModule_ClearLines` | P1 | integration |
 | HOOK-018 | `TestModule_LineFlags` | P1 | integration |
+| HOOK-019 | `TestDraft_ReaderGetsDocumentPage` | P1 | integration |
+| HOOK-020 | `TestDraft_ReaderStepAndLineURLsRedirect` | P1 | integration |
+| HOOK-021 | `TestDraft_ReaderRealAuth` | P1 | integration |
+| HOOK-022 | `TestModule_CheckCards` | P1 | integration |
+| HOOK-023 | `TestModule_PageNotice` | P1 | integration |
+| HOOK-024 | `TestModule_PageMore` | P1 | integration |
+| HOOK-025 | `TestModule_PagePrimary` | P1 | integration |
+| HOOK-026 | `TestModule_StepBodyFallback` | P1 | integration |
+| HOOK-027 | `TestModule_StepStay` | P1 | integration |
+| HOOK-028 | `TestModule_StepBar` | P1 | integration |
+| HOOK-029 | `TestModule_StateLabels` | P1 | integration |
+| HOOK-030 | `TestPage_ApproverNeedsYourApproval` | P1 | integration |
+| HOOK-031 | `TestApprovalStatus_RolesAndWhy` | P1 | integration |
+| HOOK-032 | `TestApp_ApproverLineReal` | P1 | integration |
+| HOOK-049 | `TestE2E_Field_EchoKeepsSaveInPlace` | P1 | e2e |
 
 ### exp.md — EXP — expense claims and advances
 

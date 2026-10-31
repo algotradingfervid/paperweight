@@ -179,7 +179,9 @@ func TestKillInflight_NeverKillsEarly(t *testing.T) {
 				defer finish(t, release, done)
 			}
 			cmd := sleeper(t)
-			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			// 1 s, not 50 ms: under a loaded machine the WAL check didn't finish in
+			// 50 ms and the deadline error won over the expected refusal.
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			var out strings.Builder
 			err := killInflight(ctx, &out, ackFile(t, c.acks), 2, wal, cmd.Process.Pid)

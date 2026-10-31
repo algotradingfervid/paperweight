@@ -287,6 +287,22 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | MOD-EXP X1-X3 | AllowBlocked + doc.Invalid; files.ListTx/limit/ReceiptMismatch; print expense fields | High/High/Std | tw, impl, rev opus (AD-11) | 10:05 | 12:30 | 1 | X3 0/1/x | c3d4bb8; make ci 0; spec v0.6, exp.md 67 (CD-271, CD-281) |
 | MOD-GRN UX | GRN UX; U2 0/8/10 then APPROVE; ruled CD-282 | — | AD-12 | 11:00 | 12:50 | 2 | 0/8/10 | 5976743 |
 | G0b | print.GRNDoc additions | Standard | impl, rev opus (AD-12) | 12:40 | 13:10 | 1 | 0/0/2 | c11d418 |
+| M0-2 | Step Body/Save hooks | High | tw, impl, rev opus (AD-10) | 10:15 | 13:05 | 1 | 0/2/6 | 3fcf575 |
+| M0-3 | Line page hooks | High | tw, impl, rev opus (AD-10) | 10:15 | 12:20 | 1 | 0/0/3 | 3fcf575 |
+| M0-6 | modkit skeleton, import guard, checker reads module tests | Standard | impl, rev opus (AD-9) | 08:41 | 08:56 | 1 | 0/1/2 | 46beebd |
+| M0-7 | Business settings, period lock | High | tw, impl, rev opus (AD-9) | 09:10 | 12:30 | 1 | 0/0/4 | 46beebd |
+| M0-14 | Comments | High | tw, impl, rev opus (AD-9) | 09:10 | 13:20 | 1 | 0/2/7 | 46beebd; G-M0S met |
+| M0-27 | db.Tx.DB, modkit.Wiring (CD-284) | Light | impl, rev opus (AD-9) | 13:30 | 14:00 | 1 | 0/1/1 | 46beebd |
+| M0-14b | Comments.AddTx | High | tw, impl, rev opus (AD-9) | 13:00 | 13:50 | 1 | 0/0/1 | 46beebd |
+| M0-23 | Line {n}: texts in uom and mstfixture (CD-277, CD-278) | Light | impl, rev opus (AD-9) | 13:10 | 13:55 | 1 | 0/0/3 | 46beebd |
+| G0c | Amendment keeps a closed link (CD-279) | High | tw, impl, rev opus (AD-12) | 13:00 | 14:20 | 1 | 0/0/2 | 76a977e |
+| M0-4 | Check/Page/Reason extras, CloseRight button, CloseNone | High | tw, impl, rev opus (AD-10) | 11:40 | 15:10 | 1 | 0/0/6 | 16d9fe9 |
+| M0-29 | Blur-shift fix: reserved message line (CD-287) | Standard | impl, rev opus (AD-10) | 14:05 | 14:50 | 1 | 0/0/3 | 16d9fe9 |
+| M0-24 | approve applies when CloseRight is approve (CD-280 D2) | High | tw, impl, rev opus (AD-9) | 14:00 | 15:20 | 1 | 0/1/3 | 23ea180 |
+| M0-30 | covertouched names exempt blocks, -strict (CD-288) | Light | impl, rev opus (AD-9) | 14:30 | 15:20 | 1 | 0/0/3 | 23ea180 |
+| M0-28 | Register refuses Hooks without LinesTable | Light | impl, rev opus (AD-9) | 14:40 | 15:20 | 1 | 0/0/3 | 23ea180; main 89cb180 make ci 0, P1 585/782 |
+| M0-15 | Read-only drafts for non-writers (G1), CD-263 types | High | tw, impl, rev opus (AD-10) | 13:20 | 16:30 | 1 | 0/1/4 | d59fe3d |
+| M0-25 | WaitingDays, HasRules, CheckCommentBody | Light | impl, rev opus (AD-9) | 15:20 | 16:30 | 1 | 0/0/1 | AD-9 complete (CD-293) |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 

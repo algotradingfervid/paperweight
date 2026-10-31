@@ -1,6 +1,7 @@
 package docscreen
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -66,14 +67,17 @@ templ docBody(pv pageView) {
 					@components.Button(components.ButtonProps{Label: "Amended from " + pv.V.Origin.AmendedFrom, Href: docURL(pv.DT.Name, pv.V.Origin.AmendedFromID), Variant: components.Ghost})
 				</p>
 			}
-			@components.Warnings(pv.V.Warnings)
+			@components.Warnings(slices.Concat(pv.V.Warnings, pv.Extra.Warnings))
 			@components.Card("Details", nil) {
-				@components.SummaryList(pv.V.Header)
+				@components.SummaryList(slices.Concat(pv.V.Header, pv.Extra.Pairs))
 			}
 			if len(pv.V.Lines) > 0 {
 				@components.Card("Lines", nil) {
 					@components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines)})
 				}
+			}
+			for _, c := range pv.Extra.Cards {
+				@c
 			}
 			if len(pv.V.History) > 0 {
 				<div class="doc-audit">

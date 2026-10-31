@@ -332,7 +332,8 @@ func stepTarget(w http.ResponseWriter, r *http.Request) (*doctype.DocType, int64
 
 // stepGet serves GET /doc/{doctype}/{id}/edit/{step}: the whole page, or
 // #wizard for htmx (design-system §8.3), with the draft's stored problems on
-// this step (CD-205). A document past draft goes to its document page.
+// this step (CD-205). A document past draft, or a draft the user may only
+// read (CD-263 G1), goes to its document page.
 func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 	dt, id, steps, i, ok := stepTarget(w, r)
 	if !ok {
@@ -345,6 +346,9 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 	}
 	if v.Info.State != doctype.StateDraft {
 		http.Redirect(w, r, docURL(dt.Name, id), http.StatusSeeOther)
+		return
+	}
+	if d.readOnly(w, r, dt, v) {
 		return
 	}
 	sv, err := d.arrival(r, dt, steps, i, &v)
@@ -376,6 +380,11 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	// Hide sees the draft as loaded, as on GET (CD-256 (2)).
 	loaded, err := d.View(ctx, d.principal(r), dt.Name, id)
 	if err != nil {
+		problem(w, r, err)
+		return
+	}
+	// A reader gets AUTH's refusal, as DOC gives it, before any parsing (CD-263 G1).
+	if err := d.writeErr(r, dt, loaded); err != nil {
 		problem(w, r, err)
 		return
 	}
@@ -505,7 +514,8 @@ func (d Deps) advance(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 
 // failingStep answers a submit DOC refused with field errors: 422 with the
 // first failing step and only that step's errors, and HX-Push-Url set to it
-// (design-system §8.3). htmx gets #main, the check page form's target.
+// (design-system §8.3). htmx gets #main, the check page form's target. A
+// user without write gets the document page with the refusal instead.
 func (d Deps) failingStep(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, pr Problem) {
 	steps, err := FormSteps(dt)
 	if err != nil {
@@ -515,6 +525,10 @@ func (d Deps) failingStep(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 	v, err := d.View(r.Context(), d.principal(r), dt.Name, id)
 	if err != nil {
 		problem(w, r, err)
+		return
+	}
+	if !d.canWrite(r, dt, v) {
+		d.refused(w, r, dt, id, pr) // a reader stays on the read-only page (CD-263 G1)
 		return
 	}
 	i := firstFailingStep(steps, pr.Fields)
@@ -528,7 +542,8 @@ func (d Deps) failingStep(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 }
 
 // checkPage renders draft id's check page as #main for an htmx action that
-// leads there, with the action's banner and warnings, and HX-Push-Url.
+// leads there, with the action's banner and warnings, and HX-Push-Url; a
+// user without write gets the read-only document page.
 func (d Deps) checkPage(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, banner string, warnings []string) {
 	steps, err := FormSteps(dt)
 	if err != nil {
@@ -538,6 +553,10 @@ func (d Deps) checkPage(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	v, err := d.View(r.Context(), d.principal(r), dt.Name, id)
 	if err != nil {
 		problem(w, r, err)
+		return
+	}
+	if !d.canWrite(r, dt, v) {
+		d.readOnlyPage(w, r, dt, v, banner, warnings)
 		return
 	}
 	i := len(steps) - 1
@@ -670,7 +689,9 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	case i == len(steps)-1:
 		sv.Wide = true
 		if v != nil {
-			d.checkStep(c, steps, *v, &sv)
+			if err := d.checkStep(c, steps, *v, &sv); err != nil {
+				return stepView{}, err
+			}
 		}
 	case s.Lines:
 		sv.Wide = true
@@ -712,6 +733,7 @@ type checkView struct {
 	GrandTotal, Words string
 	More              []components.MoreAction
 	Attach            *attachView
+	Extra             CheckExtra // the module's additions (hooks spec §4.4)
 }
 
 // checkSection is one step's summary card.
@@ -729,8 +751,9 @@ type checkSection struct {
 // (CD-178); each section lists its header and whole-lines problems and DOC's
 // line problems. Then the totals, the approval preview, and the bar's state
 // action posting to /submit with the version. A field the module hides is
-// neither summarised nor a problem (CD-256 (1)).
-func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) {
+// neither summarised nor a problem (CD-256 (1)). The module's Check
+// additions come last; its error is returned (hooks spec §4.4).
+func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error {
 	r, dt := c.Req, c.DT
 	rights := Rights(r.Context(), d.Auth, d.principal(r), dt.Name, &v.Record)
 	bar, more := Actions(v, dt.Printable, rights)
@@ -773,7 +796,13 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) {
 		}
 		cv.Sections = append(cv.Sections, sec)
 	}
+	extra, err := checkExtra(c)
+	if err != nil {
+		return err
+	}
+	cv.Extra = extra
 	sv.M.After = checkBody(cv)
+	return nil
 }
 
 // load reads draft id's record in a read transaction.

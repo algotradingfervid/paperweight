@@ -142,8 +142,10 @@ func (e *engine) checkSources(ctx context.Context, tx *db.Tx, dt *DocType, d Doc
 // need them all: a stored error mustn't hide one in scope (CD-205).
 func sourceErrors(ctx context.Context, tx *db.Tx, dt *DocType, d Doc, first bool) ([]FieldError, error) {
 	var errs []FieldError
+	from := int64(-1) // amended_from_id, read on the first closed target
 	check := func(t *DocType, field string, line int, v any, label string) (stop bool, err error) {
-		fe, err := checkSource(ctx, tx, t, field, line, v, label)
+		held := func(id int64) (bool, error) { return heldByAmendedFrom(ctx, tx, dt, d.ID, &from, field, id) }
+		fe, err := checkSource(ctx, tx, t, field, line, v, label, held)
 		if fe != nil {
 			errs = append(errs, *fe)
 		}
@@ -170,10 +172,36 @@ func sourceErrors(ctx context.Context, tx *db.Tx, dt *DocType, d Doc, first bool
 	return errs, nil
 }
 
+// heldByAmendedFrom reports whether the document that document id of dt
+// amends linked field to target id (CD-272 Gap 2). *from caches its
+// amended_from_id (-1 = not read yet, 0 = not an amendment).
+func heldByAmendedFrom(ctx context.Context, tx *db.Tx, dt *DocType, id int64, from *int64, field string, target int64) (bool, error) {
+	if *from < 0 {
+		q := "SELECT COALESCE(amended_from_id, 0) FROM " + quote(dt.Table) + " WHERE id = ?"
+		if err := tx.SQL().QueryRowContext(ctx, q, id).Scan(from); err != nil {
+			return false, fmt.Errorf("doc: read amended_from_id of %s %d: %w", dt.Name, id, err)
+		}
+	}
+	if *from == 0 {
+		return false, nil
+	}
+	f, _ := dt.Field(field) // field is ls.Field of a registered LinkSpec, so it exists
+	q := "SELECT EXISTS (SELECT 1 FROM " + quote(dt.Table) + " WHERE id = ? AND " + quote(f.Column) + " = ?)"
+	if f.OnLine {
+		q = "SELECT EXISTS (SELECT 1 FROM " + quote(dt.LinesTable) + " WHERE parent_id = ? AND " + quote(f.Column) + " = ?)"
+	}
+	var held bool
+	if err := tx.SQL().QueryRowContext(ctx, q, *from, target).Scan(&held); err != nil {
+		return false, fmt.Errorf("doc: read links of %s %d: %w", dt.Name, *from, err)
+	}
+	return held, nil
+}
+
 // checkSource checks the source of field at line (0 = header): v is a header
 // id of t, or with line > 0 a line id of t. A missing source is reported with
-// missingLabel.
-func checkSource(ctx context.Context, tx *db.Tx, t *DocType, field string, line int, v any, missingLabel string) (*FieldError, error) {
+// missingLabel. A closed source is accepted when held reports that the
+// amended-from document linked the same id.
+func checkSource(ctx context.Context, tx *db.Tx, t *DocType, field string, line int, v any, missingLabel string, held func(int64) (bool, error)) (*FieldError, error) {
 	id, ok := intOf(v)
 	if !ok {
 		return nil, nil // an empty value is the required check's job
@@ -204,6 +232,9 @@ func checkSource(ctx context.Context, tx *db.Tx, t *DocType, field string, line 
 	case StateCancelled:
 		return fe(fmt.Sprintf(msgSourceCancelled, s, label)), nil
 	case StateClosed:
+		if ok, err := held(id); err != nil || ok {
+			return nil, err
+		}
 		return fe(fmt.Sprintf(msgSourceClosed, s, label)), nil
 	}
 	return fe(fmt.Sprintf(msgSourceNotApproved, s, label)), nil // draft, rejected

@@ -132,3 +132,108 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** a Module with `NoLinePages` **When** any line route is requested **Then** it answers 404. **Given** a Module with `CardsOnly` **When** the Items step renders at a desktop width **Then** it shows the add-to-a-list cards and no grid.
 - **Go test:** `TestModule_LineFlags`
 - **Sources:** Hooks spec §3, §4.2, §6
+
+### HOOK-019 · A draft's reader without write gets the read-only document page
+- **Priority:** P1
+- **Level:** integration
+- **Given** a draft and a user who can read it but lacks `write` on it **When** they open it **Then** they get the read-only document page (no step form, Change links or line actions); a user with `write` still lands on the check page.
+- **Go test:** `TestDraft_ReaderGetsDocumentPage`
+- **Sources:** CD-263 G1, design-system §8.3
+
+### HOOK-020 · A reader's step and line URLs redirect to the document page; their POSTs are refused
+- **Priority:** P1
+- **Level:** integration
+- **Given** a draft and a reader without `write` **When** they GET any step (check included, with or without `return=check`) or any line page **Then** each answers 303 to the document page; their step and line POSTs get AUTH's write refusal, before any version check or parsing.
+- **Go test:** `TestDraft_ReaderStepAndLineURLsRedirect`
+- **Sources:** CD-263 G1, CD-259
+
+### HOOK-021 · Read-only drafts on the real auth.Service
+- **Priority:** P1
+- **Level:** integration
+- **Given** `fixture.Order` on the real `auth.Service` **When** the owner, a Purchase Manager (read, no write) and a second Purchase User under own-scope write open the same draft **Then** the owner gets the check page and the other two the read-only page.
+- **Go test:** `TestDraft_ReaderRealAuth`
+- **Sources:** CD-263 G1, CD-246
+
+### HOOK-022 · Check-page cards from the module
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `Check` returns `Cards` **When** the check page renders **Then** the cards appear after the Attachments card and before the grand total, outside the step form; a hook error is a 500.
+- **Go test:** `TestModule_CheckCards`
+- **Sources:** CD-263 G2
+
+### HOOK-023 · Owner notice at the top of the document page
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `Page` returns a `Notice` **When** the document page renders **Then** the notice is the last of docscreen's banners, above the title; a blank kind renders as Info.
+- **Go test:** `TestModule_PageNotice`
+- **Sources:** CD-263 G3
+
+### HOOK-024 · Module entries under More actions
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `Page` returns `More` entries **When** the document page renders **Then** they come before docscreen's own More actions entries, whose order is unchanged.
+- **Go test:** `TestModule_PageMore`
+- **Sources:** CD-263 G4
+
+### HOOK-025 · A main button when docscreen has none
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `Page` returns a `Primary` **When** the bar has no primary and no note **Then** it shows as the bar's primary link; when docscreen has its own primary (Approve) or a note, the module's is not shown; a Primary without a link is a 500.
+- **Go test:** `TestModule_PagePrimary`
+- **Sources:** CD-263 G5
+
+### HOOK-026 · A Body that returns no component falls back to the generic step
+- **Priority:** P1
+- **Level:** integration
+- **Given** a `Step.Body` that returns a nil component **When** the step renders **Then** docscreen's generic body renders.
+- **Go test:** `TestModule_StepBodyFallback`
+- **Sources:** CD-263 G6
+
+### HOOK-027 · A step that saves and stays
+- **Priority:** P1
+- **Level:** integration
+- **Given** a step whose bar posts `nav=stay` **When** it saves **Then** the same step redraws at its bare URL (303, or an htmx push), and a 422 keeps the typed values.
+- **Go test:** `TestModule_StepStay`
+- **Sources:** CD-263 G6
+
+### HOOK-028 · A module's step bar
+- **Priority:** P1
+- **Level:** integration
+- **Given** a `Step.Bar` hook **When** the step renders **Then** its primary label, `nav=stay` and Back link apply, `Save and finish later` stays, and Enter submits the primary; a zero `StepBar` keeps docscreen's bar.
+- **Go test:** `TestModule_StepBar`
+- **Sources:** CD-263 G6
+
+### HOOK-029 · Per-DocType state labels on badges, list rows and the submit banner
+- **Priority:** P1
+- **Level:** integration
+- **Given** a DocType with `StateLabels` **When** its document page, list and submit banner render **Then** each shows the DocType's label; a DocType without labels is unchanged.
+- **Go test:** `TestModule_StateLabels`
+- **Sources:** CD-263 G7, CD-269
+
+### HOOK-030 · An approver sees why the document needs them
+- **Priority:** P1
+- **Level:** integration
+- **Given** a pending document **When** an approver, a non-approver and a blocked approver open it **Then** only the approver sees `Needs your approval: {who}, {why}`.
+- **Go test:** `TestPage_ApproverNeedsYourApproval`
+- **Sources:** CD-263 G9(a), CD-266
+
+### HOOK-031 · Approval status carries the viewer's roles and why
+- **Priority:** P1
+- **Level:** integration
+- **Given** a pending approval request **When** its status is read for a viewer **Then** it carries the roles (or the reporting-manager form) the viewer is eligible through and the `WhyText`; both are empty unless pending.
+- **Go test:** `TestApprovalStatus_RolesAndWhy`
+- **Sources:** CD-263 G9(a), CD-266
+
+### HOOK-032 · Approver line on the real services
+- **Priority:** P1
+- **Level:** integration
+- **Given** `fixture.Claim` with a reporting-manager rule and a fallback role on the real services **When** the manager and a role holder open the pending claim **Then** the manager sees the reporting-manager form and the role holder sees their roles.
+- **Go test:** `TestApp_ApproverLineReal`
+- **Sources:** CD-263 G9(a), CD-266
+
+### HOOK-049 · A field checked on blur keeps Save in place while its echo arrives
+- **Priority:** P1
+- **Level:** e2e
+- **Given** a wizard step whose date field posts to `/ui/validate/` on blur **When** the user presses the mouse on Save, the field's echo arrives, and the user releases at the same point **Then** Save has not moved and step 2 loads: the empty message line was reserved (CD-287).
+- **Go test:** `TestE2E_Field_EchoKeepsSaveInPlace`
+- **Sources:** CD-287

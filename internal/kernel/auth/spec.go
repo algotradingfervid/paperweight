@@ -17,13 +17,14 @@ const (
 
 // Applies reports whether right r applies to dt at all. Masters are not
 // Submittable (CD-21), so submit, cancel, amend and approve never apply to them.
-// A right not in AllRights never applies (CD-171).
+// A right not in AllRights never applies (CD-171). Approve also applies when
+// close needs it (dt.CloseRight is "approve"; CD-280 D2).
 func Applies(dt *doctype.DocType, r Right) bool {
 	switch r {
 	case RightSubmit, RightCancel, RightAmend:
 		return dt.Submittable
 	case RightApprove:
-		return dt.Approvable
+		return dt.Approvable || dt.CloseRight == string(RightApprove)
 	case RightImport:
 		return dt.Importable
 	}

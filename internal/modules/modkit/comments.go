@@ -82,6 +82,20 @@ type commentError string
 func (e commentError) Error() string { return string(e) }
 func (e commentError) Status() int   { return http.StatusUnprocessableEntity }
 
+// CheckCommentBody refuses a body that, trimmed, is empty or longer than
+// MaxCommentRunes: AddTx's rule, for callers that check a note before another
+// write (CD-280).
+func CheckCommentBody(body string) error {
+	body = strings.TrimSpace(body)
+	switch {
+	case body == "":
+		return commentError(msgCommentEmpty)
+	case utf8.RuneCountInString(body) > MaxCommentRunes:
+		return commentError(msgCommentTooLong)
+	}
+	return nil
+}
+
 // readable resolves the record and checks read on it in tx. An unregistered
 // DocType, a missing record and one p can't read all answer auth.ErrNotFound
 // (CD-245).
@@ -131,13 +145,10 @@ func (c *Comments) AddTx(ctx context.Context, tx *db.Tx, by types.UserID, dt str
 	if !registered(dt) {
 		return Comment{}, auth.ErrNotFound
 	}
-	body = strings.TrimSpace(body)
-	switch {
-	case body == "":
-		return Comment{}, commentError(msgCommentEmpty)
-	case utf8.RuneCountInString(body) > MaxCommentRunes:
-		return Comment{}, commentError(msgCommentTooLong)
+	if err := CheckCommentBody(body); err != nil {
+		return Comment{}, err
 	}
+	body = strings.TrimSpace(body)
 	u, found, err := c.d.Auth.User(ctx, tx, by)
 	if err != nil {
 		return Comment{}, err

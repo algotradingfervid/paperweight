@@ -284,3 +284,108 @@ func TestCoverTouched_RejectsBadProfile(t *testing.T) {
 		t.Errorf("exit code %d; want 2 and \"is not a coverage block\"\n%s", code, out)
 	}
 }
+
+// TestCoverTouched_RealProfile builds a module in a temp repo, profiles it
+// with the real go test and checks the working tree against the base commit.
+// calc.go's Parse is new: its refusal branch (line 12) is untested, and its
+// `return 0, err` branch (line 9) is untested but exempt as an error return.
+// Covered (line 18) is changed and tested. extra.go and calc_test.go are
+// untracked: extra.go's untested branch (line 5) is listed.
+func TestCoverTouched_RealProfile(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, text string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(root, name), []byte(text), 0o600); err != nil { //nolint:gosec // G703: a fixed name in the test's temp dir.
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/fx\n\ngo 1.25\n")
+	write("calc.go", "package fx\n\nfunc Covered(n int) int {\n\treturn n\n}\n")
+	gitRun(t, root, "init", "-q")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "base")
+
+	write("calc.go", `package fx
+
+import "strconv"
+
+// Parse reads a number below 100.
+func Parse(s string) (int, error) {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	if n >= 100 {
+		return 0, strconv.ErrRange
+	}
+	return n, nil
+}
+
+func Covered(n int) int {
+	return n * 2
+}
+`)
+	write("extra.go", `package fx
+
+func Half(n int) int {
+	if n < 0 {
+		return 0
+	}
+	return n / 2
+}
+`)
+	write("calc_test.go", `package fx
+
+import "testing"
+
+func TestFx(t *testing.T) {
+	if n, err := Parse("7"); n != 7 || err != nil {
+		t.Fatal(n, err)
+	}
+	if Covered(2) != 4 || Half(4) != 2 {
+		t.Fatal("wrong")
+	}
+}
+`)
+	profile := filepath.Join(t.TempDir(), "cover.out")
+	cmd := exec.Command("go", "test", "-count=1", "-coverprofile="+profile, "./...") //nolint:gosec // G204: fixed arguments and a temp path.
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go test: %v\n%s", err, out)
+	}
+	var out bytes.Buffer
+	code := run([]string{"-base", "HEAD", "-profile", profile}, root, &out)
+	want := []string{"calc.go:12", "extra.go:5"}
+	if code != 1 || !slices.Equal(findings(out.String()), want) {
+		t.Errorf("exit code %d, findings %q; want 1, %q\n%s", code, findings(out.String()), want, out.String())
+	}
+	// Touched blocks: Parse's 5 and Covered's 1 in calc.go, Half's 3 in extra.go.
+	summary := "covertouched: 6/9 touched blocks covered; 1 untested error returns exempt (CD-185): calc.go:9\n"
+	if !strings.HasSuffix(out.String(), summary) {
+		t.Errorf("output does not end with %q\n%s", summary, out.String())
+	}
+
+	out.Reset()
+	code = run([]string{"-strict", "-base", "HEAD", "-profile", profile}, root, &out)
+	want = []string{"calc.go:9", "calc.go:12", "extra.go:5"}
+	if code != 1 || !slices.Equal(findings(out.String()), want) || strings.Contains(out.String(), "exempt") {
+		t.Errorf("-strict: exit code %d, findings %q; want 1, %q, no exempt list\n%s", code, findings(out.String()), want, out.String())
+	}
+}
+
+func TestCoverTouched_SummaryNamesExemptErrorReturns(t *testing.T) {
+	// calc.go:17 `return 0, err` and :29 `return 0, fmt.Errorf(..., err)`, both untested.
+	out, code := check(t, map[string]string{"calc.go": drop(t, "calc.go", 17, 29)})
+	want := "covertouched: 0/2 touched blocks covered; 2 untested error returns exempt (CD-185): calc.go:17, :29\n"
+	if code != 0 || out != want {
+		t.Errorf("exit code %d, output %q; want 0, %q", code, out, want)
+	}
+}
+
+func TestJoinLocs(t *testing.T) {
+	got := joinLocs([]string{"a/x.go:12", "a/x.go:30", "b.go:7"})
+	if want := "a/x.go:12, :30, b.go:7"; got != want {
+		t.Errorf("joinLocs = %q, want %q", got, want)
+	}
+}

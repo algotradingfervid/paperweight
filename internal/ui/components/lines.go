@@ -14,6 +14,7 @@ type LineCard struct {
 	Item, Code, QtyRate, Amount, Tax, Received   string
 	ChangeURL, RemoveURL, MoveUpURL, MoveDownURL string
 	Version                                      string
+	Note                                         string // a module's note on this line (hooks spec §3)
 }
 
 // GridCell is one input cell of a grid row; Label heads its column. Wide
@@ -37,6 +38,7 @@ type LineGridRow struct {
 	Amount                                     string
 	PostURL, RemoveURL, MoveUpURL, MoveDownURL string
 	Version                                    string
+	Note                                       string // a module's note on this row (hooks spec §3)
 }
 
 // LineListProps describes the line cards. Total is the number of lines;

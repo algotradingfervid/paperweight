@@ -27,6 +27,13 @@
 //	path:line: not covered by any test
 //
 // and the exit code is 1 (2 on a usage or read error, 0 when all are covered).
+// When nothing is uncovered or exempt, the last line is
+//
+//	covertouched: all touched statements covered (<n> blocks)
+//
+// and when exempt blocks (below) did not, it is
+//
+//	covertouched: <c>/<n> touched blocks covered; <k> untested error returns exempt (CD-185): a.go:12, :30, b.go:7
 //
 // Error returns are exempt: a block whose only statement is a return whose
 // last value is the variable err (`return err`, `return x, err`) or a
@@ -35,6 +42,7 @@
 // Any other block is checked: a refusal (`return ErrX`, `return
 // &ValidationError{...}`), an error wrapped by any other function, or an
 // `if err != nil` body that does more than return (logging, cleanup).
+// With -strict, untested error returns are reported as uncovered too.
 package main
 
 import (
@@ -78,12 +86,13 @@ func run(args []string, root string, out io.Writer) int {
 	fset.SetOutput(out)
 	base := fset.String("base", "", "revision to diff the working tree against (required)")
 	profile := fset.String("profile", "", "coverage profile from go test -coverprofile (required)")
+	strict := fset.Bool("strict", false, "report untested error returns as uncovered too")
 	printf := func(format string, a ...any) { _, _ = fmt.Fprintf(out, format, a...) }
 	if err := fset.Parse(args); err != nil {
 		return 2
 	}
 	if *base == "" || *profile == "" || fset.NArg() > 0 {
-		printf("ERROR usage: covertouched -base <rev> -profile <cover.out>\n")
+		printf("ERROR usage: covertouched [-strict] -base <rev> -profile <cover.out>\n")
 		return 2
 	}
 
@@ -129,19 +138,44 @@ func run(args []string, root string, out io.Writer) int {
 		printf("%s: not in profile, not checked\n", path)
 	}
 
-	findings, n, err := uncovered(root, touched, blocks)
+	r, err := uncovered(root, touched, blocks, *strict)
 	if err != nil {
 		printf("ERROR %v\n", err)
 		return 2
 	}
-	for _, l := range findings {
+	for _, l := range r.findings {
 		printf("%s: not covered by any test\n", l)
 	}
-	if len(findings) > 0 {
+	if len(r.exempt) > 0 {
+		printf("covertouched: %d/%d touched blocks covered; %d untested error returns exempt (CD-185): %s\n",
+			r.covered, r.n, len(r.exempt), joinLocs(r.exempt))
+	}
+	if len(r.findings) > 0 {
 		return 1
 	}
-	printf("covertouched: all touched statements covered (%d blocks)\n", n)
+	if len(r.exempt) == 0 {
+		printf("covertouched: all touched statements covered (%d blocks)\n", r.n)
+	}
 	return 0
+}
+
+// joinLocs joins sorted "path:line" strings, naming each path once:
+// "a.go:12, :30, b.go:7".
+func joinLocs(locs []string) string {
+	var b strings.Builder
+	prev := ""
+	for i, loc := range locs {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		path, line, _ := strings.Cut(loc, ":")
+		if path != prev {
+			b.WriteString(path)
+		}
+		b.WriteString(":" + line)
+		prev = path
+	}
+	return b.String()
 }
 
 // touchedLines returns the lines added or changed since base, by repo path,
@@ -308,14 +342,21 @@ type source struct {
 	lines []string
 }
 
-// uncovered returns the touched code lines of uncovered, non-exempt blocks as
-// sorted "path:line" strings, and the number of blocks that overlap a touched
-// line.
-func uncovered(root string, touched map[string]map[int]bool, blocks []block) ([]string, int, error) {
+// result is what uncovered found.
+type result struct {
+	findings []string // touched code lines of uncovered blocks, sorted "path:line"
+	exempt   []string // first touched code line of each untested error return, sorted
+	n        int      // blocks that overlap a touched line
+	covered  int      // of those, the blocks that ran
+}
+
+// uncovered checks the touched lines against the blocks. With strict, untested
+// error returns are findings instead of exempt.
+func uncovered(root string, touched map[string]map[int]bool, blocks []block, strict bool) (result, error) {
+	var r result
 	bad := map[string]bool{}
 	files := map[string]*source{}
 	tokens := token.NewFileSet()
-	n := 0
 	for _, b := range blocks {
 		lines := touched[b.path]
 		var hit []int
@@ -327,8 +368,9 @@ func uncovered(root string, touched map[string]map[int]bool, blocks []block) ([]
 		if len(hit) == 0 {
 			continue
 		}
-		n++
+		r.n++
 		if b.count > 0 {
+			r.covered++
 			continue
 		}
 		src, ok := files[b.path]
@@ -336,30 +378,34 @@ func uncovered(root string, touched map[string]map[int]bool, blocks []block) ([]
 			path := filepath.Join(root, b.path)
 			data, err := os.ReadFile(path) //nolint:gosec // G304: a path git listed inside the repo.
 			if err != nil {
-				return nil, 0, err
+				return result{}, err
 			}
 			file, err := parser.ParseFile(tokens, path, data, parser.SkipObjectResolution)
 			if err != nil {
-				return nil, 0, err
+				return result{}, err
 			}
 			src = &source{file: file, lines: strings.Split(string(data), "\n")}
 			files[b.path] = src
 		}
-		if errorOnly(tokens, src.file, b) {
-			continue
-		}
+		exempt := !strict && errorOnly(tokens, src.file, b)
 		for _, l := range hit {
-			if hasCode(src.lines, b, l) {
-				bad[fmt.Sprintf("%s:%d", b.path, l)] = true
+			if !hasCode(src.lines, b, l) {
+				continue
 			}
+			loc := fmt.Sprintf("%s:%d", b.path, l)
+			if exempt {
+				r.exempt = append(r.exempt, loc)
+				break
+			}
+			bad[loc] = true
 		}
 	}
-	out := make([]string, 0, len(bad))
 	for loc := range bad {
-		out = append(out, loc)
+		r.findings = append(r.findings, loc)
 	}
-	slices.SortFunc(out, compareLoc)
-	return out, n, nil
+	slices.SortFunc(r.findings, compareLoc)
+	slices.SortFunc(r.exempt, compareLoc)
+	return r, nil
 }
 
 // hasCode reports whether the block's part of line l (1-based) holds code:
