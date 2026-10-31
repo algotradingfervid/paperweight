@@ -529,6 +529,12 @@ func TestAuthfake_AppliesMatchesReal(t *testing.T) {
 // bypass; the fake's "*" grant of every right), whose inapplicable rights
 // must be refused as well.
 func appliesParity(t *testing.T, dt *doctype.DocType, rights []auth.Right, who string, inapplicable *int) {
+	parityWant(t, dt, rights, who, func(r auth.Right) bool { return auth.Applies(dt, r) }, inapplicable)
+}
+
+// parityWant is appliesParity with the applicable rights given by applicable
+// rather than read from auth.Applies, so a row can pin what Applies must say.
+func parityWant(t *testing.T, dt *doctype.DocType, rights []auth.Right, who string, applicable func(auth.Right) bool, inapplicable *int) {
 	const clerk = "clerk@vardhan.test"
 	ctx := context.Background()
 	w := authtest.NewWorld(t)
@@ -548,7 +554,7 @@ func appliesParity(t *testing.T, dt *doctype.DocType, rights []auth.Right, who s
 		f.AddUser(auth.UserInfo{ID: u, Email: clerk, Name: "Clerk User", Enabled: true})
 		for _, r := range rights {
 			f.Grant("Clerk", dt.Name, r, auth.ScopeAll)
-			if auth.Applies(dt, r) {
+			if applicable(r) {
 				w.Grant(t, "Clerk", dt.Name, r, auth.ScopeAll)
 			}
 		}
@@ -574,7 +580,7 @@ func appliesParity(t *testing.T, dt *doctype.DocType, rights []auth.Right, who s
 		}
 	}
 	for _, r := range rights {
-		applies := auth.Applies(dt, r)
+		applies := applicable(r)
 		if !applies {
 			*inapplicable++
 		}
@@ -599,5 +605,25 @@ func appliesParity(t *testing.T, dt *doctype.DocType, rights []auth.Right, who s
 			t.Errorf("UsersWithRight(%s, %s) lists the clerk: real %v (%v), authfake %v (%v), want both %v",
 				dt.Name, r, inReal, realUsers, inFake, fakeUsers, applies)
 		}
+	}
+}
+
+// CD-280 D2 parity row (M0-24): for a DocType whose CloseRight is approve
+// (not approvable) and its twin without CloseRight, × AllRights plus an
+// unknown right, authfake answers as the real service, and both answer what
+// the ruling says (approve applies only where CloseRight is approve).
+func TestAuthfake_CloseRightMatchesReal(t *testing.T) {
+	const unknown auth.Right = "foo"
+	rights := append(slices.Clone(auth.AllRights), unknown)
+	closeDT, twin := m024Register()
+	for _, dt := range []*doctype.DocType{closeDT, twin} {
+		t.Run(dt.Name, func(t *testing.T) {
+			for _, who := range []string{"Clerk", auth.RoleAdministrator} {
+				t.Run(who, func(t *testing.T) {
+					var n int
+					parityWant(t, dt, rights, who, func(r auth.Right) bool { return m024Applies(dt.Name, r) }, &n)
+				})
+			}
+		})
 	}
 }
