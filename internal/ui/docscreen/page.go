@@ -77,7 +77,11 @@ func (d Deps) page(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, docURL(dt.Name, id)+"/edit/check", http.StatusSeeOther)
 		return
 	}
-	pv := d.pageViewOf(r.Context(), p, dt, v)
+	pv, err := d.pageViewOf(r, p, dt, v)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	if r.URL.Query().Get("next") == "1" {
 		pv.Next = d.InboxURL
 		pv.Success = takeSuccess(r.Context())
@@ -100,9 +104,29 @@ func takeSuccess(ctx context.Context) string {
 	return text
 }
 
-func (d Deps) pageViewOf(ctx context.Context, p auth.Principal, dt *doctype.DocType, v DocView) pageView {
-	rights := Rights(ctx, d.Auth, p, dt.Name, &v.Record)
-	pv := pageView{DT: dt, V: v, Attach: attachOf(dt, v, rights)}
+// pageViewOf is document v's page: its Details and display values without
+// the fields the module hides, Header and HeaderNames kept parallel, and the
+// module's line summaries (CD-256 (1)). It returns an error for the module
+// hooks to come (hooks spec §4.4); none fails yet.
+func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType, v DocView) (pageView, error) {
+	rights := Rights(r.Context(), d.Auth, p, dt.Name, &v.Record)
+	c := d.ctxOf(r, dt, &v)
+	shown := v
+	shown.Header, shown.HeaderNames, shown.Display = nil, nil, map[string]string{}
+	for n, name := range v.HeaderNames {
+		if f, ok := dt.Field(name); ok && hidden(c, f) {
+			continue
+		}
+		shown.Header = append(shown.Header, v.Header[n])
+		shown.HeaderNames = append(shown.HeaderNames, name)
+	}
+	for name, s := range v.Display {
+		if f, ok := dt.Field(name); !ok || !hidden(c, f) {
+			shown.Display[name] = s
+		}
+	}
+	applyLineCards(c, &shown)
+	pv := pageView{DT: dt, V: shown, Attach: attachOf(dt, v, rights)}
 	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
 	if pv.Bar.Note == "" {
 		for _, b := range buttons(v, dt.Printable, rights) {
@@ -111,7 +135,7 @@ func (d Deps) pageViewOf(ctx context.Context, p auth.Principal, dt *doctype.DocT
 			}
 		}
 	}
-	return pv
+	return pv, nil
 }
 
 // actionGet serves GET /doc/{doctype}/{id}/{action}: only the reason and
@@ -206,7 +230,11 @@ func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 		ui.Render(w, r, pr.Status, problemPage(pr), problemMain(pr))
 		return
 	}
-	pv := d.pageViewOf(r.Context(), p, dt, v)
+	pv, err := d.pageViewOf(r, p, dt, v)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	pv.Danger = pr.Message
 	pv.Errors = fieldErrs(pr.Fields)
 	ui.Render(w, r, pr.Status, docPage(pv), docMain(pv))
@@ -247,7 +275,11 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 			problem(w, r, err)
 			return
 		}
-		pv := d.pageViewOf(ctx, p, dt, v)
+		pv, err := d.pageViewOf(r, p, dt, v)
+		if err != nil {
+			web.ErrorFrom(w, r, err)
+			return
+		}
 		pv.Success = text
 		pv.V.Warnings = res.Warnings
 		if a == doctype.ActionApprove {

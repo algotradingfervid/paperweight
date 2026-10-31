@@ -1,0 +1,7 @@
+GET /doc/docscreentest.Shipment/60
+status: 303
+Content-Type: text/html; charset=utf-8
+Location: /doc/docscreentest.Shipment/60/edit/check
+
+<a href="/doc/docscreentest.Shipment/60/edit/check">See Other</a>.
+

@@ -107,11 +107,15 @@ func (s FormStep) only() []string {
 
 // stepErrors keeps the errors step i shows: its own, and those with no step
 // to show them on (no field name, or a name no step owns), so its summary
-// links only to what is on the page.
-func stepErrors(steps []FormStep, i int, errs []doctype.FieldError) []doctype.FieldError {
+// links only to what is on the page. An error on a field the module hides
+// keeps only its message, with no field (CD-256 (1)).
+func stepErrors(c Ctx, steps []FormStep, i int, errs []doctype.FieldError) []doctype.FieldError {
 	var out []doctype.FieldError
 	for _, e := range errs {
 		if e.Field == "" || steps[i].owns(e) || !slices.ContainsFunc(steps, func(s FormStep) bool { return s.owns(e) }) {
+			if f, ok := c.DT.Field(e.Field); ok && hidden(c, f) {
+				e = doctype.FieldError{Message: e.Message}
+			}
 			out = append(out, e)
 		}
 	}
@@ -120,8 +124,8 @@ func stepErrors(steps []FormStep, i int, errs []doctype.FieldError) []doctype.Fi
 
 // refusalErrors is stepErrors for a refusal, which must always say why: when
 // no error is left, each dropped error's own message, with no field.
-func refusalErrors(steps []FormStep, i int, errs []doctype.FieldError) []doctype.FieldError {
-	out := stepErrors(steps, i, errs)
+func refusalErrors(c Ctx, steps []FormStep, i int, errs []doctype.FieldError) []doctype.FieldError {
+	out := stepErrors(c, steps, i, errs)
 	if len(out) > 0 {
 		return out
 	}
@@ -162,15 +166,16 @@ func editable(f doctype.Field) bool { return !f.ReadOnly }
 
 // postedStep reads step s's editable fields from the POST: the typed text
 // and, through ToPlain, DOC's plain values. A parse error is a FieldError
-// with NUM's text and leaves the field out of plain (CD-48).
-func postedStep(r *http.Request, dt *doctype.DocType, s FormStep) (typed, plain map[string]string, errs []doctype.FieldError) {
+// with NUM's text and leaves the field out of plain (CD-48). A field the
+// module hides is left out, so DOC keeps its stored value (hooks spec §4.3).
+func postedStep(c Ctx, s FormStep) (typed, plain map[string]string, errs []doctype.FieldError) {
 	typed, plain = map[string]string{}, map[string]string{}
 	for _, name := range s.Fields {
-		f, ok := dt.Field(name)
-		if !ok || !editable(f) {
+		f, ok := c.DT.Field(name)
+		if !ok || !editable(f) || hidden(c, f) {
 			continue
 		}
-		typed[name] = r.PostFormValue(name)
+		typed[name] = c.Req.PostFormValue(name)
 		v, fe := ToPlain(f, typed[name])
 		if fe != nil {
 			errs = append(errs, *fe)
@@ -203,7 +208,11 @@ func (d Deps) newGet(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	sv := d.stepViewOf(r, dt, steps, 0, nil, defaults, nil)
+	sv, err := d.stepViewOf(r, dt, steps, 0, nil, defaults, nil)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepFrame(sv))
 }
 
@@ -234,9 +243,15 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	typed, plain, errs := postedStep(r, dt, steps[0])
+	c := d.ctxOf(r, dt, nil)
+	typed, plain, errs := postedStep(c, steps[0])
 	invalid := func(status int, pr Problem) {
-		sv := d.stepViewOf(r, dt, steps, 0, nil, typed, pr.Fields)
+		pr.Fields = refusalErrors(c, steps, 0, pr.Fields)
+		sv, err := d.stepViewOf(r, dt, steps, 0, nil, typed, pr.Fields)
+		if err != nil {
+			web.ErrorFrom(w, r, err)
+			return
+		}
 		if status == http.StatusConflict {
 			sv.M.Conflict, sv.M.ReloadURL = pr.Message, "/doc/"+dt.Name+"/new"
 		}
@@ -317,7 +332,11 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, docURL(dt.Name, id), http.StatusSeeOther)
 		return
 	}
-	sv := d.arrival(r, dt, steps, i, &v)
+	sv, err := d.arrival(r, dt, steps, i, &v)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepFrame(sv))
 }
 
@@ -339,15 +358,25 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	nav := wizard.Nav(r)
-	typed, plain, errs := postedStep(r, dt, steps[i])
+	// Hide sees the draft as loaded, as on GET (CD-256 (2)).
+	loaded, err := d.View(ctx, d.principal(r), dt.Name, id)
+	if err != nil {
+		problem(w, r, err)
+		return
+	}
+	typed, plain, errs := postedStep(d.ctxOf(r, dt, &loaded), steps[i])
 	rerender := func(pr Problem) {
 		v, err := d.View(ctx, d.principal(r), dt.Name, id)
 		if err != nil {
 			problem(w, r, err)
 			return
 		}
-		pr.Fields = refusalErrors(steps, i, pr.Fields)
-		sv := d.stepViewOf(r, dt, steps, i, &v, typed, pr.Fields)
+		pr.Fields = refusalErrors(d.ctxOf(r, dt, &v), steps, i, pr.Fields)
+		sv, err := d.stepViewOf(r, dt, steps, i, &v, typed, pr.Fields)
+		if err != nil {
+			web.ErrorFrom(w, r, err)
+			return
+		}
 		o := wizard.Invalid
 		if pr.Status == http.StatusConflict {
 			o = wizard.Conflict
@@ -419,7 +448,11 @@ func (d Deps) advance(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 		problem(w, r, err)
 		return
 	}
-	sv := d.arrival(r, dt, steps, i, &v)
+	sv, err := d.arrival(r, dt, steps, i, &v)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	sv.M.Warnings = warnings
 	wizard.Respond(w, r, wizard.Advance, next, func(bool) templ.Component { return stepFrame(sv) })
 }
@@ -439,7 +472,11 @@ func (d Deps) failingStep(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 		return
 	}
 	i := firstFailingStep(steps, pr.Fields)
-	sv := d.stepViewOf(r, dt, steps, i, &v, nil, stepErrors(steps, i, pr.Fields))
+	sv, err := d.stepViewOf(r, dt, steps, i, &v, nil, stepErrors(d.ctxOf(r, dt, &v), steps, i, pr.Fields))
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	w.Header().Set("HX-Push-Url", sv.M.StepURL(i))
 	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))
 }
@@ -458,7 +495,11 @@ func (d Deps) checkPage(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		return
 	}
 	i := len(steps) - 1
-	sv := d.stepViewOf(r, dt, steps, i, &v, nil, nil)
+	sv, err := d.stepViewOf(r, dt, steps, i, &v, nil, nil)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	sv.Banner, sv.M.Warnings = banner, warnings
 	w.Header().Set("HX-Push-Url", sv.M.StepURL(i))
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepMain(sv))
@@ -478,20 +519,24 @@ type stepView struct {
 // arrival is step i as a user reaches it who did nothing wrong: draft v's
 // stored problems on this step show by their fields and in M.Stored, and
 // M.Errors stays empty, so the title is plain and the heading takes focus.
-func (d Deps) arrival(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView) stepView {
-	errs := stepErrors(steps, i, v.DraftProblems)
-	sv := d.stepViewOf(r, dt, steps, i, v, nil, errs)
+func (d Deps) arrival(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView) (stepView, error) {
+	errs := stepErrors(d.ctxOf(r, dt, v), steps, i, v.DraftProblems)
+	sv, err := d.stepViewOf(r, dt, steps, i, v, nil, errs)
+	if err != nil {
+		return stepView{}, err
+	}
 	sv.M.Errors = nil
 	for _, e := range errs {
 		sv.M.Stored = append(sv.M.Stored, e.Message)
 	}
-	return sv
+	return sv, nil
 }
 
 // stepViewOf builds step i of dt's wizard. v is nil for a new document;
 // typed, when not nil, holds the posted values of the step's fields; errs
-// are shown in the summary and by their fields.
-func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView, typed map[string]string, errs []doctype.FieldError) stepView {
+// are shown in the summary and by their fields. It returns an error for the
+// module hooks to come (hooks spec §4.4); none fails yet.
+func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView, typed map[string]string, errs []doctype.FieldError) (stepView, error) {
 	s := steps[i]
 	m := wizard.Model{Mode: wizard.Document, Title: dt.Label, Current: i, Errors: fieldErrs(errs)}
 	for _, st := range steps {
@@ -514,7 +559,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		case e.Field == "":
 			m.Errors[n].ID = "step-title"
 		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
-			m.Errors[n].ID = linesTarget(*v)
+			m.Errors[n].ID = linesTarget(*v, true) // no module turns the desktop grid off yet
 		}
 	}
 	if r.URL.Query().Get("return") == slugCheck || r.PostFormValue("return") == slugCheck {
@@ -522,11 +567,16 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	}
 	sv := stepView{M: m, Bar: wizard.Bar{Back: i > 0}}
 	if v != nil {
-		d = d.WithStored(v.Inputs)
+		shown := *v
+		v = &shown
+	}
+	c := d.ctxOf(r, dt, v) // c.View is what this step renders
+	if v != nil {
+		applyLineCards(c, v)
 	}
 	for _, name := range s.Fields {
 		f, ok := dt.Field(name)
-		if !ok {
+		if !ok || hidden(c, f) {
 			continue
 		}
 		if !editable(f) {
@@ -541,30 +591,30 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		} else if v != nil {
 			value = v.Inputs[name]
 		}
-		sv.Inputs = append(sv.Inputs, FieldInput(f, components.FieldID(name), value, headerError(errs, name), d))
+		sv.Inputs = append(sv.Inputs, FieldInput(f, components.FieldID(name), value, headerError(errs, name), c.Deps))
 	}
 	switch {
 	case i == len(steps)-1:
 		sv.Wide = true
 		if v != nil {
-			d.checkStep(r, dt, steps, *v, &sv)
+			d.checkStep(c, steps, *v, &sv)
 		}
 	case s.Lines:
 		sv.Wide = true
 		if v != nil {
-			sv.M.After = d.itemsBody(r, dt, *v)
+			sv.M.After = d.itemsBody(c, *v)
 		}
 	default:
 		sv.Empty = len(sv.Inputs) == 0 && len(sv.Fixed) == 0
 	}
-	return sv
+	return sv, nil
 }
 
 // linesTarget is the id a line's or whole-lines error links to, on the Items
-// step: the grid editor when the draft has lines to show in it, else the step
-// heading.
-func linesTarget(v DocView) string {
-	if len(v.Lines) > 0 {
+// step: the grid editor when it is shown and the draft has lines to show in
+// it, else the step heading.
+func linesTarget(v DocView, grid bool) string {
+	if grid && len(v.Lines) > 0 {
 		return "line-editor"
 	}
 	return "step-title"
@@ -605,8 +655,10 @@ type checkSection struct {
 // and, with a lines table, "Add at least one line." for a draft with none
 // (CD-178); each section lists its header and whole-lines problems and DOC's
 // line problems. Then the totals, the approval preview, and the bar's state
-// action posting to /submit with the version.
-func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, v DocView, sv *stepView) {
+// action posting to /submit with the version. A field the module hides is
+// neither summarised nor a problem (CD-256 (1)).
+func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) {
+	r, dt := c.Req, c.DT
 	rights := Rights(r.Context(), d.Auth, d.principal(r), dt.Name, &v.Record)
 	bar, more := Actions(v, dt.Printable, rights)
 	// A submit leaves the wizard: its answer (the document page or the
@@ -628,6 +680,9 @@ func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, 
 	for i, s := range steps[:len(steps)-1] {
 		sec := checkSection{Title: s.Label, ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
 		for _, p := range problems {
+			if f, ok := dt.Field(p.Field); ok && hidden(c, f) {
+				continue
+			}
 			if s.owns(p) {
 				sec.Status = wizard.Attention
 				if p.Line == 0 || slices.Contains(v.DraftProblems, p) {
@@ -639,7 +694,7 @@ func (d Deps) checkStep(r *http.Request, dt *doctype.DocType, steps []FormStep, 
 			sec.Lines = &components.LineListProps{Cards: lineCards(v.Lines), Total: len(v.Lines)}
 		}
 		for _, name := range s.Fields {
-			if f, ok := dt.Field(name); ok && v.Display[name] != "" {
+			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) {
 				sec.Pairs = append(sec.Pairs, components.Pair{Label: f.Label, Value: v.Display[name], Num: numeric(f)})
 			}
 		}

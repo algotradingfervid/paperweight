@@ -21,6 +21,7 @@ type DocView struct {
 	Version        int
 	Record         auth.RecordRef
 	Header         []components.Pair
+	HeaderNames    []string          // the field name of each Header entry, in order
 	Display        map[string]string // header display values by field name
 	Inputs         map[string]string
 	Lines          []LineView
@@ -37,9 +38,11 @@ type DocView struct {
 	Warnings       []string
 }
 
-// LineView is one line: its values in input and display form, and its card.
+// LineView is one line: its stored id, its values in input and display
+// form, and its card.
 type LineView struct {
 	No              int
+	ID              string // the stored line's id
 	Inputs, Display map[string]string
 	Card            components.LineCard
 }
@@ -126,6 +129,7 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 			return DocView{}, err
 		}
 		v.Header = append(v.Header, components.Pair{Label: f.Label, Value: shown, Num: numeric(f)})
+		v.HeaderNames = append(v.HeaderNames, f.Name)
 		v.Display[f.Name] = shown
 		if v.Inputs[f.Name], err = inputValue(f, plain); err != nil {
 			return DocView{}, err
@@ -146,9 +150,6 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 		if err != nil {
 			return DocView{}, err
 		}
-		if i.State != doctype.StateApproved && i.State != doctype.StateClosed {
-			lv.Card.Received = "" // only approved and closed documents show receipts (CD-242)
-		}
 		v.Lines = append(v.Lines, lv)
 		v.Problems = append(v.Problems, problems...)
 	}
@@ -167,7 +168,7 @@ func recordRef(i doctype.Info) auth.RecordRef {
 // card "{qty} {uom} × {rate}" (CD-61) with the item's master name and code,
 // and, for a quantity roll-up, "Received {n} of {qty} {uom}" (DOC-092).
 func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no int, line map[string]string) (LineView, []doctype.FieldError, error) {
-	lv := LineView{No: no, Inputs: map[string]string{}, Display: map[string]string{}, Card: components.LineCard{No: no}}
+	lv := LineView{No: no, ID: line["id"], Inputs: map[string]string{}, Display: map[string]string{}, Card: components.LineCard{No: no}}
 	var problems []doctype.FieldError
 	var qty, rate, received string
 	for _, f := range dt.Fields {
