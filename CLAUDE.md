@@ -89,6 +89,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - **High-tier reviews include a mutation pass** (`go test -overlay` with a mutated copy) on every guard and every `queries/*.sql` filter: ORDER BY, DISTINCT, state lists, refusal-switch arms, CSV BOM and escaping. covertouched marks those lines covered while no test fails when they're deleted (four of five MOD-EXP reviews; CD-299).
 - Re-check a task's tests and brief against main's CD log when the implementer is dispatched, not only at test-writer dispatch: M0-19 missed CD-292 (5), which landed in between.
 - Write mixed `&&` / `||` with parentheses: staticcheck and gocritic don't flag them, and a gallery filter bug came from one (M0-5).
+- A module's Validate writes each derived field as computed from current inputs or cleared, never left as it was: amend and step saves keep Validate's writes even when it returns errors, so "skip on error" leaves stale snapshots beside a changed input (CD-302; P2 failed review twice).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
