@@ -199,7 +199,8 @@ func sampleList(empty bool) components.DataListProps {
 			{Key: "number", Label: "Number", Priority: components.PTitle, Code: true},
 			{Key: "amount", Label: "Amount", Priority: components.PFigure, Num: true},
 			{Key: "state", Label: "State", Priority: components.PState},
-			{Key: "date", Label: "Order date", Priority: components.PMeta},
+			{Key: "date", Label: "Order date", Priority: components.PMeta, NoWrap: true},
+			{Key: "gstin", Label: "GSTIN", Priority: components.PMeta, NoWrap: true},
 			{Key: "hindi", Label: "Name in Hindi", Priority: components.PLow},
 		},
 		Empty: components.EmptyState("No sample orders yet.", &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"}),
@@ -207,11 +208,12 @@ func sampleList(empty bool) components.DataListProps {
 	if empty {
 		return p
 	}
-	values := map[string]string{"number": uitest.LongCode60, "amount": uitest.MaxMoney, "date": "24-10-2026", "hindi": uitest.LongDevanagari}
+	values := map[string]string{"number": uitest.LongCode60, "amount": uitest.MaxMoney, "date": "24-10-2026", "gstin": "29AAFCV2449G1Z5", "hindi": uitest.LongDevanagari}
 	p.Rows = []components.Row{
 		{Href: "/_gallery/datalist", Party: uitest.LongName100, Values: values, State: doctype.StatePending},
 		{Href: "/_gallery/datalist", Values: values, State: doctype.StateApproved},
 		{Href: "/_gallery/datalist", Party: uitest.LongDevanagari, Values: map[string]string{"number": "Draft 42", "amount": "₹0.00"}, State: doctype.StateDraft},
+		{Href: "/_gallery/datalist", Party: "Shree Steel Traders", Values: map[string]string{"number": "PO/0043", "amount": "₹1,200.00", "date": "24-10-2026", "hindi": uitest.LongDevanagari}, State: doctype.StateApproved}, // blank GSTIN between two values
 	}
 	return p
 }
