@@ -3,6 +3,7 @@ package modkit
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -110,32 +111,51 @@ func notFound(err error) error {
 
 // AddComment saves body, trimmed, on the record as p.
 func (c *Comments) AddComment(ctx context.Context, p auth.Principal, dt string, id int64, body string) (Comment, error) {
-	body = strings.TrimSpace(body)
 	var out Comment
 	err := c.d.DB.Write(ctx, func(tx *db.Tx) error {
 		if _, err := c.readable(ctx, tx, p, dt, id); err != nil {
 			return err
 		}
-		switch {
-		case body == "":
-			return commentError(msgCommentEmpty)
-		case utf8.RuneCountInString(body) > MaxCommentRunes:
-			return commentError(msgCommentTooLong)
-		}
-		at := types.TimestampOf(c.d.Clock.Now())
-		cid, err := dbq.New(tx.SQL()).InsertComment(ctx, dbq.InsertCommentParams{
-			Doctype: dt, RecordID: id, Body: body, CreatedBy: int64(p.ID), CreatedAt: at.String(),
-		})
-		if err != nil {
-			return err
-		}
-		out = Comment{
-			ID: cid, DocType: dt, RecordID: id, Body: body,
-			CreatedBy: p.ID, CreatedByName: p.Name, CreatedAt: at.Time(),
-		}
-		return nil
+		var err error
+		out, err = c.AddTx(ctx, tx, p.ID, dt, id, body)
+		return err
 	})
 	return out, err
+}
+
+// AddTx saves body, trimmed, on the record as by, through tx and without a
+// read check: for kernel effect hooks that have already checked rights (GRN
+// approve and cancel, purchase). An unregistered DocType answers
+// auth.ErrNotFound, as in AddComment.
+func (c *Comments) AddTx(ctx context.Context, tx *db.Tx, by types.UserID, dt string, id int64, body string) (Comment, error) {
+	if !registered(dt) {
+		return Comment{}, auth.ErrNotFound
+	}
+	body = strings.TrimSpace(body)
+	switch {
+	case body == "":
+		return Comment{}, commentError(msgCommentEmpty)
+	case utf8.RuneCountInString(body) > MaxCommentRunes:
+		return Comment{}, commentError(msgCommentTooLong)
+	}
+	u, found, err := c.d.Auth.User(ctx, tx, by)
+	if err != nil {
+		return Comment{}, err
+	}
+	if !found {
+		return Comment{}, fmt.Errorf("modkit: comment author %d not found", by)
+	}
+	at := types.TimestampOf(c.d.Clock.Now())
+	cid, err := dbq.New(tx.SQL()).InsertComment(ctx, dbq.InsertCommentParams{
+		Doctype: dt, RecordID: id, Body: body, CreatedBy: int64(by), CreatedAt: at.String(),
+	})
+	if err != nil {
+		return Comment{}, err
+	}
+	return Comment{
+		ID: cid, DocType: dt, RecordID: id, Body: body,
+		CreatedBy: by, CreatedByName: u.Name, CreatedAt: at.Time(),
+	}, nil
 }
 
 // ListComments returns the record's comments, oldest first.

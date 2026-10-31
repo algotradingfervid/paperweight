@@ -66,7 +66,7 @@ func (v region) box() components.FieldProps {
 func announceAttrs(id string, oob bool) templ.Attributes {
 	a := templ.Attributes{"id": id, "role": "status"}
 	if oob {
-		a["hx-swap-oob"] = "true"
+		a["hx-swap-oob"] = "innerHTML"
 	}
 	return a
 }
