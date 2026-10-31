@@ -214,10 +214,8 @@ func TestPO_PrintNoPlaceReasonWithoutParties(t *testing.T) {
 		}
 		p8Contains(t, "no vendor", body, `<h1 class="doc-title">Purchase Order`)
 		p8Lacks(t, "no vendor", body, `class="place-reason"`, "Intra-state", "Inter-state")
-		// No vendor means no address snapshot, so no address lines.
-		vendor := p8Section(body, "section", "party")
-		p8Contains(t, "no vendor's party block", vendor, "<h3>Vendor</h3>")
-		p8Lacks(t, "no vendor's party block", vendor, `<p class="address">`)
+		// CD-316 (5): no vendor means no party block at all.
+		p8Lacks(t, "no vendor's party block", body, `class="party"`, "<h3>Vendor</h3>", "GSTIN: Unregistered")
 	})
 	t.Run("no_site", func(t *testing.T) {
 		res := p2Must(t, "no site")(p2Create(t, env, env.Admin, p2Header(t, env, "SHREE", "", "PRJ-METRO"), p8RefLines(t, env)))
