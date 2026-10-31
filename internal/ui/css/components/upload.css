@@ -35,6 +35,14 @@
   & .attachments__thumb { max-inline-size: min(100%, 10rem); }
   & .attachments__name { font-weight: var(--weight-medium); }
   & .attachments__meta { font-size: var(--text-sm); color: var(--color-text-secondary); }
+  /* Compact (CD-326 (6)): a 4rem thumbnail with its one line beside it. */
+  & > .attachments-compact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    & .attachments__thumb { flex: none; inline-size: min(100%, 4rem); }
+  }
 }
 
 /* A stored file's link, in Attachments and on a line card (UX-E3): an

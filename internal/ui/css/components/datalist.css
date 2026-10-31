@@ -19,6 +19,8 @@
     border-radius: var(--radius-lg);
     &:hover { border-color: var(--color-primary-600); }
   }
+  /* A row that needs attention, such as an overdue line (CD-326 (8)). */
+  & .datalist-link--warning { background: var(--color-warning-50); border-color: var(--color-warning-600); }
   & :where(.datalist-cell, dd) { margin: 0; min-inline-size: 0; overflow-wrap: anywhere; }
   & .datalist-r1 {
     display: flex;

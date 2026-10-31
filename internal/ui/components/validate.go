@@ -41,10 +41,23 @@ func NUMParsers() map[string]ParseFunc {
 			if err != nil {
 				return "", "", err
 			}
-			echo := time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC).Format("Monday, 2 January 2006")
-			return types.FormatDate(d), echo, nil
+			return types.FormatDate(d), weekdayOf(d), nil
 		},
 	}
+}
+
+// weekdayOf is d with its weekday, "Saturday, 24 October 2026".
+func weekdayOf(d types.Date) string {
+	return time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC).Format("Monday, 2 January 2006")
+}
+
+// weekday is weekdayOf the date in s, or "" when s isn't one.
+func weekday(s string) string {
+	d, err := types.ParseDate(s)
+	if err != nil {
+		return ""
+	}
+	return weekdayOf(d)
 }
 
 // ValidateHandler serves POST /ui/validate/{kind}. It parses the value of the

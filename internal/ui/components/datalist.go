@@ -40,7 +40,12 @@ type Row struct {
 	Values             map[string]string
 	State              doctype.State
 	StateLabel         string // the DocType's word for State; "" keeps the component's
+	Tone               string // "" or ToneWarning, which tints the row (CD-326 (8))
 }
+
+// ToneWarning is a Row's Tone for a row that needs attention, such as an
+// overdue line (CD-330 (4)).
+const ToneWarning = "warning"
 
 // DataListProps describes a DataList; Empty is shown when there are no rows.
 type DataListProps struct {

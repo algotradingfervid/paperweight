@@ -61,7 +61,14 @@ templ listHead(c Column) {
 }
 
 templ listCard(l listLayout, r Row) {
-	<a class="datalist-link" href={ templ.URL(r.Href) }>
+	<a
+		if r.Tone == ToneWarning {
+			class="datalist-link datalist-link--warning"
+		} else {
+			class="datalist-link"
+		}
+		href={ templ.URL(r.Href) }
+	>
 		<div class="datalist-r1">
 			if l.title != nil {
 				@listCell(cardCell{Column: *l.title, title: true}) {

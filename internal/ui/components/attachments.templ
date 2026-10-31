@@ -9,26 +9,36 @@ import (
 // Attachments lists stored files: images as lazy thumbnails, HEIC as a
 // download link (browsers can't show it), others as a file chip. Each item
 // shows who uploaded it and when, and, when RemoveURL is set, "Remove", which
-// opens the file's confirm.
+// opens the file's confirm. A Compact item is a ~4rem thumbnail with
+// "name · size" on one line and no uploader (CD-326 (6)).
 templ Attachments(items []Attachment) {
-	@attachmentItems(items, "")
+	@attachmentItems(items, "", "")
 }
 
 // attachmentItems is Attachments whose Remove confirms swap target (Form's
-// default when empty).
-templ attachmentItems(items []Attachment, target string) {
+// default when empty) and whose thumbnails' alt is alt (the file's name when
+// empty).
+templ attachmentItems(items []Attachment, target, alt string) {
 	<ul class="attachments">
 		for _, a := range items {
-			<li>
-				@attachmentLink(a, a.Name)
-				if a.Kind == "image" || a.Kind == "heic" {
-					<p class="attachments__name">{ a.Name }</p>
+			<li
+				if a.Compact {
+					class="attachments-compact"
 				}
-				// Spaces keep the name, size and uploader apart in the page text.
-				{ " " }
-				<p class="attachments__meta">{ a.Size }</p>
-				{ " " }
-				<p class="attachments__meta">{ a.UploadedBy + " · " + a.UploadedAt }</p>
+			>
+				@attachmentLink(a, orDefault(alt, a.Name))
+				if a.Compact {
+					<p class="attachments__meta">{ compactLine(a) }</p>
+				} else {
+					if a.Kind == "image" || a.Kind == "heic" {
+						<p class="attachments__name">{ a.Name }</p>
+					}
+					// Spaces keep the name, size and uploader apart in the page text.
+					{ " " }
+					<p class="attachments__meta">{ a.Size }</p>
+					{ " " }
+					<p class="attachments__meta">{ a.UploadedBy + " · " + a.UploadedAt }</p>
+				}
 				if a.RemoveURL != "" {
 					@Button(ButtonProps{Label: "Remove", AriaLabel: "Remove " + a.Name, Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-open-dialog": removeDialogID(a.ID)}})
 					@removeConfirm(a, target)
@@ -57,6 +67,15 @@ templ attachmentLink(a Attachment, alt string) {
 				<span>{ a.Name }</span>
 			</a>
 	}
+}
+
+// compactLine is a compact item's one line: "name · size", or the size
+// alone beside a file chip, which shows the name.
+func compactLine(a Attachment) string {
+	if a.Kind == "image" || a.Kind == "heic" {
+		return a.Name + " · " + a.Size
+	}
+	return a.Size
 }
 
 // removeDialogID is the id of file id's Remove confirm.

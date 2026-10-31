@@ -71,6 +71,13 @@ func (p LineListProps) AddButton() ButtonProps {
 	return ButtonProps{Label: orDefault(p.AddLabel, AddItem), Href: p.AddURL, Icon: "plus", Variant: Secondary, Attrs: templ.Attributes{"data-add-line": true}}
 }
 
+// compact is a line's receipt drawn as the compact Attachments
+// (CD-326 (6)).
+func compact(a Attachment) Attachment {
+	a.Compact = true
+	return a
+}
+
 func lineAria(verb string, no int) string {
 	return verb + " line " + strconv.Itoa(no)
 }
