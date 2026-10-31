@@ -57,7 +57,7 @@ Tax codes seeded: Taxable 0.25%, 3%, 5%, 12%, 18%, 28%, 40%; Nil-Rated, Exempted
 | `deepak@vardhan.test` | Deepak Nair | Employee | EMP-007, reports to EMP-004 | none |
 | `old@vardhan.test` | Former Staff | Employee (disabled user) | EMP-008, status Left | none |
 
-Canonical roles: **Administrator, Director, Purchase Manager, Purchase User, Stores, Masters Manager, Employee**. New users get Employee by default (D-AUTH-22).
+Canonical roles: **Administrator, Director, Purchase Manager, Purchase User, Stores, Masters Manager, Employee**, and **Fallback Approver** (MOD-EXP, created by the expense migration; Expense spec §6, CD-238). No fixture user holds Fallback Approver: expense tests give it in their own setup, usually to Meena and Kavya. New users get Employee by default (D-AUTH-22).
 
 Test password for all fixture users: `Correct-Horse-42`.
 
@@ -103,6 +103,21 @@ Scopes are `own`, `team` and `all` (CD-11). So Priya creates and submits orders,
 
 Site and project restrictions apply, so Suresh raises and sees requests for PUNE-WH and METRO-SITE only. Every user has Employee by default (D-AUTH-22), so everyone can request.
 
+### Expense Claim rights (`expense.Claim`, Expense spec §11)
+
+| Role | Rights (scope) |
+|---|---|
+| Employee | read (team); create, write, submit, amend, print, delete (own); approve (team) |
+| Director | read, approve, cancel, print, export (all) |
+| Fallback Approver | read, approve (all) |
+| Administrator | every applicable right |
+
+`expense.Claim`'s `CloseRight` is `cancel`, so only Director and Administrator close a claim (CD-235, CD-255). Team is direct reports only (CD-11): Priya reads and approves Deepak's claims. `fixture.Claim` keeps its seed above, including the Director fallback, so core approval tests don't move.
+
+### Employee Advance rights (`expense.Advance`, Expense spec §4, §11)
+
+Same rows as `expense.Claim`: Employee read (team); create, write, submit, amend, print, delete (own); approve (team). Director read, approve, cancel, print, export (all). Fallback Approver read, approve (all). Administrator every applicable right. `CloseRight` is `cancel`.
+
 Permission-denied (403) message, owned by AUTH and used everywhere: "You don't have permission to {right} {DocType}. Ask your administrator for a role that allows it."
 
 ## Module-only users (MOD-PO)
@@ -124,6 +139,14 @@ Arjun is the "second Purchase User" in PO-058, PO-059 and the UX design's PUX ca
 
 `PUNE-WH` has no project, so any project is valid on PR-B. The items, quantities, dates and states of the rows are not fixed here; each test sets them.
 
+## Expense test seed (MOD-EXP)
+
+Seeded by the expense test environment only, not by core `testkit` (core counts stay unchanged):
+
+- Meena (`meena@vardhan.test`, Director) also holds Employee, so she files her own claims (Expense spec §11, §15 item 3).
+- Approval rules for `expense.Claim` and `expense.Advance`, in the table below.
+- Fallback Approver is given per test, never seeded.
+
 ## Approval rules (test seed)
 
 | Document type | From amount | Approver | Fallback role | Self-approval |
@@ -131,6 +154,8 @@ Arjun is the "second Purchase User" in PO-058, PO-059 and the UX design's PUX ca
 | `fixture.Order` / Purchase Order | ₹50,000.00 | role Purchase Manager | none | off |
 | `fixture.Order` / Purchase Order | ₹5,00,000.00 | role Director | none | off |
 | Expense Claim / `fixture.Claim` | ₹0.00 | reporting manager | Director | off |
+| `expense.Claim` (expense test seed) | ₹0.00 | reporting manager | Fallback Approver | off |
+| `expense.Advance` (expense test seed) | ₹0.00 | reporting manager | Fallback Approver | off |
 
 GRN (`fixture.Receipt`) has no approval rule, so submit goes straight to approved.
 
@@ -141,7 +166,8 @@ GRN (`fixture.Receipt`) has no approval rule, so submit goes straight to approve
 | `fixture.Order` / Purchase Order | `PO/{FY}/{#####}` | `PO/26-27/00001` |
 | `fixture.Receipt` / GRN | `GR/{FY}/{#####}` | `GR/26-27/00001` |
 | `fixture.Claim` / Expense Claim | `EX/{FY}/{#####}` | `EX/26-27/00001` |
-| Expense Claim | `EX/{FY}/{#####}` | `EX/26-27/00001` |
+| Expense Claim (`expense.Claim`) | `EX/{FY}/{#####}` | `EX/26-27/00001` |
+| Employee Advance (`expense.Advance`) | `EA/{FY}/{#####}` | `EA/26-27/00001` |
 
 Unnumbered documents display as `Draft 42` (their ID). Amendments: `PO/26-27/00042-1`.
 
