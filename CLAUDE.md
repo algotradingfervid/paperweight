@@ -94,7 +94,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Each skip or exception in a sweep or gate carries a test or check that fails when its stated reason stops being true: a stale "declares no filterable field" skip in e2e/routes.go hid a 422 on every module's filtered list until the expense sweep hit it (M0-34).
 - A module's stub-route tests assert "mounted and guarded", never the 501 itself: each lane that builds a page otherwise breaks the shared test (AD-13, PO-M1).
 - Parse posted values inside the service after load, right, version and state checks (CD-259): a handler-side parse let a bad date skip 403/409 (AD-13).
-- After `make generate`, check `git status --porcelain -- '**/dbq/'` (diffs and untracked files) before a hand-in: a stale generated file passed P7's hand-in.
+- After `make generate`, check `git status --porcelain -- ':(glob)**/dbq/**'` (diffs and untracked files; without `:(glob)` git doesn't expand `**` and the check is always empty, AD-12) before a hand-in: a stale generated file passed P7's hand-in.
 - Date tests include a clock just after IST midnight (e.g. 18:31 UTC): a fixed clock on the same date in UTC and IST leaves the business-date boundary untested (AD-13).
 - covertouched marks a returned value covered when the code runs: assert the value itself (e.g. a back-dated document's number for a Date hook). A wrong Amount/Date hook value passed G1's tests (AD-12).
 - Test a guard in the setups where it changes the result, not only the common one: every DataList test had a state column, so the low-separator branch for lists without one had no test (M0-36).
@@ -102,6 +102,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A money input that feeds a derived amount is declared Positive or NonNegative: a negative `less_advance` raised net payable above the total and past the money limit (E10, REPEAT).
 - Never `pkill -f "go test"` (or `make ci`/`make e2e`): several sessions share this machine, and the pattern kills all their runs (AD-10, 31 Oct). Kill by PID or by a pattern holding your own worktree path; a run that ends with "Terminated: 15" is void, not failed.
 - A layout worst case covers every cell order and value combination (loop over the permutations), not one hand-picked row: one-order checks missed real overflows twice (money in track 4, then rate plus amount; M0-35, same family as M0-24).
+- A page size or limit gets a test with one more row than the limit: G6's picker size 25 survived mutation to 26 and 1000 because the largest test list had 6 rows (AD-12, REPEAT).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
