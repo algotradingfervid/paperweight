@@ -20,7 +20,7 @@ templ receiptHash(value string, oob bool) {
 	<input
 		type="hidden"
 		id={ receiptHashID }
-		name="receipt_sha256"
+		name={ receiptHashName }
 		value={ value }
 		if oob {
 			hx-swap-oob="true"

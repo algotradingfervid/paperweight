@@ -24,7 +24,7 @@ import (
 
 // s2Fragment checks a successful upload's answer: 200 with only the new
 // #receipt-files (the file's thumbnail link, its name and no Remove) and,
-// out of band, the line form's hidden receipt_sha256 input with hash, under
+// out of band, the line form's hidden receipt_hash input with hash, under
 // the id the line page gave it (hiddenID). It never holds another input,
 // form, file control or the page around it, so nothing being typed is
 // redrawn (UX §5.5, CLAUDE.md).
@@ -68,23 +68,23 @@ func s2Fragment(t *testing.T, what string, rec *httptest.ResponseRecorder, m fil
 	}
 	inputs := d.Find("input")
 	if inputs.Length() != 1 {
-		t.Errorf("%s: the answer holds %d inputs, want only the hidden receipt_sha256 (body %q)", what, inputs.Length(), body)
+		t.Errorf("%s: the answer holds %d inputs, want only the hidden receipt_hash (body %q)", what, inputs.Length(), body)
 	}
-	h := d.Find(`input[name="receipt_sha256"]`)
+	h := d.Find(`input[name="receipt_hash"]`)
 	if h.Length() != 1 {
-		t.Fatalf("%s: %d receipt_sha256 inputs in the answer, want 1 (body %q)", what, h.Length(), body)
+		t.Fatalf("%s: %d receipt_hash inputs in the answer, want 1 (body %q)", what, h.Length(), body)
 	}
 	if h.AttrOr("type", "") != "hidden" || h.AttrOr("value", "") != m.SHA256 {
-		t.Errorf("%s: receipt_sha256 is type %q value %q, want hidden %s", what, h.AttrOr("type", ""), h.AttrOr("value", ""), m.SHA256)
+		t.Errorf("%s: receipt_hash is type %q value %q, want hidden %s", what, h.AttrOr("type", ""), h.AttrOr("value", ""), m.SHA256)
 	}
 	if _, oob := h.Attr("hx-swap-oob"); !oob {
-		t.Errorf("%s: receipt_sha256 has no hx-swap-oob; it must replace the line form's input out of band", what)
+		t.Errorf("%s: receipt_hash has no hx-swap-oob; it must replace the line form's input out of band", what)
 	}
 	if hiddenID != "" && h.AttrOr("id", "") != hiddenID {
-		t.Errorf("%s: receipt_sha256 id %q, want the line form's %q", what, h.AttrOr("id", ""), hiddenID)
+		t.Errorf("%s: receipt_hash id %q, want the line form's %q", what, h.AttrOr("id", ""), hiddenID)
 	}
 	if h.ParentsFiltered("#receipt-files").Length() != 0 {
-		t.Errorf("%s: receipt_sha256 sits inside #receipt-files; it belongs to the line form", what)
+		t.Errorf("%s: receipt_hash sits inside #receipt-files; it belongs to the line form", what)
 	}
 	return d
 }

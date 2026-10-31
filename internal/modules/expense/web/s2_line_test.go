@@ -135,7 +135,7 @@ func TestExpLine_NewPage(t *testing.T) {
 	var names []string
 	form.Find("[name]").Each(func(_ int, s *goquery.Selection) {
 		n := s.AttrOr("name", "")
-		if n != "version" && n != "csrf_token" && n != "receipt_sha256" && !slices.Contains(names, n) {
+		if n != "version" && n != "csrf_token" && n != "receipt_hash" && !slices.Contains(names, n) {
 			names = append(names, n)
 		}
 	})
