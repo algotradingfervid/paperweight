@@ -1,8 +1,8 @@
 # Module test cases
 
-Index of the module test cases. Every case maps to one Go test function, as in `docs/tests/core/README.md`. Fixtures for every case are in `docs/tests/core/00-fixtures.md`, which includes the `purchase.Order` and `purchase.Request` rights rows and the request fixtures PR-A and PR-B (CD-247). Every Go test name is unique across these files and `docs/tests/core/`.
+Index of the module test cases. Every case maps to one Go test function, as in `docs/tests/core/README.md`. Fixtures for every case are in `docs/tests/core/00-fixtures.md`, which includes the `purchase.Order` and `purchase.Request` rights rows and the request fixtures PR-A and PR-B (CD-247), and the `expense.Claim` and `expense.Advance` rights rows, the Fallback Approver role and the expense test seed (Expense spec §15 items 3 and 6). Every Go test name is unique across these files and `docs/tests/core/`.
 
-Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18 and §26 (area `PO`), and hooks spec `docs/specs/2026-10-30-module-docscreen-hooks-spec.md` v0.3 §6 (area `HOOK`). Plan: `docs/superpowers/plans/2026-10-31-mod-po.md`. `scripts/checktestids` reads these files once MOD-0 task M0-6 teaches it to (PO spec §15 item 3).
+Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18 and §26 (area `PO`), hooks spec `docs/specs/2026-10-30-module-docscreen-hooks-spec.md` v0.3 §6 (area `HOOK`), and Expense spec `docs/specs/2026-10-30-module-expense-spec.md` v0.5 §17 (area `EXP`). Plans: `docs/superpowers/plans/2026-10-31-mod-po.md` and `docs/superpowers/plans/2026-10-31-mod-exp.md`. `scripts/checktestids` reads these files once MOD-0 task M0-6 teaches it to (PO spec §15 item 3).
 
 ## Counts
 
@@ -10,7 +10,8 @@ Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18
 |---|---|---|---|---|---|---|---|
 | [`po.md`](po.md) | PO — purchase orders and requests | 70 | 69 | 1 | 8 | 60 | 2 |
 | [`hook.md`](hook.md) | HOOK — docscreen module hooks | 18 | 18 | 0 | 0 | 18 | 0 |
-| **Total** | | **88** | **87** | **1** | **8** | **78** | **2** |
+| [`exp.md`](exp.md) | EXP — expense claims and advances | 41 | 41 | 0 | 5 | 35 | 1 |
+| **Total** | | **129** | **128** | **1** | **13** | **113** | **3** |
 
 Level counts group variants as in core: "unit (fuzz)" counts as unit, "integration (golden file)" as integration. Every e2e case's Go test starts with `TestE2E_`.
 
@@ -119,3 +120,51 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 | HOOK-016 | `TestModule_LineIDs` | P1 | integration |
 | HOOK-017 | `TestModule_ClearLines` | P1 | integration |
 | HOOK-018 | `TestModule_LineFlags` | P1 | integration |
+
+### exp.md — EXP — expense claims and advances
+
+41 cases: 41 P1 / 0 P2; 5 unit, 35 integration, 1 e2e.
+
+| ID | Go test | P | Level |
+|---|---|---|---|
+| EXP-001 | `TestExp_EmployeeRules` | P1 | integration |
+| EXP-002 | `TestExp_AdminEntersForOther` | P1 | integration |
+| EXP-003 | `TestExp_EmployeeAndLeavers` | P1 | integration |
+| EXP-004 | `TestExp_Totals` | P1 | unit |
+| EXP-005 | `TestExp_DateRules` | P1 | unit |
+| EXP-006 | `TestExp_ReceiptOrReason` | P1 | integration |
+| EXP-007 | `TestExp_ReceiptLinks` | P1 | integration |
+| EXP-008 | `TestExp_AmendKeepsReceipts` | P1 | integration |
+| EXP-009 | `TestExp_ReceiptCheckSameTx` | P1 | integration |
+| EXP-010 | `TestExp_ReceiptPolicy` | P1 | integration |
+| EXP-011 | `TestExp_GSTFields` | P1 | integration |
+| EXP-012 | `TestExp_GSTAboveAmount` | P1 | unit |
+| EXP-013 | `TestExp_TypeDefaults` | P1 | integration |
+| EXP-014 | `TestExp_DuplicateWarnings` | P1 | integration |
+| EXP-015 | `TestExp_ManagerApproves` | P1 | integration |
+| EXP-016 | `TestExp_Fallback` | P1 | integration |
+| EXP-017 | `TestExp_RestrictedManagerReal` | P1 | integration |
+| EXP-018 | `TestExp_TeamScopeReal` | P1 | integration |
+| EXP-019 | `TestExp_RejectRevise` | P1 | integration |
+| EXP-020 | `TestExp_CloseRight` | P1 | integration |
+| EXP-021 | `TestExp_ClosedIsFinal` | P1 | integration |
+| EXP-022 | `TestDocType_CloseRightParity` | P1 | integration |
+| EXP-023 | `TestExp_PeriodLock` | P1 | integration |
+| EXP-024 | `TestAdv_Lifecycle` | P1 | integration |
+| EXP-025 | `TestAdv_ClaimBelowAdvance` | P1 | integration |
+| EXP-026 | `TestAdv_ClaimAboveAdvance` | P1 | integration |
+| EXP-027 | `TestAdv_ConcurrentClaims` | P1 | integration |
+| EXP-028 | `TestAdv_CancelRestores` | P1 | integration |
+| EXP-029 | `TestAdv_CancelBlocked` | P1 | integration |
+| EXP-030 | `TestAdv_Sources` | P1 | integration |
+| EXP-031 | `TestAdv_Rights` | P1 | integration |
+| EXP-032 | `TestExp_PrintGolden` | P1 | integration (golden file) |
+| EXP-033 | `TestExp_PrintRights` | P1 | integration |
+| EXP-034 | `TestExp_OpenReports` | P1 | integration |
+| EXP-035 | `TestExp_LinesReport` | P1 | integration |
+| EXP-036 | `TestExp_DefaultRights` | P1 | unit |
+| EXP-037 | `FuzzExp_Invariants` | P1 | unit (fuzz) |
+| EXP-038 | `TestE2E_ExpenseFlow` | P1 | e2e |
+| EXP-039 | `TestExp_DirectorClaim` | P1 | integration |
+| EXP-040 | `TestExp_OnlyFallback` | P1 | integration |
+| EXP-041 | `TestExp_FallbackLeaves` | P1 | integration |
