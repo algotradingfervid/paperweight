@@ -604,12 +604,12 @@ func freshScreens() (setup, company []screens.Screen) {
   f.requestSubmit();
 })()`
 	return []screens.Screen{
-			{Name: "setup", Route: "/setup", URL: "/setup"},
-			{Name: "setup refused", Route: "/setup", URL: "/setup", Setup: func(ctx context.Context) error { return submit(ctx, empty, ".error-summary") }},
-		}, []screens.Screen{
-			{Name: "setup company", Route: "/setup/company", URL: "/setup/company", As: freshAdmin},
-			{Name: "setup company refused", Route: "/setup/company", URL: "/setup/company", As: freshAdmin, Setup: func(ctx context.Context) error { return submit(ctx, noCompany, ".error-summary") }},
-		}
+		{Name: "setup", Route: "/setup", URL: "/setup"},
+		{Name: "setup refused", Route: "/setup", URL: "/setup", Setup: func(ctx context.Context) error { return submit(ctx, empty, ".error-summary") }},
+	}, []screens.Screen{
+		{Name: "setup company", Route: "/setup/company", URL: "/setup/company", As: freshAdmin},
+		{Name: "setup company refused", Route: "/setup/company", URL: "/setup/company", As: freshAdmin, Setup: func(ctx context.Context) error { return submit(ctx, noCompany, ".error-summary") }},
+	}
 }
 
 // notPage is a GET route with no screen, because it answers with no page: the
