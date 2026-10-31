@@ -188,9 +188,14 @@ func TestGRNWeb_Hide(t *testing.T) {
 	po := w.po("SHREE", "10", "20")
 	off := w.receiveAll(po)
 	rows := w.pageRows(off.ID)
-	for _, label := range []string{"Site", "Project", "Vendor says the rest won't come"} {
-		if hasRow(rows, label) {
-			t.Errorf("approved page shows %s: %q", label, rows)
+	if hasRow(rows, "Vendor says the rest won't come") {
+		t.Errorf("approved page shows Vendor says the rest won't come: %q", rows)
+	}
+	// S3's Page adds one Site and one Project pair from the snapshot (UX
+	// doc §5.6); a second would be the hidden field's own row.
+	for _, label := range []string{"Site", "Project"} {
+		if n := len(slices.DeleteFunc(slices.Clone(rows), func(r string) bool { return !strings.HasPrefix(r, label+": ") })); n != 1 {
+			t.Errorf("approved page shows %d %s rows, want S3's one: %q", n, label, rows)
 		}
 	}
 	if !hasRow(rows, "Challan or invoice no.") {
