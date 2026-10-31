@@ -2,10 +2,12 @@ package purchase
 
 import (
 	"context"
-	"errors"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/modkit"
+	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // Card keys that have no queue of their own (spec §25). The other cards use
@@ -43,10 +45,66 @@ type HomeView struct {
 	Comments []modkit.Comment
 }
 
-// errHomeNotBuilt is the P14 stub's error.
-var errHomeNotBuilt = errors.New("purchase: Home not implemented (P14)")
+// Card links (UX §5.1).
+const (
+	hrefQueue   = "/modules/purchase/q/"
+	hrefApprove = "/approvals"
+	hrefOverdue = "/reports/purchase/pending?overdue=1"
+)
 
-// Home is p's Purchase home: every card's count (spec §25). P14 builds it.
-func (s *Service) Home(_ context.Context, _ auth.Principal) (HomeView, error) {
-	return HomeView{}, errHomeNotBuilt
+// homeQueues are the cards with a queue, in UX §5.1's order; To approve
+// comes before them and Overdue deliveries after.
+var homeQueues = []string{QueueDrafts, QueueToSend, QueueToClose, QueueRequestsToOrder, QueueWaiting, QueueMyRequests, QueueAwaitingDelivery}
+
+// Home is p's Purchase home: every card p has the right for, with its count
+// through Auth.Scope, and p's recent comments (spec §25).
+func (s *Service) Home(ctx context.Context, p auth.Principal) (HomeView, error) {
+	var v HomeView
+	if _, ok, err := s.scope(ctx, p, DocType, auth.RightApprove); err != nil {
+		return HomeView{}, err
+	} else if ok {
+		inbox, _, err := s.d.Approvals.InboxOfType(ctx, p, DocType, types.Page{})
+		if err != nil {
+			return HomeView{}, err
+		}
+		v.Cards = append(v.Cards, Card{Key: CardToApprove, Count: inbox.Total, Href: hrefApprove})
+	}
+	for _, name := range homeQueues {
+		list, ok, err := s.source(ctx, p, name)
+		if err != nil {
+			return HomeView{}, err
+		}
+		if !ok {
+			continue
+		}
+		var l queueList
+		if err := s.d.DB.Read(ctx, func(tx *db.Tx) error {
+			l, err = list(ctx, tx)
+			return err
+		}); err != nil {
+			return HomeView{}, err
+		}
+		c := Card{Key: name, Count: len(l.rows), Href: hrefQueue + name, WaitingDays: l.oldestDays}
+		for _, r := range l.rows {
+			if r.State == doctype.StateRejected {
+				c.NeedsChanges++
+			}
+		}
+		v.Cards = append(v.Cards, c)
+	}
+	if _, ok, err := s.scope(ctx, p, DocType, auth.RightRead); err != nil {
+		return HomeView{}, err
+	} else if ok {
+		n, err := s.OverdueCount(ctx, p)
+		if err != nil {
+			return HomeView{}, err
+		}
+		v.Cards = append(v.Cards, Card{Key: CardOverdue, Count: n, Href: hrefOverdue})
+	}
+	comments, err := s.d.Comments.RecentComments(ctx, p)
+	if err != nil {
+		return HomeView{}, err
+	}
+	v.Comments = comments
+	return v, nil
 }
