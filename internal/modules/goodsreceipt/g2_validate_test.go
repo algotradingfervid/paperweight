@@ -151,8 +151,8 @@ func TestGRN_ForeignLine(t *testing.T) {
 		doctype.FieldError{Field: "po_line_id", Line: 2, Message: "Line 2: This PO line is already on line 1."})
 }
 
-// GRN-006, the refusals (GRN spec §3.1, §4; G5 adds the before-order
-// warning rows). The clock is 18:31 UTC on 23 October, just after IST
+// GRN-006, the refusals (GRN spec §3.1, §4) and G5's before-order warning
+// rows (CD-279 (9): one Go test). The clock is 18:31 UTC on 23 October, just after IST
 // midnight, so "today" is the IST business date 24-10-2026: a receipt
 // dated 24-10-2026 is today and saves, 25-10-2026 is refused, and a blank
 // receipt date saves as 2026-10-24. A challan dated after the receipt date
@@ -195,6 +195,24 @@ func TestGRN_DateRules(t *testing.T) {
 		if got := g2Column(t, env, res.ID, "receipt_date"); got != "2026-10-24" {
 			t.Errorf("%s: stored receipt_date %q, want 2026-10-24 (today in IST)", c.what, got)
 		}
+	}
+
+	// G5's warning rows (GRN spec §4): the PO was ordered on 24-10-2026 (IST
+	// today), so a receipt dated 23-10-2026 saves and warns with the order
+	// date as dd-mm-yyyy; one dated on the order date doesn't warn.
+	for _, c := range []struct {
+		what, date string
+		want       []string
+	}{
+		{"receipt dated 23-10-2026, before the order", "2026-10-23", []string{g5BeforeOrder("24-10-2026")}},
+		{"receipt dated on the order date", "2026-10-24", nil},
+	} {
+		res, err := g2Create(t, env, env.Suresh, with(map[string]string{"receipt_date": c.date}), line)
+		if err != nil {
+			t.Errorf("%s: %v %+v, want it saved", c.what, err, g1FieldErrors(err))
+			continue
+		}
+		g5WantList(t, c.what+": warnings", g5Warnings(t, env, res.ID), c.want...)
 	}
 }
 
@@ -415,4 +433,10 @@ func TestGRN_TwiceOrderedStop(t *testing.T) {
 			t.Errorf("%s: accepted_qty %v, want [%s]", c.what, got, c.accepted)
 		}
 	}
+
+	// G5's warning row (GRN spec §4, CD-234): exactly twice saves and carries
+	// the over-delivery warning (drafts don't count toward pending).
+	twice := g2MustCreate(t, env, env.Suresh, g2Header(t, env, po), g2Line(po.Lines[0], "2400", "", ""))
+	g5WantList(t, "exactly twice: warnings", g5Warnings(t, env, twice.ID),
+		g5Over(1, "2,400 KGS", "1,200 KGS", "PO/26-27/00001"))
 }

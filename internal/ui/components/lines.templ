@@ -39,7 +39,7 @@ templ LineList(p LineListProps) {
 					</div>
 					if c.Receipt != nil {
 						<div class="lines-receipt">
-							@attachmentLink(*c.Receipt, lineAria("Receipt for", c.No))
+							@attachmentItems([]Attachment{compact(*c.Receipt)}, "", lineAria("Receipt for", c.No))
 						</div>
 					}
 					<p class="lines-meta">

@@ -63,11 +63,35 @@ func (a *Approvals) InboxOfType(ctx context.Context, p auth.Principal, doctype s
 	if err != nil {
 		return types.Result[InboxItem]{}, nil, err
 	}
+	hideParties(ctx, a, p, items, func(it *InboxItem) *InboxItem { return it })
 	all := inboxTypes(items)
 	if doctype != "" {
 		items = slices.DeleteFunc(items, func(it InboxItem) bool { return it.DocType != doctype })
 	}
 	return pageOf(items, page), all, nil
+}
+
+// hideParties clears Party on the items whose DocType's party p's listing
+// doesn't show, asking PartyVisible once per DocType; card is an item's
+// InboxItem. Every reader that shows a party calls it: the inbox, My
+// requests, Stuck and Overdue (CD-327 (3), CD-334). It runs after the read:
+// the hook may open its own connection.
+func hideParties[T any](ctx context.Context, a *Approvals, p auth.Principal, items []T, card func(*T) *InboxItem) {
+	if a.party == nil {
+		return
+	}
+	shown := map[string]bool{}
+	for i := range items {
+		it := card(&items[i])
+		v, ok := shown[it.DocType]
+		if !ok {
+			v = a.party(ctx, p, it.DocType)
+			shown[it.DocType] = v
+		}
+		if !v {
+			it.Party = ""
+		}
+	}
 }
 
 // inboxTypes counts items by type, sorted by Label.
@@ -114,6 +138,7 @@ func (a *Approvals) MyRequests(ctx context.Context, p auth.Principal, page types
 	if err != nil {
 		return types.Result[RequestItem]{}, err
 	}
+	hideParties(ctx, a, p, items, func(it *RequestItem) *InboxItem { return &it.InboxItem })
 	return pageOf(items, page), nil
 }
 
@@ -158,6 +183,7 @@ func (a *Approvals) Stuck(ctx context.Context, p auth.Principal) ([]StuckItem, e
 	if err != nil {
 		return nil, err
 	}
+	hideParties(ctx, a, p, items, func(it *StuckItem) *InboxItem { return &it.InboxItem })
 	return items, nil
 }
 

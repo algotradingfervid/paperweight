@@ -44,11 +44,13 @@ type LineNoun struct {
 }
 
 // Ctx is what a hook reads. View is nil on a new document's first step, and
-// on the list and search pages, where Listing is true and Hide is asked once
-// per DocType (CD-319 (7), CD-327 (1)). Listing is false everywhere else. A
-// Hide treats a nil View as "no record" and never dereferences it.
+// wherever Listing is true: the list and search pages, the CSV export and
+// the approval readers' party, where Hide is asked per listed field and per
+// party in each request (CD-319 (7), CD-327 (1), (3), CD-334). Listing is
+// false everywhere else. A Hide treats a nil View as "no record" and never
+// dereferences it.
 type Ctx struct {
-	Req       *http.Request
+	Req       *http.Request // with Listing, it may be the inbox path (PartyListed)
 	Principal auth.Principal
 	DT        *doctype.DocType
 	View      *DocView
@@ -104,6 +106,7 @@ type CheckExtra struct {
 	Warnings []string          // components.Warnings
 	Totals   []components.Pair // after the grand total and its words (UX-E6)
 	Cards    []templ.Component // after Attachments, before the grand total
+	Covers   []string          // fields Totals show, left out of the steps' details (CD-326 (4))
 }
 
 // PageExtra is what Module.Page adds to the document page. A LineNotes
@@ -129,6 +132,7 @@ type FilesCard struct {
 // ReasonExtra is what Module.Reason adds to a reason page.
 type ReasonExtra struct {
 	Note, Hint string // shown above the field; the field's hint
+	NoteWarn   bool   // Note is a warning, not information (CD-326 (7))
 }
 
 // LineFieldID is the id of line no's field input, f-lines-{no}-{field}: the

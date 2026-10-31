@@ -746,14 +746,14 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	}
 	switch {
 	case i == len(steps)-1:
-		sv.Wide = true
+		sv.Wide = !d.modOf(dt).CardsOnly // cards sit in the form column (CD-326 (1))
 		if v != nil {
 			if err := d.checkStep(c, steps, *v, &sv); err != nil {
 				return stepView{}, err
 			}
 		}
 	case s.Lines:
-		sv.Wide = true
+		sv.Wide = !d.modOf(dt).CardsOnly
 		if v != nil && body == nil {
 			sv.M.After = d.itemsBody(c, *v)
 		}
@@ -820,12 +820,14 @@ type checkSection struct {
 // checkStep fills the check page (design-system §8.3): a section per step
 // marked Complete or Needs attention from v.Problems and v.DraftProblems,
 // and, with a lines table, "Add at least one line." for a draft with none
-// (CD-178); each section lists its header and whole-lines problems and DOC's
-// line problems. Then the totals, the approval preview, and the bar's state
-// action posting to /submit with the version. A field the module hides is
-// neither summarised nor a problem (CD-256 (1)), nor, as the figure field,
-// the grand total (CD-319 (8)). The module's Check
-// additions come last; its error is returned (hooks spec §4.4).
+// (CD-178), in the module's LineNoun (CD-326 (4)); each section lists its
+// header and whole-lines problems and DOC's line problems. Then the totals,
+// the approval preview, and the bar's state action posting to /submit with
+// the version. A field the module hides is neither summarised nor a problem
+// (CD-256 (1)), nor, as the figure field, the grand total (CD-319 (8)); one
+// the module's totals cover (CheckExtra.Covers) isn't summarised either
+// (CD-326 (4)). The module's Check additions come last; its error is
+// returned (hooks spec §4.4).
 func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error {
 	r, dt := c.Req, c.DT
 	rights := Rights(r.Context(), d.Auth, d.principal(r), dt.Name, &v.Record)
@@ -842,9 +844,14 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 	if v.Origin.AmendedFrom != "" {
 		cv.AmendedFrom, cv.AmendedURL = v.Origin.AmendedFrom, docURL(dt.Name, v.Origin.AmendedFromID)
 	}
+	extra, err := checkExtra(c)
+	if err != nil {
+		return err
+	}
+	cv.Extra = extra
 	problems := v.Problems
 	if dt.LinesTable != "" && len(v.Lines) == 0 {
-		problems = append(slices.Clip(problems), doctype.FieldError{Field: "lines", Message: "Add at least one line."})
+		problems = append(slices.Clip(problems), doctype.FieldError{Field: "lines", Message: noLinesMessage(d.modOf(dt).LineNoun)})
 	}
 	problems = slices.Concat(problems, v.DraftProblems)
 	for i, s := range steps[:len(steps)-1] {
@@ -864,19 +871,23 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			sec.Lines = d.lineList(r, dt, v)
 		}
 		for _, name := range s.Fields {
-			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) {
+			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) && !slices.Contains(extra.Covers, name) {
 				sec.Pairs = append(sec.Pairs, components.Pair{Label: f.Label, Value: v.Display[name], Num: numeric(f)})
 			}
 		}
 		cv.Sections = append(cv.Sections, sec)
 	}
-	extra, err := checkExtra(c)
-	if err != nil {
-		return err
-	}
-	cv.Extra = extra
 	sv.M.After = checkBody(cv)
 	return nil
+}
+
+// noLinesMessage asks for a first line in the module's word for one
+// (LineNoun.Title, lower case), or "line" (CD-326 (4)).
+func noLinesMessage(n LineNoun) string {
+	if n.Title == "" {
+		return "Add at least one line."
+	}
+	return "Add at least one " + strings.ToLower(n.Title) + "."
 }
 
 // load reads draft id's record in a read transaction.

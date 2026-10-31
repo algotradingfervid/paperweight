@@ -9,6 +9,7 @@ Usage: python3 scripts/uishots/shots.py [--base URL] [--out DIR] PATH [PATH ...]
 Exit status 1 when any page scrolls sideways.
 """
 import argparse
+import os
 import pathlib
 import sys
 
@@ -26,6 +27,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://localhost:8099")
     ap.add_argument("--out", default=".work/uishots")
+    ap.add_argument("--login", action="store_true",
+                    help="sign in first with UISHOTS_EMAIL and UISHOTS_PASSWORD")
     ap.add_argument("paths", nargs="+")
     args = ap.parse_args()
     out = pathlib.Path(args.out)
@@ -33,11 +36,20 @@ def main():
 
     failed = False
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        try:
+            browser = p.chromium.launch()
+        except Exception:  # no Playwright browser downloaded: use the installed Chrome
+            browser = p.chromium.launch(channel="chrome")
         for size, spec in SIZES.items():
             opts = p.devices[spec["device"]] if "device" in spec else {"viewport": spec["viewport"]}
             ctx = browser.new_context(**opts)
             page = ctx.new_page()
+            if args.login:
+                page.goto(args.base + "/signin", wait_until="networkidle")
+                page.fill("#f-email", os.environ["UISHOTS_EMAIL"])
+                page.fill("#f-password", os.environ["UISHOTS_PASSWORD"])
+                page.press("#f-password", "Enter")
+                page.wait_for_load_state("networkidle")
             for i, path in enumerate(args.paths, 1):
                 page.goto(args.base + path, wait_until="networkidle")
                 page.wait_for_timeout(300)

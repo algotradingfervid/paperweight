@@ -24,9 +24,14 @@
     & > * { min-inline-size: 0; }
   }
   & .lines-no { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
-  & .lines-name { display: flex; flex-wrap: wrap; gap: var(--space-2); flex: 1 1 12rem; font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+  /* The type is at least 7rem wide and wraps only between words; a word
+     breaks only when it is wider than the whole type (CD-333). */
+  & .lines-name { display: flex; flex-wrap: wrap; gap: var(--space-2); flex: 1 1 0; min-inline-size: min(100%, 7rem); font-weight: var(--weight-medium); overflow-wrap: break-word; }
   & .lines-name .code { color: var(--color-text-secondary); font-weight: var(--weight-regular); }
-  & .lines-amount { margin-inline-start: auto; font-weight: var(--weight-semibold); }
+  /* The amount is never cut or wrapped (CD-326 (2), CD-333): it ends the
+     type's row, or, when it doesn't fit beside the type's 7rem, takes its
+     own line under the type, right-aligned. */
+  & .lines-amount { flex: none; min-inline-size: max-content; margin-inline-start: auto; font-weight: var(--weight-semibold); }
   & .lines-meta {
     display: flex;
     flex-wrap: wrap;
@@ -36,8 +41,28 @@
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
   }
-  /* A line's receipt (UX-E3): a 64 px thumbnail, or the file's chip. */
+  /* A line's receipt (UX-E3): a 64 px thumbnail, or the file's chip. The
+     compact line's name and size are for screen readers only. */
   & .lines-receipt .attachments__thumb { max-inline-size: min(100%, 4rem); }
+  & .lines-receipt .attachments__meta { @apply visually-hidden; }
+  /* A card with a receipt thumbnail (CD-326 (2), CD-333, UX §5.4): the
+     thumbnail left of the type's row (number, type, amount, wrapping as
+     above) and the date; the actions span the card. The number stays in
+     the row so the date line keeps a code such as PRJ-METRO whole in a
+     check page card at 360. Below 24rem the thumbnail is 3rem and the gap
+     beside it narrows for the same reason: a hyphen in a code is a break
+     point CSS can't remove. */
+  & .lines-card:has(.lines-receipt .attachments__thumb) {
+    grid-template-columns: 4rem minmax(0, 1fr);
+    column-gap: var(--space-3);
+    align-items: start;
+    & > * { grid-column: 2; }
+    & > .lines-receipt { grid-column: 1; grid-row: 1 / span 2; }
+    & > .lines-actions { grid-column: 1 / -1; }
+  }
+  @container (width < 24rem) {
+    & .lines-card:has(.lines-receipt .attachments__thumb) { grid-template-columns: 3rem minmax(0, 1fr); column-gap: var(--space-2); }
+  }
   & .lines-receipt-note { align-items: center; & .icon { flex: none; inline-size: var(--icon-sm); block-size: var(--icon-sm); } }
   & .lines-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); & form { display: contents; } }
   & .lines-more { display: grid; gap: var(--space-3); justify-items: start; & > * { max-inline-size: 100%; } }

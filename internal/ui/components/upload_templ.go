@@ -15,6 +15,7 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 type Attachment struct {
 	ID                                                       int64
 	Name, Size, UploadedBy, UploadedAt, URL, RemoveURL, Kind string
+	Compact                                                  bool // a ~4rem thumbnail and "name · size" on one line, no uploader (CD-326 (6))
 }
 
 // UploadProps describes a FileUpload. Action receives one "file" part per
@@ -67,7 +68,7 @@ func FileUpload(p UploadProps) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 35, Col: 15}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 36, Col: 15}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -120,7 +121,7 @@ func FileUpload(p UploadProps) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-status")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 45, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 46, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
@@ -139,7 +140,7 @@ func FileUpload(p UploadProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if len(p.Files) > 0 {
-			templ_7745c5c3_Err = attachmentItems(p.Files, orDefault(p.Target, "#"+p.ID)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = attachmentItems(p.Files, orDefault(p.Target, "#"+p.ID), "").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -230,7 +231,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-hint " + p.ID + "-msg")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 79, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 80, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 				if templ_7745c5c3_Err != nil {
@@ -262,7 +263,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(UploadInputID(p.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 88, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 89, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 				if templ_7745c5c3_Err != nil {
@@ -275,7 +276,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(orDefault(p.Accept, "image/*,application/pdf"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 91, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 92, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 				if templ_7745c5c3_Err != nil {
@@ -288,7 +289,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-hint " + p.ID + "-msg")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 93, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 94, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 				if templ_7745c5c3_Err != nil {
