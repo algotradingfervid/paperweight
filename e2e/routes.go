@@ -342,7 +342,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			out = append(out, sc)
 		}
 	}
-	out = append(out, grnScreens(s.grn)...)
+	out = append(out, h.grnScreens(s.grn)...)
 	out = append(out, authscreens.Screens(authscreens.SweepIDs{
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)

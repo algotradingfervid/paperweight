@@ -107,10 +107,11 @@ func (h *Harness) lineIDs(id int64) []string {
 
 // grnScreens are the GRN's docscreen pages: as Suresh, who receives; the
 // reject page as the Administrator, the rule's approver; the cancel page as
-// Ravi, the Purchase Manager, who holds cancel (GRN spec §10).
-func grnScreens(ids docscreen.SampleIDs) []screens.Screen {
+// Ravi, the Purchase Manager, who holds cancel (GRN spec §10). The app's
+// Deps leave out the line screens GRN doesn't have (CD-329).
+func (h *Harness) grnScreens(ids docscreen.SampleIDs) []screens.Screen {
 	var out []screens.Screen
-	for _, sc := range docscreen.Screens(goodsreceipt.DocType, ids) {
+	for _, sc := range docscreen.Screens(goodsreceipt.DocType, ids, h.App.DocDeps()) {
 		switch {
 		case strings.HasSuffix(sc.Name, " reject"):
 			sc.As = admin
