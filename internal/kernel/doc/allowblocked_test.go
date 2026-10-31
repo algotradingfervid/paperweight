@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -124,6 +125,17 @@ func x1Tables(t *testing.T, h *fixturetest.H) {
 	h.Exec(t, `INSERT INTO x1_vendor (id, code, name) VALUES (1, ?, 'Closed Vendor')`, x1VendorCode)
 	// Every x1 document needs approval, so submit leaves it pending for approve.
 	h.Approvals.Needed = func(string, types.Money) bool { return true }
+	// Approve assigns a number: add series prefixes for the x1 DocTypes,
+	// keeping any already set (a nil map means the fixture defaults).
+	prefixes := map[string]string{fixture.Order: "PO", fixture.Receipt: "GR", fixture.Claim: "EX"}
+	if h.Naming.Prefix != nil {
+		prefixes = map[string]string{}
+		for k, v := range h.Naming.Prefix {
+			prefixes[k] = v
+		}
+	}
+	prefixes[x1Allow], prefixes[x1Strict] = "XA", "XS"
+	h.Naming.Prefix = prefixes
 }
 
 // x1Employee returns the id of the fixture employee code and fails unless its
