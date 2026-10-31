@@ -48,8 +48,9 @@ func All() []*DocType { return std.All() }
 
 // CheckRegistry resolves every cross-DocType reference: Field.Link, RollUps,
 // Links and the rights fields, and refuses an Importable DocType with no
-// Importable field. doc.NewEngine calls it. (The plan's name Check is taken by
-// the FieldType constant.)
+// Importable field or a SearchFields name that isn't a declared header
+// field. doc.NewEngine calls it. (The plan's name Check is taken by the
+// FieldType constant.)
 func CheckRegistry() error { return std.Check() }
 
 func (r *registry) Register(dt DocType) {
@@ -221,6 +222,11 @@ func (r *registry) Check() error {
 				if _, ok := r.Lookup(f.Link); !ok {
 					bad("field %q links to unknown DocType %q", f.Name, f.Link)
 				}
+			}
+		}
+		for _, name := range dt.SearchFields {
+			if f, ok := dt.Field(name); !ok || f.OnLine {
+				bad("SearchFields names %q, which is not a declared header field", name) // CD-317
 			}
 		}
 		for _, ru := range dt.RollUps {
