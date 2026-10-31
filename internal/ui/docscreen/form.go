@@ -710,7 +710,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		case body != nil && e.Line > 0 && strings.Contains(bodyHTML.String(), ` id="`+LineFieldID(e.Line, e.Field)+`"`):
 			sv.M.Errors[n].ID = LineFieldID(e.Line, e.Field)
 		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
-			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(dt) && body == nil) // a Body's component replaces the line editor
+			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(r, dt, *v) && body == nil) // a Body's component replaces the line editor
 		}
 	}
 	for _, name := range s.Fields {

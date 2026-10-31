@@ -46,12 +46,13 @@ type itemsView struct {
 // itemsBody is the line editor (design-system §8.2): the first 20 cards
 // (?all=1 for all, ?find= to filter by item name or code), the desktop grid
 // with every line (CD-139), and the computed totals. The module's CardsOnly,
-// Line and NoLinePages leave the grid out (CD-256 (6)); NoLinePages also
-// leaves out every link to a line page (CD-256 (7)).
+// Line and NoLinePages leave the grid out (CD-256 (6)), as does a row of
+// other than 3 or 5 cells (CD-315); NoLinePages also leaves out every link
+// to a line page (CD-256 (7)).
 func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 	dt := c.DT
 	m := d.modOf(dt)
-	grid := d.gridShown(dt)
+	grid := d.gridShown(c.Req, dt, v)
 	q := c.Req.URL.Query()
 	find := strings.TrimSpace(q.Get("find"))
 	version := strconv.Itoa(v.Version)
@@ -318,7 +319,7 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	line := d.modOf(dt).Line
-	grid := ui.IsHTMX(r) && no > 0 && d.gridShown(dt)
+	grid := ui.IsHTMX(r) && no > 0 && d.gridShown(r, dt, loaded)
 	var typed, plain map[string]string
 	var errs []doctype.FieldError
 	if line != nil {

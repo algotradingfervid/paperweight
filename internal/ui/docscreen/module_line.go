@@ -22,11 +22,22 @@ func (d Deps) lineTarget(w http.ResponseWriter, r *http.Request) (*doctype.DocTy
 	return dt, id, ok
 }
 
-// gridShown reports whether dt's Items step has the desktop grid: not with
-// the module's CardsOnly, Line or NoLinePages (CD-256 (6)).
-func (d Deps) gridShown(dt *doctype.DocType) bool {
+// gridShown reports whether v's Items step has the desktop grid: not with
+// the module's CardsOnly, Line or NoLinePages (CD-256 (6)), and only when a
+// row has 3 or 5 cells, the sizes the grid lays out (M0-35). Any other size
+// shows the cards at every width, edited on the line page (M0-40). The size
+// is v's first line's, or a new line's when v has none (CD-315).
+func (d Deps) gridShown(r *http.Request, dt *doctype.DocType, v DocView) bool {
 	m := d.modOf(dt)
-	return !m.CardsOnly && m.Line == nil && !m.NoLinePages
+	if m.CardsOnly || m.Line != nil || m.NoLinePages {
+		return false
+	}
+	var lv LineView // line 0, a new line: Hide sees no stored inputs
+	if len(v.Lines) > 0 {
+		lv = v.Lines[0]
+	}
+	n := len(d.gridRowOf(r, dt, v, lv, "", nil, nil).Cells)
+	return n == 3 || n == 5
 }
 
 // itemsLabel is the Items step's label as the module names it, for the line

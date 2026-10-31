@@ -4,8 +4,10 @@ package gallery
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/chromedp/chromedp"
@@ -91,5 +93,60 @@ func TestGalleryBrowser_LineGridWidestRow(t *testing.T) {
 		for _, p := range gridEval[[]string](t, ctx, "the widest row", widestGridRowJS) {
 			t.Errorf("%d: %s", w, p)
 		}
+		// M0-40: so does every order of the cells after Item, with Quantity
+		// holding 1,00,000 kg.
+		for _, order := range cellOrders([]string{"Quantity", "Unit", "Rate", "Tax"}) {
+			js, _ := json.Marshal(order)
+			want := append(append([]string{"#", "Item"}, order...), "Amount", "Actions")
+			if got := gridEval[[]string](t, ctx, fmt.Sprintf("the cells in order %v", order), fmt.Sprintf(reorderGridJS, js)); !slices.Equal(got, want) {
+				t.Fatalf("%d: the head reads %q after reordering, want %q", w, got, want)
+			}
+			for _, p := range gridEval[[]string](t, ctx, fmt.Sprintf("the widest row in order %v", order), widestGridRowJS) {
+				t.Errorf("%d %v: %s", w, order, p)
+			}
+			for _, p := range gridEval[[]string](t, ctx, fmt.Sprintf("the quantity in order %v", order), largestQtyJS) {
+				t.Errorf("%d %v: %s", w, order, p)
+			}
+		}
 	}
+}
+
+// reorderGridJS puts the head's and every row's cells after Item in the
+// order of the labels in its JSON argument (%s), then returns the head's
+// labels. The first call records each cell by its head label.
+const reorderGridJS = `((order) => {
+  const grid = document.querySelector("#line-editor .linegrid"), head = grid.querySelector(".linegrid-head");
+  if (!window.m40Cells) {
+    const labels = [...head.children].slice(2, 6).map((e) => e.textContent.trim());
+    window.m40Cells = [head, ...grid.querySelectorAll(".linegrid-form")].map((p) => ({ p, at: p.children[6], cells: Object.fromEntries([...p.children].slice(2, 6).map((e, i) => [labels[i], e])) }));
+  }
+  for (const { p, at, cells } of window.m40Cells) for (const l of order) p.insertBefore(cells[l], at);
+  return [...head.children].map((e) => e.textContent.trim());
+})(%s)`
+
+// largestQtyJS checks line 2's quantity: it holds 1,00,000 with the kg
+// suffix, the figures fit the input and the suffix ends inside its cell.
+const largestQtyJS = `(() => {
+  const out = [], q = document.getElementById("grid-2-qty"), cell = q.closest(".linegrid-form > *");
+  if (q.value !== "1,00,000") out.push("quantity holds " + JSON.stringify(q.value));
+  const s = cell.querySelector(".field__suffix");
+  if (!s || s.textContent.trim() !== "kg") out.push("the quantity has no kg suffix");
+  if (q.scrollWidth > q.clientWidth) out.push("quantity figures " + q.scrollWidth + " > " + q.clientWidth);
+  if (s && s.getBoundingClientRect().right > cell.getBoundingClientRect().right + 0.5) out.push("the suffix ends at " + s.getBoundingClientRect().right + ", past its cell's " + cell.getBoundingClientRect().right);
+  return out;
+})()`
+
+// cellOrders is every order of cells (24 for four).
+func cellOrders(cells []string) [][]string {
+	if len(cells) <= 1 {
+		return [][]string{slices.Clone(cells)}
+	}
+	var out [][]string
+	for i, c := range cells {
+		rest := slices.Concat(cells[:i], cells[i+1:])
+		for _, o := range cellOrders(rest) {
+			out = append(out, append([]string{c}, o...))
+		}
+	}
+	return out
 }
