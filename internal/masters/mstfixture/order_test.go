@@ -364,7 +364,7 @@ func TestMstFixture_ResaveAfterLostConversion(t *testing.T) {
 	}
 
 	_, err = mstfixture.Save(ctx, w.env, w.env.Kavya, res.ID, h, lines)
-	wantFieldError(t, err, doctype.FieldError{Field: "uom_id", Line: 1, Message: "Row 1: Item BOLT-M12 has no conversion for UoM BOX. Pick another UoM."})
+	wantFieldError(t, err, doctype.FieldError{Field: "uom_id", Line: 1, Message: "Line 1: Item BOLT-M12 has no conversion for UoM BOX. Pick another UoM."})
 }
 
 // TestMstFixture_HookRefusals: the rules Hooks.Validate runs through the
@@ -400,7 +400,7 @@ func TestMstFixture_HookRefusals(t *testing.T) {
 	t.Run("no conversion", func(t *testing.T) {
 		_, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, w.shree(),
 			[]mstfixture.Line{w.line("WIRE-18G", "KGS", qtyUnit), w.line("BOLT-M12", "KGS", qtyUnit)})
-		wantFieldError(t, err, doctype.FieldError{Field: "uom_id", Line: 2, Message: "Row 2: Item BOLT-M12 has no conversion for UoM KGS. Pick another UoM."})
+		wantFieldError(t, err, doctype.FieldError{Field: "uom_id", Line: 2, Message: "Line 2: Item BOLT-M12 has no conversion for UoM KGS. Pick another UoM."})
 	})
 }
 
@@ -446,8 +446,8 @@ func TestMstFixture_IncompleteLines(t *testing.T) {
 		want string
 	}{
 		{"item with no UoM", mstfixture.Line{ItemID: w.m.Items["MS-ANGLE-50"], Qty: qtyUnit}, "Row 2: UoM is required."},
-		{"UoM with no item", mstfixture.Line{UoMID: w.m.UoMs["KGS"], Qty: qtyUnit}, "Row 2: Item is required."},
-		{"neither item nor expense type", mstfixture.Line{Qty: qtyUnit}, "Row 2: Item is required."},
+		{"UoM with no item", mstfixture.Line{UoMID: w.m.UoMs["KGS"], Qty: qtyUnit}, "Line 2: Item is required."},
+		{"neither item nor expense type", mstfixture.Line{Qty: qtyUnit}, "Line 2: Item is required."},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			res, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, w.shree(), []mstfixture.Line{expense, c.line})

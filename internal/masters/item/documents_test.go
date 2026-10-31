@@ -207,7 +207,7 @@ func TestItemUoM_StockUoMLocked(t *testing.T) { // MST-090
 
 		err = w.resave(t, id, w.line(wire, "KGS", wholeQty))
 		wantSaveError(t, "draft's next save", err, doctype.FieldError{Field: "uom_id", Line: 1,
-			Message: "Row 1: Item WIRE-18G has no conversion for UoM KGS. Pick another UoM."})
+			Message: "Line 1: Item WIRE-18G has no conversion for UoM KGS. Pick another UoM."})
 	})
 
 	t.Run("a draft whose line UoM kept its conversion", func(t *testing.T) {
