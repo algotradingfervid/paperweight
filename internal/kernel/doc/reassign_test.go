@@ -579,6 +579,32 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 		}
 	})
 
+	// A target id with no user is a caller bug: a plain internal error, not a
+	// refusal the module would show (lessons: caller bugs get no catalogue
+	// message), and nothing changes. EligibleOwners lists only real users.
+	t.Run("target user doesn't exist", func(t *testing.T) {
+		const nobody types.UserID = 999_999
+		d := e.order(t, doc.StateDraft)
+		before := e.snap(t, d.ID)
+		err := e.reassign(t, e.Priya, d.ID, d.Version, nobody)
+		if err == nil {
+			t.Fatal("Reassign to a missing user = nil, want an internal error")
+		}
+		var re *doc.ReassignError
+		var de *doc.Error
+		var he doc.HTTPError
+		if errors.As(err, &re) || errors.As(err, &de) || errors.As(err, &he) ||
+			errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+			t.Errorf("err = %v (%T), want a plain internal error (no ReassignError, doc.Error, HTTP status or AUTH error)", err, err)
+		}
+		e.unchanged(t, d.ID, before)
+		got, err := e.eligible(t, e.Priya, fixture.Order, d.ID)
+		want := []types.UserID{e.Admin.ID, e.Kiran.ID, e.Nisha.ID}
+		if got := slices.Sorted(slices.Values(got)); err != nil || !slices.Equal(got, want) {
+			t.Errorf("EligibleOwners after the refusal = (%v, %v), want (%v, nil)", got, err, want)
+		}
+	})
+
 	// An unknown DocType and a master get Do's gone error from both.
 	t.Run("unknown or master DocType", func(t *testing.T) {
 		for _, c := range []struct {
