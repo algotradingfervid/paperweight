@@ -426,3 +426,24 @@ Request IDs: AUTH `C1–C14` (wp1-auth), NAM `C1–C9` (wp1-naming), DOC (wp1-do
 *§3 additions.* `Module.LineNoun LineNoun{Add, Title, Empty}` and `Module.AddTop bool`; `Line.Top func(c Ctx, no int, s StepState) (templ.Component, error)`; `PageExtra.Files *FilesCard{Title, Items []components.Attachment}`. Setting `Module.Line` moves the line page's Save into the sticky ActionBar (form=line-form). Components gain `LineCard.Receipt *Attachment`, `ReceiptNote` and `ReceiptWarn`; `LineListProps.AddLabel`, `AddTop` and `Empty`; and `UploadProps.AlsoDisable`. The design-system §7 text for LineCard, LineList and FileUpload follows.
 
 *Tests.* HOOK-033 TestModule_LineTop, 034 TestModule_LineNoun, 035 TestModule_AddTop, 036 TestLineCard_Receipt, 037 TestModule_LineCardReceipt, 038 TestModule_PageFiles, 039 TestModule_LineBar, 040 TestFileUpload_AlsoDisable, 041 TestUploadBrowser_SaveDisabledFocus (e2e), 042 TestModule_CheckTotalsAfter. M0-22 confirms the focus behaviour and the existing attachment browser tests with make e2e. | AD-10 DECISION, head accepted. |
+| CD-276 | **Frozen purchase API and two CD-272 rulings (AD-13 with AD-12).**
+
+(1) *PO-M1 (P1, P4).*
+- `purchase.DocType = "purchase.Order"`.
+- `purchase.Pending(qty, already, received types.Qty) types.Qty`.
+- `purchase.RefreshReceiptStatus(ctx, tx *db.Tx, poID int64, accepted map[int64]types.Qty) error`.
+- S59 / GRN-040: P6 extends only RefreshReceiptStatus's body. For a closed PO it also refreshes the linked requests' ordered_qty and order_status, using min(qty, already_received + accepted) from the map. GRN makes one call and never touches requests.
+
+*Gap 8 (new task P19).*
+- `purchase_order_rest(po_id, grn_id)`.
+- `purchase.SetRestNotComing(ctx, tx *db.Tx, poID, grnID int64, by types.UserID, on bool) error`. GRN ApplyEffects calls it with on=true when its tick is set, and ReverseEffects with on=false. `by` is the GRN's updated_by.
+- on=true inserts the row, idempotently, and posts the PO comment `Vendor says the rest won't come. Close this order if nothing more is due.` through M0-14b `AddTx`. The comment names no GRN.
+- on=false deletes the row; the comment stays.
+- The Purchase home's `To close` queue (P14) lists approved POs with a row. It is shown to users with `amend` on PO.
+- GRN-047 gates on P19, and GRN-040 on P6.
+
+(2) *Gap 14, amended.* Site has no state, and CD-272 rules out a master change. So the PO check page compares the site's branch state with the project's branch state and warns, as a stored Validate warning: `Site {site code} is under branch {branch code} in {state}, but project {project code} belongs to branch {branch code} in {state}. Check the tax with your CA.` A Site state field is an MST follow-up after v1.
+
+(3) *S16.* The same item on two PO lines is allowed, with no warning (ERPNext allow_multiple_items, EN-PO:1049). Request rows keep their own duplicate refusal (§20.5). PO-073 tests it.
+
+New PO ids are PO-071 to PO-084. | AD-13 DECISION, head accepted. |
