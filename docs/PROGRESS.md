@@ -327,7 +327,9 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | P6 | Request rows and order status | High | tw, impl, rev opus (AD-13) | 13:55 | 15:38 | 3 | rev 1 test gaps; fix 2 closed by 8 mutant kills | 3d10fa1 (b4b2316) |
 | E11 | Expense document reads through CheckLinkTx (CD-312) | Standard | impl, rev opus (AD-11) | — | — | 1 | 6/6 mutants | 3d10fa1 |
 | G1 | GRN skeleton | High | tw, impl, rev opus (AD-12) | — | — | 1 | — | 7b4a554 |
-| M0-43 | PartyBlock prints nothing for an empty party (CD-316 (5)) | Light | impl opus (head) | — | — | 1 | head review | e50ceff |
+| M0-43 | PartyBlock prints nothing for an empty party (CD-316 (5)) | Light | impl opus (head) | — | — | 1 | head review; broke PO no_vendor test, fixed f1bc042 | e50ceff |
+| M0-42 | Missing LinkSpec source refused before write (CD-314) | High | impl, rev opus (head) | — | — | 1 | 0/0/2 | 5025e23; make ci 0 (P1 746/816), e2e 0 |
+| M0-45 | CheckRegistry refuses SearchFields not declared header fields (CD-317) | Light | impl opus (head) | — | — | 1 | head review | see merge |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
