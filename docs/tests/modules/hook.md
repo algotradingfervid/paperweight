@@ -615,3 +615,38 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** the rule CD-327 (1) names **When** it is exercised through the public path **Then** every registered Hide survives a nil View.
 - **Go test:** `TestDocDeps_HideNilView`
 - **Sources:** CD-327 (1); M0-47
+
+### HOOK-088 · A new-document Save refused on a field redraws as 422
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** a new-document Save refused on a field redraws as 422.
+- **Go test:** `TestForbid50_NewPost`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-089 · A step Save refused on a field redraws as 422 with the posted version
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** a step Save refused on a field redraws as 422 with the posted version.
+- **Go test:** `TestForbid50_StepPost`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-090 · A refusal without field errors, or another status, gives the problem page
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** a refusal without field errors, or another status, gives the problem page.
+- **Go test:** `TestForbid50_OtherStatusIsProblemPage`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-091 · Config.Modules is refused for a DocType that is not TestOnly
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** config.Modules is refused for a DocType that is not TestOnly.
+- **Go test:** `TestApp_ConfigModulesTestOnly`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-092 · In a browser the refused-field redraw lands in place
+- **Priority:** P1
+- **Level:** e2e
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** in a browser the refused-field redraw lands in place.
+- **Go test:** `TestE2E_Forbid50_SaveRefusedOnField`
+- **Sources:** CD-323 (1); M0-50
