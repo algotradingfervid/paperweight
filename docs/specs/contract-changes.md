@@ -410,3 +410,4 @@ Request IDs: AUTH `C1–C14` (wp1-auth), NAM `C1–C9` (wp1-naming), DOC (wp1-do
 - a comment citing the CD a test guards.
 
 *Ownership:* scenario cases cite their source. AD-13 (purchase) amends the PO spec, po.md, the MOD-PO plan and the purchase UX for Gaps 7, 8 (the queue), 14 and the PO cases. AD-12 amends the GRN spec, grn.md, its plan and its UX for Gaps 1 to 5, 8 (the tick), 13 and the GRN cases. | Head ruling under CD-268. |
+| CD-273 | **AD-13 starts the purchase module.** AD-13 runs MOD-PO P1 to P17 on `wp/mod-po` (`.worktrees/mod-po`). Phase A, now with a budget of 2: amend the PO docs for CD-271 to CD-272 and re-run the plan check. Phase B starts at G-M0S. When AD-9 finishes, AD-13 takes its budget (8). The first milestone is PO-M1: P1, P2 and P4 on main for GRN. Budgets now: AD-9 8, AD-10 5, AD-11 5, AD-12 4, AD-13 2, head 1. | Head director. |
