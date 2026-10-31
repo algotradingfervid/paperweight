@@ -441,7 +441,7 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 				d := e.order(t, c.state)
 				before := e.snap(t, d.ID)
 				err := e.reassign(t, c.by(), d.ID, d.Version-1, c.to())
-				wantDocErr(t, err, doc.KindStale, fmt.Sprintf(rsStale, e.Display(t, fixture.Order, d.ID)))
+				_ = wantDocErr(t, err, doc.KindStale, fmt.Sprintf(rsStale, e.Display(t, fixture.Order, d.ID)))
 				e.unchanged(t, d.ID, before)
 			})
 		}
@@ -530,14 +530,14 @@ func TestDoc_Reassign_Concurrent(t *testing.T) {
 		if winner < 0 {
 			t.Fatalf("run %d: no reassign succeeded (errs %v, %v), want exactly one", run, errs[0], errs[1])
 		}
-		wantDocErr(t, errs[1-winner], doc.KindStale, fmt.Sprintf(rsStale, trDraft(d.ID)))
+		_ = wantDocErr(t, errs[1-winner], doc.KindStale, fmt.Sprintf(rsStale, trDraft(d.ID)))
 
 		after := e.Load(t, fixture.Order, d.ID)
 		if after.Version != 6 {
 			t.Errorf("run %d: Version = %d, want 6", run, after.Version)
 		}
-		if after.CreatedBy != calls[winner].to {
-			t.Errorf("run %d: created_by = %d, want the winner's target %d", run, after.CreatedBy, calls[winner].to)
+		if after.CreatedBy != calls[winner].to { //nolint:gosec // G602: winner is 0 or 1, checked above
+			t.Errorf("run %d: created_by = %d, want the winner's target %d", run, after.CreatedBy, calls[winner].to) //nolint:gosec // G602: winner is 0 or 1, checked above
 		}
 		entries := e.Audit(t, fixture.Order, d.ID)
 		if len(entries) != before+1 {
