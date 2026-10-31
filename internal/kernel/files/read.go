@@ -64,15 +64,26 @@ func (s *Store) Open(ctx context.Context, p auth.Principal, id int64) (io.ReadCl
 
 // List returns parent's attachments, newest first, when p may read parent.
 func (s *Store) List(ctx context.Context, p auth.Principal, parent auth.RecordRef) ([]Meta, error) {
-	var rows []dbq.Attachment
+	var out []Meta
 	err := s.cfg.DB.Read(ctx, func(tx *db.Tx) error {
 		if _, err := s.canOnParent(ctx, tx, p, "read", parent.DocType, parent.ID); err != nil {
 			return err
 		}
 		var err error
-		rows, err = dbq.New(tx.SQL()).ListForParent(ctx, dbq.ListForParentParams{ParentDocType: parent.DocType, ParentID: parent.ID})
+		out, err = s.ListTx(ctx, tx, parent)
 		return err
 	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListTx returns parent's attachments, newest first, read in the caller's tx
+// so it takes no second connection (CD-209, CD-213). It checks no rights: the
+// caller is a hook or has already checked read on parent.
+func (s *Store) ListTx(ctx context.Context, tx *db.Tx, parent auth.RecordRef) ([]Meta, error) {
+	rows, err := dbq.New(tx.SQL()).ListForParent(ctx, dbq.ListForParentParams{ParentDocType: parent.DocType, ParentID: parent.ID})
 	if err != nil {
 		return nil, err
 	}

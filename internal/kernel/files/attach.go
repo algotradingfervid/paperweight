@@ -17,6 +17,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // MsgStorage is the message for a failed save.
@@ -134,7 +135,7 @@ func AttachLimits(pol Policy, display string, duplicate bool, count int64) error
 		return &Error{Kind: KindDuplicate, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgDuplicate, display)}
 	}
 	if count >= int64(pol.MaxCount) {
-		return &Error{Kind: KindLimit, Code: http.StatusUnprocessableEntity, Message: msgLimit}
+		return &Error{Kind: KindLimit, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgLimit, types.FormatCount(int64(pol.MaxCount)))}
 	}
 	return nil
 }
@@ -149,9 +150,15 @@ func (s *Store) CheckReceipt(ctx context.Context, tx *db.Tx, parent auth.RecordR
 		return err
 	}
 	if err != nil || row.ParentDocType != parent.DocType || row.ParentID != parent.ID {
-		return &Error{Kind: KindReceiptMismatch, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgReceipt, line, docLabel)}
+		return ReceiptMismatch(line, docLabel)
 	}
 	return nil
+}
+
+// ReceiptMismatch is FILE-045's refusal of line's receipt; docLabel names the
+// document ("expense"). Exported so Expense's hash check shows files' text (CD-142).
+func ReceiptMismatch(line int, docLabel string) *Error {
+	return &Error{Kind: KindReceiptMismatch, Code: http.StatusUnprocessableEntity, Message: fmt.Sprintf(msgReceipt, line, docLabel)}
 }
 
 // parentErr maps doctype.ErrNotFound (which is auth.ErrNotFound, CD-54) to
