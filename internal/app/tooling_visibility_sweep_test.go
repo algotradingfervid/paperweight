@@ -52,11 +52,6 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 	bodies := map[string]string{}
 	got := map[string]map[bool]map[int]bool{} // route → hidden page → statuses seen
 	for _, p := range pages {
-		broken, known := knownBroken(p.url)
-		logStart := 0
-		if known {
-			logStart = len(s.w.logs.String())
-		}
 		r := v.get(p.url)
 		bodies[p.url] = r.body
 		if got[p.route] == nil {
@@ -68,11 +63,6 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 		got[p.route][p.hidden][r.status] = true
 		if !slices.Contains(sweepStatus(p.route, p.hidden), r.status) {
 			t.Errorf("GET %s (route %s, hidden id %v) = %d, want one of %v: update sweepStatuses if the change is right", p.url, p.route, p.hidden, r.status, sweepStatus(p.route, p.hidden))
-		}
-		if known {
-			if r.status != http.StatusInternalServerError || !strings.Contains(s.w.logs.String()[logStart:], broken.logged) {
-				t.Errorf("GET %s = %d, no longer knownBroken's 500 with %q in the log (%s): remove the entry, so the sweep checks the page's data", p.url, r.status, broken.logged, broken.bug)
-			}
 		}
 		for prefix, name := range hiddenMasters {
 			if strings.HasPrefix(p.url, prefix) && strings.Contains(r.body, name) {
@@ -116,9 +106,6 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 	expected := map[string]bool{}
 	for _, c := range s.controlExpectations() {
 		body, ok := bodies[c.url]
-		if _, known := knownBroken(c.url); known {
-			continue
-		}
 		if !ok {
 			t.Errorf("control page %s was not swept", c.url)
 			continue
@@ -152,13 +139,12 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 // on its control and sample URLs (Control) or only 404 on a hidden record's
 // URL (Hidden), the exact set it answers. nil means the default.
 var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
-	const ok, see, forbidden, missing, failed, stub = http.StatusOK, http.StatusSeeOther, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError, http.StatusNotImplemented
+	const ok, see, forbidden, missing, stub = http.StatusOK, http.StatusSeeOther, http.StatusForbidden, http.StatusNotFound, http.StatusNotImplemented
 	type st = struct{ Control, Hidden []int }
 	out := map[string]st{
 		"/": {Control: []int{see}}, // to the inbox
 		// A document page: 303 is a writer's draft going to its check step,
 		// 404 a TestOnly DocType's missing sample; a hidden record is 404.
-		"/doc/{doctype}/export.csv":                            {Control: []int{ok, failed}},    // 500: knownBroken
 		"/doc/{doctype}/new":                                   {Control: []int{ok, forbidden}}, // 200: goods receipts, the only create the viewer holds
 		"/doc/{doctype}/{id}":                                  {Control: []int{ok, see, missing}},
 		"/doc/{doctype}/{id}/edit/{step}":                      {Control: []int{ok, see}},
@@ -264,22 +250,6 @@ func noControlWhy(route string) (string, bool) {
 // hiddenMasters: the project pages and picker name no project the viewer
 // can't read (project B).
 var hiddenMasters = map[string]string{"/m/project": projectB, "/pick/Project": projectB}
-
-// brokenPage is a 500 at a04f8f3d unrelated to visibility, reported to head.
-type brokenPage struct{ bug, logged string }
-
-// knownBroken is a page that answers 500 for a reason that has nothing to do
-// with visibility. The sweep fails once it answers anything else, or fails
-// with another error, so the entry goes and the page's data is checked.
-func knownBroken(u string) (brokenPage, bool) {
-	if strings.HasPrefix(u, "/doc/"+purchase.DocType+"/export.csv") {
-		return brokenPage{
-			bug:    "BUG: purchase.Order CSV export fails for every user (vendor_address_id links Address, which has no code)",
-			logged: "no such column: address.code",
-		}, true
-	}
-	return brokenPage{}, false
-}
 
 // leak is the first of a hidden record's markers or URLs in body, "" for
 // none. Its free texts and the hidden orders' vendor are found once per page.
@@ -741,6 +711,12 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 		}
 		if r.state == stPending && r.dt == purchase.DocType {
 			add(page+"/reject", types.FormatMoney(r.amount))
+		}
+		if r.dt == purchase.DocType {
+			// CD-318: the order export works; every readable order is a row,
+			// draft and pending ones too, with its vendor and remarks.
+			add("/doc/"+r.dt+"/export.csv", text(false, "po-"+string(r.state)))
+			add("/doc/"+r.dt+"/export.csv", controlVendor)
 		}
 		if r.file != 0 {
 			add("/files/"+idText(r.file), "%PDF")

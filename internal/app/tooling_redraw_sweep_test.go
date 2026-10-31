@@ -177,7 +177,7 @@ var rsBuilders = map[string]map[string]int{
 	"pageViewOf":     {"page": 1, "refused": 1, "succeeded": 1, "readOnlyPage": 1},
 	"reasonViewWith": {"reasonGet": 1, "reasonPost": 1},
 	"gridResponse":   {"gridSaved": 1, "gridRefused": 1},
-	"gridRowOf":      {"itemsBody": 1, "gridSaved": 1, "gridRefused": 1},
+	"gridRowOf":      {"itemsBody": 1, "gridSaved": 1, "gridRefused": 1, "gridShown": 1}, // gridShown only counts the row's cells (CD-315)
 	"refused":        {"failingStep": 1, "actionPost": 1},
 	"itemsRefused":   {"reorder": 1},
 	"checkPage":      {"succeeded": 2},
@@ -207,77 +207,20 @@ const (
 	rsBadLink    = "987654321"
 )
 
-// The bugs the sweep found in merged code (BUGS FOUND in the T2a status
-// file; CD-319, M0-46). A cell that expects one skips while it reproduces,
-// after its other checks, and fails once it no longer does, so no skip goes
-// stale. bugCard and bugParty show on every page with line cards or the
-// party: only the card and party cells expect them; the other cells log them.
-const (
-	bugLineErrors = "BUG: the line page's error summary links an error on a hidden line field to its id; lineShell uses fieldErrs with no hidden() filter, as stepErrors has (CD-319, M0-46)"
-	bugRefused    = "BUG: refused() lists DOC's errors on hidden fields with links to their ids on the document page; pv.Errors = fieldErrs(pr.Fields) has no hidden() filter (CD-319, M0-46)"
-	bugParty      = "BUG: the document and reason pages show DOC's party (Info.Party, CD-55) when Module.Hide hides that field (reported to head)"
-	bugCard       = "BUG: the default line card (and the remove page's question) shows hidden line fields: the item from the first Link and the uom; lineView and removePage read them whatever Module.Hide says (CD-319, M0-46)"
-)
-
-// cell runs one cell. expect lists the bugs the cell reproduces today.
-func (d *rsDoc) cell(t *testing.T, name string, expect []string, fn func(t *testing.T)) {
+// cell runs one cell. The CD-319 BUG skips the sweep found went when M0-46
+// fixed them (bd30a1cd): these cells are the independent check of the fix.
+func (d *rsDoc) cell(t *testing.T, name string, fn func(t *testing.T)) {
 	t.Helper()
-	t.Run(name, func(t *testing.T) {
-		fn(t)
-		hits := d.hits(t)
-		for _, b := range expect {
-			if !slices.Contains(hits, b) {
-				t.Errorf("no longer reproduces: %s\nRemove it from this cell's expected bugs and from BUGS FOUND", b)
-			}
-		}
-		var skip []string
-		for _, b := range hits {
-			switch {
-			case slices.Contains(expect, b):
-				skip = append(skip, b)
-			case b == bugCard || b == bugParty:
-				t.Log(b + " (expected by the card or party cell)")
-			default:
-				t.Errorf("%s (seen in a cell that doesn't expect it)", b)
-			}
-		}
-		if len(skip) > 0 && !t.Failed() {
-			t.Skip(strings.Join(skip, "\n"))
-		}
-	})
-}
-
-func (d *rsDoc) hit(t *testing.T, bug string) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if !slices.Contains(d.seen[t.Name()], bug) {
-		d.seen[t.Name()] = append(d.seen[t.Name()], bug)
-	}
-}
-
-func (d *rsDoc) hits(t *testing.T) []string {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return slices.Clone(d.seen[t.Name()])
-}
-
-// bugIf is bug when cond holds.
-func bugIf(cond bool, bug string) []string {
-	if cond {
-		return []string{bug}
-	}
-	return nil
+	t.Run(name, fn)
 }
 
 // both runs a request in mode's control twin, where the probe hides nothing
-// and the page must draw a probe field other than as a known bug (none says
-// it draws none, which is checked), then in mode, where it must draw none;
-// it returns the second.
+// and the page must draw a probe field (none says it draws none, which is
+// checked), then in mode, where it must draw none; it returns the second.
 func (d *rsDoc) both(t *testing.T, where, mode string, none bool, run func(t *testing.T, mode string) rsResp) rsResp {
 	t.Helper()
 	ctl := run(t, mode+rsShow)
-	// A known bug's marks don't count: the hidden run tolerates them.
-	drawn := slices.DeleteFunc(d.marks(ctl), func(m rsMark) bool { return m.bug != "" })
+	drawn := d.marks(ctl)
 	switch {
 	case none && len(drawn) > 0:
 		t.Errorf("%s: the page now draws the probe field %s (%s): drop this cell's none, so its hiding is checked", where, drawn[0].field, drawn[0].kind)
@@ -305,6 +248,15 @@ type rsEnv struct {
 	po, poLine, poLine2 string // an approved purchase.Order and its two lines, which every goods receipt receives
 }
 
+// rsCardBug: docscreen hands Module.LineCard the LineView.Card lineView built
+// with every field shown; CD-319 (3) filtered only the default card. The
+// purchase stubs (orderLineCard, requestLineCard) return l.Card, so their
+// cards print a hidden line Link's name. marks exempts text found only inside
+// the cards of a module with its own LineCard (or the remove page's question,
+// which names the card's item), and the "module line card" cell fails once
+// no such text turns up.
+const rsCardBug = "BUG: a module LineCard gets the unfiltered l.Card, so returning it prints hidden line fields (reported to head)"
+
 // rsDoc is one DocType's probe: the fields it hides and their seeded values.
 type rsDoc struct {
 	e         *rsEnv
@@ -316,9 +268,8 @@ type rsDoc struct {
 	valid     func(t *testing.T) (values, line map[string]string)
 	mod       docscreen.Module // the app's own Module for dt
 	itemsNone bool             // the probe draft's items step draws no probe field; see draft
-	mu        sync.Mutex
-	seen      map[string][]string // bugs seen, by cell
-	rows      atomic.Bool         // a 422/409 redraw compared non-empty read-only rows
+	rows      atomic.Bool      // a 422/409 redraw compared non-empty read-only rows
+	cardBug   atomic.Bool      // a module LineCard printed a hidden field; see rsCardBug
 }
 
 // newRSEnv is one App with the canonical seed, the sweep's users, an
@@ -360,7 +311,7 @@ func newRSEnv(t *testing.T) *rsEnv {
 		}
 	}
 	for _, dt := range rsDocTypes() {
-		d := &rsDoc{e: e, dt: dt, hide: map[string]bool{}, sentinel: map[string]string{}, shown: map[string]string{}, seen: map[string][]string{}}
+		d := &rsDoc{e: e, dt: dt, hide: map[string]bool{}, sentinel: map[string]string{}, shown: map[string]string{}}
 		steps, err := docscreen.FormSteps(dt)
 		if err != nil {
 			t.Fatalf("FormSteps(%s): %v", dt.Name, err)
@@ -784,11 +735,11 @@ func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
 	var out []string
 	if d.steps[i].Lines {
 		if _, ok := d.shownLine(); ok {
-			out = append(out, d.linesTarget(lines)+"|"+rsMsgVisible)
+			out = append(out, d.linesTarget(lines, hide)+"|"+rsMsgVisible)
 		}
 		if _, ok := d.hiddenLine(); ok {
 			if !hide {
-				hidden = d.linesTarget(lines) + "|" + rsMsgHidden
+				hidden = d.linesTarget(lines, hide) + "|" + rsMsgHidden
 			}
 			out = append(out, hidden)
 		}
@@ -806,16 +757,30 @@ func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
 	return append(out, "#step-title|"+rsMsgPlain)
 }
 
-// grid reports whether the items step has docscreen's editable grid: not
-// when the module turns it off (CardsOnly, Line, NoLinePages; CD-256 (6)).
-func (d *rsDoc) grid() bool {
-	return !d.mod.CardsOnly && d.mod.Line == nil && !d.mod.NoLinePages
+// grid reports whether the items step has docscreen's editable grid with
+// the probe hiding (hide) or not: not when the module turns it off
+// (CardsOnly, Line, NoLinePages; CD-256 (6)), and only for rows of 3 or 5
+// editable cells, the fields not hidden (CD-315, docscreen.gridShown). The
+// module's own Hide isn't counted: a wrong guess fails the grid cells' 303
+// check or their 200, never passes silently.
+func (d *rsDoc) grid(hide bool) bool {
+	if d.mod.CardsOnly || d.mod.Line != nil || d.mod.NoLinePages {
+		return false
+	}
+	n := 0
+	for _, f := range d.dt.Fields {
+		if f.OnLine && !f.ReadOnly && (!hide || !d.hide[f.Name]) {
+			n++
+		}
+	}
+	return n == 3 || n == 5
 }
 
-// linesTarget is where a line error links on the generic items step: the
-// line editor when the grid shows lines, else the step heading.
-func (d *rsDoc) linesTarget(lines int) string {
-	if d.grid() && lines > 0 {
+// linesTarget is where a line error links on the generic items step, with
+// the probe hiding or not: the line editor when the grid shows lines, else
+// the step heading.
+func (d *rsDoc) linesTarget(lines int, hide bool) string {
+	if d.grid(hide) && lines > 0 {
 		return "#line-editor"
 	}
 	return "#step-title"
@@ -1222,29 +1187,32 @@ func inputValue(page *goquery.Document, name string) string {
 
 func eq(a, b []string) bool { return slices.Equal(a, b) }
 
-// rsMark is one place a page draws a probe field; bug names the known bug it
-// is, if any.
-type rsMark struct{ field, kind, bug string }
+// rsMark is one place a page draws a probe field.
+type rsMark struct {
+	field, kind string
+	card        bool // the text is only inside a module LineCard's cards (rsCardBug)
+}
 
 // marks is every place r draws a probe field: an input posting it, an element
 // with its id, a link or label pointing there, its sentinel value, its Link's
 // master name, or its label (when no other field or step has it). A ReadOnly
 // field posted by a form is a mark too (CD-79).
 func (d *rsDoc) marks(r rsResp) []rsMark {
-	// Card text: the line cards and the remove page's question.
-	var cards strings.Builder
-	r.page.Find(".lines-card").Each(func(_ int, s *goquery.Selection) { cards.WriteString(s.Text() + "\n") })
-	r.page.Find("main p").Each(func(_ int, s *goquery.Selection) {
-		if strings.HasPrefix(strings.TrimSpace(s.Text()), "Remove line ") {
-			cards.WriteString(s.Text() + "\n")
-		}
-	})
 	var out []rsMark
+	outside := sync.OnceValue(func() string { // the page without its line cards
+		page := goquery.CloneDocument(r.page)
+		page.Find("li.lines-card").Remove()
+		page.Find("main p").FilterFunction(func(_ int, s *goquery.Selection) bool { // removePage's question names the card's item
+			return strings.HasPrefix(s.Text(), "Remove line ")
+		}).Remove()
+		html, _ := page.Html()
+		return html
+	})
 	for _, name := range slices.Sorted(maps.Keys(d.hide)) {
 		f, _ := d.dt.Field(name)
-		add := func(kind, bug string) { out = append(out, rsMark{name, kind, bug}) }
+		add := func(kind string) { out = append(out, rsMark{field: name, kind: kind}) }
 		if n := r.page.Find(`[name="` + name + `"]`).Length(); n > 0 {
-			add("an input posts it", "")
+			add("an input posts it")
 		}
 		ids := []string{components.FieldID(name)}
 		for n := 1; n <= 3; n++ {
@@ -1252,58 +1220,48 @@ func (d *rsDoc) marks(r rsResp) []rsMark {
 		}
 		for _, id := range ids {
 			if r.page.Find(`[id="`+id+`"]`).Length() > 0 {
-				add("an element has the id "+id, "")
+				add("an element has the id " + id)
 			}
 			links := r.page.Find(`[href="#` + id + `"], [for="` + id + `"], [aria-describedby~="` + id + `"]`)
 			switch {
 			case links.Length() == 0:
-			case links.Length() == links.Filter(".error-summary a").Length() && r.page.Find("#wizard").Length() == 0:
-				bug := bugRefused
-				if r.page.Find(`main form[action*="/lines/"]`).Length() > 0 {
-					bug = bugLineErrors
-				}
-				add("an error links to "+id, bug)
 			default:
-				add("a link or label points at "+id, "")
+				add("a link or label points at " + id)
 			}
 		}
 		for kind, text := range map[string]string{"its value": d.sentinel[name], "its Link's name": d.shown[name]} {
 			if text == "" || !strings.Contains(r.body, text) {
 				continue
 			}
-			bug := ""
-			switch {
-			case f.OnLine && strings.Count(r.body, text) == strings.Count(cards.String(), text):
-				bug = bugCard
-			case name == d.party() && kind == "its Link's name":
-				bug = bugParty
-			}
 			i := strings.Index(r.body, text)
-			add(kind+" "+strconv.Quote(text)+" in "+strconv.Quote(r.body[max(0, i-200):i+len(text)]), bug)
+			add(kind + " " + strconv.Quote(text) + " in " + strconv.Quote(r.body[max(0, i-200):i+len(text)]))
+			if d.mod.LineCard != nil && !strings.Contains(outside(), text) {
+				out[len(out)-1].card = true
+			}
 		}
 		reasonPage := r.page.Find(`[name="reason"]`).Length() > 0
 		if d.uniqueLabel(f) && !(reasonPage && slices.ContainsFunc(rsReasonLabels, func(l string) bool { return strings.EqualFold(l, f.Label) })) {
 			r.page.Find("label, dt, th, legend").Each(func(_ int, s *goquery.Selection) {
 				if strings.EqualFold(strings.Join(strings.Fields(s.Text()), " "), f.Label) {
-					add("its label "+strconv.Quote(f.Label), "")
+					add("its label " + strconv.Quote(f.Label))
 				}
 			})
 		}
 	}
 	for _, f := range d.dt.Fields {
 		if f.ReadOnly && r.page.Find(`form [name="`+f.Name+`"]`).Length() > 0 {
-			out = append(out, rsMark{f.Name, "a form posts the ReadOnly field (CD-79)", ""})
+			out = append(out, rsMark{field: f.Name, kind: "a form posts the ReadOnly field (CD-79)"})
 		}
 	}
 	return out
 }
 
-// noHidden is check (a): r draws no probe field but as a known bug.
+// noHidden is check (a): r draws no probe field.
 func (d *rsDoc) noHidden(t *testing.T, where string, r rsResp) {
 	t.Helper()
 	for _, m := range d.marks(r) {
-		if m.bug != "" {
-			d.hit(t, m.bug)
+		if m.card {
+			d.cardBug.Store(true) // rsCardBug
 			continue
 		}
 		t.Errorf("%s: the hidden field %s is drawn: %s", where, m.field, m.kind)
@@ -1334,7 +1292,16 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 			d.sweepActions(t, id)
 			d.sweepApproval(t)
 			d.sweepApproved(t)
-			d.cell(t, "derived rows", nil, func(t *testing.T) {
+			d.cell(t, "module line card", func(t *testing.T) {
+				switch {
+				case d.mod.LineCard == nil:
+					t.Skip("the default card, checked by every cell (CD-319 (3))")
+				case !d.cardBug.Load():
+					t.Fatalf("%s's own LineCard printed no hidden field: rsCardBug no longer reproduces; remove it and its exemption in marks", dt.Name)
+				}
+				t.Skip(rsCardBug)
+			})
+			d.cell(t, "derived rows", func(t *testing.T) {
 				if d.rows.Load() {
 					return
 				}
@@ -1351,12 +1318,14 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 	}
 }
 
-// itemsDrawNone reports whether draft id's items step draws no probe field
-// but as a known bug: with the grid off (CardsOnly) its lines are cards
-// (bugCard), so only the totals can show one, a hidden ReadOnly header field
-// with a stored value.
+// itemsDrawNone reports whether draft id's items step, with nothing hidden,
+// draws no probe field: the grid's hidden line inputs, the cards' item (a
+// hidden Link) or uom, or the totals' hidden ReadOnly header field all count.
 func (d *rsDoc) itemsDrawNone(t *testing.T, id int64) bool {
-	if d.grid() || d.dt.LinesTable == "" {
+	if d.dt.LinesTable == "" || d.grid(false) || d.sentinel["uom"] != "" {
+		return false
+	}
+	if _, ok := d.hiddenLink(); ok {
 		return false
 	}
 	values := d.e.load(t, d.dt.Name, id).Values
@@ -1390,7 +1359,7 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		return e.do(t, plainOf(mode), rsAdmin, http.MethodGet, d.base()+"/new", nil, false).want(t, "GET new", http.StatusOK)
 	}
 	var fresh rsResp
-	d.cell(t, "new GET", nil, func(t *testing.T) { fresh = d.both(t, "GET new", "plain", d.none(0), get) })
+	d.cell(t, "new GET", func(t *testing.T) { fresh = d.both(t, "GET new", "plain", d.none(0), get) })
 	if fresh.page == nil {
 		return
 	}
@@ -1405,7 +1374,7 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		}
 		return e.do(t, mode, rsAdmin, http.MethodPost, d.base()+"/new", form, htmx)
 	}
-	d.cell(t, "new POST ok", nil, func(t *testing.T) {
+	d.cell(t, "new POST ok", func(t *testing.T) {
 		run := func(t *testing.T, mode string) rsResp {
 			r := post(t, mode, nil, true).want(t, "POST new, htmx", http.StatusOK)
 			if r.hdr.Get("HX-Push-Url") == "" {
@@ -1419,7 +1388,7 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		none := len(d.marks(e.do(t, "plain"+rsShow, rsAdmin, http.MethodGet, next, nil, false).want(t, "GET "+next, http.StatusOK))) == 0
 		d.both(t, "POST new ok", "plain", none, run)
 	})
-	d.cell(t, "new 422 module", nil, func(t *testing.T) {
+	d.cell(t, "new 422 module", func(t *testing.T) {
 		f, typed := d.typedField(0)
 		r := d.both(t, "POST new 422", "inject", d.none(0), func(t *testing.T, mode string) rsResp {
 			r := post(t, mode, func(v url.Values) {
@@ -1438,7 +1407,7 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 			t.Errorf("POST new 422: %s = %q, want the typed %q kept", f.Name, inputValue(r.page, f.Name), rsTyped)
 		}
 	})
-	d.cell(t, "new 422 parse", nil, func(t *testing.T) {
+	d.cell(t, "new 422 parse", func(t *testing.T) {
 		f, ok := d.parseField(0)
 		if !ok {
 			d.noParsed(t, 0)
@@ -1455,7 +1424,7 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 			t.Errorf("POST new parse 422: %s = %q, want the typed zz kept", f.Name, inputValue(r.page, f.Name))
 		}
 	})
-	d.cell(t, "new 409", nil, func(t *testing.T) {
+	d.cell(t, "new 409", func(t *testing.T) {
 		// newPost has a 409 branch for DOC's conflict, but a create carries no
 		// version: a stale one is ignored and the draft is made.
 		r := post(t, "plain", func(v url.Values) { v.Set("version", "999") }, false)
@@ -1501,7 +1470,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			return e.do(t, plainOf(mode), rsAdmin, http.MethodGet, d.stepURL(id, i), nil, false).want(t, "GET "+s.Slug, http.StatusOK)
 		}
 		var fresh rsResp
-		d.cell(t, "step GET "+s.Slug, nil, func(t *testing.T) { fresh = d.both(t, "GET "+s.Slug, "plain", d.none(i), get) })
+		d.cell(t, "step GET "+s.Slug, func(t *testing.T) { fresh = d.both(t, "GET "+s.Slug, "plain", d.none(i), get) })
 		if fresh.page == nil || s.Slug == "check" {
 			continue
 		}
@@ -1522,7 +1491,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			posted = form.Get("version")
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.stepURL(id, i), form, htmx)
 		}
-		d.cell(t, "step 422 module "+s.Slug, nil, func(t *testing.T) {
+		d.cell(t, "step 422 module "+s.Slug, func(t *testing.T) {
 			f, typed := d.typedField(i)
 			where := "POST " + s.Slug + " with probe errors"
 			r := d.both(t, where, "inject", d.none(i), func(t *testing.T, mode string) rsResp {
@@ -1543,7 +1512,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 				t.Errorf("%s: %s = %q, want the typed %q kept", where, f.Name, inputValue(r.page, f.Name), rsTyped)
 			}
 		})
-		d.cell(t, "step 422 parse "+s.Slug, nil, func(t *testing.T) {
+		d.cell(t, "step 422 parse "+s.Slug, func(t *testing.T) {
 			f, ok := d.parseField(i)
 			if !ok {
 				d.noParsed(t, i)
@@ -1559,7 +1528,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			}
 			d.keeps(t, where, r, posted, before)
 		})
-		d.cell(t, "step 409 "+s.Slug, nil, func(t *testing.T) {
+		d.cell(t, "step 409 "+s.Slug, func(t *testing.T) {
 			f, typed := d.typedField(i)
 			where := "POST " + s.Slug + " with a stale version"
 			var stale string
@@ -1582,7 +1551,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 				t.Errorf("%s: %s = %q, want the typed %q kept", where, f.Name, inputValue(r.page, f.Name), rsTyped)
 			}
 		})
-		d.cell(t, "step stay "+s.Slug, nil, func(t *testing.T) {
+		d.cell(t, "step stay "+s.Slug, func(t *testing.T) {
 			d.both(t, "POST "+s.Slug+" nav=stay", "plain", d.none(i), func(t *testing.T, mode string) rsResp {
 				r := post(t, mode, func(v url.Values) { v.Set("nav", "stay") }, true).want(t, "POST "+s.Slug+" nav=stay", http.StatusOK)
 				if got := r.hdr.Get("HX-Push-Url"); got != d.stepURL(id, i) {
@@ -1591,7 +1560,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 				return r
 			})
 		})
-		d.cell(t, "step POST ok "+s.Slug, nil, func(t *testing.T) {
+		d.cell(t, "step POST ok "+s.Slug, func(t *testing.T) {
 			d.both(t, "POST "+s.Slug+" ok", "plain", d.none(i+1), func(t *testing.T, mode string) rsResp {
 				r := post(t, mode, nil, true).want(t, "POST "+s.Slug, http.StatusOK)
 				if got := r.hdr.Get("HX-Push-Url"); got != d.stepURL(id, i+1) {
@@ -1601,7 +1570,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			})
 		})
 	}
-	d.cell(t, "step finish", nil, func(t *testing.T) {
+	d.cell(t, "step finish", func(t *testing.T) {
 		form := formValues(e.do(t, "plain", rsAdmin, http.MethodGet, d.stepURL(id, 0), nil, false).page, "#wizard-form")
 		form.Set("nav", "finish")
 		r := e.do(t, "plain", rsAdmin, http.MethodPost, d.stepURL(id, 0), form, false).want(t, "POST nav=finish", http.StatusSeeOther)
@@ -1631,7 +1600,7 @@ func (d *rsDoc) lineURL(id int64, no string) string { return d.url(id) + "/lines
 func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 	e := d.e
 	if d.dt.LinesTable == "" {
-		d.cell(t, "lines", nil, func(t *testing.T) {
+		d.cell(t, "lines", func(t *testing.T) {
 			if slices.ContainsFunc(d.steps, func(s docscreen.FormStep) bool { return s.Lines }) {
 				t.Fatalf("%s has no LinesTable but a lines step", d.dt.Name)
 			}
@@ -1645,7 +1614,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	}
 	var fresh rsResp
-	d.cell(t, "line GET", nil, func(t *testing.T) {
+	d.cell(t, "line GET", func(t *testing.T) {
 		d.both(t, "GET line new", "plain", false, getLine("new"))
 		fresh = d.both(t, "GET line 1", "plain", false, getLine("1"))
 	})
@@ -1672,13 +1641,13 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			t.Errorf("%s: version = %q, want the posted %q (CD-94)", where, got, posted)
 		}
 	}
-	d.cell(t, "line GET module", nil, func(t *testing.T) {
+	d.cell(t, "line GET module", func(t *testing.T) {
 		// The probe's Line.Body draws nothing, and docscreen's shell no field.
 		d.both(t, "GET line 1 with a module Line", "line", true, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.lineURL(id, "1"), nil, false).want(t, "GET line 1 with a module Line", http.StatusOK)
 		})
 	})
-	d.cell(t, "line 422 parse", nil, func(t *testing.T) {
+	d.cell(t, "line 422 parse", func(t *testing.T) {
 		f, ok := d.parseLine()
 		if !ok {
 			t.Fatalf("%s shows no number or date line field to mistype", d.dt.Name)
@@ -1699,7 +1668,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			t.Errorf("%s: %s = %q, want the typed zz kept", where, f.Name, inputValue(r.page, f.Name))
 		}
 	})
-	d.cell(t, "line 409", nil, func(t *testing.T) {
+	d.cell(t, "line 409", func(t *testing.T) {
 		var stale string
 		r := d.both(t, "POST line 1 with a stale version", "plain", false, func(t *testing.T, mode string) rsResp {
 			v := form(t, mode)
@@ -1710,14 +1679,12 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		lineKeeps(t, "POST line 1 with a stale version", r, stale)
 		d.sameSummary(t, "POST line 1 409 (the conflict is a banner)", r, nil)
 	})
-	_, hiddenLine := d.hiddenLine()
-	d.cell(t, "line 422 module", bugIf(hiddenLine, bugLineErrors), func(t *testing.T) {
+	d.cell(t, "line 422 module", func(t *testing.T) {
 		for _, no := range []string{"1", "new"} {
 			where := "POST line " + no + " with Line.Save errors"
 			var posted string
-			// The page's only probe mark is the hidden field's error link,
-			// bugLineErrors, so it counts as none.
-			r := d.both(t, where, "line", true, func(t *testing.T, mode string) rsResp {
+			// With nothing hidden the summary links the hidden field's error.
+			r := d.both(t, where, "line", false, func(t *testing.T, mode string) rsResp {
 				v := form(t, mode)
 				posted = v.Get("version")
 				return e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, no), v, false).want(t, where, http.StatusUnprocessableEntity)
@@ -1726,20 +1693,11 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			if f, ok := d.shownLine(); ok {
 				want = append(want, "#"+components.FieldID(f.Name)+"|"+rsMsgVisible)
 			}
-			hidden := -1
 			if _, ok := d.hiddenLine(); ok {
-				hidden = len(want)
 				want = append(want, "#main|"+rsMsgHidden)
 			}
 			want = append(want, "#main|"+rsMsgPlain)
-			got := summary(r.page)
-			if f, ok := d.hiddenLine(); ok {
-				bad := "#" + components.FieldID(f.Name) + "|" + rsMsgHidden
-				if i := slices.Index(got, bad); i >= 0 && i == hidden {
-					got[i] = want[hidden] // bugLineErrors, which noHidden recorded
-				}
-			}
-			if !eq(got, want) {
+			if got := summary(r.page); !eq(got, want) {
 				t.Errorf("%s: error summary\n  %q\nwant\n  %q", where, got, want)
 			}
 			if got := inputValue(r.page, "version"); got != posted {
@@ -1747,8 +1705,8 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			}
 		}
 	})
-	d.cell(t, "grid 422", nil, func(t *testing.T) {
-		d.noGrid(t, id, form(t, "plain"))
+	d.cell(t, "grid 422", func(t *testing.T) {
+		d.noGrid(t, id, form)
 		f, ok := d.parseLine()
 		if !ok {
 			t.Fatalf("%s shows no number or date line field to mistype", d.dt.Name)
@@ -1765,8 +1723,8 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			t.Errorf("grid 422: grid-1-%s = %q, want the typed zz kept", f.Name, got)
 		}
 	})
-	d.cell(t, "grid 409", nil, func(t *testing.T) {
-		d.noGrid(t, id, form(t, "plain"))
+	d.cell(t, "grid 409", func(t *testing.T) {
+		d.noGrid(t, id, form)
 		r := d.both(t, "grid 409", "plain", false, func(t *testing.T, mode string) rsResp {
 			v := form(t, mode)
 			v.Set("version", d.stale(t, id))
@@ -1779,8 +1737,8 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			t.Errorf("grid 409: no #grid-alerts with the conflict")
 		}
 	})
-	d.cell(t, "grid ok", nil, func(t *testing.T) {
-		d.noGrid(t, id, form(t, "plain"))
+	d.cell(t, "grid ok", func(t *testing.T) {
+		d.noGrid(t, id, form)
 		r := d.both(t, "grid ok", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, "1"), form(t, mode), true).want(t, "grid POST line 1", http.StatusOK)
 		})
@@ -1789,7 +1747,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	})
 	_, link := d.hiddenLink()
-	d.cell(t, "card", bugIf(link || d.sentinel["uom"] != "", bugCard), func(t *testing.T) {
+	d.cell(t, "card", func(t *testing.T) {
 		d.both(t, "GET items", "plain", d.itemsNone, func(t *testing.T, mode string) rsResp {
 			r := e.do(t, mode, rsAdmin, http.MethodGet, d.url(id)+"/edit/items", nil, false).want(t, "GET items", http.StatusOK)
 			if r.page.Find(".lines-card").Length() == 0 {
@@ -1798,16 +1756,16 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			return r
 		})
 	})
-	// The remove page names the line by its card's item, which shows a
-	// hidden Link only as bugCard: it draws no other probe field.
-	d.cell(t, "remove GET", nil, func(t *testing.T) {
-		d.both(t, "GET remove line 1", "plain", true, func(t *testing.T, mode string) rsResp {
+	// The remove page names the line by its card's item: with no hidden
+	// Link, it draws no probe field.
+	d.cell(t, "remove GET", func(t *testing.T) {
+		d.both(t, "GET remove line 1", "plain", !link, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.lineURL(id, "1")+"/remove", nil, false).want(t, "GET remove line 1", http.StatusOK)
 		})
 	})
-	d.cell(t, "remove 409", nil, func(t *testing.T) {
+	d.cell(t, "remove 409", func(t *testing.T) {
 		var stale string
-		r := d.both(t, "POST remove 409", "plain", true, func(t *testing.T, mode string) rsResp {
+		r := d.both(t, "POST remove 409", "plain", !link, func(t *testing.T, mode string) rsResp {
 			stale = d.stale(t, id)
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, "1")+"/remove", url.Values{"version": {stale}}, false).want(t, "POST remove line 1 with a stale version", http.StatusConflict)
 		})
@@ -1815,7 +1773,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 			t.Errorf("POST remove 409: version = %q, want the posted %q (CD-94)", got, stale)
 		}
 	})
-	d.cell(t, "move 409", nil, func(t *testing.T) {
+	d.cell(t, "move 409", func(t *testing.T) {
 		r := d.both(t, "POST move 409", "plain", d.itemsNone, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, "1")+"/move?dir=down", url.Values{"version": {d.stale(t, id)}}, false).want(t, "POST move line 1 with a stale version", http.StatusConflict)
 		})
@@ -2011,7 +1969,7 @@ func (d *rsDoc) linesRefused(t *testing.T) {
 	e := d.e
 	items := slices.IndexFunc(d.steps, func(s docscreen.FormStep) bool { return s.Lines })
 	for _, route := range rsRefusals {
-		d.cell(t, "lines 422 "+route.name, nil, func(t *testing.T) {
+		d.cell(t, "lines 422 "+route.name, func(t *testing.T) {
 			if why := route.reason(d); why != "" {
 				t.Skipf("%s (checked)", why)
 			}
@@ -2056,7 +2014,9 @@ func (d *rsDoc) linesRefused(t *testing.T) {
 				t.Errorf("POST move, DOC refuses (%s): error summary\n  %q\nwant\n  %q", route.name, got, want)
 			}
 			var posted string
-			r = d.both(t, "POST remove, DOC refuses ("+route.name+")", "plain", true, func(t *testing.T, mode string) rsResp {
+			// The remove page names the line by its card's item.
+			_, link := d.hiddenLink()
+			r = d.both(t, "POST remove, DOC refuses ("+route.name+")", "plain", !link, func(t *testing.T, mode string) rsResp {
 				id, user := route.setup(t, d)
 				posted = strconv.Itoa(d.version(t, id))
 				return e.do(t, mode, user, http.MethodPost, d.lineURL(id, "2")+"/remove", url.Values{"version": {posted}}, false).
@@ -2073,24 +2033,33 @@ func (d *rsDoc) linesRefused(t *testing.T) {
 	}
 }
 
-// noGrid skips a grid cell when the module turns the grid off; the check is
-// that an htmx post of line 1 takes the line page's path (303), not a grid
-// row's.
-func (d *rsDoc) noGrid(t *testing.T, id int64, form url.Values) {
+// noGrid skips a grid cell unless the editable grid shows both with the
+// probe hiding and without: the module turns it off (CD-256 (6)), or the row
+// has other than 3 or 5 editable cells (CD-315). The check is that an htmx
+// post of line 1 takes the line page's path (303), not a grid row's, in each
+// mode without the grid. Each mode posts its own form: the hidden run's form
+// posted to the show twin would clear the probe's fields.
+func (d *rsDoc) noGrid(t *testing.T, id int64, form func(t *testing.T, mode string) url.Values) {
 	t.Helper()
-	if d.grid() {
-		return
+	off := ""
+	for _, mode := range []string{"plain", "plain" + rsShow} {
+		if d.grid(!isShow(mode)) {
+			continue
+		}
+		r := d.e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, "1"), form(t, mode), true)
+		if r.code != http.StatusSeeOther {
+			t.Fatalf("an htmx post of line 1 in %s = %d, want the line page's 303 with the grid off", mode, r.code)
+		}
+		off += " " + mode
 	}
-	r := d.e.do(t, "plain", rsAdmin, http.MethodPost, d.lineURL(id, "1"), form, true)
-	if r.code != http.StatusSeeOther {
-		t.Fatalf("an htmx post of line 1 = %d, want the line page's 303 with the grid off", r.code)
+	if off != "" {
+		t.Skipf("no editable grid in%s: the module turns it off or the row has other than 3 or 5 cells (CD-256 (6), CD-315) (checked)", off)
 	}
-	t.Skip("the module turns the editable grid off (CardsOnly, Line or NoLinePages; CD-256 (6)), so no row post is a grid post (checked)")
 }
 
 func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 	e := d.e
-	d.cell(t, "page reader", nil, func(t *testing.T) {
+	d.cell(t, "page reader", func(t *testing.T) {
 		d.both(t, "GET the draft as a reader", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsReader, http.MethodGet, d.url(id), nil, false).want(t, "GET the draft as a reader", http.StatusOK)
 		})
@@ -2106,19 +2075,18 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 	})
 	// The delete page shows the draft's number, party and total: the probe
 	// draft's party is empty.
-	d.cell(t, "reason GET", nil, func(t *testing.T) {
+	d.cell(t, "reason GET", func(t *testing.T) {
 		d.both(t, "GET delete", "plain", true, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.url(id)+"/delete", nil, false).want(t, "GET delete", http.StatusOK)
 		})
 	})
-	d.cell(t, "submit 409", nil, func(t *testing.T) {
+	d.cell(t, "submit 409", func(t *testing.T) {
 		d.both(t, "POST submit 409", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {d.stale(t, id)}}, false).want(t, "POST submit with a stale version", http.StatusConflict)
 		})
 	})
 	errs := d.submitErrors(t)
-	namesHidden := slices.ContainsFunc(errs, func(e doctype.FieldError) bool { return d.hide[e.Field] })
-	d.cell(t, "submit 422", nil, func(t *testing.T) {
+	d.cell(t, "submit 422", func(t *testing.T) {
 		r := d.both(t, "POST submit 422", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {strconv.Itoa(d.version(t, id))}}, false).want(t, "POST submit", http.StatusUnprocessableEntity)
 		})
@@ -2127,7 +2095,7 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 			t.Errorf("POST submit 422 on step %s: error summary\n  %q\nwant\n  %q", d.steps[i].Slug, got, want)
 		}
 	})
-	d.cell(t, "submit 422 reader", bugIf(namesHidden, bugRefused), func(t *testing.T) {
+	d.cell(t, "submit 422 reader", func(t *testing.T) {
 		r := d.both(t, "POST submit 422 as a submitter", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsSubmitter, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {strconv.Itoa(d.version(t, id))}}, false).
 				want(t, "POST submit as a submitter without write", http.StatusUnprocessableEntity)
@@ -2143,7 +2111,7 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 func (d *rsDoc) sweepApproval(t *testing.T) {
 	e := d.e
 	if !d.dt.Approvable {
-		d.cell(t, "approval", nil, func(t *testing.T) {
+		d.cell(t, "approval", func(t *testing.T) {
 			res, err := d.submitted(t)
 			if err == nil && res.State != doctype.StateApproved {
 				t.Fatalf("a submitted %s is %s: it has an approval step now, sweep it", d.dt.Name, res.State)
@@ -2169,20 +2137,20 @@ func (d *rsDoc) sweepApproval(t *testing.T) {
 		}
 	}
 	// The reject page, like every reason page, shows the document's number,
-	// party and total: a hidden party only as bugParty, so no probe field.
-	d.cell(t, "approve ok", nil, func(t *testing.T) {
+	// party and total: a probe field only when the party is hidden.
+	d.cell(t, "approve ok", func(t *testing.T) {
 		d.both(t, "POST approve, htmx", "plain", false, action(rsApprover, "/approve", nil, http.StatusOK))
 	})
-	d.cell(t, "reject GET", nil, func(t *testing.T) {
-		d.both(t, "GET reject", "plain", true, func(t *testing.T, mode string) rsResp {
+	d.cell(t, "reject GET", func(t *testing.T) {
+		d.both(t, "GET reject", "plain", d.partyNone(), func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsApprover, http.MethodGet, d.url(gate.ID)+"/reject", nil, false).want(t, "GET reject", http.StatusOK)
 		})
 	})
-	d.cell(t, "reject 422", nil, func(t *testing.T) {
-		d.both(t, "POST reject with no reason", "plain", true, action(rsApprover, "/reject", url.Values{"reason": {" "}}, http.StatusUnprocessableEntity))
+	d.cell(t, "reject 422", func(t *testing.T) {
+		d.both(t, "POST reject with no reason", "plain", d.partyNone(), action(rsApprover, "/reject", url.Values{"reason": {" "}}, http.StatusUnprocessableEntity))
 	})
 	for _, a := range []string{"withdraw", "revise"} {
-		d.cell(t, a, nil, func(t *testing.T) {
+		d.cell(t, a, func(t *testing.T) {
 			r := d.both(t, "POST "+a+", htmx", "plain", false, action(rsAdmin, "/"+a, nil, http.StatusOK))
 			if !strings.HasSuffix(r.hdr.Get("HX-Push-Url"), "/edit/check") {
 				t.Errorf("POST %s pushed %q, want the draft's check page", a, r.hdr.Get("HX-Push-Url"))
@@ -2222,7 +2190,7 @@ func (d *rsDoc) partyNone() bool {
 // gap is a cell for what DOC refuses to approve from generic values: it
 // skips with DOC's refusal, and runs once that refusal is gone.
 func (d *rsDoc) gap(t *testing.T, name string, err error) {
-	d.cell(t, name, nil, func(t *testing.T) {
+	d.cell(t, name, func(t *testing.T) {
 		pr, _ := docscreen.Classify(err)
 		t.Skipf("no valid %s from the seeder (checked: DOC refuses it: %v %v)", d.dt.Name, err, pr.Fields)
 	})
@@ -2236,12 +2204,12 @@ func (d *rsDoc) sweepApproved(t *testing.T) {
 		d.gap(t, "approved", err)
 		return
 	}
-	d.cell(t, "page approved", bugIf(!d.partyNone(), bugParty), func(t *testing.T) {
+	d.cell(t, "page approved", func(t *testing.T) {
 		d.both(t, "GET the approved document", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.url(ap), nil, false).want(t, "GET the approved document", http.StatusOK)
 		})
 	})
-	// The reason pages draw no probe field but the party (bugParty).
+	// The reason pages draw a probe field only when the party is hidden.
 	// A refused cancel leaves ap approved; a cancel that succeeds takes a new one.
 	cancel := func(form url.Values, code int, stale bool, htmx bool) func(t *testing.T, mode string) rsResp {
 		return func(t *testing.T, mode string) rsResp {
@@ -2263,16 +2231,16 @@ func (d *rsDoc) sweepApproved(t *testing.T) {
 			return r
 		}
 	}
-	d.cell(t, "reason 422", nil, func(t *testing.T) {
-		d.both(t, "POST cancel with no reason", "plain", true, cancel(url.Values{"reason": {" "}}, http.StatusUnprocessableEntity, false, false))
+	d.cell(t, "reason 422", func(t *testing.T) {
+		d.both(t, "POST cancel with no reason", "plain", d.partyNone(), cancel(url.Values{"reason": {" "}}, http.StatusUnprocessableEntity, false, false))
 	})
-	d.cell(t, "reason 409", nil, func(t *testing.T) {
-		d.both(t, "POST cancel with a stale version", "plain", true, cancel(url.Values{"reason": {"probe"}}, http.StatusConflict, true, false))
+	d.cell(t, "reason 409", func(t *testing.T) {
+		d.both(t, "POST cancel with a stale version", "plain", d.partyNone(), cancel(url.Values{"reason": {"probe"}}, http.StatusConflict, true, false))
 	})
-	d.cell(t, "cancel ok", nil, func(t *testing.T) {
+	d.cell(t, "cancel ok", func(t *testing.T) {
 		d.both(t, "POST cancel, htmx", "plain", false, cancel(url.Values{"reason": {"probe"}}, http.StatusOK, false, true))
 	})
-	d.cell(t, "amend", nil, func(t *testing.T) {
+	d.cell(t, "amend", func(t *testing.T) {
 		r := d.both(t, "POST amend, htmx", "plain", false, func(t *testing.T, mode string) rsResp {
 			c := d.cancelled(t)
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(c)+"/amend", url.Values{"version": {strconv.Itoa(d.version(t, c))}}, true).want(t, "POST amend, htmx", http.StatusOK)
@@ -2281,7 +2249,7 @@ func (d *rsDoc) sweepApproved(t *testing.T) {
 			t.Errorf("POST amend pushed %q, want the new draft's check page", r.hdr.Get("HX-Push-Url"))
 		}
 	})
-	d.cell(t, "amend reader", nil, func(t *testing.T) {
+	d.cell(t, "amend reader", func(t *testing.T) {
 		r := d.both(t, "POST amend as an amender", "plain", false, func(t *testing.T, mode string) rsResp {
 			c := d.cancelled(t)
 			return e.do(t, mode, rsAmender, http.MethodPost, d.url(c)+"/amend", url.Values{"version": {strconv.Itoa(d.version(t, c))}}, true).
@@ -2341,7 +2309,7 @@ func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool
 		case e.Field == "" || d.hide[e.Field]:
 			out = append(out, "#step-title|"+e.Message)
 		case e.Line > 0 || e.Field == "lines":
-			out = append(out, d.linesTarget(lines)+"|"+e.Message)
+			out = append(out, d.linesTarget(lines, true)+"|"+e.Message)
 		default:
 			out = append(out, "#"+components.FieldID(e.Field)+"|"+e.Message)
 		}
