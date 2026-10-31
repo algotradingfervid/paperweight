@@ -41,6 +41,30 @@ templ ActionBar(p ActionBarProps) {
 	}
 }
 
+// EnterSubmit is an empty, unseen copy of primary p at the start of a form,
+// so Enter presses the primary and never a body's own submit (CD-286 R4).
+// It posts p's Name and Value and carries p's Attrs except form; it is
+// sized 0×0 by enter-submit, never display:none, so it stays the default.
+templ EnterSubmit(p ButtonProps) {
+	<button type="submit" class="enter-submit" tabindex="-1" aria-hidden="true"
+		if p.Name != "" {
+			name={ p.Name } value={ p.Value }
+		}
+		{ withoutForm(p.Attrs)... }
+	></button>
+}
+
+// withoutForm is attrs without its form attribute.
+func withoutForm(attrs templ.Attributes) templ.Attributes {
+	out := templ.Attributes{}
+	for k, v := range attrs {
+		if k != "form" {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 // MoreActions lists the secondary actions; a POST action is a one-button form.
 templ MoreActions(items []MoreAction) {
 	if len(items) > 0 {

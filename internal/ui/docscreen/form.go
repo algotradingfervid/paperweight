@@ -1,6 +1,7 @@
 package docscreen
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -658,6 +659,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	// body is the Body's component; with none the step is generic, under
 	// the module's Top (CD-263 G6, CD-280 D5).
 	var body templ.Component
+	var bodyHTML bytes.Buffer
 	if hook.Body != nil || hook.Bar != nil {
 		// typed is a redraw's posted values only on a POST; a GET of /new
 		// passes the prefill, which Defaults holds on every /new render.
@@ -674,6 +676,14 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 			if body, err = hook.Body(c, st); err != nil {
 				return stepView{}, err
 			}
+		}
+		if body != nil {
+			// Rendered once, so line errors link only to ids it has (CD-286 R1).
+			if err := body.Render(r.Context(), &bodyHTML); err != nil {
+				return stepView{}, err
+			}
+			body = templ.Raw(bodyHTML.String())
+			sv.Bar.EnterPrimary = true // Enter presses the primary, never a Body button (CD-286 R4)
 		}
 		if hook.Bar != nil {
 			b, err := hook.Bar(c, st)
@@ -697,6 +707,8 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		switch {
 		case e.Field == "":
 			sv.M.Errors[n].ID = "step-title"
+		case body != nil && e.Line > 0 && strings.Contains(bodyHTML.String(), ` id="`+LineFieldID(e.Line, e.Field)+`"`):
+			sv.M.Errors[n].ID = LineFieldID(e.Line, e.Field)
 		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
 			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(dt) && body == nil) // a Body's component replaces the line editor
 		}

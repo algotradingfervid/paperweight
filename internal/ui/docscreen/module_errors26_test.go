@@ -31,6 +31,7 @@ import (
 const (
 	m26QtyMsg    = "M26 line 2 quantity is not right."
 	m26Qty1Msg   = "M26 line 1 quantity is not right."
+	m26Qty3Msg   = "M26 line 3 quantity is not right."
 	m26NoteMsg   = "M26 line 2 note is not right."
 	m26LinesMsg  = "M26 lines are not right."
 	m26LineMsg   = "M26 line 2 is not right."
@@ -188,6 +189,28 @@ func TestModule_BodyLineErrorLinks(t *testing.T) {
 		for _, hx := range []bool{false, true} {
 			what := m17What("Save.Errors on lines 1 and 2, line 2's id not rendered", hx)
 			m26WantLinks(t, post(t, hx), map[string]string{m26Qty1Msg: "#f-lines-1-qty", m26QtyMsg: "#step-title"}, what)
+		}
+	})
+
+	t.Run("an id the Body rendered only as part of another attribute", func(t *testing.T) {
+		// (a) line 1's id only as a prefix of another id, or inside line 11's;
+		// (b) line 2's id only in a label's for, beside an input of another id;
+		// (c) line 3's id only in a data-id attribute.
+		body := func(docscreen.Ctx, docscreen.StepState) (templ.Component, error) {
+			return m17Raw(`<div id="m26-body">` +
+				`<input id="f-lines-1-qty-x" name="m26_qty_1"><input id="f-lines-11-qty" name="m26_qty_11">` +
+				`<label for="f-lines-2-qty">Line 2 received</label><input id="m26-line-2" name="m26_qty_2">` +
+				`<span data-id="f-lines-3-qty"></span>` +
+				`</div>`), nil
+		}
+		m02Mount(e, docscreen.Module{Steps: map[string]docscreen.Step{"items": {Body: body, Save: m26SaveErrors(
+			doctype.FieldError{Line: 1, Field: "qty", Message: m26Qty1Msg},
+			doctype.FieldError{Line: 2, Field: "qty", Message: m26QtyMsg},
+			doctype.FieldError{Line: 3, Field: "qty", Message: m26Qty3Msg},
+		)}}})
+		for _, hx := range []bool{false, true} {
+			what := m17What("Save.Errors on lines 1 to 3, no input with their ids", hx)
+			m26WantLinks(t, post(t, hx), map[string]string{m26Qty1Msg: "#step-title", m26QtyMsg: "#step-title", m26Qty3Msg: "#step-title"}, what)
 		}
 	})
 

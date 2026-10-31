@@ -3,6 +3,7 @@ package docscreen
 import (
 	"net/http"
 	"slices"
+	"strconv"
 
 	"github.com/a-h/templ"
 
@@ -118,6 +119,15 @@ type FilesCard struct {
 // ReasonExtra is what Module.Reason adds to a reason page.
 type ReasonExtra struct {
 	Note, Hint string // shown above the field; the field's hint
+}
+
+// LineFieldID is the id of line no's field input, f-lines-{no}-{field}: the
+// id a line error with that Line and Field links to. no is the error's
+// 1-based Line among the non-blank lines docscreen sent. A Body gives its
+// line inputs these ids; an error links there only when the Body rendered
+// the id, and to the step heading otherwise (CD-286 R1).
+func LineFieldID(no int, field string) string {
+	return components.FieldID("lines[" + strconv.Itoa(no) + "]." + field)
 }
 
 // modOf is dt's Module from Deps.Modules; the zero Module when it has none.

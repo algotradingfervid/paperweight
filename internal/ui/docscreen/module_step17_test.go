@@ -517,8 +517,10 @@ func TestModule_StepBar(t *testing.T) {
 			}
 			m17WantStayPrimary(t, page, "Add selected", what)
 			m17WantBackLink(t, page, "Back to items", base+"/edit/items", what)
-			if first := form.Find(`button[type="submit"]`).First(); norm(first.Text()) != "Add selected" {
-				t.Errorf("%s: the step form's first submit is %q, want the primary Add selected (Enter presses it)", what, norm(first.Text()))
+			if first := form.Find(`button[type="submit"]`).First(); m02Attr(first, "aria-hidden") != "true" || norm(first.Text()) != "" || m02Attr(first, "name") != "nav" || m02Attr(first, "value") != "stay" {
+				t.Errorf("%s: the step form's first submit is %q (aria-hidden %q, %s=%s), want the Enter copy of the primary posting nav=stay (CD-286 R4)", what, norm(first.Text()), m02Attr(first, "aria-hidden"), m02Attr(first, "name"), m02Attr(first, "value"))
+			} else if vis := form.Find(`button[type="submit"]:not([aria-hidden])`).First(); norm(vis.Text()) != "Add selected" {
+				t.Errorf("%s: the step form's first visible submit is %q, want the primary Add selected", what, norm(vis.Text()))
 			}
 		}
 	})

@@ -352,11 +352,11 @@ func (d Deps) successText(ctx context.Context, p auth.Principal, dt *doctype.Doc
 func fieldErrs(fs []doctype.FieldError) []components.FieldErr {
 	out := make([]components.FieldErr, len(fs))
 	for i, f := range fs {
-		path := f.Field
+		id := components.FieldID(f.Field)
 		if f.Line > 0 {
-			path = "lines[" + strconv.Itoa(f.Line) + "]." + f.Field
+			id = LineFieldID(f.Line, f.Field)
 		}
-		out[i] = components.FieldErr{ID: components.FieldID(path), Message: f.Message}
+		out[i] = components.FieldErr{ID: id, Message: f.Message}
 	}
 	return out
 }
