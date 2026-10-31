@@ -83,7 +83,7 @@ func (h *handlers) receipt(w http.ResponseWriter, r *http.Request) {
 			note = fmt.Sprintf(msgReceiptReused, got.Lines[0])
 		}
 	}
-	answer := receiptAnswer([]components.Attachment{attachmentOf(got.File)}, note, got.File.SHA256)
+	answer := receiptAnswer([]components.Attachment{receiptAttachment(got.File)}, note, got.File.SHA256)
 	ui.Render(w, r, http.StatusOK, answer, answer)
 }
 

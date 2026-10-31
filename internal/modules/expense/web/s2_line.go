@@ -154,28 +154,19 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 		}
 		for _, m := range metas {
 			if m.SHA256 == hash { // only this line's receipt
-				items = append(items, attachmentOf(m))
+				items = append(items, receiptAttachment(m))
 			}
 		}
 	}
 	return templ.Join(components.FileUpload(props), receiptFiles(items, "")), nil
 }
 
-// attachmentOf is m as the receipt area shows it. Its Kind is
-// internal/app's attachmentKind (uiadapters.go), which this package can't
-// import: browsers can't show HEIC, so it is a download (FILE-033).
-func attachmentOf(m files.Meta) components.Attachment {
-	kind := "file"
-	switch {
-	case m.MIME == "image/heic", m.MIME == "image/heif":
-		kind = "heic"
-	case strings.HasPrefix(m.MIME, "image/"):
-		kind = "image"
-	}
-	return components.Attachment{
-		ID: m.ID, Name: m.Name, Size: files.HumanSize(m.Size), UploadedBy: "Uploaded", UploadedAt: types.FormatIST(m.UploadedAt),
-		URL: "/files/" + strconv.FormatInt(m.ID, 10), Kind: kind,
-	}
+// receiptAttachment is m as the receipt area shows it: S1's attachmentOf
+// plus the upload line (the compact form waits for CD-326 (6), M0-53).
+func receiptAttachment(m files.Meta) components.Attachment {
+	a := attachmentOf(m)
+	a.UploadedBy, a.UploadedAt = "Uploaded", types.FormatIST(m.UploadedAt)
+	return a
 }
 
 // lineBody is the line form in UX §5.5's order: the hidden receipt hash,
