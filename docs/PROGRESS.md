@@ -287,6 +287,11 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | MOD-EXP X1-X3 | AllowBlocked + doc.Invalid; files.ListTx/limit/ReceiptMismatch; print expense fields | High/High/Std | tw, impl, rev opus (AD-11) | 10:05 | 12:30 | 1 | X3 0/1/x | c3d4bb8; make ci 0; spec v0.6, exp.md 67 (CD-271, CD-281) |
 | MOD-GRN UX | GRN UX; U2 0/8/10 then APPROVE; ruled CD-282 | — | AD-12 | 11:00 | 12:50 | 2 | 0/8/10 | 5976743 |
 | G0b | print.GRNDoc additions | Standard | impl, rev opus (AD-12) | 12:40 | 13:10 | 1 | 0/0/2 | c11d418 |
+| M0-2 | Step Body/Save hooks | High | tw, impl, rev opus (AD-10) | 10:15 | 13:05 | 1 | 0/2/6 | 3fcf575 |
+| M0-3 | Line page hooks | High | tw, impl, rev opus (AD-10) | 10:15 | 12:20 | 1 | 0/0/3 | 3fcf575 |
+| M0-6 | modkit skeleton, import guard, checker reads module tests | Standard | impl, rev opus (AD-9) | 08:41 | 08:56 | 1 | 0/1/2 | 46beebd |
+| M0-7 | Business settings, period lock | High | tw, impl, rev opus (AD-9) | 09:10 | 12:30 | 1 | 0/0/4 | 46beebd |
+| M0-14 | Comments | High | tw, impl, rev opus (AD-9) | 09:10 | 13:20 | 1 | 0/2/7 | 46beebd; G-M0S met |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 

@@ -79,6 +79,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A contract stated for one producer is written out in full for each sibling, never "as X does" (render error mapping, GET-state 403/404; MOD-PO plan check).
 - Hand-in test lists that touch UI include `./internal/ui/...`; the assets and UI lint tests live there, and a list of only the changed packages misses them (AD-10).
 - golangci-lint here doesn't run gofmt, so unformatted Go reached committed files three times. `make ci` now fails on `gofmt -l`; run `gofmt -l` on your files before a hand-in (AD-10).
+- One `make ci` at a time in `.worktrees/ci-check`: checking out a new head while a run is going changes files under it, and that run's result is void (head director, 31 Oct).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
