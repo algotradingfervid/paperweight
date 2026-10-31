@@ -453,13 +453,10 @@ type notPage struct {
 	route, url, why string
 }
 
-// expenseStubs are MOD-EXP's routes that still answer E1's 501 stub. E8
-// moves the CSVs to the CSV entries, S3 and S4 give the pages screens, and
-// each removes its routes here.
+// expenseStubs are MOD-EXP's routes that still answer E1's 501 stub. S3 and
+// S4 give the pages screens and remove their routes here.
 var expenseStubs = []string{
-	"/reports/expense/open", "/reports/expense/open/export.csv",
-	"/reports/expense/lines", "/reports/expense/lines/export.csv",
-	"/reports/expense/advances", "/reports/expense/advances/export.csv",
+	"/reports/expense/open", "/reports/expense/lines", "/reports/expense/advances",
 	"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid",
 }
 
@@ -491,6 +488,9 @@ func notPages(s sweepState) []notPage {
 	}
 	for _, r := range expenseStubs {
 		out = append(out, notPage{r, strings.Replace(r, "{id}", "1", 1), "a MOD-EXP stub until its task builds it"})
+	}
+	for _, r := range []string{"open", "lines", "advances"} {
+		out = append(out, notPage{"/reports/expense/" + r + "/export.csv", "/reports/expense/" + r + "/export.csv", "a CSV"})
 	}
 	for _, name := range []string{"Branch", "Company", "Employee", "Expense Type", "Item", "Party", "Payment Terms", "Project", "Site", "Tax Code", "UoM"} {
 		out = append(out, notPage{"/pick/" + name, "/pick/" + strings.ReplaceAll(name, " ", "%20") + "?q=a", "a picker's htmx rows"})

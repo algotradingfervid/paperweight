@@ -14,7 +14,10 @@ type LineCard struct {
 	Item, Code, QtyRate, Amount, Tax, Received   string
 	ChangeURL, RemoveURL, MoveUpURL, MoveDownURL string
 	Version                                      string
-	Note                                         string // a module's note on this line (hooks spec §3)
+	Note                                         string      // a module's note on this line (hooks spec §3)
+	Receipt                                      *Attachment // the line's receipt (UX-E3)
+	ReceiptNote                                  string      // why the line has no receipt (UX-E3)
+	ReceiptWarn                                  bool        // no receipt and no reason (UX-E3)
 }
 
 // GridCell is one input cell of a grid row; Label heads its column. Wide
@@ -49,6 +52,18 @@ type LineListProps struct {
 	TaxableTotal, AddURL, ShowAllURL, FindURL, Find string
 	Total                                           int
 	Editable                                        bool
+	AddLabel                                        string // the add button's label; "" is AddItem (UX-E2)
+	AddTop                                          bool   // the add button above the cards (UX-E2)
+	Empty                                           string // the text with no lines (UX-E2)
+}
+
+// AddItem is the add button's and the new-line page's words when a module
+// names none (UX-E2).
+const AddItem = "Add an item"
+
+// AddButton is the add button of the line cards: AddLabel, or AddItem.
+func (p LineListProps) AddButton() ButtonProps {
+	return ButtonProps{Label: orDefault(p.AddLabel, AddItem), Href: p.AddURL, Icon: "plus", Variant: Secondary, Attrs: templ.Attributes{"data-add-line": true}}
 }
 
 func lineAria(verb string, no int) string {

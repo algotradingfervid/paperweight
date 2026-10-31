@@ -32,3 +32,13 @@
   & h2 { margin: 0; font-size: var(--h3); }
   & .more-actions-items { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 }
+@utility enter-submit {
+  inline-size: 0;
+  block-size: 0;
+  min-inline-size: 0;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}

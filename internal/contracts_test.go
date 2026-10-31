@@ -556,7 +556,7 @@ var kernelTable = map[string][]string{
 	"print":    {"auth", "files"},
 	"gstcalc":  nil,
 	"list":     {"auth", "naming"},
-	"csvio":    {"auth", "list", "audit"},
+	"csvio":    {"auth", "list", "audit", "naming"},
 	"doc":      {"auth", "naming", "approval", "audit", "files"},
 }
 

@@ -19,6 +19,7 @@ type UploadProps struct {
 	Accept, Target                 string
 	NoCamera                       bool
 	Files                          []Attachment
+	AlsoDisable                    string // more elements to disable while uploading (UX-E5)
 }
 
 // UploadInputID is the id of the Choose file input of the FileUpload with id

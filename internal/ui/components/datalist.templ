@@ -87,7 +87,7 @@ templ listCard(l listLayout, r Row) {
 			}
 			if sep, low := l.stateSep(r); l.state != nil {
 				@listCell(*l.state, false, sep, low) {
-					@StateBadge(r.State)
+					@StateBadgeLabel(r.State, r.StateLabel)
 				}
 			}
 		</div>
