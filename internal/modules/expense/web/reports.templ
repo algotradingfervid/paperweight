@@ -1,0 +1,36 @@
+package expenseweb
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+templ reportPage(v reportView) {
+	@layout.Page(v.opts) {
+		@reportBody(v)
+	}
+}
+
+templ reportMain(v reportView) {
+	@layout.Main(v.opts) {
+		@reportBody(v)
+	}
+}
+
+// reportBody is the FilterBar over the DataList (design-system §8.1).
+templ reportBody(v reportView) {
+	@components.FilterBar(v.bar)
+	@components.DataList(v.list)
+}
+
+// filterScreen is a report's filter page.
+templ filterScreen(v filterView) {
+	@layout.Page(v.opts) {
+		@components.Form(components.FormProps{Method: "get", Action: v.action}) {
+			for _, f := range v.fields {
+				@f
+			}
+			@components.Button(components.ButtonProps{Label: "Show results", Busy: "Finding…", Variant: components.Primary})
+		}
+	}
+}
