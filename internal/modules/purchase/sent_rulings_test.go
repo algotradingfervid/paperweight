@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // msgSentNoteTooLong is AD-13's ruling text for a note over 200 characters.
@@ -80,5 +83,67 @@ func TestPO_UnmarkSentNoRow(t *testing.T) {
 	}
 	if r := sentRow(t, env, po.ID); !r.ok || r.version != 1 {
 		t.Errorf("row after marking = %+v, want version 1", r)
+	}
+}
+
+// msgSentUnreadable is DOC's unreadable-value wording for Sent on (AD-13).
+const msgSentUnreadable = "Sent on isn't a valid value. Check it and try again."
+
+// PO-063 (PO spec §23; AD-13 fix-1 ruling; CD-259): the handler passes the
+// zero date for a Sent on that doesn't parse. MarkSent refuses it with DOC's
+// unreadable-value wording on sent_on (422) after load, right, version and
+// state, and before the future, before-order-date and method rules; never
+// the before-order-date text. Nothing changes.
+func TestPO_MarkSentZeroDate(t *testing.T) {
+	env := purchasetest.New(t)
+	ctx := t.Context()
+	po := purchasetest.NewOrder(t, env)
+	display := naming.Label(po.Number, po.ID)
+	draft := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
+	rec := sentRef(t, env, po)
+	var zero types.Date
+
+	for _, c := range []struct {
+		name   string
+		id     int64
+		in     purchase.SentInput
+		status int
+		msg    string
+		field  string
+	}{
+		{"approved", po.ID, purchase.SentInput{SentOn: zero, SentVia: "email"}, http.StatusUnprocessableEntity, msgSentUnreadable, "sent_on"},
+		{"approved, no method: date first", po.ID, purchase.SentInput{SentOn: zero}, http.StatusUnprocessableEntity, msgSentUnreadable, "sent_on"},
+		{"draft: state first", draft.ID, purchase.SentInput{SentOn: zero, SentVia: "email"}, http.StatusUnprocessableEntity, msgSentNotApproved, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			before, row := sentCountsOf(t, env, c.id), sentRow(t, env, c.id)
+			err := env.Service.MarkSent(ctx, env.Priya, c.id, 0, c.in)
+			sentWantRefused(t, c.name, err, c.status, c.msg)
+			if c.field != "" {
+				sentWantField(t, c.name, err, c.field, c.msg)
+			}
+			if err != nil && err.Error() == msgSentBeforeOrder {
+				t.Errorf("%s = the before-order-date text, want the unreadable-value text", c.name)
+			}
+			if after := sentCountsOf(t, env, c.id); after != before {
+				t.Errorf("counts after the refusal = %+v, want %+v", after, before)
+			}
+			if after := sentRow(t, env, c.id); after != row {
+				t.Errorf("row after the refusal = %+v, want %+v", after, row)
+			}
+		})
+	}
+
+	t.Run("stale: version first", func(t *testing.T) {
+		err := env.Service.MarkSent(ctx, env.Priya, po.ID, 5, purchase.SentInput{SentOn: zero, SentVia: "email"})
+		sentWantRefused(t, "MarkSent stale with the zero date", err, http.StatusConflict, sentStale(display))
+	})
+	t.Run("no right: right first", func(t *testing.T) {
+		for _, p := range []auth.Principal{env.Arjun, env.Suresh} {
+			sentWantDenied(t, env, "MarkSent as "+p.Name+" with the zero date", env.Service.MarkSent(ctx, p, po.ID, 0, purchase.SentInput{SentOn: zero, SentVia: "email"}), p, rec)
+		}
+	})
+	if r := sentRow(t, env, po.ID); r.ok {
+		t.Errorf("row after the refusals = %+v, want none", r)
 	}
 }

@@ -366,8 +366,15 @@ func TestPO_MarkSent(t *testing.T) {
 		}
 		for _, via := range []string{"fax", "Email", "WhatsApp", "by hand", " email"} {
 			before, row := sentCountsOf(t, env, po.ID), sentRow(t, env, po.ID)
-			if err := svc.MarkSent(ctx, env.Priya, po.ID, version, purchase.SentInput{SentOn: oct31, SentVia: via}); err == nil {
+			err := svc.MarkSent(ctx, env.Priya, po.ID, version, purchase.SentInput{SentOn: oct31, SentVia: via})
+			if err == nil {
 				t.Errorf("MarkSent by %q = nil, want it refused (only email, whatsapp, courier, by_hand and other)", via)
+			}
+			// AD-13 fix-1: the table's CHECK is the backstop, a plain 500;
+			// no user-facing refusal is invented.
+			var he doctype.HTTPError
+			if errors.As(err, &he) {
+				t.Errorf("MarkSent by %q = %d %q, want a plain error, not a doctype.HTTPError", via, he.Status(), err.Error())
 			}
 			if after := sentCountsOf(t, env, po.ID); after != before {
 				t.Errorf("counts after %q = %+v, want %+v", via, after, before)
