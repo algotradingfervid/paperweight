@@ -11,8 +11,9 @@ import (
 )
 
 // validateAdvance is the advance's Validate (spec §4): the claim's employee
-// rule and snapshots while it is a draft, the advance date not in the
-// future, and amount as the sum of the lines.
+// rule, the line project from its site (CD-337 (5)) and snapshots while it
+// is a draft, the advance date not in the future, and amount as the sum of
+// the lines.
 func validateAdvance(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctype.FieldError, error) {
 	q := dbq.New(tx.SQL())
 	h, err := q.AdvanceHeader(ctx, id)
@@ -40,6 +41,11 @@ func validateAdvance(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctyp
 		if err := q.E2SnapAdvance(ctx, dbq.E2SnapAdvanceParams{SnapEmployeeCode: e.Code, SnapEmployeeName: e.Name, ID: id}); err != nil {
 			return nil, err
 		}
+		fe, err = advanceLineProjects(ctx, q, id)
+		if err != nil {
+			return nil, err
+		}
+		errs = append(errs, fe...)
 		if err := q.E2SnapAdvanceLines(ctx, id); err != nil {
 			return nil, err
 		}
