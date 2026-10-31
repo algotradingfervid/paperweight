@@ -559,3 +559,17 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** three- and five-cell display rows with money fit at 64rem and 1440 is checked **Then** it holds as CD-313 and CD-308 (3) state.
 - **Go test:** `TestGalleryBrowser_DisplayLineGridKinds`
 - **Sources:** CD-313; M0-40
+
+### HOOK-080 · A NoLinePages DocType lists no line screens
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-329 names **When** it is exercised through the public path **Then** a NoLinePages DocType lists no line screens.
+- **Go test:** `TestScreens_NoLinePagesLeavesOutLineScreens`
+- **Sources:** CD-329; M0-55
+
+### HOOK-081 · Unswept needs no line screens for a NoLinePages DocType
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-329 names **When** it is exercised through the public path **Then** unswept needs no line screens for a NoLinePages DocType.
+- **Go test:** `TestUnswept_NoLinePagesNeedsNoLineScreens`
+- **Sources:** CD-329; M0-55
