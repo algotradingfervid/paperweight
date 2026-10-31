@@ -1,0 +1,50 @@
+package expenseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// receiptFiles is #receipt-files, the region the upload's answer replaces:
+// this line's receipt with no Remove (FILE's remove reloads the page and
+// loses the typed fields) and a status line for the same-bytes note.
+templ receiptFiles(items []components.Attachment, note string) {
+	<div id="receipt-files">
+		if len(items) > 0 {
+			@components.Attachments(items)
+		}
+		<p role="status">{ note }</p>
+	</div>
+}
+
+// receiptHash is the line form's hidden receipt hash; the upload's answer
+// replaces it out of band by its id, so no typed field is redrawn.
+templ receiptHash(value string, oob bool) {
+	<input
+		type="hidden"
+		id={ receiptHashID }
+		name="receipt_sha256"
+		value={ value }
+		if oob {
+			hx-swap-oob="true"
+		}
+	/>
+}
+
+// receiptAnswer is a successful upload's answer.
+templ receiptAnswer(items []components.Attachment, note, hash string) {
+	@receiptFiles(items, note)
+	@receiptHash(hash, true)
+}
+
+// disclosure is components.Disclosure holding parts.
+templ disclosure(summary string, open bool, parts []templ.Component) {
+	@components.Disclosure(summary, open) {
+		for _, p := range parts {
+			@p
+		}
+	}
+}
+
+// billDate is the plain sentence under the GSTIN tick (CD-271 G9): no hint
+// and no aria-describedby target.
+templ billDate() {
+	<p>{ msgBillDate }</p>
+}
