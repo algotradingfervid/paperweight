@@ -57,6 +57,9 @@ func TestGRNWeb_RoutesAnswer501(t *testing.T) {
 	}
 
 	for _, rt := range g1Routes {
+		if rt.pattern == "/modules/goodsreceipt/receipts/{id}/bill" {
+			continue // built by G7 (TestGRNBillWeb_Save); a built route is asserted mounted, never 501 (AD-13)
+		}
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest(rt.method, rt.path, nil))
 		if w.Code != http.StatusNotImplemented || !strings.Contains(w.Body.String(), "This page isn't built yet.") {
