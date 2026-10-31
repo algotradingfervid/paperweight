@@ -150,9 +150,6 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 		if err != nil {
 			return DocView{}, err
 		}
-		if i.State != doctype.StateApproved && i.State != doctype.StateClosed {
-			lv.Card.Received = "" // only approved and closed documents show receipts (CD-242)
-		}
 		v.Lines = append(v.Lines, lv)
 		v.Problems = append(v.Problems, problems...)
 	}

@@ -2,6 +2,7 @@ package docscreen
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/a-h/templ"
 
@@ -79,4 +80,53 @@ type PageExtra struct {
 // ReasonExtra is what Module.Reason adds to a reason page.
 type ReasonExtra struct {
 	Note, Hint string // shown above the field; the field's hint
+}
+
+// modOf is dt's Module from Deps.Modules; the zero Module when it has none.
+func (d Deps) modOf(dt *doctype.DocType) Module { return d.Modules[dt.Name] }
+
+// ctxOf is the hooks' Ctx for a request on dt. v is nil on a new document;
+// otherwise Deps carries v's stored inputs, so a stored link keeps its label
+// (CD-256 (10), CD-217, CD-228).
+func (d Deps) ctxOf(r *http.Request, dt *doctype.DocType, v *DocView) Ctx {
+	c := Ctx{Req: r, Principal: d.principal(r), DT: dt, View: v, Deps: d}
+	if v != nil {
+		c.Deps = d.WithStored(v.Inputs)
+	}
+	return c
+}
+
+// lineCtx is ctxOf for line no's page (0 = a new line): Deps carries that
+// line's stored inputs instead of the header's.
+func (d Deps) lineCtx(r *http.Request, dt *doctype.DocType, v *DocView, no int) Ctx {
+	c := d.ctxOf(r, dt, v)
+	c.Deps = d
+	if no > 0 {
+		c.Deps = d.WithStored(v.Lines[no-1].Inputs)
+	}
+	return c
+}
+
+// hidden reports whether the module hides f: not rendered, posted or
+// summarised (hooks spec §4.3). It is false when Hide is nil.
+func hidden(c Ctx, f doctype.Field) bool {
+	h := c.Deps.modOf(c.DT).Hide
+	return h != nil && h(c, f)
+}
+
+// applyLineCards gives each of v's lines the module's LineCard, then clears
+// Received on a document that is neither approved nor closed (CD-242), after
+// the override (CD-256 (11)). v.Lines is replaced, never changed in place.
+func applyLineCards(c Ctx, v *DocView) {
+	card := c.Deps.modOf(c.DT).LineCard
+	lines := slices.Clone(v.Lines)
+	for i := range lines {
+		if card != nil {
+			lines[i].Card = card(c, lines[i])
+		}
+		if v.Info.State != doctype.StateApproved && v.Info.State != doctype.StateClosed {
+			lines[i].Card.Received = "" // only approved and closed documents show receipts (CD-242)
+		}
+	}
+	v.Lines = lines
 }

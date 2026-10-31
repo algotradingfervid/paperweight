@@ -104,11 +104,29 @@ func takeSuccess(ctx context.Context) string {
 	return text
 }
 
-// pageViewOf is document v's page. It returns an error for the module
+// pageViewOf is document v's page: its Details and display values without
+// the fields the module hides, Header and HeaderNames kept parallel, and the
+// module's line summaries (CD-256 (1)). It returns an error for the module
 // hooks to come (hooks spec §4.4); none fails yet.
 func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType, v DocView) (pageView, error) {
 	rights := Rights(r.Context(), d.Auth, p, dt.Name, &v.Record)
-	pv := pageView{DT: dt, V: v, Attach: attachOf(dt, v, rights)}
+	c := d.ctxOf(r, dt, &v)
+	shown := v
+	shown.Header, shown.HeaderNames, shown.Display = nil, nil, map[string]string{}
+	for n, name := range v.HeaderNames {
+		if f, ok := dt.Field(name); ok && hidden(c, f) {
+			continue
+		}
+		shown.Header = append(shown.Header, v.Header[n])
+		shown.HeaderNames = append(shown.HeaderNames, name)
+	}
+	for name, s := range v.Display {
+		if f, ok := dt.Field(name); !ok || !hidden(c, f) {
+			shown.Display[name] = s
+		}
+	}
+	applyLineCards(c, &shown)
+	pv := pageView{DT: dt, V: shown, Attach: attachOf(dt, v, rights)}
 	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
 	if pv.Bar.Note == "" {
 		for _, b := range buttons(v, dt.Printable, rights) {

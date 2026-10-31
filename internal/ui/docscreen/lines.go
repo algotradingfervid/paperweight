@@ -39,8 +39,9 @@ type itemsView struct {
 // itemsBody is the line editor (design-system §8.2): the first 20 cards
 // (?all=1 for all, ?find= to filter by item name or code), the desktop grid
 // with every line (CD-139), and the computed totals.
-func (d Deps) itemsBody(r *http.Request, dt *doctype.DocType, v DocView) templ.Component {
-	q := r.URL.Query()
+func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
+	dt := c.DT
+	q := c.Req.URL.Query()
 	find := strings.TrimSpace(q.Get("find"))
 	version := strconv.Itoa(v.Version)
 	iv := itemsView{
@@ -52,19 +53,19 @@ func (d Deps) itemsBody(r *http.Request, dt *doctype.DocType, v DocView) templ.C
 			Total:      len(v.Lines),
 			Editable:   true,
 		},
-		Totals: totalsOf(dt, v),
+		Totals: totalsOf(c, v),
 	}
 	needle := strings.ToLower(find)
 	for _, lv := range v.Lines {
-		iv.List.Grid = append(iv.List.Grid, d.gridRowOf(dt, v, lv, version, lv.Inputs, nil))
-		c := lv.Card
-		if needle != "" && !strings.Contains(strings.ToLower(c.Item), needle) && !strings.Contains(strings.ToLower(c.Code), needle) {
+		iv.List.Grid = append(iv.List.Grid, d.gridRowOf(c.Req, dt, v, lv, version, lv.Inputs, nil))
+		card := lv.Card
+		if needle != "" && !strings.Contains(strings.ToLower(card.Item), needle) && !strings.Contains(strings.ToLower(card.Code), needle) {
 			continue
 		}
 		base := lineURL(dt.Name, v.Info.ID, lv.No)
-		c.ChangeURL, c.RemoveURL, c.Version = base, base+"/remove", version
-		c.MoveUpURL, c.MoveDownURL = moveURLs(base, lv.No, len(v.Lines))
-		iv.List.Cards = append(iv.List.Cards, c)
+		card.ChangeURL, card.RemoveURL, card.Version = base, base+"/remove", version
+		card.MoveUpURL, card.MoveDownURL = moveURLs(base, lv.No, len(v.Lines))
+		iv.List.Cards = append(iv.List.Cards, card)
 	}
 	if q.Get("all") != "1" && len(iv.List.Cards) > phoneCards {
 		iv.List.Cards = iv.List.Cards[:phoneCards]
@@ -83,11 +84,12 @@ func moveURLs(base string, no, n int) (up, down string) {
 	return up, down
 }
 
-// totalsOf are the computed header fields (CD-79) as the page shows them.
-func totalsOf(dt *doctype.DocType, v DocView) []components.Pair {
+// totalsOf are the computed header fields (CD-79) as the page shows them,
+// but those the module hides.
+func totalsOf(c Ctx, v DocView) []components.Pair {
 	var out []components.Pair
-	for _, f := range dt.Fields {
-		if !f.OnLine && f.ReadOnly && v.Display[f.Name] != "" {
+	for _, f := range c.DT.Fields {
+		if !f.OnLine && f.ReadOnly && v.Display[f.Name] != "" && !hidden(c, f) {
 			out = append(out, components.Pair{Label: f.Label, Value: v.Display[f.Name], Num: numeric(f)})
 		}
 	}
@@ -96,13 +98,15 @@ func totalsOf(dt *doctype.DocType, v DocView) []components.Pair {
 
 // gridRowOf is line lv's grid row (CD-139): a Link shows its master's
 // summary with a hidden id; every other editable field is the line page's
-// FieldInput with the id grid-<no>-<field>. values are in input form.
-func (d Deps) gridRowOf(dt *doctype.DocType, v DocView, lv LineView, version string, values map[string]string, errs []doctype.FieldError) components.LineGridRow {
+// FieldInput with the id grid-<no>-<field>. values are in input form. A field
+// the module hides has no cell; Hide sees the line's stored inputs in Deps.
+func (d Deps) gridRowOf(r *http.Request, dt *doctype.DocType, v DocView, lv LineView, version string, values map[string]string, errs []doctype.FieldError) components.LineGridRow {
+	c := d.lineCtx(r, dt, &v, lv.No)
 	base := lineURL(dt.Name, v.Info.ID, lv.No)
 	row := components.LineGridRow{No: lv.No, Amount: lv.Card.Amount, PostURL: base, RemoveURL: base + "/remove", Version: version}
 	row.MoveUpURL, row.MoveDownURL = moveURLs(base, lv.No, len(v.Lines))
 	for _, f := range dt.Fields {
-		if !f.OnLine || !editable(f) {
+		if !f.OnLine || !editable(f) || hidden(c, f) {
 			continue
 		}
 		var in templ.Component
@@ -128,14 +132,15 @@ func lineError(errs []doctype.FieldError, name string) string {
 }
 
 // postedLine reads the line fields from the POST: typed text and plain
-// values (ToPlain). A parse error is a FieldError with NUM's text.
-func postedLine(r *http.Request, dt *doctype.DocType) (typed, plain map[string]string, errs []doctype.FieldError) {
+// values (ToPlain). A parse error is a FieldError with NUM's text. A field
+// the module hides is left out, so the loaded line keeps its value.
+func postedLine(c Ctx) (typed, plain map[string]string, errs []doctype.FieldError) {
 	typed, plain = map[string]string{}, map[string]string{}
-	for _, f := range dt.Fields {
-		if !f.OnLine || !editable(f) {
+	for _, f := range c.DT.Fields {
+		if !f.OnLine || !editable(f) || hidden(c, f) {
 			continue
 		}
-		typed[f.Name] = r.PostFormValue(f.Name)
+		typed[f.Name] = c.Req.PostFormValue(f.Name)
 		v, fe := ToPlain(f, typed[f.Name])
 		if fe != nil {
 			errs = append(errs, *fe)
@@ -180,8 +185,8 @@ func (d Deps) draftView(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 }
 
 // linePage builds the line form for line no (0 = a new line) from values
-// in input form.
-func (d Deps) linePage(dt *doctype.DocType, v DocView, no, version int, values map[string]string, errs []doctype.FieldError, danger string) linePageView {
+// in input form, without the fields the module hides.
+func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, version int, values map[string]string, errs []doctype.FieldError, danger string) linePageView {
 	lv := linePageView{
 		Opts:    layout.PageOpts{Title: "Add an item", Width: layout.Form, Back: &components.Link{Label: "Items", Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:  docURL(dt.Name, v.Info.ID) + "/lines/new",
@@ -194,12 +199,10 @@ func (d Deps) linePage(dt *doctype.DocType, v DocView, no, version int, values m
 		lv.Opts.Title = "Line " + strconv.Itoa(no)
 		lv.Action = lineURL(dt.Name, v.Info.ID, no)
 	}
-	if no > 0 {
-		d = d.WithStored(v.Lines[no-1].Inputs)
-	}
+	c := d.lineCtx(r, dt, &v, no)
 	for _, f := range dt.Fields {
-		if f.OnLine && editable(f) {
-			lv.Inputs = append(lv.Inputs, FieldInput(f, components.FieldID(f.Name), values[f.Name], lineError(errs, f.Name), d))
+		if f.OnLine && editable(f) && !hidden(c, f) {
+			lv.Inputs = append(lv.Inputs, FieldInput(f, components.FieldID(f.Name), values[f.Name], lineError(errs, f.Name), c.Deps))
 		}
 	}
 	for n, e := range errs {
@@ -229,7 +232,7 @@ func (d Deps) lineGet(w http.ResponseWriter, r *http.Request) {
 		}
 		values = v.Lines[no-1].Inputs
 	}
-	lp := d.linePage(dt, v, no, v.Version, values, nil, "")
+	lp := d.linePage(r, dt, v, no, v.Version, values, nil, "")
 	ui.Render(w, r, http.StatusOK, linePageFull(lp), linePageMain(lp))
 }
 
@@ -253,15 +256,22 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		problem(w, r, err)
 		return
 	}
+	// Hide sees the draft as loaded, as on GET (CD-256 (2)).
+	loaded, err := d.View(ctx, d.principal(r), dt.Name, id)
+	if err != nil {
+		problem(w, r, err)
+		return
+	}
 	no := 0
 	if chi.URLParam(r, "no") != "" {
-		if no, ok = lineNo(r, len(rec.Lines)); !ok {
+		// Both reads must have line no.
+		if no, ok = lineNo(r, min(len(rec.Lines), len(loaded.Lines))); !ok {
 			problem(w, r, doctype.ErrNotFound)
 			return
 		}
 	}
 	grid := ui.IsHTMX(r) && no > 0
-	typed, plain, errs := postedLine(r, dt)
+	typed, plain, errs := postedLine(d.lineCtx(r, dt, &loaded, no))
 	refused := func(pr Problem) {
 		if grid {
 			d.gridRefused(w, r, dt, id, no, version, typed, pr)
@@ -275,7 +285,7 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		if len(pr.Fields) == 0 {
 			danger = pr.Message
 		}
-		lp := d.linePage(dt, v, no, version, typed, pr.Fields, danger)
+		lp := d.linePage(r, dt, v, no, version, typed, pr.Fields, danger)
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 	}
 	if len(errs) > 0 {
@@ -349,15 +359,17 @@ func (d Deps) gridSaved(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		return
 	}
 	version := strconv.Itoa(res.Version)
+	c := d.ctxOf(r, dt, &v)
+	applyLineCards(c, &v)
 	var rows []components.LineGridRow
 	for _, lv := range v.Lines {
-		rows = append(rows, d.gridRowOf(dt, v, lv, version, lv.Inputs, nil))
+		rows = append(rows, d.gridRowOf(r, dt, v, lv, version, lv.Inputs, nil))
 	}
 	if no > len(rows) {
 		problem(w, r, doctype.ErrNotFound)
 		return
 	}
-	g := gridView{Row: rows[no-1], Rows: rows, Version: res.Version, Totals: totalsOf(dt, v), Warnings: res.Warnings}
+	g := gridView{Row: rows[no-1], Rows: rows, Version: res.Version, Totals: totalsOf(c, v), Warnings: res.Warnings}
 	ui.Render(w, r, http.StatusOK, gridResponse(g), nil)
 }
 
@@ -373,7 +385,8 @@ func (d Deps) gridRefused(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 		problem(w, r, doctype.ErrNotFound)
 		return
 	}
-	g := gridView{Row: d.gridRowOf(dt, v, v.Lines[no-1], strconv.Itoa(version), typed, pr.Fields)}
+	applyLineCards(d.ctxOf(r, dt, &v), &v)
+	g := gridView{Row: d.gridRowOf(r, dt, v, v.Lines[no-1], strconv.Itoa(version), typed, pr.Fields)}
 	g.Alert, g.ReloadURL = formText(pr), itemsURL(dt.Name, id)
 	ui.Render(w, r, pr.Status, gridResponse(g), nil)
 }
@@ -529,7 +542,7 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 		return
 	}
 	i, _ := stepOf(steps, slugItems)
-	fields := refusalErrors(steps, i, pr.Fields)
+	fields := refusalErrors(d.ctxOf(r, dt, &v), steps, i, pr.Fields)
 	sv, err := d.stepViewOf(r, dt, steps, i, &v, nil, fields)
 	if err != nil {
 		web.ErrorFrom(w, r, err)
