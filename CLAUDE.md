@@ -71,6 +71,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A plan's "disjoint lanes" must not name the same functions: before splitting a package across lanes, grep each lane's named functions and give any shared seam its own serial task first (hooks spec M0-2/M0-3 named the same form.go helpers; CD-256); MOD-EXP repeated it with OpenAdvances and one shared stubs file). Every lane gets its own stub file.
 - Derived lists, cards, warnings and history name nothing about a record the viewer can't read, not even its state or amount; show at most an aggregate the viewer can already see (CD-233, CD-240, CD-248, and again in the expense UX review).
 - `scripts/covertouched` only sees tracked files, so a new untracked `.go` file is skipped and the run still says "all touched statements covered". Run `git add -N <new files>` before the coverage hand-in (AD-11, X3).
+- In docscreen every `stepViewOf(` caller passes errors through `stepErrors`/`refusalErrors` (or nil). newPost's 422/409 redraw skipped the hidden-field filter in M0-1b: a rule applied on most redraw paths but missed on one.
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
