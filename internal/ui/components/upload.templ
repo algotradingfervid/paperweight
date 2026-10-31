@@ -53,10 +53,19 @@ templ FileUpload(p UploadProps) {
 	</div>
 }
 
+// uploadDisabled is an upload form's hx-disabled-elt: its own file inputs,
+// then AlsoDisable when set.
+func uploadDisabled(p UploadProps) string {
+	if p.AlsoDisable == "" {
+		return "#" + p.ID + " input[type=file]"
+	}
+	return "#" + p.ID + " input[type=file], " + p.AlsoDisable
+}
+
 // uploadForm is one control in its own form, so the other control's empty
 // input never sends a second "file" part.
 templ uploadForm(p UploadProps, camera bool) {
-	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: orDefault(p.Target, "#"+p.ID), Trigger: "change", DisabledElt: "#" + p.ID + " input[type=file]"}) {
+	@Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: orDefault(p.Target, "#"+p.ID), Trigger: "change", DisabledElt: uploadDisabled(p)}) {
 		<label class={ buttonClass(Secondary) + " upload__button" }>
 			if camera {
 				@icons.Icon("camera")

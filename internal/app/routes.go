@@ -32,6 +32,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/expense"
 	expenseweb "github.com/vardhan/internaltools/internal/modules/expense/web"
 	modkitweb "github.com/vardhan/internaltools/internal/modules/modkit/web"
+	purchaseweb "github.com/vardhan/internaltools/internal/modules/purchase/web"
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -119,6 +120,12 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		modkitweb.Routes(modkitweb.Deps{DB: a.db, Auth: a.auth, Audit: audit.Default, Clock: a.cfg.Clock, Info: a.engine, Sessions: sm})(modkit)
 		mount(r, modkit, self)
 
+		purchases := chi.NewRouter()
+		purchaseweb.Routes(purchaseweb.Deps{
+			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
+			CSRF: func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
+		})(purchases)
+		mount(r, purchases, self)
 		exp := chi.NewRouter()
 		expenseweb.Routes(a.expenseWeb())(exp)
 		mount(r, exp, func(route string, h http.Handler) http.Handler {

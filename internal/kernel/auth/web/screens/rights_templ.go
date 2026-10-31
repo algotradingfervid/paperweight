@@ -45,10 +45,14 @@ var rightMeanings = map[auth.Right]string{
 	auth.RightImport:  "Import from CSV.",
 }
 
-// rightMeaning is rt's line on dt: a master has no drafts.
+// rightMeaning is rt's line on dt: a master has no drafts, and approve on a
+// DocType that isn't approvable only closes, through its CloseRight (CD-289).
 func rightMeaning(dt *doctype.DocType, rt auth.Right) string {
 	if rt == auth.RightDelete && dt.Master != nil {
 		return "Delete records."
+	}
+	if rt == auth.RightApprove && !dt.Approvable && dt.CloseRight == string(auth.RightApprove) {
+		return "Close " + strings.ToLower(dt.PluralLabel) + "."
 	}
 	return rightMeanings[rt]
 }
@@ -131,7 +135,7 @@ func Rights(p RightsPage) templ.Component {
 				var templ_7745c5c3_Var3 templ.SafeURL
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(RightsPath(p.Role.ID, dt.Name)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 89, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 93, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -154,7 +158,7 @@ func Rights(p RightsPage) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(dt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 93, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 97, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -220,7 +224,7 @@ func Rights(p RightsPage) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(note)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 112, Col: 14}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 116, Col: 14}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {

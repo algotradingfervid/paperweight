@@ -57,7 +57,12 @@ func validateAdvance(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctyp
 	for _, a := range amounts {
 		amount += a.Int64
 	}
-	if err := q.E2SetAdvanceAmount(ctx, dbq.E2SetAdvanceAmountParams{Amount: sql.NullInt64{Int64: amount, Valid: true}, ID: id}); err != nil {
+	// Over the maximum the amount is cleared, never stored (CD-308, CD-302).
+	ok := types.Money(amount) <= types.MaxMoney
+	if !ok {
+		errs = append(errs, doctype.FieldError{Field: "lines", Message: msgAdvanceTotalTooLarge})
+	}
+	if err := q.E2SetAdvanceAmount(ctx, dbq.E2SetAdvanceAmountParams{Amount: sql.NullInt64{Int64: amount, Valid: ok}, ID: id}); err != nil {
 		return nil, err
 	}
 	return errs, nil

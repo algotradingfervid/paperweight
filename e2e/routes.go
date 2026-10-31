@@ -306,8 +306,6 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			sc.As = meena // past 5 lakh the Director approves
 		case strings.HasSuffix(sc.Name, " cancel"):
 			sc.As = ravi // Purchase Manager holds cancel
-		case strings.HasSuffix(sc.Name, " list filtered"):
-			continue // fixture.Order declares no filterable field; the claim's list below has it
 		}
 		out = append(out, sc)
 	}
@@ -325,7 +323,21 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 	out = append(out, authscreens.Screens(authscreens.SweepIDs{
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
+	out = append(out, expenseReportScreens()...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
+}
+
+// expenseReportScreens are MOD-EXP S4's report pages and their filter pages,
+// as Meena (Director: read all, export).
+func expenseReportScreens() []screens.Screen {
+	var out []screens.Screen
+	for _, r := range []string{"open", "lines", "advances"} {
+		base := "/reports/expense/" + r
+		out = append(out,
+			screens.Screen{Name: "expense report " + r, Route: base, URL: base, As: meena},
+			screens.Screen{Name: "expense report " + r + " filter", Route: base + "/filter", URL: base + "/filter", As: meena})
+	}
+	return append(out, screens.Screen{Name: "expense report lines filtered", Route: "/reports/expense/lines", URL: "/reports/expense/lines?month=2026-10", As: meena})
 }
 
 // masterScreens lists every master's list, new and record pages, the two create
@@ -556,8 +568,23 @@ type notPage struct {
 // expenseStubs are MOD-EXP's routes that still answer E1's 501 stub. S3 and
 // S4 give the pages screens and remove their routes here.
 var expenseStubs = []string{
-	"/reports/expense/open", "/reports/expense/lines", "/reports/expense/advances",
 	"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid",
+}
+
+// purchaseStubs are MOD-PO's GET routes that still answer P1's 501 stub,
+// whatever the id, each with the task that builds it (AD-13). P15e and P15d
+// give the pages screens and remove their routes here; P9 moves the export
+// to the "a CSV" entries; P16 checks the list is empty.
+var purchaseStubs = []struct{ route, owner string }{
+	{"/modules/purchase", "P15e"},
+	{"/modules/purchase/q/{queue}", "P15e"},
+	{"/modules/purchase/orders/{id}/handover", "P15e"},
+	{"/modules/purchase/orders/{id}/send", "P15e"},
+	{"/modules/purchase/orders/{id}/expected", "P15e"},
+	{"/modules/purchase/requests/{id}/order", "P15d"},
+	{"/reports/purchase/pending", "P15e"},
+	{"/reports/purchase/pending/filter", "P15e"},
+	{"/reports/purchase/pending/export.csv", "P9"},
 }
 
 // notPageStatus is the status a sample answers with when it isn't 200.
@@ -565,6 +592,9 @@ var notPageStatus = func() map[string]int {
 	m := map[string]int{"/files/*": http.StatusNotFound}
 	for _, r := range expenseStubs {
 		m[r] = http.StatusNotImplemented
+	}
+	for _, p := range purchaseStubs {
+		m[p.route] = http.StatusNotImplemented
 	}
 	return m
 }()
@@ -588,6 +618,10 @@ func notPages(s sweepState) []notPage {
 	}
 	for _, r := range expenseStubs {
 		out = append(out, notPage{r, strings.Replace(r, "{id}", "1", 1), "a MOD-EXP stub until its task builds it"})
+	}
+	for _, p := range purchaseStubs {
+		url := strings.NewReplacer("{id}", "1", "{queue}", "open").Replace(p.route)
+		out = append(out, notPage{p.route, url, "a MOD-PO stub until " + p.owner + " builds it"})
 	}
 	for _, r := range []string{"open", "lines", "advances"} {
 		out = append(out, notPage{"/reports/expense/" + r + "/export.csv", "/reports/expense/" + r + "/export.csv", "a CSV"})

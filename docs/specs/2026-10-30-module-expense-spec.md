@@ -183,7 +183,7 @@ An advance's employee and date rules use the same text, with `Advance date` as t
 - Two lines of the same claim with the same date, type and amount, unless they share one receipt on purpose (a split bill): `Line {n}: This looks the same as line {m}.` (CD-271 G2)
 - Same supplier GSTIN and invoice no. on another live claim, of any employee: `Line {n}: Invoice {invoice} from {gstin} is also on {claim}.` (Rule 46(b), CD-271 G3)
 - A company bill dated in a financial year when, by the clock, the 30 November after that year's end has passed: `Line {n}: This bill is dated in FY {fy}. Input tax credit on it closed on 30-11-{yyyy}.` (CGST s.16(4), CD-271 G8)
-- On an advance's check and approval pages, when the employee has money left on another approved advance marked as paid (unpaid ones don't count): `{employee} still has ₹{x} left on {advance}.` (CD-271 G7)
+- On an advance's check and approval pages, when the employee has money left on another approved advance marked as paid (unpaid ones don't count): `{employee} still has ₹{x} left on {advance}.` (CD-271 G7); an advance the viewer can't read gives no warning (CD-305)
 
 Odoo's duplicate checks work the same way and are soft there too. A cancelled claim doesn't count. A back-entered claim with no approval rule still shows the warnings on its check page (CD-271 G12).
 

@@ -3,6 +3,7 @@ package gallery
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -199,7 +200,8 @@ func sampleList(empty bool) components.DataListProps {
 			{Key: "number", Label: "Number", Priority: components.PTitle, Code: true},
 			{Key: "amount", Label: "Amount", Priority: components.PFigure, Num: true},
 			{Key: "state", Label: "State", Priority: components.PState},
-			{Key: "date", Label: "Order date", Priority: components.PMeta},
+			{Key: "date", Label: "Order date", Priority: components.PMeta, NoWrap: true},
+			{Key: "gstin", Label: "GSTIN", Priority: components.PMeta, NoWrap: true},
 			{Key: "hindi", Label: "Name in Hindi", Priority: components.PLow},
 		},
 		Empty: components.EmptyState("No sample orders yet.", &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"}),
@@ -207,11 +209,12 @@ func sampleList(empty bool) components.DataListProps {
 	if empty {
 		return p
 	}
-	values := map[string]string{"number": uitest.LongCode60, "amount": uitest.MaxMoney, "date": "24-10-2026", "hindi": uitest.LongDevanagari}
+	values := map[string]string{"number": uitest.LongCode60, "amount": uitest.MaxMoney, "date": "24-10-2026", "gstin": "29AAFCV2449G1Z5", "hindi": uitest.LongDevanagari}
 	p.Rows = []components.Row{
 		{Href: "/_gallery/datalist", Party: uitest.LongName100, Values: values, State: doctype.StatePending},
 		{Href: "/_gallery/datalist", Values: values, State: doctype.StateApproved},
 		{Href: "/_gallery/datalist", Party: uitest.LongDevanagari, Values: map[string]string{"number": "Draft 42", "amount": "₹0.00"}, State: doctype.StateDraft},
+		{Href: "/_gallery/datalist", Party: "Shree Steel Traders", Values: map[string]string{"number": "PO/0043", "amount": "₹1,200.00", "date": "24-10-2026", "hindi": uitest.LongDevanagari}, State: doctype.StateApproved}, // blank GSTIN between two values
 	}
 	return p
 }
@@ -253,7 +256,24 @@ func gridRows(n int) []components.LineGridRow {
 			out[i].MoveDownURL = "/_gallery/lines"
 		}
 	}
+	// Line 2, with both move buttons, holds the largest rate and line
+	// amount the app accepts, so the widest row is checked (M0-35).
+	if n > 1 {
+		out[1] = largestGridRow(out[1])
+	}
 	return out
+}
+
+// largestRate is types.MaxRate as typed, with all four decimals.
+const largestRate = "10,00,00,000.0000"
+
+// largestGridRow is row r with the largest rate and line amount.
+func largestGridRow(r components.LineGridRow) components.LineGridRow {
+	id := "grid-" + strconv.Itoa(r.No)
+	cells := slices.Clone(r.Cells)
+	cells[3].Input = components.RateInput(components.FieldProps{ID: id + "-rate", Name: "rate", Label: "Rate", Value: largestRate})
+	r.Cells, r.Amount = cells, types.FormatINR(types.MaxMoney)
+	return r
 }
 
 // gridRow is line no of the grid with its item, quantity and quantity error.

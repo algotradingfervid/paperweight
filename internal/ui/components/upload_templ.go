@@ -152,6 +152,15 @@ func FileUpload(p UploadProps) templ.Component {
 	})
 }
 
+// uploadDisabled is an upload form's hx-disabled-elt: its own file inputs,
+// then AlsoDisable when set.
+func uploadDisabled(p UploadProps) string {
+	if p.AlsoDisable == "" {
+		return "#" + p.ID + " input[type=file]"
+	}
+	return "#" + p.ID + " input[type=file], " + p.AlsoDisable
+}
+
 // uploadForm is one control in its own form, so the other control's empty
 // input never sends a second "file" part.
 func uploadForm(p UploadProps, camera bool) templ.Component {
@@ -221,7 +230,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-hint " + p.ID + "-msg")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 70, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 79, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 				if templ_7745c5c3_Err != nil {
@@ -253,7 +262,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(UploadInputID(p.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 79, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 88, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 				if templ_7745c5c3_Err != nil {
@@ -266,7 +275,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(orDefault(p.Accept, "image/*,application/pdf"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 82, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 91, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 				if templ_7745c5c3_Err != nil {
@@ -279,7 +288,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID + "-hint " + p.ID + "-msg")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 84, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/upload.templ`, Line: 93, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 				if templ_7745c5c3_Err != nil {
@@ -306,7 +315,7 @@ func uploadForm(p UploadProps, camera bool) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: orDefault(p.Target, "#"+p.ID), Trigger: "change", DisabledElt: "#" + p.ID + " input[type=file]"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Form(FormProps{Action: p.Action, HX: true, Multipart: true, Target: orDefault(p.Target, "#"+p.ID), Trigger: "change", DisabledElt: uploadDisabled(p)}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -32,9 +32,8 @@ func (s *Service) ClaimWarnings(ctx context.Context, p auth.Principal, claimID i
 		if err != nil {
 			return err
 		}
-		// The claim declares no ProjectFields or SiteFields (spec §3).
-		rec := auth.RecordRef{DocType: ClaimDocType, ID: claimID, CreatedBy: auth.UserID(ref.CreatedBy), EmployeeID: ref.EmployeeID.Int64}
-		err = s.deps.Auth.CanTx(ctx, tx, p, ClaimDocType, auth.RightRead, &rec)
+		// AUTH builds the record from the claim's Info in tx (CD-312).
+		err = s.deps.Auth.CheckLinkTx(ctx, tx, p, ClaimDocType, claimID)
 		if errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
 			return doc.Gone() // hidden looks the same as missing (CD-245)
 		}

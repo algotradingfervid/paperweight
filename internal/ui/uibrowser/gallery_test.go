@@ -933,3 +933,48 @@ func TestGalleryBrowser_NumberInputsNotClipped(t *testing.T) {
 		}
 	}
 }
+
+// TestGalleryBrowser_DataListAlignedRowsFit: in aligned rows no value runs
+// past its track (a NoWrap track is as wide as its values; CD-307 (3),
+// CD-308 (3)) and no separator is shown, a low-priority one included
+// (auth-users has one: its list has no state column).
+func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
+	g := startGallery(t)
+	ctx := New(t)
+	type result struct {
+		Aligned, LowSeps int
+		Bad              []string
+	}
+	for _, p := range []string{"datalist", "auth-users"} {
+		for _, w := range []int64{900, 1100, 1280, 1440} {
+			open(t, ctx, w, g.URL+"/_gallery/"+p)
+			r := eval[result](t, ctx, `(() => {
+  const shown = function (e) { return e.getClientRects().length > 0; };
+  const r = {Aligned: 0, LowSeps: document.querySelectorAll(".datalist-sep[data-priority=low]").length, Bad: []};
+  document.querySelectorAll(".datalist").forEach(function (l) {
+    const head = l.querySelector(".datalist-head");
+    if (!head || getComputedStyle(head).display === "none") return;
+    r.Aligned++;
+    l.querySelectorAll(".datalist-link dd").forEach(function (dd) {
+      if (shown(dd) && dd.scrollWidth > dd.clientWidth) {
+        r.Bad.push(dd.previousElementSibling.textContent + " value " + JSON.stringify(dd.textContent.trim()) + " runs past its track: scrollWidth " + dd.scrollWidth + " > clientWidth " + dd.clientWidth);
+      }
+    });
+    l.querySelectorAll(".datalist-sep").forEach(function (s) {
+      if (shown(s)) r.Bad.push("separator shown after " + JSON.stringify(s.parentElement.textContent.trim()));
+    });
+  });
+  return r;
+})()`)
+			if r.Aligned == 0 {
+				t.Errorf("%s@%d: no list is drawn as aligned rows", p, w)
+			}
+			if p == "auth-users" && r.LowSeps == 0 {
+				t.Errorf("%s@%d: no low-priority separator to check", p, w)
+			}
+			for _, b := range r.Bad {
+				t.Errorf("%s@%d: %s", p, w, b)
+			}
+		}
+	}
+}

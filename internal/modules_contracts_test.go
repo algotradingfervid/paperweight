@@ -80,6 +80,7 @@ func TestModules_ImportsFollowOrder(t *testing.T) {
 		// Floors: a rename must not leave this test green with nothing scanned.
 		for _, p := range []string{
 			"internal/modules/modkit", "internal/modules/modkit/web",
+			"internal/modules/purchase", "internal/modules/purchase/web", "internal/modules/purchase/purchasetest",
 			"internal/modules/expense", "internal/modules/expense/web",
 		} {
 			if !seen[p] {

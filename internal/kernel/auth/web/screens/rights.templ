@@ -37,10 +37,14 @@ var rightMeanings = map[auth.Right]string{
 	auth.RightImport:  "Import from CSV.",
 }
 
-// rightMeaning is rt's line on dt: a master has no drafts.
+// rightMeaning is rt's line on dt: a master has no drafts, and approve on a
+// DocType that isn't approvable only closes, through its CloseRight (CD-289).
 func rightMeaning(dt *doctype.DocType, rt auth.Right) string {
 	if rt == auth.RightDelete && dt.Master != nil {
 		return "Delete records."
+	}
+	if rt == auth.RightApprove && !dt.Approvable && dt.CloseRight == string(auth.RightApprove) {
+		return "Close " + strings.ToLower(dt.PluralLabel) + "."
 	}
 	return rightMeanings[rt]
 }

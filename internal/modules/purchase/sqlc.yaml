@@ -1,0 +1,18 @@
+version: "2"
+sql:
+  - engine: sqlite
+    # Only purchase's own migrations (CD-117): add every later migration that
+    # alters these tables, and the master migrations a query joins.
+    schema:
+      - ../../../migrations/10050_purchase_order.sql
+      - ../../../migrations/10060_purchase_request.sql
+      - ../../../migrations/10070_purchase_order_sent.sql
+      - ../../../migrations/10080_purchase_order_expected.sql
+      - ../../../migrations/10090_purchase_order_rest.sql
+      # modkit's settings: Validate reads default_po_terms in its tx (P2).
+      - ../../../migrations/10000_business_settings.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq

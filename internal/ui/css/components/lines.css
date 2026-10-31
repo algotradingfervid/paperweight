@@ -36,6 +36,9 @@
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
   }
+  /* A line's receipt (UX-E3): a 64 px thumbnail, or the file's chip. */
+  & .lines-receipt .attachments__thumb { max-inline-size: min(100%, 4rem); }
+  & .lines-receipt-note { align-items: center; & .icon { flex: none; inline-size: var(--icon-sm); block-size: var(--icon-sm); } }
   & .lines-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); & form { display: contents; } }
   & .lines-more { display: grid; gap: var(--space-3); justify-items: start; & > * { max-inline-size: 100%; } }
   & .lines-find { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); & .field { flex: 1 1 16rem; } }
@@ -51,22 +54,37 @@
   container-type: inline-size;
   & .linegrid { display: none; }
   @container (min-width: 64rem) {
-    & .linegrid { display: grid; gap: var(--space-2); }
-    & :is(.linegrid-head, .linegrid-row) {
+    /* The rows share the grid's columns (subgrid), so a cell's minimum
+       below widens its column in every row and the head (M0-35). */
+    & .linegrid {
       display: grid;
-      /* The third cell gets Rate's width too: a DocType may declare Rate
-         before UoM (fixture.Order does), and 9,99,999.9999 and 1,00,000.000
-         must show whole (CD-169). */
-      grid-template-columns: minmax(0, 0.5fr) minmax(0, 2.25fr) minmax(0, 1.25fr) minmax(0, 1.75fr) minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 2fr);
-      column-gap: var(--space-2);
-      align-items: start;
-      & > * { min-inline-size: 0; }
+      gap: var(--space-2);
+      /* Rate may be the third or fourth cell (fixture.Order declares it
+         before UoM); its minimum below gives it the width it needs in either.
+         Item and those two cells share less than before M0-35, so Quantity
+         keeps 1,00,000 whole at 64rem beside the largest rate and amount
+         (CD-169). */
+      grid-template-columns: 0.5fr 1.5fr 1.25fr 1.5fr 1.5fr 1fr 1.25fr 2fr;
     }
     /* Three cells (item, quantity, rate): the numbers get the widths the
        five-cell columns give Rate, so worst-case values show whole (CD-169). */
-    & .linegrid--3 :is(.linegrid-head, .linegrid-row) {
-      grid-template-columns: minmax(0, 0.5fr) minmax(0, 3fr) minmax(0, 1.75fr) minmax(0, 1.75fr) minmax(0, 1.5fr) minmax(0, 2fr);
+    & .linegrid--3 { grid-template-columns: 0.5fr 3fr 1.75fr 1.75fr 1.5fr 2fr; }
+    & :is(.linegrid-head, .linegrid-row) {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: subgrid;
+      align-items: start;
+      & > * { min-inline-size: 0; }
     }
+    /* Whatever the cell order, a money input shows its largest value,
+       10,00,00,00,000.00, whole: 16 digit widths in tabular figures, its
+       padding and border; a rate input its largest, 10,00,00,000.0000, one
+       comma narrower (measured 150 px of figures: 15.5 digit widths). The cell takes the input's font size,
+       so ch is the input's; its label is hidden and its message and hint set
+       their own size. */
+    & .linegrid-form > :has(input:is([hx-post="/ui/validate/money"], [hx-post="/ui/validate/rate"])) { font-size: var(--text-base); }
+    & .linegrid-form > :has(input[hx-post="/ui/validate/money"]) { min-inline-size: calc(16ch + 2 * var(--space-3) + 2 * var(--border-w)); }
+    & .linegrid-form > :has(input[hx-post="/ui/validate/rate"]) { min-inline-size: calc(15.5ch + 2 * var(--space-3) + 2 * var(--border-w)); }
     & .linegrid-form { display: contents; & > * { min-inline-size: 0; } }
     & .linegrid-actions {
       display: flex;
@@ -75,6 +93,8 @@
       & form { display: contents; }
       & .btn { max-inline-size: 100%; }
     }
+    /* The widest action, Move down, keeps its label on one line. */
+    & .linegrid-actions .btn { min-inline-size: max-content; }
     & .linegrid-head {
       padding: var(--space-2) 0;
       color: var(--color-text-secondary);
@@ -83,7 +103,8 @@
     }
     & .linegrid-row .field__label { @apply visually-hidden; }
     & :is(.linegrid-no, .linegrid-amount) { display: flex; align-items: center; min-block-size: var(--control-h); overflow-wrap: anywhere; }
-    & .linegrid-amount { justify-content: flex-end; }
-    & .linegrid-total { display: flex; justify-content: flex-end; gap: var(--space-4); margin: 0; font-weight: var(--weight-semibold); }
+    /* The amount, up to ₹10,00,00,00,000.00, shows whole on one line. */
+    & .linegrid-amount { justify-content: flex-end; min-inline-size: max-content; }
+    & .linegrid-total { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: var(--space-4); margin: 0; font-weight: var(--weight-semibold); }
   }
 }

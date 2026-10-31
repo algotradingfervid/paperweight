@@ -52,7 +52,7 @@ func TestExp_OpenReports(t *testing.T) {
 			{"priya@vardhan.test", []expense.OpenClaimRow{d1}},
 		} {
 			t.Run(tc.email, func(t *testing.T) {
-				rows, err := e.Service.OpenClaimsReport(ctx, e.P(t, tc.email))
+				rows, err := e.Service.OpenClaimsReport(ctx, e.P(t, tc.email), expense.OpenClaimsFilter{})
 				if err != nil {
 					t.Fatalf("OpenClaimsReport: %v", err)
 				}
