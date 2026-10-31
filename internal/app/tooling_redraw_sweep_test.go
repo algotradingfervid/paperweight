@@ -257,6 +257,7 @@ type rsDoc struct {
 	shown     map[string]string // a hidden Link's master name, as cards and pages show it
 	valid     func(t *testing.T) (values, line map[string]string)
 	mod       docscreen.Module // the app's own Module for dt
+	own       map[string]bool  // fields mod's own Hide hides from the admin on a new document; see owned
 	itemsNone bool             // the probe draft's items step draws no probe field; see draft
 	rows      atomic.Bool      // a 422/409 redraw compared non-empty read-only rows
 	drawnRO   []string         // read-only fields a draft's step draws, nothing hidden; see sweepSteps
@@ -300,23 +301,23 @@ func newRSEnv(t *testing.T) *rsEnv {
 			t.Fatalf("move %s's counter: %v", name, err)
 		}
 	}
+	base := w.app.ToolingRedrawDeps().Modules
 	for _, dt := range rsDocTypes() {
-		d := &rsDoc{e: e, dt: dt, hide: map[string]bool{}, sentinel: map[string]string{}, shown: map[string]string{}}
+		d := &rsDoc{e: e, dt: dt, hide: map[string]bool{}, sentinel: map[string]string{}, shown: map[string]string{}, mod: base[dt.Name]}
 		steps, err := docscreen.FormSteps(dt)
 		if err != nil {
 			t.Fatalf("FormSteps(%s): %v", dt.Name, err)
 		}
 		d.steps = steps
 		d.valid = e.seeder(dt)
+		d.owned()
 		d.pick()
 		e.doc[dt.Name] = d
 	}
-	base := w.app.ToolingRedrawDeps().Modules
 	for _, probe := range []bool{true, false} {
 		plain, inject, line := map[string]docscreen.Module{}, map[string]docscreen.Module{}, map[string]docscreen.Module{}
 		for name, d := range e.doc {
 			m := base[name]
-			d.mod = m
 			own := m.Hide
 			m.Hide = func(c docscreen.Ctx, f doctype.Field) bool {
 				return (probe && d.hide[f.Name]) || (own != nil && own(c, f))
@@ -518,7 +519,28 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 	}
 }
 
-// pick chooses what the probe hides: on each header step with two or more
+// owned fills own with the fields the module's own Hide hides from the admin
+// on a new document (nil View, CD-327), such as the goods receipt's site_id
+// and po_line_id: no page draws them, so the probe neither hides nor types
+// into them, and a step or line error on one is never a shown field's.
+func (d *rsDoc) owned() {
+	d.own = map[string]bool{}
+	if d.mod.Hide == nil {
+		return
+	}
+	c := docscreen.Ctx{
+		Req:       httptest.NewRequestWithContext(d.e.t.Context(), http.MethodGet, d.base()+"/new", nil),
+		Principal: d.e.who[rsAdmin], DT: d.dt, Deps: d.e.w.app.ToolingRedrawDeps(),
+	}
+	for _, f := range d.dt.Fields {
+		if d.mod.Hide(c, f) {
+			d.own[f.Name] = true
+		}
+	}
+}
+
+// pick chooses what the probe hides, among the fields the module doesn't
+// hide itself (own): on each header step with two or more
 // editable fields, a Text field (seeded with a sentinel; an optional one
 // when there is one) and a Required
 // field, keeping one editable field shown; on the lines, a Text field (with a
@@ -532,7 +554,7 @@ func (d *rsDoc) pick() {
 		}
 		var editable []doctype.Field
 		for _, name := range s.Fields {
-			if f, ok := d.dt.Field(name); ok && !f.ReadOnly {
+			if f, ok := d.dt.Field(name); ok && !f.ReadOnly && !d.own[name] {
 				editable = append(editable, f)
 			}
 		}
@@ -554,7 +576,7 @@ func (d *rsDoc) pick() {
 	}
 	var lineFields []doctype.Field
 	for _, f := range d.dt.Fields {
-		if f.OnLine && !f.ReadOnly && !f.RollUp {
+		if f.OnLine && !f.ReadOnly && !f.RollUp && !d.own[f.Name] {
 			lineFields = append(lineFields, f)
 		}
 	}
@@ -751,15 +773,15 @@ func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
 // the probe hiding (hide) or not: not when the module turns it off
 // (CardsOnly, Line, NoLinePages; CD-256 (6)), and only for rows of 3 or 5
 // editable cells, the fields not hidden (CD-315, docscreen.gridShown). The
-// module's own Hide isn't counted: a wrong guess fails the grid cells' 303
-// check or their 200, never passes silently.
+// module's own Hide counts only as own (a new document's): a wrong guess
+// fails the grid cells' 303 check or their 200, never passes silently.
 func (d *rsDoc) grid(hide bool) bool {
 	if d.mod.CardsOnly || d.mod.Line != nil || d.mod.NoLinePages {
 		return false
 	}
 	n := 0
 	for _, f := range d.dt.Fields {
-		if f.OnLine && !f.ReadOnly && (!hide || !d.hide[f.Name]) {
+		if f.OnLine && !f.ReadOnly && !d.own[f.Name] && (!hide || !d.hide[f.Name]) {
 			n++
 		}
 	}
@@ -779,7 +801,7 @@ func (d *rsDoc) linesTarget(lines int, hide bool) string {
 func (d *rsDoc) stepFields(i int, hidden bool) []doctype.Field {
 	var out []doctype.Field
 	for _, name := range d.steps[i].Fields {
-		if f, ok := d.dt.Field(name); ok && !f.ReadOnly && d.hide[name] == hidden {
+		if f, ok := d.dt.Field(name); ok && !f.ReadOnly && !d.own[name] && d.hide[name] == hidden {
 			out = append(out, f)
 		}
 	}
@@ -908,7 +930,7 @@ func (d *rsDoc) otherField(i int) (doctype.FieldError, bool) {
 func (d *rsDoc) lineFields(hidden bool) []doctype.Field {
 	var out []doctype.Field
 	for _, f := range d.dt.Fields {
-		if f.OnLine && !f.ReadOnly && !f.RollUp && d.hide[f.Name] == hidden {
+		if f.OnLine && !f.ReadOnly && !f.RollUp && !d.own[f.Name] && d.hide[f.Name] == hidden {
 			out = append(out, f)
 		}
 	}
