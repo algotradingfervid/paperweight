@@ -41,6 +41,12 @@
         "mod-exp (MOD-EXP plan, EXP test docs, UX, build)"
       ],
       "workers": 6
+    },
+    "AD-12": {
+      "wps": [
+        "mod-grn (MOD-GRN plan, GRN test docs, UX, build)"
+      ],
+      "workers": 4
     }
   },
   "models": {
