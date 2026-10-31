@@ -158,7 +158,7 @@ func TestCommentsWeb_PostRedirects(t *testing.T) {
 	e := newWebEnv(t)
 	id := e.order(t, e.Priya, "PRJ-METRO")
 	r := e.post(t, e.Priya, orderComments(id), "  Checked the rate with the vendor.  ", false)
-	want := "/doc/" + fixture.Order + "/" + strconv.FormatInt(id, 10)
+	want := "/doc/" + fixture.Order + "/" + strconv.FormatInt(id, 10) + "#comments" // UX design §5.10
 	if r.status != http.StatusSeeOther || r.header.Get("Location") != want {
 		t.Errorf("POST = %d Location %q, want 303 to %q; body %q", r.status, r.header.Get("Location"), want, r.raw)
 	}

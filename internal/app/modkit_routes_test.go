@@ -88,8 +88,8 @@ func TestApp_ModkitRoutesMounted(t *testing.T) {
 	comments := func() int {
 		return w.count(`SELECT count(*) FROM module_comment WHERE doctype = ? AND record_id = ?`, fixture.Order, id)
 	}
-	if r := priya.post(path, url.Values{"body": {"Checked the rate with the vendor."}}); r.status != http.StatusSeeOther || r.location() != orderURL(id) {
-		t.Errorf("POST %s = %d Location %q, want 303 to %q", path, r.status, r.location(), orderURL(id))
+	if r := priya.post(path, url.Values{"body": {"Checked the rate with the vendor."}}); r.status != http.StatusSeeOther || r.location() != orderURL(id)+"#comments" {
+		t.Errorf("POST %s = %d Location %q, want 303 to %q", path, r.status, r.location(), orderURL(id)+"#comments")
 	}
 	if n := comments(); n != 1 {
 		t.Errorf("comments after Priya's post = %d, want 1", n)
