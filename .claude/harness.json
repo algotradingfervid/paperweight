@@ -22,41 +22,19 @@
   "assistant_directors": {
     "head": {
       "workers": 2,
-      "does": "milestone and WP merges, decision log, PROGRESS.md, escalations"
+      "does": "merges, decision log, PROGRESS.md, escalations, D0, U1/U2, owner"
     },
-    "AD-1": {
+    "AD-9": {
       "wps": [
-        "auth"
-      ],
-      "workers": 4
-    },
-    "AD-2": {
-      "wps": [
-        "ui"
-      ],
-      "workers": 5
-    },
-    "AD-3": {
-      "wps": [
-        "num",
-        "naming",
-        "approval"
+        "mod0 (M0-6..M0-14)"
       ],
       "workers": 8
     },
-    "AD-4": {
+    "AD-10": {
       "wps": [
-        "doc",
-        "files-print"
+        "mod0-hooks (M0-1..M0-5)"
       ],
       "workers": 5
-    },
-    "AD-5": {
-      "wps": [
-        "masters",
-        "wp3-early"
-      ],
-      "workers": 1
     }
   },
   "models": {
