@@ -278,6 +278,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | M0-9 | print.TradeDoc additions | Standard | impl, rev opus (AD-9) | 08:25 | 08:45 | 1 | 0/0/2 | e671ec4 (wp/mod0 eab2705) |
 | MOD-PO U1/U2 | Purchase UX design; review round 2 APPROVE; owner approved (CD-258) | — | ux-designer, reviewer opus (head) | 08:25 | 09:25 | 2 | round 1: 0/5/13 | 3d11bf4 |
 | M0-12 | Overdue approvals, waiting days | High | tw, impl, rev opus (AD-9) | 08:26 | 08:41 | 1 | 0/0/1 | 8c20b99 (wp/mod0 92dba96); make ci 0, make e2e 0 |
+| MOD-EXP A | Plan + plan check (1/7/18 applied), EXP test doc (41), expense fixtures | — | AD-11 | 09:30 | 10:05 | 1 | 1/7/18 | ee55e4f; CD-264 |
+| M0-10 | DOC: amend runs Validate, CloseRight, Closer, StateLabel(dt, s) | High | tw, impl, rev opus (AD-9) | 08:41 | 09:06 | 1 | 0/1/0 | bd751a6 (ready/mod0-m010 7c6b8a8); make ci 0, make e2e 0; P1 560/562 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
