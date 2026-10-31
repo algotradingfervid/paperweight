@@ -138,7 +138,8 @@ func TestModule_GridLineCard(t *testing.T) {
 		c.Amount = amount
 		return c
 	}
-	e, id := m01bHooked(t, docscreen.Module{LineCard: card})
+	// Hide note: the grid needs 3 or 5 cells (CD-315).
+	e, id := m01bHooked(t, docscreen.Module{LineCard: card, Hide: m01bHide("note")})
 	base := m01bURL(id)
 	saved := m01bOK(t, e.post(t, base+"/lines/1", e.m01bLine1(m01bVersion(t, e, id)), "HX-Request", "true"), "grid row save")
 	if !strings.Contains(norm(saved.Text()), amount) {
@@ -161,6 +162,9 @@ func TestModule_GridHideLineDeps(t *testing.T) {
 	var mu sync.Mutex
 	labelled := map[string]bool{}
 	hide := func(c docscreen.Ctx, f doctype.Field) bool {
+		if f.Name == "note" {
+			return true // the grid needs 3 or 5 cells (CD-315)
+		}
 		if f.Name != "project_id" || c.View == nil || c.Req.Method != http.MethodGet {
 			return false
 		}

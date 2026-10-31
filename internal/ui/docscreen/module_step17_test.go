@@ -355,7 +355,8 @@ func TestModule_StepBodyFallback(t *testing.T) {
 		bad := func(c docscreen.Ctx) (docscreen.Save, error) {
 			return docscreen.Save{Lines: []map[string]string{{"id": c.View.Lines[0].ID, "qty": "-1.000"}, {"id": c.View.Lines[1].ID}}}, nil
 		}
-		m02Mount(e, docscreen.Module{Steps: map[string]docscreen.Step{"items": {Body: log.itemsBody, Save: bad}}})
+		// Hide note: the grid needs 3 or 5 cells (CD-315).
+		m02Mount(e, docscreen.Module{Steps: map[string]docscreen.Step{"items": {Body: log.itemsBody, Save: bad}}, Hide: m01bHide("note")})
 		before := m02Rec(t, e, id)
 		audits := len(e.fx.Audit(t, docscreentest.Hooked, id))
 		rec := e.post(t, base+"/edit/items", url.Values{"version": {strconv.Itoa(before.Version)}})
