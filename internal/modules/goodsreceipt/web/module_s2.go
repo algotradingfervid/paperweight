@@ -49,7 +49,6 @@ func (m *module) itemsStep() docscreen.Step {
 // noLinePages: the lines come only from step 3's cards (CD-256 (7)).
 func (m *module) noLinePages() bool { return true }
 
-
 // entry is one card's values as its inputs show them, the stored line's id
 // when it has one, and its posted position (0: not a posted line).
 type entry struct {
