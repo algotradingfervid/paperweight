@@ -51,14 +51,19 @@ WHERE g.id = ?;
 -- name: G2Lines :many
 -- The lines as Validate checks them, after G2SnapLines, with each line's PO
 -- line (po_id is NULL when po_line_id doesn't resolve) and the units
--- uom.CheckLineQty needs: the PO line's and the item's stock unit.
-SELECT l.line_no, l.po_line_id, COALESCE(l.received_qty, 0) AS received_qty,
+-- uom.CheckLineQty needs: the PO line's and the item's stock unit. Texts
+-- number a line by its PO line (po_line_no), the posted position when the
+-- PO line isn't on the GRN's PO or doesn't resolve (AD-12, UX 5.4 P2).
+SELECT l.line_no,
+       CAST(CASE WHEN pl.parent_id = g.purchase_order_id THEN pl.line_no ELSE l.line_no END AS INTEGER) AS po_line_no,
+       l.po_line_id, COALESCE(l.received_qty, 0) AS received_qty,
        COALESCE(l.rejected_qty, 0) AS rejected_qty, COALESCE(l.accepted_qty, 0) AS accepted_qty,
        COALESCE(l.snap_rate, 0) AS snap_rate, COALESCE(l.snap_uom_code, '') AS uom_code,
        pl.parent_id AS po_id, COALESCE(pl.qty, 0) AS ordered_qty, COALESCE(pl.snap_factor, 0) AS factor,
        COALESCE(lu.whole_number, 0) AS line_whole,
        COALESCE(su.code, '') AS stock_uom_code, COALESCE(su.whole_number, 0) AS stock_whole
 FROM goods_receipt_line l
+JOIN goods_receipt g ON g.id = l.parent_id
 LEFT JOIN purchase_order_line pl ON pl.id = l.po_line_id
 LEFT JOIN uom lu ON lu.id = pl.uom_id
 LEFT JOIN item i ON i.id = pl.item_id
@@ -78,7 +83,10 @@ FROM goods_receipt g
 WHERE g.id = ?;
 
 -- name: G2RejectedNoReason :many
--- Lines that reject some quantity with a blank reason.
-SELECT line_no FROM goods_receipt_line
-WHERE parent_id = ? AND rejected_qty > 0 AND TRIM(reject_reason) = ''
-ORDER BY line_no;
+-- Lines that reject some quantity with a blank reason, with the PO line
+-- number their text uses (AD-12, UX 5.4 P2).
+SELECT l.line_no, COALESCE(pl.line_no, l.line_no) AS po_line_no
+FROM goods_receipt_line l
+LEFT JOIN purchase_order_line pl ON pl.id = l.po_line_id
+WHERE l.parent_id = ? AND l.rejected_qty > 0 AND TRIM(l.reject_reason) = ''
+ORDER BY l.line_no;

@@ -102,13 +102,17 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		}
 		r.Method(http.MethodPost, "/ui/validate/{kind}", a.srv.Self(components.ValidateHandler(parsers())))
 
+		gw := grnweb.Deps{Service: a.grn}
 		pw := purchaseweb.Deps{
 			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
-			CSRF: func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
+			CSRF:        func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
+			ReceiveLink: gw.ReceiveLink, // CD-283: purchase never imports goodsreceipt
 		}
+		a.receiveLink = pw.ReceiveLink
 		a.docModules = purchaseweb.Modules(pw)
 		a.docModules[expense.ClaimDocType] = expenseweb.ClaimModule(a.expenseWeb())
 		a.docModules[expense.AdvanceDocType] = expenseweb.AdvanceModule(a.expenseWeb())
+		maps.Copy(a.docModules, grnweb.Modules(gw))
 		maps.Copy(a.docModules, a.cfg.Modules)
 		docs := chi.NewRouter()
 		docscreen.Routes(a.docDeps())(docs)
@@ -134,7 +138,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		purchaseweb.Routes(pw)(purchases)
 		mount(r, purchases, self)
 		grns := chi.NewRouter()
-		grnweb.Routes(grnweb.Deps{Service: a.grn})(grns)
+		grnweb.Routes(gw)(grns)
 		mount(r, grns, func(route string, h http.Handler) http.Handler {
 			dt, right, ok := grnweb.Guard(route)
 			if !ok {

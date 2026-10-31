@@ -62,6 +62,7 @@ type sweepState struct {
 	master   map[string]int64               // record id by /m/ slug
 	purchase int64                          // a purchase.Order draft of Priya's (P15e)
 	exp      map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
+	grn      docscreen.SampleIDs            // goodsreceipt.Receipt (CD-298)
 }
 
 // prepareSweep seeds sweepState. The stand-in masters' rows the reference order
@@ -127,6 +128,7 @@ func (h *Harness) prepareSweep() sweepState {
 	s.pr = h.purchaseRequest()
 	s.purchase = h.purchaseDraft()
 	s.exp = h.expenseSamples(s.long)
+	s.grn = h.grnSamples()
 	return s
 }
 
@@ -340,6 +342,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			out = append(out, sc)
 		}
 	}
+	out = append(out, grnScreens(s.grn)...)
 	out = append(out, authscreens.Screens(authscreens.SweepIDs{
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)

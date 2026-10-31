@@ -96,6 +96,8 @@ type App struct {
 
 	// docModules is each DocType's docscreen Module, set by routes.
 	docModules map[string]docscreen.Module
+	// receiveLink is purchaseweb's Receive goods link as routes wired it.
+	receiveLink func(ctx context.Context, p auth.Principal, poID int64) (string, bool)
 }
 
 // engineRef lets AUTH, APR and FILE hold the engine, which needs them, before
