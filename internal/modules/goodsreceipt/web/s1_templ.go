@@ -11,9 +11,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import "github.com/vardhan/internaltools/internal/ui/components"
 
 // choosePOView is step 1 with the order still open to choose (UX doc §5.2):
-// the radios or the select, or the empty text, then the link that widens or
-// narrows the orders, then the receipt date when showDate (Hide shows it,
-// CD-319).
+// the radios, the select or the combobox, or the empty text, then the link
+// that widens or narrows the orders, then the receipt date when showDate
+// (Hide shows it, CD-319).
 func choosePOView(p poPick, date components.DateProps, showDate bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -35,7 +35,12 @@ func choosePOView(p poPick, date components.DateProps, showDate bool) templ.Comp
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		if len(p.Options) == 0 {
+		if p.Search != nil {
+			templ_7745c5c3_Err = components.Picker(*p.Search).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if len(p.Options) == 0 {
 			templ_7745c5c3_Err = components.EmptyState(msgNoOrders, p.EmptyLink).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -47,7 +52,7 @@ func choosePOView(p poPick, date components.DateProps, showDate bool) templ.Comp
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(msgAskBuyer)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 12, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 14, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -130,7 +135,7 @@ func fixedPOView(po []components.Pair, poID, deleteHref string, date components.
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(msgDeleteToChange)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 36, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 38, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -255,7 +260,7 @@ func deliveryView(d deliveryForm) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(msgPhotoLater)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 73, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 75, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {

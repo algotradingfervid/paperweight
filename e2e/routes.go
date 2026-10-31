@@ -672,6 +672,7 @@ func notPages(s sweepState) []notPage {
 		{"/m/import/errors.csv", "/m/import/errors.csv", "a CSV of a checked file's refused rows; alone it redirects to Choose"},
 		{"/files/{id}", "/files/" + strconv.FormatInt(s.file, 10), "a file"},
 		{"/files/*", "/files/no/such", "FILE's plain-text 404 for any other path under /files/; no page"},
+		{"/modules/goodsreceipt/po-search", "/modules/goodsreceipt/po-search?q=a", "a picker's htmx rows"},
 	}
 	for slug := range s.master {
 		out = append(out, notPage{"/m/" + slug + "/export.csv", "/m/" + slug + "/export.csv", "a CSV"})

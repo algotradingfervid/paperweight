@@ -16,7 +16,7 @@ type Deps struct {
 
 // handlers carries Deps to each task's handler file.
 type handlers struct {
-	d Deps //nolint:unused // read by the handlers G7, G9 and S4 build
+	d Deps
 }
 
 // Routes registers every module route (plan MOD-GRN G1 Do 4).
@@ -24,6 +24,7 @@ func Routes(d Deps) func(r chi.Router) {
 	h := &handlers{d: d}
 	return func(r chi.Router) {
 		r.Post("/modules/goodsreceipt/receipts/{id}/bill", h.saveBill)
+		r.Get(poSearchURL, h.poSearch)
 		for _, report := range []string{"bills", "items"} {
 			r.Get("/reports/grn/"+report, h.report)
 			r.Get("/reports/grn/"+report+"/export.csv", h.exportCSV)
@@ -39,8 +40,10 @@ type guard struct {
 
 // guards are AUTH's guard of each route, by pattern. Record-level checks are
 // the handlers': the bill POST checks write on its GRN (G7), and the CSV
-// handlers check export (CD-145).
+// handlers check export (CD-145). The PO search asks read, as step 1's list
+// does no create check of its own; its rows are read-scoped on the PO.
 var guards = map[string]guard{
+	poSearchURL: {goodsreceipt.DocType, auth.RightRead},
 	"/modules/goodsreceipt/receipts/{id}/bill": {goodsreceipt.DocType, auth.RightWrite},
 	"/reports/grn/bills":                       {goodsreceipt.DocType, auth.RightRead},
 	"/reports/grn/bills/export.csv":            {goodsreceipt.DocType, auth.RightRead},

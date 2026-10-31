@@ -30,9 +30,20 @@ var g1Routes = []struct {
 	{http.MethodGet, "/reports/grn/items/export.csv", "/reports/grn/items/export.csv", auth.RightRead},
 }
 
+// builtRoutes are the module routes built since G1, mounted and guarded like
+// g1Routes but no longer stubs: S1b's PO search, guarded by read on the GRN
+// (CD-323 (2)); its rows are read-scoped on the PO by the service.
+var builtRoutes = []struct {
+	method, pattern, path string
+	right                 auth.Right
+}{
+	{http.MethodGet, "/modules/goodsreceipt/po-search", "/modules/goodsreceipt/po-search", auth.RightRead},
+}
+
 // MOD-GRN G1 Do 4 (CD-46, CD-256; review focus "a stub never answers
 // success"): Routes registers exactly the plan's routes with no middleware,
-// and every one answers 501 until its owner builds it.
+// and every G1 route answers 501 until its owner builds it (builtRoutes are
+// only mounted here; their own tests check what they answer).
 func TestGRNWeb_RoutesAnswer501(t *testing.T) {
 	r := chi.NewRouter()
 	grnweb.Routes(grnweb.Deps{})(r)
@@ -47,7 +58,7 @@ func TestGRNWeb_RoutesAnswer501(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Walk: %v", err)
 	}
-	for _, rt := range g1Routes {
+	for _, rt := range append(slices.Clone(g1Routes), builtRoutes...) {
 		want = append(want, rt.method+" "+rt.pattern)
 	}
 	slices.Sort(got)
@@ -75,7 +86,7 @@ func TestGRNWeb_RoutesAnswer501(t *testing.T) {
 // and let through the reports and CSVs, and Suresh (Stores) passes all.
 func TestGRNWeb_Guards(t *testing.T) {
 	env := grntest.New(t)
-	for _, rt := range g1Routes {
+	for _, rt := range append(slices.Clone(g1Routes), builtRoutes...) {
 		dt, right, ok := grnweb.Guard(rt.pattern)
 		if !ok || dt != goodsreceipt.DocType || right != rt.right {
 			t.Errorf("Guard(%s) = %q %q %v, want %q %q true", rt.pattern, dt, right, ok, goodsreceipt.DocType, rt.right)
