@@ -21,6 +21,7 @@ func init() {
 		DefaultRights: defaultRights(),
 		CloseRight:    doctype.CloseNone, // nobody closes a GRN (spec §5, CD-277)
 		Fields:        fields(),
+		SearchFields:  []string{"number", "challan_no"}, // CD-317
 		// The header link makes CD-70 run CheckLinkTx on the PO (AUTH-101);
 		// the line link gives DOC-017, DOC-038 and DOC-052 on the PO (spec §3).
 		Links: []doctype.LinkSpec{
