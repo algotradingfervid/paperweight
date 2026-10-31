@@ -289,6 +289,13 @@ func p14StatusLine(t *testing.T, env *purchasetest.Env, id int64) string {
 // §5: a rights test needs a user holding only that right).
 func p14Probe(t *testing.T, env *purchasetest.Env, name string, rights ...auth.Right) auth.Principal {
 	t.Helper()
+	return p14ProbeWith(t, env, name, []auth.Right{auth.RightRead}, rights...)
+}
+
+// p14ProbeWith is p14Probe whose role holds request (all) on
+// purchase.Request; with none, the role has no rights on purchase.Request.
+func p14ProbeWith(t *testing.T, env *purchasetest.Env, name string, request []auth.Right, rights ...auth.Right) auth.Principal {
+	t.Helper()
 	ctx := t.Context()
 	role := "P14 " + name
 	if err := env.Auth.CreateRole(ctx, env.Admin, role); err != nil {
@@ -301,8 +308,14 @@ func p14Probe(t *testing.T, env *purchasetest.Env, name string, rights ...auth.R
 	if err := env.Auth.SetRights(ctx, env.Admin, role, purchase.DocType, order); err != nil {
 		t.Fatalf("SetRights(%s, order): %v", role, err)
 	}
-	if err := env.Auth.SetRights(ctx, env.Admin, role, purchase.RequestDocType, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
-		t.Fatalf("SetRights(%s, request): %v", role, err)
+	if len(request) > 0 {
+		req := map[auth.Right]auth.Scope{}
+		for _, r := range request {
+			req[r] = auth.ScopeAll
+		}
+		if err := env.Auth.SetRights(ctx, env.Admin, role, purchase.RequestDocType, req); err != nil {
+			t.Fatalf("SetRights(%s, request): %v", role, err)
+		}
 	}
 	id, _, err := env.Auth.CreateUser(ctx, env.Admin, auth.NewUser{Email: "p14-" + name + "@vardhan.test", Name: role, Password: "Correct-Horse-42", Roles: []string{role}})
 	if err != nil {

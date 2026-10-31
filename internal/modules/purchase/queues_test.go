@@ -1,7 +1,6 @@
 package purchase_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +29,10 @@ func TestPurchaseHome_DraftsQueue(t *testing.T) {
 		p14OrderRow(t, env, newer, doctype.StateDraft, p14Shree, "25-10-2026 · PRJ-METRO"),
 		p14OrderRow(t, env, older, doctype.StateDraft, p14Shree, "24-10-2026 · PRJ-METRO"),
 	})
+	// The card counts all three; NeedsChanges is only the rejected one.
+	if c, _ := p14Card(p14HomeOf(t, env, env.Priya), purchase.QueueDrafts); c.Count != 3 || c.NeedsChanges != 1 {
+		t.Errorf("My drafts card = count %d, NeedsChanges %d; want 3, 1 (two drafts, one rejected)", c.Count, c.NeedsChanges)
+	}
 }
 
 // UX §5.2 waiting: oldest submitted first; meta vendor, APR's status line,
@@ -74,6 +77,18 @@ func TestPurchaseHome_ToSendQueue(t *testing.T) {
 	env.SetNow(t, p14At(time.October, 26, 11, 0))
 	p2Must(t, "submit")(p2Do(t, env, env.Priya, late, doc.ActionSubmit, ""))
 	p2Must(t, "Ravi approves")(p2Do(t, env, env.Ravi, late, doc.ActionApprove, ""))
+	// Approved, never sent, then closed or cancelled: not approved any more,
+	// so neither is to send (spec §23, §25).
+	closed := p14Metro(t, env, env.Priya, small, doctype.StateApproved, nil)
+	p2Must(t, "Priya closes")(p2Do(t, env, env.Priya, closed, doc.ActionClose, p14CloseReason))
+	cancelled := p14Metro(t, env, env.Priya, small, doctype.StateApproved, nil)
+	p2Must(t, "Ravi cancels")(p2Do(t, env, env.Ravi, cancelled, doc.ActionCancel, "Vendor can't supply"))
+	for name, p := range map[string]auth.Principal{"Priya": env.Priya, "Ravi": env.Ravi} {
+		want := map[string]int{"Priya": 2, "Ravi": 3}[name]
+		if c, _ := p14Card(p14HomeOf(t, env, p), purchase.QueueToSend); c.Count != want {
+			t.Errorf("%s's To send card = %d, want %d (not the closed or cancelled PO)", name, c.Count, want)
+		}
+	}
 
 	p14WantRows(t, "Ravi's to-send", p14QueueOf(t, env, env.Ravi, purchase.QueueToSend, 1), []p14Row{
 		p14OrderRow(t, env, first, doctype.StateApproved, p14Shree, "Approved on 24-10-2026", "Raised by Priya Shah"),
@@ -91,9 +106,12 @@ func TestPurchaseHome_ToSendQueue(t *testing.T) {
 }
 
 // UX §5.2 awaiting-delivery and spec §27.1: earliest due date first, the due
-// date being Expected on when set, else required by; meta vendor, receipt
-// status, "Expected on {date}" or "Required by {date}", and "Overdue" when
-// the due date is past. A fully received PO isn't listed.
+// date being Expected on when set, else required by, POs with no due date
+// last (AD-13 ruling, as P9 and P6); meta vendor, receipt status, "Expected
+// on {date}" or "Required by {date}", and "Overdue" when the due date is
+// before today (due yesterday is overdue, due today isn't). Only approved POs
+// are listed: a fully received one and a closed one not fully received
+// aren't.
 func TestPurchaseHome_AwaitingDeliveryQueue(t *testing.T) {
 	env := purchasetest.New(t)
 	small := p3SmallLine(t, env)
@@ -104,6 +122,9 @@ func TestPurchaseHome_AwaitingDeliveryQueue(t *testing.T) {
 	part := p14Metro(t, env, env.Priya, small, doctype.StateApproved, req("2026-11-06"))
 	noDue := p14Metro(t, env, env.Priya, small, doctype.StateApproved, nil)
 	full := p14Metro(t, env, env.Priya, small, doctype.StateApproved, req("2026-10-28"))
+	yesterday := p14Metro(t, env, env.Priya, small, doctype.StateApproved, req("2026-10-30"))
+	today := p14Metro(t, env, env.Priya, small, doctype.StateApproved, req("2026-10-31"))
+	closed := p14Metro(t, env, env.Priya, small, doctype.StateApproved, req("2026-10-29"))
 	for id, on := range map[int64]string{expectedEarly: "27-10-2026", expectedLate: "05-11-2026"} {
 		d, err := purchase.ParseExpectedOn(on)
 		if err != nil {
@@ -115,47 +136,28 @@ func TestPurchaseHome_AwaitingDeliveryQueue(t *testing.T) {
 	}
 	p14Receive(t, env, part, "40")
 	p14Receive(t, env, full, "100")
+	p14Receive(t, env, closed, "40")
+	p2Must(t, "Priya closes the part-received PO")(p2Do(t, env, env.Priya, closed, doc.ActionClose, p14CloseReason))
 	env.SetNow(t, p14At(time.October, 31, 10, 30))
 
-	v := p14QueueOf(t, env, env.Priya, purchase.QueueAwaitingDelivery, 1)
-	want := []p14Row{
+	p14WantRows(t, "awaiting-delivery", p14QueueOf(t, env, env.Priya, purchase.QueueAwaitingDelivery, 1), []p14Row{
 		p14OrderRow(t, env, expectedEarly, doctype.StateApproved, p14Shree, "Not received", "Expected on 27-10-2026", "Overdue"),
 		p14OrderRow(t, env, pastRequired, doctype.StateApproved, p14Shree, "Not received", "Required by 28-10-2026", "Overdue"),
+		p14OrderRow(t, env, yesterday, doctype.StateApproved, p14Shree, "Not received", "Required by 30-10-2026", "Overdue"),
+		p14OrderRow(t, env, today, doctype.StateApproved, p14Shree, "Not received", "Required by 31-10-2026"),
 		p14OrderRow(t, env, expectedLate, doctype.StateApproved, p14Shree, "Not received", "Expected on 05-11-2026"),
 		p14OrderRow(t, env, part, doctype.StateApproved, p14Shree, "Part received", "Required by 06-11-2026"),
+		p14OrderRow(t, env, noDue, doctype.StateApproved, p14Shree, "Not received"),
+	})
+	if c, _ := p14Card(p14HomeOf(t, env, env.Priya), purchase.QueueAwaitingDelivery); c.Count != 7 {
+		t.Errorf("Awaiting delivery card = %d, want 7 (not the fully received or the closed PO)", c.Count)
 	}
-	// The PO with no due date has no due meta; where it sorts is not fixed.
-	var dated []p14Row
-	var undated *purchase.QueueRow
-	for i, r := range v.Rows {
-		if r.ID == noDue {
-			undated = &v.Rows[i]
-			continue
-		}
-		dated = append(dated, p14Row{DocType: r.DocType, ID: r.ID, Title: r.Title, Total: r.Total, State: r.State, Meta: r.Meta})
-	}
-	p14WantRows(t, "awaiting-delivery (dated)", purchase.QueueView{Rows: toQueueRows(dated), Total: v.Total - 1}, want)
-	if undated == nil || fmt.Sprint(undated.Meta) != fmt.Sprint([]string{p14Shree, "Not received"}) {
-		t.Errorf("the PO with no due date = %+v, want listed with meta [%s Not received]", undated, p14Shree)
-	}
-	if v.Total != 5 {
-		t.Errorf("awaiting-delivery Total = %d, want 5 (the fully received PO isn't listed)", v.Total)
-	}
-}
-
-// toQueueRows turns expected-shape rows back into QueueRows.
-func toQueueRows(rows []p14Row) []purchase.QueueRow {
-	out := []purchase.QueueRow{}
-	for _, r := range rows {
-		out = append(out, purchase.QueueRow{DocType: r.DocType, ID: r.ID, Title: r.Title, Total: r.Total, State: r.State, Meta: r.Meta})
-	}
-	return out
 }
 
 // UX §5.2 requests-to-order and spec §25: submitted requests with pending to
-// order, oldest needed-by first; meta requester, "{site} · {needed by}" (the
-// site alone without one) and "{k} rows to order" (singular for 1). Drafts
-// aren't listed.
+// order, oldest needed-by first, those with none last (AD-13 ruling, as P9
+// and P6); meta requester, "{site} · {needed by}" (the site alone without
+// one) and "{k} rows to order" (singular for 1). Drafts aren't listed.
 func TestPurchaseHome_RequestsToOrderQueue(t *testing.T) {
 	env := purchasetest.New(t)
 	two := []map[string]string{p5Line(t, env, "MS-ANGLE-50", "KGS", "100"), p5Line(t, env, "WIRE-18G", "KGS", "50")}
@@ -164,23 +166,10 @@ func TestPurchaseHome_RequestsToOrderQueue(t *testing.T) {
 	none := p14Request(t, env, env.Suresh, "METRO-SITE", "PRJ-METRO", nil, true, nil)
 	p14Request(t, env, env.Suresh, "METRO-SITE", "PRJ-METRO", nil, false, nil) // a draft
 
-	v := p14QueueOf(t, env, env.Priya, purchase.QueueRequestsToOrder, 1)
-	if v.Total != 3 || len(v.Rows) != 3 {
-		t.Fatalf("requests-to-order = %+v, want 3 rows", v)
-	}
-	var dated []p14Row
-	for _, r := range v.Rows {
-		if r.ID == none {
-			if want := []string{"Suresh Patil", "METRO-SITE", "1 row to order"}; fmt.Sprint(r.Meta) != fmt.Sprint(want) || r.State != doctype.StateApproved {
-				t.Errorf("request with no needed-by = %+v, want meta %v, approved", r, want)
-			}
-			continue
-		}
-		dated = append(dated, p14Row{DocType: r.DocType, ID: r.ID, Title: r.Title, Total: r.Total, State: r.State, Meta: r.Meta})
-	}
-	p14WantRows(t, "requests-to-order (dated)", purchase.QueueView{Rows: toQueueRows(dated), Total: 2}, []p14Row{
+	p14WantRows(t, "requests-to-order", p14QueueOf(t, env, env.Priya, purchase.QueueRequestsToOrder, 1), []p14Row{
 		p14RequestRow(t, env, sooner, doctype.StateApproved, "Suresh Patil", "PUNE-WH · 30-10-2026", "1 row to order"),
 		p14RequestRow(t, env, later, doctype.StateApproved, "Suresh Patil", "METRO-SITE · 05-11-2026", "2 rows to order"),
+		p14RequestRow(t, env, none, doctype.StateApproved, "Suresh Patil", "METRO-SITE", "1 row to order"),
 	})
 }
 
@@ -200,6 +189,25 @@ func TestPurchaseHome_MyRequestsQueue(t *testing.T) {
 		p14RequestRow(t, env, draft, doctype.StateDraft, "METRO-SITE", "Not ordered"),
 		p14RequestRow(t, env, submitted, doctype.StateApproved, "METRO-SITE · 05-11-2026", "Not ordered"),
 	})
+}
+
+// UX §5.2 my-requests is the viewer's own requests even when Auth.Scope lets
+// them see every request: the Administrator (unrestricted, create on
+// purchase.Request) lists and counts only theirs while Suresh has one open.
+func TestPurchaseHome_MyRequestsOwnOnly(t *testing.T) {
+	env := purchasetest.New(t)
+	suresh := p14Request(t, env, env.Suresh, "METRO-SITE", "PRJ-METRO", nil, true, nil)
+	mine := p14Request(t, env, env.Admin, "METRO-SITE", "PRJ-METRO", nil, false, nil)
+
+	p14WantRows(t, "Administrator's my-requests", p14QueueOf(t, env, env.Admin, purchase.QueueMyRequests, 1), []p14Row{
+		p14RequestRow(t, env, mine, doctype.StateDraft, "METRO-SITE", "Not ordered"),
+	})
+	if c, _ := p14Card(p14HomeOf(t, env, env.Admin), purchase.QueueMyRequests); c.Count != 1 {
+		t.Errorf("Administrator's My requests = %d, want 1 (not Suresh's)", c.Count)
+	}
+	if got := p14IDs(p14QueueOf(t, env, env.Suresh, purchase.QueueMyRequests, 1)); len(got) != 1 || got[0] != suresh {
+		t.Errorf("Suresh's my-requests = %v, want [%d]", got, suresh)
+	}
 }
 
 // UX §5.2 pagination: 25 rows a page; Total counts every page.

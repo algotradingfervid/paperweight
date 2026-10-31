@@ -371,3 +371,23 @@ func TestPurchaseHome_CardRights(t *testing.T) {
 		t.Errorf("Administrator's cards = %v, want %v", got, all)
 	}
 }
+
+// PO spec §25, CD-233/240/248: Requests to order needs create on
+// purchase.Order for its card, but its rows are requests: a viewer with no
+// rights on purchase.Request has the card at 0 and an empty queue while
+// Priya, who can read them, sees the submitted request.
+func TestPurchaseHome_RequestsToOrderUnreadable(t *testing.T) {
+	env := purchasetest.New(t)
+	req := p14Request(t, env, env.Suresh, "METRO-SITE", "PRJ-METRO", nil, true, nil)
+	if got := p14IDs(p14QueueOf(t, env, env.Priya, purchase.QueueRequestsToOrder, 1)); len(got) != 1 || got[0] != req {
+		t.Fatalf("Priya's requests-to-order = %v, want [%d]", got, req)
+	}
+	p := p14ProbeWith(t, env, "order-only", nil, auth.RightRead, auth.RightCreate)
+	c, ok := p14Card(p14HomeOf(t, env, p), purchase.QueueRequestsToOrder)
+	if !ok || c.Count != 0 {
+		t.Errorf("Requests to order with no request rights = %+v (shown %v), want shown with 0", c, ok)
+	}
+	if v := p14QueueOf(t, env, p, purchase.QueueRequestsToOrder, 1); v.Total != 0 || len(v.Rows) != 0 {
+		t.Errorf("requests-to-order with no request rights = %v (total %d), want none", p14IDs(v), v.Total)
+	}
+}
