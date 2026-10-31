@@ -1,6 +1,7 @@
 package goodsreceipt_test
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 
@@ -175,5 +176,22 @@ func TestGRN_AmendRestrictedReal(t *testing.T) {
 	}
 	if got := g2Column(t, env, amended.ID, "accepted_value"); got != "721000" {
 		t.Errorf("amendment accepted_value %q, want 721000 (100 × ₹62.5000 + 10 × ₹96.0000)", got)
+	}
+
+	// G6's rows (GRN spec §5, §10; CD-247; CD-213): the cancel was Ravi's,
+	// a Purchase Manager (Stores has no cancel). The amendment carries the
+	// cancelled GRN's lines, restricted Suresh can open it on the real
+	// auth.Service, and his submit numbers it GR/26-27/00001-1.
+	if got, want := g2LineColumn(t, env, amended.ID, "po_line_id"), []string{strconv.FormatInt(po.Lines[0].ID, 10), strconv.FormatInt(po.Lines[1].ID, 10)}; !slices.Equal(got, want) {
+		t.Errorf("amendment po_line_id %v, want %v copied from the cancelled GRN", got, want)
+	}
+	if err := env.Auth.CheckLink(t.Context(), env.Suresh, goodsreceipt.DocType, amended.ID); err != nil {
+		t.Errorf("Suresh can't read his amendment: %v", err)
+	}
+	if res, err := g2Submit(t, env, env.Suresh, amended.ID); err != nil || res.State != doctype.StateApproved {
+		t.Fatalf("Suresh submits the amendment: %v %+v (state %s)", err, g1FieldErrors(err), res.State)
+	}
+	if got := env.Load(t, goodsreceipt.DocType, amended.ID).Number; got != "GR/26-27/00001-1" {
+		t.Errorf("amendment number %q, want GR/26-27/00001-1", got)
 	}
 }
