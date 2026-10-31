@@ -115,6 +115,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A sweep or gate that needs a module's flags (NoLinePages, CardsOnly, Hide) reads them from the app's real Deps (`App.DocDeps()`), never from a test-local Modules map: a hand-written copy is a lenient double (M0-55, REPEAT).
 - After a new gate or sweep lands on main, the head merges only MERGE-READYs whose ci ran on a head that includes it: PO batch 4 was green on a base without the tooling sweeps and turned main red (11 purchase.Request cells, 31 Oct).
 - A module page extra (pairs, cards) that shows a stored field's value checks the registered Module.Hide, and so does anything derived from it (Left from Used); the redraw sweep's read-only probe fails otherwise (MOD-EXP S3, REPEAT).
+- A docscreen `Step.Save` hook, like a handler, runs after the posted version, state and right checks, never before parsing or validating posted values; docscreen enforces it from M0-56 (CD-335). It reached P15c after the handler-side date parse (CD-259, AD-13, REPEAT).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
