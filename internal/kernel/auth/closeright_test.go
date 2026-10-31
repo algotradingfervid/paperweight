@@ -23,6 +23,8 @@ const (
 	m024Close = "m024.CloseApprove" // Submittable, not Approvable, CloseRight "approve"
 	m024Twin  = "m024.CloseTwin"    // the same without CloseRight
 	m024Seed  = "m024.CloseSeed"    // m024Close with approve in DefaultRights
+	m024Amend = "m024.CloseAmend"   // the same with CloseRight "amend" (as purchase.Order)
+	m024None  = "m024.CloseNone"    // the same with CloseRight "none" (as Expense, CD-253)
 
 	m024CloseLabel = "Close request"
 	m024TwinLabel  = "Twin request"
@@ -35,6 +37,27 @@ const (
 	// AUTH's existing refusal of approve on a DocType it doesn't apply to.
 	m024TwinNotApplicable = "Approve does not apply to Twin request. Clear it."
 )
+
+// m024Others are non-approvable DocTypes whose CloseRight is set to
+// something other than approve: approve applies to none of them.
+var m024Others = []struct{ name, closeRight, label, plural, notApplicable string }{
+	{m024Amend, "amend", "Amend request", "Amend requests", "Approve does not apply to Amend request. Clear it."},
+	{m024None, "none", "None request", "None requests", "Approve does not apply to None request. Clear it."},
+}
+
+// m024RegisterOthers registers m024Others once and returns them in order.
+func m024RegisterOthers() []*doctype.DocType {
+	out := make([]*doctype.DocType, 0, len(m024Others))
+	for _, o := range m024Others {
+		t3Register(doctype.DocType{
+			Name: o.name, Label: o.label, PluralLabel: o.plural,
+			Submittable: true, CloseRight: o.closeRight,
+		})
+		dt, _ := doctype.Lookup(o.name)
+		out = append(out, dt)
+	}
+	return out
+}
 
 // m024Register registers the M0-24 DocTypes once (the registry is global).
 func m024Register() (closeDT, twin *doctype.DocType) {
@@ -52,7 +75,8 @@ func m024Register() (closeDT, twin *doctype.DocType) {
 }
 
 // m024Applies is the expected Applies table: every right except import
-// applies to both (submittable, not importable); approve only to m024Close.
+// applies to each m024 DocType (submittable, not importable); approve only to
+// m024Close, never to the twin or to m024Others (CloseRight amend, none).
 func m024Applies(dtName string, r auth.Right) bool {
 	switch r {
 	case auth.RightImport:
@@ -258,5 +282,28 @@ func TestCloseRight_CanScopeWhoCanAllowed(t *testing.T) {
 	var p *auth.Problem
 	if _, err := w.Auth.WhoCan(ctx, m024Twin, auth.RightApprove); !errors.As(err, &p) || p.Msg != m024TwinNotApplicable || p.Code != 400 {
 		t.Errorf("WhoCan(%s, approve) = %v, want 400 %q", m024Twin, err, m024TwinNotApplicable)
+	}
+}
+
+// CD-280 D2 is approve only: a non-approvable DocType whose CloseRight is
+// anything else ("amend", "none") still refuses approve everywhere.
+func TestCloseRight_OtherCloseRightRefusesApprove(t *testing.T) {
+	ctx := context.Background()
+	others := m024RegisterOthers()
+	w := authtest.NewWorld(t)
+	admin := w.P(t, "admin@vardhan.test")
+	for i, dt := range others {
+		o := m024Others[i]
+		if dt.Approvable || !dt.Submittable || dt.CloseRight != o.closeRight {
+			t.Fatalf("setup: %s must be submittable, not approvable, CloseRight %q", o.name, o.closeRight)
+		}
+		for _, r := range append(slices.Clone(auth.AllRights), "foo") {
+			if got, want := auth.Applies(dt, r), m024Applies(dt.Name, r); got != want {
+				t.Errorf("Applies(%s, %s) = %v, want %v", dt.Name, r, got, want)
+			}
+		}
+		row := map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll, auth.RightApprove: auth.ScopeAll}
+		t3WantProblem(t, "ValidateRow("+o.name+", {read: all, approve: all})", auth.ValidateRow(dt, row), o.notApplicable)
+		m024Denied(t, "Can(admin, "+o.name+", approve)", w.Auth.Can(ctx, admin, o.name, auth.RightApprove, nil), o.label, o.plural)
 	}
 }

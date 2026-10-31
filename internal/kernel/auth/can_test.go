@@ -609,14 +609,15 @@ func parityWant(t *testing.T, dt *doctype.DocType, rights []auth.Right, who stri
 }
 
 // CD-280 D2 parity row (M0-24): for a DocType whose CloseRight is approve
-// (not approvable) and its twin without CloseRight, × AllRights plus an
+// (not approvable), its twin without CloseRight and twins whose CloseRight
+// is "amend" or "none", × AllRights plus an
 // unknown right, authfake answers as the real service, and both answer what
 // the ruling says (approve applies only where CloseRight is approve).
 func TestAuthfake_CloseRightMatchesReal(t *testing.T) {
 	const unknown auth.Right = "foo"
 	rights := append(slices.Clone(auth.AllRights), unknown)
 	closeDT, twin := m024Register()
-	for _, dt := range []*doctype.DocType{closeDT, twin} {
+	for _, dt := range append([]*doctype.DocType{closeDT, twin}, m024RegisterOthers()...) {
 		t.Run(dt.Name, func(t *testing.T) {
 			for _, who := range []string{"Clerk", auth.RoleAdministrator} {
 				t.Run(who, func(t *testing.T) {
