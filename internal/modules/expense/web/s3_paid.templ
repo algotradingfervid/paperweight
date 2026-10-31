@@ -1,0 +1,43 @@
+package expenseweb
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+templ paidFull(s paidScreen) {
+	@layout.Page(paidOpts(s)) {
+		@paidBody(s)
+	}
+}
+
+templ paidMain(s paidScreen) {
+	@layout.Main(paidOpts(s)) {
+		@paidBody(s)
+	}
+}
+
+templ paidBanners(s paidScreen) {
+	if s.danger != "" {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: s.danger, Link: s.reload})
+	}
+	@components.ErrorSummary(s.errs)
+}
+
+// paidBody is the summary, Undo paid's text, then the form: the version, the
+// Paid on date on Mark as paid, and the button.
+templ paidBody(s paidScreen) {
+	<p>{ s.summary }</p>
+	if s.question != "" {
+		<p>{ s.question }</p>
+	}
+	@components.Form(components.FormProps{Action: s.action, HX: true}) {
+		<input type="hidden" name="version" value={ strconv.Itoa(s.version) }/>
+		if s.date != nil {
+			@components.DateInput(*s.date)
+		}
+		@components.Button(s.button)
+	}
+}

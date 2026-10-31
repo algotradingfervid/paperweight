@@ -28,11 +28,11 @@ func (h *handlers) markPaid(w http.ResponseWriter, r *http.Request) {
 	v.PaidOn = r.PostFormValue("paid_on")
 	on, err := types.ParseDate(v.PaidOn)
 	if err != nil {
-		renderPaidPage(w, r, v, paidOnError(err))
+		h.renderPaidPage(w, r, v, paidOnError(err))
 		return
 	}
 	p, _ := auth.PrincipalFrom(r.Context())
-	paidDone(w, r, v, h.d.Service.MarkPaid(r.Context(), p, v.AdvanceID, v.Version, on))
+	h.paidDone(w, r, v, h.d.Service.MarkPaid(r.Context(), p, v.AdvanceID, v.Version, on))
 }
 
 // undoPaid posts Undo paid: version only. Answers as markPaid.
@@ -42,7 +42,7 @@ func (h *handlers) undoPaid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, _ := auth.PrincipalFrom(r.Context())
-	paidDone(w, r, v, h.d.Service.UndoPaid(r.Context(), p, v.AdvanceID, v.Version))
+	h.paidDone(w, r, v, h.d.Service.UndoPaid(r.Context(), p, v.AdvanceID, v.Version))
 }
 
 // paidForm reads the advance id (a bad one is AUTH's 404, CD-245) and the
@@ -64,13 +64,13 @@ func paidForm(w http.ResponseWriter, r *http.Request) (paidView, bool) {
 
 // paidDone redirects to the advance page on success, redraws a 422 or 409
 // and answers anything else with its own status.
-func paidDone(w http.ResponseWriter, r *http.Request, v paidView, err error) {
+func (h *handlers) paidDone(w http.ResponseWriter, r *http.Request, v paidView, err error) {
 	var se interface{ Status() int }
 	switch {
 	case err == nil:
 		http.Redirect(w, r, "/doc/"+expense.AdvanceDocType+"/"+strconv.FormatInt(v.AdvanceID, 10), http.StatusSeeOther)
 	case errors.As(err, &se) && (se.Status() == http.StatusUnprocessableEntity || se.Status() == http.StatusConflict):
-		renderPaidPage(w, r, v, err)
+		h.renderPaidPage(w, r, v, err)
 	default:
 		web.ErrorFrom(w, r, err)
 	}
