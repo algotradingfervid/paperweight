@@ -111,6 +111,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A new document DocType or GET route fails TestToolingRedraw and TestTooling_VisibilitySweep until the same task adds its seeder (rsEnv.seeder, sweepSeeders) and its sweepStatuses row. Never skip there: the sweeps check Hide and hidden-record rules for every module (CD-317, CD-318 and CD-319 came from them).
 - Before dispatching a task, run `make briefcds BASE=<lane base> FILES="<task files>"`; it reads main's CD log, not the lane's.
 - Split a task estimated over ~90 worker-minutes (P2 took 299, E1 232): review rounds on a big diff cost more than two small reviews.
+- Two lanes that are each green can fail together: a new DocType (fixture.Quote, not submittable) met the tooling sweeps, which probed submit on every DocType, and main went red (31 Oct). A sweep or gate derives what it probes from the DocType's own declarations, never assumes a right.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
