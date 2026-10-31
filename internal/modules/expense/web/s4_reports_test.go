@@ -426,3 +426,43 @@ func TestS4_FilterPages(t *testing.T) {
 		t.Errorf("Priya with no Employee read sees the employee picker")
 	}
 }
+
+// S4b: the code and date cells keep whole tokens (datalist-nowrap, CD-307),
+// at most 3 per list: record numbers, GSTINs and project and site codes
+// first, then dates; the others wrap as before.
+func TestS4b_ReportNoWrapCells(t *testing.T) {
+	e := expensetest.New(t)
+	e.E8OpenScenario(t)
+	e.E8LinesScenario(t)
+	for _, tc := range []struct {
+		path        string
+		nowrap, not []string
+	}{
+		{"/reports/expense/open", []string{"Claim"}, []string{"Approved", "Employee", "Purpose", "Without a receipt", "Total and less advance"}},
+		{"/reports/expense/lines", []string{"Claim and line", "Project and site", "GST details"}, []string{"Type and date", "Employee", "Receipt"}},
+		{"/reports/expense/advances", []string{"Advance", "Paid on"}, []string{"Date and purpose", "Employee", "Amount and used", "Age"}},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			p := s4Open(t, e, "meena@vardhan.test", tc.path)
+			check := func(label string, want bool) {
+				cells := p.doc.Find(".datalist-rows dl").FilterFunction(func(_ int, s *goquery.Selection) bool {
+					return strings.TrimSpace(s.Find("dt").Text()) == label
+				})
+				if cells.Length() == 0 {
+					t.Errorf("%q: no cells", label)
+				}
+				cells.Each(func(_ int, s *goquery.Selection) {
+					if got := s.HasClass("datalist-nowrap"); got != want {
+						t.Errorf("%q cell: datalist-nowrap = %v, want %v", label, got, want)
+					}
+				})
+			}
+			for _, l := range tc.nowrap {
+				check(l, true)
+			}
+			for _, l := range tc.not {
+				check(l, false)
+			}
+		})
+	}
+}
