@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/vardhan/internaltools/internal/fixture"
+	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
@@ -188,6 +191,58 @@ func (e *rsEnv) authErr(t *testing.T, p auth.Principal, id int64, r auth.Right) 
 	return want
 }
 
+// doErr is what Engine.Do answers p on order id (approve needs only read
+// before anything else in the pipeline): the missing or hidden answer.
+func (e *rsEnv) doErr(t *testing.T, p auth.Principal, id int64) error {
+	t.Helper()
+	_, err := e.Engine.Do(t.Context(), p, fixture.Order, id, doc.ActionApprove, doc.ActionInput{Version: 1})
+	if err == nil {
+		t.Fatalf("setup: Do as %s on %d succeeded, want a 404", p.Name, id)
+	}
+	return err
+}
+
+// rsSame fails unless got is Do's 404 want: same text, not found, status 404.
+func rsSame(t *testing.T, what string, got, want error) {
+	t.Helper()
+	var re *doc.ReassignError
+	if errors.As(got, &re) {
+		t.Fatalf("%s: err = ReassignError %+v, want a 404", what, *re)
+	}
+	if got == nil || got.Error() != want.Error() || !errors.Is(got, auth.ErrNotFound) || errors.Is(got, auth.ErrForbidden) {
+		t.Errorf("%s: err = %v (%T), want Do's %v (%T)", what, got, got, want, want)
+	}
+	var gs, ws doc.HTTPError
+	if !errors.As(got, &gs) || !errors.As(want, &ws) || gs.Status() != 404 || ws.Status() != 404 {
+		t.Errorf("%s: err = %v, want an HTTP 404 like Do's", what, got)
+	}
+}
+
+// rsForbidden fails unless got is AUTH's 403 want, unchanged.
+func rsForbidden(t *testing.T, what string, got, want error) {
+	t.Helper()
+	var re *doc.ReassignError
+	if errors.As(got, &re) {
+		t.Fatalf("%s: err = ReassignError %+v, want AUTH's 403", what, *re)
+	}
+	if got == nil || got.Error() != want.Error() || !errors.Is(got, auth.ErrForbidden) || errors.Is(got, auth.ErrNotFound) {
+		t.Errorf("%s: err = %v (%T), want AUTH's %v (%T) unchanged", what, got, got, want, want)
+	}
+}
+
+// eligible runs Engine.EligibleOwners as p in a read tx on the pool of one.
+func (e *rsEnv) eligible(t *testing.T, p auth.Principal, doctype string, id int64) ([]types.UserID, error) {
+	t.Helper()
+	var got []types.UserID
+	err := testkit.NoSecondConn(t, e.DB, func(ctx context.Context) error {
+		return e.DB.Read(ctx, func(tx *db.Tx) (err error) {
+			got, err = e.Engine.EligibleOwners(ctx, tx, p, doctype, id)
+			return err
+		})
+	})
+	return got, err
+}
+
 // DOC-111
 func TestDoc_Reassign_Rules(t *testing.T) {
 	e := rsNew(t)
@@ -344,35 +399,10 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 	// record the caller can't read gets what Do returns for a hidden one, a 404
 	// like the missing one (CD-245), before every other check.
 	t.Run("missing or hidden", func(t *testing.T) {
-		// doErr is what Engine.Do answers p on id (approve needs only read
-		// before anything else in the pipeline).
-		doErr := func(t *testing.T, p auth.Principal, id int64) error {
-			t.Helper()
-			_, err := e.Engine.Do(t.Context(), p, fixture.Order, id, doc.ActionApprove, doc.ActionInput{Version: 1})
-			if err == nil {
-				t.Fatalf("setup: Do as %s on %d succeeded, want a 404", p.Name, id)
-			}
-			return err
-		}
-		same := func(t *testing.T, what string, got, want error) {
-			t.Helper()
-			var re *doc.ReassignError
-			if errors.As(got, &re) {
-				t.Fatalf("%s: err = ReassignError %+v, want a 404", what, *re)
-			}
-			if got == nil || got.Error() != want.Error() || !errors.Is(got, auth.ErrNotFound) || errors.Is(got, auth.ErrForbidden) {
-				t.Errorf("%s: err = %v (%T), want Do's %v (%T)", what, got, got, want, want)
-			}
-			var gs, ws doc.HTTPError
-			if !errors.As(got, &gs) || !errors.As(want, &ws) || gs.Status() != 404 || ws.Status() != 404 {
-				t.Errorf("%s: err = %v, want an HTTP 404 like Do's", what, got)
-			}
-		}
-
 		const missing = 999_999
-		wantMissing := doErr(t, e.Priya, missing)
-		same(t, "missing id", e.reassign(t, e.Priya, missing, 1, e.Kiran.ID), wantMissing)
-		same(t, "missing id, by approver", e.reassign(t, e.Ravi, missing, 1, e.Kiran.ID), wantMissing)
+		wantMissing := e.doErr(t, e.Priya, missing)
+		rsSame(t, "missing id", e.reassign(t, e.Priya, missing, 1, e.Kiran.ID), wantMissing)
+		rsSame(t, "missing id, by approver", e.reassign(t, e.Ravi, missing, 1, e.Kiran.ID), wantMissing)
 
 		for _, c := range []struct {
 			name  string
@@ -392,7 +422,7 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 			t.Run(c.name, func(t *testing.T) {
 				d := e.order(t, c.state)
 				by := c.by()
-				want := doErr(t, by, d.ID)
+				want := e.doErr(t, by, d.ID)
 				if !errors.Is(want, auth.ErrNotFound) {
 					t.Fatalf("setup: Do as %s = %v, want a hidden-record 404", by.Name, want)
 				}
@@ -401,7 +431,7 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 				if c.stale {
 					version--
 				}
-				same(t, c.name, e.reassign(t, by, d.ID, version, c.to()), want)
+				rsSame(t, c.name, e.reassign(t, by, d.ID, version, c.to()), want)
 				e.unchanged(t, d.ID, before)
 			})
 		}
@@ -411,12 +441,12 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 		t.Run("owner who can't see the order", func(t *testing.T) {
 			d := e.order(t, doc.StateDraft)
 			e.Exec(t, `UPDATE fixture_order SET project_id = ? WHERE id = ?`, e.M.Project[rsTechpark], d.ID)
-			want := doErr(t, e.Priya, d.ID)
+			want := e.doErr(t, e.Priya, d.ID)
 			if !errors.Is(want, auth.ErrNotFound) {
 				t.Fatalf("setup: Do as Priya = %v, want a hidden-record 404", want)
 			}
 			before := e.snap(t, d.ID)
-			same(t, "hidden owner", e.reassign(t, e.Priya, d.ID, d.Version, e.Kiran.ID), want)
+			rsSame(t, "hidden owner", e.reassign(t, e.Priya, d.ID, d.Version, e.Kiran.ID), want)
 			e.unchanged(t, d.ID, before)
 		})
 	})
@@ -482,6 +512,152 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 		slices.Sort(want)
 		if got := slices.Sorted(slices.Values(got)); !slices.Equal(got, want) {
 			t.Errorf("EligibleOwners after hand-over = %v, want %v (Admin, Priya, Nisha)", got, want)
+		}
+	})
+
+	// EligibleOwners runs Reassign's caller checks (a) to (c) before the
+	// target checks (AD ruling).
+	t.Run("eligible owners caller checks", func(t *testing.T) {
+		d := e.order(t, doc.StateDraft)
+		got, err := e.eligible(t, e.Ravi, fixture.Order, d.ID)
+		want := []types.UserID{e.Admin.ID, e.Kiran.ID, e.Nisha.ID}
+		if got := slices.Sorted(slices.Values(got)); err != nil || !slices.Equal(got, want) {
+			t.Errorf("EligibleOwners as approver = (%v, %v), want (%v, nil)", got, err, want)
+		}
+
+		const missing = 999_999
+		wantMissing := e.doErr(t, e.Priya, missing)
+		got, err = e.eligible(t, e.Priya, fixture.Order, missing)
+		rsSame(t, "missing id", err, wantMissing)
+		if got != nil {
+			t.Errorf("missing id: EligibleOwners = %v, want nil", got)
+		}
+
+		for _, c := range []struct {
+			name string
+			by   func() auth.Principal
+		}{
+			{"approver who can't see the order", func() auth.Principal { return e.Vikram }},
+			{"Purchase User who can't see the order", func() auth.Principal { return e.Tara }},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				by := c.by()
+				want := e.doErr(t, by, d.ID)
+				got, err := e.eligible(t, by, fixture.Order, d.ID)
+				rsSame(t, c.name, err, want)
+				if got != nil {
+					t.Errorf("EligibleOwners = %v, want nil", got)
+				}
+			})
+		}
+		t.Run("owner who can't see the order", func(t *testing.T) {
+			h := e.order(t, doc.StateDraft)
+			e.Exec(t, `UPDATE fixture_order SET project_id = ? WHERE id = ?`, e.M.Project[rsTechpark], h.ID)
+			want := e.doErr(t, e.Priya, h.ID)
+			got, err := e.eligible(t, e.Priya, fixture.Order, h.ID)
+			rsSame(t, "hidden owner", err, want)
+			if got != nil {
+				t.Errorf("EligibleOwners = %v, want nil", got)
+			}
+		})
+		for _, c := range []struct {
+			name string
+			by   func() auth.Principal
+		}{
+			{"second Purchase User", func() auth.Principal { return e.Kiran }},
+			{"Stores reader", func() auth.Principal { return e.Suresh }},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				by := c.by()
+				want := e.authErr(t, by, d.ID, "approve")
+				got, err := e.eligible(t, by, fixture.Order, d.ID)
+				rsForbidden(t, c.name, err, want)
+				if got != nil {
+					t.Errorf("EligibleOwners = %v, want nil", got)
+				}
+			})
+		}
+	})
+
+	// An unknown DocType and a master get Do's gone error from both.
+	t.Run("unknown or master DocType", func(t *testing.T) {
+		for _, c := range []struct {
+			name, doctype string
+			id            func() int64
+		}{
+			{"unknown", "fixture.NoSuch", func() int64 { return 1 }},
+			{"master", fixture.Party, func() int64 { return e.M.Party["SHREE"] }},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				id := c.id()
+				_, want := e.Engine.Do(t.Context(), e.Priya, c.doctype, id, doc.ActionApprove, doc.ActionInput{Version: 1})
+				wantDocErr(t, want, doc.KindNotFound, msgGone) // setup: Do's gone error
+				count := e.AuditCount(t)
+				err := testkit.NoSecondConn(t, e.DB, func(ctx context.Context) error {
+					return e.Engine.Reassign(ctx, e.Priya, c.doctype, id, 1, e.Kiran.ID)
+				})
+				wantDocErr(t, err, doc.KindNotFound, msgGone)
+				if !errors.Is(err, doc.ErrNotFound) {
+					t.Errorf("Reassign: errors.Is(err, doc.ErrNotFound) = false (err %v)", err)
+				}
+				got, err := e.eligible(t, e.Priya, c.doctype, id)
+				wantDocErr(t, err, doc.KindNotFound, msgGone)
+				if !errors.Is(err, doc.ErrNotFound) {
+					t.Errorf("EligibleOwners: errors.Is(err, doc.ErrNotFound) = false (err %v)", err)
+				}
+				if got != nil {
+					t.Errorf("EligibleOwners = %v, want nil", got)
+				}
+				if n := e.AuditCount(t); n != count {
+					t.Errorf("AuditCount = %d, want %d", n, count)
+				}
+			})
+		}
+	})
+
+	// The reason text is for logs: it names the reason and carries none of
+	// the module's user text (PO spec §21.2 owns those).
+	t.Run("ReassignError text", func(t *testing.T) {
+		userText := []string{
+			"can't be handed over", "Withdraw this order", "is already", "can't raise",
+			"can't see this order", "can't sign in", "Pick someone",
+		}
+		for _, r := range []doc.ReassignReason{
+			doc.ReassignPending, doc.ReassignNotDraft, doc.ReassignSameOwner,
+			doc.ReassignDisabled, doc.ReassignCantCreate, doc.ReassignCantSee,
+		} {
+			msg := (&doc.ReassignError{Reason: r}).Error()
+			if r == "" || msg == "" || !strings.Contains(msg, string(r)) {
+				t.Errorf("ReassignError{%q}.Error() = %q, want a non-empty text naming the reason", r, msg)
+			}
+			for _, u := range userText {
+				if strings.Contains(msg, u) {
+					t.Errorf("ReassignError{%q}.Error() = %q carries user text %q", r, msg, u)
+				}
+			}
+		}
+	})
+
+	// A busy database is Do's 503 (DOC-075), and nothing is written.
+	t.Run("busy database", func(t *testing.T) {
+		h := fixturetest.New(t)
+		res := h.NewOrder(t, h.Priya, fixturetest.OL{Item: "MS-ANGLE-50", Qty: "10"})
+		d := h.Load(t, fixture.Order, res.ID)
+		e2 := h.EngineOn(p2lOpen(t, db.WithBusyTimeout(200*time.Millisecond)))
+		holder := p2lOpen(t)
+		count := h.AuditCount(t)
+
+		wait := p2lHoldWrite(t, holder, time.Second)
+		err := e2.Reassign(t.Context(), h.Priya, fixture.Order, d.ID, d.Version, h.Ravi.ID)
+		wait()
+		fixturetest.ErrIs(t, err, doc.KindBusy, p2lBusyText)
+		_ = lkHTTP(t, err, 503, p2lBusyText)
+		if !errors.Is(err, db.ErrBusy) {
+			t.Errorf("errors.Is(err, db.ErrBusy) = false (err %v)", err)
+		}
+		fixturetest.Eq(t, h.Load(t, fixture.Order, d.ID), d)
+		if got := h.AuditCount(t); got != count {
+			t.Errorf("AuditCount = %d, want %d (nothing written)", got, count)
 		}
 	})
 }
