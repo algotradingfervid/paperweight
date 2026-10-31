@@ -276,6 +276,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | MOD-PO D0 | Module test docs (PO 70, HOOK 18), DOC-107..112, purchase fixtures | — | drafter opus (head) | 08:25 | 08:38 | 1 | — | 772dd9c; core P1 556/562 until M0-10, M0-13 |
 | M0-8 | gstcalc.PlaceReason | High | tw, impl, rev opus (AD-9) | 08:25 | 08:45 | 1 | 0/0/1 | e671ec4 (wp/mod0 eab2705) |
 | M0-9 | print.TradeDoc additions | Standard | impl, rev opus (AD-9) | 08:25 | 08:45 | 1 | 0/0/2 | e671ec4 (wp/mod0 eab2705) |
+| MOD-PO U1/U2 | Purchase UX design; review round 2 APPROVE; owner approved (CD-258) | — | ux-designer, reviewer opus (head) | 08:25 | 09:25 | 2 | round 1: 0/5/13 | 3d11bf4 |
+| M0-12 | Overdue approvals, waiting days | High | tw, impl, rev opus (AD-9) | 08:26 | 08:41 | 1 | 0/0/1 | 8c20b99 (wp/mod0 92dba96); make ci 0, make e2e 0 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
