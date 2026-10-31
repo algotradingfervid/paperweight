@@ -237,3 +237,17 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** a wizard step whose date field posts to `/ui/validate/` on blur **When** the user presses the mouse on Save, the field's echo arrives, and the user releases at the same point **Then** Save has not moved and step 2 loads: the empty message line was reserved (CD-287).
 - **Go test:** `TestE2E_Field_EchoKeepsSaveInPlace`
 - **Sources:** CD-287
+
+### HOOK-047 · LargeQtyInput keeps QtyInput's attributes at the large size
+- **Priority:** P1
+- **Level:** unit
+- **Given** a `LargeQtyInput` and a `QtyInput` with the same props **When** both render **Then** the large one carries the large control class, and its id, name, inputmode, `hx-post` and unit suffix equal the plain one's.
+- **Go test:** `TestLargeQtyInput`
+- **Sources:** CD-286 Q4, design-system §7
+
+### HOOK-048 · LargeQtyInput is 56 px tall and never clips
+- **Priority:** P1
+- **Level:** e2e
+- **Given** the gallery's gloved quantity sample **When** it is shown at 320 and 360 px **Then** the input is at least 56 px tall with 20 px figures and a 16 px unit, `9,99,999.9999` is not clipped, and nothing overflows or is too small to tap.
+- **Go test:** `TestLargeQtyInputBrowser_Size`
+- **Sources:** CD-286 Q4, CD-169

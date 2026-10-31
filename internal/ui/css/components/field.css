@@ -67,6 +67,15 @@
   & > .input { flex: 1 1 0; }
 }
 
+/* LargeQtyInput: a 56 px box with 20 px figures and a 16 px unit (CD-282 Q4, CD-286). */
+@utility field__control--lg {
+  & > .input {
+    min-block-size: var(--control-h-lg);
+    font-size: var(--text-xl);
+  }
+  & > .field__suffix { font-size: var(--text-base); }
+}
+
 @utility field__suffix {
   display: flex;
   align-items: center;
