@@ -370,7 +370,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-045 · Challan or invoice: the kind is required at submit for goods
 - **Priority:** P1
 - **Level:** integration
-- **Given** a goods GRN with `challan_no` `SST/2627/0457` and no kind **When** it is submitted **Then** "Choose Delivery challan or Tax invoice." on `challan_kind`; the draft save isn't refused. **Given** a goods GRN with both number and kind blank **Then** both errors, "Challan or invoice no. is required for goods." and "Choose Delivery challan or Tax invoice.", each on its field. With `invoice` chosen it is approved. A service-only GRN with no number and no kind is approved. `challan_kind` accepts only `challan` and `invoice`.
+- **Given** a goods GRN with `challan_no` `SST/2627/0457` and no kind **When** it is submitted **Then** "Choose Delivery challan or Tax invoice." on `challan_kind`; the draft save isn't refused. **Given** a goods GRN with both number and kind blank **Then** both errors, "Challan or invoice no. is required for goods." and "Choose Delivery challan or Tax invoice.", each on its field. With `Tax invoice` chosen it is approved. A service-only GRN with no number and no kind is approved. `challan_kind` accepts only `Delivery challan` and `Tax invoice`.
 - **Go test:** `TestGRN_ChallanKind`
 - **Sources:** research Gap 5, S66 (CGST Rules 55(1), 55A, 138A(1)(a)); GRN spec §3.1, §4; CD-272
 - **Built in:** G2
@@ -378,7 +378,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-046 · A tax invoice at the gate prefills Bill details, and nothing is stored until saved
 - **Priority:** P1
 - **Level:** integration
-- **Given** an approved GRN with `challan_kind` `invoice`, `challan_no` `SST/2627/0457`, `challan_date` 23-10-2026 and no bill details **When** the bill panel is read **Then** it offers invoice no. `SST/2627/0457` and date 23-10-2026 with "Copied from the tax invoice entered at the gate. Check and save.", at version 0, and no `grn_bill` row exists. **When** saved **Then** the row exists. A GRN with kind `challan` offers nothing.
+- **Given** an approved GRN with `challan_kind` `Tax invoice`, `challan_no` `SST/2627/0457`, `challan_date` 23-10-2026 and no bill details **When** the bill panel is read **Then** it offers invoice no. `SST/2627/0457` and date 23-10-2026 with "Copied from the tax invoice entered at the gate. Check and save.", at version 0, and no `grn_bill` row exists. **When** saved **Then** the row exists. A GRN with kind `Delivery challan` offers nothing.
 - **Go test:** `TestGRNBill_CopyFromInvoice`
 - **Sources:** research Gap 5; GRN spec §3.3; CD-272
 - **Built in:** G7
