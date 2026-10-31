@@ -12,19 +12,22 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
-// M0-34: every list URL Screens gives a DocType is one list accepts. The
-// filtered screen filters on the state convention column, so it is checked
-// for each registered document DocType that declares it (fixture.Order and
-// fixture.Claim at least); list.Build is the real query check.
+// M0-34: every list URL Screens gives a DocType is one list accepts,
+// checked for every registered document DocType (M0-38: also those with no
+// filterable state field, which get no filtered screen); list.Build is the
+// real query check. fixture.Order and fixture.Claim keep their filtered one.
 func TestScreens_ListURLsAreAccepted(t *testing.T) {
 	ids := docscreen.SampleIDs{Draft: 1, Pending: 2, Approved: 3, Rejected: 4, Cancelled: 5, Closed: 6, Lines500: 7, CloseAs: "priya@vardhan.test"}
-	checked := map[string]bool{}
+	checked, filtered := map[string]bool{}, map[string]bool{}
 	for _, dt := range doctype.All() {
-		if !dt.IsDocument() || !hasStateFilter(dt) {
+		if !dt.IsDocument() {
 			continue
 		}
 		checked[dt.Name] = true
 		for _, s := range docscreen.Screens(dt.Name, ids) {
+			if s.Name == dt.Name+" list filtered" {
+				filtered[dt.Name] = true
+			}
 			path, raw, ok := strings.Cut(s.URL, "?")
 			if !ok || path != "/doc/"+dt.Name {
 				continue
@@ -52,17 +55,8 @@ func TestScreens_ListURLsAreAccepted(t *testing.T) {
 		}
 	}
 	for _, name := range []string{fixture.Order, fixture.Claim} {
-		if !checked[name] {
-			t.Errorf("%s was not checked; want it registered with a filterable state field", name)
+		if !checked[name] || !filtered[name] {
+			t.Errorf("%s: checked %v, list filtered screen %v; want both", name, checked[name], filtered[name])
 		}
 	}
-}
-
-func hasStateFilter(dt *doctype.DocType) bool {
-	for _, f := range dt.Fields {
-		if f.Name == "state" && f.Filterable && !f.OnLine {
-			return true
-		}
-	}
-	return false
 }

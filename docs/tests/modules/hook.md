@@ -370,3 +370,10 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** the gallery line list's row 2 with Rate 10,00,00,000.0000, amount ₹10,00,00,00,000.00, Remove, Move up and Move down **When** the line editor is 1024 px and 1440 px wide **Then** nothing in the row overflows, the row is no wider than the grid, the amount and buttons don't wrap, and head and row cells line up.
 - **Go test:** `TestGalleryBrowser_LineGridWidestRow`
 - **Sources:** CD-308 (3); M0-35
+
+### HOOK-051 · A DocType without a filterable state gets no "list filtered" screen
+- **Priority:** P1
+- **Level:** integration
+- **Given** registered document DocTypes with and without a filterable header `state` field (including one with a non-Filterable `state` and one whose `state` is on the line), and an unregistered name **When** `Screens` builds their screens **Then** exactly the DocTypes for which list accepts `state in [...]` get "list filtered", and an unregistered name keeps it.
+- **Go test:** `TestScreens_FilteredOnlyWithStateFilter`
+- **Sources:** M0-38 (head ruling after M0-34)
