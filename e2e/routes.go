@@ -473,8 +473,8 @@ var expenseStubs = []string{
 
 // purchaseStubs are MOD-PO's GET routes that still answer P1's 501 stub,
 // whatever the id, each with the task that builds it (AD-13). P15e and P15d
-// give the pages screens and remove their routes here; P9 moves the export
-// to the "a CSV" entries; P16 checks the list is empty.
+// give the pages screens and remove their routes here; P16 checks the list
+// is empty.
 var purchaseStubs = []struct{ route, owner string }{
 	{"/modules/purchase", "P15e"},
 	{"/modules/purchase/q/{queue}", "P15e"},
@@ -484,7 +484,6 @@ var purchaseStubs = []struct{ route, owner string }{
 	{"/modules/purchase/requests/{id}/order", "P15d"},
 	{"/reports/purchase/pending", "P15e"},
 	{"/reports/purchase/pending/filter", "P15e"},
-	{"/reports/purchase/pending/export.csv", "P9"},
 }
 
 // notPageStatus is the status a sample answers with when it isn't 200.
@@ -508,6 +507,7 @@ func notPages(s sweepState) []notPage {
 		{"/approvals/count", "/approvals/count", "the header's htmx count"},
 		{"/settings/numbering/preview", "/settings/numbering/preview?tpl=PO%2F%7B%23%23%23%23%23%7D", "the template form's htmx preview"},
 		{"/doc/{doctype}/export.csv", "/doc/" + fixture.Order + "/export.csv", "a CSV"},
+		{"/reports/purchase/pending/export.csv", "/reports/purchase/pending/export.csv", "a CSV"},
 		{"/m/import/template", "/m/import/template?doctype=UoM", "a CSV"},
 		{"/m/import/errors.csv", "/m/import/errors.csv", "a CSV of a checked file's refused rows; alone it redirects to Choose"},
 		{"/files/{id}", "/files/" + strconv.FormatInt(s.file, 10), "a file"},

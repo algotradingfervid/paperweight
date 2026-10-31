@@ -11,6 +11,11 @@ sql:
       - ../../../migrations/10090_purchase_order_rest.sql
       # modkit's settings: Validate reads default_po_terms in its tx (P2).
       - ../../../migrations/10000_business_settings.sql
+      # Project and site codes for the pending report (P9).
+      - ../../../migrations/01400_project.sql
+      - ../../../migrations/01450_site.sql
+      # The print reads the approver from approval_history (P8).
+      - ../../../migrations/00402_approval_history.sql
     queries: queries/
     gen:
       go:

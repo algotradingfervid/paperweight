@@ -1,0 +1,11 @@
+package purchaseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// ownerCardView is the Owner card: its text and Hand over to href.
+templ ownerCardView(href string) {
+	@components.Card(ownerCardTitle, nil) {
+		<p>{ ownerCardText }</p>
+		@components.Button(components.ButtonProps{Label: handOverLabel, Href: href})
+	}
+}

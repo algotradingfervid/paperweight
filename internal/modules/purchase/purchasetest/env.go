@@ -14,6 +14,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
+	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/kernel/files/filesfake"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/masters/employee"
@@ -37,6 +38,7 @@ type Env struct {
 	Approvals *approval.Approvals
 	Comments  *modkit.Comments
 	Service   *purchase.Service
+	Files     *files.Store // the engine's store with WithRealFiles, else nil
 
 	Admin, Meena, Ravi, Priya, Suresh, Kavya, Deepak, Arjun auth.Principal
 }
@@ -44,11 +46,17 @@ type Env struct {
 // EnvOpt changes how New builds the Env.
 type EnvOpt func(*envSpec)
 
-type envSpec struct{ noRules bool }
+type envSpec struct{ noRules, realFiles bool }
 
 // WithNoRules leaves out the test seed's purchase.Order approval rules, for
 // back-entry cases.
 func WithNoRules() EnvOpt { return func(s *envSpec) { s.noRules = true } }
+
+// WithRealFiles gives the engine a real files.Store (default policy, data
+// under t.TempDir()) on the Env's database and clock instead of filesfake,
+// and puts it in Env.Files, so DOC's DeleteAll and CopyAll see attachments
+// made through it.
+func WithRealFiles() EnvOpt { return func(s *envSpec) { s.realFiles = true } }
 
 // engineRef lets AUTH and APR hold the engine, which needs them, before it
 // exists.
@@ -83,8 +91,17 @@ func New(t testing.TB, opts ...EnvOpt) *Env {
 	}
 	namer := naming.New(d, clk, a, audit.Default)
 	approvals := approval.New(approval.Deps{DB: d, Clock: clk, Auth: a, Info: refs, Directory: dir, Audit: audit.Default})
+	var store *files.Store
+	var fsvc files.Service = filesfake.NewWith(clk, a, refs)
+	if spec.realFiles {
+		var err error
+		if store, err = files.New(files.Config{DataDir: testkit.DataDir(t), DB: d, Auth: a, Info: refs, Clock: clk, Audit: audit.Default}); err != nil {
+			t.Fatalf("purchasetest.New: files.New: %v", err)
+		}
+		fsvc = store
+	}
 	refs.Engine = doc.NewEngine(doc.Deps{
-		DB: d, Clock: clk, Auth: a, Naming: namer, Approval: approvals, Files: filesfake.NewWith(clk, a, refs), Audit: audit.Default,
+		DB: d, Clock: clk, Auth: a, Naming: namer, Approval: approvals, Files: fsvc, Audit: audit.Default,
 	})
 	for _, name := range []string{purchase.DocType, purchase.RequestDocType} {
 		dt, _ := doc.Lookup(name)
@@ -96,7 +113,7 @@ func New(t testing.TB, opts ...EnvOpt) *Env {
 	purchase.Wire(d, purchase.HookDeps{Clock: clk, Comments: comments})
 
 	e := &Env{
-		DB: d, Auth: a, Engine: refs.Engine, Clock: clk, Approvals: approvals, Comments: comments,
+		DB: d, Auth: a, Engine: refs.Engine, Clock: clk, Approvals: approvals, Comments: comments, Files: store,
 		Service: purchase.New(purchase.ServiceDeps{
 			DB: d, Engine: refs.Engine, Auth: a, Audit: audit.Default, Approvals: approvals, Comments: comments, Clock: clk,
 		}),

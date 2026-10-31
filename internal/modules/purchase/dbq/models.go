@@ -8,6 +8,21 @@ import (
 	"database/sql"
 )
 
+type ApprovalHistory struct {
+	ID           int64
+	Doctype      string
+	DocID        int64
+	RequestID    sql.NullInt64
+	Action       string
+	UserID       int64
+	UserName     string
+	At           string
+	Amount       sql.NullInt64
+	RuleID       sql.NullInt64
+	Reason       string
+	SelfApproved int64
+}
+
 type BusinessSetting struct {
 	ID             int64
 	LockedUpTo     sql.NullString
@@ -17,6 +32,23 @@ type BusinessSetting struct {
 	CreatedBy      sql.NullInt64
 	UpdatedAt      string
 	UpdatedBy      sql.NullInt64
+}
+
+type Project struct {
+	ID         int64
+	Code       string
+	Name       string
+	BranchID   int64
+	CustomerID sql.NullInt64
+	StartDate  sql.NullString
+	EndDate    sql.NullString
+	Status     string
+	Disabled   int64
+	Version    int64
+	CreatedAt  string
+	CreatedBy  sql.NullInt64
+	UpdatedAt  string
+	UpdatedBy  sql.NullInt64
 }
 
 type PurchaseOrder struct {
@@ -156,4 +188,19 @@ type PurchaseRequestLine struct {
 	Qty         sql.NullInt64
 	Note        string
 	OrderedQty  int64
+}
+
+type Site struct {
+	ID        int64
+	Code      string
+	Name      string
+	BranchID  int64
+	ProjectID sql.NullInt64
+	Type      string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
 }
