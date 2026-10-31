@@ -73,9 +73,6 @@ func cardLine(c purchase.Card) string {
 	return counted(c.Count, "line past its due date", "lines past their due date")
 }
 
-// metaSep joins the parts of a line.
-const metaSep = " · "
-
 // commentCut is how much of a recent comment the home shows (UX §5.1).
 const commentCut = 200
 

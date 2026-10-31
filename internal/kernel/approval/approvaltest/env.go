@@ -55,6 +55,15 @@ type Env struct {
 	t        testing.TB // the test New built this Env for; engine-only methods skip it
 	eng      doc.Engine // nil under the reference driver (engine.go)
 	namer    *naming.Namer
+	deps     approval.Deps // what New gave approval.New
+}
+
+// NewApprovals is approval.New over the Deps New used for A, after edit
+// changes them; A is left as it is.
+func (e *Env) NewApprovals(edit func(*approval.Deps)) *approval.Approvals {
+	d := e.deps
+	edit(&d)
+	return approval.New(d)
 }
 
 // New builds the harness: testkit DB and seed, shared fakes, approval.New,
@@ -88,15 +97,16 @@ func New(t testing.TB) *Env {
 	if useEngine(t) {
 		e.setupEngine(t)
 		e.Docs.engine = e.eng
-		e.A = approval.New(approval.Deps{
+		e.deps = approval.Deps{
 			DB: d, Clock: e.Clock, Auth: e.Auth, Info: e.eng, Directory: e.Dir, Audit: e.Audit,
-		})
+		}
 	} else {
-		e.A = approval.New(approval.Deps{
+		e.deps = approval.Deps{
 			DB: d, Clock: e.Clock, Auth: e.Auth, Info: e.Docs, Directory: e.Dir, Audit: e.Audit,
 			Lookup: Lookup, All: DocTypes,
-		})
+		}
 	}
+	e.A = approval.New(e.deps)
 	e.R1 = e.AddRule(t, approval.RuleInput{DocType: Order, FromAmount: Rs(50_000), ApproverType: approval.ApproverRole, Role: "Purchase Manager"})
 	e.R2 = e.AddRule(t, approval.RuleInput{DocType: Order, FromAmount: Rs(5_00_000), ApproverType: approval.ApproverRole, Role: "Director"})
 	e.E1 = e.AddRule(t, approval.RuleInput{DocType: Claim, FromAmount: 0, ApproverType: approval.ApproverManager, FallbackRole: "Director"})

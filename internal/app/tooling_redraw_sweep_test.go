@@ -88,6 +88,7 @@ package app_test
 
 import (
 	"cmp"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -216,9 +217,11 @@ func (d *rsDoc) cell(t *testing.T, name string, fn func(t *testing.T)) {
 // both runs a request in mode's control twin, where the probe hides nothing
 // and the page must draw a probe field (none says it draws none, which is
 // checked), then in mode, where it must draw none; it returns the second.
+// Neither response may hold an input for an own field (noOwn).
 func (d *rsDoc) both(t *testing.T, where, mode string, none bool, run func(t *testing.T, mode string) rsResp) rsResp {
 	t.Helper()
 	ctl := run(t, mode+rsShow)
+	d.noOwn(t, where+" ("+rsShow+")", ctl)
 	drawn := d.marks(ctl)
 	switch {
 	case none && len(drawn) > 0:
@@ -227,8 +230,24 @@ func (d *rsDoc) both(t *testing.T, where, mode string, none bool, run func(t *te
 		t.Errorf("%s: with nothing hidden the page draws no probe field, so hiding checks nothing", where)
 	}
 	r := run(t, mode)
+	d.noOwn(t, where, r)
 	d.noHidden(t, where, r)
 	return r
+}
+
+// noOwn checks owned's reason: r, a page the sweep draws, holds no input
+// named after a field the module's own Hide hides on a new document. When a
+// page draws one, the probe's leaving it out (own) is no longer true.
+func (d *rsDoc) noOwn(t *testing.T, where string, r rsResp) {
+	t.Helper()
+	if r.page == nil {
+		return
+	}
+	for _, n := range names(r.page, "body") {
+		if d.own[n] {
+			t.Errorf("%s: the page draws an input for %s, which the module's Hide hides on a new document: owned's exception no longer holds", where, n)
+		}
+	}
 }
 
 type rsEnv struct {
@@ -257,9 +276,70 @@ type rsDoc struct {
 	shown     map[string]string // a hidden Link's master name, as cards and pages show it
 	valid     func(t *testing.T) (values, line map[string]string)
 	mod       docscreen.Module // the app's own Module for dt
+	own       map[string]bool  // fields mod's own Hide hides from the admin on a new document; see owned
 	itemsNone bool             // the probe draft's items step draws no probe field; see draft
 	rows      atomic.Bool      // a 422/409 redraw compared non-empty read-only rows
 	drawnRO   []string         // read-only fields a draft's step draws, nothing hidden; see sweepSteps
+	tally     *rsTally         // what every DocType's cells ran; see TestToolingRedraw_Sweep
+}
+
+// rsTally is what the DocTypes' cells ran, checked once all have finished:
+// the NoLinePages skip and the step Body's line-error links must each leave
+// other DocTypes going through the cells they skip or don't take.
+type rsTally struct {
+	mu      sync.Mutex
+	swept   map[string]bool // DocTypes whose subtest reached its end
+	lines   map[string]bool // DocTypes that went through the line cells
+	noLines map[string]bool // DocTypes whose line routes the NoLinePages skip checked
+	body    map[string]bool // DocTypes where lineTarget's first branch ran: the step's Body drew the line error's input
+	generic map[string]bool // DocTypes where lineTarget's last branch ran: no Body, so linesTarget
+	skipped map[string]bool // DocTypes whose subtest was skipped as a whole
+}
+
+func (y *rsTally) add(set *map[string]bool, name string) {
+	y.mu.Lock()
+	defer y.mu.Unlock()
+	if *set == nil {
+		*set = map[string]bool{}
+	}
+	(*set)[name] = true
+}
+
+// check runs when every DocType's subtest has finished. A DocType skipped as
+// a whole fails it. It checks nothing more when -run filters below the
+// DocType level (the cells it counts may not run), left a DocType out, or one
+// stopped early (that one fails on its own).
+func (y *rsTally) check(t *testing.T) {
+	for name := range y.skipped {
+		t.Errorf("%s's subtest was skipped as a whole: the tally can't count its cells", name)
+	}
+	if f := flag.Lookup("test.run"); f != nil && len(strings.Split(f.Value.String(), "/")) > 2 {
+		t.Logf("tally not checked: -run %q filters below the DocType level, so cells it counts may not run", f.Value.String())
+		return
+	}
+	all := rsDocTypes()
+	if len(y.swept) < len(all) {
+		return
+	}
+	if len(y.lines) == 0 {
+		t.Errorf("no DocType went through the line cells: the NoLinePages skip covers every module")
+	}
+	for _, name := range []string{purchase.DocType, expense.ClaimDocType} {
+		if !y.lines[name] {
+			t.Errorf("%s didn't go through the line cells: the NoLinePages skip took a module without the flag", name)
+		}
+	}
+	for _, dt := range all {
+		if dt.LinesTable != "" && !y.lines[dt.Name] && !y.noLines[dt.Name] {
+			t.Errorf("%s has lines but neither went through the line cells nor had the NoLinePages skip check its routes", dt.Name)
+		}
+	}
+	if len(y.body) == 0 {
+		t.Errorf("no DocType's step Body drew a line error's input: the LineFieldID branch of lineTarget is untested")
+	}
+	if len(y.generic) == 0 {
+		t.Errorf("no DocType's items step without a Body linked a line error by linesTarget: the generic branch of lineTarget is untested")
+	}
 }
 
 // newRSEnv is one App with the canonical seed, the sweep's users, an
@@ -300,23 +380,25 @@ func newRSEnv(t *testing.T) *rsEnv {
 			t.Fatalf("move %s's counter: %v", name, err)
 		}
 	}
+	// Claim details draws the advance radios and Less advance only for a paid advance with money left (UX §5.3).
+	e.paidAdvance()
+	base := w.app.ToolingRedrawDeps().Modules
 	for _, dt := range rsDocTypes() {
-		d := &rsDoc{e: e, dt: dt, hide: map[string]bool{}, sentinel: map[string]string{}, shown: map[string]string{}}
+		d := &rsDoc{e: e, dt: dt, hide: map[string]bool{}, sentinel: map[string]string{}, shown: map[string]string{}, mod: base[dt.Name]}
 		steps, err := docscreen.FormSteps(dt)
 		if err != nil {
 			t.Fatalf("FormSteps(%s): %v", dt.Name, err)
 		}
 		d.steps = steps
 		d.valid = e.seeder(dt)
+		d.owned()
 		d.pick()
 		e.doc[dt.Name] = d
 	}
-	base := w.app.ToolingRedrawDeps().Modules
 	for _, probe := range []bool{true, false} {
 		plain, inject, line := map[string]docscreen.Module{}, map[string]docscreen.Module{}, map[string]docscreen.Module{}
 		for name, d := range e.doc {
 			m := base[name]
-			d.mod = m
 			own := m.Hide
 			m.Hide = func(c docscreen.Ctx, f doctype.Field) bool {
 				return (probe && d.hide[f.Name]) || (own != nil && own(c, f))
@@ -332,6 +414,32 @@ func newRSEnv(t *testing.T) *rsEnv {
 		e.h["plain"+suffix], e.h["inject"+suffix], e.h["line"+suffix] = e.mount(plain), e.mount(inject), e.mount(line)
 	}
 	return e
+}
+
+// paidAdvance gives EMP-007 an approved, paid advance with money left.
+func (e *rsEnv) paidAdvance() {
+	t := e.t
+	t.Helper()
+	ctx := t.Context()
+	admin := e.who[rsAdmin]
+	dt, _ := doctype.Lookup(expense.AdvanceDocType)
+	values, line := e.seeder(dt)(t)
+	res, err := e.w.app.Engine().Do(ctx, admin, expense.AdvanceDocType, 0, doc.ActionSave, doc.ActionInput{Values: values, Lines: []map[string]string{line}})
+	if err == nil {
+		res, err = e.w.app.Engine().Do(ctx, admin, expense.AdvanceDocType, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
+	}
+	if err == nil {
+		res, err = e.w.app.Engine().Do(ctx, e.who[rsApprover], expense.AdvanceDocType, res.ID, doc.ActionApprove, doc.ActionInput{Version: res.Version})
+	}
+	if err == nil && res.State != doctype.StateApproved {
+		err = fmt.Errorf("state %s", res.State)
+	}
+	if err == nil {
+		err = e.w.app.ToolingExpense().MarkPaid(ctx, admin, res.ID, res.Version, types.Today(testkit.Clock()))
+	}
+	if err != nil {
+		t.Fatalf("a paid expense.Advance for EMP-007: %v", err)
+	}
 }
 
 // rsDocTypes are the registered document DocTypes, by name.
@@ -518,7 +626,49 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 	}
 }
 
-// pick chooses what the probe hides: on each header step with two or more
+// owned fills own with the fields the module's own Hide hides from the admin
+// on a new document (nil View, CD-327), such as the goods receipt's site_id
+// and po_line_id: no page draws them (noOwn checks it on every page both
+// draws), so the probe neither hides nor types into them, and a step or line
+// error on one is never a shown field's.
+func (d *rsDoc) owned() {
+	d.own = map[string]bool{}
+	if d.mod.Hide == nil {
+		return
+	}
+	c := docscreen.Ctx{
+		Req:       httptest.NewRequestWithContext(d.e.t.Context(), http.MethodGet, d.base()+"/new", nil),
+		Principal: d.e.who[rsAdmin], DT: d.dt, Deps: d.e.w.app.ToolingRedrawDeps(),
+	}
+	for _, f := range d.dt.Fields {
+		if d.mod.Hide(c, f) {
+			d.own[f.Name] = true
+		}
+	}
+}
+
+// ownOnDraft checks owned's reason on a saved draft: the module's Hide still
+// hides every own field with draft id's View, so the step and line pages,
+// whose cells leave own out, draw none of them either.
+func (d *rsDoc) ownOnDraft(t *testing.T, id int64) {
+	deps := d.e.w.app.ToolingRedrawDeps()
+	v, err := deps.View(t.Context(), d.e.who[rsAdmin], d.dt.Name, id)
+	if err != nil {
+		t.Fatalf("view the probe draft: %v", err)
+	}
+	c := docscreen.Ctx{
+		Req:       httptest.NewRequestWithContext(t.Context(), http.MethodGet, d.stepURL(id, 0), nil),
+		Principal: d.e.who[rsAdmin], DT: d.dt, Deps: deps, View: &v,
+	}
+	for _, f := range d.dt.Fields {
+		if d.own[f.Name] && !d.mod.Hide(c, f) {
+			t.Fatalf("the module's Hide shows %s on a saved draft but hides it on a new one: owned's exception no longer holds", f.Name)
+		}
+	}
+}
+
+// pick chooses what the probe hides, among the fields the module doesn't
+// hide itself (own): on each header step with two or more
 // editable fields, a Text field (seeded with a sentinel; an optional one
 // when there is one) and a Required
 // field, keeping one editable field shown; on the lines, a Text field (with a
@@ -532,7 +682,7 @@ func (d *rsDoc) pick() {
 		}
 		var editable []doctype.Field
 		for _, name := range s.Fields {
-			if f, ok := d.dt.Field(name); ok && !f.ReadOnly {
+			if f, ok := d.dt.Field(name); ok && !f.ReadOnly && !d.own[name] {
 				editable = append(editable, f)
 			}
 		}
@@ -554,7 +704,7 @@ func (d *rsDoc) pick() {
 	}
 	var lineFields []doctype.Field
 	for _, f := range d.dt.Fields {
-		if f.OnLine && !f.ReadOnly && !f.RollUp {
+		if f.OnLine && !f.ReadOnly && !f.RollUp && !d.own[f.Name] {
 			lineFields = append(lineFields, f)
 		}
 	}
@@ -720,16 +870,16 @@ func (d *rsDoc) probeErrors(i int) []doctype.FieldError {
 // wantProbe is the summary step i shows for probeErrors, with the probe
 // hiding (hide) or not: CD-256 (1) and stepErrors' rule, written from the
 // spec, not the code.
-func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
+func (d *rsDoc) wantProbe(i, lines int, hide bool, page *goquery.Document) []string {
 	hidden := "#step-title|" + rsMsgHidden
 	var out []string
 	if d.steps[i].Lines {
-		if _, ok := d.shownLine(); ok {
-			out = append(out, d.linesTarget(lines, hide)+"|"+rsMsgVisible)
+		if f, ok := d.shownLine(); ok {
+			out = append(out, d.lineTarget(i, 1, lines, hide, page, f.Name)+"|"+rsMsgVisible)
 		}
-		if _, ok := d.hiddenLine(); ok {
+		if f, ok := d.hiddenLine(); ok {
 			if !hide {
-				hidden = d.linesTarget(lines, hide) + "|" + rsMsgHidden
+				hidden = d.lineTarget(i, 1, lines, hide, page, f.Name) + "|" + rsMsgHidden
 			}
 			out = append(out, hidden)
 		}
@@ -751,19 +901,36 @@ func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
 // the probe hiding (hide) or not: not when the module turns it off
 // (CardsOnly, Line, NoLinePages; CD-256 (6)), and only for rows of 3 or 5
 // editable cells, the fields not hidden (CD-315, docscreen.gridShown). The
-// module's own Hide isn't counted: a wrong guess fails the grid cells' 303
-// check or their 200, never passes silently.
+// module's own Hide counts only as own (a new document's): a wrong guess
+// fails the grid cells' 303 check or their 200, never passes silently.
 func (d *rsDoc) grid(hide bool) bool {
 	if d.mod.CardsOnly || d.mod.Line != nil || d.mod.NoLinePages {
 		return false
 	}
 	n := 0
 	for _, f := range d.dt.Fields {
-		if f.OnLine && !f.ReadOnly && (!hide || !d.hide[f.Name]) {
+		if f.OnLine && !f.ReadOnly && !d.own[f.Name] && (!hide || !d.hide[f.Name]) {
 			n++
 		}
 	}
 	return n == 3 || n == 5
+}
+
+// lineTarget is where step i's error on field of line links in page: the
+// field's input when the step's Body draws that id (CD-286 R1), read from the
+// rendered page; the step heading when a Body draws no such id (its component
+// replaces the line editor); else linesTarget.
+func (d *rsDoc) lineTarget(i, line, lines int, hide bool, page *goquery.Document, field string) string {
+	id := docscreen.LineFieldID(line, field)
+	if d.mod.Steps[d.steps[i].Slug].Body != nil {
+		if page.Find(`#wizard-form [id="`+id+`"]`).Length() > 0 {
+			d.tally.add(&d.tally.body, d.dt.Name)
+			return "#" + id
+		}
+		return "#step-title"
+	}
+	d.tally.add(&d.tally.generic, d.dt.Name)
+	return d.linesTarget(lines, hide)
 }
 
 // linesTarget is where a line error links on the generic items step, with
@@ -779,7 +946,7 @@ func (d *rsDoc) linesTarget(lines int, hide bool) string {
 func (d *rsDoc) stepFields(i int, hidden bool) []doctype.Field {
 	var out []doctype.Field
 	for _, name := range d.steps[i].Fields {
-		if f, ok := d.dt.Field(name); ok && !f.ReadOnly && d.hide[name] == hidden {
+		if f, ok := d.dt.Field(name); ok && !f.ReadOnly && !d.own[name] && d.hide[name] == hidden {
 			out = append(out, f)
 		}
 	}
@@ -908,7 +1075,7 @@ func (d *rsDoc) otherField(i int) (doctype.FieldError, bool) {
 func (d *rsDoc) lineFields(hidden bool) []doctype.Field {
 	var out []doctype.Field
 	for _, f := range d.dt.Fields {
-		if f.OnLine && !f.ReadOnly && !f.RollUp && d.hide[f.Name] == hidden {
+		if f.OnLine && !f.ReadOnly && !f.RollUp && !d.own[f.Name] && d.hide[f.Name] == hidden {
 			out = append(out, f)
 		}
 	}
@@ -992,14 +1159,13 @@ func (d *rsDoc) sources(t *testing.T) map[string]string {
 var rsDraftInputs = map[string][]string{purchase.DocType: {"site_id"}}
 
 // rsBodyInputs is, by DocType, a step whose module Body draws a declared
-// field only once the draft holds other header inputs: P15a's Terms step
-// draws the vendor address radios only with a vendor (UX §5.5). The probe
-// draft holds those inputs too, so drawsDeclared can expect the field; the
-// "body inputs" cell checks each one is still needed.
+// field only once the draft holds other header inputs. None does today:
+// P15a's Terms step posts vendor_address_id even with no vendor (an empty
+// hidden input). The "body inputs" cell checks each entry is still needed.
 var rsBodyInputs = map[string]struct {
 	step, field string
 	inputs      []string
-}{purchase.DocType: {"terms", "vendor_address_id", []string{"vendor_id"}}}
+}{}
 
 // bodyInputs checks d's rsBodyInputs entry: on a draft without the inputs,
 // the module's Body leaves the field out.
@@ -1367,18 +1533,27 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 	if n := len(rsDocTypes()); n < 8 {
 		t.Fatalf("%d document DocTypes registered, want at least the 8 registered at a04f8f3d", n)
 	}
+	tally := &rsTally{}
+	t.Cleanup(func() { tally.check(t) }) // after every parallel subtest
 	for _, dt := range rsDocTypes() {
 		t.Run(dt.Name, func(t *testing.T) {
+			defer func() {
+				if t.Skipped() {
+					tally.add(&tally.skipped, dt.Name)
+				}
+			}()
 			// An App per DocType: parallel writes to one database answered 503
 			// on a loaded machine.
 			t.Parallel()
 			d := newRSEnv(t).doc[dt.Name]
+			d.tally = tally
 			if len(d.hide) == 0 {
 				t.Fatalf("the probe hides nothing on %s: its rule picks no field", dt.Name)
 			}
 			d.names(t)
 			d.sweepNew(t)
 			id := d.draft(t)
+			d.cell(t, "own on the draft", func(t *testing.T) { d.ownOnDraft(t, id) })
 			d.itemsNone = d.itemsDrawNone(t, id)
 			d.sweepSteps(t, id)
 			d.cell(t, "body inputs", d.bodyInputs)
@@ -1405,6 +1580,7 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 				}
 				t.Skip("no wizard step of the draft draws a read-only field with a value, nothing hidden (checked)")
 			})
+			tally.add(&tally.swept, dt.Name)
 		})
 	}
 }
@@ -1492,12 +1668,12 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 				}
 			}, false).want(t, "POST new with probe errors", http.StatusUnprocessableEntity)
 			if isShow(mode) {
-				d.sameSummary(t, "POST new 422, nothing hidden", r, d.wantProbe(0, 0, false))
+				d.sameSummary(t, "POST new 422, nothing hidden", r, d.wantProbe(0, 0, false, r.page))
 			}
 			return r
 		})
 		d.sameNames(t, "POST new 422", r, shown)
-		d.sameSummary(t, "POST new 422", r, d.wantProbe(0, 0, true))
+		d.sameSummary(t, "POST new 422", r, d.wantProbe(0, 0, true, r.page))
 		if typed && inputValue(r.page, f.Name) != rsTyped {
 			t.Errorf("POST new 422: %s = %q, want the typed %q kept", f.Name, inputValue(r.page, f.Name), rsTyped)
 		}
@@ -1601,13 +1777,13 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 					}
 				}, false).want(t, where, http.StatusUnprocessableEntity)
 				if isShow(mode) {
-					d.sameSummary(t, where+", nothing hidden", r, d.wantProbe(i, lines, false))
+					d.sameSummary(t, where+", nothing hidden", r, d.wantProbe(i, lines, false, r.page))
 					d.sameRows(t, where+", nothing hidden", r, beforeShow)
 				}
 				return r
 			})
 			d.sameNames(t, where, r, shown)
-			d.sameSummary(t, where, r, d.wantProbe(i, lines, true))
+			d.sameSummary(t, where, r, d.wantProbe(i, lines, true, r.page))
 			d.keeps(t, where, r, posted, before)
 			if typed && inputValue(r.page, f.Name) != rsTyped {
 				t.Errorf("%s: %s = %q, want the typed %q kept", where, f.Name, inputValue(r.page, f.Name), rsTyped)
@@ -1746,6 +1922,22 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		})
 		return
 	}
+	if d.mod.NoLinePages {
+		d.cell(t, "lines", func(t *testing.T) {
+			// The skip's check: the module's line routes really are absent.
+			// The tally counts the module only once a route has answered 404.
+			for _, path := range []string{d.lineURL(id, "new"), d.lineURL(id, "1"), d.lineURL(id, "1") + "/remove"} {
+				e.do(t, "plain", rsAdmin, http.MethodGet, path, nil, false).want(t, "GET "+path+" on a NoLinePages module", http.StatusNotFound)
+				d.tally.add(&d.tally.noLines, d.dt.Name)
+			}
+			form := url.Values{"version": {strconv.Itoa(d.version(t, id))}}
+			for _, path := range []string{d.lineURL(id, "1"), d.lineURL(id, "1") + "/move?dir=down", d.lineURL(id, "1") + "/remove"} {
+				e.do(t, "plain", rsAdmin, http.MethodPost, path, form, false).want(t, "POST "+path+" on a NoLinePages module", http.StatusNotFound)
+			}
+			t.Skip("NoLinePages: the module has no line pages, and its line routes answer 404 (checked; CD-256 (7), CD-329)")
+		})
+		return
+	}
 	lineOwn := d.ownLineHide(t, d.draftView(t, id))
 	getLine := func(no string) func(t *testing.T, mode string) rsResp {
 		return func(t *testing.T, mode string) rsResp {
@@ -1756,6 +1948,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 	d.cell(t, "line GET", func(t *testing.T) {
 		d.both(t, "GET line new", "plain", false, getLine("new"))
 		fresh = d.both(t, "GET line 1", "plain", false, getLine("1"))
+		d.tally.add(&d.tally.lines, d.dt.Name)
 	})
 	if fresh.page == nil {
 		return
@@ -1781,8 +1974,9 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	}
 	d.cell(t, "line GET module", func(t *testing.T) {
-		// The probe's Line.Body draws nothing, and docscreen's shell no field.
-		d.both(t, "GET line 1 with a module Line", "line", true, func(t *testing.T, mode string) rsResp {
+		// The probe's Line.Body draws nothing, and docscreen's shell no field;
+		// a module's own Line.Body (expense.Claim's line page) draws its fields.
+		d.both(t, "GET line 1 with a module Line", "line", d.mod.Line == nil, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.lineURL(id, "1"), nil, false).want(t, "GET line 1 with a module Line", http.StatusOK)
 		})
 	})
@@ -2149,7 +2343,7 @@ func (d *rsDoc) linesRefused(t *testing.T) {
 			r := d.both(t, "POST move, DOC refuses ("+route.name+")", "plain", false, func(t *testing.T, mode string) rsResp {
 				return move(t, mode, &errs, &lines)
 			})
-			if got, want := summary(r.page), d.wantErrors(errs, items, lines, true); !eq(got, want) {
+			if got, want := summary(r.page), d.wantErrors(errs, items, lines, true, r.page); !eq(got, want) {
 				t.Errorf("POST move, DOC refuses (%s): error summary\n  %q\nwant\n  %q", route.name, got, want)
 			}
 			var posted string
@@ -2207,6 +2401,11 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 				continue
 			}
 			g := e.do(t, "plain", rsReader, http.MethodGet, path, nil, false)
+			if d.mod.NoLinePages && strings.Contains(path, "/lines/") {
+				// A NoLinePages module has no line routes (CD-256 (7), CD-329).
+				g.want(t, "GET "+path+" as a reader on a NoLinePages module", http.StatusNotFound)
+				continue
+			}
 			if g.code != http.StatusSeeOther || g.hdr.Get("Location") != d.url(id) {
 				t.Errorf("GET %s as a reader = %d to %q, want 303 to the document page", path, g.code, g.hdr.Get("Location"))
 			}
@@ -2248,7 +2447,7 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {strconv.Itoa(d.version(t, id))}}, false).want(t, "POST submit", http.StatusUnprocessableEntity)
 		})
 		i := d.failing(errs)
-		if got, want := summary(r.page), d.wantErrors(errs, i, len(e.load(t, d.dt.Name, id).Lines), false); !eq(got, want) {
+		if got, want := summary(r.page), d.wantErrors(errs, i, len(e.load(t, d.dt.Name, id).Lines), false, r.page); !eq(got, want) {
 			t.Errorf("POST submit 422 on step %s: error summary\n  %q\nwant\n  %q", d.steps[i].Slug, got, want)
 		}
 	})
@@ -2476,7 +2675,7 @@ func (d *rsDoc) failing(errs []doctype.FieldError) int {
 // wantErrors is the summary step i shows for DOC's errs: its own errors and
 // unowned ones, an error on a hidden field as a plain message (CD-256 (1));
 // for a refusal with none of those left, every error as a plain message.
-func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool) []string {
+func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool, page *goquery.Document) []string {
 	var out []string
 	for _, e := range errs {
 		if j := d.owner(e); e.Field != "" && j >= 0 && j != i {
@@ -2485,7 +2684,9 @@ func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool
 		switch {
 		case e.Field == "" || d.hide[e.Field]:
 			out = append(out, "#step-title|"+e.Message)
-		case e.Line > 0 || e.Field == "lines":
+		case e.Line > 0:
+			out = append(out, d.lineTarget(i, e.Line, lines, true, page, e.Field)+"|"+e.Message)
+		case e.Field == "lines":
 			out = append(out, d.linesTarget(lines, true)+"|"+e.Message)
 		default:
 			out = append(out, "#"+components.FieldID(e.Field)+"|"+e.Message)
@@ -2498,6 +2699,54 @@ func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool
 		}
 	}
 	return out
+}
+
+// TestToolingRedraw_LineTarget checks lineTarget's three branches on a
+// synthetic page, as docscreen's error link rule (form.go): no swept module
+// has a Body on a step whose generic form would show the line editor, so the
+// sweep alone can't tell the Body-without-the-id branch from linesTarget.
+func TestToolingRedraw_LineTarget(t *testing.T) {
+	body := func(docscreen.Ctx, docscreen.StepState) (templ.Component, error) { return nil, nil }
+	d := &rsDoc{
+		dt:    &doctype.DocType{Name: "Synthetic", Fields: []doctype.Field{{Name: "a", OnLine: true}, {Name: "b", OnLine: true}, {Name: "c", OnLine: true}}},
+		steps: []docscreen.FormStep{{Slug: "items", Lines: true}},
+		tally: &rsTally{},
+	}
+	page := func(html string) *goquery.Document {
+		p, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	id := docscreen.LineFieldID(2, "b")
+	drawn := page(`<form id="wizard-form"><input id="` + id + `"></form>`)
+	empty := page(`<form id="wizard-form"></form>`)
+	for _, c := range []struct {
+		name string
+		body bool
+		page *goquery.Document
+		want string
+	}{
+		{"Body draws the id", true, drawn, "#" + id},
+		{"Body without the id", true, empty, "#step-title"},
+		{"no Body", false, empty, "#line-editor"},
+	} {
+		d.mod = docscreen.Module{Steps: map[string]docscreen.Step{"items": {}}}
+		if c.body {
+			d.mod.Steps["items"] = docscreen.Step{Body: body}
+		}
+		if got := d.lineTarget(0, 2, 2, false, c.page, "b"); got != c.want {
+			t.Errorf("%s: lineTarget = %q, want %q", c.name, got, c.want)
+		}
+	}
+	// wantErrors links a line error by the error's own line: no swept
+	// module's errors name a line past 1 on a Body that draws its inputs.
+	d.mod = docscreen.Module{Steps: map[string]docscreen.Step{"items": {Body: body}}}
+	errs := []doctype.FieldError{{Field: "b", Line: 2, Message: "m"}}
+	if got, want := d.wantErrors(errs, 0, 2, false, drawn), []string{"#" + id + "|m"}; !slices.Equal(got, want) {
+		t.Errorf("wantErrors on line 2 = %q, want %q", got, want)
+	}
 }
 
 // TestToolingRedraw_TableMatchesCode is the staleness guard: docscreen's

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -54,13 +55,22 @@ const MaxExportRows = 50000
 
 // Exporter writes list results as CSV.
 type Exporter struct {
-	db   *db.DB
-	auth auth.Service
+	db     *db.DB
+	auth   auth.Service
+	hidden func(doctype.Field) bool
 }
 
 // NewExporter returns an Exporter; link targets come from doctype.Lookup.
 func NewExporter(d *db.DB, a auth.Service) *Exporter {
 	return &Exporter{db: d, auth: a}
+}
+
+// Without is ex leaving out of every export the header fields hidden
+// reports true for: the app passes the list's Hide answer (CD-334 (4)).
+func (ex *Exporter) Without(hidden func(doctype.Field) bool) *Exporter {
+	out := *ex
+	out.hidden = hidden
+	return &out
 }
 
 // Export writes every row matching q that p may read: a BOM, a header of
@@ -85,6 +95,9 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 	}
 	// The columns ScanRow fills: line fields live on the lines table.
 	fields := list.HeaderFields(dt)
+	if ex.hidden != nil {
+		fields = slices.DeleteFunc(fields, ex.hidden)
+	}
 	n := 0
 	err = ex.db.Read(ctx, func(tx *db.Tx) error {
 		var total int64

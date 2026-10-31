@@ -297,6 +297,23 @@ func (q *Queries) RequestLinkedOrders(ctx context.Context, parentID int64) ([]Re
 	return items, nil
 }
 
+const requestRowAt = `-- name: RequestRowAt :one
+SELECT parent_id, line_no FROM purchase_request_line WHERE id = ?
+`
+
+type RequestRowAtRow struct {
+	ParentID int64
+	LineNo   int64
+}
+
+// Add from requests (P15c): a ticked row's request and line number.
+func (q *Queries) RequestRowAt(ctx context.Context, id int64) (RequestRowAtRow, error) {
+	row := q.db.QueryRowContext(ctx, requestRowAt, id)
+	var i RequestRowAtRow
+	err := row.Scan(&i.ParentID, &i.LineNo)
+	return i, err
+}
+
 const requestRowOf = `-- name: RequestRowOf :one
 SELECT r.parent_id,
        q.state,

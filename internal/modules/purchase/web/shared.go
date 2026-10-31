@@ -23,6 +23,33 @@ const (
 	handOverLabel  = "Hand over"
 )
 
+// pairRaisedBy is the Raised by pair's label (UX §5.16).
+const pairRaisedBy = "Raised by"
+
+// metaSep joins the parts of a line.
+const metaSep = " · "
+
+// orderPage is PO id's module page at tail ("/send", "/handover", ...).
+func orderPage(id int64, tail string) string {
+	return "/modules/purchase/orders/" + strconv.FormatInt(id, 10) + tail
+}
+
+// allowed reports whether the viewer holds right r on dt (for rec), nil
+// error meaning yes; a refusal is false with no error.
+func allowed(c docscreen.Ctx, dt string, r auth.Right, rec *auth.RecordRef) (bool, error) {
+	err := c.Deps.Auth.Can(c.Req.Context(), c.Principal, dt, r, rec)
+	if errors.Is(err, auth.ErrForbidden) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// unitOf is line l's unit code, from its "{Code} {Name}" display (CD-68).
+func unitOf(l docscreen.LineView) string {
+	code, _, _ := strings.Cut(l.Display["uom_id"], " ")
+	return code
+}
+
 // commentsCard is the record's Comments card, with a comment post refused
 // without htmx back in the box (UX 5.10).
 func (m *module) commentsCard(c docscreen.Ctx, dt string, id int64) (templ.Component, error) {

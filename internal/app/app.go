@@ -96,6 +96,8 @@ type App struct {
 
 	// docModules is each DocType's docscreen Module, set by routes.
 	docModules map[string]docscreen.Module
+	// receiveLink is purchaseweb's Receive goods link as routes wired it.
+	receiveLink func(ctx context.Context, p auth.Principal, poID int64) (string, bool)
 }
 
 // engineRef lets AUTH, APR and FILE hold the engine, which needs them, before
@@ -187,6 +189,11 @@ func New(ctx context.Context, cfg Config) (a *App, err error) {
 	}
 	a.approvals = approval.New(approval.Deps{
 		DB: d, Clock: cfg.Clock, Auth: a.auth, Info: refs, Directory: dir, Audit: audit.Default, Roles: roleDirectory{a.auth},
+		// The inbox shows a party only where the list does (CD-327 (3)).
+		// docDeps is read per call: routes sets the Modules after New.
+		PartyVisible: func(ctx context.Context, p auth.Principal, name string) bool {
+			return a.docDeps().PartyListed(ctx, p, name)
+		},
 	})
 	a.engine = doc.NewEngine(doc.Deps{
 		DB: d, Clock: cfg.Clock, Auth: a.auth, Naming: namer, Approval: a.approvals, Files: a.files, Audit: audit.Default,

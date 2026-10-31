@@ -14,16 +14,17 @@ import (
 // approved with a number", "dateRequest returns request_date"): Suresh
 // submits draft PR-A (2 rows) and it moves straight to approved, with no
 // approval request or history, numbered PR/26-27/00001. The FY of the number
-// comes from request_date, not the clock (24-10-2026): a request dated
-// 31-03-2026 is PR/25-26/00001, one dated 01-04-2026 PR/26-27/00002.
+// comes from request_date, which submit sets to its own business date
+// (CD-330 (1)): drafts dated 31-03-2026 and 01-04-2026 submitted on
+// 24-10-2026 are PR/26-27/00002 and PR/26-27/00003 (P25 tests the FY change).
 func TestRequest_SubmitNumbers(t *testing.T) {
 	env := purchasetest.New(t)
 	for _, c := range []struct {
 		date, want string
 	}{
 		{p5Today, "PR/26-27/00001"},
-		{"2026-03-31", "PR/25-26/00001"},
-		{"2026-04-01", "PR/26-27/00002"},
+		{"2026-03-31", "PR/26-27/00002"},
+		{"2026-04-01", "PR/26-27/00003"},
 	} {
 		h := p5Header(t, env, "METRO-SITE", "PRJ-METRO")
 		h["request_date"] = c.date

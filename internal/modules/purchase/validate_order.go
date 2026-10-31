@@ -289,7 +289,7 @@ func checkSiteProject(ctx context.Context, tx *db.Tx, siteID, projectID int64) (
 	return 0, &doc.FieldError{Field: "project_id", Message: fmt.Sprintf(msgSiteProject, st.Code, pr.Code)}, nil
 }
 
-// checkLines applies each line's defaults, checks its UoM (a conversion,
+// checkLines applies each line's defaults, checks its HSN/SAC and its UoM (a conversion,
 // CD-278; whole numbers through uom.CheckLineQty, CD-277 (4)) and works out
 // its net rate, amount and snapshots. ok[i] is false for a line whose own
 // check failed. The GST columns are filled from the totals by the caller.
@@ -305,6 +305,9 @@ func checkLines(ctx context.Context, tx *db.Tx, h dbq.OrderForValidateRow, proje
 			it, err := items.Get(ctx, tx, l.ItemID)
 			must(err)
 			must(lineDefaults(ctx, tx, h, projectID, it, l))
+			if fe := checkLineHSN(n, it.Type, l.HsnSac); fe != nil {
+				errs = append(errs, *fe)
+			}
 			if fe := lineSnapshot(ctx, tx, l, it, &p); fe != nil {
 				errs, ok[i] = append(errs, *fe), false
 			}
@@ -327,6 +330,20 @@ func checkLines(ctx context.Context, tx *db.Tx, h dbq.OrderForValidateRow, proje
 		out[i] = p
 	}
 	return out, ok, errs
+}
+
+// checkLineHSN checks line n's HSN/SAC code with the item master's rule for
+// the item's type (CD-337 (2); PO spec:94): gstin's goods HSN check or its
+// SAC check, with gstin's text behind the line prefix.
+func checkLineHSN(n int, typ item.ItemType, code string) *doctype.FieldError {
+	check := gstin.ValidateGoodsHSN
+	if typ == item.TypeService {
+		check = gstin.ValidateSAC
+	}
+	if _, err := check(code); err != nil {
+		return &doctype.FieldError{Field: "hsn_sac", Line: n, Message: fmt.Sprintf("Line %d: ", n) + err.Error()}
+	}
+	return nil
 }
 
 // lineSnapshot checks the line's UoM (never blank after lineDefaults: an

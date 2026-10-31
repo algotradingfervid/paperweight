@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/uom"
 	"github.com/vardhan/internaltools/internal/modules/purchase/dbq"
@@ -55,7 +56,7 @@ func validateRequest(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldEr
 			l.Description = it.Name
 		}
 		if l.UomID == 0 {
-			l.UomID = it.StockUoMID
+			l.UomID = it.PurchaseUoMID
 		}
 		if fe := checkRequestQty(ctx, tx, l, it.Code); fe != nil {
 			errs = append(errs, *fe)
@@ -106,6 +107,21 @@ func checkRequestQty(ctx context.Context, tx *db.Tx, l *dbq.RequestLinesForValid
 		uom.UoM{Code: snap.StockUoMCode, WholeNumber: snap.StockWhole}, snap.Factor)
 }
 
-// beforeSubmitRequest adds no rule: the kernel runs Validate again on submit
-// (D-APR-15), and submit moves a request straight to approved (§20.3).
-func beforeSubmitRequest(context.Context, *db.Tx, int64) error { return nil }
+// beforeSubmitRequest sets the hidden request date to the submit's business
+// date, so the number takes that date's FY (CD-330 (1)), and checks needed-by
+// against it (§20.2). The kernel has run Validate already (D-APR-15); submit
+// then moves a request straight to approved (§20.3).
+func beforeSubmitRequest(ctx context.Context, tx *db.Tx, id int64) error {
+	deps, err := wiring.Get(tx)
+	must(err)
+	q := dbq.New(tx.SQL())
+	h, err := q.RequestForValidate(ctx, id)
+	must(err)
+	today := types.Today(deps.Clock)
+	h.RequestDate = today.ISO()
+	must(q.SetRequestDate(ctx, dbq.SetRequestDateParams{ID: id, RequestDate: sql.NullString{String: h.RequestDate, Valid: true}}))
+	if errs := checkRequestDates(h, today); len(errs) > 0 {
+		return doc.Invalid(errs)
+	}
+	return nil
+}

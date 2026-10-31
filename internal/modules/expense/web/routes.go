@@ -1,20 +1,33 @@
 package expenseweb
 
 import (
+	"context"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/files"
+	"github.com/vardhan/internaltools/internal/masters/employee"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
 // Deps are what the module's screens need; internal/app fills them.
 type Deps struct {
-	Service *expense.Service
-	Engine  doc.Engine
-	Auth    auth.Service
-	Files   *files.Store
+	Service  *expense.Service
+	Engine   doc.Engine
+	Auth     auth.Service
+	Files    *files.Store
+	Employee Employees
+}
+
+// Employees reads employees for the claim's details step (S1): an
+// Administrator's employee code, and the stored employee's code.
+// *employee.Service satisfies it.
+type Employees interface {
+	ByCode(ctx context.Context, tx *db.Tx, code string) (employee.Employee, bool, error)
+	Get(ctx context.Context, tx *db.Tx, id int64) (employee.Employee, error)
 }
 
 // handlers carries Deps to each task's handler file.

@@ -1,0 +1,44 @@
+package purchaseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// fromLinkView is the Items step's Add from requests link (UX §5.6).
+templ fromLinkView(label, href string) {
+	@components.Button(components.ButtonProps{Label: label, Href: href, Variant: components.Secondary})
+}
+
+// fromRequestsView is the Add from requests body (UX §5.7): the heading,
+// the ticked rows no longer open (a redraw keeps their ticks), then the
+// empty text or the intro and one card per request. The hidden
+// from=requests marks the post as this view's, since the step form's action
+// has no query.
+templ fromRequestsView(v fromView) {
+	if v.tickable {
+		<input type="hidden" name={ fromKey } value={ fromValue }/>
+	}
+	<h2 id="from-requests-title" tabindex="-1">{ fromHeading }</h2>
+	for _, r := range v.gone {
+		@components.Checkboxes(r.box, []components.Option{{Value: r.value, Label: r.label}}, r.checked)
+	}
+	if len(v.cards) == 0 {
+		@components.EmptyState(v.empty, nil)
+	} else {
+		<p>{ v.intro }</p>
+		for _, card := range v.cards {
+			@components.Card(card.title, nil) {
+				<p>{ card.meta }</p>
+				for _, r := range card.rows {
+					if r.tick {
+						@components.Checkboxes(r.box, []components.Option{{Value: r.value, Label: r.label, Hint: r.hint}}, r.checked)
+						@components.QtyInput(r.qty, r.whole, r.uom)
+					} else {
+						<p>{ r.label }</p>
+						for _, h := range r.held {
+							<p>{ h }</p>
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -26,11 +26,22 @@ import (
 	namingweb "github.com/vardhan/internaltools/internal/kernel/naming/web"
 	printweb "github.com/vardhan/internaltools/internal/kernel/print/web"
 	"github.com/vardhan/internaltools/internal/masters/allmasters"
+	"github.com/vardhan/internaltools/internal/masters/company"
+	"github.com/vardhan/internaltools/internal/masters/employee"
+	"github.com/vardhan/internaltools/internal/masters/expensetype"
 	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
+	"github.com/vardhan/internaltools/internal/masters/item"
 	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	"github.com/vardhan/internaltools/internal/masters/party"
+	"github.com/vardhan/internaltools/internal/masters/paymentterms"
+	"github.com/vardhan/internaltools/internal/masters/project"
+	"github.com/vardhan/internaltools/internal/masters/site"
+	"github.com/vardhan/internaltools/internal/masters/taxcode"
+	"github.com/vardhan/internaltools/internal/masters/uom"
 	"github.com/vardhan/internaltools/internal/modules/expense"
 	expenseweb "github.com/vardhan/internaltools/internal/modules/expense/web"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	grnweb "github.com/vardhan/internaltools/internal/modules/goodsreceipt/web"
 	modkitweb "github.com/vardhan/internaltools/internal/modules/modkit/web"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
@@ -102,13 +113,17 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		}
 		r.Method(http.MethodPost, "/ui/validate/{kind}", a.srv.Self(components.ValidateHandler(parsers())))
 
+		gw := grnweb.Deps{Service: a.grn}
 		pw := purchaseweb.Deps{
 			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
-			CSRF: func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
+			CSRF:        func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
+			ReceiveLink: gw.ReceiveLink, // CD-283: purchase never imports goodsreceipt
 		}
+		a.receiveLink = pw.ReceiveLink
 		a.docModules = purchaseweb.Modules(pw)
 		a.docModules[expense.ClaimDocType] = expenseweb.ClaimModule(a.expenseWeb())
 		a.docModules[expense.AdvanceDocType] = expenseweb.AdvanceModule(a.expenseWeb())
+		maps.Copy(a.docModules, grnweb.Modules(gw))
 		maps.Copy(a.docModules, a.cfg.Modules)
 		docs := chi.NewRouter()
 		docscreen.Routes(a.docDeps())(docs)
@@ -134,7 +149,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		purchaseweb.Routes(pw)(purchases)
 		mount(r, purchases, self)
 		grns := chi.NewRouter()
-		grnweb.Routes(grnweb.Deps{Service: a.grn})(grns)
+		grnweb.Routes(gw)(grns)
 		mount(r, grns, func(route string, h http.Handler) http.Handler {
 			dt, right, ok := grnweb.Guard(route)
 			if !ok {
@@ -223,6 +238,9 @@ func parsers() map[string]components.ParseFunc {
 	return out
 }
 
+// DocDeps is the generic document screens' Deps as routes built them.
+func (a *App) DocDeps() docscreen.Deps { return a.docDeps() }
+
 // docDeps is what the generic document screens read from (CD-78, CD-200).
 func (a *App) docDeps() docscreen.Deps {
 	return docscreen.Deps{
@@ -250,7 +268,7 @@ func (a *App) docDeps() docscreen.Deps {
 
 // expenseWeb is what the Expense screens and module routes need.
 func (a *App) expenseWeb() expenseweb.Deps {
-	return expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files}
+	return expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files, Employee: a.masters.Employee}
 }
 
 // pickerURL is a master's picker search (CD-194, CD-195).
@@ -375,13 +393,17 @@ func (a *App) exportCSV(w http.ResponseWriter, r *http.Request) {
 		a.srv.WriteError(w, r, err)
 		return
 	}
-	q, err := listQuery(dt, docscreen.ParseListQuery(r.URL.Query()))
+	// The list's Hide answer leaves the hidden fields' columns, filters and
+	// sort out of the export too (CD-334 (3), (4)).
+	hidden := a.docDeps().ListHidden(r, dt)
+	q, err := listQuery(dt, docscreen.ListedQuery(dt, docscreen.ParseListQuery(r.URL.Query()), hidden))
 	if err != nil {
 		a.srv.WriteError(w, r, err)
 		return
 	}
+	ex := csvio.NewExporter(a.db, a.auth).Without(func(f doctype.Field) bool { return hidden(f.Name) })
 	var buf bytes.Buffer
-	if _, err := csvio.NewExporter(a.db, a.auth).Export(ctx, &buf, p, dt, q); err != nil {
+	if _, err := ex.Export(ctx, &buf, p, dt, q); err != nil {
 		a.srv.WriteError(w, r, err)
 		return
 	}
@@ -418,27 +440,66 @@ func (a *App) shell(r *http.Request) ui.Shell {
 // approvalPageSize is a page size the inbox accepts; the count is its Total.
 const approvalPageSize = 25
 
-// Navigation groups (design-system §6).
+// Navigation groups, in sidebar order (UI v2 §5.2, N18). groupDocuments
+// holds only a DocType docNav doesn't place: the test-only ones.
 const (
 	groupWork      = "Work"
+	groupPurchase  = "Purchase"
+	groupGRN       = "Goods receipt"
+	groupExpenses  = "Expenses"
 	groupDocuments = "Documents"
 	groupMasters   = "Masters"
-	groupAdmin     = "Administration"
+	groupAdmin     = "Admin"
 )
 
 // purchaseHomePath is the Purchase home, the nav entry for anyone who may read
 // purchase.Order or purchase.Request (MOD-PO P1 Do 4).
 const purchaseHomePath = "/modules/purchase"
 
-// nav is p's navigation: the two approval pages, Purchase, one item per
-// DocType p may read, then the administrator's pages. The rights are read in one
-// transaction, through CanTx.
+// navPlace is a DocType's group and icon in the sidebar; more puts it under
+// the group's More disclosure.
+type navPlace struct {
+	name, group, icon string
+	more              bool
+}
+
+// docNav places every DocType the sidebar lists, in sidebar order (UI v2
+// §5.2; DL §4.6). TestNav_EveryDocTypeHasIcon fails on a missing one.
+var docNav = []navPlace{
+	{purchase.DocType, groupPurchase, "shopping-cart", false},
+	{purchase.RequestDocType, groupPurchase, "clipboard-list", false},
+	{goodsreceipt.DocType, groupGRN, "truck", false},
+	{expense.ClaimDocType, groupExpenses, "receipt-indian-rupee", false},
+	{expense.AdvanceDocType, groupExpenses, "hand-coins", false},
+	{party.DocType, groupMasters, "handshake", false},
+	{item.DocType, groupMasters, "package", false},
+	{project.DocType, groupMasters, "folder-kanban", false},
+	{site.DocType, groupMasters, "map-pin", false},
+	{employee.DocType, groupMasters, "id-card", false},
+	{company.DocType, groupMasters, "store", true},
+	{company.CompanyDocType, groupMasters, "building-2", true},
+	{expensetype.DocType, groupMasters, "tags", true},
+	{paymentterms.DocType, groupMasters, "calendar-clock", true},
+	{taxcode.DocType, groupMasters, "percent", true},
+	{uom.DocType, groupMasters, "ruler", true},
+}
+
+// docNavIndex is name's index in docNav, or -1.
+func docNavIndex(name string) int {
+	return slices.IndexFunc(docNav, func(p navPlace) bool { return p.name == name })
+}
+
+// nav is p's navigation: the two approval pages, the Purchase home, one item
+// per DocType p may read in docNav's order (any other DocType after them, in
+// Documents or Masters), then the administrator's pages. The rights are read
+// in one transaction, through CanTx.
 func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 	ctx := r.Context()
 	items := []ui.NavItem{
 		{Label: "Approvals", Href: inboxPath, Icon: "inbox", Group: groupWork},
-		{Label: "My requests", Href: inboxPath + "/mine", Icon: "clock", Group: groupWork},
+		{Label: "My requests", Href: inboxPath + "/mine", Icon: "file-clock", Group: groupWork},
 	}
+	placed := make([]*ui.NavItem, len(docNav))
 	var docs, masters []ui.NavItem
 	purchases := false
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
@@ -455,25 +516,43 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 				return err
 			}
 			purchases = purchases || dt.Name == purchase.DocType || dt.Name == purchase.RequestDocType
-			if dt.IsMaster() {
-				masters = append(masters, ui.NavItem{Label: dt.PluralLabel, Href: href, Icon: "file", Group: groupMasters})
-			} else {
-				docs = append(docs, ui.NavItem{Label: dt.PluralLabel, Href: href, Icon: "file-text", Group: groupDocuments})
+			it := ui.NavItem{Label: dt.PluralLabel, Href: href}
+			switch i := docNavIndex(dt.Name); {
+			case i >= 0:
+				it.Group, it.Icon, it.More = docNav[i].group, docNav[i].icon, docNav[i].more
+				placed[i] = &it
+			case dt.IsMaster():
+				it.Group, it.Icon = groupMasters, "file"
+				masters = append(masters, it)
+			default:
+				it.Group, it.Icon = groupDocuments, "file-text"
+				docs = append(docs, it)
 			}
 		}
 		return nil
 	})
 	if purchases {
-		items = append(items, ui.NavItem{Label: "Purchase", Href: purchaseHomePath, Icon: "file-text", Group: groupWork})
+		items = append(items, ui.NavItem{Label: "Purchase home", Href: purchaseHomePath, Icon: "layout-dashboard", Group: groupPurchase})
 	}
-	items = append(append(items, docs...), masters...)
+	for i, it := range placed {
+		if it != nil && docNav[i].group != groupMasters {
+			items = append(items, *it)
+		}
+	}
+	items = append(items, docs...)
+	for i, it := range placed {
+		if it != nil && docNav[i].group == groupMasters {
+			items = append(items, *it)
+		}
+	}
+	items = append(items, masters...)
 	if slices.Contains(p.Roles, auth.RoleAdministrator) {
 		items = append(items,
-			ui.NavItem{Label: "Users", Href: "/users", Icon: "user", Group: groupAdmin},
-			ui.NavItem{Label: "Roles", Href: "/roles", Icon: "lock", Group: groupAdmin},
-			ui.NavItem{Label: "Numbering", Href: "/settings/numbering", Icon: "pencil", Group: groupAdmin},
-			ui.NavItem{Label: "Business settings", Href: "/settings/business", Icon: "pencil", Group: groupAdmin},
-			ui.NavItem{Label: "Approval rules", Href: "/admin/approval-rules", Icon: "check-circle", Group: groupAdmin},
+			ui.NavItem{Label: "Users", Href: "/users", Icon: "users", Group: groupAdmin},
+			ui.NavItem{Label: "Roles", Href: "/roles", Icon: "shield", Group: groupAdmin},
+			ui.NavItem{Label: "Approval rules", Href: "/admin/approval-rules", Icon: "list-checks", Group: groupAdmin},
+			ui.NavItem{Label: "Numbering", Href: "/settings/numbering", Icon: "hash", Group: groupAdmin},
+			ui.NavItem{Label: "Business settings", Href: "/settings/business", Icon: "settings", Group: groupAdmin},
 		)
 	}
 	return items, err

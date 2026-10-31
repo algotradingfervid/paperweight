@@ -15,30 +15,33 @@ const g8ReceiptPrint = `-- name: G8ReceiptPrint :one
 SELECT receipt_date, challan_kind, challan_no, challan_date, vehicle_no, transporter,
        eway_bill_no, remarks, COALESCE(snap_vendor_name, '') AS vendor_name,
        COALESCE(snap_vendor_gstin, '') AS vendor_gstin, COALESCE(snap_vendor_address, '') AS vendor_address,
-       COALESCE(snap_po_number, '') AS po_number, snap_po_date, COALESCE(snap_branch_id, 0) AS branch_id
+       COALESCE(snap_po_number, '') AS po_number, snap_po_date, COALESCE(snap_branch_id, 0) AS branch_id,
+       purchase_order_id
 FROM goods_receipt
 WHERE id = ?
 `
 
 type G8ReceiptPrintRow struct {
-	ReceiptDate   sql.NullString
-	ChallanKind   string
-	ChallanNo     string
-	ChallanDate   sql.NullString
-	VehicleNo     string
-	Transporter   string
-	EwayBillNo    string
-	Remarks       string
-	VendorName    string
-	VendorGstin   string
-	VendorAddress string
-	PoNumber      string
-	SnapPoDate    sql.NullString
-	BranchID      int64
+	ReceiptDate     sql.NullString
+	ChallanKind     string
+	ChallanNo       string
+	ChallanDate     sql.NullString
+	VehicleNo       string
+	Transporter     string
+	EwayBillNo      string
+	Remarks         string
+	VendorName      string
+	VendorGstin     string
+	VendorAddress   string
+	PoNumber        string
+	SnapPoDate      sql.NullString
+	BranchID        int64
+	PurchaseOrderID sql.NullInt64
 }
 
 // G8: the print reads (GRN spec 9), from the GRN's own columns and
-// snapshots only. Bill details and attachments are not printed.
+// snapshots only, plus purchase_order_id for the PO's reverse-charge note
+// (G8b). Bill details and attachments are not printed.
 func (q *Queries) G8ReceiptPrint(ctx context.Context, id int64) (G8ReceiptPrintRow, error) {
 	row := q.db.QueryRowContext(ctx, g8ReceiptPrint, id)
 	var i G8ReceiptPrintRow
@@ -57,6 +60,7 @@ func (q *Queries) G8ReceiptPrint(ctx context.Context, id int64) (G8ReceiptPrintR
 		&i.PoNumber,
 		&i.SnapPoDate,
 		&i.BranchID,
+		&i.PurchaseOrderID,
 	)
 	return i, err
 }

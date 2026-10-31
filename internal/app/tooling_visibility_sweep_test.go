@@ -17,6 +17,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -54,8 +55,21 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 	bodies := map[string]string{}
 	got := map[string]map[bool]map[int]bool{} // route → hidden page → statuses seen
 	pinned := s.urlStatuses()
+	mods := s.w.app.DocDeps().Modules
+	probed := 0 // line pages of other modules, which still answer as sweepStatuses says
 	for _, p := range pages {
 		r := v.get(p.url)
+		want := sweepStatus(p.route, p.hidden)
+		if dt, ok := linePage(p.route, p.url); ok {
+			// A NoLinePages module has no line routes (CD-256 (7), CD-329):
+			// each of its line pages must answer 404, which is the check that
+			// this exception still holds.
+			if mods[dt].NoLinePages {
+				want = []int{http.StatusNotFound}
+			} else {
+				probed++
+			}
+		}
 		bodies[p.url] = r.body
 		if want, ok := pinned[p.url]; ok && r.status != want {
 			t.Errorf("GET %s (route %s) = %d, want %d: update urlStatuses if the change is right", p.url, p.route, r.status, want)
@@ -67,8 +81,8 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 			got[p.route][p.hidden] = map[int]bool{}
 		}
 		got[p.route][p.hidden][r.status] = true
-		if !slices.Contains(sweepStatus(p.route, p.hidden), r.status) {
-			t.Errorf("GET %s (route %s, hidden id %v) = %d, want one of %v: update sweepStatuses if the change is right", p.url, p.route, p.hidden, r.status, sweepStatus(p.route, p.hidden))
+		if !slices.Contains(want, r.status) {
+			t.Errorf("GET %s (route %s, hidden id %v) = %d, want one of %v: update sweepStatuses if the change is right", p.url, p.route, p.hidden, r.status, want)
 		}
 		for prefix, name := range hiddenMasters {
 			if strings.HasPrefix(p.url, prefix) && strings.Contains(r.body, name) {
@@ -88,6 +102,9 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 				t.Errorf("GET %s (route %s) names hidden %s %d: %q", p.url, p.route, h.r.label, h.r.id, m)
 			}
 		}
+	}
+	if probed == 0 {
+		t.Errorf("no line page of a module without NoLinePages was swept: the NoLinePages exception covers every module")
 	}
 	// The table is exact: a status it allows that no page answered is stale.
 	for route, byHidden := range got {
@@ -196,11 +213,13 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	} {
 		out[r] = st{Control: []int{forbidden}}
 	}
-	// Stubs answer 501 before reading the id (expense E1).
+	// Mark as paid and Undo paid need cancel, which the viewer lacks: 403 on
+	// an advance it reads, AUTH-108's 404 on a hidden one (UX §5.18).
 	for _, r := range []string{"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid"} {
-		out[r] = st{Control: []int{stub}, Hidden: []int{stub}}
+		out[r] = st{Control: []int{forbidden}}
 	}
-	for _, r := range []string{"/reports/grn/bills", "/reports/grn/bills/export.csv", "/reports/grn/items", "/reports/grn/items/export.csv"} {
+	// The GRN report pages are S4's stubs; their CSVs are built (G9).
+	for _, r := range []string{"/reports/grn/bills", "/reports/grn/items"} {
 		out[r] = st{Control: []int{stub}}
 	}
 	return out
@@ -228,6 +247,15 @@ func (s *sweepSeed) urlStatuses() map[string]int {
 		out["/modules/purchase/requests/"+c.value+"/order"] = want
 	}
 	return out
+}
+
+// linePage reports whether route is a document's line page and, if so, the
+// DocType its url names.
+func linePage(route, url string) (string, bool) {
+	if !strings.HasPrefix(route, "/doc/{doctype}/{id}/lines/") {
+		return "", false
+	}
+	return strings.Split(url, "/")[2], true
 }
 
 // sweepStatus is what route may answer the viewer.
@@ -522,10 +550,11 @@ func (s *sweepSeed) docPages() map[string][]sweepPage {
 // can't.
 func (s *sweepSeed) fill(route string) ([]sweepPage, string) {
 	queries := map[string][]string{
-		"/settings/numbering/preview":   {"?tpl=PO%2F%7B%23%23%23%23%23%7D"},
-		"/m/import/template":            {"?doctype=Party"},
-		"/reports/expense/lines":        {"", "?month=2026-10"},
-		"/reports/expense/lines/filter": {"", "?month=2026-10"},
+		"/settings/numbering/preview":     {"?tpl=PO%2F%7B%23%23%23%23%23%7D"},
+		"/m/import/template":              {"?doctype=Party"},
+		"/reports/expense/lines":          {"", "?month=2026-10"},
+		"/reports/expense/lines/filter":   {"", "?month=2026-10"},
+		"/modules/goodsreceipt/po-search": {"", "?all=1", "?all=1&q=" + hiddenQuery},
 	}
 	plain := func(us ...string) []sweepPage {
 		var out []sweepPage
@@ -720,6 +749,7 @@ var controlReports = map[string][]string{
 	purchase.DocType:       {"/reports/purchase/pending"},
 	expense.ClaimDocType:   {"/reports/expense/open", "/reports/expense/lines"},
 	expense.AdvanceDocType: {"/reports/expense/advances"},
+	goodsreceipt.DocType:   {"/reports/grn/bills/export.csv", "/reports/grn/items/export.csv"},
 }
 
 // controlExpectation is a page that must show a control record.
@@ -743,6 +773,9 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 			}
 			add("/modules/purchase/q/"+purchase.QueueToSend, r.doc.Number)
 			add("/modules/purchase/q/"+purchase.QueueAwaitingDelivery, r.doc.Number)
+			// GRN step 1's PO search (S1b, CD-323 (2)): a readable approved
+			// order is found by its number, widened to fully received ones.
+			add("/modules/goodsreceipt/po-search?all=1", r.doc.Number)
 		}
 		page := "/doc/" + r.dt + "/" + idText(r.id)
 		dt, _ := doctype.Lookup(r.dt)

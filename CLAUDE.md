@@ -117,6 +117,10 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A module page extra (pairs, cards) that shows a stored field's value checks the registered Module.Hide, and so does anything derived from it (Left from Used); the redraw sweep's read-only probe fails otherwise (MOD-EXP S3, REPEAT).
 - A docscreen `Step.Save` hook, like a handler, runs after the posted version, state and right checks, never before parsing or validating posted values; docscreen enforces it from M0-56 (CD-335). It reached P15c after the handler-side date parse (CD-259, AD-13, REPEAT).
 - A CSS change in a fix round runs the full `make e2e`, not an e2e-quick subset: M0-53 fix1 passed its layout subset and broke TestE2E_AttachmentsAxe (target size) on main.
+- Order tests insert a back-dated or out-of-order row: ids that follow the sort key let ORDER BY mutants survive (G9, REPEAT of the name-order lesson). A multi-filter parser that keeps one error gets a row with two bad filters (G9).
+- A guard or open condition is tested in every state or input where it changes the result: one non-draft state let a narrowed state guard survive (S1d), and a condition joining several inputs needs one row per input with the others blank (S2) (AD-12, REPEAT).
+- Fake a read failure in the service (a closed DB), never by cancelling the request context: a cancelled-ctx test couldn't fail (AD-12, S1b). The goodsreceipt package needs about 13 minutes under -race, so its hand-ins use -timeout 20m or more.
+- A head lane branched from an older commit merges main before its hand-in, and checks every "no module uses X" claim against main: B1 (base 48c776c2) hid 22 purchase hints behind tips because P29 landed on main in between (REPEAT of the compare-with-main lesson). `pkill -f` without your own worktree path in the pattern happened again in B1.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here

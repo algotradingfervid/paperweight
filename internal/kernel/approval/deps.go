@@ -27,6 +27,12 @@ type Deps struct {
 	Lookup    func(name string) (*doctype.DocType, bool) // nil → doctype.Lookup
 	All       func() []*doctype.DocType                  // nil → doctype.All
 	Roles     RoleDirectory                              // nil → role existence not checked
+	// PartyVisible reports whether p's listing of doctype shows its party;
+	// the inbox, My requests, Stuck and Overdue leave Party out where it
+	// says no (CD-327 (3), CD-334). nil shows
+	// the party everywhere, as before: most DocTypes never hide it, and
+	// failing closed would blank it for all of them.
+	PartyVisible func(ctx context.Context, p auth.Principal, doctype string) bool
 }
 
 // Approvals implements Service plus the rule-admin and read-model methods.
@@ -40,13 +46,14 @@ type Approvals struct {
 	lookup func(name string) (*doctype.DocType, bool)
 	all    func() []*doctype.DocType
 	roles  RoleDirectory
+	party  func(ctx context.Context, p auth.Principal, doctype string) bool
 }
 
 // New stores d, filling the defaults for Audit, Lookup and All.
 func New(d Deps) *Approvals {
 	a := &Approvals{
 		db: d.DB, clock: d.Clock, auth: d.Auth, info: d.Info, dir: d.Directory,
-		audit: d.Audit, lookup: d.Lookup, all: d.All, roles: d.Roles,
+		audit: d.Audit, lookup: d.Lookup, all: d.All, roles: d.Roles, party: d.PartyVisible,
 	}
 	if a.audit == nil {
 		a.audit = audit.Default
