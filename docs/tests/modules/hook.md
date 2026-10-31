@@ -238,6 +238,13 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Go test:** `TestE2E_Field_EchoKeepsSaveInPlace`
 - **Sources:** CD-287
 
+### HOOK-043 · A step's Top renders above the generic body
+- **Priority:** P1
+- **Level:** integration
+- **Given** a `Step.Top` hook **When** the step renders with no Body, or a Body that returns no component **Then** Top's component renders first inside the step form; it does not render when the Body returns a component; an error is a 500.
+- **Go test:** `TestModule_StepTop`
+- **Sources:** CD-280 D5
+
 ### HOOK-047 · LargeQtyInput keeps QtyInput's attributes at the large size
 - **Priority:** P1
 - **Level:** unit
