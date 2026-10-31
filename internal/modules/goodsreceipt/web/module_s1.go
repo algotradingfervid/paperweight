@@ -343,8 +343,11 @@ func pickURL(c docscreen.Ctx, all bool) string {
 // from DraftFromPO (plan G6 Do 3), with the typed receipt date; a blank
 // order is its 422, another site's order its 403 (CD-240).
 func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
-	if c.View != nil && (c.Req.PostFormValue("version") != strconv.Itoa(c.View.Version) || c.View.Info.State != doctype.StateDraft) {
-		return docscreen.Save{Values: map[string]string{}}, nil
+	if c.View != nil {
+		n, err := strconv.Atoi(c.Req.PostFormValue("version")) // as docscreen reads it
+		if err != nil || n != c.View.Version || c.View.Info.State != doctype.StateDraft {
+			return docscreen.Save{Values: map[string]string{}}, nil
+		}
 	}
 	dated := shown(c, "receipt_date")
 	var date string
@@ -363,7 +366,6 @@ func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 		if po != c.View.Inputs["purchase_order_id"] {
 			return docscreen.Save{Errors: []doctype.FieldError{{Field: "purchase_order_id", Message: msgDeleteToChange}}}, nil
 		}
-		v["purchase_order_id"] = po
 		return docscreen.Save{Values: v}, nil
 	}
 	id, _ := strconv.ParseInt(c.Req.PostFormValue("purchase_order_id"), 10, 64) // not an id: 0, "Choose a purchase order."

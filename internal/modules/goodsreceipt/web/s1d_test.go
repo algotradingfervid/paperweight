@@ -9,8 +9,10 @@ import (
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt/grntest"
 	grnweb "github.com/vardhan/internaltools/internal/modules/goodsreceipt/web"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
@@ -67,6 +69,12 @@ func TestGRNWeb_FixedPOPostsStored(t *testing.T) {
 			t.Errorf("stale page with %s wrote: version %d PO %v date %v", name, after.Version, after.Header["purchase_order_id"], after.Header["receipt_date"])
 		}
 	}
+	// docscreen reads the version with strconv.Atoi, so "+N" is the current
+	// page too and gets the PO refusal, not DOC's conflict.
+	r = w.post(w.Suresh, path, url.Values{"version": {"+" + version}, "receipt_date": {"23-10-2026"}, "purchase_order_id": {strconv.FormatInt(other.ID, 10)}})
+	if r.status != http.StatusUnprocessableEntity || !strings.Contains(r.errorSummary(), s1MsgDeleteToChange) {
+		t.Errorf("version +%s with another PO = %d %q, want 422 %s", version, r.status, r.errorSummary(), s1MsgDeleteToChange)
+	}
 	if r = w.post(w.Suresh, path, url.Values{"version": {version}, "receipt_date": {"x"}, "purchase_order_id": {stored}}); r.status != http.StatusUnprocessableEntity {
 		t.Errorf("current page with a bad date = %d, want 422", r.status)
 	}
@@ -76,20 +84,28 @@ func TestGRNWeb_FixedPOPostsStored(t *testing.T) {
 	}
 }
 
-// CD-332 with CD-259: on a GRN past draft step 1's POST gets DOC's state
-// answer, not the PO refusal.
+// CD-332 with CD-259: on a GRN past draft (approved, cancelled, pending)
+// step 1's POST with the current version gets DOC's state answer before
+// anything posted is parsed: neither the bad date nor the PO refusal, and
+// nothing is written.
 func TestGRNWeb_FixedPONotDraft(t *testing.T) {
 	w := newS1World(t)
+	approved := w.receiveAll(w.po("SHREE", "10"))
+	cancelled := w.receiveAll(w.po("SHREE", "10"))
+	w.Cancel(t, w.Ravi, cancelled.ID, "Counted twice")
+	cancelled = w.Load(t, goodsreceipt.DocType, cancelled.ID)
+	w.AddRule(t, goodsreceipt.DocType, 0, "Administrator")
 	po := w.po("SHREE", "10")
-	other := w.po("BHARAT", "5")
-	g := w.receiveAll(po)
-	r := w.post(w.Suresh, stepPath(g.ID, "details"), url.Values{"version": {strconv.Itoa(g.Version)}, "receipt_date": {"23-10-2026"},
-		"purchase_order_id": {strconv.FormatInt(other.ID, 10)}})
-	if r.status != http.StatusConflict || strings.Contains(r.errorSummary(), s1MsgDeleteToChange) {
-		t.Errorf("step 1 POST on an approved GRN = %d %q, want DOC's state answer, not the PO refusal", r.status, r.errorSummary())
-	}
-	if after := w.Load(t, goodsreceipt.DocType, g.ID); after.Version != g.Version || after.Header["purchase_order_id"] != po.ID {
-		t.Errorf("the refused post wrote: version %d PO %v", after.Version, after.Header["purchase_order_id"])
+	pending := w.GRN(t, w.Suresh, po.ID, []grntest.Line{{POLineID: po.Lines[0].ID, Received: "10"}}, doctype.StatePending)
+	for name, g := range map[string]doc.Doc{"approved": approved, "cancelled": cancelled, "pending": pending} {
+		r := w.post(w.Suresh, stepPath(g.ID, "details"), url.Values{"version": {strconv.Itoa(g.Version)}, "receipt_date": {"x"}, "purchase_order_id": {"x"}})
+		if r.status != http.StatusConflict || strings.Contains(r.errorSummary(), s1MsgDeleteToChange) {
+			t.Errorf("step 1 POST on a %s GRN = %d %q, want DOC's 409 state answer, not a parse or PO refusal", name, r.status, r.errorSummary())
+		}
+		if after := w.Load(t, goodsreceipt.DocType, g.ID); after.Version != g.Version || after.State != g.State ||
+			after.Header["purchase_order_id"] != g.Header["purchase_order_id"] || after.Header["receipt_date"] != g.Header["receipt_date"] {
+			t.Errorf("the refused post on the %s GRN wrote: version %d state %s PO %v date %v", name, after.Version, after.State, after.Header["purchase_order_id"], after.Header["receipt_date"])
+		}
 	}
 }
 
