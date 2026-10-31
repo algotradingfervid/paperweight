@@ -1,0 +1,28 @@
+package purchaseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// recordView is the Sent to vendor or Expected delivery section (UX §5.9,
+// §5.20): its lines, with Change or Set date when change is set.
+templ recordView(title string, lines []string, change *components.Link) {
+	@components.Card(title, change) {
+		for _, l := range lines {
+			<p>{ l }</p>
+		}
+	}
+}
+
+// receiptsView is the Goods receipts section (UX §5.9): a DataList row per
+// readable receipt, then the count of the others with no state.
+templ receiptsView(rows []components.Row, others string) {
+	@components.Card(receiptsTitle, nil) {
+		if len(rows) > 0 {
+			@components.DataList(components.DataListProps{Label: receiptsTitle, Columns: receiptColumns, Rows: rows})
+		} else if others == "" {
+			<p>{ noReceipts }</p>
+		}
+		if others != "" {
+			<p>{ others }</p>
+		}
+	}
+}
