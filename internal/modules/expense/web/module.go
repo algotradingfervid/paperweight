@@ -14,6 +14,8 @@ func ClaimModule(d Deps) docscreen.Module {
 		Hide:       claimHide(d),       // S1
 		LineCard:   claimLineCard(d),   // S1
 		Check:      claimCheck(d),      // S1
+		LineNoun:   claimLineNoun(),    // S1
+		AddTop:     true,               // S1: Add an expense above the cards (UX §5.4)
 		Line:       claimLine(d),       // S2
 		Page:       claimPage(d),       // S3
 		Reason:     claimReason(d),     // S3

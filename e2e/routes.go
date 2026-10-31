@@ -320,6 +320,11 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			out = append(out, sc)
 		}
 	}
+	// MOD-EXP S1: an Administrator's Claim details adds the employee code.
+	out = append(out, screens.Screen{
+		Name: expense.ClaimDocType + " details admin", Route: "/doc/{doctype}/{id}/edit/{step}",
+		URL: "/doc/" + expense.ClaimDocType + "/" + strconv.FormatInt(s.exp[expense.ClaimDocType].Draft, 10) + "/edit/details", As: admin,
+	})
 	out = append(out, authscreens.Screens(authscreens.SweepIDs{
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
