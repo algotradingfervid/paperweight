@@ -62,7 +62,7 @@ The line link gives DOC-017's closed-source refusal, DOC-038's cancelled-source 
 | `vehicle_no` | Vehicle no. | Text, max 20 | Optional. Step `delivery` |
 | `transporter` | Transporter | Text, max 140 | Optional. Step `delivery` |
 | `eway_bill_no` | E-way bill no. | Text, max 20 | Optional, no format check. Step `delivery` |
-| `remarks` | Remarks | Text, max 500 | Printed |
+| `remarks` | Remarks | Text, max 500 | Printed. Step `delivery` (CD-282 Q7) |
 | `rest_not_coming` | Vendor says the rest won't come | Check | Default off. Step `delivery`. On approval it posts a comment on the PO and puts the PO in the Purchase home's `To close` queue through `purchase.SetRestNotComing`; cancel takes it out. It never changes the PO's state (CD-272 Gap 8) |
 | `accepted_value` | Accepted value | Money, read-only | Σ accepted × net rate, before tax. List priority 2 |
 | `state` | State | Select, read-only | List priority 3 |

@@ -194,7 +194,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-023 · Lock off by default; on, it refuses submit and cancel at the boundary date; the day after passes; unlocking clears it
 - **Priority:** P1
 - **Level:** integration
-- **Given** no lock **Then** a GRN dated 30-09-2026 submits. **Given** `Locked up to` 30-09-2026 **When** a GRN dated 30-09-2026 is submitted, or an approved one with that date is cancelled **Then** each is refused with the lock text from PO spec §14.2 naming the GRN (`Draft {id}` before numbering). A GRN dated 01-10-2026 passes. **When** the lock is cleared **Then** the refused actions pass.
+- **Given** no lock **Then** a GRN dated 30-09-2026 submits. **Given** `Locked up to` 30-09-2026 **When** a GRN dated 30-09-2026 is submitted **Then** it is refused with the lock text from PO spec §14.2 naming the GRN (`Draft {id}` before numbering) as a field error on `receipt_date` (422, CD-282). **When** an approved one with that date is cancelled **Then** it is refused with the same text as a refusal. A GRN dated 01-10-2026 passes. **When** the lock is cleared **Then** the refused actions pass.
 - **Go test:** `TestGRN_PeriodLock`
 - **Sources:** GRN spec §5, §16; PO spec §14.2
 - **Built in:** G5
@@ -266,7 +266,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-032 · Received items report columns read back
 - **Priority:** P1
 - **Level:** integration
-- **Given** an approved GRN with a rejected line **When** the Received items report and its CSV are read **Then** every column (GRN no., date, vendor, PO no., item, HSN, received, accepted, rejected, reason, UoM, rate, accepted value) reads back its value, one assertion per column; the rejected filter keeps only lines with rejected above 0.
+- **Given** an approved GRN with a rejected line **When** the Received items report and its CSV are read **Then** every column (GRN no., date, vendor, PO no., item, HSN, received, accepted, rejected, reason, UoM, rate, accepted value) reads back its value, one assertion per column; the rejected filter keeps only lines with rejected above 0, and the item filter only that item's lines (CD-282).
 - **Go test:** `TestGRN_ItemsReport`
 - **Sources:** GRN spec §12, §16
 - **Built in:** G9
