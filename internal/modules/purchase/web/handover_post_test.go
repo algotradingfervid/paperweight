@@ -34,9 +34,9 @@ const (
 	hwStale      = "Someone else changed %s after you opened it. Reload it and make your changes again."
 )
 
-// hwMissing are the 404 texts for a PO that doesn't exist (or a bad id):
-// AUTH's (CD-245) or DOC's missing answer, which Reassign gives (CD-259).
-var hwMissing = []string{auth.MsgNotFound, "This document no longer exists. It may have been deleted."}
+// hwMissing is the 404 text for a PO that doesn't exist (or a bad id):
+// AUTH's, the same as a hidden PO (CD-245), never DOC's missing text.
+var hwMissing = []string{auth.MsgNotFound}
 
 // hwRender is one call of renderHandover.
 type hwRender struct {

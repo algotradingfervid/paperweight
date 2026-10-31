@@ -38,11 +38,6 @@ const (
 	hoAction      = "reassign"                                                                            // DOC's reassign audit Action (CD-259)
 )
 
-// hoMissing are the 404 texts a missing PO may get: AUTH's (CD-245) or DOC's
-// missing answer, which Reassign gives (CD-259 "load"). A hidden PO always
-// gets AUTH's.
-var hoMissing = []string{auth.MsgNotFound, "This document no longer exists. It may have been deleted."}
-
 // hoSnap is what a refused hand-over leaves as it was: the PO's owner,
 // version and state, and the row counts of every table a hand-over touches
 // (CD-272 "rollback by row counts").
@@ -372,6 +367,34 @@ func TestPO_HandOver(t *testing.T) {
 		}
 	})
 
+	// Plan P10 Do 2: once Reassign has committed, a note that can't be saved
+	// is logged, not a refusal. A trigger makes every comment insert fail.
+	t.Run("note that fails after the hand-over is not a refusal", func(t *testing.T) {
+		po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
+		if _, err := env.DB.SQL().ExecContext(t.Context(),
+			`CREATE TRIGGER p10_test_no_comment BEFORE INSERT ON module_comment BEGIN SELECT RAISE(ABORT, 'p10 test'); END`); err != nil {
+			t.Fatalf("setup: create trigger: %v", err)
+		}
+		t.Cleanup(func() {
+			if _, err := env.DB.SQL().ExecContext(context.Background(), `DROP TRIGGER p10_test_no_comment`); err != nil {
+				t.Errorf("drop trigger: %v", err)
+			}
+		})
+		if _, err := env.Comments.AddComment(t.Context(), env.Priya, purchase.DocType, po.ID, "Probe."); err == nil {
+			t.Fatalf("setup: AddComment succeeded with the trigger in place")
+		}
+		before := countRows(t, env.DB, "module_comment", "1 = 1")
+		if err := hoHandOver(t, env, env.Priya, po.ID, po.Version, env.Arjun.ID, "Over to you."); err != nil {
+			t.Fatalf("HandOver with a note that can't be saved: err = %v, want nil (the PO is handed over)", err)
+		}
+		if d := hoLoad(t, env, po.ID); d.CreatedBy != env.Arjun.ID || d.Version != po.Version+1 {
+			t.Errorf("after hand-over: created_by %d, version %d; want %d (Arjun), %d", d.CreatedBy, d.Version, env.Arjun.ID, po.Version+1)
+		}
+		if got := countRows(t, env.DB, "module_comment", "1 = 1"); got != before {
+			t.Errorf("module_comment rows = %d, want %d (none added)", got, before)
+		}
+	})
+
 	t.Run("refused targets and notes change nothing", func(t *testing.T) {
 		po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
 		tech := hoTechOrder(t, env)
@@ -491,10 +514,12 @@ func TestPO_HandOver(t *testing.T) {
 			hoStatus(t, err, http.StatusNotFound)
 			hoUnchanged(t, env, tech.ID, before)
 		})
+		// A missing PO is AUTH's 404, the same as a hidden one (CD-245), never
+		// DOC's missing text, which Reassign gives.
 		t.Run("404 missing", func(t *testing.T) {
 			err := hoHandOver(t, env, env.Priya, 999_999, 1, env.Arjun.ID, "")
-			if err == nil || !slices.Contains(hoMissing, err.Error()) {
-				t.Errorf("err = %v, want a 404 in %q", err, hoMissing)
+			if !errors.Is(err, auth.ErrNotFound) || err.Error() != auth.MsgNotFound {
+				t.Errorf("err = %v, want AUTH's 404 %q", err, auth.MsgNotFound)
 			}
 			hoStatus(t, err, http.StatusNotFound)
 		})
@@ -551,6 +576,11 @@ func TestPO_HandOverState(t *testing.T) {
 					t.Errorf("as %s: %s's Roles = %q, want it to name %q", p.Name, st.Eligible[i].Name, st.Eligible[i].Roles, role)
 				}
 			}
+			// Arjun holds two roles (Employee, Purchase User; CD-257): Roles is
+			// their names sorted and joined with ", " (UX 5.12).
+			if i := slices.IndexFunc(st.Eligible, func(e purchase.Eligible) bool { return e.ID == env.Arjun.ID }); i < 0 || st.Eligible[i].Roles != "Employee, Purchase User" {
+				t.Errorf("as %s: Arjun's Eligible entry = %+v, want Roles exactly %q", p.Name, st.Eligible, "Employee, Purchase User")
+			}
 		}
 	})
 
@@ -560,6 +590,28 @@ func TestPO_HandOverState(t *testing.T) {
 		cancelled := hoAct(t, env, env.Ravi, purchasetest.NewOrder(t, env), doctype.ActionCancel, "Vendor backed out")
 		penv := hoPendingEnv(t)
 		pending := purchasetest.NewOrder(t, penv, purchasetest.StopAtPending())
+
+		// Spec §21.2 "When": a rejected PO can be handed over, so Refusal is
+		// nil and the view is filled in as for a draft.
+		t.Run("rejected", func(t *testing.T) {
+			rejected := hoAct(t, penv, penv.Ravi, purchasetest.NewOrder(t, penv, purchasetest.StopAtPending()), doctype.ActionReject, "Wrong vendor")
+			if rejected.State != doc.StateRejected {
+				t.Fatalf("setup: state %s, want rejected", rejected.State)
+			}
+			for _, p := range []auth.Principal{penv.Priya, penv.Ravi} {
+				st, err := hoState(t, penv, p, rejected.ID)
+				if err != nil {
+					t.Fatalf("HandOverState of a rejected PO as %s: %v", p.Name, err)
+				}
+				if st.Refusal != nil {
+					t.Errorf("as %s: Refusal = %v on a rejected PO, want nil", p.Name, st.Refusal)
+				}
+				if st.Version != rejected.Version || st.Owner != "Priya Shah" || !slices.ContainsFunc(st.Eligible, func(e purchase.Eligible) bool { return e.ID == penv.Arjun.ID }) {
+					t.Errorf("as %s: Version %d, Owner %q, Eligible %+v; want %d, %q, Arjun among them", p.Name, st.Version, st.Owner, st.Eligible, rejected.Version, "Priya Shah")
+				}
+			}
+		})
+
 		for _, c := range []struct {
 			env *purchasetest.Env
 			d   doc.Doc
@@ -596,13 +648,12 @@ func TestPO_HandOverState(t *testing.T) {
 				t.Errorf("as %s: Refusal = %v, want nil (403 is the error)", p.Name, st.Refusal)
 			}
 		}
-		for name, c := range map[string]struct {
-			id   int64
-			msgs []string
-		}{"hidden": {tech.ID, []string{auth.MsgNotFound}}, "missing": {999_999, hoMissing}} {
-			st, err := hoState(t, env, env.Priya, c.id)
-			if err == nil || !slices.Contains(c.msgs, err.Error()) {
-				t.Errorf("%s: err = %v, want a 404 in %q", name, err, c.msgs)
+		// Hidden and missing are both AUTH's 404 (CD-245), never DOC's
+		// missing text.
+		for name, id := range map[string]int64{"hidden": tech.ID, "missing": 999_999} {
+			st, err := hoState(t, env, env.Priya, id)
+			if !errors.Is(err, auth.ErrNotFound) || err.Error() != auth.MsgNotFound {
+				t.Errorf("%s: err = %v, want AUTH's 404 %q", name, err, auth.MsgNotFound)
 			}
 			hoStatus(t, err, http.StatusNotFound)
 			if st.Refusal != nil || len(st.Eligible) != 0 {
