@@ -115,14 +115,16 @@ func TestPurchase_HookUnwired(t *testing.T) {
 
 // MOD-PO P1 Do 2 (PO spec §3.1, §20.2; naming/assign.go:21): the Date hooks
 // are real in P1 and return order_date and request_date, so numbering takes
-// the FY from the document's date, not from the clock.
+// the FY from the document's date, not from the clock. A request's date is
+// set again at submit (CD-330 (1)), so the back-dated request stays a draft:
+// its hook still returns the stored date.
 func TestPurchase_DateHooks(t *testing.T) {
 	env := purchasetest.New(t)
 	back := types.Date{Year: 2026, Month: 3, Day: 31}
 	po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
 	pr := purchasetest.NewRequest(t, env, purchasetest.StopAtDraft())
 	backPO := purchasetest.NewOrder(t, env, purchasetest.StopAtApproved(), purchasetest.OrderHeader(map[string]string{"order_date": "31-03-2026"}))
-	backPR := purchasetest.NewRequest(t, env, purchasetest.StopAtApproved(), purchasetest.RequestHeader(map[string]string{"request_date": "31-03-2026"}))
+	backPR := purchasetest.NewRequest(t, env, purchasetest.StopAtDraft(), purchasetest.RequestHeader(map[string]string{"request_date": "31-03-2026"}))
 	today := types.Date{Year: 2026, Month: 10, Day: 24}
 
 	for _, c := range []struct {
@@ -146,8 +148,8 @@ func TestPurchase_DateHooks(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if backPO.Number != "PO/25-26/00001" || backPR.Number != "PR/25-26/00001" {
-		t.Errorf("back-dated numbers = %q, %q; want PO/25-26/00001, PR/25-26/00001 (FY of the document date)", backPO.Number, backPR.Number)
+	if backPO.Number != "PO/25-26/00001" {
+		t.Errorf("back-dated number = %q; want PO/25-26/00001 (FY of the document date)", backPO.Number)
 	}
 }
 
