@@ -13,6 +13,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/kernel/files/filestest"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
+	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -200,3 +201,103 @@ func (e *Env) id(t testing.TB, table, code string) int64 {
 
 // Day is d-m-2026 as a types.Date.
 func Day(d int, m time.Month) types.Date { return types.Date{Year: 2026, Month: m, Day: d} }
+
+// POOwnReader creates a user whose only role, "PO Own Reader", holds read
+// and export on goodsreceipt.Receipt at scope all and read on
+// purchase.Order at scope own, through the real AUTH, makes that user the
+// creator of po with plain SQL (no public path changes a document's
+// creator), and returns the principal: a viewer of every GRN who can read
+// po and no other PO (CD-233, CD-340).
+func (e *Env) POOwnReader(t testing.TB, po int64) auth.Principal {
+	t.Helper()
+	ctx := context.Background()
+	if err := e.Auth.CreateRole(ctx, e.Admin, "PO Own Reader"); err != nil {
+		t.Fatalf("grntest: create the PO Own Reader role: %v", err)
+	}
+	if err := e.Auth.SetRights(ctx, e.Admin, "PO Own Reader", goodsreceipt.DocType,
+		map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll, auth.RightExport: auth.ScopeAll}); err != nil {
+		t.Fatalf("grntest: PO Own Reader rights on the GRN: %v", err)
+	}
+	if err := e.Auth.SetRights(ctx, e.Admin, "PO Own Reader", purchase.DocType, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeOwn}); err != nil {
+		t.Fatalf("grntest: PO Own Reader rights on the PO: %v", err)
+	}
+	id, _, err := e.Auth.CreateUser(ctx, e.Admin, auth.NewUser{ //nolint:gosec // G101: a test user's password
+		Email: "poown@vardhan.test", Name: "PO Own Reader", Password: "Only my own orders 42", Roles: []string{"PO Own Reader"},
+	})
+	if err != nil {
+		t.Fatalf("grntest: create the PO Own Reader user: %v", err)
+	}
+	res, err := e.DB.SQL().ExecContext(ctx, `UPDATE purchase_order SET created_by = ? WHERE id = ?`, int64(id), po)
+	if err != nil {
+		t.Fatalf("grntest: make PO Own Reader the creator of PO %d: %v", po, err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		t.Fatalf("grntest: PO %d creator change touched %d rows, want 1", po, n)
+	}
+	p, _, err := e.Auth.LoadPrincipal(ctx, id)
+	if err != nil {
+		t.Fatalf("grntest: load the PO Own Reader user: %v", err)
+	}
+	return p
+}
+
+// NoReceiptRights creates a user whose only role, "PO Only", holds read on
+// purchase.Order at scope all and nothing on goodsreceipt.Receipt, through
+// the real AUTH, and returns the principal: the reports refuse them.
+func (e *Env) NoReceiptRights(t testing.TB) auth.Principal {
+	t.Helper()
+	ctx := context.Background()
+	if err := e.Auth.CreateRole(ctx, e.Admin, "PO Only"); err != nil {
+		t.Fatalf("grntest: create the PO Only role: %v", err)
+	}
+	if err := e.Auth.SetRights(ctx, e.Admin, "PO Only", purchase.DocType, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
+		t.Fatalf("grntest: PO Only rights: %v", err)
+	}
+	id, _, err := e.Auth.CreateUser(ctx, e.Admin, auth.NewUser{ //nolint:gosec // G101: a test user's password
+		Email: "poonly@vardhan.test", Name: "PO Only", Password: "Orders but no receipts 42", Roles: []string{"PO Only"},
+	})
+	if err != nil {
+		t.Fatalf("grntest: create the PO Only user: %v", err)
+	}
+	p, _, err := e.Auth.LoadPrincipal(ctx, id)
+	if err != nil {
+		t.Fatalf("grntest: load the PO Only user: %v", err)
+	}
+	return p
+}
+
+// EarlyReceipt adds to a ReportWorld an approved GRN made after every
+// other one but with an earlier receipt date, 20-10-2026: a PO with two
+// lines (MS-ANGLE-50 and WIRE-18G) by Priya and a GRN by Suresh receiving
+// both, approved by the Administrator under the world's GRN rule, made with the clock at 20-10-2026 10:30 IST and then put back. Its
+// lines' line_no are then swapped with plain SQL, so line_no order (WIRE-18G
+// first) differs from the line ids' order (no public path reorders lines).
+// purchasetest.NewOrder looks MS-ANGLE-50 and KGS up by code, so their
+// codes go back for the build and are renamed again after (call it after
+// NewReportWorld). It returns the GRN as made; Lines[0] is the MS-ANGLE-50
+// line (line_no 2 now), Lines[1] the WIRE-18G line (line_no 1).
+func (e *Env) EarlyReceipt(t testing.TB) doc.Doc {
+	t.Helper()
+	back := e.Clock.Now()
+	e.RenameMaster(t, "item", "MS-ANGLE-RENAMED", "code", "MS-ANGLE-50")
+	e.RenameMaster(t, "uom", "KGM", "code", "KGS")
+	e.SetNow(t, time.Date(2026, time.October, 20, 5, 0, 0, 0, time.UTC))
+	po := purchasetest.NewOrder(t, e.Env, purchasetest.StopAtApproved(), purchasetest.OrderLines(
+		map[string]string{"qty": "100", "price": "62.5"},
+		map[string]string{"item_id": e.masterID(t, "item", "WIRE-18G"), "qty": "10", "price": "96", "hsn_sac": "7217"},
+	))
+	g := e.GRN(t, e.Suresh, po.ID, []Line{{POLineID: po.Lines[0].ID, Received: "6"}, {POLineID: po.Lines[1].ID, Received: "3"}}, doctype.StatePending)
+	g = e.act(t, e.Admin, goodsreceipt.DocType, g.ID, doctype.ActionApprove, "")
+	e.Clock.Set(back)
+	e.RenameMaster(t, "item", "MS-ANGLE-50", "code", "MS-ANGLE-RENAMED")
+	e.RenameMaster(t, "uom", "KGS", "code", "KGM")
+	for _, q := range []string{
+		`UPDATE goods_receipt_line SET line_no = -line_no WHERE parent_id = ?`,
+		`UPDATE goods_receipt_line SET line_no = 3 + line_no WHERE parent_id = ?`,
+	} {
+		if _, err := e.DB.SQL().ExecContext(context.Background(), q, g.ID); err != nil {
+			t.Fatalf("grntest: swap the early GRN's line numbers: %v", err)
+		}
+	}
+	return g
+}
