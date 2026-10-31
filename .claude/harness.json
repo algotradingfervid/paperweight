@@ -12,8 +12,7 @@
   "commands": {
     "fast_test": "go test -race ./{pkg}/...",
     "handin": [
-      "go test -race {dirs}",
-      "bin/tools/golangci-lint run --new-from-rev={base} {dirs}"
+      "make handin BASE={base} PKGS=\"{dirs}\""
     ],
     "merge": "make ci",
     "e2e": "make e2e"
