@@ -94,6 +94,13 @@ func (e *engine) do(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocTyp
 	if err != nil {
 		return Result{}, err
 	}
+	if a == ActionClose && dt.CloseRight == doctype.CloseNone {
+		// Read first, so a hidden document stays AUTH's 404 (CD-245, CD-279).
+		if err := e.Auth.CanTx(ctx, tx, p, dt.Name, auth.RightRead, recordRef(dt, d)); err != nil {
+			return Result{}, err
+		}
+		return Result{}, Refused(fmt.Sprintf(msgCloseNone, dt.PluralLabel))
+	}
 	decision := a == ActionApprove || a == ActionReject
 	right, known := rights[a]
 	if a == ActionClose && dt.CloseRight != "" {
