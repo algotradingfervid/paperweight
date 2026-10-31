@@ -440,7 +440,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-060 · Money left on another advance warns
 - **Priority:** P1
 - **Level:** integration
-- **Given** Deepak's paid advance with ₹4,000.00 left **When** he checks a new advance **Then** the check page warns "Deepak Nair still has ₹4,000.00 left on EA/26-27/00001.", and `priya`'s approval page shows the same; submit and approve still succeed. A viewer who can't read the other advance sees "… left on another advance." An approved advance not marked as paid doesn't warn.
+- **Given** Deepak's paid advance with ₹4,000.00 left **When** he checks a new advance **Then** the check page warns "Deepak Nair still has ₹4,000.00 left on EA/26-27/00001.", and `priya`'s approval page shows the same; submit and approve still succeed. An advance the viewer can't read gives no warning at all, neither number nor amount (CD-305) An approved advance not marked as paid doesn't warn.
 - **Go test:** `TestAdv_OtherAdvanceWarning`
 - **Sources:** Expense spec §5; research G7, S-49 (HRMS `employee_advance.py:274-290`)
 

@@ -11,7 +11,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/list"
-	"github.com/vardhan/internaltools/internal/modules/expense"
 	"github.com/vardhan/internaltools/internal/modules/expense/expensetest"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
@@ -62,12 +61,10 @@ func e5Must(t *testing.T, e *expensetest.Env, p auth.Principal, dt string, id in
 	return res
 }
 
-// e5Submit stores the computed total (claim) or amount (advance) as E2's
-// Validate would, so the approval amount is the real one in E1 too, then
-// submits res as p.
+// e5Submit submits res as p through the engine; E2's Validate computes the
+// claim's total or the advance's amount.
 func e5Submit(t *testing.T, e *expensetest.Env, p auth.Principal, dt string, res doc.Result) (doc.Result, error) {
 	t.Helper()
-	e5SetComputed(t, e, dt, res.ID)
 	return e5Do(e, p, dt, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
 }
 
@@ -82,17 +79,6 @@ func e5MustSubmit(t *testing.T, e *expensetest.Env, p auth.Principal, dt string,
 		t.Fatalf("submit %s %d as %s: state %s, want pending", dt, res.ID, p.Name, out.State)
 	}
 	return out
-}
-
-// e5SetComputed writes the claim's total or the advance's amount as the sum
-// of its lines: the value E2's Validate computes (E1's stub leaves it NULL).
-func e5SetComputed(t *testing.T, e *expensetest.Env, dt string, id int64) {
-	t.Helper()
-	q := `UPDATE expense_claim SET total = (SELECT SUM(amount) FROM expense_claim_line WHERE parent_id = ?) WHERE id = ?`
-	if dt == expense.AdvanceDocType {
-		q = `UPDATE employee_advance SET amount = (SELECT SUM(amount) FROM employee_advance_line WHERE parent_id = ?) WHERE id = ?`
-	}
-	e5Exec(t, e, q, id, id)
 }
 
 // e5Exec runs one fixture statement in a write transaction.

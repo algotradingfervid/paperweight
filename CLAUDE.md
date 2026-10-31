@@ -91,6 +91,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Write mixed `&&` / `||` with parentheses: staticcheck and gocritic don't flag them, and a gallery filter bug came from one (M0-5).
 - A module's Validate writes each derived field as computed from current inputs or cleared, never left as it was: amend and step saves keep Validate's writes even when it returns errors, so "skip on error" leaves stale snapshots beside a changed input (CD-302; P2 failed review twice).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
+- Each skip or exception in a sweep or gate carries a test or check that fails when its stated reason stops being true: a stale "declares no filterable field" skip in e2e/routes.go hid a 422 on every module's filtered list until the expense sweep hit it (M0-34).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
