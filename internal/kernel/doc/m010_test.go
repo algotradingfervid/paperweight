@@ -34,6 +34,9 @@ const (
 	m010Reason      = "Balance not needed"
 	m010RefusedMsg  = "The stock ledger refused the close."
 	m010NumberFmt   = "M10/%05d"
+	m010Submitted   = "Submitted"
+	// DOC's not-waiting refusal: display name, state label.
+	m010NotWaitingFmt = "%s is not waiting for approval. It is %s."
 )
 
 var errM010Close = errors.New("m010: OnClose failed")
@@ -47,10 +50,14 @@ var _ = func() bool {
 		{m010Amend, "Amend-close document", "m010_amend", "amend", m010Hooks{table: "m010_amend"}},
 		{m010Closer, "Closer document", "m010_closer", "", m010CloserHooks{m010Hooks{table: "m010_closer"}}},
 	} {
+		var labels map[doctype.State]string
+		if s.name == m010Amend {
+			labels = map[doctype.State]string{doctype.StateApproved: m010Submitted} // CD-255
+		}
 		doc.Register(doc.DocType{
 			Name: s.name, Label: s.label, PluralLabel: s.label + "s",
 			Table: s.table, LinesTable: s.table + "_line", Submittable: true,
-			CloseRight: s.closeRight, Hooks: s.hooks,
+			CloseRight: s.closeRight, Hooks: s.hooks, StateLabels: labels,
 			Fields: []doc.Field{
 				{Name: "note", Label: "Note", Type: doc.Text},
 				{Name: "stamp", Label: "Stamp", Type: doc.Text},
@@ -435,5 +442,25 @@ func TestDoc_Close_CloserHook(t *testing.T) {
 	}
 	if got := h.Load(t, m010Plain, p.ID).State; got != doc.StateClosed {
 		t.Errorf("State without Closer = %q, want closed", got)
+	}
+}
+
+// CD-255: DOC's approve and reject refusals outside pending_approval name the
+// state by the DocType's StateLabels, through Engine.Do.
+func TestDoc_StateLabels_GuardRefusal(t *testing.T) {
+	h := fixturetest.New(t)
+	m010Tables(t, h)
+	for _, tc := range []struct{ dt, label string }{
+		{m010Amend, m010Submitted}, // StateLabels{approved: "Submitted"}
+		{m010Plain, "Approved"},    // no StateLabels: the global label
+	} {
+		d := m010Doc(t, h, tc.dt, doc.StateApproved)
+		want := fmt.Sprintf(m010NotWaitingFmt, h.Display(t, tc.dt, d.ID), tc.label)
+		for _, a := range []doc.Action{doc.ActionApprove, doc.ActionReject} {
+			count := h.AuditCount(t)
+			_, err := h.Do(t, t.Context(), h.Ravi, tc.dt, d.ID, a, doc.ActionInput{Version: d.Version, Reason: m010Reason})
+			fixturetest.ErrIs(t, err, doc.KindRefused, want)
+			m010Unchanged(t, h, d, count)
+		}
 	}
 }
