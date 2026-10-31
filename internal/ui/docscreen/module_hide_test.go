@@ -634,6 +634,8 @@ func m01bRegisterRO() {
 				{Name: "tag", Label: "Batch tag", Type: doctype.Text, ReadOnly: true},
 				{Name: "item_id", Label: "Item", Type: doctype.Link, Link: fixture.Item, OnLine: true},
 				{Name: "qty", Label: "Quantity", Type: doctype.Qty, Positive: true, OnLine: true},
+				// lot makes the line grid's row three cells (M0-40); no test sets it.
+				{Name: "lot", Label: "Lot", Type: doctype.Text, OnLine: true},
 			},
 		})
 	})
@@ -651,7 +653,7 @@ func m01bROEnv(t *testing.T) (*hookedEnv, int64) {
 		version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, created_by INTEGER NOT NULL, updated_at TEXT NOT NULL, updated_by INTEGER NOT NULL,
 		supplier_id INTEGER, tag TEXT NOT NULL DEFAULT '')`)
 	e.fx.Exec(t, `CREATE TABLE m01b_ro_line (id INTEGER PRIMARY KEY AUTOINCREMENT, parent_id INTEGER NOT NULL, line_no INTEGER NOT NULL,
-		item_id INTEGER, qty INTEGER)`)
+		item_id INTEGER, qty INTEGER, lot TEXT NOT NULL DEFAULT '')`)
 	e.fx.Naming.Prefix[m01bRO] = "RO"
 	ctx := t.Context()
 	a, ok := e.d.Auth.(*auth.Auth)

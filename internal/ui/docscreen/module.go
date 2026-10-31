@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/a-h/templ"
 
@@ -162,15 +163,53 @@ func hidden(c Ctx, f doctype.Field) bool {
 	return h != nil && h(c, f)
 }
 
-// applyLineCards gives each of v's lines the module's LineCard, then clears
-// Received on a document that is neither approved nor closed (CD-242), after
-// the override (CD-256 (11)). v.Lines is replaced, never changed in place.
+// unhidden is e, or only its message when e is on a field the module
+// hides, so a summary never links to an input that isn't there (CD-256 (1),
+// CD-319).
+func unhidden(c Ctx, e doctype.FieldError) doctype.FieldError {
+	if f, ok := c.DT.Field(e.Field); ok && hidden(c, f) {
+		return doctype.FieldError{Message: e.Message}
+	}
+	return e
+}
+
+// partyShown is v's Info.Party, or "" when a header field the module hides
+// shows that same value, as the party field does (CD-319 (4)). A Link's
+// display is "{Code} {Name}", DOC's party "{Name}" for a master without a
+// code, hence the trim.
+func partyShown(c Ctx, v DocView) string {
+	for _, f := range c.DT.HeaderFields() {
+		if hidden(c, f) && strings.TrimSpace(v.Display[f.Name]) == v.Info.Party {
+			return ""
+		}
+	}
+	return v.Info.Party
+}
+
+// unhiddenAll is unhidden on each of errs.
+func unhiddenAll(c Ctx, errs []doctype.FieldError) []doctype.FieldError {
+	out := make([]doctype.FieldError, len(errs))
+	for n, e := range errs {
+		out[n] = unhidden(c, e)
+	}
+	return out
+}
+
+// applyLineCards gives each of v's lines the module's LineCard, or else the
+// default card without the fields the module hides (CD-319; Hide sees the
+// line's stored inputs in Deps), then clears Received on a document that is
+// neither approved nor closed (CD-242), after the override (CD-256 (11)).
+// v.Lines is replaced, never changed in place.
 func applyLineCards(c Ctx, v *DocView) {
 	card := c.Deps.modOf(c.DT).LineCard
 	lines := slices.Clone(v.Lines)
 	for i := range lines {
 		if card != nil {
 			lines[i].Card = card(c, lines[i])
+		} else {
+			lc := c
+			lc.Deps = c.Deps.WithStored(lines[i].Inputs)
+			lines[i].Card = defaultCard(c.DT, lines[i], func(f doctype.Field) bool { return !hidden(lc, f) })
 		}
 		if v.Info.State != doctype.StateApproved && v.Info.State != doctype.StateClosed {
 			lines[i].Card.Received = "" // only approved and closed documents show receipts (CD-242)

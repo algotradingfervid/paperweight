@@ -22,11 +22,22 @@ func (d Deps) lineTarget(w http.ResponseWriter, r *http.Request) (*doctype.DocTy
 	return dt, id, ok
 }
 
-// gridShown reports whether dt's Items step has the desktop grid: not with
-// the module's CardsOnly, Line or NoLinePages (CD-256 (6)).
-func (d Deps) gridShown(dt *doctype.DocType) bool {
+// gridShown reports whether v's Items step has the desktop grid: not with
+// the module's CardsOnly, Line or NoLinePages (CD-256 (6)), and only when a
+// row has 3 or 5 cells, the sizes the grid lays out (M0-35). Any other size
+// shows the cards at every width, edited on the line page (M0-40). The size
+// is v's first line's, or a new line's when v has none (CD-315).
+func (d Deps) gridShown(r *http.Request, dt *doctype.DocType, v DocView) bool {
 	m := d.modOf(dt)
-	return !m.CardsOnly && m.Line == nil && !m.NoLinePages
+	if m.CardsOnly || m.Line != nil || m.NoLinePages {
+		return false
+	}
+	var lv LineView // line 0, a new line: Hide sees no stored inputs
+	if len(v.Lines) > 0 {
+		lv = v.Lines[0]
+	}
+	n := len(d.gridRowOf(r, dt, v, lv, "", nil, nil).Cells)
+	return n == 3 || n == 5
 }
 
 // itemsLabel is the Items step's label as the module names it, for the line
@@ -43,7 +54,7 @@ func (d Deps) itemsLabel(dt *doctype.DocType) string {
 // Line.Top too, which renders outside the form with the id line-form
 // (UX-E1, CD-275).
 func (d Deps) lineBody(r *http.Request, dt *doctype.DocType, v DocView, no, version int, s StepState, danger string) (linePageView, error) {
-	lp := d.lineShell(dt, v, no, version, s.Errors, danger)
+	lp := d.lineShell(r, dt, v, no, version, s.Errors, danger)
 	lp.FormID = "line-form"
 	line, c := d.modOf(dt).Line, d.lineCtx(r, dt, &v, no)
 	if line.Top != nil {

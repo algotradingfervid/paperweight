@@ -8,6 +8,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/ui/screens"
 )
 
@@ -43,10 +44,7 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 	approvable, submittable, filterable := true, true, true
 	if dt, ok := doctype.Lookup(name); ok {
 		approvable, submittable = dt.Approvable, dt.Submittable
-		// list's filterCond rule (unexported): a Filterable header field.
-		filterable = slices.ContainsFunc(dt.Fields, func(f doctype.Field) bool {
-			return f.Name == "state" && f.Filterable && !f.OnLine
-		})
+		filterable = list.CanFilter(dt, "state", list.OpIn)
 		if steps, err := FormSteps(dt); err == nil {
 			slugs = slugs[:0]
 			for _, s := range steps {
@@ -113,7 +111,7 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 	)
 	if filterable {
 		out = append(out, screens.Screen{Name: name + " list filtered", Route: route, URL: base + "?" + ListQuery{
-			Filters: []Filter{{Field: "state", Op: "in", Values: []string{string(doctype.StateApproved), string(doctype.StatePending)}}},
+			Filters: []Filter{{Field: "state", Op: string(list.OpIn), Values: []string{string(doctype.StateApproved), string(doctype.StatePending)}}},
 		}.Encode(), As: sweepUser})
 	}
 	return append(out, []screens.Screen{
