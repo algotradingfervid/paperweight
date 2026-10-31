@@ -322,7 +322,7 @@ func noConversion(ctx context.Context, tx *db.Tx, l storedLine) []doctype.FieldE
 		return fieldErrors(err)
 	}
 	return []doctype.FieldError{{Field: "uom_id", Line: l.lineNo,
-		Message: fmt.Sprintf("Row %d: Item %s has no conversion for UoM %s. Pick another UoM.", l.lineNo, it.Code, u.Code)}}
+		Message: fmt.Sprintf("Line %d: Item %s has no conversion for UoM %s. Pick another UoM.", l.lineNo, it.Code, u.Code)}}
 }
 
 // fieldErrors maps a master's *mstkit.ValidationError to its field errors.
@@ -346,7 +346,7 @@ func (orderHooks) BeforeSubmit(ctx context.Context, tx *db.Tx, id int64) error {
 	for _, l := range lines {
 		switch {
 		case l.itemID == 0 && l.expenseTypeID == 0:
-			return doc.Refused(fmt.Sprintf("Row %d: Item is required.", l.lineNo))
+			return doc.Refused(fmt.Sprintf("Line %d: Item is required.", l.lineNo))
 		case l.itemID != 0 && l.uomID == 0:
 			return doc.Refused(fmt.Sprintf("Row %d: UoM is required.", l.lineNo))
 		}

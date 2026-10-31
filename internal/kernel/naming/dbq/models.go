@@ -157,6 +157,17 @@ type Branch struct {
 	UpdatedBy    sql.NullInt64
 }
 
+type BusinessSetting struct {
+	ID             int64
+	LockedUpTo     sql.NullString
+	DefaultPoTerms string
+	Version        int64
+	CreatedAt      string
+	CreatedBy      sql.NullInt64
+	UpdatedAt      string
+	UpdatedBy      sql.NullInt64
+}
+
 type Company struct {
 	ID        int64
 	Name      string
@@ -280,6 +291,15 @@ type LoginAttempt struct {
 	Count          int64
 	FirstFailureAt string
 	ExpiresAt      string
+}
+
+type ModuleComment struct {
+	ID        int64
+	DocType   string
+	RecordID  int64
+	Body      string
+	CreatedBy int64
+	CreatedAt string
 }
 
 type NamingCounter struct {

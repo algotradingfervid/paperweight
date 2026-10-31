@@ -199,7 +199,7 @@ func TestUoM_WholeNumberToleratesDust(t *testing.T) { // MST-088
 		t.Errorf("CheckLineQty(3333.333 KGS) = %+v; want nil (1999.9998 rounds to 2000 NOS)", fe)
 	}
 	want := doctype.FieldError{Field: "qty", Line: 1,
-		Message: "Row 1: 3,333.9 KGS = 2,000.34 NOS, but NOS must be a whole number. Change the quantity."}
+		Message: "Line 1: 3,333.9 KGS = 2,000.34 NOS, but NOS must be a whole number. Change the quantity."}
 	if fe := uom.CheckLineQty(1, parseQty(t, "3333.9"), kgs, nos, f); fe == nil || *fe != want {
 		t.Errorf("CheckLineQty(3333.9 KGS) = %+v; want %+v", fe, want)
 	}
@@ -266,7 +266,7 @@ func TestUoM_WholeNumberFlagChange(t *testing.T) { // MST-092
 	line := mstfixture.Line{ItemID: w.m.Items["CABLE-4C"], UoMID: w.m.UoMs["MTR"], TaxCodeID: w.m.TaxCodes["GST18"], Qty: parseQty(t, "12.5"), Rate: 62_5000}
 	_, err := mstfixture.Save(context.Background(), env, env.Kavya, id, w.header(), []mstfixture.Line{line})
 	var he doctype.HTTPError
-	if !errors.As(err, &he) || len(he.FieldErrors()) != 1 || he.FieldErrors()[0].Message != "Row 1: Quantity 12.5 can't be a fraction for UoM MTR. Enter a whole number." {
+	if !errors.As(err, &he) || len(he.FieldErrors()) != 1 || he.FieldErrors()[0].Message != "Line 1: Quantity 12.5 can't be a fraction for UoM MTR. Enter a whole number." {
 		t.Errorf("resave of the draft: err = %v; want the MST-086 message", err)
 	}
 	if err := w.setWhole(t, "MTR", false); err != nil {

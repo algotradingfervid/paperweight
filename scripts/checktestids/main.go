@@ -1,5 +1,5 @@
-// Command checktestids reports which test-case IDs in docs/tests/core have no
-// matching Go test function.
+// Command checktestids reports which test-case IDs in docs/tests/core and
+// docs/tests/modules have no matching Go test function.
 //
 // Usage: go run ./scripts/checktestids [--report] [--all] [--exclude-level <level>]... [AREA...]
 //
@@ -147,12 +147,18 @@ func run(args []string, root string, out io.Writer) int {
 	return 0
 }
 
-// readCases parses every docs/tests/core/0*.md file under root.
+// readCases parses every docs/tests/core/0*.md and docs/tests/modules/*.md
+// file under root. The modules README indexes cases in tables, which never
+// match a case heading, so it adds none.
 func readCases(root string) ([]testCase, error) {
 	fsys := os.DirFS(root)
-	files, err := fs.Glob(fsys, "docs/tests/core/0*.md")
-	if err != nil {
-		return nil, err
+	var files []string
+	for _, pattern := range []string{"docs/tests/core/0*.md", "docs/tests/modules/*.md"} {
+		matches, err := fs.Glob(fsys, pattern)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, matches...)
 	}
 	var cases []testCase
 	for _, name := range files {

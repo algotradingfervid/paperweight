@@ -25,6 +25,7 @@ type DBTX interface {
 type Tx struct {
 	tx       *sql.Tx
 	writable bool
+	db       *DB
 }
 
 // txSQL exposes only the DBTX methods of a *sql.Tx, so callers cannot commit
@@ -52,6 +53,11 @@ func (tx *Tx) SQL() DBTX { return txSQL{tx: tx.tx} }
 
 // Writable reports whether the transaction was opened by Write (CD-07).
 func (tx *Tx) Writable() bool { return tx.writable }
+
+// DB returns the database the transaction was opened on (CD-284). It is for
+// identity and lookup only: never call Read or Write on the result inside the
+// transaction (a second connection, or a deadlock on the single writer; CD-213).
+func (tx *Tx) DB() *DB { return tx.db }
 
 // DB is an open SQLite database.
 type DB struct {
@@ -127,7 +133,7 @@ func (db *DB) run(ctx context.Context, txo *sql.TxOptions, writable bool, fn fun
 			_ = stx.Rollback()
 		}
 	}()
-	if err := fn(&Tx{tx: stx, writable: writable}); err != nil {
+	if err := fn(&Tx{tx: stx, writable: writable, db: db}); err != nil {
 		return mapBusy(err)
 	}
 	committed = true

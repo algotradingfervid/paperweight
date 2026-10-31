@@ -63,7 +63,7 @@ func TestItemUoM_ConvertToStock(t *testing.T) { // MST-084
 // types.MaxQty is refused with NUM's message, whether or not the stock UoM is
 // whole-number.
 func TestUoM_LineQtyTooLarge(t *testing.T) {
-	const msg = "Row 2: Quantity is too large. The maximum is 1,00,00,000."
+	const msg = "Line 2: Quantity is too large. The maximum is 1,00,00,000."
 	nos, kgs := UoM{Code: "NOS", WholeNumber: true}, UoM{Code: "KGS"}
 	q, f := mustQty(t, "10000000"), mustFactor(t, "1000000")
 	for _, stock := range []UoM{nos, kgs} {

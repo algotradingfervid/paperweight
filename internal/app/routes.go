@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	approvalweb "github.com/vardhan/internaltools/internal/kernel/approval/web"
+	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
 	"github.com/vardhan/internaltools/internal/kernel/csvio"
@@ -28,6 +29,7 @@ import (
 	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
 	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	modkitweb "github.com/vardhan/internaltools/internal/modules/modkit/web"
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -110,6 +112,10 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		mount(r, apr, self)
 
 		namingweb.Mount(r, namingweb.Deps{Svc: namer, Admin: namer, Clock: a.cfg.Clock}, a.srv.Admin)
+
+		modkit := chi.NewRouter()
+		modkitweb.Routes(modkitweb.Deps{DB: a.db, Auth: a.auth, Audit: audit.Default, Clock: a.cfg.Clock, Info: a.engine, Sessions: sm})(modkit)
+		mount(r, modkit, self)
 
 		mount(r, printweb.Routes(printweb.Config{DB: a.db, Auth: a.auth, Info: a.engine, Letterhead: a.masters.Letterhead}), self)
 
@@ -414,6 +420,7 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 			ui.NavItem{Label: "Users", Href: "/users", Icon: "user", Group: groupAdmin},
 			ui.NavItem{Label: "Roles", Href: "/roles", Icon: "lock", Group: groupAdmin},
 			ui.NavItem{Label: "Numbering", Href: "/settings/numbering", Icon: "pencil", Group: groupAdmin},
+			ui.NavItem{Label: "Business settings", Href: "/settings/business", Icon: "pencil", Group: groupAdmin},
 			ui.NavItem{Label: "Approval rules", Href: "/admin/approval-rules", Icon: "check-circle", Group: groupAdmin},
 		)
 	}
