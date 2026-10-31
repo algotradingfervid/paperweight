@@ -240,6 +240,97 @@ type Employee struct {
 	UpdatedBy          sql.NullInt64
 }
 
+type EmployeeAdvance struct {
+	ID               int64
+	Number           sql.NullString
+	State            string
+	StateReason      string
+	AmendedFromID    sql.NullInt64
+	AmendmentRootID  sql.NullInt64
+	AmendmentNo      int64
+	Version          int64
+	CreatedAt        string
+	CreatedBy        int64
+	UpdatedAt        string
+	UpdatedBy        int64
+	EmployeeID       sql.NullInt64
+	AdvanceDate      sql.NullString
+	Purpose          string
+	Amount           sql.NullInt64
+	UsedAmount       int64
+	PaidOn           sql.NullString
+	SnapEmployeeName string
+	SnapEmployeeCode string
+}
+
+type EmployeeAdvanceLine struct {
+	ID              int64
+	ParentID        int64
+	LineNo          int64
+	ExpenseTypeID   sql.NullInt64
+	Description     string
+	Amount          sql.NullInt64
+	ProjectID       sql.NullInt64
+	SiteID          sql.NullInt64
+	SnapTypeCode    string
+	SnapTypeName    string
+	SnapProjectCode string
+	SnapSiteCode    string
+}
+
+type ExpenseClaim struct {
+	ID               int64
+	Number           sql.NullString
+	State            string
+	StateReason      string
+	AmendedFromID    sql.NullInt64
+	AmendmentRootID  sql.NullInt64
+	AmendmentNo      int64
+	Version          int64
+	CreatedAt        string
+	CreatedBy        int64
+	UpdatedAt        string
+	UpdatedBy        int64
+	EmployeeID       sql.NullInt64
+	ClaimDate        sql.NullString
+	Purpose          string
+	AdvanceID        sql.NullInt64
+	LessAdvance      sql.NullInt64
+	Total            sql.NullInt64
+	NetPayable       sql.NullInt64
+	PeriodFrom       sql.NullString
+	PeriodTo         sql.NullString
+	Remarks          string
+	SnapEmployeeName string
+	SnapEmployeeCode string
+}
+
+type ExpenseClaimLine struct {
+	ID              int64
+	ParentID        int64
+	LineNo          int64
+	ExpenseDate     sql.NullString
+	ExpenseTypeID   sql.NullInt64
+	Description     string
+	Amount          sql.NullInt64
+	ProjectID       sql.NullInt64
+	SiteID          sql.NullInt64
+	ReceiptSha256   string
+	NoReceiptReason string
+	CompanyBill     int64
+	SupplierGstin   string
+	InvoiceNo       string
+	BilledToID      sql.NullInt64
+	TaxCodeID       sql.NullInt64
+	HsnSac          string
+	GstAmount       sql.NullInt64
+	SnapTypeCode    string
+	SnapTypeName    string
+	SnapProjectCode string
+	SnapSiteCode    string
+	SnapBilledGstin string
+}
+
 type ExpenseType struct {
 	ID               int64
 	Code             string
