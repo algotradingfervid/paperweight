@@ -16,6 +16,7 @@ import (
 
 	// Every module's DocTypes are registered, as in the app.
 	_ "github.com/vardhan/internaltools/internal/modules/expense"
+	_ "github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	_ "github.com/vardhan/internaltools/internal/modules/purchase"
 )
 
