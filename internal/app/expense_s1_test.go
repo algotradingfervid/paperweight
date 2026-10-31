@@ -702,7 +702,15 @@ func TestS1_UnusedPhotos(t *testing.T) {
 	one := s.attach(deepak, c.ID, "IMG_2041.jpg", filestest.JPEG(1300))
 	r = s1Page(t, dk, check)
 	s1Has(t, "one unused", r.pageText(), "1 photo isn't on any expense. Remove it below, or use it on an expense.", "Photos not on any expense", "IMG_2041.jpg")
-	s1Lacks(t, "one unused", r.pageText(), "used.jpg")
+	// The line card names its receipt (CD-326 (6)): only the unused card's
+	// list must leave used.jpg out.
+	unused := r.doc.Find("section.card").FilterFunction(func(_ int, s *goquery.Selection) bool {
+		return strings.TrimSpace(s.Find("h2.card-title").Text()) == "Photos not on any expense"
+	})
+	if unused.Length() != 1 {
+		t.Fatalf("one unused: %d Photos not on any expense cards, want 1", unused.Length())
+	}
+	s1Lacks(t, "one unused", unused.Text(), "used.jpg")
 	if r.doc.Find(`button[aria-label="Remove IMG_2041.jpg"]`).Length() != 1 || r.doc.Find(`form[action="/files/`+strconv.FormatInt(one.ID, 10)+`/remove"]`).Length() != 1 {
 		t.Error("one unused: no Remove control for IMG_2041.jpg")
 	}

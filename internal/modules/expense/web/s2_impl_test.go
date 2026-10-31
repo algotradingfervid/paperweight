@@ -430,8 +430,8 @@ func TestExpLine_HiddenFieldKept(t *testing.T) {
 	}
 }
 
-// receipt_sha256 is the line page's own field: drawn and posted even when
-// the module hides it from the generic pages (S1's claimHide), while every
+// receipt_sha256 is the line page's own field: drawn and posted (as
+// receipt_hash) even when the module hides it from the generic pages (S1's claimHide), while every
 // other hidden field, here Billed to, is neither drawn nor posted (AD ruling,
 // S2 review).
 func TestExpLine_HiddenReceiptStillSaves(t *testing.T) {
@@ -469,5 +469,36 @@ func TestExpLine_HiddenReceiptStillSaves(t *testing.T) {
 	}
 	if got["billed_to_id"] != pune {
 		t.Errorf("line 1's billed_to_id = %q, want the hidden PUNE %s kept", got["billed_to_id"], pune)
+	}
+}
+
+// The line page posts the receipt hash as receipt_hash, a name no field of
+// expense.Claim has: the module hides receipt_sha256, and a field the
+// module hides is never an input on any page (hooks spec §4.3, CD-319).
+// Save line stores receipt_hash and ignores a forged receipt_sha256.
+func TestExpLine_ReceiptPostsUnderOwnName(t *testing.T) {
+	t.Parallel()
+	dt, ok := doctype.Lookup(expense.ClaimDocType)
+	if !ok {
+		t.Fatalf("%s isn't registered", expense.ClaimDocType)
+	}
+	if _, clash := dt.Field("receipt_hash"); clash {
+		t.Fatalf("expense.Claim has a field receipt_hash; the line page's hash input needs a name that isn't a field")
+	}
+	e := s2New(t)
+	c := e.DraftClaim(t, e.P(t, s2Deepak), nil)
+	metas := e.withReceipts(t, c.ID, map[int]string{1: "taxi.jpg", 2: "bill.jpg"})
+	line1 := s2ClaimPath(c.ID) + "/lines/1"
+	page := e.page(t, s2Deepak, line1)
+	if n := page.Find(`[name="receipt_sha256"]`).Length(); n != 0 {
+		t.Errorf("the line page has %d inputs named receipt_sha256, a field the module hides; want none", n)
+	}
+	post := s2Base(t, page, metas["bill.jpg"].SHA256)
+	post.Set("receipt_sha256", metas["taxi.jpg"].SHA256) // a forged post of the hidden field
+	if rec := e.postForm(t, s2Deepak, line1, post); rec.Code != http.StatusSeeOther {
+		t.Fatalf("Save line 1: status %d, want 303 (body %q)", rec.Code, rec.Body.String())
+	}
+	if got := e.line(t, c.ID, 1)["receipt_sha256"]; got != metas["bill.jpg"].SHA256 {
+		t.Errorf("line 1's receipt_sha256 = %q, want the posted receipt_hash %s (bill.jpg), not the forged receipt_sha256", got, metas["bill.jpg"].SHA256)
 	}
 }

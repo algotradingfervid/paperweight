@@ -24,7 +24,12 @@ const (
 	maxTypeRadios = 6
 )
 
-// receiptHashID is the hidden receipt_sha256 input's id.
+// receiptHashName is the name the line form posts the receipt hash under:
+// no field of expense.Claim has it, as the module hides receipt_sha256 and a
+// field the module hides is never an input on any page (CD-319).
+const receiptHashName = "receipt_hash"
+
+// receiptHashID is the hidden receipt hash input's id.
 var receiptHashID = components.FieldID("receipt_sha256")
 
 // lineState is one draw of the line page: line no (0 = new) of c's claim,
@@ -62,6 +67,14 @@ func (l lineState) errorOf(name string) string {
 	return ""
 }
 
+// hash is the line's receipt hash: posted on a redraw, else stored.
+func (l lineState) hash() string {
+	if l.s.Posted {
+		return l.c.Req.PostFormValue(receiptHashName)
+	}
+	return l.stored["receipt_sha256"]
+}
+
 // filled reports whether one of names has a value or an error.
 func (l lineState) filled(names ...string) bool {
 	for _, n := range names {
@@ -81,13 +94,8 @@ func (l lineState) field(name, hint string) doctype.Field {
 
 // hidden reports whether the module hides field name (Module.Hide, the
 // same function docscreen uses), so the page neither draws nor posts it and
-// Save line never blanks it (CD-319). receipt_sha256 is this page's own
-// field, which it always draws and posts: the module hides it only from the
-// generic pages (UX §5 intro, AD ruling S2 review).
+// Save line never blanks it (CD-319).
 func (l lineState) hidden(name string) bool {
-	if name == "receipt_sha256" {
-		return false
-	}
 	hide := l.c.Deps.Modules[l.c.DT.Name].Hide
 	f, _ := l.c.DT.Field(name)
 	return hide != nil && hide(l.c, f)
@@ -146,7 +154,7 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 		Error:       l.errorOf("receipt_sha256"),
 	}
 	var items []components.Attachment
-	if hash := l.value("receipt_sha256"); hash != "" {
+	if hash := l.hash(); hash != "" {
 		metas, err := d.Files.List(c.Req.Context(), c.Principal, c.View.Record)
 		if err != nil {
 			return nil, err
@@ -182,7 +190,7 @@ func lineBody(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Com
 		date, _ = c.Deps.Today()
 	}
 	parts := []templ.Component{
-		receiptHash(l.value("receipt_sha256"), false),
+		receiptHash(l.hash(), false),
 		l.part("expense_type_id", typeInput(l, choices.Types)),
 		l.input("amount", msgAmountHint),
 		l.part("expense_date", docscreen.FieldInput(l.field("expense_date", ""), components.FieldID("expense_date"), date, l.errorOf("expense_date"), c.Deps)),
@@ -307,16 +315,23 @@ func sameReceipt(l lineState, all []expense.LineType) templ.Component {
 
 // lineSave is this line's posted values in DOC's plain form, with NUM's
 // parse errors, leaving out the fields the module hides so they keep their
-// stored values (CD-319). A picked same_as line holding a receipt gives
-// that line's hash in place of the posted one; any other same_as is ignored.
+// stored values (CD-319). receipt_sha256 is this page's own field, always
+// posted as receiptHashName: the module hides it only from the generic
+// pages (UX §5 intro, AD ruling S2 review). A picked same_as line holding a
+// receipt gives that line's hash in place of the posted one; any other
+// same_as is ignored.
 func lineSave(c docscreen.Ctx, no int) (docscreen.Save, error) {
 	l := lineState{c: c, no: no}
 	out := docscreen.Save{Values: map[string]string{}}
 	for _, f := range c.DT.Fields {
-		if !f.OnLine || l.hidden(f.Name) {
+		posted := f.Name
+		switch {
+		case f.Name == "receipt_sha256":
+			posted = receiptHashName
+		case !f.OnLine || l.hidden(f.Name):
 			continue
 		}
-		v, fe := docscreen.ToPlain(f, c.Req.PostFormValue(f.Name))
+		v, fe := docscreen.ToPlain(f, c.Req.PostFormValue(posted))
 		if fe != nil {
 			out.Errors = append(out.Errors, *fe)
 			continue

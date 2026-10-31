@@ -450,15 +450,17 @@ func s2Open(d *goquery.Selection) bool {
 	return ok
 }
 
-// s2HiddenReceipt is the line form's one hidden receipt_sha256 input.
+// s2HiddenReceipt is the line form's one hidden receipt hash input, posted
+// as receipt_hash: the module hides the field receipt_sha256, so no page has
+// an input of that name (CD-319).
 func s2HiddenReceipt(t *testing.T, form *goquery.Selection) *goquery.Selection {
 	t.Helper()
-	in := form.Find(`input[name="receipt_sha256"]`)
+	in := form.Find(`input[name="receipt_hash"]`)
 	if in.Length() != 1 || in.AttrOr("type", "") != "hidden" {
-		t.Fatalf("the line form has %d receipt_sha256 inputs (type %q), want one hidden", in.Length(), in.AttrOr("type", ""))
+		t.Fatalf("the line form has %d receipt_hash inputs (type %q), want one hidden", in.Length(), in.AttrOr("type", ""))
 	}
 	if in.AttrOr("id", "") == "" {
-		t.Errorf("the hidden receipt_sha256 input has no id; the upload answer swaps it out of band by id (UX §5.5)")
+		t.Errorf("the hidden receipt_hash input has no id; the upload answer swaps it out of band by id (UX §5.5)")
 	}
 	return in
 }
@@ -474,7 +476,7 @@ func s2Base(t *testing.T, d *goquery.Document, hash string) url.Values {
 		"amount":            {"450"},
 		"expense_date":      {s2Today},
 		"description":       {"Lunch at site canteen"},
-		"receipt_sha256":    {hash},
+		"receipt_hash":      {hash},
 		"no_receipt_reason": {""},
 	}
 }
