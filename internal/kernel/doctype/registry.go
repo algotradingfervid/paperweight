@@ -32,9 +32,10 @@ func newRegistry() *registry { return &registry{byName: map[string]*DocType{}} }
 var std = newRegistry()
 
 // Register adds dt at init. It panics on an empty Name, a duplicate, a bad
-// table or column identifier, a bad field or a master that has Hooks or is
-// submittable or approvable. A header field named after a convention column
-// with Column empty or equal to its Name becomes System (CD-144); any other
+// table or column identifier, a bad field, a master that has Hooks or is
+// submittable or approvable, or Hooks without a LinesTable (CD-286). A
+// header field named after a convention column with Column empty or equal
+// to its Name becomes System (CD-144); any other
 // field on a convention column panics. References to other DocTypes are checked by Check.
 // ImportOnly fields are validated, then taken out of Fields; ImportFields keeps them.
 func Register(dt DocType) { std.Register(dt) }
@@ -119,6 +120,9 @@ func validate(dt *DocType) error {
 	}
 	if dt.Master != nil && (dt.Hooks != nil || dt.Submittable || dt.Approvable) {
 		return errors.New("a master can't have Hooks or be Submittable or Approvable")
+	}
+	if dt.Hooks != nil && dt.LinesTable == "" {
+		return errors.New("has Hooks but no LinesTable; a document needs a LinesTable") // CD-286
 	}
 	seen := map[string]bool{}
 	columns := map[bool]map[string]string{false: {}, true: {}} // OnLine -> column -> field name
