@@ -329,3 +329,59 @@ func TestPO_PrintLeavesOutInternal(t *testing.T) {
 		"Expected on", "20-11-2026", "Vendor moved the dispatch", "won't come",
 		"Check the angle grade", "Remarks")
 }
+
+// AD-13 ruling (P8 round 2): the print of a PO that amends another fills
+// print.TradeDoc.AmendsNumber, so the kernel's trade template prints its
+// amends line naming the amended PO's number. The reference PO is approved,
+// cancelled by Ravi and amended by Priya; the amendment is approved as
+// PO/26-27/00001-1. The original's print has no amends line, before or
+// after it is amended.
+func TestPO_PrintAmends(t *testing.T) {
+	env := purchasetest.New(t)
+	orig := p8Reference(t, env)
+	p8Lacks(t, "reference PO before amend", p8Print(t, env, env.Priya, orig), `class="amends"`, "Amends ")
+
+	p2Must(t, "Ravi cancels")(p2Do(t, env, env.Ravi, orig, doc.ActionCancel, "Wrong delivery date"))
+	res := p2Must(t, "Priya amends")(p2Do(t, env, env.Priya, orig, doc.ActionAmend, ""))
+	if res.ID == orig || res.State != doctype.StateDraft {
+		t.Fatalf("amend = %+v, want a new draft", res)
+	}
+	if sub := p2Must(t, "Priya submits the amendment")(p2Do(t, env, env.Priya, res.ID, doc.ActionSubmit, "")); sub.State != doctype.StatePending {
+		t.Fatalf("amendment after submit: %s, want pending", sub.State)
+	}
+	p8Approve(t, env, env.Ravi, res.ID)
+
+	html := p8Print(t, env, env.Priya, res.ID)
+	p8Contains(t, "amendment", html,
+		`<p class="doc-number">PO/26-27/00001-1</p>`,
+		`<p class="amends">Amends PO/26-27/00001</p>`)
+	if n := strings.Count(html, `class="amends"`); n != 1 {
+		t.Errorf("amendment: %d amends lines, want 1:\n%s", n, html)
+	}
+	p8Lacks(t, "reference PO after amend", p8Print(t, env, env.Priya, orig), `class="amends"`, "Amends ")
+}
+
+// PO spec §9, plan P8: a PO mixing GST rates prints one CGST and SGST pair
+// per rate, in the order the rates first appear on the lines (18% on line 1,
+// 12% on line 2, 18% again on line 3), each pair summing its rate's lines.
+// 18% first tells first-appearance order from a sort by rate.
+func TestPO_PrintTaxPerRate(t *testing.T) {
+	env := purchasetest.New(t)
+	po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(
+		p2Line(t, env, "MS-ANGLE-50", "KGS", "20", "100", "GST18"),
+		p2Line(t, env, "WIRE-18G", "KGS", "10", "100", "GST12"),
+		p2Line(t, env, "BOLT-M12", "BOX", "1", "500", "GST18"),
+	))
+	html := p8Print(t, env, env.Priya, po.ID)
+	p8Contains(t, "mixed rates", html, "<p>Taxable Value ₹3,500.00</p>",
+		`<p class="grand-total">Grand Total ₹4,070.00</p>`)
+	got := regexp.MustCompile(`<p>((?:CGST|SGST|IGST) [^<]*)</p>`).FindAllStringSubmatch(p8Section(html, "div", "totals"), -1)
+	want := []string{"CGST 9% ₹225.00", "SGST 9% ₹225.00", "CGST 6% ₹60.00", "SGST 6% ₹60.00"}
+	var rows []string
+	for _, m := range got {
+		rows = append(rows, m[1])
+	}
+	if strings.Join(rows, "|") != strings.Join(want, "|") {
+		t.Errorf("tax rows %q, want %q:\n%s", rows, want, html)
+	}
+}
