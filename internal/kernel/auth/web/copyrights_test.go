@@ -270,8 +270,8 @@ func TestCopyRightsPage_RadiosForFewRoles(t *testing.T) {
 	r := admin.Get(path)
 	wantStatus(t, "GET copy rights", r, http.StatusOK)
 	form := p1Form(t, "GET copy rights", p1Doc(t, "GET copy rights", r), path)
-	if n := form.Find(`input[type=radio][name=source_id]`).Length(); n != 3 {
-		t.Errorf("radios = %d, want 3 (Stores, Employee, Copy Source)", n)
+	if n := form.Find(`input[type=radio][name=source_id]`).Length(); n != 4 {
+		t.Errorf("radios = %d, want 4 (Stores, Employee, Fallback Approver, Copy Source)", n)
 	}
 	if n := form.Find(`select[name=source_id]`).Length(); n != 0 {
 		t.Errorf("select[name=source_id] = %d, want 0 for few roles", n)

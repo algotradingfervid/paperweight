@@ -12,6 +12,7 @@ func orderDocType() doctype.DocType {
 	return doctype.DocType{
 		Name: Order, Label: "Purchase Order", PluralLabel: "Purchase Orders",
 		Table: "fixture_order", LinesTable: "fixture_order_line", Series: "PO/{FY}/{#####}",
+		TestOnly:    true, // CD-291
 		Submittable: true, Approvable: true, Printable: true,
 		OwnerField:    "created_by",
 		ProjectFields: []string{"project_id"},

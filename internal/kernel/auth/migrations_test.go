@@ -48,6 +48,7 @@ func TestMigrations_AuthTablesAndRoles(t *testing.T) {
 		{"Stores", 0},
 		{"Masters Manager", 0},
 		{"Employee", 0},
+		{"Fallback Approver", 0}, // migration 10370 (Expense spec §6, CD-264 (5))
 	}
 	if !slices.Equal(roles, wantRoles) {
 		t.Errorf("roles (name, is_admin) ORDER BY id = %v, want %v", roles, wantRoles)

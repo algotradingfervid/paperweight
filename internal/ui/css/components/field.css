@@ -67,12 +67,21 @@
   & > .input { flex: 1 1 0; }
 }
 
+/* LargeQtyInput: a 56 px box with 20 px figures (CD-282 Q4, CD-286). */
+@utility field__control--lg {
+  & > .input {
+    min-block-size: var(--control-h-lg);
+    font-size: var(--text-xl);
+  }
+}
+
 @utility field__suffix {
   display: flex;
   align-items: center;
   padding-inline: var(--space-3);
   background: var(--color-sunken);
   border: var(--border-w) solid var(--color-border);
+  font-size: var(--text-base);
   color: var(--color-text-secondary);
 }
 

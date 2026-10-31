@@ -385,6 +385,8 @@ type lrFK struct{ table, column, target string }
 // lrFKGaps lists the foreign keys of a master or its row tables (named
 // <master table>_<rows>) that point into a master table with no Link field to
 // say so. A row table's key to its own master is its parent, which no user posts.
+// A table belongs to the longest table name it starts with, so a module's
+// employee_advance_line is employee_advance's rows, not the employee's.
 func lrFKGaps(fks []lrFK) []string {
 	masters := map[string]*doctype.DocType{}
 	for _, dt := range doc.All() {
@@ -392,16 +394,24 @@ func lrFKGaps(fks []lrFK) []string {
 			masters[dt.Table] = dt
 		}
 	}
+	tables := map[string]bool{}
+	for name := range masters {
+		tables[name] = true
+	}
+	for _, fk := range fks {
+		tables[fk.table] = true
+	}
 	owner := func(table string) *doctype.DocType {
 		if dt, ok := masters[table]; ok {
 			return dt
 		}
-		for name, dt := range masters {
-			if strings.HasPrefix(table, name+"_") {
-				return dt
+		best := ""
+		for name := range tables {
+			if strings.HasPrefix(table, name+"_") && len(name) > len(best) {
+				best = name
 			}
 		}
-		return nil
+		return masters[best]
 	}
 	var gaps []string
 	for _, fk := range fks {

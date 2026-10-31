@@ -57,9 +57,10 @@ func TestCopyRightsPage_BackLinkAndWarningBanner(t *testing.T) {
 
 // Six on offer is the most that still use radios.
 func TestCopyRightsPage_RadiosAtSixRoles(t *testing.T) {
-	w, _, admin := p1Setup(t) // seven on offer
-	p1Exec(t, w, `DELETE FROM user_roles WHERE role_id = ?`, t17RoleID(t, w, "Director"))
-	p1Exec(t, w, `DELETE FROM roles WHERE name = 'Director'`)
+	w, _, admin := p1Setup(t) // eight on offer, Fallback Approver included (CD-264 (5))
+	gone := `(SELECT id FROM roles WHERE name IN ('Director', 'Fallback Approver'))`
+	p1Exec(t, w, `DELETE FROM user_roles WHERE role_id IN `+gone)
+	p1Exec(t, w, `DELETE FROM roles WHERE id IN `+gone)
 	path := p1Path(t, w, p1Target)
 
 	r := admin.Get(path)

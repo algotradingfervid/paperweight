@@ -61,6 +61,7 @@ const (
 	msgCancelReason = "Enter a reason for cancelling (at least 3 characters)."
 	msgReasonLong   = "Keep the reason under 500 characters."
 	msgAmended      = "%s has already been amended as %s. Open that document instead."
+	msgCloseNone    = "%s can't be closed." // the PluralLabel; CloseRight CloseNone (CD-279)
 
 	// Links (Task 11). Sources: the source's display name, then its
 	// lower-cased Label; msgSourceLineNotFound takes the target's Label.

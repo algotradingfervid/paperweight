@@ -82,6 +82,14 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - internal/kernel/auth/web needs about 6 minutes alone under -race. With several ADs' suites running it crossed go test's 10-minute default, so `make test` passes `-timeout 20m`; use the same flag for hand-ins that include it.
 - A widened predicate (`x || field == v`) needs a test row for every other non-empty value of that field, not only for the new one (M0-24).
 - A director edit to a protected file that a test compares against code (the research tokens block, test docs read by checkers) lands in the same commit as the code, never ahead of it: an early research token line broke TestTokens_MatchResearch on main (head director, 31 Oct).
+- A rights test needs a user holding only the right the rule names. With only all-rights users, swapping read for submit in the code survived every test (G0a; same family as lessons §11).
+- A test that numbers a TestOnly fixture DocType and a real module DocType sharing a prefix in one database sets the real series' counter first (SetCounter, e.g. 50000); `naming_issued.number` is unique across DocTypes (CD-295).
+- Keep `queries/*.sql` comments ASCII: sqlc 1.31.1 generates broken SQL when a comment holds a non-ASCII character such as "…" (AD-11, E1).
+- A module's first GET routes need e2e not-page entries or screens even while they answer 501: `make ci` doesn't run the route gate (TestE2E_EveryRouteCovered), only `make e2e` does (AD-11, E1).
+- **High-tier reviews include a mutation pass** (`go test -overlay` with a mutated copy) on every guard and every `queries/*.sql` filter: ORDER BY, DISTINCT, state lists, refusal-switch arms, CSV BOM and escaping. covertouched marks those lines covered while no test fails when they're deleted (four of five MOD-EXP reviews; CD-299).
+- Re-check a task's tests and brief against main's CD log when the implementer is dispatched, not only at test-writer dispatch: M0-19 missed CD-292 (5), which landed in between.
+- Write mixed `&&` / `||` with parentheses: staticcheck and gocritic don't flag them, and a gallery filter bug came from one (M0-5).
+- A module's Validate writes each derived field as computed from current inputs or cleared, never left as it was: amend and step saves keep Validate's writes even when it returns errors, so "skip on error" leaves stale snapshots beside a changed input (CD-302; P2 failed review twice).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
