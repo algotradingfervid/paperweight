@@ -106,6 +106,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A head-lane kernel change that alters rendered output runs every module's tests on the current main before merging, not on the lane's older base: M0-43 (PartyBlock) was green on its base but broke a purchase test that merged in between.
 - A module's scope helper returns a match-nothing predicate when the right is missing, never the empty "all rows" Predicate; and a module write that checks a version itself calls CanTx before the version and before parsing input, even though Engine.Do checks again (P13, P14; CD-259 REPEAT).
 - The head merges the exact commit a MERGE-READY names (`git merge --no-ff <sha>`), never the branch name: an AD advanced wp/mod0-hooks after its MERGE-READY and an unverified task rode in (M0-46, 31 Oct). ADs don't move a WP branch between MERGE-READY and merge.
+- A docscreen redraw status must be one the htmx config swaps (422, 409; layout.go): recorder tests never apply the swap table, so each new redraw status gets a browser test or a test that reads htmxConfig (M0-50, REPEAT).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
