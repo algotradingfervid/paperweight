@@ -364,7 +364,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-050 · Request rights: owner edits and closes; a Purchase Manager closes but can't edit; another employee and a Purchase User can neither edit nor close
 - **Priority:** P1
 - **Level:** integration
-- **Given** PR-A owned by `suresh` **Then** `suresh` edits the draft and closes it once submitted. `deepak` (another employee) and `priya` (Purchase User) each get AUTH's 403 on edit and on close. `ravi` (Purchase Manager) closes PR-A once submitted but gets AUTH's 403 on edit (CD-253). One case runs on the real `auth.Service`.
+- **Given** PR-A owned by `suresh` **Then** `suresh` edits the draft and closes it once submitted. `deepak` (another employee, who can't read PR-A) gets 404 on edit and on close (CD-245, CD-309); `priya` (Purchase User) gets AUTH's 403 on each. `ravi` (Purchase Manager) closes PR-A once submitted but gets AUTH's 403 on edit (CD-253). One case runs on the real `auth.Service`.
 - **Go test:** `TestRequest_Rights`
 - **Sources:** PO spec §20.3, §20.6, §26
 
