@@ -38,8 +38,10 @@ func claimHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool {
 		switch f.Name {
 		case "employee_id":
 			return !isAdmin(c.Principal) && asInput(c)
-		case "receipt_sha256", "period_from", "period_to":
+		case "receipt_sha256":
 			return true
+		case "period_from", "period_to": // the page's Period pair shows them
+			return !asPair(c)
 		case "billed_to_id":
 			return oneBranchGSTIN(c)
 		}

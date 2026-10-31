@@ -91,7 +91,8 @@ type claimsView struct {
 
 // advanceExtra is the advance page's additions: the G7 warnings while it
 // can still change; once approved, the Paid on, Used and Left pairs, the
-// claims card, and Mark as paid or Undo paid for a user holding cancel.
+// claims card, and Mark as paid or Undo paid for a user holding cancel. A
+// pair the registered Hide hides isn't drawn, nor what reveals it (CD-319).
 func advanceExtra(c docscreen.Ctx, d Deps) (docscreen.PageExtra, error) {
 	x := docscreen.PageExtra{Pairs: employeePair(c)}
 	v := c.View
@@ -143,11 +144,17 @@ func advanceExtra(c docscreen.Ctx, d Deps) (docscreen.PageExtra, error) {
 		}
 		paid = types.FormatDate(on)
 	}
-	x.Pairs = append(x.Pairs, []components.Pair{
-		{Label: "Paid on", Value: paid},
-		{Label: "Used", Value: types.FormatINR(used), Num: true},
-		{Label: "Left", Value: types.FormatINR(amount - used), Num: true},
-	}...)
+	if !pairHides(c, "paid_on") {
+		x.Pairs = append(x.Pairs, components.Pair{Label: "Paid on", Value: paid})
+	}
+	if pairHides(c, "used_amount") { // Left and Other claims reveal it too
+		card.other = ""
+	} else {
+		x.Pairs = append(x.Pairs, []components.Pair{
+			{Label: "Used", Value: types.FormatINR(used), Num: true},
+			{Label: "Left", Value: types.FormatINR(amount - used), Num: true},
+		}...)
+	}
 	x.Pairs = append(x.Pairs, closedPair(v)...)
 	x.Cards = append(x.Cards, claimsCard(card))
 	if v.Info.State != doctype.StateApproved {

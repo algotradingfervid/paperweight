@@ -3,6 +3,7 @@ package expenseweb
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -187,6 +188,10 @@ func attachmentKind(mime string) string {
 	return "other"
 }
 
+// totalsFields are the fields the check page's totals show or reveal: none
+// is drawn when the registered Hide hides one of them (CD-319).
+var totalsFields = []string{"advance_id", "total", "less_advance", "net_payable"}
+
 // claimCheck adds the claim's warnings (ClaimWarnings, which names another
 // claim only when the viewer can read it), the photos not on any expense
 // with their warning and card, and, with an advance, the totals Total, Less
@@ -214,7 +219,7 @@ func claimCheck(d Deps) func(docscreen.Ctx) (docscreen.CheckExtra, error) {
 		}
 		adv := c.View.Inputs["advance_id"]
 		total, net := c.View.Inputs["total"], c.View.Inputs["net_payable"]
-		if adv == "" || total == "" || net == "" {
+		if adv == "" || total == "" || net == "" || slices.ContainsFunc(totalsFields, func(n string) bool { return hides(c, n) }) {
 			return ex, nil
 		}
 		t, err := types.ParseMoney(total)

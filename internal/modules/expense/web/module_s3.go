@@ -23,7 +23,8 @@ const (
 
 // claimPage is the claim's document page additions (UX §5.7, §5.8): the
 // warnings while it can still change, the draft notice for a reader, the
-// Period and Closed pairs, and only the files no line holds (UX-E7).
+// Period pair unless Hide hides a date of it (CD-319), the Closed pair, and
+// only the files no line holds (UX-E7).
 func claimPage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
 	return func(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		var x docscreen.PageExtra
@@ -43,7 +44,7 @@ func claimPage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
 			}
 			x.Notice = &components.BannerProps{Message: name + " hasn't submitted this claim yet."}
 		}
-		if from, to := v.Display["period_from"], v.Display["period_to"]; from != "" && to != "" {
+		if from, to := v.Display["period_from"], v.Display["period_to"]; from != "" && to != "" && !pairHides(c, "period_from") && !pairHides(c, "period_to") {
 			x.Pairs = append(x.Pairs, components.Pair{Label: "Period", Value: from + " to " + to})
 		}
 		x.Pairs = append(x.Pairs, closedPair(v)...)
@@ -72,7 +73,8 @@ func advancePage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
 }
 
 // advanceReason adds, on Close, the note on what's left (EXP-059) and the
-// hint for how it was settled; with nothing left, the claims' hint.
+// hint for how it was settled; with nothing left, or Used hidden, the
+// claims' hint.
 func advanceReason(d Deps) func(docscreen.Ctx, doctype.Action) (docscreen.ReasonExtra, error) {
 	return func(c docscreen.Ctx, a doctype.Action) (docscreen.ReasonExtra, error) {
 		if a != doctype.ActionClose {
@@ -82,21 +84,22 @@ func advanceReason(d Deps) func(docscreen.Ctx, doctype.Action) (docscreen.Reason
 		if err != nil {
 			return docscreen.ReasonExtra{}, err
 		}
-		if left <= 0 {
+		if left <= 0 || pairHides(c, "used_amount") { // what's left reveals Used
 			return docscreen.ReasonExtra{Hint: hintHowPaid}, nil
 		}
 		return docscreen.ReasonExtra{Note: fmt.Sprintf(noteLeftOnClose, types.FormatINR(left)), Hint: hintReturned}, nil
 	}
 }
 
-// advanceHide hides used_amount and paid_on, which the page shows as pairs,
-// and, as an input only, the employee from everyone but an Administrator:
-// on a new advance (no View) and a draft (UX §5 intro, CD-327 (2)).
+// advanceHide hides used_amount and paid_on as fields, which the page shows
+// as pairs (asPair), and, as an input only, the employee from everyone but
+// an Administrator: on a new advance (no View) and a draft (UX §5 intro,
+// CD-327 (2)).
 func advanceHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool {
 	return func(c docscreen.Ctx, f doctype.Field) bool {
 		switch f.Name {
 		case "used_amount", "paid_on":
-			return true
+			return !asPair(c)
 		case "employee_id":
 			input := c.View == nil || c.View.Info.State == doctype.StateDraft
 			return input && !slices.Contains(c.Principal.Roles, auth.RoleAdministrator)
