@@ -37,9 +37,10 @@ type Ctx struct {
 
 // Step replaces a wizard step's body, its save, or both.
 type Step struct {
-	Body func(c Ctx, s StepState) (templ.Component, error) // nil → the generic form
+	Body func(c Ctx, s StepState) (templ.Component, error) // nil, or no component → the generic form
 	Save func(c Ctx) (Save, error)                         // nil → the generic post
 	Bar  func(c Ctx, s StepState) (StepBar, error)         // nil → the generic bar
+	Top  func(c Ctx) (templ.Component, error)              // above the generic body, when Body gives none (CD-280 D5)
 }
 
 // StepBar is what Step.Bar changes in the step's action bar (CD-263 G6).

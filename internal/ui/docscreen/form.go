@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -289,6 +290,10 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if wizard.Nav(r) == "stay" {
+		d.stay(w, r, dt, steps, 0, res.ID, res.Warnings)
+		return
+	}
 	d.advance(w, r, dt, steps, 1, res.ID, res.Warnings)
 }
 
@@ -364,8 +369,8 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 // since DOC's save replaces the lines, scoped to the step, so another step's
 // problem stops nothing here (CD-205). nav=back stays on the step when a
 // value can't be parsed or DOC refuses the save (CD-178),
-// nav=finish leaves for the document page, return=check goes back to the
-// check page.
+// nav=finish leaves for the document page, nav=stay redraws the same step
+// at its bare URL, return=check goes back to the check page.
 func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	dt, id, steps, i, ok := stepTarget(w, r)
 	if !ok {
@@ -480,10 +485,23 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		}
 		wizard.Respond(w, r, wizard.Finish, docURL(dt.Name, id), nil)
 		return
+	case nav == "stay":
+		d.stay(w, r, dt, steps, i, id, res.Warnings)
+		return
 	case r.PostFormValue("return") == slugCheck:
 		next = len(steps) - 1
 	}
 	d.advance(w, r, dt, steps, next, id, res.Warnings)
+}
+
+// stay is advance to step i of draft id after a nav=stay save, drawn as a
+// GET of the step's bare URL shows it: no query and no posted form, so
+// return=check isn't followed (CD-263 G6).
+func (d Deps) stay(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, steps []FormStep, i int, id int64, warnings []string) {
+	g := r.Clone(r.Context())
+	g.Method, g.URL, g.Body = http.MethodGet, &url.URL{Path: docURL(dt.Name, id) + "/edit/" + steps[i].Slug}, http.NoBody
+	g.Form, g.PostForm, g.MultipartForm = url.Values{}, url.Values{}, nil
+	d.advance(w, g, dt, steps, i, id, warnings)
 }
 
 // advance moves to step i of draft id after a save: htmx gets that step's
@@ -625,14 +643,6 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		}
 		m.Furthest = max(m.Furthest, i)
 	}
-	for n, e := range errs {
-		switch {
-		case e.Field == "":
-			m.Errors[n].ID = "step-title"
-		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
-			m.Errors[n].ID = linesTarget(*v, d.gridShown(dt) && hook.Body == nil) // a Body replaces the line editor
-		}
-	}
 	if r.URL.Query().Get("return") == slugCheck || r.PostFormValue("return") == slugCheck {
 		m.ReturnTo = slugCheck
 	}
@@ -645,7 +655,10 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	if v != nil {
 		applyLineCards(c, v)
 	}
-	if hook.Body != nil {
+	// body is the Body's component; with none the step is generic, under
+	// the module's Top (CD-263 G6, CD-280 D5).
+	var body templ.Component
+	if hook.Body != nil || hook.Bar != nil {
 		// typed is a redraw's posted values only on a POST; a GET of /new
 		// passes the prefill, which Defaults holds on every /new render.
 		st := StepState{Posted: typed != nil && r.Method == http.MethodPost, Errors: errs}
@@ -657,11 +670,36 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 				return stepView{}, err
 			}
 		}
-		body, err := hook.Body(c, st)
+		if hook.Body != nil {
+			if body, err = hook.Body(c, st); err != nil {
+				return stepView{}, err
+			}
+		}
+		if hook.Bar != nil {
+			b, err := hook.Bar(c, st)
+			if err != nil {
+				return stepView{}, err
+			}
+			sv.Bar = stepBar(sv.Bar, b)
+		}
+	}
+	switch {
+	case body != nil:
+		sv.Inputs = []templ.Component{body}
+	case hook.Top != nil:
+		top, err := hook.Top(c)
 		if err != nil {
 			return stepView{}, err
 		}
-		sv.Inputs = []templ.Component{body}
+		sv.Inputs = []templ.Component{top}
+	}
+	for n, e := range errs {
+		switch {
+		case e.Field == "":
+			sv.M.Errors[n].ID = "step-title"
+		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
+			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(dt) && body == nil) // a Body's component replaces the line editor
+		}
 	}
 	for _, name := range s.Fields {
 		f, ok := dt.Field(name)
@@ -674,7 +712,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 			}
 			continue
 		}
-		if hook.Body != nil {
+		if body != nil {
 			continue // the Body has the step's inputs
 		}
 		value := ""
@@ -695,13 +733,26 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		}
 	case s.Lines:
 		sv.Wide = true
-		if v != nil && hook.Body == nil {
+		if v != nil && body == nil {
 			sv.M.After = d.itemsBody(c, *v)
 		}
 	default:
 		sv.Empty = len(sv.Inputs) == 0 && len(sv.Fixed) == 0
 	}
 	return sv, nil
+}
+
+// stepBar is bar with a module's StepBar applied; each zero field keeps
+// bar's (CD-263 G6).
+func stepBar(bar wizard.Bar, b StepBar) wizard.Bar {
+	if b.Primary != "" {
+		bar.Primary = b.Primary
+	}
+	if b.Stay {
+		bar.PrimaryNav = "stay"
+	}
+	bar.BackLink = b.Back
+	return bar
 }
 
 // linesTarget is the id a line's or whole-lines error links to, on the Items
