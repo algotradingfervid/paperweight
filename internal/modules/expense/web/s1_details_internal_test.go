@@ -30,18 +30,10 @@ func TestDetails_HonoursHide(t *testing.T) {
 		t.Fatal("expense.Claim isn't registered")
 	}
 	all := []string{"purpose", "claim_date", "remarks", "employee_id", "advance_id", "less_advance"}
-	// The input that stands for each field: the Administrator types a code.
-	posts := map[string]string{"employee_id": "employee_code"}
-	postOf := func(name string) string {
-		if p, ok := posts[name]; ok {
-			return p
-		}
-		return name
-	}
 	for _, hidden := range all {
 		form := url.Values{
 			"purpose": {"Site visit"}, "claim_date": {"24-10-2026"}, "remarks": {"Note"},
-			"employee_code": {""}, "advance_id": {""}, "less_advance": {"10.00"}, advanceDrawn: {"1"},
+			"employee_id": {""}, "advance_id": {""}, "less_advance": {"10.00"}, advanceDrawn: {"1"},
 		}
 		req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -67,7 +59,7 @@ func TestDetails_HonoursHide(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, name := range all {
-			drawn := page.Find(`[name="`+postOf(name)+`"]`).Length() > 0 || page.Find("#"+components.FieldID(name)).Length() > 0
+			drawn := page.Find(`[name="`+name+`"]`).Length() > 0 || page.Find("#"+components.FieldID(name)).Length() > 0
 			if drawn != (name != hidden) {
 				t.Errorf("hide %s: %s drawn = %v, want %v", hidden, name, drawn, name != hidden)
 			}

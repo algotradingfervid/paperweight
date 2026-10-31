@@ -130,7 +130,7 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 			return nil, err
 		}
 		v.code = &components.FieldProps{
-			ID: components.FieldID("employee_id"), Name: "employee_code", Label: labelCode, Hint: hintCode,
+			ID: components.FieldID("employee_id"), Name: "employee_id", Label: labelCode, Hint: hintCode,
 			Error: errOf("employee_id"), Value: code, Optional: true,
 			Attrs: templ.Attributes{"autocapitalize": "characters", "spellcheck": "false"},
 		}
@@ -170,11 +170,12 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 	return detailsBodyView(v), nil
 }
 
-// codeOf is the employee code input's value: the posted one, else the
-// stored employee's code (the engine never stores a claim without one).
+// codeOf is the employee code input's value, posted as employee_id: the
+// posted code, else the stored employee's code (the engine never stores a
+// claim without one).
 func (d Deps) codeOf(c docscreen.Ctx, s docscreen.StepState) (string, error) {
 	if s.Posted {
-		return c.Req.PostFormValue("employee_code"), nil
+		return c.Req.PostFormValue("employee_id"), nil
 	}
 	if c.View == nil {
 		return "", nil
@@ -281,7 +282,8 @@ func (d Deps) unpaidOnly(c docscreen.Ctx) (bool, error) {
 
 // detailsSave is the step's values in DOC's plain form, without the fields
 // the module hides. Only an Administrator's post sets the employee, from the
-// code (blank is their own claim); anyone else's employee_id is dropped
+// code posted as employee_id (blank is their own claim; a numeric id is just
+// a code no employee has); anyone else's employee_id is dropped
 // (HOOK-010, EUX-019). An unknown code is a 422 with nothing written.
 func (d Deps) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 	s := docscreen.Save{Values: map[string]string{}}
@@ -304,7 +306,7 @@ func (d Deps) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 	if !isAdmin(c.Principal) || hides(c, "employee_id") {
 		return s, nil
 	}
-	code := strings.TrimSpace(c.Req.PostFormValue("employee_code"))
+	code := strings.TrimSpace(c.Req.PostFormValue("employee_id"))
 	if code == "" {
 		s.Values["employee_id"] = ""
 		return s, nil
