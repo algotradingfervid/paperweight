@@ -25,10 +25,10 @@ func Routes(d Deps) func(r chi.Router) {
 	return func(r chi.Router) {
 		r.Post("/modules/goodsreceipt/receipts/{id}/bill", h.saveBill)
 		r.Get(poSearchURL, h.poSearch)
-		for _, report := range []string{"bills", "items"} {
-			r.Get("/reports/grn/"+report, h.report)
-			r.Get("/reports/grn/"+report+"/export.csv", h.exportCSV)
-		}
+		r.Get("/reports/grn/bills", h.report)
+		r.Get("/reports/grn/bills/export.csv", h.exportCSV("bills", h.billsRecords))
+		r.Get("/reports/grn/items", h.report)
+		r.Get("/reports/grn/items/export.csv", h.exportCSV("items", h.itemsRecords))
 	}
 }
 
