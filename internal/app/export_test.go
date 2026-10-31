@@ -23,3 +23,18 @@ func (a *App) SetJobEvery(d time.Duration) { a.jobEvery = d }
 func (a *App) ReceiveLink() func(ctx context.Context, p auth.Principal, poID int64) (string, bool) {
 	return a.receiveLink
 }
+
+// NavIcon is the sidebar icon of DocType name, and whether it has one.
+func NavIcon(name string) (string, bool) {
+	i := docNavIndex(name)
+	if i < 0 {
+		return "", false
+	}
+	return docNav[i].icon, true
+}
+
+// ListURL is a DocType's list path.
+var ListURL = listURL
+
+// HasScreen reports whether the master list at href has screens.
+func (a *App) HasScreen(href string) bool { return a.screens[href] }

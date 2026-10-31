@@ -14,7 +14,7 @@ import (
 // purchaseHome is the Purchase nav entry's link (plan P1 Do 4).
 const purchaseHome = "/modules/purchase"
 
-// MOD-PO P1 Do 4 (PO spec §25): the nav has `Purchase` to /modules/purchase
+// MOD-PO P1 Do 4 (PO spec §25): the nav has `Purchase home` (UI v2 §5.2) to /modules/purchase
 // for a user with read on purchase.Order or on purchase.Request, and nobody
 // else sees it. Rights are read on the real auth.Service.
 func TestApp_PurchaseNav(t *testing.T) {
@@ -56,8 +56,8 @@ func TestApp_PurchaseNav(t *testing.T) {
 		if found != c.shown {
 			t.Errorf("%s: nav has %s = %v, want %v", c.email, purchaseHome, found, c.shown)
 		}
-		if found && text != "Purchase" {
-			t.Errorf("%s: nav item %s reads %q, want %q", c.email, purchaseHome, text, "Purchase")
+		if found && text != "Purchase home" {
+			t.Errorf("%s: nav item %s reads %q, want %q", c.email, purchaseHome, text, "Purchase home")
 		}
 	}
 

@@ -1,35 +1,72 @@
 package layout
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
-// navList is the main navigation; the item whose Href is the longest prefix
-// of Shell.Path is the current page.
+// navList is the sidebar's navigation (UI v2 §5.2).
 templ navList(s ui.Shell) {
+	@navGroups(s, "side")
+}
+
+// navGroups is the main navigation in groups, each under an h2 that labels
+// its links, with the group's More items in a disclosure at its end. The item
+// whose Href is the longest prefix of Shell.Path is the current page; prefix
+// keeps the heading ids of the sidebar and the phone sheet apart.
+templ navGroups(s ui.Shell, prefix string) {
 	{{ cur := currentHref(s.Nav, s.Path) }}
-	<ul class="menu w-full nav-list">
-		for _, it := range s.Nav {
-			<li>
-				if it.Href == cur {
-					<a href={ templ.SafeURL(it.Href) } class="menu-active" aria-current="page">
-						if it.Icon != "" {
-							@icons.Icon(it.Icon)
-						}
-						{ it.Label }
-					</a>
-				} else {
-					<a href={ templ.SafeURL(it.Href) }>
-						if it.Icon != "" {
-							@icons.Icon(it.Icon)
-						}
-						{ it.Label }
-					</a>
+	<div class="nav-list">
+		for _, g := range groupNav(s.Nav) {
+			if g.Name != "" {
+				<h2 class="nav-group" id={ groupID(prefix, g.Name) }>{ g.Name }</h2>
+			}
+			<ul class="nav-links" { groupAttrs(prefix, g.Name)... }>
+				for _, it := range g.Items {
+					@navLink(it, cur, s.InboxCount)
 				}
-			</li>
+				if len(g.More) > 0 {
+					<li>
+						<details class="nav-more" open?={ moreOpen(g.More, cur) }>
+							<summary>
+								@icons.Icon("ellipsis")
+								<span class="nav-label">More { strings.ToLower(g.Name) }</span>
+								@icons.Icon("chevron-down")
+							</summary>
+							<ul class="nav-links">
+								for _, it := range g.More {
+									@navLink(it, cur, s.InboxCount)
+								}
+							</ul>
+						</details>
+					</li>
+				}
+			</ul>
 		}
-	</ul>
+	</div>
+}
+
+// navLink is one item; Approvals carries the inbox count.
+templ navLink(it ui.NavItem, cur string, inbox int) {
+	<li>
+		<a
+			href={ templ.SafeURL(it.Href) }
+			if it.Href == cur {
+				aria-current="page"
+			}
+		>
+			if it.Icon != "" {
+				@icons.Icon(it.Icon)
+			}
+			<span class="nav-label">{ it.Label }</span>
+			if it.Href == inboxPath && inbox > 0 {
+				<span class="nav-badge">{ strconv.Itoa(inbox) }<span class="visually-hidden">{ " waiting" }</span></span>
+			}
+		</a>
+	</li>
 }
 
 // navSheet is the phone navigation: a native dialog opened by the menu button.
@@ -40,7 +77,7 @@ templ navSheet(s ui.Shell) {
 				@icons.Icon("x")
 			</button>
 			<nav aria-label="Main">
-				@navList(s)
+				@navGroups(s, "sheet")
 			</nav>
 		</div>
 	</dialog>
