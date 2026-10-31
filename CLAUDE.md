@@ -104,6 +104,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A layout worst case covers every cell order and value combination (loop over the permutations), not one hand-picked row: one-order checks missed real overflows twice (money in track 4, then rate plus amount; M0-35, same family as M0-24).
 - A page size or limit gets a test with one more row than the limit: G6's picker size 25 survived mutation to 26 and 1000 because the largest test list had 6 rows (AD-12, REPEAT).
 - A head-lane kernel change that alters rendered output runs every module's tests on the current main before merging, not on the lane's older base: M0-43 (PartyBlock) was green on its base but broke a purchase test that merged in between.
+- A module's scope helper returns a match-nothing predicate when the right is missing, never the empty "all rows" Predicate; and a module write that checks a version itself calls CanTx before the version and before parsing input, even though Engine.Do checks again (P13, P14; CD-259 REPEAT).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
