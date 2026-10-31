@@ -56,10 +56,11 @@ func paymentTerms(ctx context.Context, tx *db.Tx, h dbq.OrderForValidateRow) (in
 }
 
 // lineDefaults fills a line's blank values from its item (PO spec §3.2): the
-// description, HSN/SAC, the stock UoM and the default tax code; a blank
-// price takes the last price for this vendor, item, UoM and project (P7's
-// defaultPrice, with its discount when the discount is blank), else the
-// item's standard rate; a blank discount is 0.
+// description, HSN/SAC, the purchase UoM (the stock UoM when none is set,
+// CD-337 (3)) and the default tax code; a blank price takes the last price
+// for this vendor, item, UoM and project (P7's defaultPrice, with its
+// discount when the discount is blank), else the item's standard rate; a
+// blank discount is 0.
 func lineDefaults(ctx context.Context, tx *db.Tx, h dbq.OrderForValidateRow, projectID int64, it item.Item, l *dbq.OrderLinesForValidateRow) error {
 	if l.Description == "" {
 		l.Description = it.Name
@@ -68,7 +69,7 @@ func lineDefaults(ctx context.Context, tx *db.Tx, h dbq.OrderForValidateRow, pro
 		l.HsnSac = it.HSNSAC
 	}
 	if l.UomID == 0 {
-		l.UomID = it.StockUoMID
+		l.UomID = it.PurchaseUoMID
 	}
 	if l.TaxCodeID == 0 {
 		l.TaxCodeID = it.DefaultTaxCodeID
