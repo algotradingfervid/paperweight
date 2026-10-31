@@ -11,13 +11,16 @@ import (
 )
 
 const g2Lines = `-- name: G2Lines :many
-SELECT l.line_no, l.po_line_id, COALESCE(l.received_qty, 0) AS received_qty,
+SELECT l.line_no,
+       CAST(CASE WHEN pl.parent_id = g.purchase_order_id THEN pl.line_no ELSE l.line_no END AS INTEGER) AS po_line_no,
+       l.po_line_id, COALESCE(l.received_qty, 0) AS received_qty,
        COALESCE(l.rejected_qty, 0) AS rejected_qty, COALESCE(l.accepted_qty, 0) AS accepted_qty,
        COALESCE(l.snap_rate, 0) AS snap_rate, COALESCE(l.snap_uom_code, '') AS uom_code,
        pl.parent_id AS po_id, COALESCE(pl.qty, 0) AS ordered_qty, COALESCE(pl.snap_factor, 0) AS factor,
        COALESCE(lu.whole_number, 0) AS line_whole,
        COALESCE(su.code, '') AS stock_uom_code, COALESCE(su.whole_number, 0) AS stock_whole
 FROM goods_receipt_line l
+JOIN goods_receipt g ON g.id = l.parent_id
 LEFT JOIN purchase_order_line pl ON pl.id = l.po_line_id
 LEFT JOIN uom lu ON lu.id = pl.uom_id
 LEFT JOIN item i ON i.id = pl.item_id
@@ -28,6 +31,7 @@ ORDER BY l.line_no
 
 type G2LinesRow struct {
 	LineNo       int64
+	PoLineNo     int64
 	PoLineID     sql.NullInt64
 	ReceivedQty  int64
 	RejectedQty  int64
@@ -44,7 +48,9 @@ type G2LinesRow struct {
 
 // The lines as Validate checks them, after G2SnapLines, with each line's PO
 // line (po_id is NULL when po_line_id doesn't resolve) and the units
-// uom.CheckLineQty needs: the PO line's and the item's stock unit.
+// uom.CheckLineQty needs: the PO line's and the item's stock unit. Texts
+// number a line by its PO line (po_line_no), the posted position when the
+// PO line isn't on the GRN's PO or doesn't resolve (AD-12, UX 5.4 P2).
 func (q *Queries) G2Lines(ctx context.Context, parentID int64) ([]G2LinesRow, error) {
 	rows, err := q.db.QueryContext(ctx, g2Lines, parentID)
 	if err != nil {
@@ -56,6 +62,7 @@ func (q *Queries) G2Lines(ctx context.Context, parentID int64) ([]G2LinesRow, er
 		var i G2LinesRow
 		if err := rows.Scan(
 			&i.LineNo,
+			&i.PoLineNo,
 			&i.PoLineID,
 			&i.ReceivedQty,
 			&i.RejectedQty,
@@ -110,25 +117,33 @@ func (q *Queries) G2Receipt(ctx context.Context, id int64) (G2ReceiptRow, error)
 }
 
 const g2RejectedNoReason = `-- name: G2RejectedNoReason :many
-SELECT line_no FROM goods_receipt_line
-WHERE parent_id = ? AND rejected_qty > 0 AND TRIM(reject_reason) = ''
-ORDER BY line_no
+SELECT l.line_no, COALESCE(pl.line_no, l.line_no) AS po_line_no
+FROM goods_receipt_line l
+LEFT JOIN purchase_order_line pl ON pl.id = l.po_line_id
+WHERE l.parent_id = ? AND l.rejected_qty > 0 AND TRIM(l.reject_reason) = ''
+ORDER BY l.line_no
 `
 
-// Lines that reject some quantity with a blank reason.
-func (q *Queries) G2RejectedNoReason(ctx context.Context, parentID int64) ([]int64, error) {
+type G2RejectedNoReasonRow struct {
+	LineNo   int64
+	PoLineNo int64
+}
+
+// Lines that reject some quantity with a blank reason, with the PO line
+// number their text uses (AD-12, UX 5.4 P2).
+func (q *Queries) G2RejectedNoReason(ctx context.Context, parentID int64) ([]G2RejectedNoReasonRow, error) {
 	rows, err := q.db.QueryContext(ctx, g2RejectedNoReason, parentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []int64
+	var items []G2RejectedNoReasonRow
 	for rows.Next() {
-		var line_no int64
-		if err := rows.Scan(&line_no); err != nil {
+		var i G2RejectedNoReasonRow
+		if err := rows.Scan(&i.LineNo, &i.PoLineNo); err != nil {
 			return nil, err
 		}
-		items = append(items, line_no)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
