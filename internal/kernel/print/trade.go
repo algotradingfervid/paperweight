@@ -117,6 +117,14 @@ type ExpenseDoc struct {
 	Attachments              []string
 	ApprovedBy               string
 	ApprovedAt               time.Time
+	// Purpose, LessAdvance, AdvanceNumber and NetPayable are each left out
+	// when empty; NetPayable prints when HasNetPayable is set, and the words
+	// then follow it (Expense spec §10).
+	Purpose       string
+	LessAdvance   types.Money
+	AdvanceNumber string
+	NetPayable    types.Money
+	HasNetPayable bool
 }
 
 // ExpenseLine is one expense with its receipt marker.
@@ -126,6 +134,7 @@ type ExpenseLine struct {
 	Type, Description string
 	Amount            types.Money
 	HasReceipt        bool
+	Project           string // left out when empty
 }
 
 // payableTotal is the rounded total when the claim rounds, else the grand total.
@@ -136,9 +145,14 @@ func (d ExpenseDoc) payableTotal() types.Money {
 	return d.GrandTotal
 }
 
-// words is the payable total in words, or "" when it can't be computed.
+// words is the net payable in words when set, else the payable total, or ""
+// when it can't be computed.
 func (d ExpenseDoc) words() string {
-	w, err := InWordsINR(d.payableTotal())
+	m := d.payableTotal()
+	if d.HasNetPayable {
+		m = d.NetPayable
+	}
+	w, err := InWordsINR(m)
 	if err != nil {
 		return ""
 	}
