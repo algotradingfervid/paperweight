@@ -167,6 +167,8 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 		"/static/brand/*":                                      {Control: []int{missing}},
 		"/static/ui/*":                                         {Control: []int{missing}},
 		"/users/{id}":                                          {Control: []int{ok, forbidden}}, // 200: the viewer's own
+		"/modules/purchase/q/{queue}":                          {Control: []int{ok, missing}},   // 404: an unknown queue
+		"/modules/purchase/requests/{id}/order":                {Control: []int{forbidden}},     // the viewer can't create an order
 	}
 	// Administrator-only pages and the create pages the viewer holds no
 	// right for.
@@ -182,16 +184,11 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	} {
 		out[r] = st{Control: []int{forbidden}}
 	}
-	// Stubs answer 501 before reading the id (expense E1, purchase P1).
-	for _, r := range []string{
-		"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid",
-		"/modules/purchase/orders/{id}/expected", "/modules/purchase/orders/{id}/handover",
-		"/modules/purchase/orders/{id}/send", "/modules/purchase/requests/{id}/order",
-	} {
+	// Stubs answer 501 before reading the id (expense E1).
+	for _, r := range []string{"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid"} {
 		out[r] = st{Control: []int{stub}, Hidden: []int{stub}}
 	}
-	for _, r := range []string{"/modules/purchase", "/modules/purchase/q/{queue}", "/reports/purchase/pending", "/reports/purchase/pending/filter",
-		"/reports/grn/bills", "/reports/grn/bills/export.csv", "/reports/grn/items", "/reports/grn/items/export.csv"} {
+	for _, r := range []string{"/reports/grn/bills", "/reports/grn/bills/export.csv", "/reports/grn/items", "/reports/grn/items/export.csv"} {
 		out[r] = st{Control: []int{stub}}
 	}
 	return out
@@ -231,6 +228,7 @@ var noControl = map[string]string{
 	"/reports/expense/open/filter":     "a filter form: no rows",
 	"/reports/expense/lines/filter":    "a filter form: no rows",
 	"/reports/expense/advances/filter": "a filter form: no rows",
+	"/reports/purchase/pending/filter": "a filter form: no rows",
 }
 
 var noControlPrefixes = []string{"/m/", "/pick/"}
@@ -554,8 +552,7 @@ func (s *sweepSeed) candidates(route, param string) []candidate {
 		}
 		return out
 	}
-	// ids is one control and one hidden record of dt: these routes are
-	// stubs that answer before reading the id (sweepStatuses).
+	// ids is one control and one hidden record of dt.
 	ids := func(dt string) []candidate {
 		var out []candidate
 		seen := map[bool]bool{}
@@ -585,7 +582,8 @@ func (s *sweepSeed) candidates(route, param string) []candidate {
 	case strings.HasPrefix(route, "/modules/expense/advances/"):
 		return ids(expense.AdvanceDocType)
 	case route == "/modules/purchase/q/{queue}":
-		return plain("to-send", "open")
+		return plain(purchase.QueueDrafts, purchase.QueueWaiting, purchase.QueueToSend, purchase.QueueToClose,
+			purchase.QueueAwaitingDelivery, purchase.QueueRequestsToOrder, purchase.QueueMyRequests, "no-such-queue")
 	case route == "/files/{id}":
 		var out []candidate
 		for _, r := range s.records {
@@ -681,7 +679,7 @@ func (s *sweepSeed) query(q string) []string {
 // controlReports are the derived pages that list a DocType's approved
 // records (the pending report: approved orders not fully received).
 var controlReports = map[string][]string{
-	purchase.DocType:       {"/reports/purchase/pending/export.csv"},
+	purchase.DocType:       {"/reports/purchase/pending"},
 	expense.ClaimDocType:   {"/reports/expense/open", "/reports/expense/lines"},
 	expense.AdvanceDocType: {"/reports/expense/advances"},
 }
@@ -690,14 +688,26 @@ var controlReports = map[string][]string{
 type controlExpectation struct{ url, want string }
 
 // controlExpectations: each control's list, export, page and print page show
-// it, the expense reports show the approved controls, and the inbox and My
-// requests show the pending ones.
+// it, the expense and pending reports and the purchase queues show the
+// approved controls, the first control order's send, hand-over and expected
+// pages show its total, and the inbox and My requests show the pending ones.
 func (s *sweepSeed) controlExpectations() []controlExpectation {
 	var out []controlExpectation
 	add := func(u, want string) { out = append(out, controlExpectation{u, want}) }
+	firstPO := true // the control order candidates sweeps on /modules/purchase/orders/
 	for _, r := range s.records {
 		if r.hidden {
 			continue
+		}
+		if r.dt == purchase.DocType && firstPO {
+			firstPO = false
+			for _, p := range []string{"send", "handover", "expected"} {
+				add("/modules/purchase/orders/"+idText(r.id)+"/"+p, types.FormatMoney(r.amount))
+			}
+		}
+		if r.dt == purchase.DocType && r.state == stApproved {
+			add("/modules/purchase/q/"+purchase.QueueToSend, r.doc.Number)
+			add("/modules/purchase/q/"+purchase.QueueAwaitingDelivery, r.doc.Number)
 		}
 		page := "/doc/" + r.dt + "/" + idText(r.id)
 		dt, _ := doctype.Lookup(r.dt)
@@ -757,5 +767,8 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 	}
 	add("/m/project", projectA)
 	add("/pick/Project?q=PRJ", projectA)
+	// The home's To send card counts the one approved control, not the
+	// hidden approved order too.
+	add("/modules/purchase", "1 approved order not sent yet")
 	return out
 }
