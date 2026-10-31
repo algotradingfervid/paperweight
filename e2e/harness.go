@@ -477,7 +477,7 @@ func (s *Session) SetFile(sel, path string) {
 		if res.Result == nil || res.Result.ObjectID == "" {
 			return fmt.Errorf("no element %s", sel)
 		}
-		off, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`document.querySelector(` + strconv.Quote(sel) + `).disabled`))
+		off, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`document.querySelector(`+strconv.Quote(sel)+`).disabled`))
 		if err != nil {
 			return err
 		}

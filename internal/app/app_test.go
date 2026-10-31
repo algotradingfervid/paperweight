@@ -455,7 +455,7 @@ func TestApp_CompanySetup(t *testing.T) {
 				}
 			}
 			for name := range goodSetup() {
-				if v, _ := r.doc.Find(`[name="`+name+`"]`).Attr("value"); name != c.field && v != form.Get(name) {
+				if v, _ := r.doc.Find(`[name="` + name + `"]`).Attr("value"); name != c.field && v != form.Get(name) {
 					t.Errorf("%s after a refusal = %q, want the typed %q", name, v, form.Get(name))
 				}
 			}
