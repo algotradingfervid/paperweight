@@ -2,7 +2,9 @@ package docscreen
 
 import (
 	"cmp"
+	"context"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -49,13 +51,14 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		problem(w, r, err)
 		return
 	}
-	q := ParseListQuery(r.URL.Query())
+	hide := d.ListHidden(r, dt)
+	q := ListedQuery(dt, ParseListQuery(r.URL.Query()), hide)
 	res, err := d.Lister.List(ctx, p, dt, q)
 	if err != nil {
 		problem(w, r, err)
 		return
 	}
-	cols := ListColumns(dt)
+	cols := listedColumns(dt, hide)
 	rows, err := d.listRows(r.WithContext(auth.WithPrincipal(ctx, p)), dt, cols, res.Rows, docURL)
 	if err != nil {
 		problem(w, r, err)
@@ -74,7 +77,7 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 			Search:      q.Search,
 			SearchLabel: "Search " + plural,
 			Sort:        selectedSort(dt, q),
-			Sorts:       sortOptions(dt),
+			Sorts:       sortOptions(dt, hide),
 			Chips:       chips(dt, q),
 			ClearURL:    listURL(dt.Name, ListQuery{Search: q.Search, Sort: q.Sort, Size: q.Size}),
 			Count:       countLine(dt, res.Total),
@@ -100,9 +103,61 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 	ui.Render(w, r, http.StatusOK, listPage(v), listMain(v))
 }
 
+// ListHidden is the Hide question of the list, search and CSV export:
+// whether name is a field of dt the module hides, asked with Listing set and
+// no View (CD-327 (1), (3), CD-334).
+func (d Deps) ListHidden(r *http.Request, dt *doctype.DocType) func(name string) bool {
+	c := d.ctxOf(r, dt, nil)
+	c.Listing = true
+	return func(name string) bool {
+		f, ok := fieldOf(dt, name)
+		return ok && hidden(c, f)
+	}
+}
+
+// ListedQuery is q without the filters and the sort on a field hide reports
+// hidden; with no sort left and dt's first DefaultSort key hidden, it sorts
+// by the first sort option left on a Sortable field (CD-334 (2), (3)).
+func ListedQuery(dt *doctype.DocType, q ListQuery, hide func(string) bool) ListQuery {
+	q.Filters = slices.DeleteFunc(slices.Clone(q.Filters), func(f Filter) bool { return hide(f.Field) })
+	if field, _, _ := strings.Cut(q.Sort, "."); q.Sort != "" && hide(field) {
+		q.Sort = ""
+	}
+	if q.Sort == "" && len(dt.DefaultSort) != 0 && hide(dt.DefaultSort[0].Field) {
+		for _, o := range sortOptions(dt, hide) {
+			field, _, _ := strings.Cut(o.Value, ".")
+			if f, ok := fieldOf(dt, field); ok && f.Sortable {
+				q.Sort = o.Value
+				break
+			}
+		}
+	}
+	return q
+}
+
+// listedColumns is ListColumns(dt) without the columns hide reports hidden
+// (CD-327 (3)).
+func listedColumns(dt *doctype.DocType, hide func(string) bool) []components.Column {
+	return slices.DeleteFunc(ListColumns(dt), func(col components.Column) bool { return hide(col.Key) })
+}
+
+// PartyListed reports whether p's list of name shows its party: false when
+// name's module hides the party field, asked as the list page asks, with
+// Listing set and no View (CD-327 (3), CD-334). The app gives it to the
+// approval readers as approval.Deps.PartyVisible. An unknown name keeps the
+// party.
+func (d Deps) PartyListed(ctx context.Context, p auth.Principal, name string) bool {
+	dt, ok := doctype.Lookup(name)
+	if !ok {
+		return true
+	}
+	r := (&http.Request{Method: http.MethodGet, URL: &url.URL{Path: d.InboxURL}}).WithContext(auth.WithPrincipal(ctx, p))
+	return !partyHidden(Ctx{Req: r, Principal: p, DT: dt, Deps: d, Listing: true})
+}
+
 // listRows is rs as DataList rows over cols; href is each row's link. The
 // party is left out when the module hides its field (CD-319 (7)); Hide is
-// asked once, with no View and Listing set (CD-327 (1)).
+// asked with no View and Listing set (CD-327 (1)).
 func (d Deps) listRows(r *http.Request, dt *doctype.DocType, cols []components.Column, rs []ListRow, href func(string, int64) string) ([]components.Row, error) {
 	ctx := r.Context()
 	c := d.ctxOf(r, dt, nil)
@@ -210,11 +265,12 @@ func sortLabel(dt *doctype.DocType, k doctype.SortKey) string {
 	return fieldLabel(dt, k.Field) + " low to high"
 }
 
-// sortOptions lists DefaultSort's keys, then each Sortable field both ways.
-func sortOptions(dt *doctype.DocType) []components.Option {
-	keys := slices.Clone(dt.DefaultSort)
+// sortOptions lists DefaultSort's keys, then each Sortable field both ways,
+// leaving out the fields hide reports hidden (CD-334 (2)).
+func sortOptions(dt *doctype.DocType, hide func(string) bool) []components.Option {
+	keys := slices.DeleteFunc(slices.Clone(dt.DefaultSort), func(k doctype.SortKey) bool { return hide(k.Field) })
 	for _, f := range dt.Fields {
-		if f.Sortable {
+		if f.Sortable && !hide(f.Name) {
 			keys = append(keys, doctype.SortKey{Field: f.Name, Desc: true}, doctype.SortKey{Field: f.Name})
 		}
 	}

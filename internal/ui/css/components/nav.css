@@ -1,0 +1,116 @@
+/* nav.css: the header's search box and account chip, and the grouped main
+   navigation in the sidebar and the phone sheet (UI v2 §5.2, N18). */
+
+/* ---------- Header ---------- */
+@utility avatar-initials {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-100);
+  color: var(--color-primary-800);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  /* Drawn as generated content so the chip's visible text stays the name in
+     its aria-label (axe label-content-name-mismatch). */
+  &::before { content: attr(data-initials); }
+  &[data-initials=""] { display: none; }
+}
+
+/* ---------- Grouped navigation ---------- */
+@utility nav-list {
+  display: grid;
+  gap: var(--border-w-strong);
+  padding-block-end: var(--space-4);
+}
+
+/* Group headings: 12 px uppercase, muted (§5.1 type). */
+@utility nav-group {
+  margin-block: var(--space-4) var(--space-1);
+  padding-inline: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  line-height: var(--leading-tight);
+  text-transform: uppercase;
+  &:first-child { margin-block-start: var(--space-1); }
+}
+
+@utility nav-links {
+  display: grid;
+  gap: var(--border-w-strong);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  & a, & summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: var(--target-min);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--text-base);
+    text-decoration: none;
+    transition: scale var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  }
+  & a .icon, & summary .icon {
+    flex: none;
+    inline-size: var(--icon-md);
+    block-size: var(--icon-md);
+    color: var(--color-text-muted);
+  }
+  @media (hover: hover) {
+    & a:hover, & summary:hover { background: var(--color-sunken); color: var(--color-text); }
+  }
+  & a:active, & summary:active { scale: 0.98; background: var(--color-primary-100); color: var(--color-primary-800); }
+
+  /* Current item: accent-50 fill, accent-800 text, accent-600 icon, a 3 px bar at the start edge. */
+  & a[aria-current="page"] {
+    background: var(--color-primary-50);
+    color: var(--color-primary-800);
+    font-weight: var(--weight-semibold);
+  }
+  & a[aria-current="page"] .icon { color: var(--color-primary-600); }
+  & a[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block: var(--space-2);
+    border-inline-start: calc(var(--border-w-strong) + var(--border-w)) solid var(--color-primary-600);
+    border-radius: var(--radius-pill);
+  }
+}
+
+@utility nav-label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+@utility nav-badge {
+  flex: none;
+  min-inline-size: var(--space-6);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-600);
+  color: var(--color-text-on-fill);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: var(--space-6);
+  text-align: center;
+}
+
+/* "More masters": a disclosure styled as one more item; the chevron turns when open. */
+@utility nav-more {
+  & > summary { list-style: none; cursor: pointer; }
+  & > summary::-webkit-details-marker { display: none; }
+  & > summary .icon:last-child { transition: rotate var(--dur-base) var(--ease-out); }
+  &[open] > summary .icon:last-child { rotate: 180deg; }
+  & > .nav-links { padding-block-start: var(--border-w-strong); }
+}

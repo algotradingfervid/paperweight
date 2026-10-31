@@ -3,12 +3,15 @@ package goodsreceipt
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/a-h/templ"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt/dbq"
+	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
 )
@@ -66,10 +69,37 @@ func printReceipt(ctx context.Context, tx *db.Tx, id int64) (templ.Component, er
 			RejectReason: l.RejectReason,
 		})
 	}
+	if d.ReverseChargeNote, err = reverseChargeNote(ctx, tx, h.PurchaseOrderID); err != nil {
+		return nil, err
+	}
 	if d.Letterhead, err = print.LetterheadFor(ctx, tx, h.BranchID); err != nil {
 		return nil, err
 	}
 	return print.GRNDocument(d), nil
+}
+
+// reverseChargeNote is the PO print's reverse-charge note for po (GRN spec
+// §7), read in the print's tx. It is blank with no PO or when ctx's
+// principal can't read the PO (CD-233); with no principal, the zero one
+// reads nothing.
+func reverseChargeNote(ctx context.Context, tx *db.Tx, po sql.NullInt64) (string, error) {
+	if !po.Valid {
+		return "", nil
+	}
+	p, _ := auth.PrincipalFrom(ctx)
+	d, err := wiring.Get(tx)
+	if err != nil {
+		return "", err
+	}
+	var link *auth.LinkError
+	err = d.Auth.CheckLinkTx(ctx, tx, p, purchase.DocType, po.Int64)
+	if errors.As(err, &link) {
+		return "", nil // the viewer can't read the PO
+	}
+	if err != nil {
+		return "", err
+	}
+	return purchase.ReverseChargeNote(ctx, tx, po.Int64)
 }
 
 // addressLines are the vendor address snapshot's lines without its last

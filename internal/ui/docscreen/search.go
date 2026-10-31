@@ -94,7 +94,7 @@ func (d Deps) searchGroups(r *http.Request, p auth.Principal, q string) ([]searc
 		if res.Total == 0 {
 			continue
 		}
-		cols := ListColumns(dt)
+		cols := listedColumns(dt, d.ListHidden(r, dt))
 		rows, err := d.listRows(r.WithContext(auth.WithPrincipal(ctx, p)), dt, cols, res.Rows[:min(searchShown, len(res.Rows))], d.recordURL)
 		if err != nil {
 			return nil, err

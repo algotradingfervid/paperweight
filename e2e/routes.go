@@ -62,6 +62,7 @@ type sweepState struct {
 	master   map[string]int64               // record id by /m/ slug
 	purchase int64                          // a purchase.Order draft of Priya's (P15e)
 	exp      map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
+	grn      docscreen.SampleIDs            // goodsreceipt.Receipt (CD-298)
 }
 
 // prepareSweep seeds sweepState. The stand-in masters' rows the reference order
@@ -127,6 +128,7 @@ func (h *Harness) prepareSweep() sweepState {
 	s.pr = h.purchaseRequest()
 	s.purchase = h.purchaseDraft()
 	s.exp = h.expenseSamples(s.long)
+	s.grn = h.grnSamples()
 	return s
 }
 
@@ -340,6 +342,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			out = append(out, sc)
 		}
 	}
+	out = append(out, h.grnScreens(s.grn)...)
 	out = append(out, authscreens.Screens(authscreens.SweepIDs{
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
@@ -631,13 +634,11 @@ var expenseStubs = []string{
 var purchaseStubs = []struct{ route, owner string }{}
 
 // grnStubs are MOD-GRN's GET routes that still answer G1's 501 stub, each
-// with the task that builds it (AD-12). S4 gives the report pages screens and
-// G9 moves the exports to the "a CSV" entries; each removes its routes here.
+// with the task that builds it (AD-12). S4 gives the report pages screens
+// and removes its routes here.
 var grnStubs = []struct{ route, owner string }{
 	{"/reports/grn/bills", "S4"},
 	{"/reports/grn/items", "S4"},
-	{"/reports/grn/bills/export.csv", "G9"},
-	{"/reports/grn/items/export.csv", "G9"},
 }
 
 // notPageStatus is the status a sample answers with when it isn't 200.
@@ -669,6 +670,7 @@ func notPages(s sweepState) []notPage {
 		{"/m/import/errors.csv", "/m/import/errors.csv", "a CSV of a checked file's refused rows; alone it redirects to Choose"},
 		{"/files/{id}", "/files/" + strconv.FormatInt(s.file, 10), "a file"},
 		{"/files/*", "/files/no/such", "FILE's plain-text 404 for any other path under /files/; no page"},
+		{"/modules/goodsreceipt/po-search", "/modules/goodsreceipt/po-search?q=a", "a picker's htmx rows"},
 	}
 	for slug := range s.master {
 		out = append(out, notPage{"/m/" + slug + "/export.csv", "/m/" + slug + "/export.csv", "a CSV"})
@@ -685,6 +687,9 @@ func notPages(s sweepState) []notPage {
 	}
 	for _, r := range []string{"open", "lines", "advances"} {
 		out = append(out, notPage{"/reports/expense/" + r + "/export.csv", "/reports/expense/" + r + "/export.csv", "a CSV"})
+	}
+	for _, r := range []string{"bills", "items"} {
+		out = append(out, notPage{"/reports/grn/" + r + "/export.csv", "/reports/grn/" + r + "/export.csv", "a CSV"})
 	}
 	for _, name := range []string{"Branch", "Company", "Employee", "Expense Type", "Item", "Party", "Payment Terms", "Project", "Site", "Tax Code", "UoM"} {
 		out = append(out, notPage{"/pick/" + name, "/pick/" + strings.ReplaceAll(name, " ", "%20") + "?q=a", "a picker's htmx rows"})

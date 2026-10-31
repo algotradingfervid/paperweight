@@ -94,3 +94,7 @@ SELECT id,
 FROM purchase_request
 WHERE state = 'approved' AND site_id = ? AND project_id = ?
 ORDER BY required_by IS NULL, required_by, id;
+
+-- name: RequestRowAt :one
+-- Add from requests (P15c): a ticked row's request and line number.
+SELECT parent_id, line_no FROM purchase_request_line WHERE id = ?;

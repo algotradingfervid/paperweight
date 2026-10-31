@@ -44,11 +44,13 @@ type LineNoun struct {
 }
 
 // Ctx is what a hook reads. View is nil on a new document's first step, and
-// on the list and search pages, where Listing is true and Hide is asked once
-// per DocType (CD-319 (7), CD-327 (1)). Listing is false everywhere else. A
-// Hide treats a nil View as "no record" and never dereferences it.
+// wherever Listing is true: the list and search pages, the CSV export and
+// the approval readers' party, where Hide is asked per listed field and per
+// party in each request (CD-319 (7), CD-327 (1), (3), CD-334). Listing is
+// false everywhere else. A Hide treats a nil View as "no record" and never
+// dereferences it.
 type Ctx struct {
-	Req       *http.Request
+	Req       *http.Request // with Listing, it may be the inbox path (PartyListed)
 	Principal auth.Principal
 	DT        *doctype.DocType
 	View      *DocView

@@ -2,6 +2,8 @@ package purchase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -184,6 +186,7 @@ type OpenRequestRow struct {
 	Description   string
 	UoMID         int64
 	UoMCode       string
+	UoMWhole      bool // the unit takes whole numbers only
 	Qty           types.Qty
 	Pending       types.Qty
 	Holders       []Holder
@@ -211,6 +214,19 @@ func PendingToOrder(ctx context.Context, tx *db.Tx, requestLineIDs []int64) (map
 		out[id] = pendingOf(id, types.Qty(row.Qty), links)
 	}
 	return out, nil
+}
+
+// RequestRowAt is request line id's request and line number, ok false when
+// no request line has that id.
+func RequestRowAt(ctx context.Context, tx *db.Tx, id int64) (requestID int64, lineNo int, ok bool, err error) {
+	r, err := dbq.New(tx.SQL()).RequestRowAt(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, false, nil
+	}
+	if err != nil {
+		return 0, 0, false, err
+	}
+	return r.ParentID, int(r.LineNo), true, nil
 }
 
 // HeldBy is every non-cancelled PO line linking the request, oldest PO first
@@ -298,7 +314,7 @@ func (s *Service) openRequest(ctx context.Context, tx *db.Tx, q *dbq.Queries, r 
 			return OpenRequest{}, err
 		}
 		row := OpenRequestRow{RequestLineID: l.ID, LineNo: int(l.LineNo), ItemID: l.ItemID, ItemCode: it.Code, Description: l.Description,
-			UoMID: l.UomID, UoMCode: u.Code, Qty: types.Qty(l.Qty), Pending: pendingOf(l.ID, types.Qty(l.Qty), links)}
+			UoMID: l.UomID, UoMCode: u.Code, UoMWhole: u.WholeNumber, Qty: types.Qty(l.Qty), Pending: pendingOf(l.ID, types.Qty(l.Qty), links)}
 		for _, k := range links {
 			if o, h := linkedOrdered(k, 0, nil); k.RowID == l.ID && o+h > 0 {
 				row.Holders = append(row.Holders, holderOf(k))

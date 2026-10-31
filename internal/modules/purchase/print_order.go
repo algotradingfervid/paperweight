@@ -10,7 +10,6 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/vardhan/internaltools/internal/kernel/doc"
-	"github.com/vardhan/internaltools/internal/kernel/gstcalc"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/modules/purchase/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -53,9 +52,7 @@ func printOrder(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 	if d.Refs, err = orderRefs(h); err != nil {
 		return nil, err
 	}
-	if h.SnapVendorName != "" && h.SnapPlaceState != "" {
-		d.PlaceReason = gstcalc.PlaceReason(h.SnapVendorCategory, h.SnapVendorName, h.SnapVendorState, h.SnapPlaceState)
-	}
+	d.PlaceReason = placeReasonOf(h)
 	if d.ReverseChargeNote, err = ReverseChargeNote(ctx, tx, id); err != nil {
 		return nil, err
 	}

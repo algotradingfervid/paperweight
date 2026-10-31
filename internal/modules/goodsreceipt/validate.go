@@ -84,9 +84,9 @@ func checkDates(h dbq.G2ReceiptRow, today string) []doctype.FieldError {
 // a draft with lines, detected from the lines, never a stored marker
 // (CD-302). Otherwise each line not on the PO is refused with the PO's
 // display, and a PO line already on an earlier line is refused on the later
-// one. A po_line_id that doesn't resolve is not on the PO, so the foreign
-// key is never the message. It returns the line numbers refused as not on
-// the PO.
+// one, {m} its PO line number (CD-279 (14)). A po_line_id that doesn't
+// resolve is not on the PO, so the foreign key is never the message. It
+// returns the line numbers refused as not on the PO.
 func checkPO(h dbq.G2ReceiptRow, lines []dbq.G2LinesRow) ([]doctype.FieldError, map[int64]bool) {
 	if !h.PurchaseOrderID.Valid {
 		return []doctype.FieldError{{Field: "purchase_order_id", Message: msgChoosePO}}, nil
@@ -97,7 +97,7 @@ func checkPO(h dbq.G2ReceiptRow, lines []dbq.G2LinesRow) ([]doctype.FieldError, 
 	}
 	var errs []doctype.FieldError
 	foreign := map[int64]bool{}
-	seen := map[int64]int64{}
+	seen := map[int64]bool{}
 	for _, l := range lines {
 		n := int(l.LineNo)
 		if l.PoID.Int64 != po {
@@ -106,11 +106,11 @@ func checkPO(h dbq.G2ReceiptRow, lines []dbq.G2LinesRow) ([]doctype.FieldError, 
 			foreign[l.LineNo] = true
 			continue
 		}
-		if first, ok := seen[l.PoLineID.Int64]; ok {
-			errs = append(errs, doctype.FieldError{Field: "po_line_id", Line: n, Message: fmt.Sprintf(msgPOLineTwice, n, first)})
+		if seen[l.PoLineID.Int64] {
+			errs = append(errs, doctype.FieldError{Field: "po_line_id", Line: n, Message: fmt.Sprintf(msgPOLineTwice, n, l.PoLineNo)})
 			continue
 		}
-		seen[l.PoLineID.Int64] = l.LineNo
+		seen[l.PoLineID.Int64] = true
 	}
 	return errs, foreign
 }
@@ -136,12 +136,14 @@ func changedPO(po int64, lines []dbq.G2LinesRow) bool {
 // twice the PO line's quantity (CD-272 Gap 3; exactly twice passes). A line
 // refused as not on the PO (foreign) is not checked against another PO's
 // line, and a line whose PO line doesn't resolve has no unit or quantity to
-// check against; rejected above received reads only the line itself.
+// check against; rejected above received reads only the line itself. The
+// texts number the line by its PO line (pn), FieldError.Line keeps the
+// posted position (AD-12, UX §5.4 P2).
 func checkLine(l dbq.G2LinesRow, foreign bool) []doctype.FieldError {
-	n := int(l.LineNo)
+	n, pn := int(l.LineNo), int(l.PoLineNo)
 	var errs []doctype.FieldError
 	if l.RejectedQty > l.ReceivedQty {
-		errs = append(errs, doctype.FieldError{Field: "rejected_qty", Line: n, Message: fmt.Sprintf(msgRejectedAbove, n)})
+		errs = append(errs, doctype.FieldError{Field: "rejected_qty", Line: n, Message: fmt.Sprintf(msgRejectedAbove, pn)})
 	}
 	if foreign || !l.PoID.Valid {
 		return errs
@@ -152,12 +154,12 @@ func checkLine(l dbq.G2LinesRow, foreign bool) []doctype.FieldError {
 		field string
 		qty   int64
 	}{{"received_qty", l.ReceivedQty}, {"rejected_qty", l.RejectedQty}} {
-		if fe := uom.CheckLineQty(n, types.Qty(c.qty), lineUoM, stockUoM, types.Factor(l.Factor)); fe != nil {
+		if fe := uom.CheckLineQty(pn, types.Qty(c.qty), lineUoM, stockUoM, types.Factor(l.Factor)); fe != nil {
 			errs = append(errs, doctype.FieldError{Field: c.field, Line: n, Message: fe.Message})
 		}
 	}
 	if l.AcceptedQty > 2*l.OrderedQty {
-		errs = append(errs, doctype.FieldError{Field: "received_qty", Line: n, Message: fmt.Sprintf(msgTwiceOrdered, n,
+		errs = append(errs, doctype.FieldError{Field: "received_qty", Line: n, Message: fmt.Sprintf(msgTwiceOrdered, pn,
 			types.FormatQtyUoM(types.Qty(l.AcceptedQty), l.UomCode), types.FormatQtyUoM(types.Qty(l.OrderedQty), l.UomCode))})
 	}
 	return errs

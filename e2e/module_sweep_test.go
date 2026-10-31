@@ -15,9 +15,8 @@ import (
 // rows, by the head's ruling, each with who removes it. Each entry must name
 // a registered, unswept DocType, so it can't outlive its reason.
 var notYetSwept = map[string]string{
-	"purchase.Order":       "AD-13 MOD-PO P16 sweep (CD-298)",
-	"purchase.Request":     "AD-13 MOD-PO P16 sweep (CD-298)",
-	"goodsreceipt.Receipt": "MOD-GRN S1",
+	"purchase.Order":   "AD-13 MOD-PO P16 sweep (CD-298)",
+	"purchase.Request": "AD-13 MOD-PO P16 sweep (CD-298)",
 }
 
 // TestModule_EveryDocTypeSwept (hooks spec §6) is the gate screens.Uncovered
@@ -40,7 +39,7 @@ func TestModule_EveryDocTypeSwept(t *testing.T) {
 			docs = append(docs, dt.Name)
 		}
 	}
-	missing := docscreen.Unswept(list)
+	missing := docscreen.Unswept(list, h.App.DocDeps())
 	if !slices.Contains(docs, fixture.Order) || slices.Contains(missing, fixture.Order) {
 		t.Errorf("fixture.Order registered %v, unswept %v; want it registered and fully swept, the floor of this check",
 			slices.Contains(docs, fixture.Order), slices.Contains(missing, fixture.Order))
