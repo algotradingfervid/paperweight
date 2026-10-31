@@ -12,6 +12,7 @@ const (
 	msgReverseCharge     = "Line %d: Reverse charge needs a taxable tax code on every line."
 	msgNoConversion      = "Line %d: Item %s has no conversion for UoM %s. Pick another UoM." // CD-278
 	msgAlreadyAbove      = "Line %d: Already received is more than the quantity."
+	msgZeroPrice         = "Price is ₹0 on line %d."
 	msgTotalTooLarge     = "The total is too large. The most a purchase order can be is %s. Split it into more than one purchase order." // CD-308, CD-311 (1); the maximum
 	// site code, its branch code and state, project code, its branch code and state
 	msgSiteProjectState = "Site %s is under branch %s in %s, but project %s belongs to branch %s in %s. Check the tax with your CA."

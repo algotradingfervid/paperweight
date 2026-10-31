@@ -329,11 +329,13 @@ func TestPO_Copy(t *testing.T) {
 
 	t.Run("disabled UoM and tax code: their lines left out, in line order", func(t *testing.T) {
 		env := purchasetest.New(t)
+		crane := p2Line(t, env, "SVC-CRANE", "HRS", "8", "1500", "GST12")
+		crane["hsn_sac"] = "" // the builder's default 7216 is a goods HSN; blank takes the item's SAC (P30)
 		src := purchasetest.NewOrder(t, env, purchasetest.OrderLines(
 			p2Line(t, env, "MS-ANGLE-50", "KGS", "100", "62.5"),
 			p2Line(t, env, "BOLT-M12", "NOS", "40", "12"),
 			p2Line(t, env, "WIRE-18G", "KGS", "50", "96"),
-			p2Line(t, env, "SVC-CRANE", "HRS", "8", "1500", "GST12"),
+			crane,
 		))
 		display := naming.Label(src.Number, src.ID)
 		srcLines := p2LineSnap(t, env, src.ID, p12LineCopied...)

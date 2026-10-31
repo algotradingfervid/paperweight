@@ -56,7 +56,7 @@ func validateRequest(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldEr
 			l.Description = it.Name
 		}
 		if l.UomID == 0 {
-			l.UomID = it.StockUoMID
+			l.UomID = it.PurchaseUoMID
 		}
 		if fe := checkRequestQty(ctx, tx, l, it.Code); fe != nil {
 			errs = append(errs, *fe)
