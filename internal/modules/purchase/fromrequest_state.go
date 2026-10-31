@@ -25,13 +25,17 @@ type FromRequestState struct {
 }
 
 // FromRequestState reads the Create PO page's state for p and vendorID, with
-// CreateFromRequest's load and right checks in its order: a missing or hidden
-// request is AUTH's 404 (CD-245), no create on the PO AUTH's 403.
+// CreateFromRequest's load, right and state checks in its order: a missing or
+// hidden request is AUTH's 404 (CD-245), no create on the PO AUTH's 403, a
+// draft or cancelled request fromRequestStateErr's 422.
 func (s *Service) FromRequestState(ctx context.Context, p auth.Principal, requestID, vendorID int64) (FromRequestState, error) {
 	var st FromRequestState
 	err := s.d.DB.Read(ctx, func(tx *db.Tx) error {
 		info, err := s.fromRequestRights(ctx, tx, p, requestID)
 		if err != nil {
+			return err
+		}
+		if err := fromRequestStateErr(info); err != nil {
 			return err
 		}
 		req, err := doc.LoadDoc(ctx, tx, RequestDocType, requestID)

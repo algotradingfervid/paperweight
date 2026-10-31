@@ -71,12 +71,19 @@ var renderFromRequest = func(h *handlers, w http.ResponseWriter, r *http.Request
 // fromRequestView renders the page for the request in the path with status:
 // errs on vendor_id go to the picker and the error summary; a 409's message
 // is the conflict banner; any other message is a danger banner, unless it is
-// the nothing-pending text the page already shows.
+// the nothing-pending text the page already shows. A redraw's form keeps the
+// posted version (CD-94).
 func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64) // not a number: 0, which no request has (404)
 	vendorID, _ := strconv.ParseInt(r.PostFormValue(vendorField), 10, 64)
 	p, _ := auth.PrincipalFrom(r.Context())
 	st, err := h.d.Service.FromRequestState(r.Context(), p, id, vendorID)
+	if err != nil && status == http.StatusConflict {
+		// A stale post on a request the page can't show (a draft's state
+		// refusal): the conflict text comes first (CD-259), with no form.
+		web.Error(w, r, status, errs[0].Message)
+		return
+	}
 	if err != nil {
 		web.ErrorFrom(w, r, err)
 		return
@@ -90,6 +97,9 @@ func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, statu
 	v := fromRequestView{
 		opts:    layout.PageOpts{Title: fromRequestTitle, Width: layout.Form, Back: &back},
 		summary: strings.Join(parts, " · "), back: back, action: fromRequestPath(id), version: st.Version,
+	}
+	if posted, err := strconv.Atoi(r.PostFormValue("version")); err == nil {
+		v.version = posted // a redraw keeps the posted version (CD-94)
 	}
 	for _, row := range req.Rows {
 		if row.Pending > 0 {

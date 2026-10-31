@@ -15,9 +15,10 @@ import (
 
 // CreateFromRequest creates p's PO draft for vendorID from the pending rows of
 // request requestID, posted at version, and returns the new PO's id (PO spec
-// §20.4 item 1). In this order (rights, then version, then vendor, CD-259):
+// §20.4 item 1). In this order (rights, then version, then state, CD-259):
 // load and read the request (missing or hidden is AUTH's 404, CD-245), create
-// on the PO, the version (DOC's stale text), a blank vendor, then the rows
+// on the PO, the version (DOC's stale text), a draft or cancelled request
+// (fromRequestStateErr), a blank vendor, then the rows
 // with pending to order above 0 (none is §20.4's text). The request is read
 // before create's own transaction, so checkRequestRows and DOC's LinkSpec
 // check inside create are the backstop for a request that changed in between.
@@ -44,6 +45,9 @@ func (s *Service) CreateFromRequestWithSource(ctx context.Context, p auth.Princi
 		}
 		if req.Version != version {
 			return &doc.Error{Kind: doc.KindStale, Message: fmt.Sprintf(msgFromRequestStale, info.Display)}
+		}
+		if err := fromRequestStateErr(info); err != nil {
+			return err
 		}
 		if vendorID == 0 {
 			return &doc.Error{Kind: doc.KindInvalid, Message: msgFromRequestNoVendor,
@@ -109,6 +113,20 @@ func (s *Service) fromRequestRights(ctx context.Context, tx *db.Tx, p auth.Princ
 		return doctype.Info{}, err
 	}
 	return info, s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil)
+}
+
+// fromRequestStateErr refuses a request that isn't submitted (AD-13): a
+// draft or a cancelled one is a 422 with its own text, as MarkSent refuses a
+// wrong state. A closed one passes: its page shows §20.4's nothing-pending
+// text.
+func fromRequestStateErr(info doctype.Info) error {
+	switch info.State {
+	case doctype.StateDraft:
+		return &doc.Error{Kind: doc.KindInvalid, Message: fmt.Sprintf(msgFromRequestDraft, info.Display)}
+	case doctype.StateCancelled:
+		return &doc.Error{Kind: doc.KindInvalid, Message: fmt.Sprintf(msgFromRequestCancelled, info.Display)}
+	}
+	return nil
 }
 
 // plainOf is a stored link, text or date value as a posted form value; nil

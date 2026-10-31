@@ -17,9 +17,9 @@ import (
 // fromRequestPost creates a PO draft from the request in the path (PO spec
 // §20.4 item 1) with the posted version (missing or not a number is AUTH's
 // bad form, CD-146) and vendor_id (blank or not a number is no vendor), then
-// redirects to the new PO's Details step with the created flash (UX §5.18). A 422 or 409 redraws through
-// renderFromRequest; anything else (AUTH's 403 and 404 among them) is the
-// platform's error page.
+// redirects to the new PO's Details step with the created flash (UX §5.18).
+// A 422 or 409 redraws through renderFromRequest; anything else (AUTH's 403
+// and 404 among them) is the platform's error page.
 func (h *handlers) fromRequestPost(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64) // not a number: 0, which no request has (404)
 	version, err := strconv.Atoi(r.PostFormValue("version"))
