@@ -573,3 +573,45 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** the rule CD-329 names **When** it is exercised through the public path **Then** unswept needs no line screens for a NoLinePages DocType.
 - **Go test:** `TestUnswept_NoLinePagesNeedsNoLineScreens`
 - **Sources:** CD-329; M0-55
+
+### HOOK-082 · The party is hidden by its field, not its value
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-319 (6), (7) names **When** it is exercised through the public path **Then** the party is hidden by its field, not its value.
+- **Go test:** `TestHide47_PartyByField`
+- **Sources:** CD-319 (6), (7); M0-47
+
+### HOOK-083 · Grand total and words are left out when their field is hidden
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-319 (8) names **When** it is exercised through the public path **Then** grand total and words are left out when their field is hidden.
+- **Go test:** `TestHide47_GrandTotalHidden`
+- **Sources:** CD-319 (8); M0-47
+
+### HOOK-084 · A module line card starts from the hidden-filtered card
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-319 (9) names **When** it is exercised through the public path **Then** a module line card starts from the hidden-filtered card.
+- **Go test:** `TestHide47_ModuleCardFiltered`
+- **Sources:** CD-319 (9); M0-47
+
+### HOOK-085 · Hide sees Listing only on the list and search pages
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-327 (1) names **When** it is exercised through the public path **Then** hide sees Listing only on the list and search pages.
+- **Go test:** `TestHide47_Listing`
+- **Sources:** CD-327 (1); M0-47
+
+### HOOK-086 · doc.PartyField is the field DOC reads the party from
+- **Priority:** P1
+- **Level:** unit
+- **Given** the rule CD-319 (6) names **When** it is exercised through the public path **Then** doc.PartyField is the field DOC reads the party from.
+- **Go test:** `TestDoc_PartyField_AgreesWithPartyOf`
+- **Sources:** CD-319 (6); M0-47
+
+### HOOK-087 · Every registered Hide survives a nil View
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-327 (1) names **When** it is exercised through the public path **Then** every registered Hide survives a nil View.
+- **Go test:** `TestDocDeps_HideNilView`
+- **Sources:** CD-327 (1); M0-47
