@@ -591,17 +591,17 @@ func TestDoc_Reassign_Rules(t *testing.T) {
 			t.Run(c.name, func(t *testing.T) {
 				id := c.id()
 				_, want := e.Engine.Do(t.Context(), e.Priya, c.doctype, id, doc.ActionApprove, doc.ActionInput{Version: 1})
-				wantDocErr(t, want, doc.KindNotFound, msgGone) // setup: Do's gone error
+				_ = wantDocErr(t, want, doc.KindNotFound, msgGone) // setup: Do's gone error
 				count := e.AuditCount(t)
 				err := testkit.NoSecondConn(t, e.DB, func(ctx context.Context) error {
 					return e.Engine.Reassign(ctx, e.Priya, c.doctype, id, 1, e.Kiran.ID)
 				})
-				wantDocErr(t, err, doc.KindNotFound, msgGone)
+				_ = wantDocErr(t, err, doc.KindNotFound, msgGone)
 				if !errors.Is(err, doc.ErrNotFound) {
 					t.Errorf("Reassign: errors.Is(err, doc.ErrNotFound) = false (err %v)", err)
 				}
 				got, err := e.eligible(t, e.Priya, c.doctype, id)
-				wantDocErr(t, err, doc.KindNotFound, msgGone)
+				_ = wantDocErr(t, err, doc.KindNotFound, msgGone)
 				if !errors.Is(err, doc.ErrNotFound) {
 					t.Errorf("EligibleOwners: errors.Is(err, doc.ErrNotFound) = false (err %v)", err)
 				}
