@@ -8,6 +8,21 @@ import (
 	"database/sql"
 )
 
+type ApprovalHistory struct {
+	ID           int64
+	Doctype      string
+	DocID        int64
+	RequestID    sql.NullInt64
+	Action       string
+	UserID       int64
+	UserName     string
+	At           string
+	Amount       sql.NullInt64
+	RuleID       sql.NullInt64
+	Reason       string
+	SelfApproved int64
+}
+
 type BusinessSetting struct {
 	ID             int64
 	LockedUpTo     sql.NullString
