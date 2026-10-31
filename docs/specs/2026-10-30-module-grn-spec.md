@@ -56,8 +56,8 @@ The line link gives DOC-017's closed-source refusal, DOC-038's cancelled-source 
 | `site_id` | Site | Int | Posted by the module's first step from the PO; `Validate` overwrites it from the PO. Hidden on forms. Display comes from `snap_site_name` |
 | `project_id` | Project | Int | The same |
 | `receipt_date` | Receipt date | Date | Required, default today. Not in the future. Sets the FY of the number. On the Choose PO step |
-| `challan_kind` | Document with the goods | Select: `challan` (Delivery challan), `invoice` (Tax invoice) | Required at submit when any line is goods, like `challan_no` (CGST Rules 55, 55A, 138A; CD-272 Gap 5). Step `delivery` |
-| `challan_no` | Challan or invoice no. | Text, max 40 | Required at submit when any line is goods. Step `delivery`. With `invoice`, the Bill details panel offers to copy it (§3.3) |
+| `challan_kind` | Document with the goods | Select, options `Delivery challan` and `Tax invoice` (the stored values are the display texts, CD-175) | Required at submit when any line is goods, like `challan_no` (CGST Rules 55, 55A, 138A; CD-272 Gap 5). Step `delivery` |
+| `challan_no` | Challan or invoice no. | Text, max 40 | Required at submit when any line is goods. Step `delivery`. With `Tax invoice`, the Bill details panel offers to copy it (§3.3) |
 | `challan_date` | Challan date | Date | Optional. Not after the receipt date. Step `delivery` |
 | `vehicle_no` | Vehicle no. | Text, max 20 | Optional. Step `delivery` |
 | `transporter` | Transporter | Text, max 140 | Optional. Step `delivery` |
@@ -107,7 +107,7 @@ Table `grn_bill` in `goodsreceipt`, one row per GRN, `grn_id` unique, with `vers
 - Same vendor, same invoice number on another GRN: allowed with a warning banner, `Invoice {no} is also on {GR number}.`, because one bill can cover two deliveries.
 - A difference from `accepted_value` is shown as information only, because accepted value excludes tax: `Accepted value before tax is ₹{x}.` No match or refusal.
 - Bill details live on after cancel for audit, read-only.
-- **Copy from the challan (CD-272 Gap 5).** While a GRN with `challan_kind` `invoice` has no bill details, the panel's form is filled with `challan_no` and `challan_date` as invoice no. and date, with the note `Copied from the tax invoice entered at the gate. Check and save.` Nothing is stored until the user saves.
+- **Copy from the challan (CD-272 Gap 5).** While a GRN with `challan_kind` `Tax invoice` has no bill details, the panel's form is filled with `challan_no` and `challan_date` as invoice no. and date, with the note `Copied from the tax invoice entered at the gate. Check and save.` Nothing is stored until the user saves.
 - **Moving to an amendment (CD-272 Gap 1).** When an amendment is approved and has no bill details, the bill details of the GRN it amends are copied to it, audited on the amendment as `Copied from {GR number}`. The cancelled GRN keeps its row, read-only.
 
 Photos of the challan and invoice are ordinary attachments: D-FILE-06 lets anyone with `write` add a file in `approved` and `closed`, so a late bill photo needs nothing new.
