@@ -118,6 +118,18 @@ Site and project restrictions apply, so Suresh raises and sees requests for PUNE
 
 Same rows as `expense.Claim`: Employee read (team); create, write, submit, amend, print, delete (own); approve (team). Director read, approve, cancel, print, export (all). Fallback Approver read, approve (all). Administrator every applicable right. `CloseRight` is `cancel`.
 
+### Goods Receipt rights (`goodsreceipt.Receipt`, GRN spec §10)
+
+| Role | Rights (scope) |
+|---|---|
+| Stores | read, create, write, submit, amend, print (all); delete (own) |
+| Purchase User | read, print, export (all) |
+| Purchase Manager | read, cancel, print, export (all) |
+| Director | read, print, export (all) |
+| Administrator | every applicable right |
+
+`goodsreceipt.Receipt`'s `CloseRight` is `"none"`: nobody closes a GRN, Administrator included (GRN spec §5, CD-264). Stores has no cancel; Purchase Manager cancels and Stores amends. Site and project restrictions apply through `site_id` and `project_id`, copied from the PO, so Suresh sees and receives only PUNE-WH and METRO-SITE goods. Bill details are saved by anyone with `write` on the GRN (Stores). `fixture.Receipt` keeps its seed above.
+
 Permission-denied (403) message, owned by AUTH and used everywhere: "You don't have permission to {right} {DocType}. Ask your administrator for a role that allows it."
 
 ## Module-only users (MOD-PO)
@@ -139,6 +151,14 @@ Arjun is the "second Purchase User" in PO-058, PO-059 and the UX design's PUX ca
 
 `PUNE-WH` has no project, so any project is valid on PR-B. The items, quantities, dates and states of the rows are not fixed here; each test sets them.
 
+## GRN test seed (MOD-GRN)
+
+Seeded by the GRN test environment (`goodsreceipt/grntest`) only, not by core `testkit`:
+
+- No approval rule for `purchase.Order` or `goodsreceipt.Receipt`, so a PO and a GRN both approve on submit. A test that needs a PO approval rule adds the `fixture.Order` / Purchase Order rows of the approval rules table below for `purchase.Order` in its own setup.
+- A second Stores user (on METRO-SITE) is created by the tests that need one (GRN-015), not seeded.
+- The reference PO, unless a test says otherwise, is raised by `priya` for `SHREE`, delivering to `METRO-SITE` (project `PRJ-METRO`, branch PUNE), and approved as `PO/26-27/00001`. A PO on another site uses `TECH-SITE` / `PRJ-TECHPARK`, raised by `admin` (Priya is restricted to PRJ-METRO).
+
 ## Expense test seed (MOD-EXP)
 
 Seeded by the expense test environment only, not by core `testkit` (core counts stay unchanged):
@@ -157,7 +177,7 @@ Seeded by the expense test environment only, not by core `testkit` (core counts 
 | `expense.Claim` (expense test seed) | ₹0.00 | reporting manager | Fallback Approver | off |
 | `expense.Advance` (expense test seed) | ₹0.00 | reporting manager | Fallback Approver | off |
 
-GRN (`fixture.Receipt`) has no approval rule, so submit goes straight to approved.
+GRN (`fixture.Receipt`, and `goodsreceipt.Receipt` in production and the GRN test seed) has no approval rule, so submit goes straight to approved.
 
 ## Numbering (D-NAM-01, -04, -05)
 
@@ -165,6 +185,7 @@ GRN (`fixture.Receipt`) has no approval rule, so submit goes straight to approve
 |---|---|---|
 | `fixture.Order` / Purchase Order | `PO/{FY}/{#####}` | `PO/26-27/00001` |
 | `fixture.Receipt` / GRN | `GR/{FY}/{#####}` | `GR/26-27/00001` |
+| Goods Receipt (`goodsreceipt.Receipt`) | `GR/{FY}/{#####}` | `GR/26-27/00001` |
 | `fixture.Claim` / Expense Claim | `EX/{FY}/{#####}` | `EX/26-27/00001` |
 | Expense Claim (`expense.Claim`) | `EX/{FY}/{#####}` | `EX/26-27/00001` |
 | Employee Advance (`expense.Advance`) | `EA/{FY}/{#####}` | `EA/26-27/00001` |

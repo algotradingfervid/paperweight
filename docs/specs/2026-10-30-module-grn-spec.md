@@ -1,6 +1,8 @@
 # Module spec: Goods Receipt (GRN)
 
-Version 0.4 · 30 October 2026 · Status: for owner review, with CD-234, CD-235 and CD-237 applied · Author: AD-6
+Version 0.5 · 31 October 2026 · Status: v0.4 accepted (CD-238, CD-265); v0.5 applies the procure-to-pay research rulings (CD-272) · Authors: AD-6 (v0.4), AD-12 (v0.5)
+
+**What changed in v0.5.** CD-272 rules the gaps found in `docs/research/2026-10-31-procure-to-pay-erp-practice.md` (ERPNext, Odoo, Tryton, CGST Rules). This version adds: the cancel and amend path as the v1 return, with bill details moving to the amendment (§5, Gap 1); amending against a closed PO when the amendment replaces that PO's cancelled GRN (§5, Gap 2); a hard stop above twice the ordered quantity (§4, Gap 3); `All lines received as ordered.` on the check page (§4, Gap 4); `Challan or invoice no.` with a document kind (§3.1, §3.3, Gap 5); the tick `Vendor says the rest won't come` (§3.1, §5, Gap 8); two e-way bill hints (§7, Gap 13); and scenario cases GRN-037 to GRN-050 (§16, Gap 15 and the cross-module flows of CD-271).
 
 Follows the Purchase Order spec (`docs/specs/2026-10-30-module-purchase-order-spec.md`), whose §14 shared decisions, §12 cutover plan and §17 sources apply here. Marks **(CD-234)**, **[Assumption]** and **CA** mean the same as there.
 
@@ -26,7 +28,7 @@ Suresh stands at the gate with a phone, in gloves, with a truck waiting. He pick
 - Receipt without a PO [Assumption]: small local buys go on an expense claim. Listed for owner review in §15.
 - One GRN across several POs [Assumption]: one GRN per PO, so several POs on one truck mean several GRNs.
 - Quality inspection records, and stock movement or valuation (no stock module).
-- Purchase return documents, debit notes (CD-234). Goods rejected at the gate go back on the truck. Goods found bad after acceptance: cancel and amend the GRN, or handle it in your accounting system. Delivery Challan is a later module.
+- Purchase return documents, debit notes (CD-234). Goods rejected at the gate go back on the truck. Goods found bad after acceptance: cancel and amend the GRN (§5, the v1 return path; CD-272 Gap 1), or handle it in your accounting system. A "Return to vendor" GRN is the first follow-up after v1. Delivery Challan is a later module.
 - Three-way match, and any payment or due-date tracking.
 - Generating e-way bills, and any check of the e-way threshold.
 
@@ -54,12 +56,14 @@ The line link gives DOC-017's closed-source refusal, DOC-038's cancelled-source 
 | `site_id` | Site | Int | Posted by the module's first step from the PO; `Validate` overwrites it from the PO. Hidden on forms. Display comes from `snap_site_name` |
 | `project_id` | Project | Int | The same |
 | `receipt_date` | Receipt date | Date | Required, default today. Not in the future. Sets the FY of the number. On the Choose PO step |
-| `challan_no` | Vendor challan no. | Text, max 40 | Required at submit when any line is goods. Step `delivery` |
+| `challan_kind` | Document with the goods | Select: `challan` (Delivery challan), `invoice` (Tax invoice) | Required at submit when any line is goods, like `challan_no` (CGST Rules 55, 55A, 138A; CD-272 Gap 5). Step `delivery` |
+| `challan_no` | Challan or invoice no. | Text, max 40 | Required at submit when any line is goods. Step `delivery`. With `invoice`, the Bill details panel offers to copy it (§3.3) |
 | `challan_date` | Challan date | Date | Optional. Not after the receipt date. Step `delivery` |
 | `vehicle_no` | Vehicle no. | Text, max 20 | Optional. Step `delivery` |
 | `transporter` | Transporter | Text, max 140 | Optional. Step `delivery` |
 | `eway_bill_no` | E-way bill no. | Text, max 20 | Optional, no format check. Step `delivery` |
 | `remarks` | Remarks | Text, max 500 | Printed |
+| `rest_not_coming` | Vendor says the rest won't come | Check | Default off. Step `delivery`. On approval it posts a comment on the PO and puts the PO in the Purchase home's `To close` queue through `purchase.SetRestNotComing`; cancel takes it out. It never changes the PO's state (CD-272 Gap 8) |
 | `accepted_value` | Accepted value | Money, read-only | Σ accepted × net rate, before tax. List priority 2 |
 | `state` | State | Select, read-only | List priority 3 |
 
@@ -103,6 +107,8 @@ Table `grn_bill` in `goodsreceipt`, one row per GRN, `grn_id` unique, with `vers
 - Same vendor, same invoice number on another GRN: allowed with a warning banner, `Invoice {no} is also on {GR number}.`, because one bill can cover two deliveries.
 - A difference from `accepted_value` is shown as information only, because accepted value excludes tax: `Accepted value before tax is ₹{x}.` No match or refusal.
 - Bill details live on after cancel for audit, read-only.
+- **Copy from the challan (CD-272 Gap 5).** While a GRN with `challan_kind` `invoice` has no bill details, the panel's form is filled with `challan_no` and `challan_date` as invoice no. and date, with the note `Copied from the tax invoice entered at the gate. Check and save.` Nothing is stored until the user saves.
+- **Moving to an amendment (CD-272 Gap 1).** When an amendment is approved and has no bill details, the bill details of the GRN it amends are copied to it, audited on the amendment as `Copied from {GR number}`. The cancelled GRN keeps its row, read-only.
 
 Photos of the challan and invoice are ordinary attachments: D-FILE-06 lets anyone with `write` add a file in `approved` and `closed`, so a late bill photo needs nothing new.
 
@@ -117,10 +123,12 @@ Required fields are checked at submit (CD-178). `Validate` copies header and lin
 | Line from another PO | `Line {n}: This line isn't on {PO number}.` | Save |
 | Rejected above received | `Line {n}: Rejected can't be more than received.` | Save |
 | Rejected with no reason | `Line {n}: Reason for rejecting is required.` | Submit |
-| Blank challan with a goods line | `Vendor challan no. is required for goods.` | Submit |
+| Blank challan with a goods line | `Challan or invoice no. is required for goods.` | Submit |
 | No line with a quantity | R8's text | Submit |
 | Blank purchase order | `Choose a purchase order.` | Create |
 | PO changed on a draft with lines | `Delete this draft to receive against another order.` | Save |
+| Accepted above twice the PO line's quantity | `Line {n}: Accepted {x} is more than twice the {y} ordered. Check the quantity.` (CD-272 Gap 3: a stop against typing mistakes; over-delivery below it only warns) | Save |
+| Blank document kind on a goods GRN | `Choose Delivery challan or Tax invoice.` | Submit |
 | Lock | PO spec §14.2's message, from `BeforeSubmit` | Submit |
 
 Source-state wording is DOC's: DOC-017, DOC-038, `msgSourcePending` and so on (CD-155). Whole-number checks use `uom.CheckLineQty` for received and rejected.
@@ -134,6 +142,8 @@ Source-state wording is DOC's: DOC-017, DOC-038, `msgSourcePending` and so on (C
 
 Accepted is what counts, not received, because rejected goods don't reduce pending (CD-234).
 
+**Received as ordered (CD-272 Gap 4).** Step 3 stays prefilled with pending, for speed. When every PO line with pending has a GRN line whose accepted equals that pending, and the GRN has no other lines, the check page says `All lines received as ordered.`, so a GRN submitted without counting is visible.
+
 ## 5. States, effects and cancel
 
 The kernel's state machine, with `submit` going straight to `approved`.
@@ -142,15 +152,19 @@ The kernel's state machine, with `submit` going straight to `approved`.
 |---|---|
 | Submit | `BeforeSubmit` lock check; number assigned; state approved; `ApplyEffects`; roll-up |
 | Cancel | Reason required; `ReverseEffects` runs after the state is set; roll-up |
-| Amend | Copies header and lines. `purchase_order_id` and the lines are stored fields, and `Validate` fills the rest (PO spec §15 item 8). PO must still be approved |
+| Amend | Copies header and lines. `purchase_order_id` and the lines are stored fields, and `Validate` fills the rest (PO spec §15 item 8). The PO must be approved, or closed when the amendment replaces a cancelled GRN of that PO: an amendment keeps the PO links its amended-from GRN held (CD-272 Gap 2, a DOC rule, plan task G0c). A cancelled PO still refuses (DOC-038) |
 | Close | Not offered and refused (§14 item 4) |
 | Delete draft | Stores, own. The only way out of a wrong PO |
 
 **`ApplyEffects` and `ReverseEffects`** read, for every line of this GRN's PO, the sum of accepted on approved and closed GRN lines, and call `purchase.RefreshReceiptStatus(ctx, tx, poID, accepted)`. The kernel has already set this GRN's state, so the sum is right in both directions. `ReverseEffects` also calls `modkit.CheckNotLocked` (PO spec §14.2) and returns its refusal, which rolls the cancel back (DOC-077).
 
-**Cancelling after the PO closed** is allowed (D-DOC-09). The PO's roll-ups change and it stays closed.
+**Cancelling after the PO closed** is allowed (D-DOC-09). The PO's roll-ups change and it stays closed. The cancel page warns: `{PO number} is closed. After this cancel, only an amendment of this receipt can receive against it again.` (CD-272 Gap 2). The PO's linked requests follow through `RefreshReceiptStatus` (PO spec §20.3).
+
+**Cancel and amend is the v1 return (CD-272 Gap 1).** Goods found bad after acceptance: a Purchase Manager cancels the GRN with a reason, and Stores amends it with the corrected accepted quantity and submits. The PO's pending follows both steps, bill details move to the amendment on its approval (§3.3), and the amendment's number is the old one with `-1`. When the period lock covers the GRN's date, the cancel is refused with the lock text; the fix is in your accounting system, or an Administrator moves the lock.
 
 **Cancelling a GRN with bill details.** Allowed. The cancel page reminds the user: `This receipt has bill details ({invoice no.}). Correct your accounts too.`
+
+**Rest not coming.** Approval with `rest_not_coming` calls `purchase.SetRestNotComing(…, on: true)`, and cancel calls it with `on: false`, inside the same transaction (CD-272 Gap 8; the signature is agreed with MOD-PO).
 
 **Lock.** Off by default (PO spec §14.2). When on, a GRN dated on or before `Locked up to` can't be submitted or cancelled. An amendment keeps the old date, so its user changes the receipt date or the lock refuses it.
 
@@ -170,6 +184,7 @@ The kernel's state machine, with `submit` going straight to `approved`.
 | Tax on the GRN | None stored. Rates come from the bill, keyed in your accounting system | |
 | MSME 45-day rule | Not tracked. The GRN's receipt date is evidence of acceptance | CA: MSMED s.15, and Income-tax Act 2025 s.37(2)(g) for micro and small vendors. Vendor Udyam status isn't in the Party master |
 | Rejected goods on the invoice | Not handled. Rejected quantity shows on the print and in the report | CA: what happens to credit on rejected goods |
+| E-way bill hints (CD-272 Gap 13) | Information only, on the check and document pages. A vendor with no GSTIN and accepted value above ₹50,000: `Unregistered vendor: the e-way bill may be ours to generate. Check with your CA.` A GRN with every line fully rejected and an e-way bill no.: `Reject the e-way bill on the portal within 72 hours if the goods went back.` | CA: Rule 138(1)(iii), 138(11)-(12) |
 
 ## 8. Links to masters
 
@@ -222,7 +237,7 @@ PO spec §12 applies. GRN-specific points:
 - GRNs are back-entered with real dates, against back-entered POs, and with no approval rule they approve on submit anyway.
 - An open PO's earlier receipts are either real GRNs or `Already received`, never both.
 - GRN numbering continues from the last issued GRN number in the FY, or 0.
-- Vendor challan can be left blank only on a service-only GRN, so paper GRNs need a challan number. Type `Not recorded` if it's lost.
+- The challan or invoice no. and its kind can be left blank only on a service-only GRN, so paper GRNs need both. Type `Not recorded` if the number is lost, and choose the kind on the paper.
 
 ## 14. Proposed changes for the head
 
@@ -287,12 +302,28 @@ Fixtures: `00-fixtures.md`, the reference PO.
 | GRN-034 | Default rights match §10 | `TestGRN_DefaultRights` | P1 | unit |
 | GRN-035 | Random GRN sequences: pending never below 0, status matches, roll-up equals the sum | `FuzzGRN_Invariants` | P1 | unit (fuzz) |
 | GRN-036 | Phone flow at 360 px, with overflow check | `TestE2E_GRNFlow` | P1 | e2e |
+| GRN-037 | A posted draft or pending PO is refused with DOC's source-state text (S33) | `TestGRN_UnapprovedPORefused` | P1 | integration |
+| GRN-038 | A fully rejected GRN submits; the PO's roll-up and status don't move (S35) | `TestGRN_FullyRejected` | P1 | integration |
+| GRN-039 | A draft GRN whose PO is then closed or cancelled is refused on its next save and submit (S58) | `TestGRN_DraftAfterPOClosed` | P1 | integration |
+| GRN-040 | Cancelling a GRN on a short-closed PO whose lines came from a request updates the request's ordered quantity (S59) | `TestGRN_CancelClosedPOUpdatesRequest` | P1 | integration |
+| GRN-041 | Amend replacing a cancelled GRN on a closed PO is allowed; a new GRN still isn't; the cancel page warns (S60, Gap 2) | `TestGRN_AmendOnClosedPO` | P1 | integration |
+| GRN-042 | Cancel and amend as the return: pending follows, bill details move, the lock refuses (Gap 1) | `TestGRN_CancelAmendReturn` | P1 | integration |
+| GRN-043 | Accepted above twice the ordered quantity is refused; twice exactly saves with the warning (Gap 3) | `TestGRN_TwiceOrderedStop` | P1 | unit |
+| GRN-044 | `All lines received as ordered.` only when every pending line is received as ordered (Gap 4) | `TestGRN_ReceivedAsOrderedNote` | P1 | integration |
+| GRN-045 | Challan or invoice: the kind is required at submit for goods (Gap 5) | `TestGRN_ChallanKind` | P1 | integration |
+| GRN-046 | A tax invoice at the gate prefills Bill details, and nothing is stored until saved (Gap 5) | `TestGRNBill_CopyFromInvoice` | P1 | integration |
+| GRN-047 | `Vendor says the rest won't come` posts a PO comment and lists the PO in To close; cancel removes it; the PO's state never changes (Gap 8) | `TestGRN_RestNotComing` | P1 | integration |
+| GRN-048 | The two e-way bill hints show only on their conditions (Gap 13) | `TestGRN_EWayHints` | P1 | integration |
+| GRN-049 | Request → PO → approval → partial GRN → short close, through the screens (X1) | `TestE2E_RequestToShortClose` | P1 | e2e |
+| GRN-050 | GRN cancel restores pending, through the screens (X2) | `TestE2E_GRNCancelRestores` | P1 | e2e |
 
 Review focus: GRN-015, GRN-022 and GRN-029 must run as a non-admin on the real services, because tests as an Administrator hid bugs (CD-213). GRN-012 and GRN-016 guard the roll-up.
 
+Scenario cases GRN-037 to GRN-050 cite their source in `docs/tests/modules/grn.md` (CD-272: S-numbers and gaps from the procure-to-pay research; X1 and X2 from `docs/research/2026-10-31-expense-erp-practice.md` §4, CD-271). X5 (a buyer's own claim for a local cash buy) is added to whichever of MOD-EXP and MOD-GRN finishes last. Tests follow the research's §2 patterns: do and undo in one test, one builder per DocType through the engine with stop-at flags, exact texts, quantity walk tables, rollback by row counts, a frozen clock, and a comment citing the CD a test guards.
+
 ## 17. Work-package outline
 
-MOD-GRN starts when MOD-PO tasks 1 to 3 are on `main` (DocType, pending, `RefreshReceiptStatus`). High tier for anything touching pending or the roll-up.
+MOD-GRN's services start when PO-M1 (MOD-PO P1, P2 and P4: DocType, PO Validate, pending, `RefreshReceiptStatus`) is on `main` (CD-273, CD-277). The plan is `docs/superpowers/plans/2026-10-31-mod-grn.md`, whose task list replaces the table below. High tier for anything touching pending or the roll-up.
 
 | # | Task | Tier | Lane |
 |---|---|---|---|
