@@ -172,6 +172,7 @@ Required at submit (CD-178). `Validate` reads inside the transaction, computes t
 | GST above amount | `Line {n}: GST can't be more than the amount.` | Save |
 | Line amount 0 or less (claim and advance lines) | DOC's `Line {n}: Amount must be more than 0.` (`Positive`) | Save |
 | Ticked, more than one branch GSTIN, no Billed to | `Line {n}: Billed to is required for a bill in the company GSTIN.` | Submit |
+| Billed to names a branch with no GSTIN | `Line {n}: Choose a branch with a GSTIN.` | Save |
 | Advance not marked as paid | `{advance} hasn't been marked as paid yet.` | Submit (approve repeats it only as a backstop: Undo paid is refused while a claim is pending) |
 
 An advance's employee and date rules use the same text, with `Advance date` as the label and `advances` for `claims`.

@@ -214,7 +214,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-029 · An advance's cancel is blocked by a live claim
 - **Priority:** P1
 - **Level:** integration
-- **Given** EXP-025's approved claim naming `EA/26-27/00001` **When** `meena` cancels the advance **Then** it is refused with DOC-052's text naming the claim, and the advance stays approved. After the claim is cancelled, the advance cancels.
+- **Given** EXP-025's approved claim naming `EA/26-27/00001` **When** `meena` cancels the advance **Then** it is refused with DOC-052's text naming the claim, and the advance stays approved. After the claim is cancelled, the cancel is refused with "This advance is marked as paid. Undo paid first, or close it with the balance noted."; after `meena` undoes paid, the advance cancels.
 - **Go test:** `TestAdv_CancelBlocked`
 - **Sources:** Expense spec §3 (Links), §4, §17; `03-document.md` DOC-052
 
@@ -270,7 +270,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-037 · Random claim and advance sequences keep the invariants
 - **Priority:** P1
 - **Level:** unit (fuzz)
-- **Given** random sequences of save, submit, approve, reject, revise, cancel, close and amend over claims and advances **Then** after each step: a claim's total equals the sum of its lines; an advance's used equals the sum of `less_advance` over its approved and closed claims; left (`amount − used`) is never below 0.
+- **Given** random sequences of save, submit, approve, reject, revise, cancel, close, amend, mark as paid and undo paid over claims and advances, with paise amounts in the seeds, where each refusal (including the paid-cancel and not-paid refusals) is an expected outcome that changes nothing **Then** after each step: a claim's total equals the sum of its lines; an advance's used equals the sum of `less_advance` over its approved and closed claims; left (`amount − used`) is never below 0.
 - **Go test:** `FuzzExp_Invariants`
 - **Sources:** Expense spec §4, §17; lessons §8, §10
 
@@ -340,7 +340,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-047 · A draft claim doesn't block the advance's cancel
 - **Priority:** P1
 - **Level:** integration
-- **Given** a draft claim naming `EA/26-27/00001` **When** `meena` cancels the advance with a reason **Then** the cancel succeeds (DOC-052 counts pending, approved and closed documents only). **When** the draft is then submitted **Then** it is refused with DOC's cancelled-source text for the advance, and the draft is unchanged.
+- **Given** Deepak's approved advance `EA/26-27/00001` not marked as paid, and a draft claim naming it **When** `meena` cancels the advance with a reason **Then** the cancel succeeds (DOC-052 counts pending, approved and closed documents only). **When** the draft is then submitted **Then** it is refused with DOC's cancelled-source text for the advance, and the draft is unchanged.
 - **Go test:** `TestAdv_DraftClaimDoesNotBlockCancel`
 - **Sources:** Expense spec §3 (Links), §4; research S-46; `03-document.md` DOC-052
 
@@ -426,7 +426,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-058 · Billed to on company bills
 - **Priority:** P1
 - **Level:** integration
-- **Given** the fixture company (PUNE `27AAFCV2449G1Z7`, BLR `29AAFCV2449G1Z3`) **When** a company-bill line has no Billed to **Then** submit is refused with "Line 1: Billed to is required for a bill in the company GSTIN."; with BLR it submits and `snap_billed_gstin` is `29AAFCV2449G1Z3`, unchanged after BLR's GSTIN is edited. **Given** BLR disabled (one branch GSTIN) **Then** the field is hidden, the line saves with Billed to set to PUNE, and submit needs nothing more. A line without the tick has no Billed to.
+- **Given** the fixture company (PUNE `27AAFCV2449G1Z7`, BLR `29AAFCV2449G1Z3`) **When** a company-bill line has no Billed to **Then** submit is refused with "Line 1: Billed to is required for a bill in the company GSTIN."; with BLR it submits and `snap_billed_gstin` is `29AAFCV2449G1Z3`, unchanged after BLR's GSTIN is edited. A crafted post naming a branch with no GSTIN is refused with "Line 1: Choose a branch with a GSTIN." **Given** BLR disabled (one branch GSTIN) **Then** the field is hidden, the line saves with Billed to set to PUNE, and submit needs nothing more. A line without the tick has no Billed to.
 - **Go test:** `TestExp_BilledTo`
 - **Sources:** Expense spec §3.2, §8; research G4, S-22 (Rule 46(d), Rule 36(2))
 
