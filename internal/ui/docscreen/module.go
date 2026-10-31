@@ -43,9 +43,12 @@ type Step struct {
 
 // StepState is the redraw input: Posted is true on a 422 or 409, when the
 // body reads typed values from c.Req; Errors holds the step's field errors.
+// Defaults, on a new document's first GET, holds the values the user may only
+// fill one way (CD-256 (4), CD-245).
 type StepState struct {
-	Posted bool
-	Errors []doctype.FieldError
+	Posted   bool
+	Errors   []doctype.FieldError
+	Defaults map[string]string
 }
 
 // Save is what a custom post asks docscreen to do.

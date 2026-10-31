@@ -243,8 +243,23 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	hook, err := d.stepHook(dt, steps, 0)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	c := d.ctxOf(r, dt, nil)
 	typed, plain, errs := postedStep(c, steps[0])
+	var saved Save
+	if hook.Save != nil {
+		// The module's first step creates the draft with its lines in one
+		// call (hooks spec §4.1).
+		if saved, err = hook.Save(c); err != nil {
+			problem(w, r, err)
+			return
+		}
+		plain, errs = saved.Values, saved.Errors
+	}
 	invalid := func(status int, pr Problem) {
 		pr.Fields = refusalErrors(c, steps, 0, pr.Fields)
 		sv, err := d.stepViewOf(r, dt, steps, 0, nil, typed, pr.Fields)
@@ -261,7 +276,7 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 		invalid(http.StatusUnprocessableEntity, Problem{Fields: errs})
 		return
 	}
-	res, err := d.Engine.Do(r.Context(), d.principal(r), dt.Name, 0, doctype.ActionSave, doc.ActionInput{Values: plain})
+	res, err := d.Engine.Do(r.Context(), d.principal(r), dt.Name, 0, doctype.ActionSave, doc.ActionInput{Values: plain, Lines: saved.Lines})
 	if err != nil {
 		pr, ok := Classify(err)
 		switch {
@@ -364,7 +379,22 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		problem(w, r, err)
 		return
 	}
-	typed, plain, errs := postedStep(d.ctxOf(r, dt, &loaded), steps[i])
+	hook, err := d.stepHook(dt, steps, i)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	c := d.ctxOf(r, dt, &loaded)
+	typed, plain, errs := postedStep(c, steps[i])
+	var saved Save
+	if hook.Save != nil {
+		// The module's save replaces the posted fields (hooks spec §4.1).
+		if saved, err = hook.Save(c); err != nil {
+			problem(w, r, err)
+			return
+		}
+		plain, errs = saved.Values, saved.Errors
+	}
 	rerender := func(pr Problem) {
 		v, err := d.View(ctx, d.principal(r), dt.Name, id)
 		if err != nil {
@@ -377,6 +407,7 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 			web.ErrorFrom(w, r, err)
 			return
 		}
+		sv.M.Version = version // the page's, so a save made since still conflicts (CD-94)
 		o := wizard.Invalid
 		if pr.Status == http.StatusConflict {
 			o = wizard.Conflict
@@ -400,7 +431,22 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		problem(w, r, err)
 		return
 	}
-	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Values: plain, Lines: rec.Lines, Only: steps[i].only()})
+	// On a stale page an unknown line id may be one removed since: the
+	// stored lines go with the posted version, and the engine answers the
+	// conflict (CD-94).
+	lines, err := mergeLines(rec.Lines, saved.Lines)
+	if err != nil {
+		if version == rec.Version {
+			web.ErrorFrom(w, r, err)
+			return
+		}
+		lines = rec.Lines
+	}
+	only := steps[i].only()
+	if saved.Lines != nil && !slices.Contains(only, "lines") {
+		only = append(only, "lines")
+	}
+	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Values: plain, Lines: lines, Only: only})
 	if err != nil {
 		pr, ok := Classify(err)
 		switch {
@@ -533,10 +579,16 @@ func (d Deps) arrival(r *http.Request, dt *doctype.DocType, steps []FormStep, i 
 }
 
 // stepViewOf builds step i of dt's wizard. v is nil for a new document;
-// typed, when not nil, holds the posted values of the step's fields; errs
-// are shown in the summary and by their fields. It returns an error for the
-// module hooks to come (hooks spec §4.4); none fails yet.
+// typed, when not nil, holds the posted values of the step's fields (on a GET
+// of /new, the prefilled ones); errs are shown in the summary and by their
+// fields. A module's Body replaces the step's inputs, and on the Items step
+// M.After too; an error from it, or a bad Steps key, is returned.
 func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView, typed map[string]string, errs []doctype.FieldError) (stepView, error) {
+	hook, err := d.stepHook(dt, steps, i)
+	if err != nil {
+		return stepView{}, err
+	}
+	steps = d.labelled(dt, steps)
 	s := steps[i]
 	m := wizard.Model{Mode: wizard.Document, Title: dt.Label, Current: i, Errors: fieldErrs(errs)}
 	for _, st := range steps {
@@ -559,7 +611,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		case e.Field == "":
 			m.Errors[n].ID = "step-title"
 		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
-			m.Errors[n].ID = linesTarget(*v, d.gridShown(dt))
+			m.Errors[n].ID = linesTarget(*v, d.gridShown(dt) && hook.Body == nil) // a Body replaces the line editor
 		}
 	}
 	if r.URL.Query().Get("return") == slugCheck || r.PostFormValue("return") == slugCheck {
@@ -574,6 +626,24 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	if v != nil {
 		applyLineCards(c, v)
 	}
+	if hook.Body != nil {
+		// typed is a redraw's posted values only on a POST; a GET of /new
+		// passes the prefill, which Defaults holds on every /new render.
+		st := StepState{Posted: typed != nil && r.Method == http.MethodPost, Errors: errs}
+		switch {
+		case v == nil && !st.Posted:
+			st.Defaults = typed
+		case v == nil:
+			if st.Defaults, err = d.defaults(r, dt); err != nil {
+				return stepView{}, err
+			}
+		}
+		body, err := hook.Body(c, st)
+		if err != nil {
+			return stepView{}, err
+		}
+		sv.Inputs = []templ.Component{body}
+	}
 	for _, name := range s.Fields {
 		f, ok := dt.Field(name)
 		if !ok || hidden(c, f) {
@@ -584,6 +654,9 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 				sv.Fixed = append(sv.Fixed, components.Pair{Label: f.Label, Value: v.Display[name], Num: numeric(f)})
 			}
 			continue
+		}
+		if hook.Body != nil {
+			continue // the Body has the step's inputs
 		}
 		value := ""
 		if typed != nil {
@@ -601,7 +674,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		}
 	case s.Lines:
 		sv.Wide = true
-		if v != nil {
+		if v != nil && hook.Body == nil {
 			sv.M.After = d.itemsBody(c, *v)
 		}
 	default:
