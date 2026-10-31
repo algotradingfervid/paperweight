@@ -2,6 +2,8 @@ package purchase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -212,6 +214,19 @@ func PendingToOrder(ctx context.Context, tx *db.Tx, requestLineIDs []int64) (map
 		out[id] = pendingOf(id, types.Qty(row.Qty), links)
 	}
 	return out, nil
+}
+
+// RequestRowAt is request line id's request and line number, ok false when
+// no request line has that id.
+func RequestRowAt(ctx context.Context, tx *db.Tx, id int64) (requestID int64, lineNo int, ok bool, err error) {
+	r, err := dbq.New(tx.SQL()).RequestRowAt(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, false, nil
+	}
+	if err != nil {
+		return 0, 0, false, err
+	}
+	return r.ParentID, int(r.LineNo), true, nil
 }
 
 // HeldBy is every non-cancelled PO line linking the request, oldest PO first

@@ -41,7 +41,8 @@ func fromLinkView(label, href string) templ.Component {
 }
 
 // fromRequestsView is the Add from requests body (UX §5.7): the heading,
-// then the empty text or the intro and one card per request. The hidden
+// the ticked rows no longer open (a redraw keeps their ticks), then the
+// empty text or the intro and one card per request. The hidden
 // from=requests marks the post as this view's, since the step form's action
 // has no query.
 func fromRequestsView(v fromView) templ.Component {
@@ -73,7 +74,7 @@ func fromRequestsView(v fromView) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(fromKey)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 16, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 17, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -86,7 +87,7 @@ func fromRequestsView(v fromView) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(fromValue)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 16, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 17, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -104,7 +105,7 @@ func fromRequestsView(v fromView) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fromHeading)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 18, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 19, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -113,6 +114,12 @@ func fromRequestsView(v fromView) templ.Component {
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
+		}
+		for _, r := range v.gone {
+			templ_7745c5c3_Err = components.Checkboxes(r.box, []components.Option{{Value: r.value, Label: r.label}}, r.checked).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		if len(v.cards) == 0 {
 			templ_7745c5c3_Err = components.EmptyState(v.empty, nil).Render(ctx, templ_7745c5c3_Buffer)
@@ -127,7 +134,7 @@ func fromRequestsView(v fromView) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(v.intro)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 22, Col: 14}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 26, Col: 14}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -157,7 +164,7 @@ func fromRequestsView(v fromView) templ.Component {
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(card.meta)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 25, Col: 18}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 29, Col: 18}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -185,7 +192,7 @@ func fromRequestsView(v fromView) templ.Component {
 							var templ_7745c5c3_Var9 string
 							templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(r.label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 31, Col: 18}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 35, Col: 18}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 							if templ_7745c5c3_Err != nil {
@@ -203,7 +210,7 @@ func fromRequestsView(v fromView) templ.Component {
 								var templ_7745c5c3_Var10 string
 								templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(h)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 33, Col: 13}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/purchase/web/p15c_from.templ`, Line: 37, Col: 13}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 								if templ_7745c5c3_Err != nil {

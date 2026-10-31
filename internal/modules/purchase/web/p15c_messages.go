@@ -14,5 +14,10 @@ const (
 	fromHeldOther  = "On another order"
 	fromPrimary    = "Add selected"
 	fromBack       = "Back to items"
+	fromGoneLabel  = "No longer open"
 	msgFromNoTick  = "Tick at least one line to add."
+	// A ticked row no longer among the open rows: named only when the
+	// viewer may read its request (CD-248 family).
+	msgFromGone       = "Line %d: %s line %d is no longer open. Untick it or reload the page."
+	msgFromGoneUnread = "Line %d: That request line is no longer open. Untick it or reload the page."
 )

@@ -12,7 +12,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
-	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // P15c fix round 1 (review findings; UX §5.7; PO spec §20.5; CD-259).
@@ -221,8 +220,13 @@ func TestP15c_AppendKeepsUnit(t *testing.T) {
 	}
 }
 
-// UX §5.7: the refusal for a row taken meanwhile (§20.5) links from the
-// summary to the would-be line's quantity input and shows next to it.
+// §20.5's refusal for a row taken meanwhile: 422 with the message once in
+// the summary, the tick and quantity kept, nothing written. AD-13 withdrew
+// UX §5.7's link to the quantity input (a UX deviation): docscreen drops the
+// line of a hidden field's error, so the link target and the row placement
+// are left unpinned. CD-338 will keep the line and put the link on the
+// line's first shown field; its task (UI v2's error summary) tightens this
+// test then.
 func TestP15c_TakenLinksToQty(t *testing.T) {
 	w := newP15cWeb(t)
 	env := w.env
@@ -230,7 +234,9 @@ func TestP15c_TakenLinksToQty(t *testing.T) {
 	d := w.draft(t)
 	page, rows := w.open(t, env.Priya, d.ID, pr.Number)
 	other := w.hold(t, purchasetest.StopAtDraft(), pr.Lines[0].ID, "CEMENT-OPC", "BAG", "2523", "40")
-	action, form := p15cForm(t, page, p15cPrimary, []p15cRow{p15cFind(t, rows, "CEMENT-OPC")}, nil)
+	before, n := w.lines(t, d.ID), w.lineCount(t)
+	cement := p15cFind(t, rows, "CEMENT-OPC")
+	action, form := p15cForm(t, page, p15cPrimary, []p15cRow{cement}, map[*goquery.Selection]string{cement.qty: "37"})
 	a := w.do(t, env.Priya, "POST", action, form)
 	if a.status != 422 {
 		t.Fatalf("Add selected on a taken row = %d, want 422: %s", a.status, a.text())
@@ -239,15 +245,11 @@ func TestP15c_TakenLinksToQty(t *testing.T) {
 	if got := a.errors(); !slices.Equal(got, []string{want}) {
 		t.Errorf("errors = %q, want %q", got, want)
 	}
-	id := docscreen.LineFieldID(2, "qty")
-	if href, _ := a.doc.Find(".error-summary li a").Attr("href"); href != "#"+id {
-		t.Errorf("summary link = %q, want #%s (the quantity input)", href, id)
+	if r := p15cFind(t, p15cRows(t, p15cCard(a, pr.Number)), "CEMENT-OPC"); !r.ticked() || r.value() != "37" {
+		t.Errorf("422 redraw CEMENT-OPC ticked %v quantity %q, want ticked 37", r.ticked(), r.value())
 	}
-	if got, _ := p15cFind(t, p15cRows(t, p15cCard(a, pr.Number)), "CEMENT-OPC").qty.Attr("id"); got != id {
-		t.Errorf("CEMENT-OPC quantity input id = %q, want %s", got, id)
-	}
-	if msg := p15cCollapse(a.doc.Find("#" + id + "-msg").Text()); msg != want {
-		t.Errorf("message next to the quantity = %q, want %q", msg, want)
+	if got := w.lines(t, d.ID); !slices.Equal(got, before) || w.lineCount(t) != n {
+		t.Errorf("lines after a refused Add selected = %+v, want unchanged", got)
 	}
 }
 
