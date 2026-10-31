@@ -30,6 +30,9 @@ func AdvanceModule(d Deps) docscreen.Module {
 		Page:   advancePage(d),   // S3
 		Reason: advanceReason(d), // S3
 		Hide:   advanceHide(d),   // S3
+		// The type's name and the line's note (UX §5.10); authorised for S3
+		// by AD-11 (S3 review round 1).
+		LineCard: advanceLineCard(d), // S3
 		// 5 editable line cells would give the grid (CD-315); cards at
 		// every width (EUX-025).
 		CardsOnly: true,

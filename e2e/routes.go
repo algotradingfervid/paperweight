@@ -63,6 +63,7 @@ type sweepState struct {
 	purchase int64                          // a purchase.Order draft of Priya's (P15e)
 	exp      map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
 	grn      docscreen.SampleIDs            // goodsreceipt.Receipt (CD-298)
+	unpaid   int64                          // an approved advance not marked as paid (MOD-EXP S3)
 }
 
 // prepareSweep seeds sweepState. The stand-in masters' rows the reference order
@@ -127,7 +128,7 @@ func (h *Harness) prepareSweep() sweepState {
 	s.file = h.attach(deepak, fixture.Claim, c.ID, uitest.LongName100+".jpg")
 	s.pr = h.purchaseRequest()
 	s.purchase = h.purchaseDraft()
-	s.exp = h.expenseSamples(s.long)
+	s.exp, s.unpaid = h.expenseSamples(s.long)
 	s.grn = h.grnSamples()
 	return s
 }
@@ -157,8 +158,9 @@ const (
 // by her reporting manager Ravi under a reporting-manager rule (expensetest's
 // rules; the fixture rule names "Expense Claim"). The approved advance is
 // paid, and the draft claim is set against it; one line of each claim is a
-// company bill with its Billed to.
-func (h *Harness) expenseSamples(long testkit.LongRows) map[string]docscreen.SampleIDs {
+// company bill with its Billed to. unpaid is a second approved advance, not
+// marked as paid.
+func (h *Harness) expenseSamples(long testkit.LongRows) (_ map[string]docscreen.SampleIDs, unpaid int64) {
 	h.t.Helper()
 	p := h.Principal(admin)
 	ctx := auth.WithPrincipal(context.Background(), p) // the app's role directory reads it, as in approvalRules
@@ -219,6 +221,7 @@ func (h *Harness) expenseSamples(long testkit.LongRows) map[string]docscreen.Sam
 				h.t.Fatalf("mark advance %d paid: %v", ids.Approved, err)
 			}
 			paid = strconv.FormatInt(ids.Approved, 10)
+			unpaid = approved().ID
 		}
 		ids.Lines500 = draft(dt, manyLines, exp500Amount, header).ID
 		if dt == expense.ClaimDocType {
@@ -227,7 +230,7 @@ func (h *Harness) expenseSamples(long testkit.LongRows) map[string]docscreen.Sam
 		ids.Draft = draft(dt, longLines, expLineAmount, header).ID
 		out[dt] = ids
 	}
-	return out
+	return out, unpaid
 }
 
 // longOrder is a draft of Priya's with lines lines of worst-case values.
@@ -353,6 +356,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 	}, submit)...)
 	out = append(out, expenseReportScreens()...)
 	out = append(out, purchasePageScreens(s.purchase)...)
+	out = append(out, expensePaidScreens(s)...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
 }
 
@@ -400,6 +404,21 @@ func expenseReportScreens() []screens.Screen {
 			screens.Screen{Name: "expense report " + r + " filter", Route: base + "/filter", URL: base + "/filter", As: meena})
 	}
 	return append(out, screens.Screen{Name: "expense report lines filtered", Route: "/reports/expense/lines", URL: "/reports/expense/lines?month=2026-10", As: meena})
+}
+
+// expensePaidScreens are MOD-EXP S3's Mark as paid page on the unpaid
+// approved advance, Undo paid on the paid one, and the unpaid advance's page,
+// whose Paid on reads "Not paid yet" (M0-36's blank-value case), as Meena
+// (Director: cancel).
+func expensePaidScreens(s sweepState) []screens.Screen {
+	unpaid := strconv.FormatInt(s.unpaid, 10)
+	paid := strconv.FormatInt(s.exp[expense.AdvanceDocType].Approved, 10)
+	const base = "/modules/expense/advances/"
+	return []screens.Screen{
+		{Name: "advance mark as paid", Route: base + "{id}/paid", URL: base + unpaid + "/paid", As: meena},
+		{Name: "advance undo paid", Route: base + "{id}/unpaid", URL: base + paid + "/unpaid", As: meena},
+		{Name: expense.AdvanceDocType + " approved unpaid", Route: "/doc/{doctype}/{id}", URL: "/doc/" + expense.AdvanceDocType + "/" + unpaid, As: meena},
+	}
 }
 
 // masterScreens lists every master's list, new and record pages, the two create
@@ -627,12 +646,6 @@ type notPage struct {
 	route, url, why string
 }
 
-// expenseStubs are MOD-EXP's routes that still answer E1's 501 stub. S3 and
-// S4 give the pages screens and remove their routes here.
-var expenseStubs = []string{
-	"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid",
-}
-
 // purchaseStubs are MOD-PO's GET routes that still answer P1's 501 stub,
 // whatever the id, each with the task that builds it (AD-13). P15d and P15e
 // gave their pages screens; P16 checks the list is empty.
@@ -649,9 +662,6 @@ var grnStubs = []struct{ route, owner string }{
 // notPageStatus is the status a sample answers with when it isn't 200.
 var notPageStatus = func() map[string]int {
 	m := map[string]int{"/files/*": http.StatusNotFound}
-	for _, r := range expenseStubs {
-		m[r] = http.StatusNotImplemented
-	}
 	for _, p := range purchaseStubs {
 		m[p.route] = http.StatusNotImplemented
 	}
@@ -679,9 +689,6 @@ func notPages(s sweepState) []notPage {
 	}
 	for slug := range s.master {
 		out = append(out, notPage{"/m/" + slug + "/export.csv", "/m/" + slug + "/export.csv", "a CSV"})
-	}
-	for _, r := range expenseStubs {
-		out = append(out, notPage{r, strings.Replace(r, "{id}", "1", 1), "a MOD-EXP stub until its task builds it"})
 	}
 	for _, p := range purchaseStubs {
 		url := strings.NewReplacer("{id}", "1", "{queue}", "open").Replace(p.route)
