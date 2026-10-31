@@ -247,15 +247,6 @@ type rsEnv struct {
 	po, poLine, poLine2 string // an approved purchase.Order and its two lines, which every goods receipt receives
 }
 
-// rsCardBug: docscreen hands Module.LineCard the LineView.Card lineView built
-// with every field shown; CD-319 (3) filtered only the default card. The
-// purchase stubs (orderLineCard, requestLineCard) return l.Card, so their
-// cards print a hidden line Link's name. marks exempts text found only inside
-// the cards of a module with its own LineCard (or the remove page's question,
-// which names the card's item), and the "module line card" cell fails once
-// no such text turns up.
-const rsCardBug = "BUG: a module LineCard gets the unfiltered l.Card, so returning it prints hidden line fields (reported to head)"
-
 // rsDoc is one DocType's probe: the fields it hides and their seeded values.
 type rsDoc struct {
 	e         *rsEnv
@@ -269,7 +260,6 @@ type rsDoc struct {
 	itemsNone bool             // the probe draft's items step draws no probe field; see draft
 	rows      atomic.Bool      // a 422/409 redraw compared non-empty read-only rows
 	drawnRO   []string         // read-only fields a draft's step draws, nothing hidden; see sweepSteps
-	cardBug   atomic.Bool      // a module LineCard printed a hidden field; see rsCardBug
 }
 
 // newRSEnv is one App with the canonical seed, the sweep's users, an
@@ -1244,7 +1234,6 @@ func eq(a, b []string) bool { return slices.Equal(a, b) }
 // rsMark is one place a page draws a probe field.
 type rsMark struct {
 	field, kind string
-	card        bool // the text is only inside a module LineCard's cards (rsCardBug)
 }
 
 // marks is every place r draws a probe field: an input posting it, an element
@@ -1253,15 +1242,6 @@ type rsMark struct {
 // field posted by a form is a mark too (CD-79).
 func (d *rsDoc) marks(r rsResp) []rsMark {
 	var out []rsMark
-	outside := sync.OnceValue(func() string { // the page without its line cards
-		page := goquery.CloneDocument(r.page)
-		page.Find("li.lines-card").Remove()
-		page.Find("main p").FilterFunction(func(_ int, s *goquery.Selection) bool { // removePage's question names the card's item
-			return strings.HasPrefix(s.Text(), "Remove line ")
-		}).Remove()
-		html, _ := page.Html()
-		return html
-	})
 	for _, name := range slices.Sorted(maps.Keys(d.hide)) {
 		f, _ := d.dt.Field(name)
 		add := func(kind string) { out = append(out, rsMark{field: name, kind: kind}) }
@@ -1289,9 +1269,6 @@ func (d *rsDoc) marks(r rsResp) []rsMark {
 			}
 			i := strings.Index(r.body, text)
 			add(kind + " " + strconv.Quote(text) + " in " + strconv.Quote(r.body[max(0, i-200):i+len(text)]))
-			if d.mod.LineCard != nil && !strings.Contains(outside(), text) {
-				out[len(out)-1].card = true
-			}
 		}
 		reasonPage := r.page.Find(`[name="reason"]`).Length() > 0
 		if d.uniqueLabel(f) && !(reasonPage && slices.ContainsFunc(rsReasonLabels, func(l string) bool { return strings.EqualFold(l, f.Label) })) {
@@ -1314,10 +1291,6 @@ func (d *rsDoc) marks(r rsResp) []rsMark {
 func (d *rsDoc) noHidden(t *testing.T, where string, r rsResp) {
 	t.Helper()
 	for _, m := range d.marks(r) {
-		if m.card {
-			d.cardBug.Store(true) // rsCardBug
-			continue
-		}
 		t.Errorf("%s: the hidden field %s is drawn: %s", where, m.field, m.kind)
 	}
 }
@@ -1347,13 +1320,11 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 			d.sweepApproval(t)
 			d.sweepApproved(t)
 			d.cell(t, "module line card", func(t *testing.T) {
-				switch {
-				case d.mod.LineCard == nil:
+				if d.mod.LineCard == nil {
 					t.Skip("the default card, checked by every cell (CD-319 (3))")
-				case !d.cardBug.Load():
-					t.Fatalf("%s's own LineCard printed no hidden field: rsCardBug no longer reproduces; remove it and its exemption in marks", dt.Name)
 				}
-				t.Skip(rsCardBug)
+				// The module's cards are checked by every cell: Module.LineCard
+				// gets the hidden-filtered card (CD-319 (9), M0-47).
 			})
 			d.cell(t, "derived rows", func(t *testing.T) {
 				if d.rows.Load() {
