@@ -19,6 +19,23 @@ type BusinessSetting struct {
 	UpdatedBy      sql.NullInt64
 }
 
+type Project struct {
+	ID         int64
+	Code       string
+	Name       string
+	BranchID   int64
+	CustomerID sql.NullInt64
+	StartDate  sql.NullString
+	EndDate    sql.NullString
+	Status     string
+	Disabled   int64
+	Version    int64
+	CreatedAt  string
+	CreatedBy  sql.NullInt64
+	UpdatedAt  string
+	UpdatedBy  sql.NullInt64
+}
+
 type PurchaseOrder struct {
 	ID                 int64
 	Number             sql.NullString
@@ -156,4 +173,19 @@ type PurchaseRequestLine struct {
 	Qty         sql.NullInt64
 	Note        string
 	OrderedQty  int64
+}
+
+type Site struct {
+	ID        int64
+	Code      string
+	Name      string
+	BranchID  int64
+	ProjectID sql.NullInt64
+	Type      string
+	Disabled  int64
+	Version   int64
+	CreatedAt string
+	CreatedBy sql.NullInt64
+	UpdatedAt string
+	UpdatedBy sql.NullInt64
 }
