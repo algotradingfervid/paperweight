@@ -396,8 +396,8 @@ func TestStateLabel(t *testing.T) {
 		StateCancelled: "Cancelled",
 	}
 	for s, want := range cases {
-		if got := StateLabel(s); got != want {
-			t.Errorf("StateLabel(%q) = %q, want %q", s, got, want)
+		if got := StateLabel(DocType{}, s); got != want {
+			t.Errorf("StateLabel(DocType{}, %q) = %q, want %q", s, got, want)
 		}
 	}
 }

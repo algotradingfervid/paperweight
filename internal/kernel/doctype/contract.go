@@ -117,6 +117,13 @@ type Hooks interface {
 	Date(ctx context.Context, tx *db.Tx, id int64) (types.Date, error)
 }
 
+// Closer is an optional Hooks extension: close calls OnClose in its
+// transaction after the state is set and the transition recorded; an error
+// rolls the close back (CD-247).
+type Closer interface {
+	OnClose(ctx context.Context, tx *db.Tx, id int64) error
+}
+
 type MasterInfo struct { // CD-21
 	Code, Name       string
 	Disabled         bool
@@ -142,6 +149,8 @@ type DocType struct {
 	DefaultRights                                                   map[string]map[string]string // role → right → scope ("own" | "team" | "all"), CD-09/10/11
 	Hooks                                                           Hooks                        // nil for masters
 	Master                                                          MasterLookup                 // non-nil only for masters (CD-21)
+	CloseRight                                                      string                       // the right close needs; blank is "submit" (CD-247, CD-255)
+	StateLabels                                                     map[State]string             // per-DocType state labels; missing or blank is the global label (CD-247, CD-255)
 
 	importOnly []importOnlyField // what Register took out of Fields
 }

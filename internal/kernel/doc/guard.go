@@ -19,24 +19,24 @@ var allowedActions = map[State][]Action{
 	StateCancelled: {ActionAmend},
 }
 
-// guard returns the refusal of action a in state s for the document x, or
-// nil when a is allowed (Task 8).
-func guard(s State, a Action, x string) *Error {
+// guard returns the refusal of action a in state s for the document x of
+// dt, or nil when a is allowed (Task 8).
+func guard(dt *DocType, s State, a Action, x string) *Error {
 	if !slices.Contains(doctype.Actions(), a) {
 		return Refused(fmt.Sprintf(msgUnknownAction, x))
 	}
 	if slices.Contains(allowedActions[s], a) {
 		return nil
 	}
-	return Refused(refusal(s, a, x))
+	return Refused(refusal(dt, s, a, x))
 }
 
 // refusal is the plan's refusal table, matched top to bottom.
-func refusal(s State, a Action, x string) string {
+func refusal(dt *DocType, s State, a Action, x string) string {
 	in := func(as ...Action) bool { return slices.Contains(as, a) }
 	switch {
 	case in(ActionApprove, ActionReject):
-		return fmt.Sprintf(msgNotWaiting, x, doctype.StateLabel(s))
+		return fmt.Sprintf(msgNotWaiting, x, doctype.StateLabel(*dt, s))
 	case s == StateDraft && a == ActionWithdraw:
 		return fmt.Sprintf(msgNotSubmitted, x)
 	case s == StateDraft && a == ActionRevise:
@@ -85,8 +85,8 @@ var decidedWords = map[string]string{"approve": "approved", "reject": "rejected"
 // (Task 8, CD-26): "no longer waiting" when a person's approve, reject or
 // withdraw produced the current state, else "not waiting". A failed read
 // keeps the plain refusal and carries the error in Err.
-func (e *engine) notWaiting(ctx context.Context, tx *db.Tx, d Doc, x string) *Error {
-	plain := Refused(fmt.Sprintf(msgNotWaiting, x, doctype.StateLabel(d.State)))
+func (e *engine) notWaiting(ctx context.Context, tx *db.Tx, dt *DocType, d Doc, x string) *Error {
+	plain := Refused(fmt.Sprintf(msgNotWaiting, x, doctype.StateLabel(*dt, d.State)))
 	rows, err := audit.ForDoc(ctx, tx, d.DocType, d.ID)
 	if err != nil {
 		plain.Err = err
