@@ -169,18 +169,37 @@ func TestNoSecondConn_ReturnsFnErrorUnchanged(t *testing.T) {
 	wantMaxOpen(t, d, before)
 }
 
-// CD-213: the ctx fn gets ends when the deadline passes, so a waiting call
-// gives up instead of holding the transaction.
-func TestNoSecondConn_CancelsCtxOnDeadline(t *testing.T) {
+// M0-51: fn that is only slow passes: past the deadline with no goroutine
+// waiting for a connection, NoSecondConn waits and returns fn's error.
+func TestNoSecondConn_SlowFnWithoutWaiterPasses(t *testing.T) {
+	testkit.SetNoConnTimes(t, 50*time.Millisecond, time.Minute)
+	d := testkit.NewDB(t)
+	want := errors.New("the slow fn error")
+	got := testkit.NoSecondConn(t, d, func(context.Context) error {
+		time.Sleep(300 * time.Millisecond)
+		return want
+	})
+	if got != want { //nolint:errorlint // the same value, not a wrapped one
+		t.Errorf("NoSecondConn = %v, want the error fn returned, unchanged", got)
+	}
+}
+
+// M0-51: a fn that never returns and waits for no connection still fails at
+// the hard cap, and the ctx fn gets is cancelled so a waiting call gives up.
+func TestNoSecondConn_CancelsCtxAtCap(t *testing.T) {
+	testkit.SetNoConnTimes(t, 50*time.Millisecond, 300*time.Millisecond)
 	d := testkit.NewDB(t)
 	got := make(chan error, 1)
-	msg, _ := runFatal(t, d, func(ctx context.Context) error {
+	msg, took := runFatal(t, d, func(ctx context.Context) error {
 		<-ctx.Done()
 		got <- ctx.Err()
 		return nil
 	})
-	if msg == "" {
-		t.Fatalf("no Fatalf, want one after the deadline")
+	if !strings.Contains(msg, "fn had not returned after 300ms; no goroutine was waiting for a connection") {
+		t.Errorf("Fatalf message = %q", msg)
+	}
+	if took < 300*time.Millisecond {
+		t.Errorf("failed after %s, want at least the 300ms cap", took)
 	}
 	if err := <-got; !errors.Is(err, context.Canceled) {
 		t.Errorf("ctx.Err() = %v, want context.Canceled", err)
