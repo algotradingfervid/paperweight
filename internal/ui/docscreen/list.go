@@ -1,6 +1,7 @@
 package docscreen
 
 import (
+	"cmp"
 	"context"
 	"net/http"
 	"slices"
@@ -107,6 +108,10 @@ func (d Deps) listRows(ctx context.Context, dt *doctype.DocType, cols []componen
 		for i, lr := range rs {
 			vals := map[string]string{}
 			for _, c := range cols {
+				if c.Key == stateKey { // never the raw state (CD-325)
+					vals[c.Key] = cmp.Or(doctype.StateLabel(*dt, lr.Info.State), string(lr.Info.State))
+					continue
+				}
 				f, ok := fieldOf(dt, c.Key)
 				if !ok {
 					continue
@@ -234,9 +239,25 @@ func chips(dt *doctype.DocType, q ListQuery) []components.Chip {
 		rest := q
 		rest.Page = 0
 		rest.Filters = slices.Concat(q.Filters[:i], q.Filters[i+1:])
-		out[i] = components.Chip{Label: label + strings.Join(f.Values, ", "), RemoveURL: listURL(dt.Name, rest)}
+		values := make([]string, len(f.Values))
+		for n, v := range f.Values {
+			values[n] = filterValueLabel(dt, f.Field, v)
+		}
+		out[i] = components.Chip{Label: label + strings.Join(values, ", "), RemoveURL: listURL(dt.Name, rest)}
 	}
 	return out
+}
+
+// filterValueLabel is a filter value as users see it: a state's
+// doctype.StateLabel, a Select option's label, else the value (CD-325).
+func filterValueLabel(dt *doctype.DocType, field, v string) string {
+	if field == stateKey {
+		return cmp.Or(doctype.StateLabel(*dt, doctype.State(v)), v)
+	}
+	if f, ok := fieldOf(dt, field); ok && f.Type == doctype.Select {
+		return optionLabel(f, v)
+	}
+	return v
 }
 
 // keep is what the filter bar carries through a search or sort: the

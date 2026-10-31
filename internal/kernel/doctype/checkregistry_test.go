@@ -153,3 +153,61 @@ func TestCheckRegistry_SearchFields(t *testing.T) {
 		}
 	}
 }
+
+// M0-52 (CD-325): CheckRegistry refuses an OptionLabels key that isn't one of
+// the field's Options.
+func TestCheckRegistry_OptionLabels(t *testing.T) {
+	cases := []struct {
+		name   string
+		labels map[string]string
+		want   string // "" = valid; otherwise the error must name it
+	}{
+		{"key not in Options", map[string]string{"normal": "Normal", "rush": "Rush"}, "rush"},
+		{"keys in Options", map[string]string{"normal": "Normal", "urgent": "Urgent"}, ""},
+		{"some options unlabelled", map[string]string{"urgent": "Urgent"}, ""},
+	}
+	for _, c := range cases {
+		r := newRegistry()
+		r.Register(testParty())
+		dt := testOrder()
+		for i := range dt.Fields {
+			if dt.Fields[i].Name == "priority" {
+				dt.Fields[i].OptionLabels = c.labels
+			}
+		}
+		r.Register(dt)
+		err := r.Check()
+		if c.want == "" {
+			if err != nil {
+				t.Errorf("%s: Check() = %v, want nil", c.name, err)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("%s: Check() = nil, want an error", c.name)
+			continue
+		}
+		for _, w := range []string{"t.Order", "priority", c.want} {
+			if !strings.Contains(err.Error(), w) {
+				t.Errorf("%s: Check() = %q, want it to name %q", c.name, err, w)
+			}
+		}
+	}
+
+	// An OnLine Select is checked too.
+	r := newRegistry()
+	r.Register(testParty())
+	dt := testOrder()
+	dt.Fields = append(dt.Fields, Field{Name: "line_kind", Label: "Line kind", Type: Select, OnLine: true, Step: "lines",
+		Options: []string{"stock", "service"}, OptionLabels: map[string]string{"stock": "Stock", "rush": "Rush"}})
+	r.Register(dt)
+	err := r.Check()
+	if err == nil {
+		t.Fatal("OnLine Select: Check() = nil, want an error")
+	}
+	for _, w := range []string{"t.Order", "line_kind", "rush"} {
+		if !strings.Contains(err.Error(), w) {
+			t.Errorf("OnLine Select: Check() = %q, want it to name %q", err, w)
+		}
+	}
+}

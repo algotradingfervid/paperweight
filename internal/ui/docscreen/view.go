@@ -129,11 +129,13 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 		if err != nil {
 			return DocView{}, err
 		}
-		if shown != "" { // a hidden document link reads as empty (CD-321)
-			v.Header = append(v.Header, components.Pair{Label: f.Label, Value: shown, Num: numeric(f)})
-			v.HeaderNames = append(v.HeaderNames, f.Name)
+		if f.Name != stateKey { // the page badge shows the state (CD-325)
+			if shown != "" { // a hidden document link reads as empty (CD-321)
+				v.Header = append(v.Header, components.Pair{Label: f.Label, Value: shown, Num: numeric(f)})
+				v.HeaderNames = append(v.HeaderNames, f.Name)
+			}
+			v.Display[f.Name] = shown
 		}
-		v.Display[f.Name] = shown
 		if v.Inputs[f.Name], err = inputValue(f, plain); err != nil {
 			return DocView{}, err
 		}
