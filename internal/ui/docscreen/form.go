@@ -249,16 +249,6 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 	}
 	c := d.ctxOf(r, dt, nil)
 	typed, plain, errs := postedStep(c, steps[0])
-	var saved Save
-	if hook.Save != nil {
-		// The module's first step creates the draft with its lines in one
-		// call (hooks spec §4.1).
-		if saved, err = hook.Save(c); err != nil {
-			problem(w, r, err)
-			return
-		}
-		plain, errs = saved.Values, saved.Errors
-	}
 	invalid := func(status int, pr Problem) {
 		pr.Fields = refusalErrors(c, steps, 0, pr.Fields)
 		sv, err := d.stepViewOf(r, dt, steps, 0, nil, typed, pr.Fields)
@@ -270,6 +260,22 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 			sv.M.Conflict, sv.M.ReloadURL = pr.Message, "/doc/"+dt.Name+"/new"
 		}
 		ui.Render(w, r, status, stepFull(sv), stepFrame(sv))
+	}
+	var saved Save
+	if hook.Save != nil {
+		// The module's first step creates the draft with its lines in one
+		// call (hooks spec §4.1).
+		if saved, err = hook.Save(c); err != nil {
+			// A 403 on a field (a posted record the user can't read, CD-240)
+			// redraws the step as a 422, which htmx swaps (CD-323 (1)).
+			if pr, ok := Classify(err); ok && pr.Status == http.StatusForbidden && len(pr.Fields) > 0 {
+				invalid(http.StatusUnprocessableEntity, pr)
+				return
+			}
+			problem(w, r, err)
+			return
+		}
+		plain, errs = saved.Values, saved.Errors
 	}
 	if len(errs) > 0 {
 		invalid(http.StatusUnprocessableEntity, Problem{Fields: errs})
@@ -398,15 +404,6 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	}
 	c := d.ctxOf(r, dt, &loaded)
 	typed, plain, errs := postedStep(c, steps[i])
-	var saved Save
-	if hook.Save != nil {
-		// The module's save replaces the posted fields (hooks spec §4.1).
-		if saved, err = hook.Save(c); err != nil {
-			problem(w, r, err)
-			return
-		}
-		plain, errs = saved.Values, saved.Errors
-	}
 	rerender := func(pr Problem) {
 		v, err := d.View(ctx, d.principal(r), dt.Name, id)
 		if err != nil {
@@ -433,6 +430,21 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 			}
 			return stepFull(sv)
 		})
+	}
+	var saved Save
+	if hook.Save != nil {
+		// The module's save replaces the posted fields (hooks spec §4.1).
+		if saved, err = hook.Save(c); err != nil {
+			// A 403 on a field (a posted record the user can't read, CD-240)
+			// redraws the step as a 422, which htmx swaps (CD-323 (1)).
+			if pr, ok := Classify(err); ok && pr.Status == http.StatusForbidden && len(pr.Fields) > 0 {
+				rerender(pr) // wizard.Invalid: 422
+				return
+			}
+			problem(w, r, err)
+			return
+		}
+		plain, errs = saved.Values, saved.Errors
 	}
 	if len(errs) > 0 {
 		rerender(Problem{Status: http.StatusUnprocessableEntity, Fields: errs})
