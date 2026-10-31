@@ -80,8 +80,9 @@ func (s *Service) LeftOn(ctx context.Context, p auth.Principal, advanceID int64)
 
 // AdvanceWarnings are the G7 warnings on advance advanceID's check and
 // approval pages (CD-271 G7, CD-281 d): one per other approved advance of
-// its employee, marked as paid, with something left. Each is named only when
-// p can read it, otherwise anotherAdvance. They never refuse.
+// its employee, marked as paid, with something left, that p can read: an
+// advance p can't read gives no warning, since its amount would leak
+// (CD-305 (1); CD-233, CD-240, CD-248). They never refuse.
 func (s *Service) AdvanceWarnings(ctx context.Context, p auth.Principal, advanceID int64) ([]string, error) {
 	var out []string
 	err := s.db.Read(ctx, func(tx *db.Tx) error {
@@ -101,12 +102,11 @@ func (s *Service) AdvanceWarnings(ctx context.Context, p auth.Principal, advance
 			if err != nil {
 				return err
 			}
-			name := anotherAdvance
-			if ok {
-				name = naming.Label(r.Number.String, r.ID)
+			if !ok {
+				continue
 			}
 			left := types.FormatMoney(types.Money(r.Amount.Int64 - r.UsedAmount))
-			out = append(out, fmt.Sprintf(msgAdvanceLeft, a.SnapEmployeeName, left, name))
+			out = append(out, fmt.Sprintf(msgAdvanceLeft, a.SnapEmployeeName, left, naming.Label(r.Number.String, r.ID)))
 		}
 		return nil
 	})

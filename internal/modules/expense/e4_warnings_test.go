@@ -13,8 +13,8 @@ import (
 
 // TestAdv_OtherAdvanceWarning: money left on another of the employee's
 // approved, paid, not closed advances warns on the advance's check and
-// approval pages, naming it only for a viewer who can read it (EXP-060;
-// CD-271 G7, CD-281 d; CD-240, CD-248). On the real auth.Service.
+// approval pages, only for a viewer who can read it (EXP-060; CD-271 G7,
+// CD-281 d; CD-305 (1)). On the real auth.Service.
 func TestAdv_OtherAdvanceWarning(t *testing.T) {
 	e := expensetest.New(t)
 	deepak, priya, meena, ravi := e.P(t, e4Deepak), e.P(t, e4Priya), e.P(t, e4Meena), e.P(t, e4Ravi)
@@ -62,7 +62,8 @@ func TestAdv_OtherAdvanceWarning(t *testing.T) {
 		}
 	}
 	ws := e4Warnings(t, e, ravi, b.ID)
-	e4WantWarnings(t, "ravi, who can't read the paid advance", ws,
-		fmt.Sprintf(e4FmtWarning, "Deepak Nair", "4,000.00", e4AnotherAdvance))
-	expensetest.WantNotNamed(t, e6Joined(ws), others...)
+	// An advance the viewer can't read gives no warning: neither its number
+	// nor its amount appears (CD-305 (1)).
+	e4WantWarnings(t, "ravi, who can't read the paid advance", ws)
+	expensetest.WantNotNamed(t, e6Joined(ws), append(others, "4,000.00")...)
 }

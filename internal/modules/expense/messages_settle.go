@@ -9,10 +9,12 @@ const (
 	msgLessAboveTotal       = "Less advance can't be more than the total."
 	msgLessAboveLeft        = "Less advance can't be more than the ₹%s left on %s."
 	msgAdvanceNotPaid       = "%s hasn't been marked as paid yet."
-	// msgAdvanceLeft is the G7 warning: employee, money left, advance (or
-	// anotherAdvance when the viewer can't read it; CD-240, CD-248).
+	// msgAdvanceNothingLeft is a blank or non-positive less advance on an
+	// advance with nothing left (CD-305 (2)).
+	msgAdvanceNothingLeft = "%s has nothing left to set against. Remove it from this claim."
+	// msgAdvanceLeft is the G7 warning: employee, money left, advance. An
+	// advance the viewer can't read gives no warning (CD-305 (1)).
 	msgAdvanceLeft = "%s still has ₹%s left on %s."
-	anotherAdvance = "another advance"
 
 	// msgAdvanceClosed is DOC-017's closed-source text (doc/messages.go
 	// msgSourceClosed with the advance's lower-cased label), which doc doesn't

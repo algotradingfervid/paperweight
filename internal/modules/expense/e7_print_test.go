@@ -18,6 +18,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/expense/expensetest"
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // E7 · Prints (plan MOD-EXP E7; spec §10). The prints are fetched through
@@ -25,10 +26,8 @@ import (
 // right, the read check and the views registered on print.Default are all on
 // the path.
 //
-// E2's Validate stores the snapshots, totals, period and to pay. E4 (the
-// advance settlement) isn't merged: its stub leaves to pay at the total, so
-// e7SettleStandIn sets to pay with test-only fixture SQL. less_advance is set
-// through expensetest's Against builder.
+// E2's Validate stores the snapshots, totals and period, and E4's settlement
+// to pay. less_advance is set through expensetest's Against builder.
 
 const (
 	e7Deepak = "deepak@vardhan.test" // Employee, EMP-007, reports to Priya
@@ -95,13 +94,6 @@ func e7Exec(t *testing.T, e *expensetest.Env, query string, args ...any) {
 	}
 }
 
-// e7SettleStandIn is the stand-in for E4's settlement (test-only fixture
-// SQL): claim claimID's to pay is its total less its less advance.
-func e7SettleStandIn(t *testing.T, e *expensetest.Env, claimID int64) {
-	t.Helper()
-	e7Exec(t, e, `UPDATE expense_claim SET net_payable = total - COALESCE(less_advance, 0) WHERE id = ?`, claimID)
-}
-
 // e7Do runs action a as p at the document's stored version.
 func e7Do(t *testing.T, e *expensetest.Env, p auth.Principal, dt string, id int64, a doc.Action) doc.Result {
 	t.Helper()
@@ -152,10 +144,17 @@ func e7World(t *testing.T) (e *expensetest.Env, claimID, advanceID int64) {
 	if _, err := e.EditClaim(t, deepak, claim.ID, nil, map[int]expensetest.Values{1: {"receipt_sha256": ticket.SHA256, "no_receipt_reason": ""}}); err != nil {
 		t.Fatalf("set line 1's receipt: %v", err)
 	}
+	// A claim sets off only an advance marked as paid (CD-271 G1).
+	paidOn, err := types.DateFromISO(expensetest.Date)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Service.MarkPaid(t.Context(), e.P(t, e7Meena), adv.ID, e.LoadDoc(t, expense.AdvanceDocType, adv.ID).Version, paidOn); err != nil {
+		t.Fatalf("MarkPaid: %v", err)
+	}
 	e.Against(t, deepak, claim.ID, adv.ID, 1_000_000)
 	e7Do(t, e, deepak, expense.ClaimDocType, claim.ID, doc.ActionSubmit)
 	e7Do(t, e, priya, expense.ClaimDocType, claim.ID, doc.ActionApprove)
-	e7SettleStandIn(t, e, claim.ID)
 	return e, claim.ID, adv.ID
 }
 

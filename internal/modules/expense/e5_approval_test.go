@@ -216,7 +216,6 @@ func TestExp_OnlyFallback(t *testing.T) {
 	meena := e.P(t, e5Meena)
 
 	res := e.DraftClaim(t, meena, nil)
-	e5SetComputed(t, e, expense.ClaimDocType, res.ID)
 	e.WantRefused(t, e5NoOneElseClaim, func() error {
 		_, err := e5Do(e, meena, expense.ClaimDocType, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
 		return err
@@ -327,7 +326,6 @@ func TestAdv_DirectorAdvance(t *testing.T) {
 		meena := e.P(t, e5Meena)
 
 		res := e.DraftAdvance(t, meena, nil)
-		e5SetComputed(t, e, expense.AdvanceDocType, res.ID)
 		e.WantRefused(t, e5NoOneElseAdvance, func() error {
 			_, err := e5Do(e, meena, expense.AdvanceDocType, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
 			return err

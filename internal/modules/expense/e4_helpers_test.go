@@ -44,7 +44,6 @@ const (
 	e4FmtOtherEmployee = "%s belongs to another employee."
 	e4FmtNotPaid       = "%s hasn't been marked as paid yet."
 	e4FmtWarning       = "%s still has ₹%s left on %s." // CD-271 G7: employee, left, advance
-	e4AnotherAdvance   = "another advance"
 )
 
 // Other packages' texts (CD-142).

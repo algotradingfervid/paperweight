@@ -70,7 +70,8 @@ func submitAdvanceFields(ctx context.Context, tx *db.Tx, _ Deps, id int64) ([]do
 // (D-APR-15), reading the advance inside the transaction (CD-94): it isn't
 // closed, it is marked as paid (CD-271 G1), and the less advance is no more
 // than what's left after the other approved and closed claims. A NULL less
-// advance becomes min(left, total) and is written with net_payable. Validate
+// advance becomes min(left, total) and is written with net_payable; with
+// nothing left it is refused on advance_id (CD-305 (2)). Validate
 // ran in this transaction just before, so the employee rule and the engine's
 // source-state check already hold.
 func checkAdvanceLeft(ctx context.Context, tx *db.Tx, _ Deps, id int64) error {
@@ -93,8 +94,8 @@ func checkAdvanceLeft(ctx context.Context, tx *db.Tx, _ Deps, id int64) error {
 	less := types.Money(h.LessAdvance.Int64)
 	if !h.LessAdvance.Valid {
 		less = min(left, types.Money(h.Total.Int64))
-		if less == 0 { // nothing left: the same rule as a typed 0
-			return settleInvalid("less_advance", fmt.Sprintf(msgAdvanceZero, label))
+		if less <= 0 { // nothing left (CD-305 (2))
+			return settleInvalid("advance_id", fmt.Sprintf(msgAdvanceNothingLeft, label))
 		}
 		if err := q.E4SetLess(ctx, dbq.E4SetLessParams{
 			LessAdvance: sql.NullInt64{Int64: int64(less), Valid: true},

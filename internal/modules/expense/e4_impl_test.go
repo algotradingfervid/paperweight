@@ -9,6 +9,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/expense"
 	"github.com/vardhan/internaltools/internal/modules/expense/expensetest"
 	"github.com/vardhan/internaltools/internal/types"
@@ -16,8 +17,8 @@ import (
 
 // Implementer tests for E4's code beyond the committed cases.
 
-// A blank less advance on an advance with nothing left would write 0 at
-// submit: refused with the typed-0 text, nothing written.
+// A blank less advance on an advance with nothing left is refused at submit
+// with its own text on advance_id (CD-305 (2)), nothing written.
 func TestE4Impl_BlankOnFullyUsedIsZero(t *testing.T) {
 	e := expensetest.New(t)
 	deepak := e.P(t, e4Deepak)
@@ -26,10 +27,16 @@ func TestE4Impl_BlankOnFullyUsedIsZero(t *testing.T) {
 	e4WantUsed(t, e, adv.ID, "fully used", e4Rs(1000), 0)
 
 	c := e4Claim(t, e, deepak, "500.00", e4On(adv.ID, ""))
-	e.WantRefused(t, fmt.Sprintf(e4FmtZero, e4EA1), func() error {
-		_, err := e6Try(t, e, deepak, expense.ClaimDocType, c.ID, doc.ActionSubmit, "")
+	want := fmt.Sprintf("%s has nothing left to set against. Remove it from this claim.", e4EA1)
+	var err error
+	e.WantRefused(t, want, func() error {
+		_, err = e6Try(t, e, deepak, expense.ClaimDocType, c.ID, doc.ActionSubmit, "")
 		return err
 	})
+	var he doctype.HTTPError
+	if !errors.As(err, &he) || !slices.Contains(he.FieldErrors(), doctype.FieldError{Field: "advance_id", Message: want}) {
+		t.Errorf("submit: %v, want %q on advance_id", err, want)
+	}
 }
 
 // The effect entry records used_amount's change, and the advance's
