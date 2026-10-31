@@ -15,6 +15,21 @@ import (
 	"strings"
 )
 
+// heavy lists the stroke exceptions of UI v2 §5.1: each glyph also renders
+// as "<name>-heavy" at this width. The check inside a done step dot and the
+// plus of the bottom-nav New button draw at 2.5; the state glyphs shown at
+// 14 px draw at 2. Every other icon draws at 1.5.
+var heavy = map[string]string{
+	"check":         "2.5",
+	"plus":          "2.5",
+	"circle-dashed": "2",
+	"clock":         "2",
+	"circle-check":  "2",
+	"circle-x":      "2",
+	"ban":           "2",
+	"circle-stop":   "2",
+}
+
 func main() {
 	list, err := os.ReadFile("icons.txt")
 	if err != nil {
@@ -42,26 +57,46 @@ func main() {
 		}
 		fmt.Fprintf(body, "%q: %q,\n", n, markup)
 	}
+	body.WriteString("}\n\nvar heavy = map[string]string{\n")
+	for _, n := range names {
+		if w, ok := heavy[n]; ok {
+			fmt.Fprintf(body, "%q: %q,\n", n+"-heavy", w)
+			delete(heavy, n)
+		}
+	}
 	body.WriteString("}\n")
+	if len(heavy) > 0 {
+		log.Fatalf("heavy lists icons not in icons.txt: %v", heavy)
+	}
 	fmt.Fprintf(&b, "// %s\n// See lucide/LICENSE.\n\npackage icons\n\n", licence)
 	b.WriteString(`import (
 	"context"
 	"io"
+	"strings"
 
 	"github.com/a-h/templ"
 )
 
-const open = ` + "`" + `<svg class="icon" aria-hidden="true" focusable="false" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` + "`" + `
+const open = ` + "`" + `<svg class="icon" aria-hidden="true" focusable="false" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="` + "`" + `
+
+const openEnd = ` + "`" + `" stroke-linecap="round" stroke-linejoin="round">` + "`" + `
 
 // Icon renders the named Lucide icon as an inline, hidden-from-assistive-tech
-// SVG. An unknown name panics at render.
+// SVG at stroke 1.5; "<name>-heavy" renders a listed exception heavier. An
+// unknown name panics at render.
 func Icon(name string) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		width, ok := heavy[name]
+		if ok {
+			name = strings.TrimSuffix(name, "-heavy")
+		} else {
+			width = "1.5"
+		}
 		markup, ok := inner[name]
 		if !ok {
 			panic("icons: unknown icon " + name)
 		}
-		return templ.Raw(open+markup+"</svg>").Render(ctx, w)
+		return templ.Raw(open+width+openEnd+markup+"</svg>").Render(ctx, w)
 	})
 }
 
