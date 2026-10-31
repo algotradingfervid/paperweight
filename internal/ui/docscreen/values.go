@@ -1,6 +1,7 @@
 package docscreen
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"strconv"
@@ -55,8 +56,16 @@ func (d Deps) display(ctx context.Context, tx *db.Tx, f doctype.Field, plain str
 		return "No", nil
 	case doctype.Link:
 		return d.linkDisplay(ctx, tx, f.Link, plain)
+	case doctype.Select:
+		return optionLabel(f, plain), nil
 	}
 	return plain, nil
+}
+
+// optionLabel is a Select value as users see it: its OptionLabels entry,
+// else the value (CD-325).
+func optionLabel(f doctype.Field, v string) string {
+	return cmp.Or(f.OptionLabels[v], v)
 }
 
 func (d Deps) linkDisplay(ctx context.Context, tx *db.Tx, target, plain string) (string, error) {

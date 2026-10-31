@@ -84,6 +84,10 @@ type Field struct {
 	Hint, Step                                                     string // CD-42
 	ReadOnly                                                       bool   // CD-79: computed fields; client values rejected
 
+	// OptionLabels maps a Select option value to the label users see; an
+	// option without one shows its value (CD-325).
+	OptionLabels map[string]string
+
 	// DOC's additions (§5 last paragraph).
 	NonNegative, Positive               bool
 	Min, Max                            *int64

@@ -49,7 +49,7 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 	case doctype.Select:
 		opts := make([]components.Option, len(f.Options))
 		for i, o := range f.Options {
-			opts[i] = components.Option{Value: o, Label: o}
+			opts[i] = components.Option{Value: o, Label: optionLabel(f, o)}
 		}
 		if len(opts) <= maxRadios {
 			return components.Radios(p, opts)
