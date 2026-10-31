@@ -25,9 +25,9 @@
   --color-warning-content: #FFFFFF;
   --color-error: #B3261E;
   --color-error-content: #FFFFFF;
-  --radius-selector: 0.25rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.75rem;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.625rem;
+  --radius-box: 0.875rem;
   --size-selector: 0.25rem;
   --size-field: 0.275rem;
   --border: 1px;
