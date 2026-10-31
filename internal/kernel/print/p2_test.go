@@ -55,7 +55,7 @@ func TestPrint_GRNGolden(t *testing.T) {
 	printtest.Golden(t, "grn_approved.golden.html", []byte(html))
 	mustContain(t, html,
 		"Goods Receipt Note", "GR/26-27/00001", "Against PO: PO/26-27/00001 dated 24-10-2026",
-		"Vendor Challan No.: SST/1182", "Challan Date: 23-10-2026", "Shree Steel Traders",
+		"Challan or invoice no.: SST/1182", "Challan Date: 23-10-2026", "Shree Steel Traders",
 		"<th>Received</th><th>Accepted</th><th>Rejected</th>",
 		`<td class="qty">1,200</td><td class="qty">1,180</td><td class="qty">20</td>`,
 		"MS-ANGLE-50 MS Angle 50x50x5", "kg",
