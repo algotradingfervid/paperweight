@@ -20,12 +20,12 @@ import (
 // address falls back to the primary billing radio, and the field hints of
 // UX §5.4 to §5.6.
 
-// The hint texts, quoted from UX §5.4 to §5.6.
+// The hint texts, from UX §5.4 to §5.6, one sentence each (P29).
 const (
-	p15aHintTerms    = "Left blank, the company's standard terms are used. Type a dash to print none."
-	p15aHintReverse  = "Tick only if your CA has said reverse charge applies. GST is then shown as payable by us and left out of the total."
-	p15aHintRemarks  = "For people in the company only. Never printed."
-	p15aHintEarlier  = "Only for orders first raised on paper. Printed on the order so the vendor recognises it."
+	p15aHintTerms    = "Left blank, the company's standard terms are used; type a dash to print none."
+	p15aHintReverse  = "Tick only if your CA has said reverse charge applies, so GST is shown as payable by us and left out of the total."
+	p15aHintRemarks  = "For people in the company only, and never printed."
+	p15aHintEarlier  = "Only for orders first raised on paper; printed on the order so the vendor recognises it."
 	p15aHintRate     = "Left blank, the last price paid to this vendor on this project is used, or else the item's standard rate."
 	p15aHintReceived = "What arrived before this order was entered in the app."
 	p15aHintProject  = "Left blank, the site's project is used."
