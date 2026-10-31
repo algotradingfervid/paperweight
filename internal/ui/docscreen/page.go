@@ -135,6 +135,9 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 	noteLines(shown.Lines, extra.LineNotes)
 	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights)}
 	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
+	if err := applyPageExtra(&pv); err != nil {
+		return pageView{}, err
+	}
 	if pv.Bar.Note == "" {
 		for _, b := range buttons(v, dt.Printable, rights) {
 			if b.Place != More && b.Href == "" {

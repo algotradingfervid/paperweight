@@ -23,7 +23,8 @@ templ docMain(pv pageView) {
 
 // docBanners sit above the h1: a rejected document's reason first, then a
 // refused action's message, then an action's success and, after an approve,
-// the "Next request" link straight under it.
+// the "Next request" link straight under it, and the module's notice last
+// (CD-263 G3).
 templ docBanners(pv pageView) {
 	if pv.V.Info.State == doctype.StateRejected && pv.V.Origin.StateReason != "" {
 		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.V.Origin.StateReason})
@@ -39,6 +40,9 @@ templ docBanners(pv pageView) {
 		// A space keeps the banner's text and the link's apart in the page text.
 		{ " " }
 		<p><a href={ templ.SafeURL(pv.Next) }>Next request</a></p>
+	}
+	if pv.Extra.Notice != nil {
+		@components.Banner(*pv.Extra.Notice)
 	}
 }
 
