@@ -87,6 +87,8 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Keep `queries/*.sql` comments ASCII: sqlc 1.31.1 generates broken SQL when a comment holds a non-ASCII character such as "…" (AD-11, E1).
 - A module's first GET routes need e2e not-page entries or screens even while they answer 501: `make ci` doesn't run the route gate (TestE2E_EveryRouteCovered), only `make e2e` does (AD-11, E1).
 - **High-tier reviews include a mutation pass** (`go test -overlay` with a mutated copy) on every guard and every `queries/*.sql` filter: ORDER BY, DISTINCT, state lists, refusal-switch arms, CSV BOM and escaping. covertouched marks those lines covered while no test fails when they're deleted (four of five MOD-EXP reviews; CD-299).
+- Re-check a task's tests and brief against main's CD log when the implementer is dispatched, not only at test-writer dispatch: M0-19 missed CD-292 (5), which landed in between.
+- Write mixed `&&` / `||` with parentheses: staticcheck and gocritic don't flag them, and a gallery filter bug came from one (M0-5).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
