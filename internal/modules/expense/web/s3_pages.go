@@ -29,7 +29,7 @@ func closedPair(v *docscreen.DocView) []components.Pair {
 // the party too (CD-319 (4)), and the page must still say whose it is.
 func employeePair(c docscreen.Ctx) []components.Pair {
 	f, ok := c.DT.Field("employee_id")
-	if hide := c.Deps.Modules[c.DT.Name].Hide; !ok || hide == nil || !hide(c, f) || c.View.Info.Party == "" {
+	if hide := c.Deps.Modules[c.DT.Name].Hide; !ok || hide == nil || !hide(c, f) {
 		return nil
 	}
 	return []components.Pair{{Label: "Employee", Value: c.View.Info.Party}}
@@ -71,7 +71,7 @@ const (
 	claimsNone    = "No claims set against this advance yet."
 	claimsOther   = "Other claims"
 	setAgainst    = " set against"
-	countsOnceApp = " (counts once approved)"
+	countsOnceApp = "(counts once approved)"
 )
 
 var claimsColumns = []components.Column{
@@ -79,6 +79,7 @@ var claimsColumns = []components.Column{
 	{Key: "amount", Label: "Set against", Priority: components.PFigure, Num: true},
 	{Key: "date", Label: "Claim date", Priority: components.PMeta, NoWrap: true},
 	{Key: "state", Label: "State", Priority: components.PState},
+	{Key: "note", Label: "Note", Priority: components.PMeta}, // wraps, unlike the figure and the date
 }
 
 // claimsView is the claims card: the claims the viewer can read, and what
@@ -118,10 +119,10 @@ func advanceExtra(c docscreen.Ctx, d Deps) (docscreen.PageExtra, error) {
 		if err != nil {
 			return err
 		}
-		if amount, err = money(rec.Values["amount"]); err != nil {
+		if amount, err = types.ParseMoney(rec.Values["amount"]); err != nil {
 			return err
 		}
-		if used, err = money(rec.Values["used_amount"]); err != nil {
+		if used, err = types.ParseMoney(rec.Values["used_amount"]); err != nil {
 			return err
 		}
 		paidOn = rec.Values["paid_on"]
@@ -187,7 +188,7 @@ func claimsAgainst(ctx context.Context, tx *db.Tx, c docscreen.Ctx, d Deps, bs [
 		if err != nil {
 			return out, err
 		}
-		less, err := money(rec.Values["less_advance"])
+		less, err := types.ParseMoney(rec.Values["less_advance"])
 		if err != nil {
 			return out, err
 		}
@@ -195,15 +196,15 @@ func claimsAgainst(ctx context.Context, tx *db.Tx, c docscreen.Ctx, d Deps, bs [
 		if err != nil {
 			return out, err
 		}
-		amount := types.FormatINR(less) + setAgainst
+		var note string
 		if b.State == doctype.StatePending {
-			amount += countsOnceApp
+			note = countsOnceApp
 		} else {
 			listed += less
 		}
 		out.rows = append(out.rows, components.Row{
 			Href:   "/doc/" + b.DocType + "/" + strconv.FormatInt(b.ID, 10),
-			Values: map[string]string{"claim": rec.Info.Display, "amount": amount, "date": types.FormatDate(date)},
+			Values: map[string]string{"claim": rec.Info.Display, "amount": types.FormatINR(less) + setAgainst, "date": types.FormatDate(date), "note": note},
 			State:  b.State,
 		})
 	}
@@ -212,7 +213,3 @@ func claimsAgainst(ctx context.Context, tx *db.Tx, c docscreen.Ctx, d Deps, bs [
 	}
 	return out, nil
 }
-
-// money parses a stored money value: an approved or closed advance always
-// has its amount, and a live claim its less advance.
-func money(plain string) (types.Money, error) { return types.ParseMoney(plain) }

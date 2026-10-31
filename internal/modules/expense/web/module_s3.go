@@ -26,7 +26,7 @@ const (
 // Period and Closed pairs, and only the files no line holds (UX-E7).
 func claimPage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
 	return func(c docscreen.Ctx) (docscreen.PageExtra, error) {
-		x := docscreen.PageExtra{Pairs: employeePair(c)}
+		var x docscreen.PageExtra
 		v := c.View
 		switch v.Info.State {
 		case doctype.StateDraft, doctype.StatePending, doctype.StateRejected:
@@ -37,7 +37,11 @@ func claimPage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
 			x.Warnings = ws
 		}
 		if v.Info.State == doctype.StateDraft {
-			x.Notice = &components.BannerProps{Message: v.Info.Party + " hasn't submitted this claim yet."}
+			name, err := d.Service.ClaimEmployee(c.Req.Context(), c.Principal, v.Info.ID)
+			if err != nil {
+				return x, err
+			}
+			x.Notice = &components.BannerProps{Message: name + " hasn't submitted this claim yet."}
 		}
 		if from, to := v.Display["period_from"], v.Display["period_to"]; from != "" && to != "" {
 			x.Pairs = append(x.Pairs, components.Pair{Label: "Period", Value: from + " to " + to})
@@ -86,15 +90,27 @@ func advanceReason(d Deps) func(docscreen.Ctx, doctype.Action) (docscreen.Reason
 }
 
 // advanceHide hides used_amount and paid_on, which the page shows as pairs,
-// and the employee from everyone but an Administrator (UX §5 intro).
+// and, as an input only, the employee from everyone but an Administrator:
+// on a new advance (no View) and a draft (UX §5 intro, CD-327 (2)).
 func advanceHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool {
 	return func(c docscreen.Ctx, f doctype.Field) bool {
 		switch f.Name {
 		case "used_amount", "paid_on":
 			return true
 		case "employee_id":
-			return !slices.Contains(c.Principal.Roles, auth.RoleAdministrator)
+			input := c.View == nil || c.View.Info.State == doctype.StateDraft
+			return input && !slices.Contains(c.Principal.Roles, auth.RoleAdministrator)
 		}
 		return false
+	}
+}
+
+// advanceLineCard is an advance line's card (UX §5.10): docscreen's card
+// with the type's name, not its code, and the line's note.
+func advanceLineCard(_ Deps) func(docscreen.Ctx, docscreen.LineView) components.LineCard {
+	return func(_ docscreen.Ctx, l docscreen.LineView) components.LineCard {
+		card := l.Card
+		card.Code, card.Note = "", l.Display["description"]
+		return card
 	}
 }

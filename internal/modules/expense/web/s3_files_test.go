@@ -2,6 +2,7 @@ package expenseweb
 
 import (
 	"context"
+	"errors"
 	"net/http/httptest"
 	"testing"
 
@@ -82,5 +83,36 @@ func TestS3_EmployeePair(t *testing.T) {
 	}
 	if got := employeePair(docscreen.Ctx{DT: dt, View: v}); got != nil {
 		t.Errorf("no Module: employeePair = %+v, want none", got)
+	}
+}
+
+// PaidPageOf's read check (CD-245, CD-312) on the real auth.Service: Meena
+// holds cancel on advances but, without read, gets AUTH's 404, the same as
+// a missing advance, never the 403 that would confirm it exists.
+func TestS3_PaidPageOfNeedsRead(t *testing.T) {
+	t.Parallel()
+	e := expensetest.New(t)
+	adv := e.ApprovedAdvance(t, e.P(t, "deepak@vardhan.test"), 500000)
+	meena := "meena@vardhan.test"
+	if _, err := e.Service.PaidPageOf(context.Background(), e.P(t, meena), adv.ID); err != nil {
+		t.Fatalf("PaidPageOf as meena: %v", err)
+	}
+	e.S4RevokeRead(t, meena, expense.AdvanceDocType)
+	if _, err := e.Service.PaidPageOf(context.Background(), e.P(t, meena), adv.ID); !errors.Is(err, auth.ErrNotFound) {
+		t.Errorf("PaidPageOf without read = %v, want AUTH's not found", err)
+	}
+}
+
+// ClaimEmployee names the claimant from the claim's snapshot, and a claim
+// the viewer can't read is missing (CD-245), never a refusal that confirms it.
+func TestS3_ClaimEmployee(t *testing.T) {
+	t.Parallel()
+	e := expensetest.New(t)
+	claim := e.DraftClaim(t, e.P(t, "deepak@vardhan.test"), nil)
+	if got, err := e.Service.ClaimEmployee(context.Background(), e.P(t, "priya@vardhan.test"), claim.ID); err != nil || got != "Deepak Nair" {
+		t.Errorf("ClaimEmployee as priya = %q, %v; want Deepak Nair", got, err)
+	}
+	if _, err := e.Service.ClaimEmployee(context.Background(), e.P(t, "kavya@vardhan.test"), claim.ID); !errors.Is(err, doctype.ErrNotFound) {
+		t.Errorf("ClaimEmployee as kavya = %v, want not found", err)
 	}
 }

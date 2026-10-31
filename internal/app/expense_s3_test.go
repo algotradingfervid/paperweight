@@ -66,10 +66,47 @@ func (e *expWorld) advance(amount string) doc.Result {
 	deepak := e.p(deepakID)
 	res := e.do(deepak, expense.AdvanceDocType, 0, doctype.ActionSave, doc.ActionInput{
 		Values: map[string]string{"advance_date": "2026-10-20", "purpose": "Pune Metro site visit"},
-		Lines:  []map[string]string{{"expense_type_id": e.travel, "line_amount": amount}},
+		Lines:  []map[string]string{{"expense_type_id": e.travel, "line_amount": amount, "description": "Bus and local travel"}},
 	})
 	return e.do(deepak, expense.AdvanceDocType, res.ID, doctype.ActionSubmit, doc.ActionInput{Version: res.Version})
 }
+
+// draftAdvance is Deepak's unsaved-for-submit advance draft.
+func (e *expWorld) draftAdvance() doc.Result {
+	e.t.Helper()
+	return e.do(e.p(deepakID), expense.AdvanceDocType, 0, doctype.ActionSave, doc.ActionInput{
+		Values: map[string]string{"advance_date": "2026-10-20", "purpose": "Pune Metro site visit"},
+		Lines:  []map[string]string{{"expense_type_id": e.travel, "line_amount": "100.00"}},
+	})
+}
+
+// act posts action (close, cancel, reject) with reason from its page as b.
+func (e *expWorld) act(b *browser, dt string, id int64, action, reason string) {
+	e.t.Helper()
+	path := docPath(dt, id) + "/" + action
+	v := b.get(path).doc.Find(`form input[name="version"]`).AttrOr("value", "")
+	if r := b.post(path, url.Values{"version": {v}, "reason": {reason}}); r.status != http.StatusSeeOther {
+		e.t.Fatalf("POST %s = %d (%q)", path, r.status, r.alert())
+	}
+}
+
+// bannerMessage is the message of the first banner whose text holds part,
+// without the banner's kind word.
+func bannerMessage(r *response, part string) string {
+	var msg string
+	r.doc.Find(".banner").EachWithBreak(func(_ int, b *goquery.Selection) bool {
+		text := strings.Join(strings.Fields(b.Find(".banner-body p").First().Text()), " ")
+		if !strings.Contains(text, part) {
+			return true
+		}
+		_, msg, _ = strings.Cut(text, ": ")
+		return false
+	})
+	return msg
+}
+
+// autofocused is the elements that carry autofocus.
+func autofocused(r *response) *goquery.Selection { return r.doc.Find("[autofocus]") }
 
 // claim is Deepak's claim with lines of amount each, dated on dates, set
 // against advanceID for less (none when advanceID is 0); submitted unless
@@ -191,14 +228,18 @@ func TestExpS3_AdvancePage(t *testing.T) {
 		t.Errorf("unpaid, deepak: Paid on = %q", got)
 	}
 	wantNoText(t, "unpaid, deepak", r, "Mark as paid", "Undo paid")
-	// Hide keeps the employee field for an Administrator; Details names the
-	// employee from DOC's party instead (CD-319 (4) drops the party line),
+	// CD-327 (2): a submitted advance shows its employee field to everyone,
 	// once (pairValue fails on a second row).
-	if got := pairValue(t, r, "Employee"); got != "EMP-007 Deepak Nair" {
-		t.Errorf("deepak: Employee = %q, want the party, EMP-007 Deepak Nair", got)
+	for who, b := range map[string]*browser{"deepak": deepak, "admin": e.signedIn(adminEmail)} {
+		if got := pairValue(t, b.get(page), "Employee"); got != "EMP-007 Deepak Nair" {
+			t.Errorf("%s: Employee = %q, want EMP-007 Deepak Nair", who, got)
+		}
 	}
-	if got := pairValue(t, e.signedIn(adminEmail).get(page), "Employee"); !strings.Contains(got, "Deepak Nair") {
-		t.Errorf("admin: Employee = %q, want the field once", got)
+	// UX §5.10: the line card names the type, the amount and the note.
+	card := r.doc.Find(".lines-card").First()
+	if text := strings.Join(strings.Fields(card.Text()), " "); !strings.Contains(text, "Travel") || !strings.Contains(text, "₹10,000.00") ||
+		!strings.Contains(text, "Bus and local travel") || strings.Contains(text, "TRAVEL") {
+		t.Errorf("advance line card = %q, want Travel, ₹10,000.00 and its note, no type code", text)
 	}
 
 	e.paid(adv.ID)
@@ -231,7 +272,14 @@ func TestExpS3_AdvancePage(t *testing.T) {
 	}
 	wantNoText(t, "used, meena", r, "Undo paid", "Mark as paid", "Other claims")
 	wantText(t, "used, meena", r, "Claims set against this advance", used.Number, "₹6,000.00 set against",
-		"Draft "+strconv.FormatInt(pending.ID, 10), "₹1,000.00 set against (counts once approved)")
+		"Draft "+strconv.FormatInt(pending.ID, 10), "₹1,000.00 set against", "(counts once approved)")
+	pendingRow := r.doc.Find(`a[href="` + docPath(expense.ClaimDocType, pending.ID) + `"]`)
+	if text := pendingRow.Text(); !strings.Contains(text, "(counts once approved)") {
+		t.Errorf("the pending row = %q, want (counts once approved)", text)
+	}
+	if pendingRow.Find(`.datalist-nowrap:contains("counts once approved"), [class*="num"]:contains("counts once approved")`).Length() != 0 {
+		t.Error("(counts once approved) sits in a cell that doesn't wrap")
+	}
 	if r.doc.Find(`a[href="`+docPath(expense.ClaimDocType, used.ID)+`"]`).Length() == 0 {
 		t.Errorf("the card doesn't link %s", used.Number)
 	}
@@ -245,7 +293,7 @@ func TestExpS3_AdvancePage(t *testing.T) {
 	}
 
 	// CD-248 (1): without read on claims, Meena sees only the sum.
-	e.revokeRead(e.p(auth.UserID(2)).ID, expense.ClaimDocType)
+	e.revokeRead(meenaID, expense.ClaimDocType)
 	r = meena.get(page)
 	if r.status != http.StatusOK {
 		t.Fatalf("GET %s after revoking claim read = %d", page, r.status)
@@ -323,6 +371,7 @@ func TestAdv_ClosePageShowsLeft(t *testing.T) {
 func TestExpS3_ClaimPage(t *testing.T) {
 	e := newExpWorld(t)
 	first := e.claim(0, "", false, "450.00", "2026-10-22")
+	toCancel := e.claim(0, "", false, "300.00", "2026-10-21")
 	meena := e.signedIn(meenaEmail)
 
 	draft := e.claim(0, "", true, "450.00", "2026-10-20", "2026-10-22")
@@ -330,8 +379,10 @@ func TestExpS3_ClaimPage(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("draft page as meena = %d", r.status)
 	}
-	wantText(t, "draft, meena", r, "Deepak Nair hasn't submitted this claim yet.",
-		"Line 2: This looks the same as a line on "+first.Number+".")
+	if got := bannerMessage(r, "hasn't submitted"); got != "Deepak Nair hasn't submitted this claim yet." {
+		t.Errorf("draft notice = %q, want Deepak Nair hasn't submitted this claim yet.", got)
+	}
+	wantText(t, "draft, meena", r, "Line 2: This looks the same as a line on "+first.Number+".")
 	if got := pairValue(t, r, "Period"); got != "20-10-2026 to 22-10-2026" {
 		t.Errorf("Period = %q, want 20-10-2026 to 22-10-2026", got)
 	}
@@ -349,6 +400,24 @@ func TestExpS3_ClaimPage(t *testing.T) {
 	}
 	if got := pairValue(t, meena.get(page), "Closed"); got != "Paid by NEFT 1234" {
 		t.Errorf("closed claim: Closed = %q, want the reason", got)
+	}
+
+	// Pending, as the approver, and rejected: the warnings show.
+	e.withRules(expense.ClaimDocType)
+	pending := e.claim(0, "", false, "450.00", "2026-10-22")
+	if pending.State != doctype.StatePending {
+		t.Fatalf("claim is %s, want pending", pending.State)
+	}
+	dup := "Line 1: This looks the same as a line on " + first.Number + "."
+	priya := e.signedIn(priyaEmail)
+	wantText(t, "pending, priya", priya.get(docPath(expense.ClaimDocType, pending.ID)), dup)
+	e.act(priya, expense.ClaimDocType, pending.ID, "reject", "Duplicate of the first claim")
+	wantText(t, "rejected, meena", meena.get(docPath(expense.ClaimDocType, pending.ID)), dup)
+
+	// Cancelled: no Closed pair.
+	e.act(meena, expense.ClaimDocType, toCancel.ID, "cancel", "Entered twice")
+	if got := pairValue(t, meena.get(docPath(expense.ClaimDocType, toCancel.ID)), "Closed"); got != "" {
+		t.Errorf("cancelled claim: Closed = %q, want none", got)
 	}
 }
 
@@ -425,6 +494,9 @@ func TestExpS3_PaidPages(t *testing.T) {
 		t.Error("422: Paid on isn't marked invalid")
 	}
 	wantText(t, "422", r, "Mark "+s3Advance+" as paid", "Paid on can't be in the future.")
+	if f := autofocused(r); f.Length() != 1 || !f.HasClass("error-summary") {
+		t.Errorf("422 at the field: %d autofocused, want the error summary only", f.Length())
+	}
 	if got := r.doc.Find(`form input[name="version"]`).AttrOr("value", ""); got != v {
 		t.Errorf("422: version %q, want the posted %q", got, v)
 	}
@@ -441,12 +513,18 @@ func TestExpS3_PaidPages(t *testing.T) {
 	if href := r.doc.Find(`a:contains("Reload")`).AttrOr("href", ""); href != paidPath(adv.ID, "paid") {
 		t.Errorf("409: Reload links to %q", href)
 	}
+	if f := autofocused(r); f.Length() != 1 || f.Find(".banner--danger").Length() != 1 {
+		t.Errorf("409: %d autofocused, want the conflict banner only", f.Length())
+	}
 
 	// Undo paid: the confirm page, and a refusal in the danger banner.
 	r = meena.get(paidPath(adv.ID, "unpaid"))
 	wantText(t, "unpaid, not paid", r, "Undo paid on "+s3Advance+"?", "Claims can't use this advance until it is marked as paid again.")
 	if r.doc.Find(`input[name="paid_on"]`).Length() != 0 {
 		t.Error("the Undo paid page has a date")
+	}
+	if f := autofocused(r); f.Length() != 1 || goquery.NodeName(f) != "h1" || !strings.Contains(f.Text(), "Undo paid on") {
+		t.Errorf("Undo paid confirm: %d autofocused, want the heading only", f.Length())
 	}
 	r = meena.post(paidPath(adv.ID, "unpaid"), url.Values{"version": {v}})
 	if r.status != http.StatusUnprocessableEntity {
@@ -456,7 +534,120 @@ func TestExpS3_PaidPages(t *testing.T) {
 		t.Errorf("undo refusal alert = %q", got)
 	}
 	wantText(t, "undo 422", r, "Undo paid on "+s3Advance+"?")
+	if f := autofocused(r); f.Length() != 1 || f.Find(".banner--danger").Length() != 1 {
+		t.Errorf("undo 422: %d autofocused, want the danger banner only", f.Length())
+	}
 
 	e.paid(adv.ID)
 	wantText(t, "unpaid, paid", meena.get(paidPath(adv.ID, "unpaid")), s3Advance+" · Deepak Nair · ₹8,000.00 · Paid on 20-10-2026")
+}
+
+// EUX-040, EUX-042: after Mark as paid and Undo paid the advance page reads
+// the flash.
+func TestExpS3_PaidFlash(t *testing.T) {
+	e := newExpWorld(t)
+	adv := e.advance("8000.00")
+	meena := e.signedIn(meenaEmail)
+	page := docPath(expense.AdvanceDocType, adv.ID)
+	for _, c := range []struct{ route, date, flash string }{
+		{"paid", "21-10-2026", "Marked as paid."},
+		{"unpaid", "", "No longer marked as paid."},
+	} {
+		v := meena.get(paidPath(adv.ID, c.route)).doc.Find(`form input[name="version"]`).AttrOr("value", "")
+		f := url.Values{"version": {v}}
+		if c.date != "" {
+			f.Set("paid_on", c.date)
+		}
+		if r := meena.post(paidPath(adv.ID, c.route), f); r.status != http.StatusSeeOther || r.location() != page {
+			t.Fatalf("POST %s = %d to %q", c.route, r.status, r.location())
+		}
+		if got := bannerMessage(meena.get(page), c.flash); got != c.flash {
+			t.Errorf("after %s: flash %q, want %q", c.route, got, c.flash)
+		}
+	}
+}
+
+// CD-271 G1: Mark as paid and Undo paid show only on an approved advance; a
+// closed one, paid or not and named by no claim, has neither, and a
+// cancelled one has no Closed pair.
+func TestExpS3_PaidActionsApprovedOnly(t *testing.T) {
+	e := newExpWorld(t)
+	meena := e.signedIn(meenaEmail)
+	unpaid, paid := e.advance("500.00"), e.advance("600.00")
+	e.paid(paid.ID)
+	for _, a := range []doc.Result{unpaid, paid} {
+		e.act(meena, expense.AdvanceDocType, a.ID, "close", "Returned in cash")
+		wantNoText(t, "closed advance", meena.get(docPath(expense.AdvanceDocType, a.ID)), "Mark as paid", "Undo paid")
+	}
+	cancelled := e.advance("700.00")
+	e.act(meena, expense.AdvanceDocType, cancelled.ID, "cancel", "Raised twice")
+	r := meena.get(docPath(expense.AdvanceDocType, cancelled.ID))
+	if got := pairValue(t, r, "Closed"); got != "" {
+		t.Errorf("cancelled advance: Closed = %q, want none", got)
+	}
+	wantNoText(t, "cancelled advance", r, "Mark as paid", "Undo paid")
+}
+
+// CD-327 (2): the employee field is hidden from a non-Administrator only on
+// a new advance and a draft; a reader of someone's draft gets the employee
+// in Details instead, since the party line hides with the field (CD-319).
+func TestExpS3_AdvanceEmployeeHide(t *testing.T) {
+	e := newExpWorld(t)
+	deepak, admin := e.signedIn(deepakEmail), e.signedIn(adminEmail)
+	if n := deepak.get("/doc/" + expense.AdvanceDocType + "/new").doc.Find(`[name="employee_id"]`).Length(); n != 0 {
+		t.Errorf("deepak's new advance has %d employee inputs, want none", n)
+	}
+	if n := admin.get("/doc/" + expense.AdvanceDocType + "/new").doc.Find(`[name="employee_id"]`).Length(); n == 0 {
+		t.Error("the administrator's new advance has no employee input")
+	}
+	draft := e.draftAdvance()
+	if n := deepak.get(docPath(expense.AdvanceDocType, draft.ID) + "/edit/details").doc.Find(`[name="employee_id"]`).Length(); n != 0 {
+		t.Errorf("deepak's own draft has %d employee inputs, want none", n)
+	}
+	r := e.signedIn(priyaEmail).get(docPath(expense.AdvanceDocType, draft.ID))
+	if r.status != http.StatusOK {
+		t.Fatalf("priya reads deepak's draft = %d", r.status)
+	}
+	if got := pairValue(t, r, "Employee"); got != "EMP-007 Deepak Nair" {
+		t.Errorf("priya, deepak's draft: Employee = %q, want EMP-007 Deepak Nair once", got)
+	}
+	submitted := e.advance("900.00")
+	wantText(t, "close page", e.signedIn(meenaEmail).get(docPath(expense.AdvanceDocType, submitted.ID)+"/close"), "Deepak Nair")
+}
+
+// EUX-033, CD-248 (1): Kavya reads the advance and the pending claim she
+// owns, not Deepak's approved one: the card lists the pending claim and one
+// Other claims row with the approved claim's amount; Anil sees both claims
+// and no Other claims row.
+func TestExpS3_ClaimsCardMixed(t *testing.T) {
+	e := newExpWorld(t)
+	ctx := context.Background()
+	if err := e.app.Auth().SetRights(ctx, e.admin, "Masters Manager", expense.AdvanceDocType, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
+		t.Fatalf("give Kavya read on advances: %v", err)
+	}
+	adv := e.advance("10000.00")
+	e.paid(adv.ID)
+	hidden := e.claim(adv.ID, "2500.00", false, "2500.00", "2026-10-24")
+	e.withRules(expense.ClaimDocType)
+	mine := e.claim(adv.ID, "1000.00", false, "1000.00", "2026-10-23")
+	if _, err := e.app.DB().SQL().ExecContext(ctx, `UPDATE expense_claim SET created_by = ? WHERE id = ?`, int64(kavyaID), mine.ID); err != nil {
+		t.Fatalf("give Kavya the pending claim: %v", err)
+	}
+	page := docPath(expense.AdvanceDocType, adv.ID)
+
+	r := e.signedIn(kavyaEmail).get(page)
+	if r.status != http.StatusOK {
+		t.Fatalf("GET %s as kavya = %d", page, r.status)
+	}
+	wantText(t, "kavya", r, "Draft "+strconv.FormatInt(mine.ID, 10), "₹1,000.00 set against")
+	expensetest.WantNotNamed(t, r.pageText(), hidden.Number)
+	if got := pairValue(t, r, "Other claims"); got != "₹2,500.00 set against" {
+		t.Errorf("kavya: Other claims = %q, want ₹2,500.00 set against", got)
+	}
+
+	r = e.signedIn(adminEmail).get(page)
+	wantText(t, "anil", r, hidden.Number, "Draft "+strconv.FormatInt(mine.ID, 10))
+	if got := pairValue(t, r, "Other claims"); got != "" {
+		t.Errorf("anil: Other claims = %q, want none", got)
+	}
 }

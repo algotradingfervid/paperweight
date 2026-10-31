@@ -42,6 +42,10 @@ type paidScreen struct {
 	danger   string
 	reload   *components.Link // the GET page, on a 409
 	errs     []components.FieldErr
+	// focusHeading focuses the Undo paid confirm's heading (UX §5.18). The
+	// danger banner always takes focus (as the wizard's conflict banner);
+	// ErrorSummary and Paid on focus themselves.
+	focusHeading bool
 }
 
 // paidPage answers GET /modules/expense/advances/{id}/paid.
@@ -95,7 +99,7 @@ func paidScreenOf(r *http.Request, pg expense.PaidPage, v paidView, err error) p
 	page := "/doc/" + expense.AdvanceDocType + "/" + id
 	route := path.Base(r.URL.Path)
 	s := paidScreen{
-		opts:    layout.PageOpts{Width: layout.Form, Back: &components.Link{Label: pg.Label, Href: page}},
+		opts:    layout.PageOpts{Width: layout.Form, Back: &components.Link{Label: pg.Label, Href: page}, NoHeading: true},
 		summary: pg.Label + " · " + pg.Employee + " · " + types.FormatINR(pg.Amount),
 		action:  "/modules/expense/advances/" + id + "/" + route,
 		version: v.Version,
@@ -123,6 +127,8 @@ func paidScreenOf(r *http.Request, pg expense.PaidPage, v paidView, err error) p
 	case err == nil:
 		if s.date != nil {
 			s.date.Attrs = map[string]any{"autofocus": true}
+		} else {
+			s.focusHeading = true
 		}
 	case errors.As(err, &de) && len(de.Fields) > 0 && s.date != nil:
 		s.date.Error = de.Fields[0].Message
