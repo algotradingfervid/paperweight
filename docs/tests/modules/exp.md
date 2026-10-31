@@ -88,7 +88,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-011 · The GST tick requires GSTIN and invoice no.; a bad GSTIN uses MST-031's text
 - **Priority:** P1
 - **Level:** integration
-- **Given** line 1 with `company_bill` ticked **When** the claim is submitted with no supplier GSTIN and no invoice no. **Then** it is refused with "Line 1: Supplier GSTIN is required for a bill in the company GSTIN." and "Line 1: Invoice no. is required for a bill in the company GSTIN." (both pass on a draft save). **When** the supplier GSTIN is `27AABCS1429B1Z5` **Then** the save is refused with "Line 1: GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes." `27AABCS1429B1ZU` with invoice no. `INV-778` submits.
+- **Given** line 1 with `company_bill` ticked **When** the claim is submitted with no supplier GSTIN and no invoice no. **Then** it is refused with "Line 1: Supplier GSTIN is required for a bill in the company GSTIN." and "Line 1: Invoice no. is required for a bill in the company GSTIN." (both pass on a draft save). **When** the supplier GSTIN is `27AABCS1429B1Z5` **Then** the save is refused with "Line 1: GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes." `27AABCS1429B1ZU` with invoice no. `INV-778` and Billed to PUNE submits.
 - **Go test:** `TestExp_GSTFields`
 - **Sources:** Expense spec §3.2, §5, §8, §17; `06-masters.md` MST-031; CD-38, CD-234
 
@@ -249,14 +249,14 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-034 · Open claims and open advances reports: columns, scope, `export`
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved and closed claims and advances for Deepak and Kavya **Then** `/reports/expense/open` lists approved, not closed claims with the columns claim, employee, purpose, approved on, approved by, total, less advance, to pay, lines without a receipt; `/reports/expense/advances` lists approved, not closed advances with advance, employee, date, purpose, amount, used, left, age in days, and its employee filter. `priya` sees only her team's rows, `meena` all. The CSV needs `export` (AUTH's 403 otherwise).
+- **Given** approved and closed claims and advances for Deepak and Kavya **Then** `/reports/expense/open` lists approved, not closed claims with the columns claim, employee, purpose, approved on, approved by, total, less advance, to pay, lines without a receipt; `/reports/expense/advances` lists approved, not closed advances with advance, employee, date, purpose, amount, paid on (blank when unpaid), used, left, age in days, each asserted by value, and its employee filter. `priya` sees only her team's rows, `meena` all. The CSV needs `export` (AUTH's 403 otherwise).
 - **Go test:** `TestExp_OpenReports`
 - **Sources:** Expense spec §13, §17
 
 ### EXP-035 · Expense lines report: every column read back
 - **Priority:** P1
 - **Level:** integration
-- **Given** claims whose lines set every field **When** `/reports/expense/lines` and its CSV are read **Then** each row has claim, employee, date, type, project, site, note, amount, GST, supplier GSTIN, invoice no., receipt yes or no and state, each asserted by value; the month, type, project and employee filters each narrow the rows.
+- **Given** claims whose lines set every field **When** `/reports/expense/lines` and its CSV are read **Then** each row has claim, employee, date, type, project, site, note, amount, GST, supplier GSTIN, invoice no., billed-to GSTIN, receipt yes or no and state, each asserted by value; the month, type, project and employee filters each narrow the rows.
 - **Go test:** `TestExp_LinesReport`
 - **Sources:** Expense spec §13, §17
 
@@ -395,7 +395,9 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
   - 2026-10-25: "Paid on can't be in the future."; 2026-10-19: "Paid on can't be before the advance date.";
   - a second Mark as paid: "This advance is already marked as paid.";
   - a stale `version`: DOC's stale text with 409;
-  - Undo paid while no claim uses it clears `paid_on` (audit `unpaid`); with a pending claim on it: "A claim already uses this advance, so it stays paid."
+  - Undo paid clears `paid_on` (audit `unpaid`) while only draft or rejected claims name the advance; with a pending, approved or closed claim on it: "A claim already uses this advance, so it stays paid."; on an advance not marked as paid: "This advance isn't marked as paid.";
+  - Mark as paid on a closed or cancelled advance: "Only an approved advance can be marked as paid."; `kavya`, who can't read the advance, gets the same 404 as a missing one (CD-245);
+  - cancelling the paid advance: "This advance is marked as paid. Undo paid first, or close it with the balance noted."; after Undo paid it cancels.
   Every refusal leaves state, version and audit count unchanged.
 - **Go test:** `TestAdv_MarkAsPaid`
 - **Sources:** Expense spec §4 (Mark as paid); research G1, S-42 (HRMS `expense_claim.py:849-854`, `test_employee_advance.py:295-337`); CD-271
@@ -417,7 +419,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-057 · The same supplier invoice on another live claim warns
 - **Priority:** P1
 - **Level:** integration
-- **Given** Suresh's approved claim with a company bill from `27AABCS1429B1ZU`, invoice `INV-778` **When** Deepak's claim has a company-bill line with the same GSTIN and invoice no. (a re-shot photo, different bytes) **Then** his check page warns "Line 1: Invoice INV-778 from 27AABCS1429B1ZU is also on another claim.", and Meena's approval view names Suresh's claim number. Different invoice no., or Suresh's claim cancelled: no warning. Submit still succeeds.
+- **Given** Suresh's approved claim with a company bill from `27AABCS1429B1ZU`, invoice `INV-778` **When** Deepak's claim has a company-bill line (Billed to PUNE) with the same GSTIN and invoice no. (a re-shot photo, different bytes) **Then** his check page warns "Line 1: Invoice INV-778 from 27AABCS1429B1ZU is also on another claim.", and Meena's view of the claim page names Suresh's claim number. Different invoice no., or Suresh's claim cancelled: no warning. Submit still succeeds.
 - **Go test:** `TestExp_DuplicateInvoice`
 - **Sources:** Expense spec §5; research G3, S-17 (Rule 46(b))
 
@@ -438,14 +440,14 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-060 · Money left on another advance warns
 - **Priority:** P1
 - **Level:** integration
-- **Given** Deepak's paid advance with ₹4,000.00 left **When** he checks a new advance **Then** the check page warns "Deepak Nair still has ₹4,000.00 left on EA/26-27/00001.", and `priya`'s approval page shows the same; submit and approve still succeed. A viewer who can't read the other advance sees "… left on another advance."
+- **Given** Deepak's paid advance with ₹4,000.00 left **When** he checks a new advance **Then** the check page warns "Deepak Nair still has ₹4,000.00 left on EA/26-27/00001.", and `priya`'s approval page shows the same; submit and approve still succeed. A viewer who can't read the other advance sees "… left on another advance." An approved advance not marked as paid doesn't warn.
 - **Go test:** `TestAdv_OtherAdvanceWarning`
 - **Sources:** Expense spec §5; research G7, S-49 (HRMS `employee_advance.py:274-290`)
 
 ### EXP-061 · A company bill past the s.16(4) date warns
 - **Priority:** P1
 - **Level:** integration
-- **Given** the clock at 2026-10-24 and an Administrator back-entering a claim **When** a company-bill line is dated 2025-03-31 **Then** the check page warns "Line 1: This bill is dated in FY 24-25. Input tax credit on it closed on 30-11-2025." A company bill dated 2026-03-31 (FY 25-26, closes 30-11-2026) and a non-company bill dated 2025-03-31 don't warn. The claim still submits.
+- **Given** the clock at 2026-10-24 and an Administrator back-entering a claim **When** a company-bill line (Billed to PUNE) is dated 2025-03-31 **Then** the check page warns "Line 1: This bill is dated in FY 24-25. Input tax credit on it closed on 30-11-2025." A company bill dated 2026-03-31 (FY 25-26, closes 30-11-2026) and a non-company bill dated 2025-03-31 don't warn. The claim still submits.
 - **Go test:** `TestExp_TimeBarWarning`
 - **Sources:** Expense spec §5, §8; research G8, S-23 (CGST s.16(4))
 
@@ -487,6 +489,6 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-067 · A buyer's own cash claim for a local buy
 - **Priority:** P1
 - **Level:** e2e
-- **Given** `priya` buys site materials for cash **When** she files a claim with a `SITE-MISC` line tagged PRJ-METRO and METRO-SITE, ticks `Bill in company GSTIN` with `27AABCS1429B1ZU` and `INV-901`, and `ravi` approves (Priya has no Approve button on her own) **Then** the expense lines report lists the line under PRJ-METRO with the GSTIN and invoice no., and it appears in no PO pending figure or GRN. Built by MOD-EXP or MOD-GRN, whichever finishes last (CD-271).
+- **Given** `priya` buys site materials for cash **When** she files a claim with a `SITE-MISC` line tagged PRJ-METRO and METRO-SITE, ticks `Bill in company GSTIN` with `27AABCS1429B1ZU`, `INV-901` and Billed to PUNE, and `ravi` approves (Priya has no Approve button on her own) **Then** the expense lines report lists the line under PRJ-METRO with the GSTIN and invoice no., and it appears in no PO pending figure or GRN. Built by MOD-EXP or MOD-GRN, whichever finishes last (CD-271).
 - **Go test:** `TestE2E_BuyerCashClaim`
 - **Sources:** research X5; GRN spec §1, §12
