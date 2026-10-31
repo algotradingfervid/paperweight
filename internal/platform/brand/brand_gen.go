@@ -3,8 +3,8 @@
 package brand
 
 const (
-	AppLogoURL         = "/static/brand/logo.6393d4b3.svg"
-	AppLogoWidth       = 160
+	AppLogoURL         = "/static/brand/logo.090f4cc1.svg"
+	AppLogoWidth       = 32
 	AppLogoHeight      = 32
 	DocumentLogoURL    = "/static/brand/logo-print.7a3310b8.png"
 	DocumentLogoWidth  = 600

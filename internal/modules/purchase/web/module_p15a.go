@@ -190,10 +190,13 @@ func addressHint(a address.Address) string {
 // orderHide always hides the fields module routes set (request_line_id,
 // copied_from_no, copied_from_id, copy_notes). Earlier PO no. and date show
 // while purchase.Order has no approval rule (CD-258 Q7 (a)) or when either
-// has a value; Already received only when Earlier PO no. is set (UX §5.6). A
-// nil View is no record (CD-327).
+// has a value; Already received only when Earlier PO no. is set (UX §5.6).
+// Receipt hides while the order is edited (P34). A nil View is no record
+// (CD-327).
 func (m *module) orderHide(c docscreen.Ctx, f doctype.Field) bool {
 	switch f.Name {
+	case "receipt_status":
+		return editing(c)
 	case "request_line_id", "copied_from_no", "copied_from_id", "copy_notes":
 		return true
 	case "earlier_po_no", "earlier_po_date":
@@ -205,6 +208,13 @@ func (m *module) orderHide(c docscreen.Ctx, f doctype.Field) bool {
 		return stored(c, "earlier_po_no") == ""
 	}
 	return false
+}
+
+// editing reports whether c is a new record or a draft, which the wizard
+// edits; on the list and search pages (Listing) there is no record (CD-327
+// (1), CD-334).
+func editing(c docscreen.Ctx) bool {
+	return !c.Listing && (c.View == nil || c.View.Info.State == doctype.StateDraft)
 }
 
 // stored is the record's header value name, "" with no record.

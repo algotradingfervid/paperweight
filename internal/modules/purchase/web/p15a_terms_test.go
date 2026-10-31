@@ -268,7 +268,7 @@ func TestPO_OrderHideNilViewAndErrors(t *testing.T) {
 
 	r := &p15aReader{db: env.DB}
 	got := hiddenOf(ctx(r))
-	want := append(slices.Clone(always), earlier...)
+	want := append(slices.Clone(always), append(earlier, "receipt_status")...) // a nil View without Listing is a new record (P34)
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
@@ -281,7 +281,7 @@ func TestPO_OrderHideNilViewAndErrors(t *testing.T) {
 	logs := p15aLogs(t)
 	bad := &p15aReader{db: env.DB, err: errP15a}
 	got = hiddenOf(ctx(bad))
-	want = slices.Clone(always)
+	want = append(slices.Clone(always), "receipt_status")
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {

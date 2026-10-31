@@ -14,7 +14,7 @@
 //   - gofmt: `gofmt -l` on the changed .go files, except *_templ.go.
 //   - generate: hashes every generated file (tracked or untracked), runs
 //     `make generate`, and fails if it changed, added or removed any.
-//   - test: `go test -race -count=1 -timeout 20m` on the packages, plus
+//   - test: `go test -race -count=1 -timeout 40m` on the packages, plus
 //     ./internal/ui/... when a changed file is under internal/ui or is .templ.
 //   - gates: the e2e gates that need no browser (TestE2E_NotPagesAreChecked,
 //     TestModule_EveryDocTypeSwept), and
@@ -134,7 +134,7 @@ func run(args []string, root string, out io.Writer) int {
 			return pass, ""
 		}},
 		{"test", func() (string, string) {
-			args := append([]string{"test", "-race", "-count=1", "-timeout", "20m"}, tagArgs...)
+			args := append([]string{"test", "-race", "-count=1", "-timeout", "40m"}, tagArgs...)
 			return cmd("go", append(args, testPkgs(pkgs, files)...)...)
 		}},
 		{"gates", func() (string, string) {

@@ -164,6 +164,23 @@ func (q *Queries) OrderLinesForValidate(ctx context.Context, parentID int64) ([]
 	return items, nil
 }
 
+const setOrderDate = `-- name: SetOrderDate :exec
+UPDATE purchase_order SET order_date = ?1 WHERE id = ?2
+`
+
+type SetOrderDateParams struct {
+	OrderDate sql.NullString
+	ID        int64
+}
+
+// Validate's draft write of today's business date into a blank order date
+// (PO spec 3.1 "default today"; AD-13 ruling on P35). A plain UPDATE inside
+// DOC's write.
+func (q *Queries) SetOrderDate(ctx context.Context, arg SetOrderDateParams) error {
+	_, err := q.db.ExecContext(ctx, setOrderDate, arg.OrderDate, arg.ID)
+	return err
+}
+
 const setOrderLineValidated = `-- name: SetOrderLineValidated :exec
 UPDATE purchase_order_line
 SET description = ?1,

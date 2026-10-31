@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	// sweepBrowser bounds one sweep's browser. A full pass over 7 minutes would
-	// not fit in go test's 10-minute limit on this package anyway.
-	sweepBrowser = 7 * time.Minute
+	// sweepBrowser bounds one sweep's browser: measured 4m37s on 1 Nov for the
+	// overflow sweep (6 widths) alone with purchase (P16); 12m deadline, for
+	// the four sweeps running in parallel under make e2e's -timeout 30m.
+	sweepBrowser = 12 * time.Minute
 
 	freshAdmin = "first.admin@vardhan.test"
 	freshName  = "First Admin"

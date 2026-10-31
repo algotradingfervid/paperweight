@@ -35,9 +35,11 @@ const (
 
 	// The canonical users' ids, in creation order (00-fixtures.md).
 	adminID  = auth.UserID(1)
+	meenaID  = auth.UserID(2)
 	raviID   = auth.UserID(3)
 	priyaID  = auth.UserID(4)
 	sureshID = auth.UserID(5)
+	kavyaID  = auth.UserID(6)
 	deepakID = auth.UserID(7)
 
 	adminEmail  = "admin@vardhan.test"

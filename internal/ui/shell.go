@@ -15,8 +15,12 @@ type Shell struct {
 	SignedIn                  bool
 }
 
-// NavItem is one navigation link.
-type NavItem struct{ Label, Href, Icon, Group string }
+// NavItem is one navigation link. Items of one Group are shown under its
+// heading; More puts an item in the group's "More …" disclosure (UI v2 §5.2).
+type NavItem struct {
+	Label, Href, Icon, Group string
+	More                     bool
+}
 
 type shellKey struct{}
 

@@ -11,6 +11,7 @@ const (
 	msgPaidCancel      = "This advance is marked as paid. Undo paid first, or close it with the balance noted."
 
 	// msgPaidStale is DOC's stale text (DOC-069, doc/messages.go msgStale), which
-	// doc doesn't export; {advance} is naming.Label.
+	// doc doesn't export; {advance} or {claim} is naming.Label. The receipt
+	// upload (receipt_upload.go) uses it too.
 	msgPaidStale = "Someone else changed %s after you opened it. Reload it and make your changes again."
 )

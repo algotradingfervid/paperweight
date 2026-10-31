@@ -6,6 +6,7 @@
 @source not "../**/*_test.go";
 @source not "../testdata";
 @source not "../icons/icons_gen.go";
+@source not "../icons/gen";
 @source not "../screens";
 @source not "../uibrowser";
 
@@ -48,5 +49,8 @@
 @import "./components/upload.css";
 @import "./components/stepper.css";
 @import "./components/history.css";
+@import "./components/loadbar.css";
+@import "./motion.css";
+@import "./components/nav.css";
 
 /* cmd/buildassets appends brand.CSS(brand.Load()) after the build (CD-99): unlayered and last, so brand values win. */
