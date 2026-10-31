@@ -51,11 +51,12 @@ func g0aTables(t *testing.T, h *fixturetest.H) {
 }
 
 // g0aRealAuth returns an engine on the real auth service over h's database
-// and two users set up through AUTH's admin calls on g0aNoClose: the first
-// holds every right that applies, all with scope all; the second holds the
+// and three users set up through AUTH's admin calls on g0aNoClose: every
+// holds every right that applies, all with scope all; ownOnly holds the
 // same rights but reads only their own documents, so a document Priya
-// created is hidden from them.
-func g0aRealAuth(t *testing.T, h *fixturetest.H) (e doc.Engine, every, ownOnly auth.Principal) {
+// created is hidden from them; reader holds only read, scope all (as GRN's
+// Purchase User and Director, who hold read, print and export).
+func g0aRealAuth(t *testing.T, h *fixturetest.H) (e doc.Engine, every, ownOnly, reader auth.Principal) {
 	t.Helper()
 	ctx := t.Context()
 	a := auth.New(auth.Deps{
@@ -66,14 +67,14 @@ func g0aRealAuth(t *testing.T, h *fixturetest.H) (e doc.Engine, every, ownOnly a
 	if !ok {
 		t.Fatalf("setup: %s is not registered", g0aNoClose)
 	}
-	user := func(role, email string, read auth.Scope) auth.Principal {
+	user := func(role, email string, read auth.Scope, others bool) auth.Principal {
 		t.Helper()
 		if err := a.CreateRole(ctx, h.Admin, role); err != nil {
 			t.Fatalf("CreateRole(%s): %v", role, err)
 		}
 		rights := map[auth.Right]auth.Scope{}
 		for _, r := range auth.AllRights {
-			if auth.Applies(dt, r) {
+			if others && auth.Applies(dt, r) {
 				rights[r] = auth.ScopeAll
 			}
 		}
@@ -87,8 +88,9 @@ func g0aRealAuth(t *testing.T, h *fixturetest.H) (e doc.Engine, every, ownOnly a
 		}
 		return rqPrincipal(t, a, id)
 	}
-	every = user("Every right", "g0a-every@vardhan.test", auth.ScopeAll)
-	ownOnly = user("Own reader", "g0a-own@vardhan.test", auth.ScopeOwn)
+	every = user("Every right", "g0a-every@vardhan.test", auth.ScopeAll, true)
+	ownOnly = user("Own reader", "g0a-own@vardhan.test", auth.ScopeOwn, true)
+	reader = user("Reader only", "g0a-reader@vardhan.test", auth.ScopeAll, false)
 	e = doc.NewEngine(doc.Deps{
 		DB: h.DB, Clock: h.Clock, Auth: a, Naming: h.Naming, Numbers: fixturetest.Numbers(),
 		Approval: h.Approvals, Files: h.Files,
@@ -99,8 +101,11 @@ func g0aRealAuth(t *testing.T, h *fixturetest.H) (e doc.Engine, every, ownOnly a
 		if err := a.Can(ctx, every, g0aNoClose, r, nil); err != nil {
 			t.Fatalf("setup: the every-right user lacks %s: %v", r, err)
 		}
+		if err := a.Can(ctx, reader, g0aNoClose, r, nil); err == nil {
+			t.Fatalf("setup: the read-only user holds %s", r)
+		}
 	}
-	return e, every, ownOnly
+	return e, every, ownOnly, reader
 }
 
 // G0a, CD-279 item 2 and CD-264 (7): close on a DocType whose CloseRight is
@@ -109,13 +114,14 @@ func g0aRealAuth(t *testing.T, h *fixturetest.H) (e doc.Engine, every, ownOnly a
 func TestDoc_CloseNone_Refused(t *testing.T) {
 	h := fixturetest.New(t)
 	g0aTables(t, h)
-	e, every, _ := g0aRealAuth(t, h)
+	e, every, _, reader := g0aRealAuth(t, h)
 	for _, tc := range []struct {
 		name string
 		p    auth.Principal
 	}{
 		{"Administrator", h.Admin},
 		{"user holding every right", every},
+		{"user holding only read", reader}, // the refusal needs read, never the right a close would need
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			d := m010Doc(t, h, g0aNoClose, doc.StateApproved)
@@ -133,6 +139,28 @@ func TestDoc_CloseNone_Refused(t *testing.T) {
 			m010Unchanged(t, h, d, count)
 		})
 	}
+
+	// Only ActionClose takes the CloseNone branch: submit and cancel on a
+	// g0aNoClose document go through as on any submittable DocType.
+	t.Run("submit and cancel still work", func(t *testing.T) {
+		h.Naming.Prefix = map[string]string{g0aNoClose: "RN"} // submit numbers the document
+		d := m010Doc(t, h, g0aNoClose, doc.StateDraft)
+		res, err := e.Do(t.Context(), every, g0aNoClose, d.ID, doc.ActionSubmit, doc.ActionInput{Version: d.Version})
+		if err != nil {
+			t.Fatalf("submit: %v, want success (only close is refused)", err)
+		}
+		if res.State != doc.StateApproved {
+			t.Fatalf("submit Result.State = %q, want approved", res.State)
+		}
+		a := h.Load(t, g0aNoClose, d.ID)
+		res, err = e.Do(t.Context(), every, g0aNoClose, d.ID, doc.ActionCancel, doc.ActionInput{Version: a.Version, Reason: m010Reason})
+		if err != nil {
+			t.Fatalf("cancel: %v, want success (only close is refused)", err)
+		}
+		if got := h.Load(t, g0aNoClose, d.ID).State; res.State != doc.StateCancelled || got != doc.StateCancelled {
+			t.Errorf("cancel Result.State, State = %q, %q; want cancelled, cancelled", res.State, got)
+		}
+	})
 }
 
 // G0a, CD-279 item 2 and CD-264 (7), with CD-245: the read check comes
@@ -141,7 +169,7 @@ func TestDoc_CloseNone_Refused(t *testing.T) {
 func TestDoc_CloseNone_HiddenStays404(t *testing.T) {
 	h := fixturetest.New(t)
 	g0aTables(t, h)
-	e, _, ownOnly := g0aRealAuth(t, h)
+	e, _, ownOnly, _ := g0aRealAuth(t, h)
 
 	t.Run("hidden", func(t *testing.T) {
 		d := m010Doc(t, h, g0aNoClose, doc.StateApproved) // created by Priya
