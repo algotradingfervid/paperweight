@@ -282,6 +282,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | M0-10 | DOC: amend runs Validate, CloseRight, Closer, StateLabel(dt, s) | High | tw, impl, rev opus (AD-9) | 08:41 | 09:06 | 1 | 0/1/0 | bd751a6 (ready/mod0-m010 7c6b8a8); make ci 0, make e2e 0; P1 560/562 |
 | M0-1 | docscreen hooks core | High | tw, impl, rev opus (AD-10) | 08:26 | 09:55 | 1 | 0/1/4 | merge of wp/mod0-hooks 0bfcd40 |
 | M0-1b | Hide seam everywhere (CD-256) | High | tw, impl, rev opus (AD-10) | 09:58 | 11:05 | 1 | 0/1/6 | merge of wp/mod0-hooks 0bfcd40 |
+| M0-13 | DOC reassign, EligibleOwners | High | tw, impl, rev opus (AD-9) | 08:41 | 12:00 | 1 | 0/0/4 | ready/mod0-m013 acead43; make ci 0, make e2e 0; P1 562/562 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
