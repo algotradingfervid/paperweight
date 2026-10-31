@@ -47,8 +47,8 @@ const (
 	s2MsgTooLarge  = "File is larger than 10 MB. Choose a smaller file or compress it."
 	s2MsgGIF       = "File type .gif is not allowed. Use PDF, JPG, PNG, WEBP, HEIC, XLSX, DOCX or CSV."
 	s2MsgLimit100  = "A document can have at most 100 attachments. Remove one first."
-	s2MsgReuseLine = "This photo is already on this claim, as the receipt on line 2. It is used for this expense too."
-	s2MsgReuseNone = "This photo is already on this claim. It is used for this expense."
+	s2MsgReuseLine = "This file is already on this claim, as the receipt on line 2. It is used for this expense too."
+	s2MsgReuseNone = "This file is already on this claim. It is used for this expense."
 
 	// UX §5.5's copy.
 	s2UploadHint   = "Photo or PDF of the bill, up to 10 MB."
