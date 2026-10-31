@@ -160,7 +160,7 @@ func TestLetterhead_ForBranch(t *testing.T) {
 			got.StateName != "Maharashtra" || got.StateCode != "27" || got.BranchName != "Pune Works" || got.LogoURL != brand.DocumentLogoURL {
 			t.Errorf("ForBranch(PUNE) = %+v", got)
 		}
-		want := []string{"Main Road", "Pune - 411019", "Maharashtra (27)", "GSTIN: 27AAFCV2449G1Z7"}
+		want := []string{"Main Road", "Pune - 411019"} // state and GSTIN print once, from the letterhead (CD-309 (6))
 		if !slices.Equal(got.Address, want) {
 			t.Errorf("ForBranch(PUNE).Address = %q; want %q", got.Address, want)
 		}
