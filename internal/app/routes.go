@@ -106,9 +106,11 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
 			CSRF: func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
 		}
+		gw := grnweb.Deps{Service: a.grn}
 		a.docModules = purchaseweb.Modules(pw)
 		a.docModules[expense.ClaimDocType] = expenseweb.ClaimModule(a.expenseWeb())
 		a.docModules[expense.AdvanceDocType] = expenseweb.AdvanceModule(a.expenseWeb())
+		maps.Copy(a.docModules, grnweb.Modules(gw))
 		maps.Copy(a.docModules, a.cfg.Modules)
 		docs := chi.NewRouter()
 		docscreen.Routes(a.docDeps())(docs)
@@ -134,7 +136,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		purchaseweb.Routes(pw)(purchases)
 		mount(r, purchases, self)
 		grns := chi.NewRouter()
-		grnweb.Routes(grnweb.Deps{Service: a.grn})(grns)
+		grnweb.Routes(gw)(grns)
 		mount(r, grns, func(route string, h http.Handler) http.Handler {
 			dt, right, ok := grnweb.Guard(route)
 			if !ok {
