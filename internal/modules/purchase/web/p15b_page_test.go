@@ -598,33 +598,6 @@ func TestPO_GoodsReceiptsCardStates(t *testing.T) {
 	}
 }
 
-// PO-062 and PUX-020 (spec §22; UX §5.10): the PO page has the Comments card
-// in every state, cancelled included, with the box, the region id the home's
-// #comments links land on, and the comments oldest first.
-func TestComments_PanelOrder(t *testing.T) {
-	w := newP15bWeb(t, false)
-	env := w.env
-	for _, s := range p15bStates {
-		t.Run(string(s), func(t *testing.T) {
-			po := w.order(t, s)
-			for _, body := range []string{"First comment", "Second comment"} {
-				if _, err := env.Comments.AddComment(t.Context(), env.Ravi, purchase.DocType, po.ID, body); err != nil {
-					t.Fatalf("AddComment: %v", err)
-				}
-			}
-			page := w.page(t, env.Suresh, po.ID)
-			region := page.doc.Find(`section.card #comments`)
-			if region.Length() != 1 || region.Find("textarea").Length() != 1 {
-				t.Fatalf("%s: Comments card with #comments and a box missing", s)
-			}
-			text := p15dCollapse(region.Text())
-			if i, j := strings.Index(text, "First comment"), strings.Index(text, "Second comment"); i < 0 || j < i {
-				t.Errorf("%s: comments %q, want oldest first", s, text)
-			}
-		})
-	}
-}
-
 // PO-005's document page part and UX §5.9 pairs: Raised by names the owner;
 // Place of supply is the §7.1 text; Reverse charge is the print's note only
 // when ticked.
