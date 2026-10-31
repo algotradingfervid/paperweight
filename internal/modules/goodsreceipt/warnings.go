@@ -118,7 +118,9 @@ func LineWarnings(ctx context.Context, tx *db.Tx, poID, grnID int64, accepted ma
 // DuplicateChallan is GRN id's duplicate challan warning, or "" (CD-337
 // (6)): the other GRNs of its vendor, not cancelled, with its challan no.
 // (trimmed, any case), named in id order when p can read each of them, else
-// the "another receipt" sentence alone (CD-233, CD-324). It refuses nothing.
+// the "another receipt" sentence alone (CD-233, CD-324). It refuses nothing:
+// the caller must already have checked p's read on GRN id, because the text
+// shows that GRN's own challan no.
 func DuplicateChallan(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) (string, error) {
 	d, err := wiring.Get(tx)
 	if err != nil {
