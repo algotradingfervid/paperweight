@@ -319,6 +319,9 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | M0-37 | Letterhead prints state and GSTIN once (CD-309 (6)) | Light | impl opus (head) | — | — | 1 | head review | ad3f595; make ci 0 |
 | M0-36 | DataList blank cells, separators, NoWrap tracks; Picker (CD-307) | Standard | impl, rev opus (head) | — | — | 2 | 0/3/2→0/0/1 | fc3bfc2; make ci 0, e2e 0 |
 | E10 | Document total limit; less_advance NonNegative (CD-308, CD-311) | Standard | impl, rev opus (AD-11) | — | — | 2 | — | 0a374fe; c673e99 make ci 0 (P1 720/813) |
+| M0-22 | Upload hooks: AlsoDisable, focus (CD-310), Enter during upload | Standard | tw, impl, rev opus (AD-10) | — | — | 5 | 0/1/2→…→0/0/0 | 8625703 |
+| M0-35 | Line grid content minimums, subgrid; fixture.Order received_qty ReadOnly (CD-308; folds M0-39) | Standard | impl, rev opus (AD-10) | — | — | 4 | 0/2/2→…→0/0/0 | 8625703 |
+| M0-38 | Screens filtered list for DocTypes without a filterable state | Light | impl, rev opus (AD-10) | — | — | 2 | 0/2/1→0/0/0 | 8625703 |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
