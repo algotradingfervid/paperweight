@@ -40,8 +40,12 @@ func TestPO_StaleVersion(t *testing.T) {
 	}
 	step := func(what string, p auth.Principal, a doc.Action, reason string, values map[string]string, want doctype.State) {
 		t.Helper()
+		var lines []map[string]string
+		if a == doc.ActionSave {
+			lines = p2KeepLines(t, env, id)
+		}
 		res := p2Must(t, what)(env.Engine.Do(ctx, p, purchase.DocType, id, a,
-			doc.ActionInput{Version: p2Version(t, env, id), Values: values, Reason: reason}))
+			doc.ActionInput{Version: p2Version(t, env, id), Values: values, Reason: reason, Lines: lines}))
 		if res.State != want {
 			t.Fatalf("%s: state %q, want %q", what, res.State, want)
 		}

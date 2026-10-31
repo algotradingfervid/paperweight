@@ -1,7 +1,6 @@
 package purchase_test
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/approval"
@@ -35,7 +34,7 @@ func TestPurchasetest_StopAtPending(t *testing.T) {
 	if !ok {
 		t.Fatal("the pending PO has no approval request")
 	}
-	if got := types.FormatMoney(req.Amount); got != "94,164.00" || !slices.Equal(req.ApproverRoles, []string{"Purchase Manager"}) || req.Outcome != "" {
-		t.Errorf("approval request: amount %s roles %v outcome %q; want 94,164.00, [Purchase Manager], open", got, req.ApproverRoles, req.Outcome)
+	if got := types.FormatMoney(req.Amount); got != "94,164.00" || len(req.ApproverRoles) == 0 || req.ApproverRoles[0] != "Purchase Manager" || req.Outcome != "" {
+		t.Errorf("approval request: amount %s roles %v outcome %q; want 94,164.00, Purchase Manager first (the matched rule; higher rules follow, approval/evaluate.go:50), open", got, req.ApproverRoles, req.Outcome)
 	}
 }

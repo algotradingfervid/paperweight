@@ -98,7 +98,7 @@ func TestPO_SiteProjectStateWarning(t *testing.T) {
 
 	// Priya (PRJ-METRO only) can't read it.
 	if got, err := env.Service.OrderWarnings(t.Context(), env.Priya, res.ID); err == nil || got != nil ||
-		!(errors.Is(err, auth.ErrNotFound) || errors.Is(err, doctype.ErrNotFound)) {
+		(!errors.Is(err, auth.ErrNotFound) && !errors.Is(err, doctype.ErrNotFound)) {
 		t.Errorf("OrderWarnings for Priya on a PRJ-TECHPARK PO = %q, %v; want nil and not found", got, err)
 	}
 

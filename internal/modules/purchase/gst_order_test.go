@@ -337,8 +337,8 @@ func TestPO_ReverseChargeTotals(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if types.FormatMoney(req.Amount) != "53,100.00" || len(req.ApproverRoles) != 1 || req.ApproverRoles[0] != "Purchase Manager" {
-		t.Errorf("approval request amount %s roles %v, want 53,100.00 to [Purchase Manager]", types.FormatMoney(req.Amount), req.ApproverRoles)
+	if types.FormatMoney(req.Amount) != "53,100.00" || len(req.ApproverRoles) == 0 || req.ApproverRoles[0] != "Purchase Manager" {
+		t.Errorf("approval request amount %s roles %v, want 53,100.00 with Purchase Manager first", types.FormatMoney(req.Amount), req.ApproverRoles)
 	}
 }
 

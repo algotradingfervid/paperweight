@@ -122,10 +122,25 @@ func p2Version(t *testing.T, env *purchasetest.Env, id int64) int {
 	return v
 }
 
+// p2KeepLines posts each stored line of id unchanged: DOC treats nil Lines as
+// delete-all (CD-256 (3)) and an id-only line as blank, so each carries its
+// id and item_id.
+func p2KeepLines(t *testing.T, env *purchasetest.Env, id int64) []map[string]string {
+	t.Helper()
+	var lines []map[string]string
+	for _, l := range p2Load(t, env, id).Lines {
+		lines = append(lines, map[string]string{"id": strconv.FormatInt(l.ID, 10), "item_id": p2Plain(l.Values["item_id"])})
+	}
+	return lines
+}
+
 // p2Save saves draft id as p at its stored version (a page opened just now).
-// nil lines keep the stored lines; lines without ids replace them.
+// nil lines keep the stored lines (p2KeepLines); lines without ids replace them.
 func p2Save(t *testing.T, env *purchasetest.Env, p auth.Principal, id int64, values map[string]string, lines []map[string]string) (doc.Result, error) {
 	t.Helper()
+	if lines == nil {
+		lines = p2KeepLines(t, env, id)
+	}
 	return env.Engine.Do(t.Context(), p, purchase.DocType, id, doc.ActionSave,
 		doc.ActionInput{Version: p2Version(t, env, id), Values: values, Lines: lines})
 }
