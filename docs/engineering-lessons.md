@@ -65,7 +65,7 @@ Two prose reviews of the Wave 1 plans still left most of the defects below; they
 ## 5. Rights, restrictions and auth
 
 - Fail closed: an unknown right, dimension or DocType is refused for everyone, Administrator included (CD-171, CD-174).
-- A record with no project or site ids is outside every restriction. A master whose `ProjectFields`/`SiteFields` is `{"id"}` puts its own id in the RecordRef, or restricted users lose their own records. A Required project or site field stays required on a draft save for a restricted user (CD-178).
+- Restrictions are strict (`auth.recordAllowed`): on each dimension the DocType declares, a restricted user needs the record to carry at least one id, all of them allowed; a record with no ids there is refused. A master whose `ProjectFields`/`SiteFields` is `{"id"}` puts its own id in the RecordRef, or restricted users lose their own records. A Required project or site field stays required on a draft save for a restricted user (CD-178).
 - A user restricted on a dimension can't create a master of that dimension (CD-172); use `auth.Restricted` and `auth.Forbidden(msg)` (CD-174).
 - Export routes are guarded by `read`; the handler checks `export` (CD-145).
 - Password hashes: parse PHC strings strictly and bound every parameter before argon2 runs (a stored `m=4294967295` would kill the process).
