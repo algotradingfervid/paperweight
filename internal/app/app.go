@@ -67,6 +67,9 @@ type Config struct {
 	Prepare            func(ctx context.Context, d *db.DB) error
 	OnListen           func(addr string)
 	LogOutput          io.Writer
+	// Modules adds docscreen Modules for test-only DocTypes (e2e builds); the
+	// release leaves it nil.
+	Modules map[string]docscreen.Module
 }
 
 // App is the whole application over one data directory.
@@ -148,6 +151,12 @@ func New(ctx context.Context, cfg Config) (a *App, err error) {
 	}
 	if cfg.LogOutput == nil {
 		cfg.LogOutput = os.Stdout
+	}
+	// A test's Module never replaces a real DocType's.
+	for name := range cfg.Modules {
+		if dt, ok := doctype.Lookup(name); !ok || !dt.TestOnly {
+			return nil, fmt.Errorf("app: Config.Modules: %s is not a registered TestOnly DocType", name)
+		}
 	}
 	d, err := OpenDB(ctx, cfg.DataDir)
 	if err != nil {

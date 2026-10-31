@@ -559,3 +559,94 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** three- and five-cell display rows with money fit at 64rem and 1440 is checked **Then** it holds as CD-313 and CD-308 (3) state.
 - **Go test:** `TestGalleryBrowser_DisplayLineGridKinds`
 - **Sources:** CD-313; M0-40
+
+### HOOK-080 · A NoLinePages DocType lists no line screens
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-329 names **When** it is exercised through the public path **Then** a NoLinePages DocType lists no line screens.
+- **Go test:** `TestScreens_NoLinePagesLeavesOutLineScreens`
+- **Sources:** CD-329; M0-55
+
+### HOOK-081 · Unswept needs no line screens for a NoLinePages DocType
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-329 names **When** it is exercised through the public path **Then** unswept needs no line screens for a NoLinePages DocType.
+- **Go test:** `TestUnswept_NoLinePagesNeedsNoLineScreens`
+- **Sources:** CD-329; M0-55
+
+### HOOK-082 · The party is hidden by its field, not its value
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-319 (6), (7) names **When** it is exercised through the public path **Then** the party is hidden by its field, not its value.
+- **Go test:** `TestHide47_PartyByField`
+- **Sources:** CD-319 (6), (7); M0-47
+
+### HOOK-083 · Grand total and words are left out when their field is hidden
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-319 (8) names **When** it is exercised through the public path **Then** grand total and words are left out when their field is hidden.
+- **Go test:** `TestHide47_GrandTotalHidden`
+- **Sources:** CD-319 (8); M0-47
+
+### HOOK-084 · A module line card starts from the hidden-filtered card
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-319 (9) names **When** it is exercised through the public path **Then** a module line card starts from the hidden-filtered card.
+- **Go test:** `TestHide47_ModuleCardFiltered`
+- **Sources:** CD-319 (9); M0-47
+
+### HOOK-085 · Hide sees Listing only on the list and search pages
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-327 (1) names **When** it is exercised through the public path **Then** hide sees Listing only on the list and search pages.
+- **Go test:** `TestHide47_Listing`
+- **Sources:** CD-327 (1); M0-47
+
+### HOOK-086 · doc.PartyField is the field DOC reads the party from
+- **Priority:** P1
+- **Level:** unit
+- **Given** the rule CD-319 (6) names **When** it is exercised through the public path **Then** doc.PartyField is the field DOC reads the party from.
+- **Go test:** `TestDoc_PartyField_AgreesWithPartyOf`
+- **Sources:** CD-319 (6); M0-47
+
+### HOOK-087 · Every registered Hide survives a nil View
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-327 (1) names **When** it is exercised through the public path **Then** every registered Hide survives a nil View.
+- **Go test:** `TestDocDeps_HideNilView`
+- **Sources:** CD-327 (1); M0-47
+
+### HOOK-088 · A new-document Save refused on a field redraws as 422
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** a new-document Save refused on a field redraws as 422.
+- **Go test:** `TestForbid50_NewPost`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-089 · A step Save refused on a field redraws as 422 with the posted version
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** a step Save refused on a field redraws as 422 with the posted version.
+- **Go test:** `TestForbid50_StepPost`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-090 · A refusal without field errors, or another status, gives the problem page
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** a refusal without field errors, or another status, gives the problem page.
+- **Go test:** `TestForbid50_OtherStatusIsProblemPage`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-091 · Config.Modules is refused for a DocType that is not TestOnly
+- **Priority:** P1
+- **Level:** integration
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** config.Modules is refused for a DocType that is not TestOnly.
+- **Go test:** `TestApp_ConfigModulesTestOnly`
+- **Sources:** CD-323 (1); M0-50
+
+### HOOK-092 · In a browser the refused-field redraw lands in place
+- **Priority:** P1
+- **Level:** e2e
+- **Given** the rule CD-323 (1) names **When** it is exercised through the public path **Then** in a browser the refused-field redraw lands in place.
+- **Go test:** `TestE2E_Forbid50_SaveRefusedOnField`
+- **Sources:** CD-323 (1); M0-50

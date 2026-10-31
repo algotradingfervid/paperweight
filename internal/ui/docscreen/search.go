@@ -1,7 +1,6 @@
 package docscreen
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -47,7 +46,7 @@ func (d Deps) search(w http.ResponseWriter, r *http.Request) {
 	if q == "" {
 		v.Message = "Type a name, code or number to search."
 	} else {
-		groups, err := d.searchGroups(r.Context(), d.principal(r), q)
+		groups, err := d.searchGroups(r, d.principal(r), q)
 		if err != nil {
 			problem(w, r, err)
 			return
@@ -74,7 +73,8 @@ func searchText(raw string) string {
 // through the Lister and so its read scope: rows, counts and See all cover
 // only what p may see. A refused read skips the DocType; any other failure is
 // an error, never "nothing found".
-func (d Deps) searchGroups(ctx context.Context, p auth.Principal, q string) ([]searchGroup, error) {
+func (d Deps) searchGroups(r *http.Request, p auth.Principal, q string) ([]searchGroup, error) {
+	ctx := r.Context()
 	var groups []searchGroup
 	for _, dt := range doctype.All() {
 		if len(dt.SearchFields) == 0 {
@@ -95,7 +95,7 @@ func (d Deps) searchGroups(ctx context.Context, p auth.Principal, q string) ([]s
 			continue
 		}
 		cols := ListColumns(dt)
-		rows, err := d.listRows(auth.WithPrincipal(ctx, p), dt, cols, res.Rows[:min(searchShown, len(res.Rows))], d.recordURL)
+		rows, err := d.listRows(r.WithContext(auth.WithPrincipal(ctx, p)), dt, cols, res.Rows[:min(searchShown, len(res.Rows))], d.recordURL)
 		if err != nil {
 			return nil, err
 		}

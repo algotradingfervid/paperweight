@@ -20,7 +20,7 @@ var HookedSchema = []string{
 	`CREATE TABLE docscreentest_hooked (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT UNIQUE, state TEXT NOT NULL DEFAULT 'draft',
 		state_reason TEXT NOT NULL DEFAULT '', amended_from_id INTEGER, amendment_root_id INTEGER, amendment_no INTEGER NOT NULL DEFAULT 0,
 		version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, created_by INTEGER NOT NULL, updated_at TEXT NOT NULL, updated_by INTEGER NOT NULL,
-		supplier_id INTEGER, site_id INTEGER, ref TEXT NOT NULL DEFAULT '', remarks TEXT NOT NULL DEFAULT '')`,
+		supplier_id INTEGER, site_id INTEGER, ref TEXT NOT NULL DEFAULT '', remarks TEXT NOT NULL DEFAULT '', employee_id INTEGER)`,
 	`CREATE TABLE docscreentest_hooked_line (id INTEGER PRIMARY KEY AUTOINCREMENT, parent_id INTEGER NOT NULL, line_no INTEGER NOT NULL,
 		project_id INTEGER, item_id INTEGER, qty INTEGER, note TEXT NOT NULL DEFAULT '')`,
 }
