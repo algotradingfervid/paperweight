@@ -114,7 +114,7 @@ func TestGRN_RejectedStaysPending(t *testing.T) {
 
 // GRN-014 (GRN spec §4; PO spec §3.2; CD-238), a walk table of the
 // receipt_status, pending and received rows only (the PO page's "Over by"
-// note is P15b's, CD-277 (2); the warning row is G5's): 1,250 kg on line 1
+// note is P15b's, CD-277 (2); G5 adds the warning rows, CD-279 (9)): 1,250 kg on line 1
 // puts received above qty with pending 0, never negative; once line 2 is in
 // the PO is fully_received; a further GRN on the fully received PO is
 // approved and the status stays; each cancel walks it back.
@@ -127,11 +127,18 @@ func TestGRN_OverDeliveryPO(t *testing.T) {
 		{what: "GRN accepts 1,250 kg of line 1", do: func(t *testing.T) {
 			over = env.GRN(t, env.Suresh, po.ID, []grntest.Line{{POLineID: l1, Received: "1250"}}, doctype.StateApproved)
 		}, want: g3Want{received: []string{"1250", "0"}, pending: []string{"0", "50"}, status: "part_received"}},
+		{what: "the over-delivery GRN warns (G5; its own accepted not counted)", do: func(t *testing.T) {
+			g5WantList(t, "the over-delivery GRN", g5Warnings(t, env, over.ID), g5Over(1, "1,250 KGS", "1,200 KGS", "PO/26-27/00001"))
+		}, want: g3Want{received: []string{"1250", "0"}, pending: []string{"0", "50"}, status: "part_received"}},
 		{what: "GRN accepts 50 kg of line 2", do: func(t *testing.T) {
 			rest = env.GRN(t, env.Suresh, po.ID, []grntest.Line{{POLineID: l2, Received: "50"}}, doctype.StateApproved)
 		}, want: g3Want{received: []string{"1250", "50"}, pending: []string{"0", "0"}, status: "fully_received"}},
 		{what: "another GRN on the fully received PO", do: func(t *testing.T) {
 			extra = env.GRN(t, env.Suresh, po.ID, []grntest.Line{{POLineID: l1, Received: "10"}}, doctype.StateApproved)
+		}, want: g3Want{received: []string{"1260", "50"}, pending: []string{"0", "0"}, status: "fully_received"}},
+		{what: "the GRN on the fully received PO warns, line 2's doesn't (G5)", do: func(t *testing.T) {
+			g5WantList(t, "the GRN on the fully received PO", g5Warnings(t, env, extra.ID), g5Over(1, "10 KGS", "0 KGS", "PO/26-27/00001"))
+			g5WantList(t, "line 2's GRN, exactly its pending", g5Warnings(t, env, rest.ID))
 		}, want: g3Want{received: []string{"1260", "50"}, pending: []string{"0", "0"}, status: "fully_received"}},
 		{what: "that GRN cancelled", do: func(t *testing.T) {
 			env.Cancel(t, env.Ravi, extra.ID, "Not ours")
