@@ -37,16 +37,19 @@ checkids:
 	@test -n "$(AREA)" || { echo "AREA is not set. Run: make checkids AREA=<AREA>"; exit 1; }
 	go run ./scripts/checktestids $(AREA) --exclude-level e2e
 
-# Touched-line coverage (CD-185). Usage: make covertouched BASE=<rev> PKGS=<pkgs>
+# Touched-line coverage (CD-185). Usage: make covertouched BASE=<rev> PKGS=<pkgs> [PROFILE=<file>]
 # -coverpkg takes the PKGS patterns comma-separated, so each package's code
-# counts as covered by any of the PKGS tests.
+# counts as covered by any of the PKGS tests. The profile goes to PROFILE, or
+# to a new temp file per run, so parallel runs never share one.
 comma := ,
 space := $(subst ,, )
 covertouched:
 	@test -n "$(BASE)" -a -n "$(PKGS)" || { echo "Run: make covertouched BASE=<rev> PKGS=./internal/<pkg>/..."; exit 1; }
-	@mkdir -p .work
-	go test -count=1 -coverpkg=$(subst $(space),$(comma),$(strip $(PKGS))) -coverprofile=.work/covertouched.out $(PKGS)
-	go run ./scripts/covertouched -base $(BASE) -profile .work/covertouched.out
+	@p="$(PROFILE)"; [ -n "$$p" ] || p=$$(mktemp "$${TMPDIR:-/tmp}/covertouched.XXXXXX") || exit 1; \
+	echo "go test -count=1 -coverpkg=$(subst $(space),$(comma),$(strip $(PKGS))) -coverprofile=$$p $(PKGS)"; \
+	go test -count=1 -coverpkg=$(subst $(space),$(comma),$(strip $(PKGS))) -coverprofile="$$p" $(PKGS) || exit 1; \
+	echo "go run ./scripts/covertouched -base $(BASE) -profile $$p"; \
+	go run ./scripts/covertouched -base $(BASE) -profile "$$p"
 
 ci:
 	$(MAKE) generate
