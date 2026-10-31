@@ -23,6 +23,6 @@ DELETE FROM purchase_order_sent WHERE po_id = ?;
 
 -- name: OrderPageSummary :one
 -- The Send and Expected on pages' summary from the PO's snapshot (P15e):
--- the vendor name and required by (blank reads '').
+-- the vendor name and required by (blank reads an empty string).
 SELECT snap_vendor_name, CAST(COALESCE(required_by, '') AS TEXT) AS required_by
 FROM purchase_order WHERE id = ?;

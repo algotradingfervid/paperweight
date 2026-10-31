@@ -13,7 +13,6 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
-	"github.com/vardhan/internaltools/internal/masters/party"
 	"github.com/vardhan/internaltools/internal/modules/modkit"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -72,18 +71,12 @@ func (s *Service) HandOverState(ctx context.Context, p auth.Principal, poID int6
 		if err != nil {
 			return err
 		}
-		vendors, _ := doc.Lookup(party.DocType)
-		vendorID, _ := d.Header["vendor_id"].(int64)
-		vendor, _, err := vendors.Master.Lookup(ctx, tx, vendorID)
-		if err != nil {
-			return err
-		}
-		total, err := amountOrder(ctx, tx, poID)
+		vendor, total, _, err := orderSummary(ctx, tx, poID)
 		if err != nil {
 			return err
 		}
 		st = HandOverState{
-			Display: naming.Label(d.Number, d.ID), Vendor: vendor.Name, Total: types.FormatINR(total), Owner: owner.Name,
+			Display: naming.Label(d.Number, d.ID), Vendor: vendor, Total: total, Owner: owner.Name,
 			Version: d.Version, Refusal: stateRefusal(d.State),
 		}
 		return nil

@@ -80,7 +80,7 @@ type OrderPageSummaryRow struct {
 }
 
 // The Send and Expected on pages' summary from the PO's snapshot (P15e):
-// the vendor name and required by (blank reads ”).
+// the vendor name and required by (blank reads an empty string).
 func (q *Queries) OrderPageSummary(ctx context.Context, id int64) (OrderPageSummaryRow, error) {
 	row := q.db.QueryRowContext(ctx, orderPageSummary, id)
 	var i OrderPageSummaryRow

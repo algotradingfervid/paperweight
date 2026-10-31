@@ -18,12 +18,8 @@ import (
 // version, expected_on (as typed) and note.
 func (h *handlers) expectedPost(w http.ResponseWriter, r *http.Request) {
 	h.expectedWrite(w, r, func(id int64, version int) error {
-		on, err := purchase.ParseExpectedOn(r.PostFormValue("expected_on"))
-		if err != nil {
-			return err
-		}
 		p, _ := auth.PrincipalFrom(r.Context())
-		return h.d.Service.SetExpected(r.Context(), p, id, version, on, r.PostFormValue("note"))
+		return h.d.Service.SetExpectedPosted(r.Context(), p, id, version, r.PostFormValue("expected_on"), r.PostFormValue("note"))
 	}, func(display string) string { return fmt.Sprintf(msgExpectedSaved, display) })
 }
 

@@ -64,7 +64,7 @@ func ExpectedInfo(ctx context.Context, tx *db.Tx, poID int64) (Expected, bool, e
 }
 
 // ParseExpectedOn reads the date the Expected on form posts, trimmed. Blank
-// (also only spaces) is the zero date, which SetExpected refuses with its own
+// (also only spaces) is the zero date, which SetExpectedPosted refuses with its own
 // message; anything else that doesn't parse is DOC's unreadable-value text
 // (422).
 func ParseExpectedOn(s string) (types.Date, error) {
@@ -113,6 +113,20 @@ func (s *Service) ExpectedState(ctx context.Context, p auth.Principal, poID int6
 // the version (CD-259), then the state and the date rules. A past date is
 // allowed (a late update).
 func (s *Service) SetExpected(ctx context.Context, p auth.Principal, poID int64, version int, on types.Date, note string) error {
+	return s.setExpected(ctx, p, poID, version, func() (types.Date, error) { return on, nil }, note)
+}
+
+// SetExpectedPosted is SetExpected for the form: on is the posted date as
+// typed, parsed with ParseExpectedOn after the load, right, version and state
+// checks (CD-259), so a bad date never hides a 403, 404, 409 or the state
+// refusal.
+func (s *Service) SetExpectedPosted(ctx context.Context, p auth.Principal, poID int64, version int, on, note string) error {
+	return s.setExpected(ctx, p, poID, version, func() (types.Date, error) { return ParseExpectedOn(on) }, note)
+}
+
+// setExpected is SetExpected with the date from parse, called after the
+// state check.
+func (s *Service) setExpected(ctx context.Context, p auth.Principal, poID int64, version int, parse func() (types.Date, error), note string) error {
 	return s.d.DB.Write(ctx, func(tx *db.Tx) error {
 		info, cur, err := s.expectedWrite(ctx, tx, p, poID, version)
 		if err != nil {
@@ -120,6 +134,10 @@ func (s *Service) SetExpected(ctx context.Context, p auth.Principal, poID int64,
 		}
 		if info.State != doctype.StateApproved {
 			return &doc.Error{Kind: doc.KindInvalid, Message: msgExpectedNotApproved}
+		}
+		on, err := parse()
+		if err != nil {
+			return err
 		}
 		if on == (types.Date{}) {
 			return expectedInvalid(msgExpectedBlank)

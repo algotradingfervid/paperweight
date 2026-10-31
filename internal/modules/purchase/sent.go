@@ -185,9 +185,9 @@ func (s *Service) sentWrite(ctx context.Context, tx *db.Tx, p auth.Principal, po
 	return info, e.Version, nil
 }
 
-// orderSummary is PO poID's vendor (its snapshot), rounded total as
-// HandOverState formats it and required by (the zero Date when blank), for
-// the Send and Expected on pages (UX §5.13, §5.20).
+// orderSummary is PO poID's vendor (its snapshot), rounded total and
+// required by (the zero Date when blank), for the Send, Expected on and
+// hand-over pages (UX §5.13, §5.20).
 func orderSummary(ctx context.Context, tx *db.Tx, poID int64) (vendor, total string, requiredBy types.Date, err error) {
 	row, err := dbq.New(tx.SQL()).OrderPageSummary(ctx, poID)
 	if err != nil {
