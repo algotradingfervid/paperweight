@@ -118,22 +118,24 @@ type lineFit struct {
 
 // fitCase is one draft the test opens: its Items step, check step and
 // document page. actions is how many grid buttons its rows have; money is
-// whether its lines have a money input and a shown amount.
+// whether its lines have a money input and a shown amount; rate whether
+// they have a rate input and a quantity input.
 type fitCase struct {
 	name, dt, user, shown string
 	id                    int64
 	actions               int
-	money                 bool
+	money, rate           bool
 }
 
 // TestE2E_LineGridFitsLargestAmount is M0-35: the grid's amount column and
 // money inputs show ₹10,00,00,00,000.00 whole on one line at desktop widths
 // with the grid, from the 64rem breakpoint up, and its actions keep their
 // labels on one line; no page with such a line scrolls sideways at any sweep
-// width. fixture.Claim has the three-cell layout. The five-cell money cases
-// (one line at the largest amount, and three lines of the largest third for
-// Move up and Move down) used expense.Advance until it showed cards (CD-315,
-// MOD-EXP S0); M0-40 restores them on a TestOnly five-cell money fixture.
+// width. fixture.Claim has the three-cell layout. fixture.Quote is the
+// five-cell one with a money input (M0-40c; expense.Advance had it until it
+// showed cards, CD-315): Item, Quantity, Rate, Amount, Description, its
+// amount input in the fifth column beside the rate and quantity inputs, in
+// one line at the largest amount and in three for Move up and Move down.
 // fixture.Order is the five-cell layout of a purchase line
 // (Item, Quantity, Rate, Unit, Description; no amount), with the largest
 // rate, ₹10,00,00,000.0000, whose number cells and actions must fit at
@@ -162,9 +164,24 @@ func TestE2E_LineGridFitsLargestAmount(t *testing.T) {
 		Values: map[string]string{"employee_id": emp, "claim_date": plainDate},
 		Lines:  []map[string]string{{"expense_type": uitest.LongName100, "description": uitest.LongName100, "amount": largestLine}},
 	})
+	quoteLine := map[string]string{"item_id": orderLine["item_id"], "qty": "1.000", "rate": largestRate, "amount": largestLine, "description": uitest.LongName100}
+	quote := func(lines ...map[string]string) int64 {
+		r := h.Do(priya, fixture.Quote, 0, doctype.ActionSave, doc.ActionInput{
+			Values: map[string]string{"quote_date": plainDate, "remarks": uitest.LongName100},
+			Lines:  lines,
+		})
+		if r.ID == 0 || len(r.Problems) != 0 {
+			t.Fatalf("quote draft: %+v", r)
+		}
+		return r.ID
+	}
 	cases := []fitCase{
-		{"claim", fixture.Claim, deepak, largestShown, claim.ID, 1, true},
-		{"order", fixture.Order, priya, uitest.LongName100, order.ID, 7, false},
+		{"claim", fixture.Claim, deepak, largestShown, claim.ID, 1, true, false},
+		{"quote", fixture.Quote, priya, largestShown, quote(quoteLine), 1, true, true},
+		// Three lines at the largest amount total 3 × types.MaxMoney on purpose:
+		// a draft is never submitted here, only measured for width.
+		{"quote, three lines", fixture.Quote, priya, largestShown, quote(quoteLine, quoteLine, quoteLine), 7, true, true},
+		{"order", fixture.Order, priya, uitest.LongName100, order.ID, 7, false, true},
 	}
 	for _, c := range cases {
 		path := DocPath(c.dt, c.id)
@@ -201,7 +218,7 @@ func TestE2E_LineGridFitsLargestAmount(t *testing.T) {
 					t.Errorf("%s %s at %d: checked %+v, want a grid amount cell, %d actions, a head and a row", c.name, page, w, n, c.actions)
 				case grid && c.money && (n.MoneyInputs == 0 || n.GridWraps == 0):
 					t.Errorf("%s %s at %d: checked %+v, want a money input and a wrap-checked amount", c.name, page, w, n)
-				case grid && !c.money && (n.RateInputs == 0 || n.NumberInputs == 0):
+				case grid && c.rate && (n.RateInputs == 0 || n.NumberInputs == 0):
 					t.Errorf("%s %s at %d: checked %+v, want a rate input and a quantity input", c.name, page, w, n)
 				case !grid && c.money && n.CardAmounts == 0:
 					t.Errorf("%s %s at %d: checked no line card amount", c.name, page, w)

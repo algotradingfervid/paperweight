@@ -360,7 +360,7 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 ### HOOK-052 · The line grid fits the largest amount at every width it renders at
 - **Priority:** P1
 - **Level:** e2e
-- **Given** fixture.Claim (three cells), two expense.Advance drafts (five cells, amount input in column 4, three lines with move buttons) and fixture.Order (five cells, largest rate) with ₹10,00,00,00,000.00 lines **When** the Items step, check page and document page are shown at 1328 (64rem editor), 1440 and every sweep width **Then** no box overflows and the page never scrolls sideways; money and rate inputs, the amount and the action buttons fit on one line; each head and row has one cell per column and lines up; each required element is counted, so none is skipped.
+- **Given** fixture.Claim (three cells), fixture.Quote (TestOnly, five cells, amount input in grid column 5 beside rate and quantity; one line and three lines with move buttons) and fixture.Order (five cells, largest rate) with ₹10,00,00,00,000.00 lines **When** the Items step, check page and document page are shown at 1328 (64rem editor), 1440 and every sweep width **Then** no box overflows and the page never scrolls sideways; money and rate inputs, the amount and the action buttons fit on one line; each head and row has one cell per column and lines up; each required element is counted, so none is skipped.
 - **Go test:** `TestE2E_LineGridFitsLargestAmount`
 - **Sources:** CD-308 (2), (3); M0-35
 

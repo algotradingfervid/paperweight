@@ -47,9 +47,10 @@ func gridCells(t *testing.T, d Deps, dt *doctype.DocType) (n int, shown bool) {
 //
 // Two limits. A module whose Steps["items"].Body replaces the line editor
 // also hides the grid, which this gate doesn't see: that can only give a
-// false failure, never a missed one. The app's Deps sets no Modules yet, so
-// neither does this one; when internal/app wires real Modules, add them to
-// d here.
+// false failure, never a missed one. Modules now set CardsOnly (expense's
+// Claim and Advance, CD-315), but this gate's empty Deps doesn't see them,
+// so it treats those DocTypes as gridded; that is why the five-cell money
+// check below counts only TestOnly DocTypes, which have no Module.
 func TestLineGrid_EveryDocTypeFits(t *testing.T) {
 	d := Deps{}
 	checked := map[string]int{}
@@ -93,6 +94,31 @@ func TestLineGrid_EveryDocTypeFits(t *testing.T) {
 		if n, ok := checked[name]; !ok || n != want {
 			t.Errorf("%s: grid shown %v with %d cells, want %d", name, ok, n, want)
 		}
+	}
+	// The sweep reaches a five-cell editable grid with a money input
+	// (M0-40c): its money input sits in a narrow track, not the Amount one.
+	// Only TestOnly DocTypes count (see the limits above).
+	var fiveMoney []string
+	for name, n := range checked {
+		dt, _ := doctype.Lookup(name)
+		if n != 5 || !dt.TestOnly {
+			continue
+		}
+		r := httptest.NewRequest("GET", "/", nil)
+		v := DocView{Lines: []LineView{{No: 1}}}
+		for _, cell := range d.gridRowOf(r, dt, v, v.Lines[0], "1", nil, nil).Cells {
+			var b strings.Builder
+			if err := cell.Input.Render(context.Background(), &b); err != nil {
+				t.Fatalf("%s: rendering cell %s: %v", name, cell.Label, err)
+			}
+			if strings.Contains(b.String(), `hx-post="/ui/validate/money"`) {
+				fiveMoney = append(fiveMoney, name)
+				break
+			}
+		}
+	}
+	if len(fiveMoney) == 0 {
+		t.Errorf("no registered TestOnly DocType shows a five-cell editable grid with a money input; checked %v", checked)
 	}
 }
 
