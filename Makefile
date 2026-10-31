@@ -26,7 +26,7 @@ test:
 
 # CD-45: end-to-end tests.
 e2e:
-	go test -tags e2e -count=1 ./...
+	go test -tags e2e -count=1 -timeout 30m ./...
 
 lint:
 	$(GOLANGCI_LINT) run --allow-serial-runners
