@@ -428,15 +428,18 @@ func TestPO_Copy(t *testing.T) {
 		// Arjun reads the source; his sites are cut to PUNE-WH and METRO-SITE
 		// after Copy's read and before its create, the only way the create's
 		// restriction check can refuse a PO the copier could read.
+		// The counts are taken after the restriction change, whose own User
+		// audit entry isn't Copy's.
+		var before p2Counts
 		hook := &purchasetest.CreateHook{Engine: env.Engine}
 		hook.Before = func(ctx context.Context, p auth.Principal) {
 			ids := []int64{p2Int(t, masterID(t, env.DB, "site", "PUNE-WH")), p2Int(t, masterID(t, env.DB, "site", "METRO-SITE"))}
 			if err := env.Auth.ChangeRestrictions(ctx, env.Admin, p.ID, auth.DimSite, ids, nil, nil); err != nil {
 				t.Fatalf("restrict %s: %v", p.Name, err)
 			}
+			before = p2CountAll(t, env)
 		}
 		svc := env.ServiceWith(hook)
-		before := p2CountAll(t, env)
 
 		newID, err := svc.Copy(t.Context(), env.Arjun, src)
 
