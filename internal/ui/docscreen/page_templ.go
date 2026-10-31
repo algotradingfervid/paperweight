@@ -348,7 +348,7 @@ func docBody(pv pageView) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines)}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.LineList(*pv.Lines).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

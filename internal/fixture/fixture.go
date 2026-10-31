@@ -1,8 +1,8 @@
 // Package fixture holds the test-only DocTypes that prove the document
-// engine: fixture.Order, fixture.Receipt and fixture.Claim, and the stand-in
-// master DocTypes they link to (CD-21). Its tables are test-only migrations
-// (MigrationsFS, applied with goose table "goose_fixture") and never ship in
-// the release binary.
+// engine: fixture.Order, fixture.Receipt, fixture.Claim and fixture.Quote,
+// and the stand-in master DocTypes they link to (CD-21). Its tables are
+// test-only migrations (MigrationsFS, applied with goose table
+// "goose_fixture") and never ship in the release binary.
 package fixture
 
 import (
@@ -23,6 +23,7 @@ const (
 	Order   = "fixture.Order"
 	Receipt = "fixture.Receipt"
 	Claim   = "fixture.Claim"
+	Quote   = "fixture.Quote"
 	Party   = "fixture.Party"
 	Item    = "fixture.Item"
 	Project = "fixture.Project"
@@ -38,6 +39,7 @@ func init() {
 	doctype.Register(orderDocType())
 	doctype.Register(receiptDocType())
 	doctype.Register(claimDocType())
+	doctype.Register(quoteDocType())
 }
 
 // rights builds a DefaultRights entry: every right in rights gets scope.
@@ -52,7 +54,7 @@ func rights(scope string, rights ...string) map[string]string {
 func i64(v int64) *int64 { return &v }
 
 // hookBase records a hook call in the probe and applies the probe's faults.
-type hookBase struct{ name string } // "Order", "Receipt" or "Claim"
+type hookBase struct{ name string } // "Order", "Receipt", "Claim" or "Quote"
 
 // enter appends "<name>.<hook>" to the probe, then returns Fail[hook] if set,
 // then panics if Panic[hook] is set.

@@ -29,6 +29,9 @@ type GridCell struct {
 	Label string
 	Input templ.Component
 	Wide  bool
+	Text  string // read-only content when Input is nil (CD-313)
+	Sub   string // a muted second line under Text (CD-313)
+	Kind  string // "", "qty", "rate" or "money": the input's content minimum (CD-313)
 }
 
 // LineGridRow is one row of the desktop grid (CD-139). Cells are the item
@@ -42,6 +45,7 @@ type LineGridRow struct {
 	PostURL, RemoveURL, MoveUpURL, MoveDownURL string
 	Version                                    string
 	Note                                       string // a module's note on this row (hooks spec §3)
+	ChangeURL                                  string // the line page, for a read-only row (CD-313)
 }
 
 // LineListProps describes the line cards. Total is the number of lines;
@@ -55,6 +59,7 @@ type LineListProps struct {
 	AddLabel                                        string // the add button's label; "" is AddItem (UX-E2)
 	AddTop                                          bool   // the add button above the cards (UX-E2)
 	Empty                                           string // the text with no lines (UX-E2)
+	Display                                         bool   // Grid rows are read-only (CD-313)
 }
 
 // AddItem is the add button's and the new-line page's words when a module

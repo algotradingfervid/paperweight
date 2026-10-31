@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
 // errLineSaveLines is a Line.Save that returned Save.Lines: a line page saves
@@ -22,14 +23,15 @@ func (d Deps) lineTarget(w http.ResponseWriter, r *http.Request) (*doctype.DocTy
 	return dt, id, ok
 }
 
-// gridShown reports whether v's Items step has the desktop grid: not with
-// the module's CardsOnly, Line or NoLinePages (CD-256 (6)), and only when a
+// gridShown reports whether v's Items step has the editable desktop grid:
+// not with the module's CardsOnly, Line or NoLinePages (CD-256 (6)), nor
+// with its LineGrid, edited only on the line page (CD-313), and only when a
 // row has 3 or 5 cells, the sizes the grid lays out (M0-35). Any other size
 // shows the cards at every width, edited on the line page (M0-40). The size
 // is v's first line's, or a new line's when v has none (CD-315).
 func (d Deps) gridShown(r *http.Request, dt *doctype.DocType, v DocView) bool {
 	m := d.modOf(dt)
-	if m.CardsOnly || m.Line != nil || m.NoLinePages {
+	if m.CardsOnly || m.Line != nil || m.NoLinePages || m.LineGrid != nil {
 		return false
 	}
 	var lv LineView // line 0, a new line: Hide sees no stored inputs
@@ -83,4 +85,24 @@ func (d Deps) lineSaved(c Ctx, no int) (map[string]string, []doctype.FieldError,
 		return nil, nil, errLineSaveLines
 	}
 	return s.Values, s.Errors, nil
+}
+
+// displayRows are v's lines as the display grid (CD-313), nil without the
+// module's LineGrid: its cells for each line, with # and Amount, the note
+// and the actions of that line's card in cards (parallel to v.Lines), so
+// the grid shows actions only where the card does.
+func (d Deps) displayRows(r *http.Request, dt *doctype.DocType, v DocView, cards []components.LineCard) []components.LineGridRow {
+	lg := d.modOf(dt).LineGrid
+	if lg == nil {
+		return nil
+	}
+	rows := make([]components.LineGridRow, len(v.Lines))
+	for i, lv := range v.Lines {
+		c := cards[i]
+		rows[i] = components.LineGridRow{
+			No: lv.No, Cells: lg(d.lineCtx(r, dt, &v, lv.No), lv), Amount: c.Amount, Note: c.Note,
+			ChangeURL: c.ChangeURL, RemoveURL: c.RemoveURL, MoveUpURL: c.MoveUpURL, MoveDownURL: c.MoveDownURL, Version: c.Version,
+		}
+	}
+	return rows
 }

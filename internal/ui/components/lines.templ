@@ -10,7 +10,8 @@ import (
 // (design-system §8.2), or AddLabel; AddTop puts it above the cards, and
 // Empty is the text with no lines (UX-E2). Editable adds Change, Remove and
 // the move buttons, which are POST forms. With Grid set, the LineGrid
-// follows and replaces the cards from 64rem.
+// follows and replaces the cards from 64rem; with Display it is the
+// read-only displayGrid.
 templ LineList(p LineListProps) {
 	<div
 		if len(p.Grid) > 0 {
@@ -60,22 +61,7 @@ templ LineList(p LineListProps) {
 						</p>
 					}
 					if p.Editable {
-						<div class="lines-actions">
-							@Button(ButtonProps{Label: "Change", AriaLabel: lineAria("Change", c.No), Href: c.ChangeURL, Variant: Ghost})
-							@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", c.No), Href: c.RemoveURL, Variant: Ghost})
-							if c.MoveUpURL != "" {
-								@Form(FormProps{Action: c.MoveUpURL}) {
-									@versionInput(c.Version, "")
-									@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", c.No), Icon: "arrow-up", Variant: Ghost})
-								}
-							}
-							if c.MoveDownURL != "" {
-								@Form(FormProps{Action: c.MoveDownURL}) {
-									@versionInput(c.Version, "")
-									@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", c.No), Icon: "arrow-down", Variant: Ghost})
-								}
-							}
-						</div>
+						@lineActions("lines-actions", lineActionsProps{No: c.No, ChangeURL: c.ChangeURL, RemoveURL: c.RemoveURL, MoveUpURL: c.MoveUpURL, MoveDownURL: c.MoveDownURL, Version: c.Version})
 					}
 				</li>
 			}
@@ -100,9 +86,65 @@ templ LineList(p LineListProps) {
 		if p.Editable && !p.AddTop {
 			@Button(p.AddButton())
 		}
-		if len(p.Grid) > 0 {
+		if len(p.Grid) > 0 && p.Display {
+			@displayGrid(p.Grid, p.TaxableTotal)
+		} else if len(p.Grid) > 0 {
 			@LineGrid(p.Grid, p.TaxableTotal)
 		}
+	</div>
+}
+
+// displayGrid is the read-only line grid from 64rem (CD-313): each cell's
+// Text, with Sub as a muted second line; a number cell (Kind) takes the
+// content minimum of its input. The row's actions are links and move forms,
+// and its note is a full-width row under it.
+templ displayGrid(rows []LineGridRow, total string) {
+	<div class="line-editor">
+		<div class={ "linegrid", gridCols(rows) }>
+			if len(rows) > 0 {
+				<div class="linegrid-head" aria-hidden="true">
+					<span>#</span>
+					for _, c := range rows[0].Cells {
+						if c.Kind != "" {
+							<span class="num">{ c.Label }</span>
+						} else {
+							<span>{ c.Label }</span>
+						}
+					}
+					<span class="num">Amount</span>
+					<span>Actions</span>
+				</div>
+			}
+			for _, r := range rows {
+				<div class="linegrid-row">
+					<span class="linegrid-no"><span class="visually-hidden">Line</span>{ strconv.Itoa(r.No) }</span>
+					for _, c := range r.Cells {
+						<div class="linegrid-cell">
+							<span class="visually-hidden">{ c.Label }</span>
+							if c.Kind != "" {
+								<span class="num" data-kind={ c.Kind }>{ c.Text }</span>
+							} else {
+								<span>{ c.Text }</span>
+							}
+							if c.Sub != "" {
+								<span class="linegrid-sub">{ c.Sub }</span>
+							}
+						</div>
+					}
+					<span class="num linegrid-amount"><span class="visually-hidden">Amount</span>{ r.Amount }</span>
+					@lineActions("linegrid-actions", lineActionsProps{No: r.No, ChangeURL: r.ChangeURL, RemoveURL: r.RemoveURL, MoveUpURL: r.MoveUpURL, MoveDownURL: r.MoveDownURL, Version: r.Version})
+					if r.Note != "" {
+						<p class="linegrid-note">{ r.Note }</p>
+					}
+				</div>
+			}
+			if total != "" {
+				<p class="linegrid-total">
+					<span>Taxable total</span>
+					<span class="num">{ total }</span>
+				</p>
+			}
+		</div>
 	</div>
 }
 
@@ -212,4 +254,37 @@ templ LineGridVersions(rows []LineGridRow, version string) {
 			<input type="hidden" id={ moveVersionID(r.No, "down") } name="version" value={ version } hx-swap-oob="true"/>
 		}
 	}
+}
+
+// lineActionsProps are one line's action URLs; an empty one hides its
+// action.
+type lineActionsProps struct {
+	No                                           int
+	ChangeURL, RemoveURL, MoveUpURL, MoveDownURL string
+	Version                                      string
+}
+
+// lineActions are a line's Change and Remove links and its move forms,
+// posting Version (CD-94), for a card and a display grid row (CD-313).
+templ lineActions(class string, a lineActionsProps) {
+	<div class={ class }>
+		if a.ChangeURL != "" {
+			@Button(ButtonProps{Label: "Change", AriaLabel: lineAria("Change", a.No), Href: a.ChangeURL, Variant: Ghost})
+		}
+		if a.RemoveURL != "" {
+			@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", a.No), Href: a.RemoveURL, Variant: Ghost})
+		}
+		if a.MoveUpURL != "" {
+			@Form(FormProps{Action: a.MoveUpURL}) {
+				@versionInput(a.Version, "")
+				@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", a.No), Icon: "arrow-up", Variant: Ghost})
+			}
+		}
+		if a.MoveDownURL != "" {
+			@Form(FormProps{Action: a.MoveDownURL}) {
+				@versionInput(a.Version, "")
+				@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", a.No), Icon: "arrow-down", Variant: Ghost})
+			}
+		}
+	</div>
 }

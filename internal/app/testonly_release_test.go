@@ -112,7 +112,7 @@ func TestApp_NoTestOnlyDocTypeInRelease(t *testing.T) {
 		pkg  string
 		want int
 	}{
-		{"/internal/fixture", 3},            // Order, Receipt, Claim
+		{"/internal/fixture", 4},            // Order, Receipt, Claim, Quote
 		{"/internal/masters/mstfixture", 1}, // mst.Order
 	} {
 		if _, got := testOnlyScan(t, goFiles(t, modulePath+c.pkg, false)); len(got) != c.want {

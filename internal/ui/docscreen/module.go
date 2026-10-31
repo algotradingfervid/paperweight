@@ -26,8 +26,9 @@ type Module struct {
 	Check       func(c Ctx) (CheckExtra, error)             // check page additions
 	Page        func(c Ctx) (PageExtra, error)              // document page additions
 	Reason      func(c Ctx, a doctype.Action) (ReasonExtra, error)
-	LineNoun    LineNoun // the words for a line; zero keeps docscreen's (CD-275)
-	AddTop      bool     // the add button above the cards, again below from 4 lines (CD-275)
+	LineNoun    LineNoun                                      // the words for a line; zero keeps docscreen's (CD-275)
+	AddTop      bool                                          // the add button above the cards, again below from 4 lines (CD-275)
+	LineGrid    func(c Ctx, l LineView) []components.GridCell // one line's read-only cells from 64rem (CD-313)
 }
 
 // LineNoun names a module's lines (UX-E2, CD-270 Q1): Add labels the add

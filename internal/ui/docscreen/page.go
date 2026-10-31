@@ -41,7 +41,8 @@ type pageView struct {
 	Success string // an htmx action's banner, or the flash's beside "Next request" (a 303 uses the flash)
 	Next    string // "Next request" link after an approve
 	Attach  *attachView
-	Extra   PageExtra // the module's additions (hooks spec §4.4)
+	Extra   PageExtra                 // the module's additions (hooks spec §4.4)
+	Lines   *components.LineListProps // the line cards and display grid (CD-313)
 }
 
 // actionForm is the hidden form a bar button posts through.
@@ -134,7 +135,7 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 		return pageView{}, err
 	}
 	noteLines(shown.Lines, extra.LineNotes)
-	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights)}
+	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights), Lines: d.lineList(r, dt, shown)}
 	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
 	if err := applyPageExtra(&pv); err != nil {
 		return pageView{}, err
@@ -401,6 +402,13 @@ func waitingLine(pv pageView) string {
 		return "Waiting for approval from " + a.WaitingOn
 	}
 	return a.Preview
+}
+
+// lineList is v's line cards with no actions, as the check and document
+// pages show them, and the module's display grid (CD-313).
+func (d Deps) lineList(r *http.Request, dt *doctype.DocType, v DocView) *components.LineListProps {
+	cards := lineCards(v.Lines)
+	return &components.LineListProps{Cards: cards, Total: len(v.Lines), Grid: d.displayRows(r, dt, v, cards), Display: true}
 }
 
 func lineCards(lines []LineView) []components.LineCard {
