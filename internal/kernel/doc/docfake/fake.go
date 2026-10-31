@@ -12,6 +12,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/errs"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 var (
@@ -237,4 +238,15 @@ func (f *Fake) Info(ctx context.Context, tx *db.Tx, dt string, id int64) (doctyp
 		return doctype.Info{}, doc.Gone()
 	}
 	return copyInfo(info), nil
+}
+
+// Reassign refuses with errs.ErrNotImplemented: copying the engine's checks
+// would make a lenient double (CD-186). Use the real engine.
+func (f *Fake) Reassign(ctx context.Context, p auth.Principal, dt string, id int64, version int, to types.UserID) error {
+	return errs.ErrNotImplemented
+}
+
+// EligibleOwners refuses with errs.ErrNotImplemented, as Reassign (CD-186).
+func (f *Fake) EligibleOwners(ctx context.Context, tx *db.Tx, p auth.Principal, dt string, id int64) ([]types.UserID, error) {
+	return nil, errs.ErrNotImplemented
 }

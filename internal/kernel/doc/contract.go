@@ -8,6 +8,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // Aliases for every doctype name (CD-02).
@@ -119,5 +120,11 @@ type Engine interface {
 	// checked read. It calls no hook, because Hooks.Validate may write and
 	// Problems runs in a read tx, so hook errors appear only at Submit.
 	Problems(ctx context.Context, tx *db.Tx, doctype string, id int64) ([]FieldError, error)
+	// Reassign makes to the owner of a draft or rejected document (M0-13,
+	// CD-259). A refused target or state is a *ReassignError.
+	Reassign(ctx context.Context, p auth.Principal, doctype string, id int64, version int, to types.UserID) error
+	// EligibleOwners lists the users Reassign would accept for id, without the
+	// current owner.
+	EligibleOwners(ctx context.Context, tx *db.Tx, p auth.Principal, doctype string, id int64) ([]types.UserID, error)
 	doctype.InfoSource
 }
