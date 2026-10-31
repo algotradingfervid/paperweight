@@ -476,3 +476,29 @@ New PO ids are PO-071 to PO-084. | AD-13 DECISION, head accepted. |
 - Each G0 task is its own MOD-0 MERGE-READY.
 
 Items 1, 13 and 16 are recorded in the plan. | AD-12 DECISION, head accepted. |
+| CD-280 | **MOD-PO plan-check rulings (AD-13).**
+
+*D1 (amends CD-272 and CD-276 (2)).* Modules have no warning channel in DOC, so purchase computes its warnings in `(*purchase.Service).OrderWarnings(ctx, p, poID) ([]string, error)`, in a read tx. These are Already received, over-request and the site/project state warning. P15a shows them through `Module.Check` as `CheckExtra.Warnings`. "Saves with a warning" means the save succeeds and the check page shows the text. No DOC change.
+
+*D2.* `auth.Applies(dt, approve)` is also true when `dt.CloseRight == "approve"`, so purchase.Request's CloseRight (CD-253/255) works. This is new task M0-24 (High, AD-9), covering Applies, authfake, a parity row, and ValidateRow, Scope and WhoCan following. P1 seeds the Request rights without `approve`; P5 adds them and gates on M0-24.
+
+*D3.* `RefreshOrderStatus` and `RefreshReceiptStatus` write with plain UPDATEs: no version bump, no updated_*, no audit. The rows they touch aren't user-editable, and close's version check is unaffected. PO spec §20.3 is corrected.
+
+*D4.* New task M0-25 (Light, AD-9), before P14 and P15a:
+- export `(*approval.Approvals).WaitingDays(r Request) int`;
+- add `(*Approvals).HasRules(ctx, tx, doctype string) (bool, error)`, open to non-admins, for CD-258 Q7(a);
+- export `modkit.CheckCommentBody(body string) error`, so hand-over checks its note before Reassign.
+
+*D5.* `Step.Top func(c Ctx) (templ.Component, error)` renders above the generic body when Body returns nil, for UX §5.6's `Add from requests ({n} open)`. AD-10 adds it in M0-17, and P15c gates on it.
+
+*D6 (CD-248 family).* Unreadable linked rows aren't listed. One trailing line counts them, `{k} other goods receipts` or `{k} other orders` (singular `1 other …`), with no state. A held-row note reads `On another order`.
+
+*D7.*
+- (a) A hidden `copy_notes` System column, written by Copy.
+- (b) A `purchasetest.SetReceived` SQL helper stands in for the GRN roll-up; GRN-014 and GRN-040 test the real path.
+- (c) Task order is P1, P4, P2; P6 hooks P4 through stubs_p6.go; PO-M1 stays P1, P2 and P4.
+- (d) The vendor address is cleared and defaulted again when vendor_id differs from `snap_vendor_id`.
+- (e) Button labels follow CD-258 Q5(a).
+- (f) Whichever of PO-M1 and M0-5 reaches main second adds both DocTypes to the sweep.
+
+| AD-13 DECISION, head accepted. |
