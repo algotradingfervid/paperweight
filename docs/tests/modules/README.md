@@ -2,7 +2,7 @@
 
 Index of the module test cases. Every case maps to one Go test function, as in `docs/tests/core/README.md`. Fixtures for every case are in `docs/tests/core/00-fixtures.md`, which includes the `purchase.Order` and `purchase.Request` rights rows and the request fixtures PR-A and PR-B (CD-247), and the `expense.Claim` and `expense.Advance` rights rows, the Fallback Approver role and the expense test seed (Expense spec §15 items 3 and 6). Every Go test name is unique across these files and `docs/tests/core/`.
 
-Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18 and §26 (area `PO`), hooks spec `docs/specs/2026-10-30-module-docscreen-hooks-spec.md` v0.3 §6 (area `HOOK`), and Expense spec `docs/specs/2026-10-30-module-expense-spec.md` v0.5 §17 (area `EXP`). Plans: `docs/superpowers/plans/2026-10-31-mod-po.md` and `docs/superpowers/plans/2026-10-31-mod-exp.md`. `scripts/checktestids` reads these files once MOD-0 task M0-6 teaches it to (PO spec §15 item 3).
+Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18 and §26 (area `PO`), hooks spec `docs/specs/2026-10-30-module-docscreen-hooks-spec.md` v0.3 §6 (area `HOOK`), Expense spec `docs/specs/2026-10-30-module-expense-spec.md` v0.5 §17 (area `EXP`), and GRN spec `docs/specs/2026-10-30-module-grn-spec.md` v0.5 §16 (area `GRN`). Plans: `docs/superpowers/plans/2026-10-31-mod-po.md`, `docs/superpowers/plans/2026-10-31-mod-exp.md` and `docs/superpowers/plans/2026-10-31-mod-grn.md`. `scripts/checktestids` reads these files once MOD-0 task M0-6 teaches it to (PO spec §15 item 3).
 
 ## Counts
 
@@ -11,11 +11,12 @@ Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18
 | [`po.md`](po.md) | PO — purchase orders and requests | 70 | 69 | 1 | 8 | 60 | 2 |
 | [`hook.md`](hook.md) | HOOK — docscreen module hooks | 18 | 18 | 0 | 0 | 18 | 0 |
 | [`exp.md`](exp.md) | EXP — expense claims and advances | 41 | 41 | 0 | 5 | 35 | 1 |
-| **Total** | | **129** | **128** | **1** | **13** | **113** | **3** |
+| [`grn.md`](grn.md) | GRN — goods receipts | 50 | 50 | 0 | 7 | 40 | 3 |
+| **Total** | | **179** | **178** | **1** | **20** | **153** | **6** |
 
 Level counts group variants as in core: "unit (fuzz)" counts as unit, "integration (golden file)" as integration. Every e2e case's Go test starts with `TestE2E_`.
 
-**MOD-GRN exit.** PO-025, PO-031, PO-033 and PO-044 need a real GRN, so they are MOD-GRN's exit criteria, not MOD-PO's (PO spec §18). They are P1 and counted above. MOD-PO's own exit is the other 65 P1 PO cases.
+**MOD-GRN exit.** PO-025, PO-031, PO-033 and PO-044 need a real GRN, so they are MOD-GRN's exit criteria, not MOD-PO's (PO spec §18). They are P1 and counted above. MOD-PO's own exit is the other 65 P1 PO cases. MOD-GRN builds PO-031 and PO-044 in its task G3 and PO-025 and PO-033 in G4 (`docs/superpowers/plans/2026-10-31-mod-grn.md`).
 
 ## Test cases by file
 
@@ -168,3 +169,60 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 | EXP-039 | `TestExp_DirectorClaim` | P1 | integration |
 | EXP-040 | `TestExp_OnlyFallback` | P1 | integration |
 | EXP-041 | `TestExp_FallbackLeaves` | P1 | integration |
+
+### grn.md — GRN — goods receipts
+
+50 cases: 50 P1 / 0 P2; 7 unit, 40 integration, 3 e2e. GRN-037 to GRN-050 are scenario cases (CD-271, CD-272).
+
+| ID | Go test | P | Level |
+|---|---|---|---|
+| GRN-001 | `TestGRN_POPicker` | P1 | integration |
+| GRN-002 | `TestGRN_PONotVisibleReal` | P1 | integration |
+| GRN-003 | `TestGRN_CopiesFromPO` | P1 | integration |
+| GRN-004 | `TestGRN_POFixedOnceLines` | P1 | unit |
+| GRN-005 | `TestGRN_ForeignLine` | P1 | integration |
+| GRN-006 | `TestGRN_DateRules` | P1 | unit |
+| GRN-007 | `TestGRN_ChallanRule` | P1 | integration |
+| GRN-008 | `TestGRN_RejectRules` | P1 | unit |
+| GRN-009 | `TestGRN_AcceptedValue` | P1 | unit |
+| GRN-010 | `TestGRN_SubmitApproves` | P1 | integration |
+| GRN-011 | `TestGRN_PartialReceipts` | P1 | integration |
+| GRN-012 | `TestGRN_RejectedStaysPending` | P1 | integration |
+| GRN-013 | `TestGRN_OverDeliveryWarns` | P1 | integration |
+| GRN-014 | `TestGRN_OverDeliveryPO` | P1 | integration |
+| GRN-015 | `TestGRN_ConcurrentReceipts` | P1 | integration |
+| GRN-016 | `TestGRN_AlreadyReceivedCounts` | P1 | integration |
+| GRN-017 | `TestGRN_WholeNumber` | P1 | integration |
+| GRN-018 | `TestGRN_CancelRestores` | P1 | integration |
+| GRN-019 | `TestGRN_CancelClosedPO` | P1 | integration |
+| GRN-020 | `TestGRN_ClosedPORefused` | P1 | integration |
+| GRN-021 | `TestGRN_BlocksPOCancel` | P1 | integration |
+| GRN-022 | `TestGRN_AmendRestrictedReal` | P1 | integration |
+| GRN-023 | `TestGRN_PeriodLock` | P1 | integration |
+| GRN-024 | `TestGRN_LockRollsBack` | P1 | integration |
+| GRN-025 | `TestGRNBill_StateRules` | P1 | integration |
+| GRN-026 | `TestGRNBill_VersionAndRights` | P1 | integration |
+| GRN-027 | `TestGRNBill_DuplicateWarns` | P1 | integration |
+| GRN-028 | `TestGRN_LatePhoto` | P1 | integration |
+| GRN-029 | `TestGRN_RestrictedCreateReal` | P1 | integration |
+| GRN-030 | `TestGRN_PrintGolden` | P1 | integration (golden file) |
+| GRN-031 | `TestGRN_BillsReport` | P1 | integration |
+| GRN-032 | `TestGRN_ItemsReport` | P1 | integration |
+| GRN-033 | `TestGRN_DisabledMasterStillReceives` | P1 | integration |
+| GRN-034 | `TestGRN_DefaultRights` | P1 | unit |
+| GRN-035 | `FuzzGRN_Invariants` | P1 | unit (fuzz) |
+| GRN-036 | `TestE2E_GRNFlow` | P1 | e2e |
+| GRN-037 | `TestGRN_UnapprovedPORefused` | P1 | integration |
+| GRN-038 | `TestGRN_FullyRejected` | P1 | integration |
+| GRN-039 | `TestGRN_DraftAfterPOClosed` | P1 | integration |
+| GRN-040 | `TestGRN_CancelClosedPOUpdatesRequest` | P1 | integration |
+| GRN-041 | `TestGRN_AmendOnClosedPO` | P1 | integration |
+| GRN-042 | `TestGRN_CancelAmendReturn` | P1 | integration |
+| GRN-043 | `TestGRN_TwiceOrderedStop` | P1 | unit |
+| GRN-044 | `TestGRN_ReceivedAsOrderedNote` | P1 | integration |
+| GRN-045 | `TestGRN_ChallanKind` | P1 | integration |
+| GRN-046 | `TestGRNBill_CopyFromInvoice` | P1 | integration |
+| GRN-047 | `TestGRN_RestNotComing` | P1 | integration |
+| GRN-048 | `TestGRN_EWayHints` | P1 | integration |
+| GRN-049 | `TestE2E_RequestToShortClose` | P1 | e2e |
+| GRN-050 | `TestE2E_GRNCancelRestores` | P1 | e2e |
