@@ -32,6 +32,9 @@ templ LineList(p LineListProps) {
 					if c.Received != "" {
 						<p class="lines-meta">{ c.Received }</p>
 					}
+					if c.Note != "" {
+						<p class="lines-meta">{ c.Note }</p>
+					}
 					if p.Editable {
 						<div class="lines-actions">
 							@Button(ButtonProps{Label: "Change", AriaLabel: lineAria("Change", c.No), Href: c.ChangeURL, Variant: Ghost})
@@ -114,6 +117,9 @@ templ LineGrid(rows []LineGridRow, total string) {
 								@versionInput(r.Version, moveVersionID(r.No, "down"))
 								@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", r.No), Icon: "arrow-down", Variant: Ghost})
 							}
+						}
+						if r.Note != "" {
+							<p>{ r.Note }</p>
 						}
 					</div>
 				</div>

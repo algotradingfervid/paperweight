@@ -670,7 +670,9 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	case i == len(steps)-1:
 		sv.Wide = true
 		if v != nil {
-			d.checkStep(c, steps, *v, &sv)
+			if err := d.checkStep(c, steps, *v, &sv); err != nil {
+				return stepView{}, err
+			}
 		}
 	case s.Lines:
 		sv.Wide = true
@@ -712,6 +714,7 @@ type checkView struct {
 	GrandTotal, Words string
 	More              []components.MoreAction
 	Attach            *attachView
+	Extra             CheckExtra // the module's additions (hooks spec §4.4)
 }
 
 // checkSection is one step's summary card.
@@ -729,8 +732,9 @@ type checkSection struct {
 // (CD-178); each section lists its header and whole-lines problems and DOC's
 // line problems. Then the totals, the approval preview, and the bar's state
 // action posting to /submit with the version. A field the module hides is
-// neither summarised nor a problem (CD-256 (1)).
-func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) {
+// neither summarised nor a problem (CD-256 (1)). The module's Check
+// additions come last; its error is returned (hooks spec §4.4).
+func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error {
 	r, dt := c.Req, c.DT
 	rights := Rights(r.Context(), d.Auth, d.principal(r), dt.Name, &v.Record)
 	bar, more := Actions(v, dt.Printable, rights)
@@ -773,7 +777,13 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) {
 		}
 		cv.Sections = append(cv.Sections, sec)
 	}
+	extra, err := checkExtra(c)
+	if err != nil {
+		return err
+	}
+	cv.Extra = extra
 	sv.M.After = checkBody(cv)
+	return nil
 }
 
 // load reads draft id's record in a read transaction.

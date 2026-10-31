@@ -145,7 +145,7 @@ func reasonBanners(rv reasonView) templ.Component {
 }
 
 // reasonBody is the summary line, then the reason form or the delete
-// question.
+// question; the module's note sits above the field.
 func reasonBody(rv reasonView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -233,7 +233,7 @@ func reasonBody(rv reasonView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if rv.Field.Name != "" {
-				templ_7745c5c3_Err = components.Textarea(rv.Field, rv.MaxLen).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = reasonField(rv).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

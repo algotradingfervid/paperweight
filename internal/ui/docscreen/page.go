@@ -41,6 +41,7 @@ type pageView struct {
 	Success string // an htmx action's banner, or the flash's beside "Next request" (a 303 uses the flash)
 	Next    string // "Next request" link after an approve
 	Attach  *attachView
+	Extra   PageExtra // the module's additions (hooks spec §4.4)
 }
 
 // actionForm is the hidden form a bar button posts through.
@@ -106,8 +107,8 @@ func takeSuccess(ctx context.Context) string {
 
 // pageViewOf is document v's page: its Details and display values without
 // the fields the module hides, Header and HeaderNames kept parallel, and the
-// module's line summaries (CD-256 (1)). It returns an error for the module
-// hooks to come (hooks spec §4.4); none fails yet.
+// module's line summaries (CD-256 (1)), and the module's Page additions,
+// whose error it returns (hooks spec §4.4).
 func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType, v DocView) (pageView, error) {
 	rights := Rights(r.Context(), d.Auth, p, dt.Name, &v.Record)
 	c := d.ctxOf(r, dt, &v)
@@ -126,7 +127,12 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 		}
 	}
 	applyLineCards(c, &shown)
-	pv := pageView{DT: dt, V: shown, Attach: attachOf(dt, v, rights)}
+	extra, err := pageExtra(c)
+	if err != nil {
+		return pageView{}, err
+	}
+	noteLines(shown.Lines, extra.LineNotes)
+	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights)}
 	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
 	if pv.Bar.Note == "" {
 		for _, b := range buttons(v, dt.Printable, rights) {
@@ -168,6 +174,10 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 	}
 	dt, id, ok := target(w, r)
 	if !ok {
+		return
+	}
+	if _, closable := closeRight(dt.Name); confirm && rp.action == doctype.ActionClose && !closable {
+		problem(w, r, doctype.ErrNotFound) // CloseNone: no close page to post to (CD-277)
 		return
 	}
 	ctx := r.Context()

@@ -2,6 +2,7 @@ package docscreen
 
 import (
 	"context"
+	"slices"
 	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -36,10 +37,15 @@ const actionPrint doctype.Action = "print"
 // pageRights are the rights the document page asks about.
 var pageRights = []auth.Right{"write", "submit", "approve", "cancel", "amend", "delete", "print"}
 
-// Rights asks Can once per right the document page uses.
+// Rights asks Can once per right the document page uses, and for the
+// DocType's CloseRight when it isn't one of them, so Close never hides for
+// want of an answer (CD-255).
 func Rights(ctx context.Context, a auth.Service, p auth.Principal, name string, rec *auth.RecordRef) map[auth.Right]bool {
-	m := make(map[auth.Right]bool, len(pageRights))
+	m := make(map[auth.Right]bool, len(pageRights)+1)
 	for _, r := range pageRights {
+		m[r] = a.Can(ctx, p, name, r, rec) == nil
+	}
+	if r, ok := closeRight(name); ok && !slices.Contains(pageRights, r) {
 		m[r] = a.Can(ctx, p, name, r, rec) == nil
 	}
 	return m
@@ -134,7 +140,7 @@ func buttons(v DocView, printable bool, r map[auth.Right]bool) []ActionButton {
 			add(ActionButton{Action: doctype.ActionRevise, Label: "Revise", Place: BarPrimary})
 		}
 	case doctype.StateApproved:
-		if r["submit"] {
+		if right, ok := closeRight(v.Info.DocType); ok && r[right] {
 			add(ActionButton{Action: doctype.ActionClose, Label: "Close", Place: More, Confirm: true, Href: base + "/close"})
 		}
 		if r["cancel"] {

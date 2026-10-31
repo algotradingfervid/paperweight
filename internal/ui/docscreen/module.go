@@ -72,7 +72,9 @@ type CheckExtra struct {
 	Totals   []components.Pair // above the grand total
 }
 
-// PageExtra is what Module.Page adds to the document page.
+// PageExtra is what Module.Page adds to the document page. A LineNotes
+// entry replaces the Note a Module.LineCard put on the same line; other
+// lines keep theirs.
 type PageExtra struct {
 	Warnings  []string
 	LineNotes map[int]string    // line no → a note on that line
