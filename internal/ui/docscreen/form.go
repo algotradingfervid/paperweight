@@ -559,7 +559,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		case e.Field == "":
 			m.Errors[n].ID = "step-title"
 		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
-			m.Errors[n].ID = linesTarget(*v, true) // no module turns the desktop grid off yet
+			m.Errors[n].ID = linesTarget(*v, d.gridShown(dt))
 		}
 	}
 	if r.URL.Query().Get("return") == slugCheck || r.PostFormValue("return") == slugCheck {
