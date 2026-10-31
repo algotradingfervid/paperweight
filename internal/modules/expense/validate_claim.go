@@ -99,9 +99,18 @@ func validateClaim(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctype.
 		return nil, err
 	}
 	errs = append(errs, fe...)
+	// Over the maximum the totals are cleared, never stored (CD-308, CD-302).
+	// With 0 <= less (less_advance is NonNegative) and less <= MaxMoney (a
+	// money field), -MaxMoney <= net_payable <= total <= MaxMoney. A step save
+	// can store the engine-refused negative less, so net_payable is then
+	// cleared too.
+	ok := types.Money(total) <= types.MaxMoney
+	if !ok {
+		errs = append(errs, doctype.FieldError{Field: "lines", Message: msgClaimTotalTooLarge})
+	}
 	if err := q.E2SetClaimTotals(ctx, dbq.E2SetClaimTotalsParams{
-		Total:      sql.NullInt64{Int64: total, Valid: true},
-		NetPayable: sql.NullInt64{Int64: total - int64(less), Valid: true},
+		Total:      sql.NullInt64{Int64: total, Valid: ok},
+		NetPayable: sql.NullInt64{Int64: total - int64(less), Valid: ok && less >= 0},
 		PeriodFrom: from, PeriodTo: to, ID: id,
 	}); err != nil {
 		return nil, err

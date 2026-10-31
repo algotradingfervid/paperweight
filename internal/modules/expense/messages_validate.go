@@ -15,6 +15,9 @@ const (
 	msgInvoiceRequired   = "Line %d: Invoice no. is required for a bill in the company GSTIN."
 	msgBilledToRequired  = "Line %d: Billed to is required for a bill in the company GSTIN."
 	msgBranchNoGSTIN     = "Line %d: Choose a branch with a GSTIN."
+	// CD-308: a header total over types.MaxMoney, on the lines as a whole.
+	msgClaimTotalTooLarge   = "The total is too large. The most an expense claim can be is ₹10,00,00,00,000.00. Split it into more than one expense claim."
+	msgAdvanceTotalTooLarge = "The total is too large. The most an employee advance can be is ₹10,00,00,00,000.00. Split it into more than one employee advance."
 	// msgLinePrefix goes before gstin.ValidateGSTIN's MST-031 text (CD-38).
 	msgLinePrefix = "Line %d: "
 )
