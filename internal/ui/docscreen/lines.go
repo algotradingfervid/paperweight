@@ -45,10 +45,11 @@ type itemsView struct {
 
 // itemsBody is the line editor (design-system §8.2): the first 20 cards
 // (?all=1 for all, ?find= to filter by item name or code), the desktop grid
-// with every line (CD-139), and the computed totals. The module's CardsOnly,
-// Line and NoLinePages leave the grid out (CD-256 (6)), as does a row of
-// other than 3 or 5 cells (CD-315); NoLinePages also leaves out every link
-// to a line page (CD-256 (7)).
+// with every line (CD-139) or the module's display grid (CD-313), and the
+// computed totals. The module's CardsOnly, Line and NoLinePages leave the
+// editable grid out (CD-256 (6)), as does a row of other than 3 or 5 cells
+// (CD-315); NoLinePages also leaves out every link to a line page
+// (CD-256 (7)).
 func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 	dt := c.DT
 	m := d.modOf(dt)
@@ -72,18 +73,25 @@ func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 		AddAgain: m.AddTop && !m.NoLinePages && len(v.Lines) >= addAgainFrom,
 	}
 	needle := strings.ToLower(find)
+	var all []components.LineCard // every line's card, for the display grid
 	for _, lv := range v.Lines {
 		if grid {
 			iv.List.Grid = append(iv.List.Grid, d.gridRowOf(c.Req, dt, v, lv, version, lv.Inputs, nil))
 		}
 		card := lv.Card
+		if iv.List.Editable {
+			base := lineURL(dt.Name, v.Info.ID, lv.No)
+			card.ChangeURL, card.RemoveURL, card.Version = base, base+"/remove", version
+			card.MoveUpURL, card.MoveDownURL = moveURLs(base, lv.No, len(v.Lines))
+		}
+		all = append(all, card)
 		if needle != "" && !strings.Contains(strings.ToLower(card.Item), needle) && !strings.Contains(strings.ToLower(card.Code), needle) {
 			continue
 		}
-		base := lineURL(dt.Name, v.Info.ID, lv.No)
-		card.ChangeURL, card.RemoveURL, card.Version = base, base+"/remove", version
-		card.MoveUpURL, card.MoveDownURL = moveURLs(base, lv.No, len(v.Lines))
 		iv.List.Cards = append(iv.List.Cards, card)
+	}
+	if m.LineGrid != nil {
+		iv.List.Grid, iv.List.Display = d.displayRows(c.Req, dt, v, all), true
 	}
 	if q.Get("all") != "1" && len(iv.List.Cards) > phoneCards {
 		iv.List.Cards = iv.List.Cards[:phoneCards]

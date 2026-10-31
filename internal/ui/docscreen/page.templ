@@ -77,7 +77,7 @@ templ docBody(pv pageView) {
 			}
 			if len(pv.V.Lines) > 0 {
 				@components.Card("Lines", nil) {
-					@components.LineList(components.LineListProps{Cards: lineCards(pv.V.Lines), Total: len(pv.V.Lines)})
+					@components.LineList(*pv.Lines)
 				}
 			}
 			for _, c := range pv.Extra.Cards {
