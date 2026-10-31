@@ -62,20 +62,23 @@ func logoSrc(l LetterheadInfo) string {
 	return brand.DocumentLogoURL
 }
 
-// PartyBlock is the vendor, customer or employee block saved on the document.
+// PartyBlock is the vendor, customer or employee block saved on the document,
+// left out when the party has no Name (CD-316).
 templ PartyBlock(p Party) {
-	<section class="party">
-		<h3>{ p.Label }</h3>
-		<p class="party-name">{ p.Name }</p>
-		for _, line := range p.Address {
-			<p class="address">{ line }</p>
-		}
-		if p.GSTIN != "" {
-			<p class="gstin">{ "GSTIN: " + p.GSTIN }</p>
-		} else {
-			<p class="gstin">GSTIN: Unregistered</p>
-		}
-	</section>
+	if p.Name != "" {
+		<section class="party">
+			<h3>{ p.Label }</h3>
+			<p class="party-name">{ p.Name }</p>
+			for _, line := range p.Address {
+				<p class="address">{ line }</p>
+			}
+			if p.GSTIN != "" {
+				<p class="gstin">{ "GSTIN: " + p.GSTIN }</p>
+			} else {
+				<p class="gstin">GSTIN: Unregistered</p>
+			}
+		</section>
+	}
 }
 
 // Refs are the label and value facts under the date, left out when there are
