@@ -112,6 +112,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Before dispatching a task, run `make briefcds BASE=<lane base> FILES="<task files>"`; it reads main's CD log, not the lane's.
 - Split a task estimated over ~90 worker-minutes (P2 took 299, E1 232): review rounds on a big diff cost more than two small reviews.
 - Two lanes that are each green can fail together: a new DocType (fixture.Quote, not submittable) met the tooling sweeps, which probed submit on every DocType, and main went red (31 Oct). A sweep or gate derives what it probes from the DocType's own declarations, never assumes a right.
+- A sweep or gate that needs a module's flags (NoLinePages, CardsOnly, Hide) reads them from the app's real Deps (`App.DocDeps()`), never from a test-local Modules map: a hand-written copy is a lenient double (M0-55, REPEAT).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
