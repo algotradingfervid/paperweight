@@ -1,0 +1,18 @@
+package grnweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// billCard is the Bill details card's answer to a post (UX §5.7): the
+// save's warnings, or the refusal's field errors or message, inside the
+// element with id "bill". S3's panel draws the full card.
+templ billCard(warnings []string, errs []components.FieldErr, msg string) {
+	<div id="bill">
+		@components.Card(billTitle, nil) {
+			@components.Warnings(warnings)
+			@components.ErrorSummary(errs)
+			if msg != "" {
+				@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg})
+			}
+		}
+	</div>
+}
