@@ -14,6 +14,8 @@ sql:
       # Project and site codes for the pending report (P9).
       - ../../../migrations/01400_project.sql
       - ../../../migrations/01450_site.sql
+      # The print reads the approver from approval_history (P8).
+      - ../../../migrations/00402_approval_history.sql
     queries: queries/
     gen:
       go:
