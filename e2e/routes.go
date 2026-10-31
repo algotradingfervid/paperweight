@@ -63,6 +63,7 @@ type sweepState struct {
 	purchase int64                          // a purchase.Order draft of Priya's (P15e)
 	exp      map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
 	grn      docscreen.SampleIDs            // goodsreceipt.Receipt (CD-298)
+	po       purchaseSamples                // purchase.Order and purchase.Request (P16)
 }
 
 // prepareSweep seeds sweepState. The stand-in masters' rows the reference order
@@ -129,6 +130,7 @@ func (h *Harness) prepareSweep() sweepState {
 	s.purchase = h.purchaseDraft()
 	s.exp = h.expenseSamples(s.long)
 	s.grn = h.grnSamples()
+	s.po = h.purchaseSamples(s.long)
 	return s
 }
 
@@ -348,17 +350,17 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 	}, submit)...)
 	out = append(out, expenseReportScreens()...)
 	out = append(out, purchasePageScreens(s.purchase)...)
+	out = append(out, h.purchaseScreens(s.po, s.pr)...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
 }
 
-// purchasePageScreens are MOD-PO P15e's module pages as Priya: the home, a
-// queue, the pending report and its filter page, and the hand-over, Send and
+// purchasePageScreens are MOD-PO P15e's module pages as Priya: the home, the
+// pending report and its filter page, and the hand-over, Send and
 // Expected on pages of her draft po (the last two show their refusal).
 func purchasePageScreens(po int64) []screens.Screen {
 	order := "/modules/purchase/orders/" + strconv.FormatInt(po, 10)
 	return []screens.Screen{
 		{Name: "purchase home", Route: "/modules/purchase", URL: "/modules/purchase", As: priya},
-		{Name: "purchase queue", Route: "/modules/purchase/q/{queue}", URL: "/modules/purchase/q/drafts", As: priya},
 		{Name: "purchase hand over", Route: "/modules/purchase/orders/{id}/handover", URL: order + "/handover", As: priya},
 		{Name: "purchase send", Route: "/modules/purchase/orders/{id}/send", URL: order + "/send", As: priya},
 		{Name: "purchase expected on", Route: "/modules/purchase/orders/{id}/expected", URL: order + "/expected", As: priya},
@@ -628,11 +630,6 @@ var expenseStubs = []string{
 	"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid",
 }
 
-// purchaseStubs are MOD-PO's GET routes that still answer P1's 501 stub,
-// whatever the id, each with the task that builds it (AD-13). P15d and P15e
-// gave their pages screens; P16 checks the list is empty.
-var purchaseStubs = []struct{ route, owner string }{}
-
 // grnStubs are MOD-GRN's GET routes that still answer G1's 501 stub, each
 // with the task that builds it (AD-12). S4 gives the report pages screens
 // and removes its routes here.
@@ -646,9 +643,6 @@ var notPageStatus = func() map[string]int {
 	m := map[string]int{"/files/*": http.StatusNotFound}
 	for _, r := range expenseStubs {
 		m[r] = http.StatusNotImplemented
-	}
-	for _, p := range purchaseStubs {
-		m[p.route] = http.StatusNotImplemented
 	}
 	for _, g := range grnStubs {
 		m[g.route] = http.StatusNotImplemented
@@ -677,10 +671,6 @@ func notPages(s sweepState) []notPage {
 	}
 	for _, r := range expenseStubs {
 		out = append(out, notPage{r, strings.Replace(r, "{id}", "1", 1), "a MOD-EXP stub until its task builds it"})
-	}
-	for _, p := range purchaseStubs {
-		url := strings.NewReplacer("{id}", "1", "{queue}", "open").Replace(p.route)
-		out = append(out, notPage{p.route, url, "a MOD-PO stub until " + p.owner + " builds it"})
 	}
 	for _, g := range grnStubs {
 		out = append(out, notPage{g.route, g.route, "a MOD-GRN stub until " + g.owner + " builds it"})
