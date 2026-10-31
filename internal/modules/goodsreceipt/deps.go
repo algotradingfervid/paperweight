@@ -32,7 +32,7 @@ func Wire(d *db.DB, v Deps) { wiring.Wire(d, v) }
 // Service is what acts for a principal outside the document engine (the PO
 // picker, bill details, reports). Each task adds its methods in its own file.
 type Service struct {
-	d Deps //nolint:unused // read by the methods G6, G7 and G9 build
+	d Deps
 }
 
 // New returns the Service over v.

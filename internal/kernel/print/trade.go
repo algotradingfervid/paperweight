@@ -100,8 +100,11 @@ type GRNDoc struct {
 	// ChallanLabel is "Delivery challan no." or "Tax invoice no." from
 	// challan_kind; blank prints "Challan or invoice no." (CD-272 Gap 5). A
 	// blank ChallanNo prints a dash and a zero ChallanDate omits its line.
+	// ChallanDateLabel is "Challan date" or "Invoice date" from the same
+	// kind; blank prints "Challan Date" (CD-285).
 	// The fields below are each left out when empty (GRN spec §7, §9).
 	ChallanLabel      string
+	ChallanDateLabel  string
 	VehicleNo         string
 	Transporter       string
 	EWayBillNo        string

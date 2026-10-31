@@ -64,7 +64,9 @@ func TestValues_Display(t *testing.T) {
 		{doctype.Field{Name: "amount", Type: doctype.Money}, "", ""},
 		{doctype.Field{Name: "remarks", Type: doctype.Text}, "<b>as typed</b>", "<b>as typed</b>"},
 		{doctype.Field{Name: "item_id", Type: doctype.Link, Link: docscreentest.Item}, "7", "CEMENT-OPC OPC Cement 53 Grade"},
-		{doctype.Field{Name: "source_id", Type: doctype.Link, Link: docscreentest.Sample}, "42", "Draft 42"},
+		// No DocLinkRead here, so a document link is blank (CD-321, fail
+		// closed); TestDocLink_ReadCheck shows a readable one.
+		{doctype.Field{Name: "source_id", Type: doctype.Link, Link: docscreentest.Sample}, "42", ""},
 	} {
 		got, err := docscreen.Display(context.Background(), nil, eng, c.f, c.plain)
 		if err != nil {

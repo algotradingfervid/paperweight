@@ -29,6 +29,7 @@ import (
 	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
 	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	"github.com/vardhan/internaltools/internal/modules/expense"
 	expenseweb "github.com/vardhan/internaltools/internal/modules/expense/web"
 	grnweb "github.com/vardhan/internaltools/internal/modules/goodsreceipt/web"
 	modkitweb "github.com/vardhan/internaltools/internal/modules/modkit/web"
@@ -106,6 +107,8 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 			CSRF: func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
 		}
 		a.docModules = purchaseweb.Modules(pw)
+		a.docModules[expense.ClaimDocType] = expenseweb.ClaimModule(a.expenseWeb())
+		a.docModules[expense.AdvanceDocType] = expenseweb.AdvanceModule(a.expenseWeb())
 		docs := chi.NewRouter()
 		docscreen.Routes(a.docDeps())(docs)
 		mount(r, docs, func(route string, h http.Handler) http.Handler {
@@ -139,7 +142,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 			return a.srv.Right(dt, right, h)
 		})
 		exp := chi.NewRouter()
-		expenseweb.Routes(expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files})(exp)
+		expenseweb.Routes(a.expenseWeb())(exp)
 		mount(r, exp, func(route string, h http.Handler) http.Handler {
 			dt, right, ok := expenseweb.Guard(route)
 			if !ok {
@@ -238,8 +241,15 @@ func (a *App) docDeps() docscreen.Deps {
 		Parse:     parsers(),
 		// A posted link shows its target's label only to a reader (CD-233).
 		LinkRead: mstkit.Env{Auth: a.auth}.CanLinkTargetTx,
-		Modules:  a.docModules,
+		// A document link shows its number only to a reader (CD-321).
+		DocLinkRead: a.auth.CheckLinkTx,
+		Modules:     a.docModules,
 	}
+}
+
+// expenseWeb is what the Expense screens and module routes need.
+func (a *App) expenseWeb() expenseweb.Deps {
+	return expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files}
 }
 
 // pickerURL is a master's picker search (CD-194, CD-195).

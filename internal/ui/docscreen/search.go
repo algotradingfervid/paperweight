@@ -95,7 +95,7 @@ func (d Deps) searchGroups(ctx context.Context, p auth.Principal, q string) ([]s
 			continue
 		}
 		cols := ListColumns(dt)
-		rows, err := d.listRows(ctx, dt, cols, res.Rows[:min(searchShown, len(res.Rows))], d.recordURL)
+		rows, err := d.listRows(auth.WithPrincipal(ctx, p), dt, cols, res.Rows[:min(searchShown, len(res.Rows))], d.recordURL)
 		if err != nil {
 			return nil, err
 		}

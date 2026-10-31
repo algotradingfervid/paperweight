@@ -94,9 +94,9 @@ func GRNDocument(d GRNDoc) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs("Challan Date: " + types.FormatDate(d.ChallanDate))
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(challanDateLabel(d.ChallanDateLabel) + ": " + types.FormatDate(d.ChallanDate))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/print/grn.templ`, Line: 18, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/print/grn.templ`, Line: 18, Col: 100}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -370,6 +370,14 @@ func GRNDocument(d GRNDoc) templ.Component {
 func challanLabel(l string) string {
 	if l == "" {
 		return "Challan or invoice no."
+	}
+	return l
+}
+
+// challanDateLabel is the caller's date label, or "Challan Date" when blank.
+func challanDateLabel(l string) string {
+	if l == "" {
+		return "Challan Date"
 	}
 	return l
 }

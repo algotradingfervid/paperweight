@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -16,8 +17,8 @@ import (
 )
 
 // FormatCell is the export text of v, a list.Row value of field f. A Link
-// value is the target's code, or a document's label (Export resolves it);
-// nil is "".
+// value is the target's code, a document's label, or a codeless master's
+// name or id (Export resolves it); nil is "".
 func FormatCell(f doctype.Field, v any) string {
 	if v == nil {
 		return ""
@@ -93,7 +94,7 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 		if total > MaxExportRows {
 			return &list.QueryError{Msg: "Too many rows to export (" + types.FormatCount(total) + "). Narrow the filters to 50,000 rows or fewer."}
 		}
-		codes, docs, err := linkCodes(ctx, tx, fields)
+		codes, docs, plain, err := linkCodes(ctx, tx, fields)
 		if err != nil {
 			return err
 		}
@@ -107,6 +108,7 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 		}
 		cw := csv.NewWriter(w)
 		cw.UseCRLF = true
+		texts := map[linkKey]string{} // masterText per target row, for this export only
 		rec := make([]string, len(fields))
 		for i, f := range fields {
 			rec[i] = f.Label
@@ -125,6 +127,17 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 					// A missing link target exports an empty cell on purpose:
 					// the map lookup gives "".
 					v = codes[f.Name][id]
+					if target := plain[f.Name]; target != nil {
+						k := linkKey{target.Name, id}
+						text, seen := texts[k]
+						if !seen {
+							if text, err = ex.masterText(ctx, tx, p, target, id); err != nil {
+								return err
+							}
+							texts[k] = text
+						}
+						v = text
+					}
 					if target := docs[f.Name]; target != "" {
 						// CD-297, CD-233: CheckLinkTx is CanTx(read) on the target's
 						// full RecordRef, in this read tx. A Forbidden or NotFound
@@ -158,18 +171,47 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 	return n, nil
 }
 
+// masterText is the export text of row id of target, a master without a
+// code (CD-318): its display name, or the id when the name is blank. A row
+// the link check refuses (hidden, no read right or gone) is "" (CD-233).
+func (ex *Exporter) masterText(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) (string, error) {
+	if linkCheck != nil {
+		err := linkCheck(ctx, tx, ex.auth, p, target, id)
+		switch {
+		case errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrNotFound):
+			return "", nil
+		case err != nil:
+			return "", err
+		}
+	}
+	mi, found, err := target.Master.Lookup(ctx, tx, id)
+	if err != nil || !found {
+		return "", err
+	}
+	if mi.Name == "" {
+		return strconv.FormatInt(id, 10), nil
+	}
+	return mi.Name, nil
+}
+
 // linkCodes maps each Link field's name to its target's id → code. A target
 // that isn't a master gives naming.Label(number, id) instead, and docs maps
-// the field's name to that target's DocType name (CD-297).
-func linkCodes(ctx context.Context, tx *db.Tx, fields []doctype.Field) (codes map[string]map[int64]string, docs map[string]string, err error) {
-	codes, docs = map[string]map[int64]string{}, map[string]string{}
+// the field's name to that target's DocType name (CD-297). A master without
+// a code field is left to masterText: plain maps the field's name to it
+// (CD-318).
+func linkCodes(ctx context.Context, tx *db.Tx, fields []doctype.Field) (codes map[string]map[int64]string, docs map[string]string, plain map[string]*doctype.DocType, err error) {
+	codes, docs, plain = map[string]map[int64]string{}, map[string]string{}, map[string]*doctype.DocType{}
 	for _, f := range fields {
 		if f.Type != doctype.Link {
 			continue
 		}
 		target, ok := doctype.Lookup(f.Link)
 		if !ok {
-			return nil, nil, fmt.Errorf("csvio: field %s links to unknown DocType %q", f.Name, f.Link)
+			return nil, nil, nil, fmt.Errorf("csvio: field %s links to unknown DocType %q", f.Name, f.Link)
+		}
+		if _, hasCode := target.Field("code"); target.IsMaster() && !hasCode {
+			plain[f.Name] = target
+			continue
 		}
 		col := target.Table + ".code"
 		if !target.IsMaster() {
@@ -177,7 +219,7 @@ func linkCodes(ctx context.Context, tx *db.Tx, fields []doctype.Field) (codes ma
 		}
 		m, err := tableCodes(ctx, tx, target.Table, col)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if !target.IsMaster() {
 			for id, number := range m {
@@ -187,7 +229,7 @@ func linkCodes(ctx context.Context, tx *db.Tx, fields []doctype.Field) (codes ma
 		}
 		codes[f.Name] = m
 	}
-	return codes, docs, nil
+	return codes, docs, plain, nil
 }
 
 func tableCodes(ctx context.Context, tx *db.Tx, table, col string) (map[int64]string, error) {

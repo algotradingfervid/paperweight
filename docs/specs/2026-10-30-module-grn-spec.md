@@ -36,7 +36,7 @@ Suresh stands at the gate with a phone, in gloves, with a truck waiting. He pick
 
 `internal/modules/goodsreceipt`: `Name: "goodsreceipt.Receipt"`, `Label: "Goods Receipt"`, `PluralLabel: "Goods Receipts"`, tables `goods_receipt` and `goods_receipt_line` (AUTOINCREMENT, CD-156; `parent_id`, `line_no`, CD-161), `Series: "GR/{FY}/{#####}"` (CD-113), `Submittable`, `Approvable`, `Printable`, `OwnerField: "created_by"`, `ProjectFields: ["project_id"]`, `SiteFields: ["site_id"]`.
 
-No approval rule is seeded, so submit goes straight to approved (`00-fixtures.md`). `Approvable` stays true so an owner can add a rule later without code.
+No approval rule is seeded, so submit goes straight to approved (`00-fixtures.md`). `Approvable` stays true so an owner can add a rule later without code. Only roles holding approve on GRNs can approve: Administrator by default (§10). A rule naming another role needs that role granted approve on Goods Receipt first, or it finds no approver (CD-320).
 
 ```go
 Links:   []doctype.LinkSpec{{Field: "po_line_id", Target: purchase.DocType, OnLine: true}}
@@ -44,7 +44,7 @@ RollUps: []doctype.RollUp{{TargetDocType: purchase.DocType, TargetField: "receiv
                            SourceField: "accepted_qty", JoinField: "po_line_id"}}
 ```
 
-The line link gives DOC-017's closed-source refusal, DOC-038's cancelled-source refusal and DOC-052's cancel block on the PO. `purchase_order_id` on the header gets its own `LinkSpec` too, so CD-70 runs `CheckLink` (AUTH-101).
+The header link gives DOC-017's closed-source refusal, DOC-038's cancelled-source refusal and the not-approved and pending refusals, once, on `purchase_order_id` (step 1, no line number; CD-320). The line link gives DOC-052's cancel block on the PO and CD-314's missing-line refusal. `purchase_order_id` on the header gets its own `LinkSpec` too, so CD-70 runs `CheckLink` (AUTH-101).
 
 ### 3.1 Header
 

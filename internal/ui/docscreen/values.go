@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -13,9 +14,15 @@ import (
 )
 
 // Display turns DOC's plain value of f into display text (CD-33, CD-43):
-// NUM's formatters for numbers and dates, "{Code} {Name}" for a master link
-// (CD-68) and Info.Display for a document link.
+// NUM's formatters for numbers and dates and "{Code} {Name}" for a master link
+// (CD-68). It has no DocLinkRead, so a document link is blank (CD-321).
 func Display(ctx context.Context, tx *db.Tx, eng doc.Engine, f doctype.Field, plain string) (string, error) {
+	return Deps{Engine: eng}.display(ctx, tx, f, plain)
+}
+
+// display is Display with d's DocLinkRead: a document link is the target's
+// Info.Display when the context's principal may read it, else blank.
+func (d Deps) display(ctx context.Context, tx *db.Tx, f doctype.Field, plain string) (string, error) {
 	if plain == "" {
 		return "", nil
 	}
@@ -47,12 +54,12 @@ func Display(ctx context.Context, tx *db.Tx, eng doc.Engine, f doctype.Field, pl
 		}
 		return "No", nil
 	case doctype.Link:
-		return linkDisplay(ctx, tx, eng, f.Link, plain)
+		return d.linkDisplay(ctx, tx, f.Link, plain)
 	}
 	return plain, nil
 }
 
-func linkDisplay(ctx context.Context, tx *db.Tx, eng doc.Engine, target, plain string) (string, error) {
+func (d Deps) linkDisplay(ctx context.Context, tx *db.Tx, target, plain string) (string, error) {
 	id, err := strconv.ParseInt(plain, 10, 64)
 	if err != nil {
 		return "", err
@@ -67,7 +74,19 @@ func linkDisplay(ctx context.Context, tx *db.Tx, eng doc.Engine, target, plain s
 		}
 		return mi.Code + " " + mi.Name, nil
 	}
-	info, err := eng.Info(ctx, tx, target, id)
+	if d.DocLinkRead == nil {
+		return "", nil
+	}
+	user, _ := auth.PrincipalFrom(ctx)
+	err = d.DocLinkRead(ctx, tx, user, target, id)
+	// A *auth.LinkError is auth.ErrForbidden too.
+	if errors.Is(err, doctype.ErrNotFound) || errors.Is(err, auth.ErrForbidden) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	info, err := d.Engine.Info(ctx, tx, target, id)
 	return info.Display, err
 }
 

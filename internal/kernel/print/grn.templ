@@ -15,7 +15,7 @@ templ GRNDocument(d GRNDoc) {
 	<p class="po-ref">{ "Against PO: " + d.PONumber + " dated " + types.FormatDate(d.PODate) }</p>
 	<p class="challan">{ challanLabel(d.ChallanLabel) + ": " + dashIfBlank(d.ChallanNo) }</p>
 	if d.ChallanDate != (types.Date{}) {
-		<p class="challan">{ "Challan Date: " + types.FormatDate(d.ChallanDate) }</p>
+		<p class="challan">{ challanDateLabel(d.ChallanDateLabel) + ": " + types.FormatDate(d.ChallanDate) }</p>
 	}
 	if d.VehicleNo != "" {
 		<p class="vehicle">{ "Vehicle no.: " + d.VehicleNo }</p>
@@ -65,6 +65,14 @@ templ GRNDocument(d GRNDoc) {
 func challanLabel(l string) string {
 	if l == "" {
 		return "Challan or invoice no."
+	}
+	return l
+}
+
+// challanDateLabel is the caller's date label, or "Challan Date" when blank.
+func challanDateLabel(l string) string {
+	if l == "" {
+		return "Challan Date"
 	}
 	return l
 }

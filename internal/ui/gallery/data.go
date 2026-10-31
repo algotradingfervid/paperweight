@@ -133,6 +133,10 @@ func docDeps() docscreen.Deps {
 		InboxURL:  "/approvals",
 		PrintURL:  func(name string, id int64) string { return "/print/" + name + "/" + strconv.FormatInt(id, 10) },
 		Modules:   map[string]docscreen.Module{docscreentest.Hooked: hookedModule()},
+		// The gallery viewer may read every seeded record. Hooked's fixture
+		// Link targets aren't registered here, so docscreen shows them as
+		// documents, which need this check to show at all (CD-321).
+		DocLinkRead: func(context.Context, *db.Tx, auth.Principal, string, int64) error { return nil },
 	}
 }
 
@@ -267,10 +271,12 @@ func gridRows(n int) []components.LineGridRow {
 // largestRate is types.MaxRate as typed, with all four decimals.
 const largestRate = "10,00,00,000.0000"
 
-// largestGridRow is row r with the largest rate and line amount.
+// largestGridRow is row r with the largest rate and line amount, and its
+// quantity, 1,00,000, with a unit suffix (M0-40).
 func largestGridRow(r components.LineGridRow) components.LineGridRow {
 	id := "grid-" + strconv.Itoa(r.No)
 	cells := slices.Clone(r.Cells)
+	cells[1].Input = components.QtyInput(components.FieldProps{ID: id + "-qty", Name: "qty", Label: "Quantity", Value: "1,00,000"}, false, "kg")
 	cells[3].Input = components.RateInput(components.FieldProps{ID: id + "-rate", Name: "rate", Label: "Rate", Value: largestRate})
 	r.Cells, r.Amount = cells, types.FormatINR(types.MaxMoney)
 	return r
