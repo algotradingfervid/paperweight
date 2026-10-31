@@ -278,7 +278,7 @@ func TestSettings_ParallelSavesOneWins(t *testing.T) {
 	if winner < 0 {
 		t.Fatalf("no save succeeded: %v", errs)
 	}
-	want := modkit.Settings{LockedUpTo: inputs[winner].LockedUpTo, DefaultPOTerms: inputs[winner].DefaultPOTerms, Version: 2}
+	want := modkit.Settings{LockedUpTo: inputs[winner].LockedUpTo, DefaultPOTerms: inputs[winner].DefaultPOTerms, Version: 2} //nolint:gosec // G602: winner is 0 or 1, checked above
 	wantSettings(t, "settings after the race", e.get(t), want)
 	if n := len(e.rec.Entries()); n != 1 {
 		t.Errorf("%d audit entries after the race, want 1", n)
