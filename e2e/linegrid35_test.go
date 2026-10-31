@@ -11,7 +11,6 @@ import (
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
-	"github.com/vardhan/internaltools/internal/modules/expense"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/ui/screens"
 	"github.com/vardhan/internaltools/internal/ui/uitest"
@@ -23,10 +22,6 @@ const (
 	largestLine  = "10000000000.00"
 	largestShown = "₹10,00,00,00,000.00"
 	largestRate  = "100000000.0000"
-	// thirdLine is the largest of three equal lines whose total is allowed:
-	// its wide amount squeezes the actions of a row with Move up and down.
-	thirdLine  = "3333333333.33"
-	thirdShown = "₹3,33,33,33,333.33"
 
 	// gridFrom is the line editor's width from which the grid shows (64rem).
 	gridFrom = 1024
@@ -135,10 +130,11 @@ type fitCase struct {
 // money inputs show ₹10,00,00,00,000.00 whole on one line at desktop widths
 // with the grid, from the 64rem breakpoint up, and its actions keep their
 // labels on one line; no page with such a line scrolls sideways at any sweep
-// width. fixture.Claim has the three-cell layout; expense.Advance the
-// five-cell one, with its amount input in the fourth column (Type, Note,
-// Amount, Project, Site), and a three-line draft of wide amounts for Move up
-// and Move down. fixture.Order is the five-cell layout of a purchase line
+// width. fixture.Claim has the three-cell layout. The five-cell money cases
+// (one line at the largest amount, and three lines of the largest third for
+// Move up and Move down) used expense.Advance until it showed cards (CD-315,
+// MOD-EXP S0); M0-40 restores them on a TestOnly five-cell money fixture.
+// fixture.Order is the five-cell layout of a purchase line
 // (Item, Quantity, Rate, Unit, Description; no amount), with the largest
 // rate, ₹10,00,00,000.0000, whose number cells and actions must fit at
 // 64rem too.
@@ -162,28 +158,12 @@ func TestE2E_LineGridFitsLargestAmount(t *testing.T) {
 		Lines: []map[string]string{orderLine, orderLine, orderLine},
 	})
 	emp := strconv.FormatInt(h.employee(deepak), 10)
-	travel := strconv.FormatInt(h.Fx.ExpenseTypeIDs["TRAVEL"], 10)
 	claim := h.Do(deepak, fixture.Claim, 0, doctype.ActionSave, doc.ActionInput{
 		Values: map[string]string{"employee_id": emp, "claim_date": plainDate},
 		Lines:  []map[string]string{{"expense_type": uitest.LongName100, "description": uitest.LongName100, "amount": largestLine}},
 	})
-	advance := func(lines ...map[string]string) int64 {
-		r := h.Do(deepak, expense.AdvanceDocType, 0, doctype.ActionSave, doc.ActionInput{
-			Values: map[string]string{"employee_id": emp, "advance_date": plainDate, "purpose": uitest.LongName100},
-			Lines:  lines,
-		})
-		if r.ID == 0 || len(r.Problems) != 0 {
-			t.Fatalf("advance draft: %+v", r)
-		}
-		return r.ID
-	}
-	line := func(amount string) map[string]string {
-		return map[string]string{"expense_type_id": travel, "description": uitest.LongName100, "line_amount": amount}
-	}
 	cases := []fitCase{
 		{"claim", fixture.Claim, deepak, largestShown, claim.ID, 1, true},
-		{"advance", expense.AdvanceDocType, deepak, largestShown, advance(line(largestLine)), 1, true},
-		{"advance, three lines", expense.AdvanceDocType, deepak, thirdShown, advance(line(thirdLine), line(thirdLine), line(thirdLine)), 7, true},
 		{"order", fixture.Order, priya, uitest.LongName100, order.ID, 7, false},
 	}
 	for _, c := range cases {

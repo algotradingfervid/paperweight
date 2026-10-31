@@ -73,7 +73,7 @@ var (
 		{Key: "employee", Label: "Employee", Priority: components.PMeta},
 		{Key: "receipt", Label: "Receipt", Priority: components.PMeta},
 		{Key: "place", Label: "Project and site", Priority: components.PLow, Code: true, NoWrap: true},
-		{Key: "gst", Label: "GST details", Priority: components.PLow, NoWrap: true},
+		{Key: "gst", Label: "GST details", Priority: components.PLow}, // holds the invoice no.: free text
 		{Key: "state", Label: "State", Priority: components.PState},
 	}
 	advancesColumns = []components.Column{
