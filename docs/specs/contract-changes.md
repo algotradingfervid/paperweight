@@ -384,3 +384,29 @@ Request IDs: AUTH `C1–C14` (wp1-auth), NAM `C1–C9` (wp1-naming), DOC (wp1-do
 *Cross-module e2e:* flows X1 to X7 from the report's §4 are added: X1 and X2 go to MOD-GRN's e2e, X3, X4, X6 and X7 to MOD-EXP's, and X5 to whichever of MOD-EXP and MOD-GRN finishes last.
 
 *Testing patterns from report §2:* business-step builders that can stop at draft, an assertion on the linked document after each step including cancel, refusal helpers that also assert nothing was written, and a stored-state check after each browser flow. Each module's test helpers adopt them. AD-11 amends the expense spec, exp.md, the plan and the UX doc to match. | Head ruling under CD-268. |
+| CD-272 | **Procure-to-pay research rulings (CD-267, CD-268; docs/research/2026-10-31-procure-to-pay-erp-practice.md, from ERPNext, Odoo purchase/purchase_stock, Tryton, Oracle docs and the CGST Rules).**
+
+*Gaps 1 to 15:*
+- **Gap 1 (returns):** no return document in v1. The cancel + amend path is tested and documented, including bill details moving to the amended GRN and the lock refusal. A "Return to vendor" GRN is the first follow-up after v1.
+- **Gap 2:** amending a cancelled GRN is allowed against a closed PO when it replaces a GRN of that PO (ERPNext can re-open, EN-PO:1327). The GRN cancel page warns when the PO is closed, and new case S60 covers it.
+- **Gap 3:** over-receipt stays a warning (CD-234), with one hard stop against typing mistakes. Accepting more than twice the line's ordered quantity is refused with `Line {n}: Accepted {x} is more than twice the {y} ordered. Check the quantity.`
+- **Gap 4:** the prefill stays. When every line's accepted quantity equals its pending, the check page says `All lines received as ordered.`
+- **Gap 5:** the label `Challan or invoice no.` with a required choice of Delivery challan or Tax invoice (CGST Rules 55, 55A, 138A). Choosing Tax invoice offers to copy the number into Bill details.
+- **Gap 6:** line-level short close is deferred to v2.
+- **Gap 7:** an `Expected on` record outside the PO, like the Sent record (§23, outside R7). The owner, a Purchase User or a Purchase Manager sets it on an approved PO, and the pending report and the Overdue queue use it ahead of `required_by`. Quantity and rate stay under R7.
+- **Gap 8:** a GRN tick, `Vendor says the rest won't come`, posts a comment on the PO and puts the PO in a new Purchase home queue, `To close`. It doesn't change the PO's state.
+- **Gaps 9 to 12:** ours kept (no hold, rejected stays pending, PO cancel blocked by receipts, no self-approval).
+- **Gap 13:** information-only hints. On an unregistered vendor's GRN accepting more than ₹50,000: `Unregistered vendor: the e-way bill may be ours to generate. Check with your CA.` On a fully rejected GRN that has an e-way bill no.: `Reject the e-way bill on the portal within 72 hours if the goods went back.`
+- **Gap 14:** the PO check page warns when the site's state differs from its branch's: `Site {code} is in {state} but branch {code} is in {state}. Check the tax with your CA.` There is no master change.
+- **Gap 15:** the 9 missing PO cases and 6 missing GRN cases are added.
+
+*Test patterns (report §2), adopted by every module:*
+- do and undo in one test;
+- one builder per DocType through the real Engine path, with stop-at flags;
+- exact message assertions;
+- quantity walk tables;
+- rollback checked by row counts;
+- a frozen clock for date rules;
+- a comment citing the CD a test guards.
+
+*Ownership:* scenario cases cite their source. AD-13 (purchase) amends the PO spec, po.md, the MOD-PO plan and the purchase UX for Gaps 7, 8 (the queue), 14 and the PO cases. AD-12 amends the GRN spec, grn.md, its plan and its UX for Gaps 1 to 5, 8 (the tick), 13 and the GRN cases. | Head ruling under CD-268. |
