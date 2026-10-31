@@ -149,7 +149,7 @@ type Deps struct {
 	PrintURL  func(doctype string, id int64) string
 	RecordURL func(doctype string, id int64) string // nil → the /doc/ path; WP3 wires masters to /m/
 	ListURL   func(doctype string) string           // nil → the /doc/ path; WP3 wires masters to /m/
-	Parse     map[string]components.ParseFunc // nil → components.NUMParsers(); WP3 adds the code kinds
+	Parse     map[string]components.ParseFunc       // nil → components.NUMParsers(); WP3 adds the code kinds
 	// LinkRead reports whether p may read a posted link's target, inside tx;
 	// doctype.ErrNotFound or auth.ErrForbidden means not. nil reads nothing, so
 	// a posted link shows its raw id (CD-233).

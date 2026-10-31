@@ -38,9 +38,12 @@ type itemsView struct {
 
 // itemsBody is the line editor (design-system §8.2): the first 20 cards
 // (?all=1 for all, ?find= to filter by item name or code), the desktop grid
-// with every line (CD-139), and the computed totals.
+// with every line (CD-139), and the computed totals. The module's CardsOnly,
+// Line and NoLinePages leave the grid out (CD-256 (6)); NoLinePages also
+// leaves out every link to a line page (CD-256 (7)).
 func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 	dt := c.DT
+	grid := d.gridShown(dt)
 	q := c.Req.URL.Query()
 	find := strings.TrimSpace(q.Get("find"))
 	version := strconv.Itoa(v.Version)
@@ -51,13 +54,15 @@ func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 			FindURL:    itemsURL(dt.Name, v.Info.ID),
 			Find:       find,
 			Total:      len(v.Lines),
-			Editable:   true,
+			Editable:   !d.modOf(dt).NoLinePages,
 		},
 		Totals: totalsOf(c, v),
 	}
 	needle := strings.ToLower(find)
 	for _, lv := range v.Lines {
-		iv.List.Grid = append(iv.List.Grid, d.gridRowOf(c.Req, dt, v, lv, version, lv.Inputs, nil))
+		if grid {
+			iv.List.Grid = append(iv.List.Grid, d.gridRowOf(c.Req, dt, v, lv, version, lv.Inputs, nil))
+		}
 		card := lv.Card
 		if needle != "" && !strings.Contains(strings.ToLower(card.Item), needle) && !strings.Contains(strings.ToLower(card.Code), needle) {
 			continue
@@ -184,11 +189,11 @@ func (d Deps) draftView(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	return v, true
 }
 
-// linePage builds the line form for line no (0 = a new line) from values
-// in input form, without the fields the module hides.
-func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, version int, values map[string]string, errs []doctype.FieldError, danger string) linePageView {
+// lineShell is line no's page (0 = a new line) without its inputs: title,
+// action, version, Back, button and the refusal.
+func (d Deps) lineShell(dt *doctype.DocType, v DocView, no, version int, errs []doctype.FieldError, danger string) linePageView {
 	lv := linePageView{
-		Opts:    layout.PageOpts{Title: "Add an item", Width: layout.Form, Back: &components.Link{Label: "Items", Href: itemsURL(dt.Name, v.Info.ID)}},
+		Opts:    layout.PageOpts{Title: "Add an item", Width: layout.Form, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:  docURL(dt.Name, v.Info.ID) + "/lines/new",
 		Version: version,
 		Button:  components.ButtonProps{Label: "Save line", Variant: components.Primary},
@@ -199,12 +204,6 @@ func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, vers
 		lv.Opts.Title = "Line " + strconv.Itoa(no)
 		lv.Action = lineURL(dt.Name, v.Info.ID, no)
 	}
-	c := d.lineCtx(r, dt, &v, no)
-	for _, f := range dt.Fields {
-		if f.OnLine && editable(f) && !hidden(c, f) {
-			lv.Inputs = append(lv.Inputs, FieldInput(f, components.FieldID(f.Name), values[f.Name], lineError(errs, f.Name), c.Deps))
-		}
-	}
 	for n, e := range errs {
 		if e.Field == "" || e.Field == "lines" {
 			lv.Errors[n].ID = "main" // no input to link to
@@ -214,9 +213,23 @@ func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, vers
 	return lv
 }
 
-// lineGet serves GET …/lines/new and …/lines/{no}.
+// linePage builds the line form for line no (0 = a new line) from values
+// in input form, without the fields the module hides.
+func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, version int, values map[string]string, errs []doctype.FieldError, danger string) linePageView {
+	lv := d.lineShell(dt, v, no, version, errs, danger)
+	c := d.lineCtx(r, dt, &v, no)
+	for _, f := range dt.Fields {
+		if f.OnLine && editable(f) && !hidden(c, f) {
+			lv.Inputs = append(lv.Inputs, FieldInput(f, components.FieldID(f.Name), values[f.Name], lineError(errs, f.Name), c.Deps))
+		}
+	}
+	return lv
+}
+
+// lineGet serves GET …/lines/new and …/lines/{no}: the module's Line.Body
+// when it has one.
 func (d Deps) lineGet(w http.ResponseWriter, r *http.Request) {
-	dt, id, ok := target(w, r)
+	dt, id, ok := d.lineTarget(w, r)
 	if !ok {
 		return
 	}
@@ -224,12 +237,24 @@ func (d Deps) lineGet(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	no, values := 0, map[string]string{}
+	no := 0
 	if chi.URLParam(r, "no") != "" {
 		if no, ok = lineNo(r, len(v.Lines)); !ok {
 			problem(w, r, doctype.ErrNotFound)
 			return
 		}
+	}
+	if d.modOf(dt).Line != nil {
+		lp, err := d.lineBody(r, dt, v, no, v.Version, StepState{}, "")
+		if err != nil {
+			web.ErrorFrom(w, r, err)
+			return
+		}
+		ui.Render(w, r, http.StatusOK, linePageFull(lp), linePageMain(lp))
+		return
+	}
+	values := map[string]string{}
+	if no > 0 {
 		values = v.Lines[no-1].Inputs
 	}
 	lp := d.linePage(r, dt, v, no, v.Version, values, nil, "")
@@ -240,9 +265,11 @@ func (d Deps) lineGet(w http.ResponseWriter, r *http.Request) {
 // plain and with their ids, with this one replaced or added, saved with
 // the posted version (CD-94) and scoped to the lines, so only a changed
 // line's error refuses (CD-207). An htmx post comes from the desktop grid and
-// gets its row back (CD-95).
+// gets its row back (CD-95). With the module's Line, Line.Save gives the
+// values and parse errors in place of the posted fields, and a refusal
+// redraws Line.Body with Posted set (hooks spec §4.2, CD-256 (5)).
 func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
-	dt, id, ok := target(w, r)
+	dt, id, ok := d.lineTarget(w, r)
 	if !ok {
 		return
 	}
@@ -270,8 +297,18 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	grid := ui.IsHTMX(r) && no > 0
-	typed, plain, errs := postedLine(d.lineCtx(r, dt, &loaded, no))
+	line := d.modOf(dt).Line
+	grid := ui.IsHTMX(r) && no > 0 && d.gridShown(dt)
+	var typed, plain map[string]string
+	var errs []doctype.FieldError
+	if line != nil {
+		if plain, errs, err = d.lineSaved(d.lineCtx(r, dt, &loaded, no), no); err != nil {
+			problem(w, r, err)
+			return
+		}
+	} else {
+		typed, plain, errs = postedLine(d.lineCtx(r, dt, &loaded, no))
+	}
 	refused := func(pr Problem) {
 		if grid {
 			d.gridRefused(w, r, dt, id, no, version, typed, pr)
@@ -281,9 +318,22 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
+		if no > len(v.Lines) { // removed since the save was read
+			problem(w, r, doctype.ErrNotFound)
+			return
+		}
 		danger := ""
 		if len(pr.Fields) == 0 {
 			danger = pr.Message
+		}
+		if line != nil {
+			lp, err := d.lineBody(r, dt, v, no, version, StepState{Posted: true, Errors: pr.Fields}, danger)
+			if err != nil {
+				web.ErrorFrom(w, r, err)
+				return
+			}
+			ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
+			return
 		}
 		lp := d.linePage(r, dt, v, no, version, typed, pr.Fields, danger)
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
@@ -418,7 +468,7 @@ type gridView struct {
 
 // removeGet serves GET …/lines/{no}/remove: "Remove line {no} ({item})?".
 func (d Deps) removeGet(w http.ResponseWriter, r *http.Request) {
-	dt, id, ok := target(w, r)
+	dt, id, ok := d.lineTarget(w, r)
 	if !ok {
 		return
 	}
@@ -431,18 +481,20 @@ func (d Deps) removeGet(w http.ResponseWriter, r *http.Request) {
 		problem(w, r, doctype.ErrNotFound)
 		return
 	}
-	lp := removePage(dt, v, no, v.Version, "")
+	lp := d.removePage(r, dt, v, no, v.Version, "")
 	ui.Render(w, r, http.StatusOK, linePageFull(lp), linePageMain(lp))
 }
 
-func removePage(dt *doctype.DocType, v DocView, no, version int, danger string) linePageView {
+// removePage names line no by its card as the module shows it (LineCard).
+func (d Deps) removePage(r *http.Request, dt *doctype.DocType, v DocView, no, version int, danger string) linePageView {
+	applyLineCards(d.ctxOf(r, dt, &v), &v)
 	n := strconv.Itoa(no)
 	q := "Remove line " + n + "?"
 	if item := v.Lines[no-1].Card.Item; item != "" {
 		q = "Remove line " + n + " (" + item + ")?"
 	}
 	return linePageView{
-		Opts:     layout.PageOpts{Title: "Remove line " + n, Width: layout.Form, Error: danger != "", Back: &components.Link{Label: "Items", Href: itemsURL(dt.Name, v.Info.ID)}},
+		Opts:     layout.PageOpts{Title: "Remove line " + n, Width: layout.Form, Error: danger != "", Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:   lineURL(dt.Name, v.Info.ID, no) + "/remove",
 		Version:  version,
 		Question: q,
@@ -481,7 +533,7 @@ func (d Deps) movePost(w http.ResponseWriter, r *http.Request) {
 // step. A refusal shows the items step (or the remove page) with the kernel's
 // message and status.
 func (d Deps) reorder(w http.ResponseWriter, r *http.Request, change func(lines []map[string]string, no int) ([]map[string]string, bool)) {
-	dt, id, ok := target(w, r)
+	dt, id, ok := d.lineTarget(w, r)
 	if !ok {
 		return
 	}
@@ -532,7 +584,7 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 			pr.Fields = messagesOnly(pr.Fields)
 			danger = formText(pr)
 		}
-		lp := removePage(dt, v, no, version, danger)
+		lp := d.removePage(r, dt, v, no, version, danger)
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 		return
 	}
