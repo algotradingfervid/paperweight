@@ -84,7 +84,11 @@ func (h *handlers) reportRecords(ctx context.Context, p auth.Principal, report s
 	var recs [][]string
 	switch report {
 	case "open":
-		rows, err := h.d.Service.OpenClaimsReport(ctx, p)
+		of := expense.OpenClaimsFilter{EmployeeID: f.id("employee", "Employee")}
+		if f.err != nil {
+			return nil, nil, f.err
+		}
+		rows, err := h.d.Service.OpenClaimsReport(ctx, p, of)
 		for _, r := range rows {
 			var on any // nil: blank with no approval history
 			if r.ApprovedOn != (types.Date{}) {
