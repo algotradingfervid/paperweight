@@ -180,6 +180,7 @@ A test-only `docscreentest.Hooked` DocType exercises every hook, on the real eng
 1. **Builder.** A fresh AD builds MOD-0 after WP3 Task 5 and the owner's review, with a plan check against `main` first (CD-237).
 2. **Import guard.** Accepted (CD-237). `importRule` refuses non-kernel packages, and nothing guards `internal/modules`, so spec §4.2 rule 5 gains `modules/*/web`, and MOD-0 adds a contract test: service packages import no `internal/ui`, `web` packages may, and a module imports only earlier modules.
 3. **Route prefix.** `/modules/<module>/…`, accepted (CD-237).
+4. **Plan-check rulings for M0-2/M0-3 (CD-256).** They are binding over §3 and §4 where the two differ. They add `StepState.Defaults`, a seam task M0-1b (Hide everywhere a field renders or posts), the merge rules for `Save.Lines`, a nil `Save.Lines` on a Line save, and how `Module.Line` turns the grid off. They also settle `NoLinePages` 404s, the `Steps` keys and `Ctx.Deps = d.WithStored(...)`. Read CD-256 in `contract-changes.md`.
 
 ## 8. Work outline (MOD-0)
 
