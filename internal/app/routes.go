@@ -375,13 +375,17 @@ func (a *App) exportCSV(w http.ResponseWriter, r *http.Request) {
 		a.srv.WriteError(w, r, err)
 		return
 	}
-	q, err := listQuery(dt, docscreen.ParseListQuery(r.URL.Query()))
+	// The list's Hide answer leaves the hidden fields' columns, filters and
+	// sort out of the export too (CD-334 (3), (4)).
+	hidden := a.docDeps().ListHidden(r, dt)
+	q, err := listQuery(dt, docscreen.ListedQuery(dt, docscreen.ParseListQuery(r.URL.Query()), hidden))
 	if err != nil {
 		a.srv.WriteError(w, r, err)
 		return
 	}
+	ex := csvio.NewExporter(a.db, a.auth).Without(func(f doctype.Field) bool { return hidden(f.Name) })
 	var buf bytes.Buffer
-	if _, err := csvio.NewExporter(a.db, a.auth).Export(ctx, &buf, p, dt, q); err != nil {
+	if _, err := ex.Export(ctx, &buf, p, dt, q); err != nil {
 		a.srv.WriteError(w, r, err)
 		return
 	}
