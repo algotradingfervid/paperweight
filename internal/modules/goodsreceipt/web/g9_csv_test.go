@@ -217,6 +217,8 @@ func TestGRNWeb_BillsCSV(t *testing.T) {
 		{"?vendor=" + g9wID(w.Bharat), g9wSorted(w.G2.Number)},
 		{"?month=2026-11", g9wSorted(w.G3.Number)},
 		{"?month=2026-10", g9wSorted(w.G1.Number, w.G2.Number, w.GC.Number)},
+		{"?vendor=%20" + g9wID(w.Bharat) + "%20", g9wSorted(w.G2.Number)}, // padded values are trimmed, as in expense
+		{"?month=%202026-11%20", g9wSorted(w.G3.Number)},
 		{"?nobill=1&vendor=" + g9wID(w.Shree) + "&month=2026-10", g9wSorted(w.GC.Number)},
 	} {
 		rows := g9wRecords(t, "bills CSV"+tc.query, g9wGet(t, env, env.Priya, g9wBillsPath+tc.query), g9wBillsHeader)
