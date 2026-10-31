@@ -115,10 +115,7 @@ func stepErrors(c Ctx, steps []FormStep, i int, errs []doctype.FieldError) []doc
 	var out []doctype.FieldError
 	for _, e := range errs {
 		if e.Field == "" || steps[i].owns(e) || !slices.ContainsFunc(steps, func(s FormStep) bool { return s.owns(e) }) {
-			if f, ok := c.DT.Field(e.Field); ok && hidden(c, f) {
-				e = doctype.FieldError{Message: e.Message}
-			}
-			out = append(out, e)
+			out = append(out, unhidden(c, e))
 		}
 	}
 	return out

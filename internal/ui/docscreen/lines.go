@@ -206,7 +206,9 @@ func (d Deps) draftView(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 
 // lineShell is line no's page (0 = a new line) without its inputs: title
 // (in the module's LineNoun), action, version, Back, button and the refusal.
-func (d Deps) lineShell(dt *doctype.DocType, v DocView, no, version int, errs []doctype.FieldError, danger string) linePageView {
+// An error on a field the module hides is a plain message (CD-319).
+func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, version int, errs []doctype.FieldError, danger string) linePageView {
+	errs = unhiddenAll(d.lineCtx(r, dt, &v, no), errs)
 	noun := d.modOf(dt).LineNoun
 	lv := linePageView{
 		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
@@ -232,7 +234,7 @@ func (d Deps) lineShell(dt *doctype.DocType, v DocView, no, version int, errs []
 // linePage builds the line form for line no (0 = a new line) from values
 // in input form, without the fields the module hides.
 func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, version int, values map[string]string, errs []doctype.FieldError, danger string) linePageView {
-	lv := d.lineShell(dt, v, no, version, errs, danger)
+	lv := d.lineShell(r, dt, v, no, version, errs, danger)
 	c := d.lineCtx(r, dt, &v, no)
 	for _, f := range dt.Fields {
 		if f.OnLine && editable(f) && !hidden(c, f) {
@@ -457,6 +459,7 @@ func (d Deps) gridRefused(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 		return
 	}
 	applyLineCards(d.ctxOf(r, dt, &v), &v)
+	pr.Fields = unhiddenAll(d.lineCtx(r, dt, &v, no), pr.Fields) // a hidden field has no cell: its error goes in the alert (CD-319)
 	g := gridView{Row: d.gridRowOf(r, dt, v, v.Lines[no-1], strconv.Itoa(version), typed, pr.Fields)}
 	g.Alert, g.ReloadURL = formText(pr), itemsURL(dt.Name, id)
 	ui.Render(w, r, pr.Status, gridResponse(g), nil)

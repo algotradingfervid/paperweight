@@ -54,7 +54,7 @@ func (d Deps) itemsLabel(dt *doctype.DocType) string {
 // Line.Top too, which renders outside the form with the id line-form
 // (UX-E1, CD-275).
 func (d Deps) lineBody(r *http.Request, dt *doctype.DocType, v DocView, no, version int, s StepState, danger string) (linePageView, error) {
-	lp := d.lineShell(dt, v, no, version, s.Errors, danger)
+	lp := d.lineShell(r, dt, v, no, version, s.Errors, danger)
 	lp.FormID = "line-form"
 	line, c := d.modOf(dt).Line, d.lineCtx(r, dt, &v, no)
 	if line.Top != nil {

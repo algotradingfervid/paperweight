@@ -106,8 +106,8 @@ func takeSuccess(ctx context.Context) string {
 	return text
 }
 
-// pageViewOf is document v's page: its Details and display values without
-// the fields the module hides, Header and HeaderNames kept parallel, and the
+// pageViewOf is document v's page: its Details, display values and party
+// without the fields the module hides, Header and HeaderNames kept parallel, and the
 // module's line summaries (CD-256 (1)), and the module's Page additions,
 // whose error it returns (hooks spec §4.4).
 func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType, v DocView) (pageView, error) {
@@ -127,6 +127,7 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 			shown.Display[name] = s
 		}
 	}
+	shown.Info.Party = partyShown(c, v)
 	applyLineCards(c, &shown)
 	extra, err := pageExtra(c)
 	if err != nil {
@@ -236,7 +237,8 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 }
 
 // refused renders the document page with the kernel's message in a danger
-// banner and its status (409, 403, 422; CD-44).
+// banner and its status (409, 403, 422; CD-44). An error on a field the
+// module hides is a plain message, linked to #main (CD-319).
 func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, pr Problem) {
 	p := d.principal(r)
 	v, err := d.View(r.Context(), p, dt.Name, id)
@@ -250,7 +252,7 @@ func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 		return
 	}
 	pv.Danger = pr.Message
-	pv.Errors = fieldErrs(pr.Fields)
+	pv.Errors = pageErrs(unhiddenAll(d.ctxOf(r, dt, &v), pr.Fields))
 	ui.Render(w, r, pr.Status, docPage(pv), docMain(pv))
 }
 
@@ -357,6 +359,18 @@ func fieldErrs(fs []doctype.FieldError) []components.FieldErr {
 			id = LineFieldID(f.Line, f.Field)
 		}
 		out[i] = components.FieldErr{ID: id, Message: f.Message}
+	}
+	return out
+}
+
+// pageErrs is fieldErrs for a page with no inputs to link to by field: an
+// error with no field links to #main.
+func pageErrs(fs []doctype.FieldError) []components.FieldErr {
+	out := fieldErrs(fs)
+	for i, f := range fs {
+		if f.Field == "" {
+			out[i].ID = "main" // no field to link to
+		}
 	}
 	return out
 }

@@ -45,6 +45,7 @@ type LineView struct {
 	ID              string // the stored line's id
 	Inputs, Display map[string]string
 	Card            components.LineCard
+	uom             string // the stored line's uom, for the default card
 }
 
 // View reads document id: the record in one read transaction, then, once p
@@ -165,12 +166,10 @@ func recordRef(i doctype.Info) auth.RecordRef {
 }
 
 // lineView is line no: every line field in input and display form, and the
-// card "{qty} {uom} × {rate}" (CD-61) with the item's master name and code,
-// and, for a quantity roll-up, "Received {n} of {qty} {uom}" (DOC-092).
+// default card (defaultCard) with the item's master name and code.
 func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no int, line map[string]string) (LineView, []doctype.FieldError, error) {
-	lv := LineView{No: no, ID: line["id"], Inputs: map[string]string{}, Display: map[string]string{}, Card: components.LineCard{No: no}}
+	lv := LineView{No: no, ID: line["id"], Inputs: map[string]string{}, Display: map[string]string{}, Card: components.LineCard{No: no}, uom: line["uom"]}
 	var problems []doctype.FieldError
-	var qty, rate, received string
 	for _, f := range dt.Fields {
 		if !f.OnLine {
 			continue
@@ -190,34 +189,63 @@ func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no i
 		if lv.Inputs[f.Name], err = inputValue(f, plain); err != nil {
 			return LineView{}, nil, err
 		}
-		switch {
-		case f.RollUp && f.Type == doctype.Qty:
-			received = lv.Inputs[f.Name]
-		case f.Type == doctype.Link && lv.Card.Item == "":
+		if f.Type == doctype.Link && lv.Card.Item == "" {
 			lv.Card.Item, lv.Card.Code, err = itemOf(ctx, tx, f, plain, shown)
 			if err != nil {
 				return LineView{}, nil, err
 			}
+		}
+	}
+	lv.Card = defaultCard(dt, lv, func(doctype.Field) bool { return true })
+	return lv, problems, nil
+}
+
+// defaultCard is lv.Card with the card "{qty} {uom} × {rate}" (CD-61), the
+// amount and, for a quantity roll-up, "Received {n} of {qty} {uom}"
+// (DOC-092), made only of the line fields shown keeps. The item and code
+// lineView found stay unless their Link is left out.
+func defaultCard(dt *doctype.DocType, lv LineView, shown func(doctype.Field) bool) components.LineCard {
+	card := lv.Card
+	var qty, rate, received, amount string
+	uom, item := lv.uom, false
+	for _, f := range dt.Fields {
+		if !f.OnLine || lv.Inputs[f.Name] == "" {
+			continue
+		}
+		if !shown(f) {
+			if f.Type == doctype.Link && !item {
+				card.Item, card.Code, item = "", "", true
+			}
+			if f.Name == "uom" {
+				uom = ""
+			}
+			continue
+		}
+		switch {
+		case f.RollUp && f.Type == doctype.Qty:
+			received = lv.Inputs[f.Name]
+		case f.Type == doctype.Link && !item:
+			item = true
 		case f.Type == doctype.Qty && qty == "":
 			qty = lv.Inputs[f.Name]
 		case f.Type == doctype.Rate && rate == "":
-			rate = shown
-		case f.Type == doctype.Money && lv.Card.Amount == "":
-			lv.Card.Amount = shown
+			rate = lv.Display[f.Name]
+		case f.Type == doctype.Money && amount == "":
+			amount = lv.Display[f.Name]
 		}
 	}
 	var parts []string
 	if qty != "" {
-		parts = append(parts, strings.TrimSpace(qty+" "+line["uom"]))
+		parts = append(parts, strings.TrimSpace(qty+" "+uom))
 	}
 	if rate != "" {
 		parts = append(parts, rate)
 	}
-	lv.Card.QtyRate = strings.Join(parts, " × ")
 	if received != "" {
-		lv.Card.Received = strings.TrimSpace("Received " + received + " of " + qty + " " + line["uom"])
+		received = strings.TrimSpace("Received " + received + " of " + qty + " " + uom)
 	}
-	return lv, problems, nil
+	card.QtyRate, card.Amount, card.Received = strings.Join(parts, " × "), amount, received
+	return card
 }
 
 // itemOf is a line link's name and code: the master's, else its display.
