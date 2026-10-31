@@ -116,3 +116,40 @@ func TestRegistry_RejectsColumnClashes(t *testing.T) {
 	dt.Fields = append(dt.Fields, Field{Name: "version", Label: "Version", Type: Int})
 	mustNotPanic(t, "header convention column", func() { newRegistry().Register(dt) })
 }
+
+// M0-45 (CD-317 amended): CheckRegistry refuses a SearchFields name that isn't
+// a declared non-line field, which list.searchCond would silently skip.
+func TestCheckRegistry_SearchFields(t *testing.T) {
+	cases := []struct {
+		name   string
+		search []string
+		want   string // "" = valid; otherwise the error must name it
+	}{
+		{"undeclared field", []string{"priority", "vendor_name"}, "vendor_name"},
+		{"OnLine field", []string{"qty"}, "qty"},
+		{"declared header fields", []string{"priority", "credit_days"}, ""},
+	}
+	for _, c := range cases {
+		r := newRegistry()
+		r.Register(testParty())
+		dt := testOrder()
+		dt.SearchFields = c.search
+		r.Register(dt)
+		err := r.Check()
+		if c.want == "" {
+			if err != nil {
+				t.Errorf("%s: Check() = %v, want nil", c.name, err)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("%s: Check() = nil, want an error", c.name)
+			continue
+		}
+		for _, w := range []string{"t.Order", c.want} {
+			if !strings.Contains(err.Error(), w) {
+				t.Errorf("%s: Check() = %q, want it to name %q", c.name, err, w)
+			}
+		}
+	}
+}
