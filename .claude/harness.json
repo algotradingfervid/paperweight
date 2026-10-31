@@ -35,6 +35,12 @@
         "mod0-hooks (M0-1..M0-5)"
       ],
       "workers": 5
+    },
+    "AD-11": {
+      "wps": [
+        "mod-exp (MOD-EXP plan, EXP test docs, UX, build)"
+      ],
+      "workers": 6
     }
   },
   "models": {
