@@ -324,6 +324,7 @@ func g2CheckDerived(t *testing.T, what string, env *grntest.Env, id int64) {
 		LEFT JOIN purchase_order_line pl ON pl.id = l.po_line_id
 		LEFT JOIN item i ON i.id = pl.item_id WHERE l.parent_id = ? ORDER BY l.line_no`
 	var sum int64
+	over := false
 	for _, l := range g2Query(t, env.DB, lq, id) {
 		for i, p := range g2LinePairs {
 			if got, want := l[4+2*i], l[5+2*i]; !g2Same(got, want) {
@@ -342,11 +343,11 @@ func g2CheckDerived(t *testing.T, what string, env *grntest.Env, id int64) {
 		rateCol := 4 + 2*slices.IndexFunc(g2LinePairs, func(p [2]string) bool { return p[0] == "l.snap_rate" })
 		amount, err := types.Qty(accepted).Times(types.Rate(g2Int(t, l[rateCol])))
 		if err != nil {
-			t.Fatalf("%s: line %s amount: %v", what, l[0], err)
+			over = true // a line amount past the maximum puts the total over it (CD-308)
 		}
 		sum += int64(amount)
 	}
-	if sum > int64(types.MaxMoney) {
+	if over || sum > int64(types.MaxMoney) {
 		if !g2Same(storedValue, "") {
 			t.Errorf("%s: accepted_value = %q, want cleared: the lines sum to %d paise, above the money maximum (CD-308)", what, storedValue, sum)
 		}
