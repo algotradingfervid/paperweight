@@ -217,8 +217,6 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			sc.As = meena // past 5 lakh the Director approves
 		case strings.HasSuffix(sc.Name, " cancel"):
 			sc.As = ravi // Purchase Manager holds cancel
-		case strings.HasSuffix(sc.Name, " list filtered"):
-			continue // fixture.Order declares no filterable field; the claim's list below has it
 		}
 		out = append(out, sc)
 	}

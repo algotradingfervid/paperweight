@@ -20,22 +20,7 @@ templ attachmentItems(items []Attachment, target string) {
 	<ul class="attachments">
 		for _, a := range items {
 			<li>
-				switch a.Kind {
-					case "image":
-						<a class="attachments__thumb" href={ templ.URL(a.URL) }>
-							<img loading="lazy" alt={ a.Name } src={ a.URL }/>
-						</a>
-					case "heic":
-						<a class="attachments__chip" href={ templ.URL(a.URL) } download>
-							@icons.Icon("file")
-							<span>HEIC image, opens as download</span>
-						</a>
-					default:
-						<a class="attachments__chip" href={ templ.URL(a.URL) }>
-							@icons.Icon("file-text")
-							<span>{ a.Name }</span>
-						</a>
-				}
+				@attachmentLink(a, a.Name)
 				if a.Kind == "image" || a.Kind == "heic" {
 					<p class="attachments__name">{ a.Name }</p>
 				}
@@ -51,6 +36,27 @@ templ attachmentItems(items []Attachment, target string) {
 			</li>
 		}
 	</ul>
+}
+
+// attachmentLink is file a's link: an image as a lazy thumbnail with alt,
+// HEIC as a download chip (browsers can't show it), others as a file chip.
+templ attachmentLink(a Attachment, alt string) {
+	switch a.Kind {
+		case "image":
+			<a class="attachments__thumb" href={ templ.URL(a.URL) }>
+				<img loading="lazy" alt={ alt } src={ a.URL }/>
+			</a>
+		case "heic":
+			<a class="attachments__chip" href={ templ.URL(a.URL) } download>
+				@icons.Icon("file")
+				<span>HEIC image, opens as download</span>
+			</a>
+		default:
+			<a class="attachments__chip" href={ templ.URL(a.URL) }>
+				@icons.Icon("file-text")
+				<span>{ a.Name }</span>
+			</a>
+	}
 }
 
 // removeDialogID is the id of file id's Remove confirm.

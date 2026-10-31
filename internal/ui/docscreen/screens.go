@@ -106,7 +106,7 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 		{Name: name + " list", Route: route, URL: base, As: sweepUser},
 		{Name: name + " list empty", Route: route, URL: base + "?q=no-such-thing-zz", As: sweepUser},
 		{Name: name + " list filtered", Route: route, URL: base + "?" + ListQuery{
-			Filters: []Filter{{Field: "state", Op: "=", Values: []string{string(doctype.StateApproved), string(doctype.StatePending)}}},
+			Filters: []Filter{{Field: "state", Op: "in", Values: []string{string(doctype.StateApproved), string(doctype.StatePending)}}},
 		}.Encode(), As: sweepUser},
 		{Name: name + " search", Route: "/search", URL: "/search", As: sweepUser},
 		{Name: name + " search results", Route: "/search", URL: "/search?q=Draft", As: sweepUser},
