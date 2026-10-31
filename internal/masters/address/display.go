@@ -80,7 +80,10 @@ func (s *Service) PartySnapshot(ctx context.Context, tx *db.Tx, partyID, address
 }
 
 // BranchAddressLines is the branch's primary billing address as letterhead
-// lines (company.Letterhead.AddressLines, CD-154); nil when it has none.
+// lines (company.Letterhead.AddressLines, CD-154); nil when it has none. It
+// stops at street and city: print.LetterheadBlock draws the state and GSTIN
+// itself, and a branch address is always in the branch's Indian state
+// (CD-309 (6)).
 func (s *Service) BranchAddressLines(ctx context.Context, tx *db.Tx, branchID int64) ([]string, error) {
 	r, err := dbq.New(tx.SQL()).PrimaryBillingOfBranch(ctx, nullID(branchID))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -89,5 +92,12 @@ func (s *Service) BranchAddressLines(ctx context.Context, tx *db.Tx, branchID in
 	if err != nil {
 		return nil, err
 	}
-	return lines(fromRow(r)), nil
+	a := fromRow(r)
+	var out []string
+	for _, l := range []string{a.Line1, a.Line2} {
+		if l != "" {
+			out = append(out, l)
+		}
+	}
+	return append(out, a.City+" - "+a.Pincode), nil
 }
