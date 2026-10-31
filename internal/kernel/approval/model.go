@@ -103,10 +103,19 @@ type RequestItem struct {
 	Outcome, DecidedByName, Reason string
 	DecidedAt                      time.Time
 	State                          string
+	WaitingDays                    int // days waited while pending, from OverdueAfterDays; else 0
 }
 
 // StuckItem is an open request no one can approve.
 type StuckItem struct {
 	InboxItem
 	Message string
+}
+
+// OverdueItem is an open request waiting OverdueAfterDays or more, with the
+// names of who can approve it now, sorted by name.
+type OverdueItem struct {
+	InboxItem
+	Days      int
+	Approvers []string
 }

@@ -148,6 +148,19 @@ func (h *handlers) stuck(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, http.StatusOK, "Stuck approvals", stuckPage(items, h.d.DocURL))
 }
 
+func (h *handlers) overdue(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.principal(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.d.Approvals.Overdue(r.Context(), p)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	h.render(w, r, http.StatusOK, "Overdue approvals", overduePage(items, h.d.DocURL))
+}
+
 func (h *handlers) rules(w http.ResponseWriter, r *http.Request) {
 	p, ok := h.principal(w, r)
 	if !ok {

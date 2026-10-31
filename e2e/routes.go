@@ -180,6 +180,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		{Name: "inbox empty", Route: "/approvals", URL: "/approvals", As: deepak},
 		{Name: "my requests", Route: "/approvals/mine", URL: "/approvals/mine", As: priya},
 		{Name: "stuck approvals", Route: "/admin/approvals/stuck", URL: "/admin/approvals/stuck", As: admin},
+		{Name: "overdue approvals", Route: "/admin/approvals/overdue", URL: "/admin/approvals/overdue", As: admin},
 		{Name: "approval rules", Route: "/admin/approval-rules", URL: "/admin/approval-rules", As: admin},
 		{Name: "approval rule new", Route: "/admin/approval-rules/new", URL: "/admin/approval-rules/new", As: admin},
 		{Name: "approval rule", Route: "/admin/approval-rules/{id}", URL: "/admin/approval-rules/" + strconv.FormatInt(s.rule, 10), As: admin},

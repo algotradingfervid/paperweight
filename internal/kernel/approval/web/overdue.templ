@@ -1,0 +1,36 @@
+package web
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/vardhan/internaltools/internal/kernel/approval"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// waitingPair is "Waiting {n} days" as one value (spec §14.3).
+func waitingPair(days int) components.Pair {
+	return components.Pair{Label: "Overdue", Value: fmt.Sprintf("Waiting %d days", days)}
+}
+
+// overduePairs are an overdue card's facts: how long it has waited and who
+// can approve it, then the inbox facts.
+func overduePairs(it approval.OverdueItem) []components.Pair {
+	return append([]components.Pair{
+		waitingPair(it.Days),
+		{Label: "Approvers", Value: strings.Join(it.Approvers, ", ")},
+	}, inboxPairs(it.InboxItem)...)
+}
+
+// overduePage is "Overdue approvals": one card per open request waiting
+// approval.OverdueAfterDays or more, oldest first.
+templ overduePage(rows []approval.OverdueItem, docURL func(string, int64) string) {
+	if len(rows) == 0 {
+		@components.EmptyState("No approvals are overdue.", nil)
+	}
+	for _, it := range rows {
+		@components.Card(it.Title, &components.Link{Label: "Open", Href: docURL(it.DocType, it.DocID)}) {
+			@components.SummaryList(overduePairs(it))
+		}
+	}
+}
