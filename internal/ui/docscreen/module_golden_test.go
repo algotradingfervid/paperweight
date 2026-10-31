@@ -23,11 +23,14 @@ import (
 
 // HOOK-001's golden pages: every docscreen page of a DocType with no Module,
 // as base e55f56e rendered it (before MOD-0 Task 1). This file names no MOD-0
-// identifier, so it compiled and wrote testdata/module_none/ on the base:
+// identifier, so it compiles on the base. To add a page, capture it there,
+// in a scratch copy outside the worktree, and copy only the new files back:
 //
-//	go test ./internal/ui/docscreen/ -run 'TestModule_NoneGolden$' -update-module-golden
+//	git archive e55f56e | tar -x -C /tmp/<scratch>
+//	cp internal/ui/docscreen/module_golden_test.go /tmp/<scratch>/internal/ui/docscreen/
+//	(cd /tmp/<scratch> && go test ./internal/ui/docscreen/ -run 'TestModule_NoneGolden$' -update-module-golden)
 //
-// Never re-run it with the flag after Task 1: the files are "today".
+// Never run it with the flag on Task 1's code or later: the files are "today".
 
 var updateModuleGolden = flag.Bool("update-module-golden", false, "rewrite testdata/module_none/ from the current code")
 
@@ -63,7 +66,7 @@ func goldenPages() []goldenPage {
 	draft := seedState(doctype.StateDraft)
 	list := func(e *docEnv) { e.d.Lister.(*docscreentest.Lister).Set(docscreentest.Sample, twoRows(2)) }
 	hx := []string{"HX-Request", "true"}
-	return []goldenPage{
+	return append([]goldenPage{
 		{name: "list", setup: list, url: samplePath},
 		{name: "list-empty", url: samplePath + "?q=zz"},
 		{name: "new", url: samplePath + "/new"},
@@ -95,7 +98,80 @@ func goldenPages() []goldenPage {
 		{name: "reason-cancel", setup: seedState(doctype.StateApproved), url: doc42 + "/cancel"},
 		{name: "reason-close", setup: seedState(doctype.StateApproved), url: doc42 + "/close"},
 		{name: "reason-delete", setup: draft, url: doc42 + "/delete"},
+	}, postedPages()...)
+}
+
+const (
+	goldenConflict = "Someone else changed this document. Reload to see their changes."
+	goldenWarning  = "Rate is above the last price."
+)
+
+// goldenResult makes the fake answer action a on id with r and err.
+func goldenResult(id int64, a doctype.Action, r doc.Result, err error) func(e *docEnv) {
+	return func(e *docEnv) { e.docs.SetResult(docscreentest.Sample, id, a, r, err) }
+}
+
+// goldenSetup runs each setup in order.
+func goldenSetup(fs ...func(e *docEnv)) func(e *docEnv) {
+	return func(e *docEnv) {
+		for _, f := range fs {
+			f(e)
+		}
 	}
+}
+
+// moving applies a successful action's state to the fake (stateEngine), so
+// the page an action leads to sees it.
+func moving(e *docEnv) { e.d.Engine = stateEngine{e.docs} }
+
+// twoLines seeds draft 42 with a second line, so line 1 can move down.
+func twoLines(e *docEnv) {
+	rec := sampleRecord()
+	rec.Lines = append(rec.Lines, map[string]string{"id": "2", "item_id": "3", "qty": "5.000", "uom": "kg", "rate": "60.0000"})
+	docscreentest.Seed(e.docs, sampleInfo(42, doctype.StateDraft), rec)
+}
+
+// postedPages are the responses to POSTs that render a page: a step save that
+// moves on (advance), a step and a new page's 409, a submit's 422 on the
+// failing step (failingStep), the check page an htmx withdraw or revise leads
+// to (checkPage), a refused remove or move (itemsRefused), a refused action
+// on the document page (refused) and the document page an htmx submit or
+// approve leads to (succeeded). Each comes as a full page and as htmx.
+func postedPages() []goldenPage {
+	draft, pending := seedState(doctype.StateDraft), seedState(doctype.StatePending)
+	valid := url.Values{"supplier_id": {"7"}, "order_date": {"24-10-2026"}, "priority": {"Normal"}, "remarks": {"typed"}}
+	saved := doc.Result{ID: 42, State: doctype.StateDraft, Version: 4, Warnings: []string{goldenWarning}}
+	stale := statusErr{status: http.StatusConflict, msg: goldenConflict}
+	submit422 := statusErr{status: http.StatusUnprocessableEntity, msg: "Fix the highlighted fields and submit again.",
+		fields: []doctype.FieldError{{Field: "remarks", Message: "Remarks must say where to deliver."}}}
+	move422 := statusErr{status: http.StatusUnprocessableEntity, msg: "Check the lines.",
+		fields: []doctype.FieldError{{Field: "qty", Line: 2, Message: "Line 2: Quantity must be more than 0."}}}
+	approve403 := statusErr{status: http.StatusForbidden, msg: "You can't approve this document."}
+	approve422 := statusErr{status: http.StatusUnprocessableEntity, msg: "Check the document.",
+		fields: []doctype.FieldError{{Field: "amount", Message: "Amount must be more than 0."}}}
+	var out []goldenPage
+	both := func(name string, setup func(e *docEnv), u string, form url.Values) {
+		out = append(out,
+			goldenPage{name: name, setup: setup, method: http.MethodPost, url: u, form: form},
+			goldenPage{name: name + "-htmx", setup: setup, method: http.MethodPost, url: u, form: form, hdr: []string{"HX-Request", "true"}})
+	}
+	both("post-details-advance", goldenSetup(draft, goldenResult(42, doctype.ActionSave, saved, nil)), doc42+"/edit/details", valid)
+	both("post-details-409", goldenSetup(draft, goldenResult(42, doctype.ActionSave, doc.Result{}, stale)), doc42+"/edit/details", valid)
+	both("post-new-advance", goldenSetup(draft, goldenResult(0, doctype.ActionSave, saved, nil)), samplePath+"/new", valid)
+	both("post-new-409", goldenResult(0, doctype.ActionSave, doc.Result{}, stale), samplePath+"/new", valid)
+	both("post-submit-422", goldenSetup(draft, goldenResult(42, doctype.ActionSubmit, doc.Result{}, submit422)), doc42+"/submit", nil)
+	both("post-withdraw", goldenSetup(pending, moving, goldenResult(42, doctype.ActionWithdraw, saved, nil)), doc42+"/withdraw", nil)
+	both("post-revise", goldenSetup(seedState(doctype.StateRejected), moving, goldenResult(42, doctype.ActionRevise, saved, nil)), doc42+"/revise", nil)
+	both("post-remove-409", goldenSetup(draft, goldenResult(42, doctype.ActionSave, doc.Result{}, stale)), doc42+"/lines/1/remove", nil)
+	both("post-move-409", goldenSetup(twoLines, goldenResult(42, doctype.ActionSave, doc.Result{}, stale)), doc42+"/lines/1/move?dir=down", nil)
+	both("post-move-422", goldenSetup(twoLines, goldenResult(42, doctype.ActionSave, doc.Result{}, move422)), doc42+"/lines/1/move?dir=down", nil)
+	both("post-approve-403", goldenSetup(pending, goldenResult(42, doctype.ActionApprove, doc.Result{}, approve403)), doc42+"/approve", nil)
+	both("post-approve-422", goldenSetup(pending, goldenResult(42, doctype.ActionApprove, doc.Result{}, approve422)), doc42+"/approve", nil)
+	both("post-approve", goldenSetup(pending, moving, goldenResult(42, doctype.ActionApprove,
+		doc.Result{ID: 42, State: doctype.StateApproved, Number: "SO/26-27/00001", Version: 4, Warnings: []string{goldenWarning}}, nil)), doc42+"/approve", nil)
+	both("post-submit", goldenSetup(draft, moving, goldenResult(42, doctype.ActionSubmit,
+		doc.Result{ID: 42, State: doctype.StatePending, Version: 4}, nil)), doc42+"/submit", nil)
+	return out
 }
 
 // assetName matches a hashed static asset name (/static/ui/app.<hash>.css

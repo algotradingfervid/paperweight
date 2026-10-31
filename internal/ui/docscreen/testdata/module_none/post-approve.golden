@@ -1,0 +1,4 @@
+POST /doc/docscreentest.Sample/42/approve
+status: 303
+Location: /doc/docscreentest.Sample/42?next=1
+

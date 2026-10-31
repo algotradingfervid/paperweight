@@ -1,6 +1,7 @@
 package docscreen_test
 
 import (
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth/authtest"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	sitemaster "github.com/vardhan/internaltools/internal/masters/site"
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
@@ -102,8 +104,9 @@ func (e *hookedEnv) draft(t *testing.T, p auth.Principal, siteCode string) (doc.
 
 // M0-1: docscreentest.Hooked has the shape later tasks test on (the status
 // file of the M0-1 test-writer lists it): wizard steps details, terms, items,
-// check; site_id on details as its SiteFields; a line whose first Link is a
-// project, not the item.
+// check; site_id on details, a Link to the Site master (so its display value
+// differs from its raw id, hooks spec §4.3) and the SiteFields; a line whose
+// first Link is a project, not the item.
 func TestModule_HookedShape(t *testing.T) {
 	docscreentest.RegisterHooked()
 	docscreentest.RegisterHooked() // a second call is a no-op
@@ -136,6 +139,9 @@ func TestModule_HookedShape(t *testing.T) {
 	if want := []string{"supplier_id", "site_id"}; !slices.Equal(fields["details"], want) {
 		t.Errorf("details fields = %q, want %q", fields["details"], want)
 	}
+	if f, ok := dt.Field("site_id"); !ok || f.Type != doctype.Link || f.Link != sitemaster.DocType {
+		t.Errorf("site_id = %+v, want a Link to %q", f, sitemaster.DocType)
+	}
 	if want := []string{"ref", "remarks"}; !slices.Equal(fields["terms"], want) {
 		t.Errorf("terms fields = %q, want %q", fields["terms"], want)
 	}
@@ -156,9 +162,10 @@ func TestModule_HookedShape(t *testing.T) {
 
 // M0-1: Hooked runs on the real engine and real AUTH: a draft saved with its
 // lines in one call renders every wizard step, its line page and, once
-// submitted, its document page; a site-restricted user may create and open a
-// draft on their site, may not create one on another site, and can't open
-// the open user's draft on another site.
+// submitted, its document page; site_id shows the site's code, not its id; a
+// site-restricted user gets a 404 for the open user's draft on another site,
+// AUTH's ValueError (ErrForbidden) creating one there, and may create and
+// open a draft on their own site.
 func TestModule_HookedReal(t *testing.T) {
 	e := newHookedEnv(t)
 	res, err := e.draft(t, e.open, "METRO-SITE")
@@ -179,13 +186,24 @@ func TestModule_HookedReal(t *testing.T) {
 	if body := e.get(t, base+"/edit/terms").Body.String(); !strings.Contains(body, "HK-REF") {
 		t.Errorf("terms step does not show the stored ref HK-REF")
 	}
+	v, err := e.d.View(t.Context(), e.open, docscreentest.Hooked, res.ID)
+	if err != nil {
+		t.Fatalf("View: %v", err)
+	}
+	if got := v.Display["site_id"]; got == itoa(e.site["METRO-SITE"]) || !strings.Contains(got, "METRO-SITE") {
+		t.Errorf("site_id display = %q, want the site's code METRO-SITE, not its id %d", got, e.site["METRO-SITE"])
+	}
 
 	e.who = e.restricted
-	if r := e.get(t, base+"/edit/details"); r.Code == http.StatusOK || strings.Contains(r.Body.String(), "HK-REF") {
-		t.Errorf("restricted user opened a METRO-SITE draft: status %d", r.Code)
+	for _, path := range []string{"/edit/details", ""} {
+		if r := e.get(t, base+path); r.Code != http.StatusNotFound || strings.Contains(r.Body.String(), "HK-REF") {
+			t.Errorf("restricted user GET %q on a METRO-SITE draft = %d, want 404 without its values", base+path, r.Code)
+		}
 	}
-	if _, err := e.draft(t, e.restricted, "METRO-SITE"); err == nil {
-		t.Errorf("restricted user created a draft on METRO-SITE, want a refusal")
+	_, err = e.draft(t, e.restricted, "METRO-SITE")
+	var ve *auth.ValueError
+	if !errors.As(err, &ve) || !errors.Is(err, auth.ErrForbidden) {
+		t.Errorf("restricted user creating on METRO-SITE: err = %v (%T), want AUTH's *auth.ValueError, ErrForbidden", err, err)
 	}
 	own, err := e.draft(t, e.restricted, "TECH-SITE")
 	if err != nil {

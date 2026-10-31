@@ -70,8 +70,8 @@ func TestModule_NoneUnchanged(t *testing.T) {
 		}},
 	}
 	pages := goldenPages()
-	if len(pages) < 31 {
-		t.Fatalf("goldenPages lists %d pages, want the 31 captured", len(pages))
+	if len(pages) < 59 {
+		t.Fatalf("goldenPages lists %d pages, want the 59 captured", len(pages))
 	}
 	for _, v := range variants {
 		t.Run(v.name, func(t *testing.T) {
