@@ -858,7 +858,7 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 ### DOC-112 · Concurrent reassigns as non-admin users: exactly one wins
 - **Priority:** P1
 - **Level:** integration
-- **Given** a draft owned by `priya` at version 5, and two non-admin callers allowed to reassign it (the owner and `ravi`) **When** both reassign it concurrently from version 5, on two connections **Then** exactly one succeeds, the other gets DOC-069's message, `version = 6`, and exactly one reassign audit entry is written. The test runs as non-admin users because `Can` returns early for an Administrator (CD-213).
+- **Given** a draft owned by `priya` at version 5, and two non-admin users holding `approve` on it (e.g. `ravi` and `meena`) **When** both reassign it concurrently from version 5 to two different eligible users, on two connections **Then** exactly one succeeds, the other gets DOC-069's message, `version = 6`, and exactly one reassign audit entry is written. The test runs as non-admin users because `Can` returns early for an Administrator (CD-213). An owner who loses ownership to a concurrent reassign gets AUTH's 403 on a stale retry, because rights are checked before the version (CD-259); DOC-111 covers that.
 - **Go test:** `TestDoc_Reassign_Concurrent`
 - **Sources:** MOD-PO plan M0-13 (non-admin concurrency case, lessons §11); CD-94, CD-213
 
