@@ -530,7 +530,11 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 	}
 	i, _ := stepOf(steps, slugItems)
 	fields := refusalErrors(steps, i, pr.Fields)
-	sv := d.stepViewOf(r, dt, steps, i, &v, nil, fields)
+	sv, err := d.stepViewOf(r, dt, steps, i, &v, nil, fields)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	if len(fields) == 0 {
 		sv.M.Conflict, sv.M.ReloadURL = pr.Message, itemsURL(dt.Name, id)
 	}

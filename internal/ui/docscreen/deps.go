@@ -154,6 +154,10 @@ type Deps struct {
 	// doctype.ErrNotFound or auth.ErrForbidden means not. nil reads nothing, so
 	// a posted link shows its raw id (CD-233).
 	LinkRead func(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) error
+	// Modules holds each DocType's additions to these screens, by DocType
+	// name; internal/app fills it. A DocType with no entry keeps the generic
+	// screens (hooks spec §3).
+	Modules map[string]Module
 
 	stored map[string]string // the record's values, see WithStored
 }

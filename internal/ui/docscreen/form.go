@@ -203,7 +203,11 @@ func (d Deps) newGet(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	sv := d.stepViewOf(r, dt, steps, 0, nil, defaults, nil)
+	sv, err := d.stepViewOf(r, dt, steps, 0, nil, defaults, nil)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepFrame(sv))
 }
 
@@ -236,7 +240,11 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 	}
 	typed, plain, errs := postedStep(r, dt, steps[0])
 	invalid := func(status int, pr Problem) {
-		sv := d.stepViewOf(r, dt, steps, 0, nil, typed, pr.Fields)
+		sv, err := d.stepViewOf(r, dt, steps, 0, nil, typed, pr.Fields)
+		if err != nil {
+			web.ErrorFrom(w, r, err)
+			return
+		}
 		if status == http.StatusConflict {
 			sv.M.Conflict, sv.M.ReloadURL = pr.Message, "/doc/"+dt.Name+"/new"
 		}
@@ -317,7 +325,11 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, docURL(dt.Name, id), http.StatusSeeOther)
 		return
 	}
-	sv := d.arrival(r, dt, steps, i, &v)
+	sv, err := d.arrival(r, dt, steps, i, &v)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepFrame(sv))
 }
 
@@ -347,7 +359,11 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pr.Fields = refusalErrors(steps, i, pr.Fields)
-		sv := d.stepViewOf(r, dt, steps, i, &v, typed, pr.Fields)
+		sv, err := d.stepViewOf(r, dt, steps, i, &v, typed, pr.Fields)
+		if err != nil {
+			web.ErrorFrom(w, r, err)
+			return
+		}
 		o := wizard.Invalid
 		if pr.Status == http.StatusConflict {
 			o = wizard.Conflict
@@ -419,7 +435,11 @@ func (d Deps) advance(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 		problem(w, r, err)
 		return
 	}
-	sv := d.arrival(r, dt, steps, i, &v)
+	sv, err := d.arrival(r, dt, steps, i, &v)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	sv.M.Warnings = warnings
 	wizard.Respond(w, r, wizard.Advance, next, func(bool) templ.Component { return stepFrame(sv) })
 }
@@ -439,7 +459,11 @@ func (d Deps) failingStep(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 		return
 	}
 	i := firstFailingStep(steps, pr.Fields)
-	sv := d.stepViewOf(r, dt, steps, i, &v, nil, stepErrors(steps, i, pr.Fields))
+	sv, err := d.stepViewOf(r, dt, steps, i, &v, nil, stepErrors(steps, i, pr.Fields))
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	w.Header().Set("HX-Push-Url", sv.M.StepURL(i))
 	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))
 }
@@ -458,7 +482,11 @@ func (d Deps) checkPage(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		return
 	}
 	i := len(steps) - 1
-	sv := d.stepViewOf(r, dt, steps, i, &v, nil, nil)
+	sv, err := d.stepViewOf(r, dt, steps, i, &v, nil, nil)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	sv.Banner, sv.M.Warnings = banner, warnings
 	w.Header().Set("HX-Push-Url", sv.M.StepURL(i))
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepMain(sv))
@@ -478,20 +506,24 @@ type stepView struct {
 // arrival is step i as a user reaches it who did nothing wrong: draft v's
 // stored problems on this step show by their fields and in M.Stored, and
 // M.Errors stays empty, so the title is plain and the heading takes focus.
-func (d Deps) arrival(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView) stepView {
+func (d Deps) arrival(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView) (stepView, error) {
 	errs := stepErrors(steps, i, v.DraftProblems)
-	sv := d.stepViewOf(r, dt, steps, i, v, nil, errs)
+	sv, err := d.stepViewOf(r, dt, steps, i, v, nil, errs)
+	if err != nil {
+		return stepView{}, err
+	}
 	sv.M.Errors = nil
 	for _, e := range errs {
 		sv.M.Stored = append(sv.M.Stored, e.Message)
 	}
-	return sv
+	return sv, nil
 }
 
 // stepViewOf builds step i of dt's wizard. v is nil for a new document;
 // typed, when not nil, holds the posted values of the step's fields; errs
-// are shown in the summary and by their fields.
-func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView, typed map[string]string, errs []doctype.FieldError) stepView {
+// are shown in the summary and by their fields. It returns an error for the
+// module hooks to come (hooks spec §4.4); none fails yet.
+func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep, i int, v *DocView, typed map[string]string, errs []doctype.FieldError) (stepView, error) {
 	s := steps[i]
 	m := wizard.Model{Mode: wizard.Document, Title: dt.Label, Current: i, Errors: fieldErrs(errs)}
 	for _, st := range steps {
@@ -557,7 +589,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	default:
 		sv.Empty = len(sv.Inputs) == 0 && len(sv.Fixed) == 0
 	}
-	return sv
+	return sv, nil
 }
 
 // linesTarget is the id a line's or whole-lines error links to, on the Items
