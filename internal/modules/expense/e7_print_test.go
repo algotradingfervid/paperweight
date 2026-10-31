@@ -16,6 +16,7 @@ import (
 	printweb "github.com/vardhan/internaltools/internal/kernel/print/web"
 	"github.com/vardhan/internaltools/internal/modules/expense"
 	"github.com/vardhan/internaltools/internal/modules/expense/expensetest"
+	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
@@ -24,10 +25,10 @@ import (
 // right, the read check and the views registered on print.Default are all on
 // the path.
 //
-// E2 (totals, snapshots) and E4 (less advance written at submit) aren't
-// merged yet: e7Derive stands in for them with test-only fixture SQL, setting
-// the stored values E2's Validate will compute (snapshots, totals, period,
-// to pay). less_advance is set through expensetest's Against builder.
+// E2's Validate stores the snapshots, totals, period and to pay. E4 (the
+// advance settlement) isn't merged: its stub leaves to pay at the total, so
+// e7SettleStandIn sets to pay with test-only fixture SQL. less_advance is set
+// through expensetest's Against builder.
 
 const (
 	e7Deepak = "deepak@vardhan.test" // Employee, EMP-007, reports to Priya
@@ -64,6 +65,14 @@ func e7Print(t *testing.T, e *expensetest.Env, p auth.Principal, dt string, id i
 	return body
 }
 
+// e7GoldenBytes is html with the brand's hashed logo URL replaced by a fixed
+// placeholder, as printtest.Letterhead's "/files/1" in the kernel print
+// goldens, so a logo change doesn't break them; the letterhead's branch
+// stays real.
+func e7GoldenBytes(html string) []byte {
+	return []byte(strings.ReplaceAll(html, brand.DocumentLogoURL, "/files/1"))
+}
+
 // e7Contains fails for each of want missing from html.
 func e7Contains(t *testing.T, html string, want ...string) {
 	t.Helper()
@@ -86,34 +95,11 @@ func e7Exec(t *testing.T, e *expensetest.Env, query string, args ...any) {
 	}
 }
 
-// e7Derive is the stand-in for E2's Validate (test-only fixture SQL): the
-// snapshots, totals and period of claim claimID (0 for none) and advance
-// advanceID (0 for none), and the claim's to pay (total − less advance).
-func e7Derive(t *testing.T, e *expensetest.Env, claimID, advanceID int64) {
+// e7SettleStandIn is the stand-in for E4's settlement (test-only fixture
+// SQL): claim claimID's to pay is its total less its less advance.
+func e7SettleStandIn(t *testing.T, e *expensetest.Env, claimID int64) {
 	t.Helper()
-	e7Exec(t, e, `UPDATE expense_claim_line SET
-		snap_type_code = (SELECT code FROM expense_type WHERE id = expense_type_id),
-		snap_type_name = (SELECT name FROM expense_type WHERE id = expense_type_id),
-		snap_project_code = COALESCE((SELECT code FROM project WHERE id = project_id), '')
-		WHERE parent_id = ?`, claimID)
-	e7Exec(t, e, `UPDATE expense_claim SET
-		snap_employee_name = (SELECT name FROM employee WHERE id = employee_id),
-		snap_employee_code = (SELECT code FROM employee WHERE id = employee_id),
-		total = (SELECT SUM(amount) FROM expense_claim_line WHERE parent_id = expense_claim.id),
-		period_from = (SELECT MIN(expense_date) FROM expense_claim_line WHERE parent_id = expense_claim.id),
-		period_to = (SELECT MAX(expense_date) FROM expense_claim_line WHERE parent_id = expense_claim.id)
-		WHERE id = ?`, claimID)
 	e7Exec(t, e, `UPDATE expense_claim SET net_payable = total - COALESCE(less_advance, 0) WHERE id = ?`, claimID)
-	e7Exec(t, e, `UPDATE employee_advance_line SET
-		snap_type_code = (SELECT code FROM expense_type WHERE id = expense_type_id),
-		snap_type_name = (SELECT name FROM expense_type WHERE id = expense_type_id),
-		snap_project_code = COALESCE((SELECT code FROM project WHERE id = project_id), '')
-		WHERE parent_id = ?`, advanceID)
-	e7Exec(t, e, `UPDATE employee_advance SET
-		snap_employee_name = (SELECT name FROM employee WHERE id = employee_id),
-		snap_employee_code = (SELECT code FROM employee WHERE id = employee_id),
-		amount = (SELECT SUM(amount) FROM employee_advance_line WHERE parent_id = employee_advance.id)
-		WHERE id = ?`, advanceID)
 }
 
 // e7Do runs action a as p at the document's stored version.
@@ -169,7 +155,7 @@ func e7World(t *testing.T) (e *expensetest.Env, claimID, advanceID int64) {
 	e.Against(t, deepak, claim.ID, adv.ID, 1_000_000)
 	e7Do(t, e, deepak, expense.ClaimDocType, claim.ID, doc.ActionSubmit)
 	e7Do(t, e, priya, expense.ClaimDocType, claim.ID, doc.ActionApprove)
-	e7Derive(t, e, claim.ID, adv.ID)
+	e7SettleStandIn(t, e, claim.ID)
 	return e, claim.ID, adv.ID
 }
 
@@ -183,7 +169,7 @@ func TestExp_PrintGolden(t *testing.T) {
 	deepak := e.P(t, e7Deepak)
 
 	claim := e7Print(t, e, deepak, expense.ClaimDocType, claimID)
-	printtest.Golden(t, "claim_approved.golden.html", []byte(claim))
+	printtest.Golden(t, "claim_approved.golden.html", e7GoldenBytes(claim))
 	e7Contains(t, claim,
 		"Vardhan Infra Projects Pvt Ltd", "Expense Claim", "EX/26-27/00001",
 		"Employee: Deepak Nair (EMP-007)", "Period: 20-10-2026 to 22-10-2026", "Purpose: Pune Metro site visit",
@@ -202,7 +188,7 @@ func TestExp_PrintGolden(t *testing.T) {
 	}
 
 	adv := e7Print(t, e, deepak, expense.AdvanceDocType, advanceID)
-	printtest.Golden(t, "advance_approved.golden.html", []byte(adv))
+	printtest.Golden(t, "advance_approved.golden.html", e7GoldenBytes(adv))
 	e7Contains(t, adv,
 		"Vardhan Infra Projects Pvt Ltd", `<h1 class="doc-title">Employee Advance`, e7AdvanceNo,
 		"Employee: Deepak Nair (EMP-007)", "Date: 24-10-2026", "Purpose: Pune Metro site visit",
@@ -249,16 +235,18 @@ func TestExp_PrintHidesUnreadableAdvance(t *testing.T) {
 	e7Contains(t, e7Print(t, e, e.P(t, e7Meena), expense.ClaimDocType, claimID), "Advance: "+e7AdvanceNo)
 }
 
-// A draft has no approval and no stored to pay yet: neither prints. An
-// approval with no rule (approved_no_rule, at submit) still names who
-// approved.
+// A draft has no approval: no Approved-by line, and its to pay is its total.
+// An approval with no rule (approved_no_rule, at submit) prints no
+// Approved-by line either, so a claimant never appears to approve their own
+// payout (AD ruling, E7 review).
 func TestExp_PrintDraftAndNoRuleApproval(t *testing.T) {
 	e := expensetest.New(t)
 	deepak := e.P(t, e7Deepak)
 
 	draft := e.DraftClaim(t, deepak, nil)
 	html := e7Print(t, e, deepak, expense.ClaimDocType, draft.ID)
-	for _, absent := range []string{"Approved by", "To Pay"} {
+	e7Contains(t, html, "Grand Total ₹1,000.00", "To Pay ₹1,000.00", `<p class="words">Rupees One Thousand Only</p>`)
+	for _, absent := range []string{"Approved by", "Less Advance"} {
 		if strings.Contains(html, absent) {
 			t.Errorf("draft print has %q:\n%s", absent, html)
 		}
@@ -280,18 +268,78 @@ func TestExp_PrintDraftAndNoRuleApproval(t *testing.T) {
 	if res := e7Do(t, e, deepak, expense.AdvanceDocType, adv.ID, doc.ActionSubmit); res.State != doc.StateApproved {
 		t.Fatalf("submit with no rule: state %q, want approved", res.State)
 	}
+	if last := e7History(t, e, expense.AdvanceDocType, adv.ID); last[len(last)-1].Action != approval.HistAutoApproved {
+		t.Fatalf("last history action = %q, want %q", last[len(last)-1].Action, approval.HistAutoApproved)
+	}
+	if html := e7Print(t, e, deepak, expense.AdvanceDocType, adv.ID); strings.Contains(html, "Approved by") {
+		t.Errorf("a no-rule approval prints an Approved-by line:\n%s", html)
+	}
+}
+
+// e7History is document dt id's approval history, oldest first.
+func e7History(t *testing.T, e *expensetest.Env, dt string, id int64) []approval.HistoryRow {
+	t.Helper()
 	var hist []approval.HistoryRow
 	if err := e.DB.Read(t.Context(), func(tx *db.Tx) error {
 		var err error
-		hist, err = e.Approvals.History(t.Context(), tx, expense.AdvanceDocType, adv.ID)
+		hist, err = e.Approvals.History(t.Context(), tx, dt, id)
 		return err
 	}); err != nil {
 		t.Fatalf("History: %v", err)
 	}
-	if last := hist[len(hist)-1]; last.Action != approval.HistAutoApproved {
-		t.Fatalf("last history action = %q, want %q", last.Action, approval.HistAutoApproved)
+	return hist
+}
+
+// A draft against an advance: less_advance stays blank until submit while
+// to pay holds the effective amount (E4), so the print's less advance is
+// total − to pay. With no stored to pay, neither prints. E4 isn't merged:
+// the stored to pay is set with test-only fixture SQL.
+func TestExp_PrintDraftLessAdvance(t *testing.T) {
+	e, _, advanceID := e7World(t)
+	deepak := e.P(t, e7Deepak)
+	draft := e.DraftClaim(t, deepak, expensetest.Values{"advance_id": strconv.FormatInt(advanceID, 10)},
+		expensetest.Values{"amount": "3000.00"})
+	e7Exec(t, e, `UPDATE expense_claim SET less_advance = NULL, net_payable = 50000 WHERE id = ?`, draft.ID)
+
+	html := e7Print(t, e, deepak, expense.ClaimDocType, draft.ID)
+	e7Contains(t, html, "Grand Total ₹3,000.00", "Less Advance ₹2,500.00", "To Pay ₹500.00",
+		`<p class="words">Rupees Five Hundred Only</p>`)
+
+	e7Exec(t, e, `UPDATE expense_claim SET net_payable = NULL WHERE id = ?`, draft.ID)
+	html = e7Print(t, e, deepak, expense.ClaimDocType, draft.ID)
+	for _, absent := range []string{"Less Advance", "To Pay"} {
+		if strings.Contains(html, absent) {
+			t.Errorf("print with no stored to pay has %q:\n%s", absent, html)
+		}
 	}
-	e7Contains(t, e7Print(t, e, deepak, expense.AdvanceDocType, adv.ID), "Approved by Deepak Nair on 24-10-2026 10:30")
+}
+
+// Reject, revise, approve: the print names the latest approver. Priya
+// rejects Deepak's claim; Meena, given Fallback Approver, approves it after
+// the revision.
+func TestExp_PrintLatestApprover(t *testing.T) {
+	e := expensetest.New(t)
+	e.AddRoles(t, e7Meena, expense.RoleFallbackApprover)
+	deepak, priya, meena := e.P(t, e7Deepak), e.P(t, e7Priya), e.P(t, e7Meena)
+	claim := e.DraftClaim(t, deepak, nil)
+	for _, st := range []struct {
+		p      auth.Principal
+		a      doc.Action
+		reason string
+	}{
+		{deepak, doc.ActionSubmit, ""},
+		{priya, doc.ActionReject, "Wrong amount."},
+		{deepak, doc.ActionRevise, ""},
+		{deepak, doc.ActionSubmit, ""},
+		{meena, doc.ActionApprove, ""},
+	} {
+		if _, err := e.Act(t, st.p, expense.ClaimDocType, claim.ID, st.a, st.reason); err != nil {
+			t.Fatalf("%s as %s: %v", st.a, st.p.Name, err)
+		}
+	}
+	html := e7Print(t, e, deepak, expense.ClaimDocType, claim.ID)
+	e7Contains(t, html, "Approved by Meena Iyer on 24-10-2026 10:30")
+	expensetest.WantNotNamed(t, html, "Priya Shah")
 }
 
 // EXP-033: printing needs `print`. Priya prints her own approved claim and

@@ -85,7 +85,7 @@ func (q *Queries) E7AdvancePrintLines(ctx context.Context, parentID int64) ([]E7
 const e7ApprovedBy = `-- name: E7ApprovedBy :one
 SELECT user_name, at
 FROM approval_history
-WHERE doctype = ? AND doc_id = ? AND action IN ('approved', 'approved_no_rule')
+WHERE doctype = ? AND doc_id = ? AND action = 'approved'
 ORDER BY id DESC
 LIMIT 1
 `
@@ -100,7 +100,9 @@ type E7ApprovedByRow struct {
 	At       string
 }
 
-// The last approval, with a rule or without one (approved_no_rule).
+// The latest approval by an approver. An approval with no rule
+// (approved_no_rule) names no approver, so the claimant never appears to
+// approve their own payout.
 func (q *Queries) E7ApprovedBy(ctx context.Context, arg E7ApprovedByParams) (E7ApprovedByRow, error) {
 	row := q.db.QueryRowContext(ctx, e7ApprovedBy, arg.Doctype, arg.DocID)
 	var i E7ApprovedByRow

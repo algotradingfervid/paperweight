@@ -37,6 +37,11 @@ func printClaim(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 		GrandTotal: types.Money(h.Total.Int64), LessAdvance: types.Money(h.LessAdvance.Int64),
 		NetPayable: types.Money(h.NetPayable.Int64), HasNetPayable: h.NetPayable.Valid,
 	}
+	if !h.LessAdvance.Valid && h.NetPayable.Valid {
+		// A draft's less advance stays blank until submit, while to pay holds
+		// the effective amount (total − min(left, total)).
+		doc.LessAdvance = doc.GrandTotal - doc.NetPayable
+	}
 	if doc.PeriodFrom, err = dateOf(h.PeriodFrom); err != nil {
 		return nil, err
 	}
@@ -89,8 +94,8 @@ func printClaim(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 // employeeLabel is the snapshot name with its code: `Deepak Nair (EMP-007)`.
 func employeeLabel(name, code string) string { return name + " (" + code + ")" }
 
-// approvedBy is the name and time of the document's last approval, with a
-// rule or without one; blank when it was never approved.
+// approvedBy is the name and time of the document's latest approval by an
+// approver; blank when none approved it (no-rule approvals name no one).
 func approvedBy(ctx context.Context, q *dbq.Queries, dt string, id int64) (string, time.Time, error) {
 	r, err := q.E7ApprovedBy(ctx, dbq.E7ApprovedByParams{Doctype: dt, DocID: id})
 	if errors.Is(err, sql.ErrNoRows) {

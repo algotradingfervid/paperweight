@@ -27,10 +27,12 @@ FROM employee_advance_line
 WHERE parent_id = ?
 ORDER BY line_no, id;
 
--- The last approval, with a rule or without one (approved_no_rule).
+-- The latest approval by an approver. An approval with no rule
+-- (approved_no_rule) names no approver, so the claimant never appears to
+-- approve their own payout.
 -- name: E7ApprovedBy :one
 SELECT user_name, at
 FROM approval_history
-WHERE doctype = ? AND doc_id = ? AND action IN ('approved', 'approved_no_rule')
+WHERE doctype = ? AND doc_id = ? AND action = 'approved'
 ORDER BY id DESC
 LIMIT 1;
