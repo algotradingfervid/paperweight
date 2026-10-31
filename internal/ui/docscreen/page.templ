@@ -93,7 +93,7 @@ templ docBody(pv pageView) {
 		</div>
 		<div class="doc-side">
 			<div class="doc-state">
-				@components.StateBadge(pv.V.Info.State)
+				@components.StateBadgeLabel(pv.V.Info.State, pv.DT.StateLabels[pv.V.Info.State])
 			</div>
 			if pv.Attach != nil {
 				@attachCard(*pv.Attach)

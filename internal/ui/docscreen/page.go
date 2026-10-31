@@ -261,7 +261,7 @@ func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, a doctype.Action, res doc.Result, display string) {
 	ctx := r.Context()
 	p := d.principal(r)
-	text := d.successText(ctx, p, dt.Name, id, a, res, display)
+	text := d.successText(ctx, p, dt, id, a, res, display)
 	to, onPage := docURL(dt.Name, id), true
 	switch a {
 	case doctype.ActionRevise, doctype.ActionWithdraw:
@@ -316,13 +316,13 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 }
 
 // successText is the banner after action a (design-system §8.3, §8.5).
-func (d Deps) successText(ctx context.Context, p auth.Principal, name string, id int64, a doctype.Action, res doc.Result, display string) string {
-	numbered := "Approved. " + res.Number + " has been numbered."
+func (d Deps) successText(ctx context.Context, p auth.Principal, dt *doctype.DocType, id int64, a doctype.Action, res doc.Result, display string) string {
+	numbered := doctype.StateLabel(*dt, doctype.StateApproved) + ". " + res.Number + " has been numbered."
 	switch a {
 	case doctype.ActionSubmit:
 		switch res.State {
 		case doctype.StatePending:
-			if av, err := d.Extras.Approval(ctx, p, name, id); err == nil && av.WaitingOn != "" {
+			if av, err := d.Extras.Approval(ctx, p, dt.Name, id); err == nil && av.WaitingOn != "" {
 				return "Submitted for approval to " + av.WaitingOn + "."
 			}
 		case doctype.StateApproved:
@@ -335,7 +335,7 @@ func (d Deps) successText(ctx context.Context, p auth.Principal, name string, id
 	case doctype.ActionWithdraw:
 		return "Withdrawn. You can change the draft and submit it again."
 	case doctype.ActionAmend:
-		if o, err := d.Extras.Origin(ctx, p, name, res.ID); err == nil && o.AmendedFrom != "" {
+		if o, err := d.Extras.Origin(ctx, p, dt.Name, res.ID); err == nil && o.AmendedFrom != "" {
 			return "Amending " + o.AmendedFrom
 		}
 	case doctype.ActionCancel:
