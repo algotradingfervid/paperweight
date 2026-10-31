@@ -72,7 +72,7 @@ func (e *engine) checkRestrictions(ctx context.Context, tx *db.Tx, p auth.Princi
 				if id, found, err = parentOf(ctx, tx, ls.Target, id); err != nil {
 					return err
 				} else if !found {
-					continue // reported by checkSources
+					continue // refused before any write by missingSources (CD-314)
 				}
 			}
 			if err := checkLink(target{ls.Target, id}); err != nil {
