@@ -100,6 +100,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Test a guard in the setups where it changes the result, not only the common one: every DataList test had a state column, so the low-separator branch for lists without one had no test (M0-36).
 - A change to `internal/ui/js/*` runs every browser test that loads or uploads through that script, not only the task's own: gallery `-run 'Attach|Upload'` and e2e `-run 'TestE2E_Attachment|TestCheckStep_UploadThenSubmit|TestDocPage_AddAfterApproval|TestE2E_CompanyLogo|TestE2E_ExpenseFromPhoneWithReceipt'` (M0-22 passed HOOK-041 and broke five others).
 - A money input that feeds a derived amount is declared Positive or NonNegative: a negative `less_advance` raised net payable above the total and past the money limit (E10, REPEAT).
+- Never `pkill -f "go test"` (or `make ci`/`make e2e`): several sessions share this machine, and the pattern kills all their runs (AD-10, 31 Oct). Kill by PID or by a pattern holding your own worktree path; a run that ends with "Terminated: 15" is void, not failed.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
