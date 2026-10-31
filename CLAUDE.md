@@ -85,6 +85,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - A rights test needs a user holding only the right the rule names. With only all-rights users, swapping read for submit in the code survived every test (G0a; same family as lessons §11).
 - A test that numbers a TestOnly fixture DocType and a real module DocType sharing a prefix in one database sets the real series' counter first (SetCounter, e.g. 50000); `naming_issued.number` is unique across DocTypes (CD-295).
 - Keep `queries/*.sql` comments ASCII: sqlc 1.31.1 generates broken SQL when a comment holds a non-ASCII character such as "…" (AD-11, E1).
+- A module's first GET routes need e2e not-page entries or screens even while they answer 501: `make ci` doesn't run the route gate (TestE2E_EveryRouteCovered), only `make e2e` does (AD-11, E1).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
