@@ -59,7 +59,7 @@ mutate:
 ci:
 	$(MAKE) generate
 	git diff --exit-code
-	@out=$$(gofmt -l $$(git ls-files '*.go' | grep -v '_templ.go$$')); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
+	@out=$$($$(go env GOROOT)/bin/gofmt -l $$(git ls-files '*.go' | grep -v '_templ.go$$')); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 	$(MAKE) lint test build
 	go run ./scripts/checktestids --report
 

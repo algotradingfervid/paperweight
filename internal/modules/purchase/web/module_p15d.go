@@ -56,9 +56,9 @@ var receiptLabels = map[string]string{"not_received": "Not received", "part_rece
 const requestCardsOnly = true
 
 // requestHide hides Request date only as an input, on a new request or a
-// draft: Validate fills today (CD-258 Q8 (a), CD-327). A nil View is a new
-// record. When Ctx gains Listing (M0-47), the condition becomes
-// `!c.Listing && (...)`.
+// draft: Validate fills today and submit sets it again (CD-258 Q8 (a),
+// CD-327, CD-330 (1)). A nil View is a new record. When Ctx gains Listing
+// (M0-47), the condition becomes `!c.Listing && (...)`.
 func (m *module) requestHide(c docscreen.Ctx, f doctype.Field) bool {
 	return f.Name == "request_date" && (c.View == nil || c.View.Info.State == doctype.StateDraft)
 }
@@ -230,6 +230,9 @@ func (m *module) requestPage(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		}
 		if hidden > 0 {
 			note += " · On " + hiddenOrders(hidden)
+		}
+		if own := l.Display["note"]; own != "" {
+			note = own + " · " + note // the line's own note first (CD-330 (2))
 		}
 		x.LineNotes[l.No] = note
 	}
