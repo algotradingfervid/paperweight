@@ -3,11 +3,13 @@ package grnweb
 import "github.com/vardhan/internaltools/internal/ui/components"
 
 // choosePOView is step 1 with the order still open to choose (UX doc §5.2):
-// the radios or the select, or the empty text, then the link that widens or
-// narrows the orders, then the receipt date when showDate (Hide shows it,
-// CD-319).
+// the radios, the select or the combobox, or the empty text, then the link
+// that widens or narrows the orders, then the receipt date when showDate
+// (Hide shows it, CD-319).
 templ choosePOView(p poPick, date components.DateProps, showDate bool) {
-	if len(p.Options) == 0 {
+	if p.Search != nil {
+		@components.Picker(*p.Search)
+	} else if len(p.Options) == 0 {
 		@components.EmptyState(msgNoOrders, p.EmptyLink)
 		<p>{ msgAskBuyer }</p>
 	} else if p.Select {

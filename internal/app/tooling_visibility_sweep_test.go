@@ -17,6 +17,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -216,7 +217,8 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	for _, r := range []string{"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid"} {
 		out[r] = st{Control: []int{stub}, Hidden: []int{stub}}
 	}
-	for _, r := range []string{"/reports/grn/bills", "/reports/grn/bills/export.csv", "/reports/grn/items", "/reports/grn/items/export.csv"} {
+	// The GRN report pages are S4's stubs; their CSVs are built (G9).
+	for _, r := range []string{"/reports/grn/bills", "/reports/grn/items"} {
 		out[r] = st{Control: []int{stub}}
 	}
 	return out
@@ -547,10 +549,11 @@ func (s *sweepSeed) docPages() map[string][]sweepPage {
 // can't.
 func (s *sweepSeed) fill(route string) ([]sweepPage, string) {
 	queries := map[string][]string{
-		"/settings/numbering/preview":   {"?tpl=PO%2F%7B%23%23%23%23%23%7D"},
-		"/m/import/template":            {"?doctype=Party"},
-		"/reports/expense/lines":        {"", "?month=2026-10"},
-		"/reports/expense/lines/filter": {"", "?month=2026-10"},
+		"/settings/numbering/preview":     {"?tpl=PO%2F%7B%23%23%23%23%23%7D"},
+		"/m/import/template":              {"?doctype=Party"},
+		"/reports/expense/lines":          {"", "?month=2026-10"},
+		"/reports/expense/lines/filter":   {"", "?month=2026-10"},
+		"/modules/goodsreceipt/po-search": {"", "?all=1", "?all=1&q=" + hiddenQuery},
 	}
 	plain := func(us ...string) []sweepPage {
 		var out []sweepPage
@@ -745,6 +748,7 @@ var controlReports = map[string][]string{
 	purchase.DocType:       {"/reports/purchase/pending"},
 	expense.ClaimDocType:   {"/reports/expense/open", "/reports/expense/lines"},
 	expense.AdvanceDocType: {"/reports/expense/advances"},
+	goodsreceipt.DocType:   {"/reports/grn/bills/export.csv", "/reports/grn/items/export.csv"},
 }
 
 // controlExpectation is a page that must show a control record.
@@ -768,6 +772,9 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 			}
 			add("/modules/purchase/q/"+purchase.QueueToSend, r.doc.Number)
 			add("/modules/purchase/q/"+purchase.QueueAwaitingDelivery, r.doc.Number)
+			// GRN step 1's PO search (S1b, CD-323 (2)): a readable approved
+			// order is found by its number, widened to fully received ones.
+			add("/modules/goodsreceipt/po-search?all=1", r.doc.Number)
 		}
 		page := "/doc/" + r.dt + "/" + idText(r.id)
 		dt, _ := doctype.Lookup(r.dt)

@@ -18,6 +18,9 @@
 
 @utility app-header {
   position: sticky;
+  /* uibrowser.Axe sets data-axe on html while axe runs: content under
+     sticky chrome is a false target-size overlap (CD-344 (3)). */
+  :root[data-axe] & { position: static; }
   inset-block-start: 0;
   z-index: var(--z-header);
   display: flex;

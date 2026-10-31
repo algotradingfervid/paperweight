@@ -25,8 +25,11 @@
   }
   & .lines-no { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
   /* The type is at least 7rem wide and wraps only between words; a word
-     breaks only when it is wider than the whole type (CD-333). */
-  & .lines-name { display: flex; flex-wrap: wrap; gap: var(--space-2); flex: 1 1 0; min-inline-size: min(100%, 7rem); font-weight: var(--weight-medium); overflow-wrap: break-word; }
+     breaks only when it is wider than the whole type (CD-333). The type
+     and the code shrink to the type's box (CD-344 (2)): a word or code
+     wider than the box breaks inside it; the code breaks anywhere (the
+     code utility) and shows whole, as a phone has no hover title. */
+  & .lines-name { display: flex; flex-wrap: wrap; gap: var(--space-2); flex: 1 1 0; min-inline-size: min(100%, 7rem); font-weight: var(--weight-medium); overflow-wrap: break-word; & > * { min-inline-size: 0; } }
   & .lines-name .code { color: var(--color-text-secondary); font-weight: var(--weight-regular); }
   /* The amount is never cut or wrapped (CD-326 (2), CD-333): it ends the
      type's row, or, when it doesn't fit beside the type's 7rem, takes its
