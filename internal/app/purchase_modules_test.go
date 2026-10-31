@@ -19,11 +19,11 @@ import (
 
 // MOD-PO P15-0 (hooks spec §3, HOOK-001's rule for a module): the app wires
 // purchase's Modules for Order and Request, and the Order pages no screen
-// task has changed yet (delete, and the close and cancel reason pages while
-// Reason is P15b's stub) render byte-identically to the same page with no
-// Module. P15d built the Request's Module and P15a the Order's steps, check
-// page, Hide and line cards, so those pages differ by design (purchase/web's
-// p15d and p15a tests).
+// task has changed (delete, and the cancel reason page) render
+// byte-identically to the same page with no Module. P15d built the Request's
+// Module, P15a the Order's steps, check page, Hide and line cards, and P15b
+// its document page and close page, so those pages differ by design
+// (purchase/web's p15d, p15a and p15b tests).
 func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	w := newWorld(t)
 	admin, _, _ := w.canonical()
@@ -54,7 +54,7 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 
 	po := "/doc/" + purchase.DocType + "/"
 	poDraft, poDone := po+save(purchase.DocType, poValues, poLine, false), po+save(purchase.DocType, poValues, poLine, true)
-	paths := []string{poDraft + "/delete", poDone + "/close", poDone + "/cancel"}
+	paths := []string{poDraft + "/delete", poDone + "/cancel"}
 
 	withMods := w.app.DocDeps()
 	for _, dt := range []string{purchase.DocType, purchase.RequestDocType} {

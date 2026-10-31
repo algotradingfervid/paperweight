@@ -7,21 +7,6 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/layout"
 )
 
-// linkedOrdersView is the Linked orders card (UX §5.16): a DataList row per
-// readable order, then the count of the others with no state or link.
-templ linkedOrdersView(rows []components.Row, others string) {
-	@components.Card(linkedOrdersTitle, nil) {
-		if len(rows) > 0 {
-			@components.DataList(components.DataListProps{Label: linkedOrdersTitle, Columns: linkedOrderColumns, Rows: rows})
-		} else if others == "" {
-			<p>{ noLinkedOrders }</p>
-		}
-		if others != "" {
-			<p>{ others }</p>
-		}
-	}
-}
-
 templ fromRequestPage(v fromRequestView) {
 	@layout.Page(v.opts) {
 		@fromRequestBody(v)

@@ -26,7 +26,7 @@ func Modules(d Deps) map[string]docscreen.Module {
 			Check:    m.orderCheck,    // P15a
 			LineCard: m.orderLineCard, // P15a
 			LineGrid: m.orderLineGrid, // P15a
-			Page:     m.orderPage,     // P15b
+			Page:     m.orderPageHook, // P15b
 			Reason:   m.orderReason,   // P15b
 		},
 		purchase.RequestDocType: {

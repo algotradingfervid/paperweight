@@ -1,6 +1,9 @@
 package purchase
 
 import (
+	"cmp"
+	"slices"
+
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/company"
@@ -63,7 +66,8 @@ func orderFields() []doctype.Field {
 		{Name: "grand_total", Label: "Grand total", Type: doctype.Money, System: true},
 		{Name: "rounded_total", Label: "Rounded total", Type: doctype.Money, System: true, Sortable: true, ListPriority: 2},
 		{Name: "receipt_status", Label: "Receipt", Type: doctype.Select, System: true, Filterable: true,
-			Options: []string{"not_received", "part_received", "fully_received"}},
+			Options:      []string{"not_received", "part_received", "fully_received"},
+			OptionLabels: map[string]string{"not_received": "Not received", "part_received": "Part received", "fully_received": "Fully received"}}, // UX §5.2, CD-325
 		stateField(),
 
 		{Name: "item_id", Label: "Item", Type: doctype.Link, Link: item.DocType, Required: true, OnLine: true},
@@ -96,7 +100,8 @@ func requestFields() []doctype.Field {
 		{Name: "required_by", Label: "Needed by", Type: doctype.Date},
 		{Name: "purpose", Label: "What is it for?", Type: doctype.Text, MaxLen: 500},
 		{Name: "order_status", Label: "Ordered", Type: doctype.Select, System: true, Filterable: true, ListPriority: 2,
-			Options: []string{"not_ordered", "part_ordered", "ordered"}},
+			Options:      []string{"not_ordered", "part_ordered", "ordered"},
+			OptionLabels: map[string]string{"not_ordered": "Not ordered", "part_ordered": "Part ordered", "ordered": "Ordered"}}, // UX §5.2, §5.14, CD-325
 		stateField(),
 
 		{Name: "item_id", Label: "Item", Type: doctype.Link, Link: item.DocType, Required: true, OnLine: true},
@@ -106,4 +111,18 @@ func requestFields() []doctype.Field {
 		{Name: "note", Label: "Note", Type: doctype.Text, MaxLen: 200, OnLine: true},
 		{Name: "ordered_qty", Label: "Ordered", Type: doctype.Qty, System: true, OnLine: true},
 	}
+}
+
+// ReceiptLabel is an order's receipt_status as users see it: its
+// OptionLabels label, else the value (CD-325).
+func ReceiptLabel(v string) string { return optionLabel(orderFields(), "receipt_status", v) }
+
+// orderStatusLabel is a request's order_status as users see it (CD-325).
+func orderStatusLabel(v string) string { return optionLabel(requestFields(), "order_status", v) }
+
+// optionLabel is value v of the Select field name in fields, through its
+// OptionLabels.
+func optionLabel(fields []doctype.Field, name, v string) string {
+	i := slices.IndexFunc(fields, func(f doctype.Field) bool { return f.Name == name })
+	return cmp.Or(fields[i].OptionLabels[v], v)
 }
