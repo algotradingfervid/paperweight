@@ -49,10 +49,12 @@ func TestPage_NetworkBannerTemplates(t *testing.T) {
 			t.Errorf("bare=%v: #network sits inside #alerts (role=alert is assertive)", o.Bare)
 		}
 		wifi, _ := uitest.Render(t, icons.Icon("wifi-off")).Find("svg").Html()
-		for id, want := range map[string]string{
-			"network-offline": "Error: Couldn't reach the server. Check your connection. Nothing you typed is lost.",
-			"network-server":  "Error: The server had a problem. Try again in a minute.",
+		for _, c := range []struct{ id, want, button, attr string }{
+			{"network-offline", "Error: Couldn't reach the server. Check your connection. Nothing you typed is lost.", "Try again", "data-retry"},
+			{"network-server", "Error: The server had a problem. Try again in a minute.", "Try again", "data-retry"},
+			{"network-unsure", "Error: Your change may have been saved. Reload to check before trying again.", "Reload", "data-reload"},
 		} {
+			id, want := c.id, c.want
 			tpl := doc.Find("template#" + id)
 			if tpl.Length() != 1 {
 				t.Fatalf("bare=%v: %d template#%s, want 1", o.Bare, tpl.Length(), id)
@@ -66,8 +68,8 @@ func TestPage_NetworkBannerTemplates(t *testing.T) {
 			if tpl.Find("[role]").Length() != 0 {
 				t.Errorf("bare=%v: %s has a role; the polite region announces it", o.Bare, id)
 			}
-			if btn := tpl.Find("button[type=button][data-retry]"); btn.Length() != 1 || strings.TrimSpace(btn.Text()) != "Try again" {
-				t.Errorf("bare=%v: %s has %d Try again buttons, want 1", o.Bare, id, btn.Length())
+			if btn := tpl.Find("button[type=button][" + c.attr + "]"); btn.Length() != 1 || strings.TrimSpace(btn.Text()) != c.button {
+				t.Errorf("bare=%v: %s has %d %s buttons, want 1", o.Bare, id, btn.Length(), c.button)
 			}
 			if h, _ := tpl.Find(".banner > svg").Html(); h != wifi {
 				t.Errorf("bare=%v: %s banner icon is not wifi-off", o.Bare, id)

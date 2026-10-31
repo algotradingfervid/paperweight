@@ -518,7 +518,8 @@ func flash(n web.Notice) templ.Component {
 }
 
 // networkTemplates are the banners app.js copies into #network when a request
-// gets no answer (offline) or a 5xx (server), each with Try again (UI v2 §5.14).
+// gets no answer (offline) or a 5xx (server), each with Try again, and, for a
+// POST that can't be safely re-sent, one with Reload (UI v2 §5.14, CD-346).
 func networkTemplates() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -544,7 +545,7 @@ func networkTemplates() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = networkBanner("Couldn't reach the server.", "Check your connection. Nothing you typed is lost.").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = networkBanner("Couldn't reach the server.", "Check your connection. Nothing you typed is lost.", "Try again", "data-retry").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -552,11 +553,19 @@ func networkTemplates() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = networkBanner("The server had a problem.", "Try again in a minute.").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = networkBanner("The server had a problem.", "Try again in a minute.", "Try again", "data-retry").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</template>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</template><template id=\"network-unsure\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = networkBanner("Your change may have been saved.", "Reload to check before trying again.", "Reload", "data-reload").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</template>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -564,7 +573,7 @@ func networkTemplates() templ.Component {
 	})
 }
 
-func networkBanner(title, message string) templ.Component {
+func networkBanner(title, message, action, attr string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -597,7 +606,7 @@ func networkBanner(title, message string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = components.Button(components.ButtonProps{Type: "button", Label: "Try again", Icon: "refresh-cw", Variant: components.Secondary, Attrs: templ.Attributes{"data-retry": true}}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Type: "button", Label: action, Icon: "refresh-cw", Variant: components.Secondary, Attrs: templ.Attributes{attr: true}}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

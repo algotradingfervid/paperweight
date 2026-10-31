@@ -28,6 +28,8 @@ import (
 const (
 	faultDrop = "drop" // close the connection without an answer
 	fault503  = "503"
+	fault403  = "403"
+	fault404  = "404"
 	faultSlow = "slow" // answer after slowFor
 )
 
@@ -64,6 +66,12 @@ func startFaultGallery(t *testing.T) *faultGallery {
 			return
 		case fault503:
 			http.Error(w, "busy", http.StatusServiceUnavailable)
+			return
+		case fault403:
+			http.Error(w, "refused", http.StatusForbidden)
+			return
+		case fault404:
+			http.NotFound(w, r)
 			return
 		case faultSlow:
 			time.Sleep(slowFor)
@@ -185,8 +193,9 @@ func TestLoadbar_PickerSearchDoesNotShowIt(t *testing.T) {
 	}
 }
 
-// A 503 on a save shows the server banner; Try again re-sends the same
-// request with its submit button, and the next success clears the banner.
+// A 503 on a save of a saved record (its form carries a version) shows the
+// server banner; Try again re-sends the same request with its submit button,
+// and the next success clears the banner (CD-346).
 func TestNetworkBanner_RetryAfter503(t *testing.T) {
 	g := startFaultGallery(t)
 	ctx := New(t)
@@ -194,9 +203,12 @@ func TestNetworkBanner_RetryAfter503(t *testing.T) {
 	if !markEl(t, ctx, savingButton) {
 		t.Fatal(`buttons page: no htmx form with a "Saving…" submit button`)
 	}
-	do(t, ctx, "name the button", chromedp.Evaluate[chromedp.Void](`(() => {
+	do(t, ctx, "name the button, version the form", chromedp.Evaluate[chromedp.Void](`(() => {
   const b = document.querySelector("[data-test-target]");
   b.name = "uiv2a4"; b.value = "again";
+  const v = document.createElement("input");
+  v.type = "hidden"; v.name = "version"; v.value = "3";
+  b.form.append(v);
 })()`))
 	g.set("/_gallery/buttons", fault503)
 	m := g.mark()
@@ -217,6 +229,66 @@ func TestNetworkBanner_RetryAfter503(t *testing.T) {
 	}
 }
 
+// A 503 on a POST without a saved version (it may have created something)
+// offers Reload, never a re-send, and Reload reloads the page (CD-346).
+func TestNetworkBanner_UnversionedPostOffersReload(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	g.set("/_gallery/buttons", fault503)
+	m := g.mark()
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner", netText+`.includes("Your change may have been saved. Reload to check before trying again.")`)
+	if n := eval[int](t, ctx, `document.querySelectorAll("#network [data-retry]").length`); n != 0 {
+		t.Errorf("the banner offers %d Try again buttons for an unversioned POST, want none", n)
+	}
+	g.set("/_gallery/buttons", "")
+	do(t, ctx, "mark this page", chromedp.Evaluate[chromedp.Void](`window.uiv2a4Page = 1`))
+	clickEl(t, ctx, "press Reload", `document.querySelector("#network [data-reload]")`)
+	waitReload(t, ctx, "/_gallery/buttons")
+	if n := len(g.requests(m, http.MethodPost, "/_gallery/buttons")); n != 1 {
+		t.Errorf("%d POSTs, want only the failed one", n)
+	}
+}
+
+// waitReload waits until the page marked with window.uiv2a4Page is replaced
+// by a fresh load of path; evaluations during the reload may fail.
+func waitReload(t *testing.T, ctx context.Context, path string) {
+	t.Helper()
+	deadline := time.Now().Add(stepTimeout)
+	for time.Now().Before(deadline) {
+		sctx, cancel := context.WithTimeout(ctx, time.Second)
+		ok, err := chromedp.Run(sctx, chromedp.Evaluate[bool](`window.uiv2a4Page === undefined && document.readyState === "complete" && location.pathname === `+jsString(path)))
+		cancel()
+		if err == nil && ok {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("the page did not reload to %s", path)
+}
+
+// A 4xx is the page's own refusal: it never shows the network banner, and it
+// clears one left by an earlier failure (CD-346).
+func TestNetworkBanner_4xxLeavesItEmpty(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	for _, f := range []string{fault404, fault403} {
+		g.set("/_gallery/buttons", fault503)
+		clickEl(t, ctx, "press Save", savingButton)
+		waitFor(t, ctx, "a banner", netBanner+` !== null`)
+		g.set("/_gallery/buttons", f)
+		m := g.mark()
+		clickEl(t, ctx, "press Save", savingButton)
+		g.waitRequests(t, m, 1, http.MethodPost, "/_gallery/buttons")
+		waitFor(t, ctx, "the "+f+" handled", `document.querySelector(".htmx-request") === null`)
+		if got := eval[string](t, ctx, netText); got != "" {
+			t.Errorf("after a %s, #network = %q, want empty", f, got)
+		}
+	}
+}
+
 // A-28: a dropped connection on Save shows "Couldn't reach the server." with
 // Try again, keeps the typed values, never covers a field, and Try again
 // saves.
@@ -233,6 +305,9 @@ func TestNetworkBanner_RetryAfterNetworkError(t *testing.T) {
 	}
 	if got := eval[string](t, ctx, `document.getElementById("f-reference").value`); got != "PO-77" {
 		t.Errorf("reference after the failure = %q, want the typed PO-77", got)
+	}
+	if n := eval[int](t, ctx, `document.querySelectorAll("#network [data-reload]").length`); n != 0 {
+		t.Errorf("a versioned step save offers %d Reload buttons, want Try again", n)
 	}
 	if n := eval[int](t, ctx, `document.querySelectorAll("#network [role]").length`); n != 0 {
 		t.Errorf("the banner has %d role attributes; the polite region announces it", n)
@@ -257,7 +332,7 @@ func TestNetworkBanner_RetryAfterNetworkError(t *testing.T) {
 }
 
 // A failed search (no submit button) is re-issued as the same GET; an htmx
-// timeout shows the network banner too.
+// timeout shows a banner too (here the unversioned POST's Reload one).
 func TestNetworkBanner_RetryGetAndTimeout(t *testing.T) {
 	g := startFaultGallery(t)
 	ctx := New(t)
@@ -278,7 +353,7 @@ func TestNetworkBanner_RetryGetAndTimeout(t *testing.T) {
 	do(t, ctx, "a 300 ms timeout", chromedp.Evaluate[chromedp.Void](`htmx.config.timeout = 300`))
 	g.set("/_gallery/buttons", faultSlow)
 	clickEl(t, ctx, "press Save", savingButton)
-	waitFor(t, ctx, "the network banner on timeout", netText+`.includes("Couldn't reach the server.")`)
+	waitFor(t, ctx, "the unsure banner on timeout", netText+`.includes("Your change may have been saved.")`)
 }
 
 // "/" focuses the header search from the page, and types a slash in a field.
@@ -295,6 +370,37 @@ func TestShortcut_SlashFocusesSearchOutsideFields(t *testing.T) {
 	pressSlash(t, ctx)
 	if got := eval[string](t, ctx, `document.activeElement.id + "|" + document.activeElement.value`); got != "f-reference|/" {
 		t.Errorf(`after "/" in the reference field: focused|value = %q, want f-reference|/`, got)
+	}
+	do(t, ctx, "focus an editable region", chromedp.Evaluate[chromedp.Void](`(() => {
+  const e = document.createElement("div");
+  e.id = "uiv2a4-edit"; e.contentEditable = "true"; e.textContent = "x";
+  document.querySelector("main").append(e);
+  e.focus();
+})()`))
+	pressSlash(t, ctx)
+	if got := eval[string](t, ctx, `document.activeElement.id + "|" + document.activeElement.textContent`); !strings.HasPrefix(got, "uiv2a4-edit|") || !strings.Contains(got, "/") {
+		t.Errorf(`after "/" in an editable region: focused|text = %q, want the region with a slash typed`, got)
+	}
+}
+
+// Below 64rem the header search is hidden, so "/" is left alone.
+func TestShortcut_SlashLeftAloneWhenSearchHidden(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	for _, c := range []struct {
+		width int64
+		want  bool
+	}{{1024, true}, {360, false}} {
+		open(t, ctx, c.width, g.URL+"/_gallery/buttons")
+		do(t, ctx, "watch the key", chromedp.Evaluate[chromedp.Void](`(() => {
+  document.activeElement && document.activeElement.blur();
+  window.uiv2a4Prevented = null;
+  window.addEventListener("keydown", function (e) { window.uiv2a4Prevented = e.defaultPrevented; });
+})()`))
+		pressSlash(t, ctx)
+		if got := eval[bool](t, ctx, `window.uiv2a4Prevented === true`); got != c.want {
+			t.Errorf(`at %d px "/" default prevented = %v, want %v`, c.width, got, c.want)
+		}
 	}
 }
 

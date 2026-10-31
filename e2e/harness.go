@@ -72,6 +72,7 @@ type Harness struct {
 
 	delayPath atomic.Pointer[string]
 	delay     atomic.Int64
+	dropPath  atomic.Pointer[string]
 
 	mu         sync.Mutex
 	cspReports []string
@@ -212,7 +213,8 @@ func (h *Harness) approvalRules() {
 
 // handler adds what the app can't serve for test-only DocTypes: the stand-in
 // masters' pickers, since only real masters have /pick routes; an optional
-// delay on one path, to hold a save in flight; and the CSP reports' endpoint.
+// delay on one path, to hold a save in flight; an optional cut answer on one
+// path; and the CSP reports' endpoint.
 func (h *Harness) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == screens.CSPReportPath {
@@ -225,6 +227,15 @@ func (h *Harness) handler(next http.Handler) http.Handler {
 		}
 		if name, ok := strings.CutPrefix(r.URL.Path, fixturePick); ok {
 			h.pick(w, r, strings.ToLower(name))
+			return
+		}
+		if p := h.dropPath.Load(); p != nil && r.Method == http.MethodPost && r.URL.Path == *p {
+			next.ServeHTTP(httptest.NewRecorder(), r)
+			// A cut answer, after the headers, so the browser never re-sends it.
+			if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+				_, _ = conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\ncut"))
+				_ = conn.Close()
+			}
 			return
 		}
 		if p := h.delayPath.Load(); p != nil && r.Method == http.MethodPost && strings.Contains(r.URL.Path, *p) {
@@ -242,6 +253,16 @@ func (h *Harness) handler(next http.Handler) http.Handler {
 func (h *Harness) DelayPosts(path string, d time.Duration) {
 	h.delay.Store(int64(d))
 	h.delayPath.Store(&path)
+}
+
+// DropAnswers handles every POST to exactly path, then cuts its answer short,
+// as a dropped connection after the save does; "" stops it.
+func (h *Harness) DropAnswers(path string) {
+	if path == "" {
+		h.dropPath.Store(nil)
+		return
+	}
+	h.dropPath.Store(&path)
 }
 
 // pick answers a stand-in master's picker search like mstkit's.

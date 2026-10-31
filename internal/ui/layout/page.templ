@@ -107,18 +107,22 @@ templ flash(n web.Notice) {
 }
 
 // networkTemplates are the banners app.js copies into #network when a request
-// gets no answer (offline) or a 5xx (server), each with Try again (UI v2 §5.14).
+// gets no answer (offline) or a 5xx (server), each with Try again, and, for a
+// POST that can't be safely re-sent, one with Reload (UI v2 §5.14, CD-346).
 templ networkTemplates() {
 	<template id="network-offline">
-		@networkBanner("Couldn't reach the server.", "Check your connection. Nothing you typed is lost.")
+		@networkBanner("Couldn't reach the server.", "Check your connection. Nothing you typed is lost.", "Try again", "data-retry")
 	</template>
 	<template id="network-server">
-		@networkBanner("The server had a problem.", "Try again in a minute.")
+		@networkBanner("The server had a problem.", "Try again in a minute.", "Try again", "data-retry")
+	</template>
+	<template id="network-unsure">
+		@networkBanner("Your change may have been saved.", "Reload to check before trying again.", "Reload", "data-reload")
 	</template>
 }
 
-templ networkBanner(title, message string) {
+templ networkBanner(title, message, action, attr string) {
 	@components.Banner(components.BannerProps{Kind: components.Danger, Icon: "wifi-off", Title: title, Message: message, NoRole: true}) {
-		@components.Button(components.ButtonProps{Type: "button", Label: "Try again", Icon: "refresh-cw", Variant: components.Secondary, Attrs: templ.Attributes{"data-retry": true}})
+		@components.Button(components.ButtonProps{Type: "button", Label: action, Icon: "refresh-cw", Variant: components.Secondary, Attrs: templ.Attributes{attr: true}})
 	}
 }
