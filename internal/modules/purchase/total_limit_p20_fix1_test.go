@@ -68,7 +68,13 @@ func TestPO_TotalLimitStepSaveInterState(t *testing.T) {
 // holding NET30 (SHREE's default) whose NET30 is then disabled, switched to
 // BHARAT (default NET45), takes NET45.
 func TestPO_VendorChangeResetsDisabledDefaultTerms(t *testing.T) {
+	// Step save only: a full save posts the stored, now-disabled terms back,
+	// and DOC refuses a disabled link before Validate runs (AD-13 ruling on
+	// the P20 TEST-DISPUTE).
 	for _, p := range p20SavePaths {
+		if !p.step {
+			continue
+		}
 		t.Run(p.name, func(t *testing.T) {
 			env := purchasetest.New(t)
 			net30, net45 := p20Terms(t, env, "NET30", "Net 30 days"), p20Terms(t, env, "NET45", "Net 45 days")
