@@ -525,13 +525,11 @@ func TestS1_ExpensesCards(t *testing.T) {
 	}
 	s1Lacks(t, "plain card", gc.Eq(1).Text(), "GST")
 
-	// Line pages: Expense {n}, Back reads Expenses; the hash is never an input,
-	// and Billed to only while the company has two branch GSTINs.
+	// Line pages: Expense {n}, Back reads Expenses, and Billed to only while
+	// the company has two branch GSTINs. S2's line page posts the receipt
+	// hash itself (UX §5 intro), so it isn't checked here.
 	r = s1Page(t, dk, s1URL(c.ID, "/lines/1"))
 	s1Has(t, "line page", r.doc.Find("h1").Text(), "Expense 1")
-	if r.doc.Find(`[name="receipt_sha256"]`).Length() != 0 {
-		t.Error("line page posts receipt_sha256")
-	}
 	if r.doc.Find(`[name="billed_to_id"]`).Length() == 0 {
 		t.Error("line page has no Billed to with two branch GSTINs")
 	}
