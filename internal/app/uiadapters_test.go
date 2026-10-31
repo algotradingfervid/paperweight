@@ -170,10 +170,15 @@ func TestApp_UIAdaptersMatchServices(t *testing.T) {
 	})
 
 	t.Run("origin", func(t *testing.T) {
-		// The amendment is a draft, so its page is the check page. Ravi's next
-		// full page shows the flash the amend left.
+		// The amendment is a draft. Ravi (amend, no write) is sent from its
+		// check page to its read-only document page (CD-263 G1), where his
+		// first full page shows the flash the amend left.
 		path := orderPath + "/" + amended + "/edit/check"
 		r := ravi.get(path)
+		if r.status != http.StatusSeeOther || r.location() != orderPath+"/"+amended {
+			t.Fatalf("Ravi GET the amendment's check page = %d to %q, want 303 to %q", r.status, r.location(), orderPath+"/"+amended)
+		}
+		r = ravi.get(r.location())
 		if r.status != http.StatusOK {
 			t.Fatalf("GET the amendment = %d, want 200", r.status)
 		}

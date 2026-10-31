@@ -227,14 +227,14 @@ func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, vers
 }
 
 // lineGet serves GET …/lines/new and …/lines/{no}: the module's Line.Body
-// when it has one.
+// when it has one. A reader goes to the document page (CD-263 G1).
 func (d Deps) lineGet(w http.ResponseWriter, r *http.Request) {
 	dt, id, ok := d.lineTarget(w, r)
 	if !ok {
 		return
 	}
 	v, ok := d.draftView(w, r, dt, id)
-	if !ok {
+	if !ok || d.readOnly(w, r, dt, v) {
 		return
 	}
 	no := 0
@@ -296,6 +296,11 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 			problem(w, r, doctype.ErrNotFound)
 			return
 		}
+	}
+	// A reader gets AUTH's refusal, as DOC gives it, before any parsing (CD-263 G1).
+	if err := d.writeErr(r, dt, loaded); err != nil {
+		problem(w, r, err)
+		return
 	}
 	line := d.modOf(dt).Line
 	grid := ui.IsHTMX(r) && no > 0 && d.gridShown(dt)
@@ -467,13 +472,14 @@ type gridView struct {
 }
 
 // removeGet serves GET …/lines/{no}/remove: "Remove line {no} ({item})?".
+// A reader goes to the document page (CD-263 G1).
 func (d Deps) removeGet(w http.ResponseWriter, r *http.Request) {
 	dt, id, ok := d.lineTarget(w, r)
 	if !ok {
 		return
 	}
 	v, ok := d.draftView(w, r, dt, id)
-	if !ok {
+	if !ok || d.readOnly(w, r, dt, v) {
 		return
 	}
 	no, ok := lineNo(r, len(v.Lines))

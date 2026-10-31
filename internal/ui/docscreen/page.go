@@ -62,7 +62,8 @@ func target(w http.ResponseWriter, r *http.Request) (*doctype.DocType, int64, bo
 }
 
 // page serves GET /doc/{doctype}/{id}. A draft's document page is its
-// check page (design-system §8.3).
+// check page for a user who may change it, and the read-only document page
+// for every other reader (design-system §8.3, CD-263 G1).
 func (d Deps) page(w http.ResponseWriter, r *http.Request) {
 	dt, id, ok := target(w, r)
 	if !ok {
@@ -74,7 +75,7 @@ func (d Deps) page(w http.ResponseWriter, r *http.Request) {
 		problem(w, r, err)
 		return
 	}
-	if v.Info.State == doctype.StateDraft {
+	if v.Info.State == doctype.StateDraft && d.canWrite(r, dt, v) {
 		http.Redirect(w, r, docURL(dt.Name, id)+"/edit/check", http.StatusSeeOther)
 		return
 	}

@@ -36,6 +36,7 @@ type Row struct {
 	Href, Title, Party string
 	Values             map[string]string
 	State              doctype.State
+	StateLabel         string // the DocType's word for State; "" keeps the component's
 }
 
 // DataListProps describes a DataList; Empty is shown when there are no rows.

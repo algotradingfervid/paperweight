@@ -112,6 +112,7 @@ type ApprovalView struct {
 	Needed             bool
 	Preview, WaitingOn string
 	History            []HistoryRow
+	Roles, Why         string // the approver's eligible roles and the rule's reason, when pending
 }
 
 // Origin holds DOC's state_reason and amended_from_id, which doc.Record
