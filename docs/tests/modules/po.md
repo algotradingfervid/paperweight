@@ -486,7 +486,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-065 · Last price default from same vendor, item, UoM and project, else standard rate; hint scoped
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved or closed POs with lines for the same item **When** a line is saved with a blank price **Then** price and discount come from the newest line (latest `order_date`, then highest id) on an approved or closed PO with the same vendor, item, UoM and project, else the item's standard rate. The Items step note "Last bought at ₹{rate} from {vendor} on {date} ({PO})" is the newest for that item and UoM across vendors, read through `Auth.Scope`, so it never shows a PO the user can't see. `LastPrices(ctx, p, itemID, uomID, limit)` returns up to three.
+- **Given** approved or closed POs with lines for the same item **When** a line is saved with a blank price **Then** price and discount come from the newest line (latest `order_date`, then highest id) on an approved or closed PO with the same vendor, item, UoM and project, else the item's standard rate. The Items step note "Last bought at ₹{rate} from {vendor} on {date} ({PO})" is the newest for that item and UoM across vendors, read through `Auth.Scope`, so it never shows a PO the user can't see. `LastPricesFor(ctx, p, keys)` returns the newest per item and UoM, hiding unreadable POs (CD-258 Q6 (a)).
 - **Go test:** `TestPO_LastPrice`
 - **Sources:** PO spec §24.2, §26
 

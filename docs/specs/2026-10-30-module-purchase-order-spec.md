@@ -578,7 +578,7 @@ One PO can take lines from many requests. A request line can be split across POs
 | The same request row is on two rows of this PO | `Line {n}: Request {PR} line {m} is already on line {k}.` |
 | Other POs' ordered plus held (`lineOrdered`) already reach the request row's quantity | `Line {n}: Request {PR} line {m} is already on {PO display}.` (the oldest such PO) |
 
-Ordering more than was requested is allowed. The check page warns: `Line {n}: ordering {x} more than request {PR} asked for.` The quantity check reads the other POs inside the write, so when two buyers save at once the second is refused (CD-94). This is a cross-record invariant. Its write paths, and what guards each: PO save and submit (`Validate`, `BeforeSubmit`); PO approve (the kernel re-validates); PO amend (copies `request_line_id`; M0 makes amend run `Validate`); PO cancel and close (free quantity; `RefreshOrderStatus`); request close and cancel (call no hook; the kernel's `LinkSpec` refuses the PO on its next save or approve). One post-state function, `checkRequestRows(ctx, tx, poID)`, is called last by `Validate` and `BeforeSubmit`.
+Ordering more than was requested is allowed. The check page warns: `Line {n}: ordering {x} more than request {PR} asked for.` The quantity check reads the other POs inside the write, so when two buyers save at once the second is refused (CD-94). This is a cross-record invariant. Its write paths, and what guards each: PO save and submit (`Validate`, `BeforeSubmit`); PO approve (the kernel re-validates); PO amend (copies `request_line_id`; M0 makes amend run `Validate`); PO cancel and close (free quantity; `RefreshOrderStatus`); request close and cancel (call no hook; the kernel's `LinkSpec` refuses the PO on its next save or approve). One post-state function, `checkRequestRows(ctx, tx, poID)`, is called last by `Validate`, which the kernel runs again on submit and approve (`doc/transitions.go:22`, D-APR-15).
 
 ### 20.6 Rights (production `DefaultRights`)
 
@@ -671,7 +671,7 @@ A shared feature in `modkit`. PO and Request opt in now; GRN and Expense can opt
 ### 24.2 Last price
 
 - **Default.** When a line is saved with a blank price, the default is the price and discount of the newest line (latest `order_date`, then highest id) on an approved or closed PO with the same vendor, item, UoM and project. If there is none, it is the item's standard rate. Restricting the lookup to the same project means the default never reveals a price from a project the user can't see: `Validate` has no principal, so it can't apply scope.
-- **Hint.** After a line is saved, its card and grid row on the Items step carry the note `Last bought at ₹{rate} from {vendor} on {date} ({PO})`, the newest for that item and UoM across vendors, through `Module.LineCard`'s `Note` (hooks spec §3). It is read through `Auth.Scope` (AUTH-110) in the hook, which has the principal. `LastPrices(ctx, p, itemID, uomID, limit)` returns up to three for the document page's line notes.
+- **Hint.** After a line is saved, its card and grid row on the Items step carry the note `Last bought at ₹{rate} from {vendor} on {date} ({PO})`, the newest for that item and UoM across vendors, through `Module.LineCard`'s `Note` (hooks spec §3). It is read through `Auth.Scope` (AUTH-110) in the hook, which has the principal. The document page shows the same newest price, as a line note in draft, pending and rejected (CD-258 Q6 (a): newest only).
 - A rate above the last price raises no warning [Assumption]. It is a price, not a rule.
 
 ### 24.3 Everything else stays
