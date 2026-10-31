@@ -277,6 +277,8 @@ var auditActions = map[string]string{
 	"amended":                      "Amended",
 	"attachment_added":             "Attachment added",
 	"attachment_removed":           "Attachment removed",
+	"bill_saved":                   "Bill details saved",
+	"bill_copied":                  "Bill details copied",
 	"imported":                     "Imported",
 	"effect":                       linkedUpdate,
 }

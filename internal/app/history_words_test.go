@@ -29,6 +29,8 @@ func TestAuditAction_EveryActionInWords(t *testing.T) {
 		{audit.Entry{Action: "amended"}, false, "Amended"},
 		{audit.Entry{Action: "attachment_added"}, false, "Attachment added"},
 		{audit.Entry{Action: "attachment_removed"}, false, "Attachment removed"},
+		{audit.Entry{Action: "bill_saved"}, false, "Bill details saved"},
+		{audit.Entry{Action: "bill_copied"}, false, "Bill details copied"},
 		{audit.Entry{Action: "imported"}, false, "Imported"},
 		{audit.Entry{Action: "effect"}, false, "Updated by a linked document"},
 		{audit.Entry{Action: "effect", CausedBy: cause}, false, "Updated by a linked document"},
