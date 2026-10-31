@@ -380,6 +380,8 @@ func newRSEnv(t *testing.T) *rsEnv {
 			t.Fatalf("move %s's counter: %v", name, err)
 		}
 	}
+	// Claim details draws the advance radios and Less advance only for a paid advance with money left (UX §5.3).
+	e.paidAdvance()
 	base := w.app.ToolingRedrawDeps().Modules
 	for _, dt := range rsDocTypes() {
 		d := &rsDoc{e: e, dt: dt, hide: map[string]bool{}, sentinel: map[string]string{}, shown: map[string]string{}, mod: base[dt.Name]}
@@ -412,6 +414,32 @@ func newRSEnv(t *testing.T) *rsEnv {
 		e.h["plain"+suffix], e.h["inject"+suffix], e.h["line"+suffix] = e.mount(plain), e.mount(inject), e.mount(line)
 	}
 	return e
+}
+
+// paidAdvance gives EMP-007 an approved, paid advance with money left.
+func (e *rsEnv) paidAdvance() {
+	t := e.t
+	t.Helper()
+	ctx := t.Context()
+	admin := e.who[rsAdmin]
+	dt, _ := doctype.Lookup(expense.AdvanceDocType)
+	values, line := e.seeder(dt)(t)
+	res, err := e.w.app.Engine().Do(ctx, admin, expense.AdvanceDocType, 0, doc.ActionSave, doc.ActionInput{Values: values, Lines: []map[string]string{line}})
+	if err == nil {
+		res, err = e.w.app.Engine().Do(ctx, admin, expense.AdvanceDocType, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
+	}
+	if err == nil {
+		res, err = e.w.app.Engine().Do(ctx, e.who[rsApprover], expense.AdvanceDocType, res.ID, doc.ActionApprove, doc.ActionInput{Version: res.Version})
+	}
+	if err == nil && res.State != doctype.StateApproved {
+		err = fmt.Errorf("state %s", res.State)
+	}
+	if err == nil {
+		err = e.w.app.ToolingExpense().MarkPaid(ctx, admin, res.ID, res.Version, types.Today(testkit.Clock()))
+	}
+	if err != nil {
+		t.Fatalf("a paid expense.Advance for EMP-007: %v", err)
+	}
 }
 
 // rsDocTypes are the registered document DocTypes, by name.
@@ -1946,8 +1974,9 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	}
 	d.cell(t, "line GET module", func(t *testing.T) {
-		// The probe's Line.Body draws nothing, and docscreen's shell no field.
-		d.both(t, "GET line 1 with a module Line", "line", true, func(t *testing.T, mode string) rsResp {
+		// The probe's Line.Body draws nothing, and docscreen's shell no field;
+		// a module's own Line.Body (expense.Claim's line page) draws its fields.
+		d.both(t, "GET line 1 with a module Line", "line", d.mod.Line == nil, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.lineURL(id, "1"), nil, false).want(t, "GET line 1 with a module Line", http.StatusOK)
 		})
 	})

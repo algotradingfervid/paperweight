@@ -56,13 +56,24 @@ type detailsView struct {
 	purpose, date, remarks templ.Component
 	advance                bool // the disclosure is shown
 	open                   bool
-	radios                 *components.FieldProps // nil: the hint alone (only unpaid advances)
+	drawn                  bool                   // false: the hint alone (only unpaid advances)
+	radios                 *components.FieldProps // nil when the module hides advance_id
 	options                []components.Option
 	less                   templ.Component
 }
 
+// hides reports whether the module hides field name (Module.Hide as
+// registered, the function docscreen uses): the step neither draws, reads
+// nor saves it (CD-319, hooks spec §4.3).
+func hides(c docscreen.Ctx, name string) bool {
+	h := c.Deps.Modules[c.DT.Name].Hide
+	f, _ := c.DT.Field(name)
+	return h != nil && h(c, f)
+}
+
 // detailsBody draws the step from the stored draft, or from the post on a
-// 422 or 409, so nothing typed is lost.
+// 422 or 409, so nothing typed is lost. A field the module hides is drawn
+// as nothing.
 func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Component, error) {
 	val := func(name string) string {
 		switch {
@@ -82,6 +93,9 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 		return ""
 	}
 	input := func(name, hint, value string) templ.Component {
+		if hides(c, name) {
+			return templ.NopComponent
+		}
 		f, _ := c.DT.Field(name)
 		f.Hint = hint
 		return docscreen.FieldInput(f, components.FieldID(name), value, errOf(name), c.Deps)
@@ -95,7 +109,7 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 		date:    input("claim_date", "", date),
 		remarks: input("remarks", hintRemarks, val("remarks")),
 	}
-	if isAdmin(c.Principal) {
+	if isAdmin(c.Principal) && !hides(c, "employee_id") {
 		code, err := d.codeOf(c, s)
 		if err != nil {
 			return nil, err
@@ -107,6 +121,10 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 		}
 	}
 
+	hideAdv, hideLess := hides(c, "advance_id"), hides(c, "less_advance")
+	if hideAdv && hideLess {
+		return detailsBodyView(v), nil
+	}
 	chosen, less := val("advance_id"), val("less_advance")
 	opts, err := d.advanceOptions(c, chosen)
 	if err != nil {
@@ -114,7 +132,7 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 	}
 	// A stored Less advance alone draws nothing: with an advance the viewer
 	// can't read it would offer only No advance, and a save would clear it.
-	typed := errOf("advance_id") != "" || errOf("less_advance") != ""
+	typed := (!hideAdv && errOf("advance_id") != "") || (!hideLess && errOf("less_advance") != "")
 	unpaid := false
 	if len(opts) == 0 && !typed {
 		if unpaid, err = d.unpaidOnly(c); err != nil {
@@ -124,11 +142,14 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 	v.advance = len(opts) > 0 || typed || unpaid
 	v.open = chosen != "" || less != "" || typed
 	if len(opts) > 0 || typed {
-		v.radios = &components.FieldProps{
-			ID: components.FieldID("advance_id"), Name: "advance_id", Label: "Advance", Hint: hintPaidOnly,
-			Error: errOf("advance_id"), Value: chosen,
+		v.drawn = true
+		if !hideAdv {
+			v.radios = &components.FieldProps{
+				ID: components.FieldID("advance_id"), Name: "advance_id", Label: "Advance", Hint: hintPaidOnly,
+				Error: errOf("advance_id"), Value: chosen,
+			}
+			v.options = append([]components.Option{{Value: "", Label: labelNoAdv}}, opts...)
 		}
-		v.options = append([]components.Option{{Value: "", Label: labelNoAdv}}, opts...)
 		v.less = input("less_advance", hintLess, less)
 	}
 	return detailsBodyView(v), nil
@@ -243,10 +264,10 @@ func (d Deps) unpaidOnly(c docscreen.Ctx) (bool, error) {
 	return d.Service.HasUnpaidAdvance(c.Req.Context(), c.Principal, emp)
 }
 
-// detailsSave is the step's values in DOC's plain form. Only an
-// Administrator's post sets the employee, from the code (blank is their own
-// claim); anyone else's employee_id is dropped (HOOK-010, EUX-019). An
-// unknown code is a 422 with nothing written.
+// detailsSave is the step's values in DOC's plain form, without the fields
+// the module hides. Only an Administrator's post sets the employee, from the
+// code (blank is their own claim); anyone else's employee_id is dropped
+// (HOOK-010, EUX-019). An unknown code is a 422 with nothing written.
 func (d Deps) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 	s := docscreen.Save{Values: map[string]string{}}
 	names := detailsFields
@@ -254,6 +275,9 @@ func (d Deps) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 		names = append(slices.Clone(names), advanceFields...)
 	}
 	for _, name := range names {
+		if hides(c, name) {
+			continue
+		}
 		f, _ := c.DT.Field(name)
 		v, fe := docscreen.ToPlain(f, c.Req.PostFormValue(name))
 		if fe != nil {
@@ -262,7 +286,7 @@ func (d Deps) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 		}
 		s.Values[name] = v
 	}
-	if !isAdmin(c.Principal) {
+	if !isAdmin(c.Principal) || hides(c, "employee_id") {
 		return s, nil
 	}
 	code := strings.TrimSpace(c.Req.PostFormValue("employee_code"))
