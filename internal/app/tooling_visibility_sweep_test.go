@@ -547,10 +547,11 @@ func (s *sweepSeed) docPages() map[string][]sweepPage {
 // can't.
 func (s *sweepSeed) fill(route string) ([]sweepPage, string) {
 	queries := map[string][]string{
-		"/settings/numbering/preview":   {"?tpl=PO%2F%7B%23%23%23%23%23%7D"},
-		"/m/import/template":            {"?doctype=Party"},
-		"/reports/expense/lines":        {"", "?month=2026-10"},
-		"/reports/expense/lines/filter": {"", "?month=2026-10"},
+		"/settings/numbering/preview":     {"?tpl=PO%2F%7B%23%23%23%23%23%7D"},
+		"/m/import/template":              {"?doctype=Party"},
+		"/reports/expense/lines":          {"", "?month=2026-10"},
+		"/reports/expense/lines/filter":   {"", "?month=2026-10"},
+		"/modules/goodsreceipt/po-search": {"", "?all=1", "?all=1&q=" + hiddenQuery},
 	}
 	plain := func(us ...string) []sweepPage {
 		var out []sweepPage
@@ -768,6 +769,9 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 			}
 			add("/modules/purchase/q/"+purchase.QueueToSend, r.doc.Number)
 			add("/modules/purchase/q/"+purchase.QueueAwaitingDelivery, r.doc.Number)
+			// GRN step 1's PO search (S1b, CD-323 (2)): a readable approved
+			// order is found by its number, widened to fully received ones.
+			add("/modules/goodsreceipt/po-search?all=1", r.doc.Number)
 		}
 		page := "/doc/" + r.dt + "/" + idText(r.id)
 		dt, _ := doctype.Lookup(r.dt)
