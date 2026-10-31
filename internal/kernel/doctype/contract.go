@@ -88,6 +88,10 @@ type Field struct {
 	// option without one shows its value (CD-325).
 	OptionLabels map[string]string
 
+	// Tip is a longer "how to fill this" explanation shown behind the info
+	// "i" beside the label; "" shows no "i". Hint stays visible (CD-350).
+	Tip string
+
 	// DOC's additions (§5 last paragraph).
 	NonNegative, Positive               bool
 	Min, Max                            *int64
