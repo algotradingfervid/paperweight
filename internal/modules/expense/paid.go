@@ -78,6 +78,10 @@ func (s *Service) paidAdvance(ctx context.Context, tx *db.Tx, p auth.Principal, 
 	if err != nil {
 		return a, err
 	}
+	// The record AUTH's Info builds for an advance: its OwnerField
+	// created_by, its EmployeeField employee_id, and no project or site ids,
+	// since the advance declares no ProjectFields or SiteFields (spec §4,
+	// register.go). Cancel is a right check, not a link read (CD-312).
 	ref := &auth.RecordRef{DocType: AdvanceDocType, ID: a.ID, CreatedBy: types.UserID(a.CreatedBy), EmployeeID: a.EmployeeID.Int64}
 	if err := s.deps.Auth.CanTx(ctx, tx, p, AdvanceDocType, auth.RightCancel, ref); err != nil {
 		return a, err
