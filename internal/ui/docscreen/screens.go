@@ -31,7 +31,8 @@ const sweepUser = "priya@vardhan.test"
 // 409 variant of the first step), the line pages, the document page in every
 // other state the DocType has and the reason, confirm and list pages, and the
 // search page. The close page is left out for a DocType that can't be closed
-// (CD-277). An unregistered name is taken to have every state.
+// (CD-277), and the filtered list page for a DocType list can't filter by
+// state (M0-38). An unregistered name is taken to have every state.
 func Screens(name string, ids SampleIDs) []screens.Screen {
 	const route = "/doc/{doctype}"
 	base := "/doc/" + name
@@ -39,9 +40,13 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 	const page, sub = "/doc/{doctype}/{id}", "/doc/{doctype}/{id}/{action}"
 	const step, lines = "/doc/{doctype}/{id}/edit/{step}", "/doc/{doctype}/{id}/lines/{no}"
 	slugs := []string{slugDetails, slugItems, slugCheck}
-	approvable, submittable := true, true
+	approvable, submittable, filterable := true, true, true
 	if dt, ok := doctype.Lookup(name); ok {
 		approvable, submittable = dt.Approvable, dt.Submittable
+		// list's filterCond rule (unexported): a Filterable header field.
+		filterable = slices.ContainsFunc(dt.Fields, func(f doctype.Field) bool {
+			return f.Name == "state" && f.Filterable && !f.OnLine
+		})
 		if steps, err := FormSteps(dt); err == nil {
 			slugs = slugs[:0]
 			for _, s := range steps {
@@ -102,12 +107,16 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 		}
 		out = append(out, screens.Screen{Name: name + " " + s.name, Route: r, URL: doc(need(s.id, s.field)) + s.path, As: s.as})
 	}
-	return append(out, []screens.Screen{
-		{Name: name + " list", Route: route, URL: base, As: sweepUser},
-		{Name: name + " list empty", Route: route, URL: base + "?q=no-such-thing-zz", As: sweepUser},
-		{Name: name + " list filtered", Route: route, URL: base + "?" + ListQuery{
+	out = append(out,
+		screens.Screen{Name: name + " list", Route: route, URL: base, As: sweepUser},
+		screens.Screen{Name: name + " list empty", Route: route, URL: base + "?q=no-such-thing-zz", As: sweepUser},
+	)
+	if filterable {
+		out = append(out, screens.Screen{Name: name + " list filtered", Route: route, URL: base + "?" + ListQuery{
 			Filters: []Filter{{Field: "state", Op: "in", Values: []string{string(doctype.StateApproved), string(doctype.StatePending)}}},
-		}.Encode(), As: sweepUser},
+		}.Encode(), As: sweepUser})
+	}
+	return append(out, []screens.Screen{
 		{Name: name + " search", Route: "/search", URL: "/search", As: sweepUser},
 		{Name: name + " search results", Route: "/search", URL: "/search?q=Draft", As: sweepUser},
 		{Name: name + " search no match", Route: "/search", URL: "/search?q=no-such-thing-zz", As: sweepUser},

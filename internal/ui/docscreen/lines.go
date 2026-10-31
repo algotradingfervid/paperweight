@@ -627,8 +627,13 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))
 }
 
+// linePageOpts adds the banners and, with the module's Line, the sticky bar
+// whose Save line posts the line form (UX-E4).
 func linePageOpts(lp linePageView) layout.PageOpts {
 	o := lp.Opts
 	o.BannerSlot = linePageBanners(lp)
+	if lp.FormID != "" {
+		o.BarSlot = components.ActionBar(components.ActionBarProps{Primary: &lp.Button, Form: lp.FormID})
+	}
 	return o
 }

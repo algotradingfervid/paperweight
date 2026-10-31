@@ -49,7 +49,7 @@ func orderDocType() doctype.DocType {
 			{Name: "rate", Label: "Rate", Type: doctype.Rate, NonNegative: true, OnLine: true, Step: "lines"},
 			{Name: "uom", Label: "Unit", Type: doctype.Text, Default: "Nos", OnLine: true, Step: "lines"},
 			{Name: "description", Label: "Description", Type: doctype.Text, OnLine: true, Step: "lines"},
-			{Name: "received_qty", Label: "Received quantity", Type: doctype.Qty, RollUp: true, OnLine: true, Step: "lines"},
+			{Name: "received_qty", Label: "Received quantity", Type: doctype.Qty, ReadOnly: true, RollUp: true, OnLine: true, Step: "lines"},
 		},
 		Hooks: orderHooks{hookBase{"Order"}},
 	}

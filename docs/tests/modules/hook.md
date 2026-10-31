@@ -356,3 +356,24 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** every registered document DocType with a filterable `state` field **When** each `/doc/<name>?…` URL that `Screens` generates is parsed and built by the real list path (`ParseListQuery`, `list.ParseSort`, `list.Build`) **Then** list accepts it; the "list filtered" screen's two-state filter uses Op `in`.
 - **Go test:** `TestScreens_ListURLsAreAccepted`
 - **Sources:** M0-34 (head, AD-11 S0 sweep)
+
+### HOOK-052 · The line grid fits the largest amount at every width it renders at
+- **Priority:** P1
+- **Level:** e2e
+- **Given** fixture.Claim (three cells), two expense.Advance drafts (five cells, amount input in column 4, three lines with move buttons) and fixture.Order (five cells, largest rate) with ₹10,00,00,00,000.00 lines **When** the Items step, check page and document page are shown at 1328 (64rem editor), 1440 and every sweep width **Then** no box overflows and the page never scrolls sideways; money and rate inputs, the amount and the action buttons fit on one line; each head and row has one cell per column and lines up; each required element is counted, so none is skipped.
+- **Go test:** `TestE2E_LineGridFitsLargestAmount`
+- **Sources:** CD-308 (2), (3); M0-35
+
+### HOOK-053 · The widest five-cell row fits at 64rem
+- **Priority:** P1
+- **Level:** e2e
+- **Given** the gallery line list's row 2 with Rate 10,00,00,000.0000, amount ₹10,00,00,00,000.00, Remove, Move up and Move down **When** the line editor is 1024 px and 1440 px wide **Then** nothing in the row overflows, the row is no wider than the grid, the amount and buttons don't wrap, and head and row cells line up.
+- **Go test:** `TestGalleryBrowser_LineGridWidestRow`
+- **Sources:** CD-308 (3); M0-35
+
+### HOOK-051 · A DocType without a filterable state gets no "list filtered" screen
+- **Priority:** P1
+- **Level:** integration
+- **Given** registered document DocTypes with and without a filterable header `state` field (including one with a non-Filterable `state` and one whose `state` is on the line), and an unregistered name **When** `Screens` builds their screens **Then** exactly the DocTypes for which list accepts `state in [...]` get "list filtered", and an unregistered name keeps it.
+- **Go test:** `TestScreens_FilteredOnlyWithStateFilter`
+- **Sources:** M0-38 (head ruling after M0-34)
