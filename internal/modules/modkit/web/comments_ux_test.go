@@ -162,8 +162,8 @@ func TestCommentsUX_RedrawFocusAndAnnouncement(t *testing.T) {
 			t.Errorf("%s: redrawn box has no autofocus", c.what)
 		}
 		a := announcement(r)
-		if a.Length() != 1 || strings.TrimSpace(a.Text()) != c.announce || a.AttrOr("hx-swap-oob", "") != "true" {
-			t.Errorf("%s: announcement %d elements %q oob %q, want one %q swapped out of band", c.what, a.Length(), a.Text(), a.AttrOr("hx-swap-oob", ""), c.announce)
+		if a.Length() != 1 || strings.TrimSpace(a.Text()) != c.announce || a.AttrOr("hx-swap-oob", "") != "innerHTML" {
+			t.Errorf("%s: announcement %d elements %q oob %q, want one %q swapped out of band with innerHTML (keeps the live region)", c.what, a.Length(), a.Text(), a.AttrOr("hx-swap-oob", ""), c.announce)
 		}
 	}
 }
