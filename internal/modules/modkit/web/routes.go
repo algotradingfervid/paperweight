@@ -1,8 +1,6 @@
 package modkitweb
 
 import (
-	"net/http"
-
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
@@ -37,9 +35,4 @@ func Routes(d Deps) func(r chi.Router) {
 		r.Post("/settings/business", h.settingsPost)
 		r.Post("/modules/comments/{doctype}/{id}", h.addComment)
 	}
-}
-
-// notBuilt answers a route whose task hasn't built it yet.
-func notBuilt(w http.ResponseWriter) {
-	http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 }
