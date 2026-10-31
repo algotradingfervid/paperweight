@@ -238,6 +238,76 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Go test:** `TestE2E_Field_EchoKeepsSaveInPlace`
 - **Sources:** CD-287
 
+### HOOK-033 · A line page Top region outside the line form
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module with `Line` and `Line.Top` **When** the line page renders, on GET and on a 422 or 409 redraw **Then** Top's component renders after the title and outside the line form (`#line-form`), with `Posted` set on a redraw; an error is a 500; without `Module.Line` the form has no id.
+- **Go test:** `TestModule_LineTop`
+- **Sources:** CD-275 UX-E1
+
+### HOOK-034 · A module names its lines
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module with `LineNoun` **When** the Items step and line pages render **Then** the add button and new-line title use `Add`, existing line titles use `Title` and the number, and an empty Items step shows `Empty`; a zero `LineNoun` keeps today's words.
+- **Go test:** `TestModule_LineNoun`
+- **Sources:** CD-275 UX-E2
+
+### HOOK-035 · Add button above the cards, repeated from four lines
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module with `AddTop` **When** the Items step renders **Then** the add button sits above the cards, and from 4 lines a second one follows the cards and the totals.
+- **Go test:** `TestModule_AddTop`
+- **Sources:** CD-275 UX-E2, EUX-037
+
+### HOOK-036 · Line card receipt thumbnail
+- **Priority:** P1
+- **Level:** unit
+- **Given** a `LineCard` with `Receipt`, `ReceiptNote` or `ReceiptWarn` **When** it renders **Then** it shows the thumbnail or chip with its alt text, the note and the warning icon; a zero card is unchanged.
+- **Go test:** `TestLineCard_Receipt`
+- **Sources:** CD-275 UX-E3
+
+### HOOK-037 · Receipts on line cards everywhere they show
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `LineCard` sets a receipt **When** the Items step, check page and document page render **Then** each card shows it.
+- **Go test:** `TestModule_LineCardReceipt`
+- **Sources:** CD-275 UX-E3
+
+### HOOK-038 · Module control of the read-only Attachments card
+- **Priority:** P1
+- **Level:** integration
+- **Given** a non-Attachable DocType and a Module whose `Page` returns `Files` **When** the document page renders **Then** nil keeps the card, an empty list removes it, items render without Remove, and an Attachable DocType is unchanged.
+- **Go test:** `TestModule_PageFiles`
+- **Sources:** CD-275 UX-E7
+
+### HOOK-039 · The line page's Save moves to the sticky bar
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module with `Line` **When** the line page renders **Then** Save is the ActionBar primary posting `form=line-form`, and Enter in a field submits it.
+- **Go test:** `TestModule_LineBar`
+- **Sources:** CD-275 UX-E4
+
+### HOOK-040 · An upload disables the page's Save
+- **Priority:** P1
+- **Level:** unit
+- **Given** `UploadProps.AlsoDisable` **When** the upload forms render **Then** both forms' `hx-disabled-elt` include that selector after their own inputs.
+- **Go test:** `TestFileUpload_AlsoDisable`
+- **Sources:** CD-275 UX-E5
+
+### HOOK-041 · Save is disabled during an upload and focus stays put
+- **Priority:** P1
+- **Level:** e2e
+- **Given** a line page with an upload and a Save **When** a file uploads **Then** Save is disabled until the upload ends, and focus returns to the input only if it was there or on the body.
+- **Go test:** `TestUploadBrowser_SaveDisabledFocus`
+- **Sources:** CD-275 UX-E5
+
+### HOOK-042 · Check-page module totals after the grand total
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `Check` returns `Totals` **When** the check page renders **Then** they follow the grand total and its words.
+- **Go test:** `TestModule_CheckTotalsAfter`
+- **Sources:** CD-275 UX-E6
+
 ### HOOK-043 · A step's Top renders above the generic body
 - **Priority:** P1
 - **Level:** integration
