@@ -292,6 +292,10 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | M0-6 | modkit skeleton, import guard, checker reads module tests | Standard | impl, rev opus (AD-9) | 08:41 | 08:56 | 1 | 0/1/2 | 46beebd |
 | M0-7 | Business settings, period lock | High | tw, impl, rev opus (AD-9) | 09:10 | 12:30 | 1 | 0/0/4 | 46beebd |
 | M0-14 | Comments | High | tw, impl, rev opus (AD-9) | 09:10 | 13:20 | 1 | 0/2/7 | 46beebd; G-M0S met |
+| M0-27 | db.Tx.DB, modkit.Wiring (CD-284) | Light | impl, rev opus (AD-9) | 13:30 | 14:00 | 1 | 0/1/1 | 46beebd |
+| M0-14b | Comments.AddTx | High | tw, impl, rev opus (AD-9) | 13:00 | 13:50 | 1 | 0/0/1 | 46beebd |
+| M0-23 | Line {n}: texts in uom and mstfixture (CD-277, CD-278) | Light | impl, rev opus (AD-9) | 13:10 | 13:55 | 1 | 0/0/3 | 46beebd |
+| G0c | Amendment keeps a closed link (CD-279) | High | tw, impl, rev opus (AD-12) | 13:00 | 14:20 | 1 | 0/0/2 | 76a977e |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 

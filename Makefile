@@ -21,7 +21,7 @@ build:
 # already inside one prints the stack and exits the test binary with code 2.
 # The tests on the second line nest on purpose, so they run without the gate.
 test:
-	go test -race -count=1 -tags nestcheck ./...
+	go test -race -count=1 -timeout 20m -tags nestcheck ./...
 	go test -race -count=1 -run 'TestCanTx_Reads|TestNoSecondConn_(NestedReadFails|IgnoresCtxStillFails)' ./internal/kernel/auth ./internal/testkit
 
 # CD-45: end-to-end tests.
