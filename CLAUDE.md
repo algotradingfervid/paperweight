@@ -75,6 +75,8 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Before a ruling changes a text pattern (a prefix or wording rule), search the CD table and the code for older texts it overrides; CD-264's `Line {n}:` rule missed CD-199's text (CD-278).
 - golangci-lint takes a machine-wide lock. With several ADs linting at once, `make lint` failed with "parallel golangci-lint is running". The Makefile now passes `--allow-serial-runners` (wait, don't fail); add the same flag to hand-in lint commands.
 - `scripts/covertouched` skips generated `_templ.go`, so a template-only change reports "0 blocks" and gives no coverage signal. For template tasks, the reviewer runs a mutation pass on the .templ changes (AD-12, G0b).
+- A plan's stub returns nil or zero only where that means "no extra rule". Date and Amount hooks are real from the skeleton task, because a zero Date makes naming.Assign refuse every approve (MOD-PO plan check).
+- A contract stated for one producer is written out in full for each sibling, never "as X does" (render error mapping, GET-state 403/404; MOD-PO plan check).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
