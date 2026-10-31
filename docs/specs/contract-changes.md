@@ -541,3 +541,18 @@ The expense spec is v0.6, and exp.md now has EXP-042 to EXP-067 (67 cases). | AD
 - A test checks that two worlds in parallel each see their own Deps.
 - Services built directly by the app hold their deps as struct fields as usual; only kernel hooks go through Wiring. | AD-13 CROSS-WP, head ruled. |
 | CD-285 | **GRN print date label follows the challan kind (G0b follow-up).** The print reads `Challan date:` for a delivery challan and `Invoice date:` for a tax invoice. G8 (GRN print) builds it from ChallanLabel's kind. | AD-12 minor, head ruled. |
+| CD-286 | **M0-26 rulings (AD-10 plan check; builds CD-282 R1, R4 and Q4).**
+
+*R1.* docscreen exports `LineFieldID(no int, field string) string`, which is `f-lines-{no}-{field}`. `no` is the error's 1-based Line among the non-blank lines docscreen sent. On a step with a Body, docscreen renders the Body once into a buffer. It links a line error to that id only when the Body rendered it; otherwise the error links to the step heading, so a link is never dead.
+
+*R4.* `wizard.Bar.EnterPrimary`, set when the step has a Body, starts the step form with `components.EnterSubmit(primary)`. This is an empty submit button that copies the primary's Name, Value and Attrs: tabindex -1, aria-hidden, sized 0×0 by an @utility rather than display:none. The trade-off: on Enter, busy.js marks the hidden copy busy, so the visible primary is disabled but doesn't say `Saving…`.
+
+*Q4.* `components.LargeQtyInput(p FieldProps, whole bool, uom string)` at the new token `--control-h-lg: 3.5rem`, with an @utility `field__control--lg`. NumberInput's body moves to a private helper with today's bytes.
+
+*Order.* R1 and R4 are High and run after M0-17. Q4 is split out as M0-26q (Standard).
+
+*Tests.* HOOK-044 TestModule_BodyLineErrorLinks, 045 TestModule_EnterPrimary, 046 TestModuleBrowser_EnterPressesPrimary (e2e), 047 TestLargeQtyInput, 048 TestLargeQtyInputBrowser_Size (e2e). iOS Safari's implicit submission through a 0×0 button is unverified, so P17's and GRN's phone e2e runs note it.
+
+*Spec text.* Hooks spec §4.1 and design-system §5, §7 and §8.3 are amended.
+
+*Also.* New task M0-28 (Light, AD-9): doctype.Register refuses a DocType with Hooks but no LinesTable. It registers today but isn't IsDocument(), so every engine action answers "This document no longer exists". | AD-10 DECISION, head accepted. |

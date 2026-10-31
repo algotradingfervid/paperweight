@@ -77,7 +77,7 @@ Rules 1–7 below are binding for every screen; rules 8–12 explain how to deci
 | Status | success / warning / danger / info, each with 50 tint, 600 icon/border (≥ 3:1), 700 text/solid fill (≥ 4.5:1), 800 text on tint (≥ 7.7:1) |
 | Type | Inter; 13 / 14 / **16 (body and every input)** / 18 / 20 / 24 / 30 px; headings step up once at 48rem; line height 1.5 body, 1.25 headings |
 | Space | 4 px grid, `--space-1` 4 px … `--space-16` 64 px; gutter 16 px, 24 px from 48rem; form max 40rem; content max 72rem |
-| Size | `--target-min` 44 px, `--target-primary` 48 px, `--control-h` 44 px, header 56 px, action bar 72 px |
+| Size | `--target-min` 44 px, `--target-primary` 48 px, `--control-h` 44 px, `--control-h-lg` 56 px (LargeQtyInput only, CD-286), header 56 px, action bar 72 px |
 | Radius | 4 (badge), 8 (input, button), 12 (card), 16 (sheet, dialog), pill |
 | Focus | 2 px solid `#1F4FD1` outline, 2 px offset (≥ 5.9:1 on every surface) |
 | Motion | 120 / 200 / 300 ms; all near zero under `prefers-reduced-motion: reduce` |
@@ -136,6 +136,7 @@ All components are templ functions in `internal/ui/components/`. Screens compose
 | `Button` (primary, secondary, ghost, danger) | Min 44 px; one primary per screen; danger only for destructive actions, which also need a confirm step; `hx-disabled-elt` on submit to stop double submits; label changes to "Saving…" | None |
 | `Field` (label, hint, error, input) | Label always visible above the input, no placeholder-as-label; "(optional)" marks optional fields; error text under the field with icon, `aria-invalid`, `aria-describedby`, 2 px danger border | None |
 | `MoneyInput`, `QtyInput`, `RateInput`, `PercentInput` | `type="text" inputmode="decimal"` (`numeric` for whole-number UoM); never `type="number"`; Indian grouping on blur; UoM / % as a suffix outside the input; more decimals than allowed is an error, never silent rounding (NUM rules) | app.js (blur formatting) |
+| `LargeQtyInput` | `QtyInput` at `--control-h-lg` (56 px), with 20 px tabular figures and a 16 px unit suffix, full width of its card. Only for a quantity re-typed under time pressure with gloves (GRN `Received now`, CD-282 Q4, CD-286); every other number input stays 44 px. CD-169 applies: the worst-case value shows unclipped at every width | app.js (blur formatting) |
 | `DateInput` | Text input `dd-mm-yyyy` with `inputmode="numeric"`, default today, "Today" and "Yesterday" buttons, parsed date echoed with weekday ("Friday, 27 March 2026") | app.js |
 | `CodeInput` (GSTIN, PAN, HSN, pincode) | `autocapitalize="characters"`, `spellcheck="false"`; validates on reaching length; on a valid GSTIN shows derived state and PAN under the field | htmx (`/validate/gstin`) |
 | `Picker` (party, item, project, site, employee, PO) | ARIA 1.2 combobox; server search on code + name + GSTIN, 250 ms debounce, max 20 rows; each row shows code, name and one distinguishing line; chosen value shows as a summary with "Change" (and "Clear" on an optional field, CD-217); full-height sheet on phones; respects rights scope and restrictions; preselects when exactly one value is allowed; `<select>` fallback for lists under 50 | htmx + Alpine |
@@ -229,6 +230,7 @@ Components are still ours: the templ function, its props, its ARIA and behaviour
 - Primary button is the state action: "Submit for approval" or "Submit".
 - Server re-validates everything on submit; any failure sends the user to the first failing step with its errors.
 - **Reopening a draft** from a list lands on the check page with each section marked "Complete" or "Needs attention", not on step 1, for a user who may change it (`write` on the record). Anyone else who can read it gets the read-only document page (§8.4), and every step and line URL sends them there (CD-263, G1).
+- **Enter presses the primary.** A step whose body has its own submit buttons starts its form with an empty, unseen copy of the primary (`EnterSubmit`), so Enter or the phone's Go key always presses the primary (CD-286).
 
 **Lifecycle mapping (spec §3.2).**
 

@@ -77,6 +77,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - `scripts/covertouched` skips generated `_templ.go`, so a template-only change reports "0 blocks" and gives no coverage signal. For template tasks, the reviewer runs a mutation pass on the .templ changes (AD-12, G0b).
 - A plan's stub returns nil or zero only where that means "no extra rule". Date and Amount hooks are real from the skeleton task, because a zero Date makes naming.Assign refuse every approve (MOD-PO plan check).
 - A contract stated for one producer is written out in full for each sibling, never "as X does" (render error mapping, GET-state 403/404; MOD-PO plan check).
+- Hand-in test lists that touch UI include `./internal/ui/...`; the assets and UI lint tests live there, and a list of only the changed packages misses them (AD-10).
 - `go tool templ generate -path <pkg>` rewrites the error filenames in every `_templ.go` of that package to short names (a noisy diff): use `-f <file.templ>` or plain `make generate` (AD-9, M0-9).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
