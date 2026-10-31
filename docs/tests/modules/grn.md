@@ -82,7 +82,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-009 · Accepted = received − rejected; value at the PO's net rate
 - **Priority:** P1
 - **Level:** unit
-- **Given** line 1 received 800.000 kg, rejected 40.000 kg, and line 2 received 50.000 kg **When** it is saved **Then** line 1 `accepted_qty` is 760.000 and line 2 50.000, and `accepted_value` is ₹52,300.00 (760 × ₹62.5000 + 50 × ₹96.0000), before tax. **When** rejected on line 1 is then raised to 900.000 (refused) **Then** line 1's `accepted_qty` is 0 and `accepted_value` is the sum of the lines as stored (CD-302).
+- **Given** line 1 received 800.000 kg, rejected 40.000 kg, and line 2 received 50.000 kg **When** it is saved **Then** line 1 `accepted_qty` is 760.000 and line 2 50.000, and `accepted_value` is ₹52,300.00 (760 × ₹62.5000 + 50 × ₹96.0000), before tax. **When** rejected on line 1 is then raised to 900.000 (refused) **Then** line 1's `accepted_qty` is 0 and `accepted_value` is the sum of the lines as stored (CD-302). **Given** lines, each valid, whose accepted values sum above ₹10,00,00,00,000.00 **When** saved **Then** "The total is too large. The most a Goods Receipt can be is ₹10,00,00,00,000.00. Split it into more than one Goods Receipt." on the lines, and `accepted_value` is cleared (CD-308).
 - **Go test:** `TestGRN_AcceptedValue`
 - **Sources:** GRN spec §3.1, §3.2, §16
 - **Built in:** G2
@@ -242,10 +242,10 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-029 · Restricted Suresh creates a GRN for his site; a posted other-site PO gets AUTH-101's refusal; a tampered site_id is reset
 - **Priority:** P1
 - **Level:** integration
-- **Given** `suresh` on the real `auth.Service` **When** he saves step 1 with no PO **Then** "Choose a purchase order." (422, not the engine's 404). **When** he creates a GRN for the reference PO **Then** it is created with `site_id` METRO-SITE. **When** he posts a TECH-SITE PO **Then** "You can't use this Purchase Order. It isn't available to you." (403). **When** he saves his draft with `site_id` posted as PUNE-WH **Then** `Validate` resets it to METRO-SITE.
+- **Given** `suresh` on the real `auth.Service` **When** he saves step 1 with no PO **Then** "Choose a purchase order." (422, not the engine's 404). **When** he creates a GRN for the reference PO **Then** it is created with `site_id` METRO-SITE. **When** he posts a TECH-SITE PO **Then** "You can't use this Purchase Order. It isn't available to you." (403). **When** he saves his draft with `site_id` posted as PUNE-WH **Then** `Validate` resets it to METRO-SITE. **When** he opens step 1 with `?po=` the reference PO (METRO-SITE, which he can read) **Then** the PO is preselected and its label `PO/26-27/00001` is shown, and `grnweb.ReceiveLink` returns the link; with `?po=` a TECH-SITE PO there is no preselect and no error, and `ReceiveLink` returns false (CD-283, CD-312: the PO is checked by `auth.CheckLinkTx`, not docscreen's master-only `LinkRead`).
 - **Go test:** `TestGRN_RestrictedCreateReal`
-- **Sources:** GRN spec §3.1, §8, §10, §16; CD-240
-- **Built in:** G6
+- **Sources:** GRN spec §3.1, §8, §10, §16; CD-240, CD-283, CD-312
+- **Built in:** G6 (service rows), S1 (preselect and ReceiveLink rows)
 
 ### GRN-030 · Print golden, with rejected reason and transport details
 - **Priority:** P1
