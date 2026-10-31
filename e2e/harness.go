@@ -38,6 +38,7 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/screens"
 	"github.com/vardhan/internaltools/internal/ui/uibrowser"
 )
@@ -99,7 +100,13 @@ func (l *lockedBuffer) tail() string {
 // they come here. A failing test prints the end of the server log.
 func Start(t *testing.T) *Harness {
 	t.Helper()
-	h := start(t, true)
+	return StartModules(t, nil)
+}
+
+// StartModules is Start with docscreen Modules for the fixture DocTypes.
+func StartModules(t *testing.T, mods map[string]docscreen.Module) *Harness {
+	t.Helper()
+	h := start(t, true, mods)
 	h.restrict()
 	h.approvalRules()
 	return h
@@ -109,15 +116,15 @@ func Start(t *testing.T) *Harness {
 // rows, no users.
 func StartEmpty(t *testing.T) *Harness {
 	t.Helper()
-	return start(t, false)
+	return start(t, false, nil)
 }
 
-func start(t *testing.T, seed bool) *Harness {
+func start(t *testing.T, seed bool, mods map[string]docscreen.Module) *Harness {
 	t.Helper()
 	printtest.RegisterFixtureViews(print.Default)
 	h := &Harness{t: t, Clock: testkit.Clock(), logs: &lockedBuffer{}}
 	a, err := app.New(context.Background(), app.Config{
-		DataDir: t.TempDir(), Clock: h.Clock, LogOutput: h.logs,
+		DataDir: t.TempDir(), Clock: h.Clock, LogOutput: h.logs, Modules: mods,
 		Prepare: func(ctx context.Context, d *db.DB) error {
 			if err := db.Migrate(ctx, d, fixture.MigrationsFS, "goose_fixture"); err != nil {
 				return err

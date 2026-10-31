@@ -33,8 +33,10 @@ const sweepUser = "priya@vardhan.test"
 // other state the DocType has and the reason, confirm and list pages, and the
 // search page. The close page is left out for a DocType that can't be closed
 // (CD-277), and the filtered list page for a DocType list can't filter by
-// state (M0-38). An unregistered name is taken to have every state.
-func Screens(name string, ids SampleIDs) []screens.Screen {
+// state (M0-38). An unregistered name is taken to have every state. The line
+// pages are left out when d, the app's Deps, gives name a NoLinePages Module,
+// as those routes answer 404 for it (CD-329).
+func Screens(name string, ids SampleIDs, d ...Deps) []screens.Screen {
 	const route = "/doc/{doctype}"
 	base := "/doc/" + name
 	doc := func(id int64) string { return base + "/" + strconv.FormatInt(id, 10) }
@@ -73,9 +75,13 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 		{Name: name + " " + slugs[0] + " 422", Route: step, URL: draft + "/edit/" + slugs[0], As: sweepUser, Setup: submitInvalid},
 		{Name: name + " " + slugs[0] + " 409", Route: step, URL: draft + "/edit/" + slugs[0], As: sweepUser, Setup: submitStale},
 		{Name: name + " items 500", Route: step, URL: doc(need(ids.Lines500, "Lines500")) + "/edit/" + slugItems + "?all=1", As: sweepUser},
-		{Name: name + " line new", Route: "/doc/{doctype}/{id}/lines/new", URL: draft + "/lines/new", As: sweepUser},
-		{Name: name + " line", Route: lines, URL: draft + "/lines/1", As: sweepUser},
-		{Name: name + " line remove", Route: lines + "/remove", URL: draft + "/lines/1/remove", As: sweepUser},
+	}
+	if len(d) == 0 || !d[0].Modules[name].NoLinePages {
+		out = append(out, []screens.Screen{
+			{Name: name + " line new", Route: "/doc/{doctype}/{id}/lines/new", URL: draft + "/lines/new", As: sweepUser},
+			{Name: name + " line", Route: lines, URL: draft + "/lines/1", As: sweepUser},
+			{Name: name + " line remove", Route: lines + "/remove", URL: draft + "/lines/1/remove", As: sweepUser},
+		}...)
 	}
 	for _, slug := range slugs {
 		out = append(out, screens.Screen{Name: name + " step " + slug, Route: step, URL: draft + "/edit/" + slug, As: sweepUser})
@@ -123,8 +129,8 @@ func Screens(name string, ids SampleIDs) []screens.Screen {
 
 // Unswept returns, sorted, the registered document DocTypes that list misses
 // one of their Screens routes for: a module that doesn't add its own Screens
-// to the sweep is named here (hooks spec §6).
-func Unswept(list []screens.Screen) []string {
+// to the sweep is named here (hooks spec §6). d is passed on to Screens.
+func Unswept(list []screens.Screen, d ...Deps) []string {
 	var out []string
 	for _, dt := range doctype.All() {
 		if !dt.IsDocument() {
@@ -135,7 +141,7 @@ func Unswept(list []screens.Screen) []string {
 			return url == base || strings.HasPrefix(url, base+"/") || strings.HasPrefix(url, base+"?")
 		}
 		all := SampleIDs{Draft: 1, Pending: 2, Approved: 3, Rejected: 4, Cancelled: 5, Closed: 6, Lines500: 7, CloseAs: sweepUser}
-		for _, w := range Screens(dt.Name, all) {
+		for _, w := range Screens(dt.Name, all, d...) {
 			if mine(w.URL) && !slices.ContainsFunc(list, func(s screens.Screen) bool { return s.Route == w.Route && mine(s.URL) }) {
 				out = append(out, dt.Name)
 				break

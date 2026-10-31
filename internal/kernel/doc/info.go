@@ -36,24 +36,31 @@ func infoOf(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) (doctype.Info, e
 	}, nil
 }
 
-// partyOf is the "{Code} {Name}" display (CD-55, CD-68) of the master named by
-// the EmployeeField when it is a Link to a master, otherwise by the first
-// Required header Link to a master; "" when there is none or it is empty.
-func partyOf(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) (string, error) {
-	var field *Field
+// PartyField is the header field DOC reads Info.Party from (CD-55, CD-68,
+// CD-319 (6)): the EmployeeField when it is a Link to a master, otherwise
+// the first Required header Link to a master; false when there is none.
+func PartyField(dt *doctype.DocType) (doctype.Field, bool) {
+	var field doctype.Field
+	found := false
 	for _, f := range dt.HeaderFields() {
 		if f.Type != Link || masterOf(f.Link) == nil {
 			continue
 		}
 		if f.Column == dt.EmployeeField {
-			field = &f
-			break
+			return f, true
 		}
-		if f.Required && field == nil {
-			field = &f
+		if f.Required && !found {
+			field, found = f, true
 		}
 	}
-	if field == nil {
+	return field, found
+}
+
+// partyOf is the "{Code} {Name}" display of the master PartyField names;
+// "" when there is none or it is empty.
+func partyOf(ctx context.Context, tx *db.Tx, dt *DocType, d Doc) (string, error) {
+	field, ok := PartyField(dt)
+	if !ok {
 		return "", nil
 	}
 	id, ok := d.Header[field.Name].(int64)

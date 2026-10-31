@@ -159,8 +159,8 @@ func TestPUX015_NoteBoundaries(t *testing.T) {
 		))
 	purchasetest.SetReceived(t, env, po.Lines[1].ID, types.Qty(10001))
 	want := []string{
-		"Received 0 of 10", "Already received 0.001 KGS before this app · Pending 9.999 KGS",
-		"Received 10.001 of 10", "Pending 0 KGS · Over by 0.001 KGS",
+		"Received 0 of 10 KGS", "Already received 0.001 KGS before this app · Pending 9.999 KGS",
+		"Received 10.001 of 10 KGS", "Pending 0 KGS · Over by 0.001 KGS",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("line notes = %q, want %q", got, want)

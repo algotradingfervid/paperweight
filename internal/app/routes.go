@@ -109,6 +109,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		a.docModules = purchaseweb.Modules(pw)
 		a.docModules[expense.ClaimDocType] = expenseweb.ClaimModule(a.expenseWeb())
 		a.docModules[expense.AdvanceDocType] = expenseweb.AdvanceModule(a.expenseWeb())
+		maps.Copy(a.docModules, a.cfg.Modules)
 		docs := chi.NewRouter()
 		docscreen.Routes(a.docDeps())(docs)
 		mount(r, docs, func(route string, h http.Handler) http.Handler {

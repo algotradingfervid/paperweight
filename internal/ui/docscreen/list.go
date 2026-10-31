@@ -2,7 +2,6 @@ package docscreen
 
 import (
 	"cmp"
-	"context"
 	"net/http"
 	"slices"
 	"strconv"
@@ -57,7 +56,7 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		return
 	}
 	cols := ListColumns(dt)
-	rows, err := d.listRows(auth.WithPrincipal(ctx, p), dt, cols, res.Rows, docURL)
+	rows, err := d.listRows(r.WithContext(auth.WithPrincipal(ctx, p)), dt, cols, res.Rows, docURL)
 	if err != nil {
 		problem(w, r, err)
 		return
@@ -101,8 +100,14 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 	ui.Render(w, r, http.StatusOK, listPage(v), listMain(v))
 }
 
-// listRows is rs as DataList rows over cols; href is each row's link.
-func (d Deps) listRows(ctx context.Context, dt *doctype.DocType, cols []components.Column, rs []ListRow, href func(string, int64) string) ([]components.Row, error) {
+// listRows is rs as DataList rows over cols; href is each row's link. The
+// party is left out when the module hides its field (CD-319 (7)); Hide is
+// asked once, with no View and Listing set (CD-327 (1)).
+func (d Deps) listRows(r *http.Request, dt *doctype.DocType, cols []components.Column, rs []ListRow, href func(string, int64) string) ([]components.Row, error) {
+	ctx := r.Context()
+	c := d.ctxOf(r, dt, nil)
+	c.Listing = true
+	noParty := partyHidden(c)
 	rows := make([]components.Row, len(rs))
 	err := d.DB.Read(ctx, func(tx *db.Tx) error {
 		for i, lr := range rs {
@@ -125,10 +130,12 @@ func (d Deps) listRows(ctx context.Context, dt *doctype.DocType, cols []componen
 			rows[i] = components.Row{
 				Href:       href(dt.Name, lr.Info.ID),
 				Title:      lr.Info.Display,
-				Party:      lr.Info.Party,
 				Values:     vals,
 				State:      lr.Info.State,
 				StateLabel: dt.StateLabels[lr.Info.State],
+			}
+			if !noParty {
+				rows[i].Party = lr.Info.Party
 			}
 		}
 		return nil
