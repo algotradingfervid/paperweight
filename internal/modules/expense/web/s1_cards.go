@@ -38,37 +38,58 @@ const (
 
 // claimLineCard is an expense line's card: the type, the date (and its
 // project or site code), the amount, GST on a company bill, the note, and
-// the receipt's thumbnail or why there is none.
+// the receipt's thumbnail or why there is none. A field the registered Hide
+// hides puts nothing on the card (CD-319 (9)); the type and amount come from
+// docscreen's card, already without them. The module hides receipt_sha256
+// only from the generic pages, so the receipt asks pairHides.
 func claimLineCard(d Deps) func(docscreen.Ctx, docscreen.LineView) components.LineCard {
 	return func(c docscreen.Ctx, l docscreen.LineView) components.LineCard {
+		shown := func(name string) bool { return !hides(c, name) }
 		card := l.Card // Item is the type's name, Amount the amount
 		card.Code = ""
-		card.QtyRate = l.Display["expense_date"]
-		if tag, ok := tagCode(c, l); ok {
-			card.QtyRate += " · " + tag
+		var when []string
+		if shown("expense_date") && l.Display["expense_date"] != "" {
+			when = append(when, l.Display["expense_date"])
 		}
-		if (l.Inputs["company_bill"] == "1" || l.Inputs["company_bill"] == "true") && l.Display["gst_amount"] != "" {
+		if tag, ok := tagCode(c, l); ok {
+			when = append(when, tag)
+		}
+		card.QtyRate = strings.Join(when, " · ")
+		if shown("company_bill") && shown("gst_amount") && (l.Inputs["company_bill"] == "1" || l.Inputs["company_bill"] == "true") && l.Display["gst_amount"] != "" {
 			card.Tax = "GST " + l.Display["gst_amount"]
-			if g := billedGSTIN(c, l); g != "" {
+			if g := billedGSTIN(c, l); g != "" && shown("billed_to_id") {
 				card.Tax += billedTo + g
 			}
 		}
-		card.Note = l.Display["description"]
+		if shown("description") {
+			card.Note = l.Display["description"]
+		}
+		if pairHides(c, "receipt_sha256") {
+			return card
+		}
+		reason := ""
+		if shown("no_receipt_reason") {
+			reason = l.Inputs["no_receipt_reason"]
+		}
 		switch hash := l.Inputs["receipt_sha256"]; {
 		case hash != "":
 			card.Receipt = d.receiptOf(c, hash)
-		case l.Inputs["no_receipt_reason"] != "":
-			card.ReceiptNote = noReceipt + l.Inputs["no_receipt_reason"]
-		default:
+		case reason != "":
+			card.ReceiptNote = noReceipt + reason
+		case shown("no_receipt_reason"):
 			card.ReceiptNote, card.ReceiptWarn = noReceiptYet, true
 		}
 		return card
 	}
 }
 
-// tagCode is the line's project code, else its site code.
+// tagCode is the line's project code, else its site code, each only when
+// the registered Hide shows it.
 func tagCode(c docscreen.Ctx, l docscreen.LineView) (string, bool) {
 	for _, t := range []struct{ field, dt string }{{"project_id", project.DocType}, {"site_id", site.DocType}} {
+		if hides(c, t.field) {
+			continue
+		}
 		id, err := strconv.ParseInt(l.Inputs[t.field], 10, 64)
 		if err != nil {
 			continue

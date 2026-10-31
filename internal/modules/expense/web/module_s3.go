@@ -109,11 +109,15 @@ func advanceHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool {
 }
 
 // advanceLineCard is an advance line's card (UX §5.10): docscreen's card
-// with the type's name, not its code, and the line's note.
+// with the type's name, not its code, and the line's note unless the
+// registered Hide hides it (CD-319 (9)).
 func advanceLineCard(_ Deps) func(docscreen.Ctx, docscreen.LineView) components.LineCard {
-	return func(_ docscreen.Ctx, l docscreen.LineView) components.LineCard {
+	return func(c docscreen.Ctx, l docscreen.LineView) components.LineCard {
 		card := l.Card
-		card.Code, card.Note = "", l.Display["description"]
+		card.Code = ""
+		if !hides(c, "description") {
+			card.Note = l.Display["description"]
+		}
 		return card
 	}
 }
