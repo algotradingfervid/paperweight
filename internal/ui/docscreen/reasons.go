@@ -108,6 +108,7 @@ func (d Deps) reasonPost(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 	if pr.Blocked {
 		rv.Link = d.blockerLink(r.Context(), p, dt.Name, id)
 	}
+	notice(w, r, pr)
 	ui.Render(w, r, pr.Status, reasonPageFull(rv), reasonPageMain(rv))
 }
 

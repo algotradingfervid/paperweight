@@ -81,7 +81,7 @@ func TestLinkInput_DraftForms(t *testing.T) {
 		t.Errorf("the stored item lost its label: %q", page)
 	}
 
-	refused := url.Values{"version": {"5"}, "supplier_id": {"3"}, "order_date": {"not a date"}}
+	refused := url.Values{"version": {"3"}, "supplier_id": {"3"}, "order_date": {"not a date"}} // the stored version: a stale one is a 409 before parsing (CD-335)
 	docscreentest.SetMaster(docscreentest.Supplier, 3, doctype.MasterInfo{Code: "OTHER", Name: "Other Supplier"})
 	res := e.post(t, doc42+"/edit/details", refused)
 	if res.Code != http.StatusUnprocessableEntity {

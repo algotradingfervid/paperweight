@@ -359,10 +359,19 @@ func TestLines_GridSaveUsesPostedVersion(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200; body %.300s", rec.Code, rec.Body)
 		}
+		// The fake engine takes any version, so docscreen's stale check
+		// (CD-335), which asks the engine, passes: every call carries the
+		// posted version, and the row's save is the last.
 		calls := e.docs.Calls()[before:]
-		if len(calls) != 1 || calls[0].Action != doctype.ActionSave || calls[0].Input.Version != 5 {
-			t.Fatalf("engine calls = %+v, want one save at the posted version 5 (loaded is 6)", calls)
+		for _, c := range calls {
+			if c.Action != doctype.ActionSave || c.Input.Version != 5 {
+				t.Fatalf("engine call = %+v, want a save at the posted version 5 (loaded is 6)", c)
+			}
 		}
+		if len(calls) == 0 {
+			t.Fatalf("no engine call, want the row's save")
+		}
+		calls = calls[len(calls)-1:]
 		if l := calls[0].Input.Lines; len(l) != 3 || l[1]["id"] != "12" || l[1]["qty"] != plainQty(t, "25") {
 			t.Errorf("saved lines = %q, want line 2 (id 12) with qty %s", l, plainQty(t, "25"))
 		}

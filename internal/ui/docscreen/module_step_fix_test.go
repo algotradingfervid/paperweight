@@ -124,9 +124,10 @@ func TestModule_BodyKeepsFixed(t *testing.T) {
 	}
 }
 
-// CD-94: a 422 redraw made before the save (Save.Errors) carries the version
-// the page posted, not the one stored since, so a re-post after another save
-// is still a 409 and never overwrites it.
+// CD-94: the redraw of a stale post carries the version the page posted,
+// not the one stored since, so a re-post after another save is still a 409
+// and never overwrites it. Since CD-335 the stale post is DOC's 409 before
+// Save runs, even with a value Save would refuse.
 func TestModule_RedrawKeepsPostedVersion(t *testing.T) {
 	e, _, id := m02Env(t)
 	save := func(c docscreen.Ctx) (docscreen.Save, error) {
@@ -146,7 +147,7 @@ func TestModule_RedrawKeepsPostedVersion(t *testing.T) {
 		t.Fatalf("saving the draft elsewhere: %v", err)
 	}
 	posted := strconv.Itoa(opened.Version)
-	page := m02Page(t, e.post(t, base, m02Typing(posted, "bad")), http.StatusUnprocessableEntity, "POST terms with Save.Errors")
+	page := m02Page(t, e.post(t, base, m02Typing(posted, "bad")), http.StatusConflict, "stale POST terms with a value Save refuses")
 	got := m02Attr(stepForm(page, base).Find("#doc-version"), "value")
 	if got != posted {
 		t.Errorf("redrawn #doc-version = %q, want the posted %s", got, posted)
