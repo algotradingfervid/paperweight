@@ -18,12 +18,12 @@ import (
 )
 
 // MOD-PO P15-0 (hooks spec §3, HOOK-001's rule for a module): the app wires
-// purchase's Modules for Order and Request, and with the Order's stubs every
-// Order document, step, check and reason page renders byte-identically to the
-// same page with no Module. P15d built the Request's Module, so its pages
-// differ by design (purchase/web's p15d tests). P15b built the Order's Page
-// and Reason, so the approved PO's page and close page, and Ravi's read-only
-// draft page, differ too (p15b tests); the cancel page keeps its generic look.
+// purchase's Modules for Order and Request, and the Order pages no screen
+// task has changed (delete, and the cancel reason page) render
+// byte-identically to the same page with no Module. P15d built the Request's
+// Module, P15a the Order's steps, check page, Hide and line cards, and P15b
+// its document page and close page, so those pages differ by design
+// (purchase/web's p15d, p15a and p15b tests).
 func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	w := newWorld(t)
 	admin, _, _ := w.canonical()
@@ -54,10 +54,7 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 
 	po := "/doc/" + purchase.DocType + "/"
 	poDraft, poDone := po+save(purchase.DocType, poValues, poLine, false), po+save(purchase.DocType, poValues, poLine, true)
-	paths := []string{
-		po + "new", poDraft, poDraft + "/edit/details", poDraft + "/edit/terms", poDraft + "/edit/items", poDraft + "/edit/check",
-		poDraft + "/lines/1", poDraft + "/delete", poDone + "/cancel",
-	}
+	paths := []string{poDraft + "/delete", poDone + "/cancel"}
 
 	withMods := w.app.DocDeps()
 	for _, dt := range []string{purchase.DocType, purchase.RequestDocType} {
@@ -67,7 +64,6 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	}
 	none := withMods
 	none.Modules = nil
-	ravi := w.principal(raviID)
 	type page struct {
 		code     int
 		location string
@@ -93,11 +89,5 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	}
 	for _, path := range paths {
 		check(admin, path)
-	}
-	// Ravi reads Administrator's draft on the read-only document page (G1).
-	for _, path := range []string{poDraft} {
-		if pg := render(none, ravi, path); pg.code != http.StatusOK {
-			t.Fatalf("Ravi GET %s = %d, want the read-only page", path, pg.code)
-		}
 	}
 }

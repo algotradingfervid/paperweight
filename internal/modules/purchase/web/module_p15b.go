@@ -100,24 +100,33 @@ func orderLines(v *docscreen.DocView) ([]orderLine, error) {
 
 // note is line l's note on an approved or closed PO (UX §5.9): its own
 // description, the pending figure and, when over-received, Over by (CD-277),
-// joined with " · " (CD-330 (2)).
-func (l orderLine) note(closed bool) string {
+// joined with " · " (CD-330 (2)). With noQty (the screen hides qty) only the
+// description is left; a blank unit or description (hidden) is left out.
+func (l orderLine) note(closed, noQty bool) string {
 	var parts []string
 	if l.own != "" {
 		parts = append(parts, l.own)
 	}
+	if noQty {
+		return strings.Join(parts, metaSep)
+	}
 	switch {
 	case closed:
-		parts = append(parts, fmt.Sprintf(notePendingClosed, types.FormatQtyUoM(0, l.unit)))
+		parts = append(parts, fmt.Sprintf(notePendingClosed, qtyUnit(0, l.unit)))
 	case l.already > 0:
-		parts = append(parts, fmt.Sprintf(noteAlready, types.FormatQtyUoM(l.already, l.unit), types.FormatQtyUoM(l.pending, l.unit)))
+		parts = append(parts, fmt.Sprintf(noteAlready, qtyUnit(l.already, l.unit), qtyUnit(l.pending, l.unit)))
 	default:
-		parts = append(parts, fmt.Sprintf(notePending, types.FormatQtyUoM(l.pending, l.unit)))
+		parts = append(parts, fmt.Sprintf(notePending, qtyUnit(l.pending, l.unit)))
 	}
 	if over := l.already + l.received - l.qty; over > 0 {
-		parts = append(parts, fmt.Sprintf(noteOverBy, types.FormatQtyUoM(over, l.unit)))
+		parts = append(parts, fmt.Sprintf(noteOverBy, qtyUnit(over, l.unit)))
 	}
 	return strings.Join(parts, metaSep)
+}
+
+// qtyUnit is `40 BAG`, or `40` with no unit.
+func qtyUnit(q types.Qty, unit string) string {
+	return strings.TrimSpace(types.FormatQtyUoM(q, unit))
 }
 
 // orderRecords is what the page reads about a PO besides its view: the Sent
@@ -193,8 +202,15 @@ func (m *module) orderPageHook(c docscreen.Ctx) (docscreen.PageExtra, error) {
 	live := state == doctype.StateApproved || state == doctype.StateClosed
 	if live {
 		x.LineNotes = map[int]string{}
-		for _, l := range lines {
-			x.LineNotes[l.no] = l.note(state == doctype.StateClosed)
+		for i, l := range lines {
+			lc := lineCtx(c, v.Lines[i])
+			if hides(lc, "uom_id") {
+				l.unit = ""
+			}
+			if hides(lc, "description") {
+				l.own = ""
+			}
+			x.LineNotes[l.no] = l.note(state == doctype.StateClosed, hides(lc, "qty"))
 		}
 	}
 	canWrite, err := allowed(c, purchase.DocType, auth.RightWrite, &v.Record)
