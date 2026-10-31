@@ -39,6 +39,8 @@ const (
 	m22Form    = "m22-form"
 	m22Amount  = "m22-amount"
 	m22SaveURL = "/_m22/save"
+	m22Note    = "m22-note"
+	m22Type    = "m22-type"
 	m22SaveSel = "button[form=" + m22Form + "]"
 )
 
@@ -138,7 +140,11 @@ func m22Body(withCopy bool) templ.Component {
 		if _, err := io.WriteString(w, `<div id="m22-files"></div>`); err != nil {
 			return err
 		}
-		amount := components.TextInput(components.FieldProps{ID: m22Amount, Name: "amount", Label: "Amount"})
+		amount := templ.Join(
+			components.TextInput(components.FieldProps{ID: m22Amount, Name: "amount", Label: "Amount"}),
+			components.Select(components.FieldProps{ID: m22Type, Name: "type", Label: "Type"}, []components.Option{{Value: "food", Label: "Food"}, {Value: "fuel", Label: "Fuel"}}),
+			components.Textarea(components.FieldProps{ID: m22Note, Name: "note", Label: "Note"}, 200),
+		)
 		if withCopy {
 			amount = templ.Join(components.EnterSubmit(components.ButtonProps{Label: "Save line", Variant: components.Primary}), amount)
 		}
@@ -290,5 +296,32 @@ func TestUploadBrowser_EnterDuringUpload(t *testing.T) {
 				m22WantSaveAfter(t, ctx, m22Answer{ok: true, fileName: "receipt.jpg"})
 			}
 		})
+	}
+}
+
+// HOOK-041 (CD-275 UX-E5): focus moved into a textarea or a select outside
+// the upload while it runs stays there when the upload is refused or drops
+// (paths where Chrome doesn't move focus itself).
+func TestUploadBrowser_FieldFocusStays(t *testing.T) {
+	ctx := uibrowser.New(t)
+	file := attJPEG(t)
+	for _, a := range m22Answers[1:] {
+		for _, f := range []struct{ name, id string }{{"textarea", m22Note}, {"select", m22Type}} {
+			t.Run(a.name+"/"+f.name, func(t *testing.T) {
+				js := `document.getElementById(` + strconv.Quote(f.id) + `)`
+				s := m22Start(t)
+				m22Open(t, ctx, s)
+				attachDo(t, ctx, "choose a file", chromedp.SetUploadFiles(chromedp.CSS("#"+m22Upload+"-file"), []string{file}))
+				s.held(t)
+				m22WantSaveDuring(t, ctx)
+				attachDo(t, ctx, "focus the "+f.name, chromedp.Evaluate[chromedp.Void](js+`.focus()`))
+				attachWait(t, ctx, m22Upload, "focus in the "+f.name+" while uploading", `document.activeElement === `+js)
+				s.reply(t, a)
+				m22WantSaveAfter(t, ctx, a)
+				if !attachEval[bool](t, ctx, `document.activeElement === `+js) {
+					t.Errorf("after the upload ends focus is on %s, want it kept in the %s (UX-E5)", attachEval[string](t, ctx, `document.activeElement ? document.activeElement.outerHTML.slice(0, 120) : "(none)"`), f.name)
+				}
+			})
+		}
 	}
 }

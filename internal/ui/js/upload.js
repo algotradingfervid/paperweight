@@ -3,7 +3,7 @@
 // its data-busy text and htmx:xhr:progress moves the <progress> (never a
 // style). Every request inside the upload clears that when it ends (422 counts
 // as a success in the htmx config), and one that ended without a page reload
-// returns focus to the input used while focus is on it or on the body. A
+// returns focus to the input used unless focus is in another field. A
 // server notice on a form inside the upload closes any open dialog around it
 // and shows in the message region, cloned from the upload's <template> as a
 // text node; only an upload form's refusal marks the inputs. No answer at all
@@ -58,8 +58,9 @@ on("htmx:beforeOnLoad", (b, e) => {
 
 // htmx 2 fires htmx:afterRequest before htmx:sendError, so this also clears
 // a dropped upload. Without a refresh the input used is emptied, so picking
-// the same file again (after a dropped connection) is a change; focus goes
-// back to it only from it or the body, never out of another field (UX-E5).
+// the same file again (after a dropped connection) is a change. Focus goes
+// back to it unless the user moved it into a field outside the upload, so
+// typing there is never interrupted (UX-E5).
 on("htmx:afterRequest", (b, e, up, p, s) => {
   p.hidden = true;
   p.value = 0;
@@ -68,7 +69,8 @@ on("htmx:afterRequest", (b, e, up, p, s) => {
   used.delete(b);
   if (i && i.isConnected && e.detail.xhr.getResponseHeader("HX-Refresh") !== "true") {
     i.value = "";
-    if (document.activeElement === document.body) i.focus();
+    const a = document.activeElement;
+    if (b.contains(a) || !a.matches("input,select,textarea")) i.focus();
   }
 });
 
