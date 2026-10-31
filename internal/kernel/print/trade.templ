@@ -16,10 +16,18 @@ templ TradeDocument(d TradeDoc) {
 	if d.AmendsNumber != "" {
 		<p class="amends">{ "Amends " + d.AmendsNumber }</p>
 	}
+	@Refs(d.Refs)
 	@PartyBlock(d.Party)
+	@DeliverTo(d.DeliverTo)
 	@Lines(d.Lines)
 	@Totals(d)
 	@Words(d)
+	if d.PlaceReason != "" {
+		<p class="place-reason">{ d.PlaceReason }</p>
+	}
+	if d.ReverseChargeNote != "" {
+		<p class="reverse-charge">{ d.ReverseChargeNote }</p>
+	}
 	@Terms(d.Terms)
 	if d.ApprovedBy != "" {
 		<p class="approved">{ "Approved by " + d.ApprovedBy + " on " + types.FormatIST(d.ApprovedAt) }</p>
@@ -68,6 +76,31 @@ templ PartyBlock(p Party) {
 			<p class="gstin">GSTIN: Unregistered</p>
 		}
 	</section>
+}
+
+// Refs are the label and value facts under the date, left out when there are
+// none (FILE-064).
+templ Refs(refs []DocRef) {
+	if len(refs) > 0 {
+		<div class="refs">
+			for _, r := range refs {
+				<p class="ref">{ r.Label + ": " + r.Value }</p>
+			}
+		</div>
+	}
+}
+
+// DeliverTo is the delivery address block, left out when there is none
+// (FILE-064).
+templ DeliverTo(lines []string) {
+	if len(lines) > 0 {
+		<section class="deliver-to">
+			<h3>Deliver to</h3>
+			for _, line := range lines {
+				<p class="address">{ line }</p>
+			}
+		</section>
+	}
 }
 
 // Lines is the lines table; its header repeats on every printed page.

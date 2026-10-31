@@ -31,6 +31,10 @@ type TaxRow struct {
 	Amount types.Money
 }
 
+// DocRef is one label and pre-formatted value printed near the date, such as
+// "Payment terms: Net 30".
+type DocRef struct{ Label, Value string }
+
 // TradeDoc is the model a module print view fills for TradeDocument.
 type TradeDoc struct {
 	Title                    string
@@ -46,6 +50,12 @@ type TradeDoc struct {
 	ApprovedBy               string
 	ApprovedAt               time.Time
 	AmendsNumber             string
+	// DeliverTo, Refs, PlaceReason and ReverseChargeNote are each left out
+	// when empty (FILE-064).
+	DeliverTo         []string
+	Refs              []DocRef
+	PlaceReason       string
+	ReverseChargeNote string
 }
 
 // PayableTotal is the rounded total when the DocType rounds, else the grand total.
