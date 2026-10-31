@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
-	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
 )
 
 // p15aQtyRates are the line cards' quantity and rate lines.
@@ -112,9 +110,8 @@ func TestPUX011_NoNoteWhenUnreadable(t *testing.T) {
 // Plan P15a (the last-price note on draft, pending and rejected): a PO in
 // each state with a CEMENT-OPC line, after an older approved one at
 // ₹345.00, read by Ravi on its document page. Draft, pending and rejected
-// show the note; approved, closed and cancelled show none (their notes are
-// P15b's pending figures). Approved and closed cards read Received with the
-// unit (G8).
+// show the note; approved, closed and cancelled show none. Approved and
+// closed cards read Received with the unit (G8), then P15b's pending figure.
 func TestPUX011_LastPriceNoteStates(t *testing.T) {
 	w := newP15aWeb(t, purchasetest.New(t), nil)
 	env := w.env
@@ -159,8 +156,13 @@ func TestPUX011_LastPriceNoteStates(t *testing.T) {
 			if c.note {
 				want = []string{p15aNote(src)}
 			}
-			if c.state == doctype.StateApproved || c.state == doctype.StateClosed {
-				want = []string{"Received 0 of 40 BAG"}
+			// The card's notes in page order: Received, then the line's note,
+			// which is P15b's (CD-330 (2): no own description on this line).
+			switch c.state {
+			case doctype.StateApproved:
+				want = []string{"Received 0 of 40 BAG", "Pending 40 BAG"}
+			case doctype.StateClosed:
+				want = []string{"Received 0 of 40 BAG", "Pending 0 BAG (closed)"}
 			}
 			if got := page.notes(); !slices.Equal(got, want) {
 				t.Errorf("%s card notes = %q, want %q", c.state, got, want)
@@ -262,66 +264,87 @@ func TestPO_OrderLineGrid(t *testing.T) {
 	}
 }
 
-// p15aHiding is newP15aWeb with purchase's Order Module wrapped so its Hide
-// also hides field, as a screen's own Hide would (the redraw sweep's probe).
+// p15aHiding is newP15aWeb (its sessions, CSRF and module routes) with
+// purchase's Order Module wrapped so its Hide also hides field, as a
+// screen's own Hide would (the redraw sweep's probe).
 func p15aHiding(t *testing.T, env *purchasetest.Env, field string) *p15dWeb {
 	t.Helper()
-	w := newP15aWeb(t, env, nil)
-	mods := Modules(Deps{Service: env.Service, Approvals: env.Approvals, Comments: env.Comments})
-	m := mods[purchase.DocType]
-	own := m.Hide
-	m.Hide = func(c docscreen.Ctx, f doctype.Field) bool { return f.Name == field || own(c, f) }
-	mods[purchase.DocType] = m
-	r := chi.NewRouter()
-	docscreen.Routes(docscreen.Deps{DB: env.DB, Engine: env.Engine, Auth: env.Auth, Approval: env.Approvals, Extras: docscreentest.NewExtras(), Modules: mods})(r)
-	w.h = r
-	return w
+	return newP15aWebWith(t, env, nil, func(mods map[string]docscreen.Module) {
+		m := mods[purchase.DocType]
+		own := m.Hide
+		m.Hide = func(c docscreen.Ctx, f doctype.Field) bool { return f.Name == field || own(c, f) }
+		mods[purchase.DocType] = m
+	})
 }
 
 // CD-319, hooks spec §4.3 (a hidden field is never rendered): the Order's
 // cards and display grid leave out each line field the screen's Hide hides,
 // and the last-price note, which names the item, unit, rate and vendor, is
 // left out when any of them is hidden. Each row hides one field on a draft
-// read by Priya (Items step), or on an approved PO read by Ravi for
-// Received.
+// read by Priya (Items step), or on an approved or closed PO read by Ravi
+// for Received and P15b's line notes (AD-13 fix 1b): with qty hidden the
+// note leaves out the whole Pending part, keeping the line's own
+// description; with uom_id hidden it keeps the quantities without the unit.
 func TestPO_OrderLinesHonourHide(t *testing.T) {
 	env := purchasetest.New(t)
 	w := newP15aWeb(t, env, nil)
 	src := p15aSource(t, w)
 	draft := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(p15aCement(t, w, "40", "")))
 	done := purchasetest.NewOrder(t, env, purchasetest.OrderLines(p15aCement(t, w, "40", "")))
+	closed := purchasetest.NewOrder(t, env, purchasetest.OrderLines(p15aCement(t, w, "40", "")))
+	w.act(t, env.Admin, purchase.DocType, closed.ID, doctype.ActionClose, "Not needed.")
+	described := p15aCement(t, w, "40", "")
+	described["description"] = "Grey, 50 kg bags"
+	own := purchasetest.NewOrder(t, env, purchasetest.OrderLines(described))
+	itemNamed := p15aCement(t, w, "40", "")
+	itemNamed["description"] = "OPC Cement 53 Grade" // the item's name
+	named := purchasetest.NewOrder(t, env, purchasetest.OrderLines(itemNamed))
 	full := []string{"40 BAG × ₹345.00", "GST 18%"}
+	none := []string{}
 	for _, c := range []struct {
 		field    string
-		approved bool
+		on       string   // "" the draft, "approved", "closed", "described" (approved, with its own description) or "named" (approved, described by the item's name)
 		gone     []string // texts the lines must not show
 		kept     []string // texts they still show
 		note     bool
-		qtyRate  string // the card's quantity and rate line, exactly
-		received string // the card's Received line, exactly ("" none)
+		qtyRate  string   // the card's quantity and rate line, exactly
+		received string   // the card's Received line, exactly ("" none)
+		notes    []string // the card's notes other than Received, exactly (nil: not checked)
 	}{
-		{"item_id", false, []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"BAG", "₹345.00", "GST 18%"}, false, "40 BAG × ₹345.00", ""},
-		{"qty", false, []string{"40 BAG"}, []string{"₹345.00", "GST 18%"}, true, "₹345.00", ""},
-		{"uom_id", false, []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", ""},
-		{"price", false, []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", ""},
-		{"tax_code_id", false, []string{"GST 18%"}, []string{"40 BAG × ₹345.00"}, true, "40 BAG × ₹345.00", ""},
-		{"vendor_id", false, []string{"Shree Steel Traders"}, full, false, "40 BAG × ₹345.00", ""},
-		{"received_qty", true, []string{"Received"}, full, false, "40 BAG × ₹345.00", ""},
-		{"description", true, nil, append(slices.Clone(full), "Received 0 of 40 BAG"), false, "40 BAG × ₹345.00", "Received 0 of 40 BAG"},
-		// On an approved PO: Received names no hidden quantity or unit.
-		{"qty", true, []string{"40 BAG"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG"},
-		{"uom_id", true, []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40"},
-		{"price", true, []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", "Received 0 of 40 BAG"},
+		{"item_id", "", []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"BAG", "₹345.00", "GST 18%"}, false, "40 BAG × ₹345.00", "", nil},
+		{"qty", "", []string{"40 BAG"}, []string{"₹345.00", "GST 18%"}, true, "₹345.00", "", nil},
+		{"uom_id", "", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "", nil},
+		{"price", "", []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", "", nil},
+		{"tax_code_id", "", []string{"GST 18%"}, []string{"40 BAG × ₹345.00"}, true, "40 BAG × ₹345.00", "", nil},
+		{"vendor_id", "", []string{"Shree Steel Traders"}, full, false, "40 BAG × ₹345.00", "", nil},
+		{"received_qty", "approved", []string{"Received"}, full, false, "40 BAG × ₹345.00", "", nil},
+		{"description", "approved", nil, append(slices.Clone(full), "Received 0 of 40 BAG"), false, "40 BAG × ₹345.00", "Received 0 of 40 BAG", nil},
+		// On an approved or closed PO: Received and the line notes name no
+		// hidden quantity or unit.
+		{"qty", "approved", []string{"40 BAG", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG", none},
+		{"uom_id", "approved", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Pending 40"}},
+		{"qty", "closed", []string{"40 BAG", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG", none},
+		{"uom_id", "closed", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Pending 0 (closed)"}},
+		{"qty", "described", []string{"40 BAG", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG", []string{"Grey, 50 kg bags"}},
+		{"uom_id", "described", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Grey, 50 kg bags · Pending 40"}},
+		// A description equal to the item's name is the item: with item_id
+		// hidden the note doesn't show it.
+		{"item_id", "named", []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"BAG", "₹345.00", "GST 18%"}, false, "40 BAG × ₹345.00", "Received 0 of 40 BAG", []string{"Pending 40 BAG"}},
+		{"price", "approved", []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", "Received 0 of 40 BAG", []string{"Pending 40 BAG"}},
 	} {
-		name := c.field
-		if c.approved {
-			name += " approved"
-		}
+		name := strings.TrimSpace(c.field + " " + c.on)
 		t.Run(name, func(t *testing.T) {
 			w := p15aHiding(t, env, c.field)
 			p, path := env.Priya, p15dDoc(purchase.DocType, draft.ID)+"/edit/items"
-			if c.approved {
+			switch c.on {
+			case "approved":
 				p, path = env.Ravi, p15dDoc(purchase.DocType, done.ID)
+			case "closed":
+				p, path = env.Ravi, p15dDoc(purchase.DocType, closed.ID)
+			case "described":
+				p, path = env.Ravi, p15dDoc(purchase.DocType, own.ID)
+			case "named":
+				p, path = env.Ravi, p15dDoc(purchase.DocType, named.ID)
 			}
 			page := w.get(t, p, path)
 			if page.status != 200 {
@@ -368,6 +391,17 @@ func TestPO_OrderLinesHonourHide(t *testing.T) {
 			}
 			if !slices.Equal(received, want) {
 				t.Errorf("with %s hidden the card's Received = %q, want %q", c.field, received, want)
+			}
+			if c.notes != nil {
+				var notes []string
+				for _, n := range page.notes() {
+					if !strings.HasPrefix(n, "Received") {
+						notes = append(notes, n)
+					}
+				}
+				if !slices.Equal(notes, c.notes) {
+					t.Errorf("with %s hidden on the %s PO the card's notes = %q, want %q", c.field, c.on, notes, c.notes)
+				}
 			}
 		})
 	}

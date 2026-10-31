@@ -38,6 +38,14 @@ import (
 // env's).
 func newP15aWeb(t *testing.T, env *purchasetest.Env, svc *purchase.Service) *p15dWeb {
 	t.Helper()
+	return newP15aWebWith(t, env, svc, nil)
+}
+
+// newP15aWebWith is newP15aWeb with edit (nil: none) applied to purchase's
+// Modules before docscreen mounts them; the sessions, CSRF and module routes
+// are newP15aWeb's.
+func newP15aWebWith(t *testing.T, env *purchasetest.Env, svc *purchase.Service, edit func(map[string]docscreen.Module)) *p15dWeb {
+	t.Helper()
 	if svc == nil {
 		svc = env.Service
 	}
@@ -46,6 +54,10 @@ func newP15aWeb(t *testing.T, env *purchasetest.Env, svc *purchase.Service) *p15
 		Service: svc, Approvals: env.Approvals, Comments: env.Comments, Sessions: sm,
 		CSRF: func(*http.Request) string { return "p15a-token" },
 	}
+	mods := Modules(d)
+	if edit != nil {
+		edit(mods)
+	}
 	r := chi.NewRouter()
 	docscreen.Routes(docscreen.Deps{
 		DB: env.DB, Engine: env.Engine, Auth: env.Auth, Approval: env.Approvals, Extras: docscreentest.NewExtras(),
@@ -53,7 +65,7 @@ func newP15aWeb(t *testing.T, env *purchasetest.Env, svc *purchase.Service) *p15
 			today := types.Today(env.Clock)
 			return types.FormatDate(today), types.FormatDate(types.AddDays(today, -1))
 		},
-		Modules: Modules(d),
+		Modules: mods,
 	})(r)
 	Routes(d)(r)
 	r.Get("/p15a-flash", func(w http.ResponseWriter, req *http.Request) {

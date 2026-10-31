@@ -21,10 +21,10 @@ import (
 func p15bQty(n int64) types.Qty { return types.Qty(n * 1000) }
 
 // PUX-015 (UX §5.9 line notes, CD-258 Q6, CD-330 (2)): an approved PO's line
-// shows docscreen's Received line and Pending {qty} {unit}, after the line's
-// own description when it isn't the item's name; after close the note reads
-// Pending 0 {unit} (closed). A cutover line reads Already received … before
-// this app · Pending ….
+// shows the Received line with the unit (CD-258 G8, CD-331) and Pending
+// {qty} {unit}, after the line's own description when it isn't the item's
+// name; after close the note reads Pending 0 {unit} (closed). A cutover line
+// reads Already received … before this app · Pending ….
 func TestPUX015_PendingNotes(t *testing.T) {
 	w := newP15bWeb(t, false)
 	env := w.env
@@ -37,18 +37,18 @@ func TestPUX015_PendingNotes(t *testing.T) {
 	purchasetest.SetReceived(t, env, po.Lines[0].ID, p15bQty(25))
 	purchasetest.SetReceived(t, env, po.Lines[2].ID, p15bQty(25))
 	want := []string{
-		"Received 25 of 40", "Pending 15 BAG",
-		"Received 0 of 40", "Grey, 50 kg bags · Pending 40 BAG",
-		"Received 25 of 40", "Already received 10 BAG before this app · Pending 5 BAG",
+		"Received 25 of 40 BAG", "Pending 15 BAG",
+		"Received 0 of 40 BAG", "Grey, 50 kg bags · Pending 40 BAG",
+		"Received 25 of 40 BAG", "Already received 10 BAG before this app · Pending 5 BAG",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("approved line notes = %q, want %q", got, want)
 	}
 	w.act(t, env.Priya, purchase.DocType, po.ID, doctype.ActionClose, "Vendor stopped supplying")
 	want = []string{
-		"Received 25 of 40", "Pending 0 BAG (closed)",
-		"Received 0 of 40", "Grey, 50 kg bags · Pending 0 BAG (closed)",
-		"Received 25 of 40", "Pending 0 BAG (closed)",
+		"Received 25 of 40 BAG", "Pending 0 BAG (closed)",
+		"Received 0 of 40 BAG", "Grey, 50 kg bags · Pending 0 BAG (closed)",
+		"Received 25 of 40 BAG", "Pending 0 BAG (closed)",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("closed line notes = %q, want %q", got, want)
@@ -87,9 +87,9 @@ func TestPO_OverByLineNote(t *testing.T) {
 	purchasetest.SetReceived(t, env, po.Lines[1].ID, p15bQty(45))
 	purchasetest.SetReceived(t, env, po.Lines[2].ID, p15bQty(40))
 	want := []string{
-		"Received 0 of 40", "Already received 45 BAG before this app · Pending 0 BAG · Over by 5 BAG",
-		"Received 45 of 40", "Pending 0 BAG · Over by 5 BAG",
-		"Received 40 of 40", "Pending 0 BAG",
+		"Received 0 of 40 BAG", "Already received 45 BAG before this app · Pending 0 BAG · Over by 5 BAG",
+		"Received 45 of 40 BAG", "Pending 0 BAG · Over by 5 BAG",
+		"Received 40 of 40 BAG", "Pending 0 BAG",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("line notes = %q, want %q", got, want)

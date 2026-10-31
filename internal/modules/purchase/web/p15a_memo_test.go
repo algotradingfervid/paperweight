@@ -9,6 +9,8 @@ import (
 
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
+	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // Plan P15a (HasRules and LastPricesFor read once per request): the memo
@@ -58,5 +60,26 @@ func TestPUX010_NoGSTINAndUnchosen(t *testing.T) {
 	}
 	if got := p15aRadios(a); len(got) != 3 || !got[0].checked {
 		t.Errorf("422 with no address posted: radios %+v, want the primary billing (Mumbai) checked", got)
+	}
+}
+
+// Plan P15a fix 1 (hasRules with no request): a Ctx with no Req, as Hide is
+// asked outside a request, doesn't panic and reads the rules each time, with
+// no memo: after the rules are disabled the next call reads false.
+func TestPO_HasRulesWithoutRequest(t *testing.T) {
+	env := purchasetest.New(t)
+	m := &module{d: Deps{Service: env.Service, Approvals: env.Approvals}}
+	c := docscreen.Ctx{Deps: docscreen.Deps{DB: env.DB}}
+	if !m.hasRules(c) {
+		t.Fatal("hasRules with no request = false, want true (the seed's purchase.Order rules)")
+	}
+	if err := env.DB.Write(t.Context(), func(tx *db.Tx) error {
+		_, err := tx.SQL().ExecContext(t.Context(), `UPDATE approval_rules SET enabled = 0 WHERE doctype = ?`, purchase.DocType)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if m.hasRules(c) {
+		t.Error("hasRules with no request after the rules are disabled = true, want false (read again, not memoised)")
 	}
 }
