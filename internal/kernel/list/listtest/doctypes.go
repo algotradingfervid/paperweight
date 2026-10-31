@@ -146,7 +146,6 @@ func docTypes() []doctype.DocType {
 			),
 			SearchFields: []string{"number"},
 			DefaultSort:  dateDesc,
-			Hooks:        noHooks{},
 		},
 		{
 			Name: NameSite, Label: "Site", PluralLabel: "Sites", Table: "numt_site",
@@ -166,7 +165,6 @@ func docTypes() []doctype.DocType {
 				sortable(f("amount", "Amount", doctype.Money)),
 			),
 			DefaultSort: dateDesc,
-			Hooks:       noHooks{},
 		},
 		{
 			Name: NameEmployee, Label: "Employee", PluralLabel: "Employees", Table: "numt_employee",
