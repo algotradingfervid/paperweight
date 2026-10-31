@@ -1,0 +1,13 @@
+package purchaseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// recordView is the Sent to vendor or Expected delivery section (UX §5.9,
+// §5.20): its lines, with Change or Set date when change is set.
+templ recordView(title string, lines []string, change *components.Link) {
+	@components.Card(title, change) {
+		for _, l := range lines {
+			<p>{ l }</p>
+		}
+	}
+}

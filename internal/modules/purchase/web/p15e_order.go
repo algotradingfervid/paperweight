@@ -64,10 +64,6 @@ func printHref(id int64) string {
 	return "/print/" + purchase.DocType + "/" + strconv.FormatInt(id, 10)
 }
 
-func orderPage(id int64, tail string) string {
-	return "/modules/purchase/orders/" + strconv.FormatInt(id, 10) + tail
-}
-
 // summaryLine joins the non-blank parts with " · " (UX §5.12 to §5.20).
 func summaryLine(parts ...string) string {
 	var set []string
