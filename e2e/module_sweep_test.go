@@ -14,10 +14,7 @@ import (
 // notYetSwept are module DocTypes registered before their module's Screens
 // rows, by the head's ruling, each with who removes it. Each entry must name
 // a registered, unswept DocType, so it can't outlive its reason.
-var notYetSwept = map[string]string{
-	"expense.Claim":   "AD-11 MOD-EXP S-task (CD-298)",
-	"expense.Advance": "AD-11 MOD-EXP S-task (CD-298)",
-}
+var notYetSwept = map[string]string{}
 
 // TestModule_EveryDocTypeSwept (hooks spec §6) is the gate screens.Uncovered
 // can't be: that matches route patterns only, so a module DocType whose pages

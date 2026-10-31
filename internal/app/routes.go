@@ -29,6 +29,7 @@ import (
 	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
 	itemweb "github.com/vardhan/internaltools/internal/masters/item/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	"github.com/vardhan/internaltools/internal/modules/expense"
 	expenseweb "github.com/vardhan/internaltools/internal/modules/expense/web"
 	modkitweb "github.com/vardhan/internaltools/internal/modules/modkit/web"
 	"github.com/vardhan/internaltools/internal/platform/brand"
@@ -119,7 +120,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		mount(r, modkit, self)
 
 		exp := chi.NewRouter()
-		expenseweb.Routes(expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files})(exp)
+		expenseweb.Routes(a.expenseWeb())(exp)
 		mount(r, exp, func(route string, h http.Handler) http.Handler {
 			dt, right, ok := expenseweb.Guard(route)
 			if !ok {
@@ -218,7 +219,16 @@ func (a *App) docDeps() docscreen.Deps {
 		Parse:     parsers(),
 		// A posted link shows its target's label only to a reader (CD-233).
 		LinkRead: mstkit.Env{Auth: a.auth}.CanLinkTargetTx,
+		Modules: map[string]docscreen.Module{
+			expense.ClaimDocType:   expenseweb.ClaimModule(a.expenseWeb()),
+			expense.AdvanceDocType: expenseweb.AdvanceModule(a.expenseWeb()),
+		},
 	}
+}
+
+// expenseWeb is what the Expense screens and module routes need.
+func (a *App) expenseWeb() expenseweb.Deps {
+	return expenseweb.Deps{Service: a.expense, Engine: a.engine, Auth: a.auth, Files: a.files}
 }
 
 // pickerURL is a master's picker search (CD-194, CD-195).
