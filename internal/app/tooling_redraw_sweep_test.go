@@ -2080,6 +2080,23 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.url(id)+"/delete", nil, false).want(t, "GET delete", http.StatusOK)
 		})
 	})
+	if !d.dt.Submittable {
+		// No submit: each cell checks DOC refuses it (CD-21), so a DocType
+		// that becomes Submittable runs them.
+		for _, c := range []struct {
+			name, user, version string
+		}{
+			{"submit 409", rsAdmin, d.stale(t, id)},
+			{"submit 422", rsAdmin, strconv.Itoa(d.version(t, id))},
+			{"submit 422 reader", rsSubmitter, strconv.Itoa(d.version(t, id))},
+		} {
+			d.cell(t, c.name, func(t *testing.T) {
+				e.do(t, "plain", c.user, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {c.version}}, false).want(t, "POST submit on a DocType that isn't Submittable", http.StatusForbidden)
+				t.Skip("(checked) not Submittable: DOC refuses the submit")
+			})
+		}
+		return
+	}
 	d.cell(t, "submit 409", func(t *testing.T) {
 		d.both(t, "POST submit 409", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {d.stale(t, id)}}, false).want(t, "POST submit with a stale version", http.StatusConflict)
@@ -2113,6 +2130,9 @@ func (d *rsDoc) sweepApproval(t *testing.T) {
 	if !d.dt.Approvable {
 		d.cell(t, "approval", func(t *testing.T) {
 			res, err := d.submitted(t)
+			if !d.dt.Submittable {
+				d.unsubmittable(t, err, "no pending or rejected document, so no approve, reject, withdraw or revise")
+			}
 			if err == nil && res.State != doctype.StateApproved {
 				t.Fatalf("a submitted %s is %s: it has an approval step now, sweep it", d.dt.Name, res.State)
 			}
@@ -2200,6 +2220,12 @@ func (d *rsDoc) gap(t *testing.T, name string, err error) {
 func (d *rsDoc) sweepApproved(t *testing.T) {
 	e := d.e
 	ap, err := d.approved(t)
+	if !d.dt.Submittable {
+		d.cell(t, "approved", func(t *testing.T) {
+			d.unsubmittable(t, err, "no approved or cancelled document, so no cancel or amend")
+		})
+		return
+	}
 	if err != nil {
 		d.gap(t, "approved", err)
 		return
@@ -2259,6 +2285,17 @@ func (d *rsDoc) sweepApproved(t *testing.T) {
 			t.Errorf("POST amend as an amender pushed %q, want the read-only document page", r.hdr.Get("HX-Push-Url"))
 		}
 	})
+}
+
+// unsubmittable checks that err, from submitting a document of a DocType
+// that isn't Submittable, is DOC's 403 refusal (auth.Applies, CD-21), then
+// skips the cell: what it skips needs a submitted document.
+func (d *rsDoc) unsubmittable(t *testing.T, err error, what string) {
+	t.Helper()
+	if pr, ok := docscreen.Classify(err); !ok || pr.Status != http.StatusForbidden {
+		t.Fatalf("submitting a %s, which isn't Submittable: %v, want DOC's 403", d.dt.Name, err)
+	}
+	t.Skipf("(checked) not Submittable: %s", what)
 }
 
 // submitErrors are DOC's errors for submitting a copy of the probe draft;
