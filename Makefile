@@ -2,7 +2,7 @@
 
 GOLANGCI_LINT := bin/tools/golangci-lint
 
-.PHONY: generate build test e2e lint checkids covertouched ci handin e2e-quick briefcds
+.PHONY: generate build test e2e lint checkids covertouched mutate ci handin e2e-quick briefcds
 
 # CD-45: go generate (CSS bundle and icons), then sqlc for every sqlc.yaml, then templ.
 # Generated files are committed.
@@ -50,6 +50,11 @@ covertouched:
 	go test -count=1 -coverpkg=$(subst $(space),$(comma),$(strip $(PKGS))) -coverprofile="$$p" $(PKGS) || exit 1; \
 	echo "go run ./scripts/covertouched -base $(BASE) -profile $$p"; \
 	go run ./scripts/covertouched -base $(BASE) -profile "$$p"
+
+# Mutation pass over touched lines and queries (CD-299). Usage: make mutate BASE=<rev> PKGS=<pkgs> [RUN=<regex>] [TAGS=<tags>]
+mutate:
+	@test -n "$(BASE)" -a -n "$(PKGS)" || { echo "Run: make mutate BASE=<rev> PKGS=./internal/<pkg>/... [RUN=<regex>] [TAGS=<tags>]"; exit 1; }
+	go run ./scripts/mutate -base '$(BASE)' -pkgs '$(PKGS)' $(if $(RUN),-run '$(RUN)') $(if $(TAGS),-tags '$(TAGS)')
 
 ci:
 	$(MAKE) generate
