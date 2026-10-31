@@ -3,9 +3,10 @@ package components
 import "strconv"
 
 // LineList is the line cards, the running taxable total and "Add an item"
-// (design-system §8.2). Editable adds Change, Remove and the move buttons,
-// which are POST forms. With Grid set, the LineGrid follows and replaces
-// the cards from 64rem.
+// (design-system §8.2), or AddLabel; AddTop puts it above the cards, and
+// Empty is the text with no lines (UX-E2). Editable adds Change, Remove and
+// the move buttons, which are POST forms. With Grid set, the LineGrid
+// follows and replaces the cards from 64rem.
 templ LineList(p LineListProps) {
 	<div
 		if len(p.Grid) > 0 {
@@ -14,6 +15,12 @@ templ LineList(p LineListProps) {
 			class="linelist"
 		}
 	>
+		if p.Editable && p.AddTop {
+			@Button(p.AddButton())
+		}
+		if p.Total == 0 && p.Empty != "" {
+			@EmptyState(p.Empty, nil)
+		}
 		<ol class="lines">
 			for _, c := range p.Cards {
 				<li class="lines-card">
@@ -73,8 +80,8 @@ templ LineList(p LineListProps) {
 				<span class="num">{ p.TaxableTotal }</span>
 			</p>
 		}
-		if p.Editable {
-			@Button(ButtonProps{Label: "Add an item", Href: p.AddURL, Icon: "plus", Variant: Secondary, Attrs: templ.Attributes{"data-add-line": true}})
+		if p.Editable && !p.AddTop {
+			@Button(p.AddButton())
 		}
 		if len(p.Grid) > 0 {
 			@LineGrid(p.Grid, p.TaxableTotal)
