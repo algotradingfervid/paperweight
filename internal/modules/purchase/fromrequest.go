@@ -15,13 +15,14 @@ import (
 
 // CreateFromRequest creates p's PO draft for vendorID from the pending rows of
 // request requestID, posted at version, and returns the new PO's id (PO spec
-// §20.4 item 1). In this order: load and read the request (missing or hidden
-// is AUTH's 404, CD-245), the version (DOC's stale text), a blank vendor,
-// then the rows with pending to order above 0 (none is §20.4's text). The
-// request is read before create's own transaction, so checkRequestRows and
-// DOC's LinkSpec check inside create are the backstop for a request that
-// changed in between. Create runs through Engine.Do with the vendor, so
-// Validate fills the last price and its discount; its refusals pass through.
+// §20.4 item 1). In this order (rights, then version, then vendor, CD-259):
+// load and read the request (missing or hidden is AUTH's 404, CD-245), create
+// on the PO, the version (DOC's stale text), a blank vendor, then the rows
+// with pending to order above 0 (none is §20.4's text). The request is read
+// before create's own transaction, so checkRequestRows and DOC's LinkSpec
+// check inside create are the backstop for a request that changed in between.
+// Create runs through Engine.Do with the vendor, so Validate fills the last
+// price and its discount; its refusals pass through.
 func (s *Service) CreateFromRequest(ctx context.Context, p auth.Principal, requestID int64, version int, vendorID int64) (poID int64, err error) {
 	var in doc.ActionInput
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
@@ -37,6 +38,9 @@ func (s *Service) CreateFromRequest(ctx context.Context, p auth.Principal, reque
 			EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
 		}
 		if err := s.d.Auth.CanTx(ctx, tx, p, RequestDocType, auth.RightRead, ref); err != nil {
+			return err
+		}
+		if err := s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil); err != nil {
 			return err
 		}
 		req, err := doc.LoadDoc(ctx, tx, RequestDocType, requestID)
