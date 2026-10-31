@@ -136,14 +136,16 @@ func p13Pct(t *testing.T, s string) string {
 }
 
 // PO-051 (PO spec §20.4 item 1, §20.2; plan P13; CD-245, CD-247 (7), CD-94):
-// CreateFromRequest checks the request's version (DOC-069's 409, before the
-// vendor), refuses a blank vendor with `Pick a vendor.`, takes only the rows
-// with pending to order above 0 (§20.4's text when none) and creates the PO
-// draft through Engine.Do as the buyer, with the vendor, the request's site,
-// project and needed-by date, and one line per pending row at that quantity
-// with request_line_id. The price is defaultPrice's for that vendor. A
-// missing or hidden request is AUTH's 404; create's own refusals pass
-// through. A refusal writes nothing.
+// CreateFromRequest checks rights, then version, then vendor (CD-259): a
+// user without create on Purchase Order is AUTH's 403 even with a stale
+// version or a blank vendor; then the request's version (DOC-069's 409), then
+// a blank vendor (`Pick a vendor.`). It takes only the rows with pending to
+// order above 0 (§20.4's text when none) and creates the PO draft through
+// Engine.Do as the buyer, with the vendor, the request's site, project and
+// needed-by date, and one line per pending row at that quantity, in the
+// request row's unit, with request_line_id. The price is defaultPrice's for
+// that vendor. A missing or hidden request is AUTH's 404; create's own
+// refusals pass through. A refusal writes nothing.
 //
 // The subtests marked "waits on P6" reach PendingToOrder (P6), so they pass
 // once P6's PendingToOrder exists and P13 is built on it.
@@ -242,7 +244,9 @@ func TestRequest_CreatePO(t *testing.T) {
 		p5SameCounts(t, "nothing pending", before, env)
 	})
 
-	t.Run("a stale version is DOC's 409 naming the request, before the vendor", func(t *testing.T) {
+	// Rights, then version, then vendor: the stale version is checked after
+	// the rights (the Suresh subtest below) and before the vendor.
+	t.Run("a stale version is DOC's 409 naming the request, after the rights and before the vendor", func(t *testing.T) {
 		env := purchasetest.New(t)
 		req := p13Request(t, env, p13Row(t, env, "MS-ANGLE-50", "KGS", "100", ""))
 		v := p5Version(t, env, req.ID)
@@ -261,6 +265,52 @@ func TestRequest_CreatePO(t *testing.T) {
 			p13WantRefused(t, c.name, err, http.StatusConflict, stale)
 			p5SameCounts(t, c.name, before, env)
 		}
+	})
+
+	t.Run("rights come before the version and the vendor: Suresh is AUTH's 403 (CD-259)", func(t *testing.T) {
+		env := purchasetest.New(t)
+		// Suresh (Stores) reads his own approved request but has no create
+		// on Purchase Order.
+		req := p13Request(t, env, p13Row(t, env, "MS-ANGLE-50", "KGS", "100", ""))
+		v := p5Version(t, env, req.ID)
+		want := &auth.DeniedError{Right: auth.RightCreate, Label: "Purchase Order", Plural: "Purchase Orders"}
+		for _, c := range []struct {
+			name    string
+			version int
+			vendor  string
+		}{
+			{"stale version", v - 1, "SHREE"},
+			{"blank vendor", v, ""},
+		} {
+			before := p5CountAll(t, env)
+			_, err := p13Create(t, env, env.Suresh, req.ID, c.version, c.vendor)
+			var de *auth.DeniedError
+			if !errors.As(err, &de) || de.Right != want.Right || de.Label != want.Label {
+				t.Errorf("Suresh, %s: err = %v (status %d), want *auth.DeniedError for create on Purchase Order", c.name, err, p13Status(err))
+			}
+			p5WantDenied(t, "Suresh, "+c.name, err, want.Error())
+			p5SameCounts(t, "Suresh, "+c.name, before, env)
+		}
+	})
+
+	t.Run("the line keeps the request row's unit when it isn't the stock unit (§20.4; waits on P6)", func(t *testing.T) {
+		env := purchasetest.New(t)
+		// BOLT-M12's stock unit is NOS; BOX (100 Nos) is a unit it allows.
+		req := p13Request(t, env, p13Row(t, env, "BOLT-M12", "BOX", "2", "Two boxes for the base plates"))
+		id, err := p13Create(t, env, env.Priya, req.ID, p5Version(t, env, req.ID), "SHREE")
+		if err != nil {
+			t.Fatalf("CreateFromRequest as Priya: %v %+v", err, p5Fields(err))
+		}
+		po := p5Load(t, env, purchase.DocType, id)
+		if len(po.Lines) != 1 {
+			t.Fatalf("PO lines = %d, want 1", len(po.Lines))
+		}
+		box, nos := masterID(t, env.DB, "uom", "BOX"), masterID(t, env.DB, "uom", "NOS")
+		if box == nos {
+			t.Fatalf("BOX and NOS share id %s", box)
+		}
+		p13Same(t, "line 1 uom_id (the request row's BOX, not the stock NOS)", po.Lines[0].Values["uom_id"], box)
+		p13Same(t, "line 1 qty", po.Lines[0].Values["qty"], p13Qty(t, "2"))
 	})
 
 	t.Run("a blank vendor is Pick a vendor. on vendor_id", func(t *testing.T) {

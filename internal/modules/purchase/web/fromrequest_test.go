@@ -266,6 +266,7 @@ func TestPurchaseWeb_FromRequestPost(t *testing.T) {
 	req := w.request(t)
 	hidden := w.hiddenRequest(t)
 	denied := (&auth.DeniedError{Right: auth.RightCreate, Label: "Purchase Order", Plural: "Purchase Orders"}).Error()
+	reqV, _ := strconv.Atoi(w.version(t, req.ID))
 	for _, c := range []struct {
 		name   string
 		p      auth.Principal
@@ -275,6 +276,7 @@ func TestPurchaseWeb_FromRequestPost(t *testing.T) {
 		msg    string
 	}{
 		{"Suresh can't create a PO (waits on P6)", env.Suresh, req.ID, p13Form(w.version(t, req.ID), shree), http.StatusForbidden, denied},
+		{"Suresh with a stale version is AUTH's 403, rights before version (CD-259)", env.Suresh, req.ID, p13Form(strconv.Itoa(reqV-1), shree), http.StatusForbidden, denied},
 		{"a missing request", env.Priya, 999_999, p13Form("1", shree), http.StatusNotFound, auth.MsgNotFound},
 		{"a hidden request", env.Priya, hidden, p13Form(w.version(t, hidden), shree), http.StatusNotFound, auth.MsgNotFound},
 	} {
