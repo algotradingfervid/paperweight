@@ -71,6 +71,21 @@ func hides(c docscreen.Ctx, name string) bool {
 	return h != nil && h(c, f)
 }
 
+// pairKey marks a Ctx that asks Hide about a field the page draws itself,
+// as a pair: the module hides such fields only so that docscreen doesn't
+// draw them too.
+type pairKey struct{}
+
+// pairHides reports whether the registered Hide hides field name even as
+// the page's own pair: hidden for a reason other than the pair (CD-319).
+func pairHides(c docscreen.Ctx, name string) bool {
+	c.Req = c.Req.WithContext(context.WithValue(c.Req.Context(), pairKey{}, true))
+	return hides(c, name)
+}
+
+// asPair reports whether Hide is asked through pairHides.
+func asPair(c docscreen.Ctx) bool { return c.Req.Context().Value(pairKey{}) != nil }
+
 // detailsBody draws the step from the stored draft, or from the post on a
 // 422 or 409, so nothing typed is lost. A field the module hides is drawn
 // as nothing.
