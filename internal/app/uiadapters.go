@@ -127,8 +127,8 @@ func (e extras) Approval(ctx context.Context, p auth.Principal, name string, id 
 			v.Needed, v.Preview = pre.Needed, pre.Text
 			return err
 		}
-		st, err := e.app.approvals.Status(ctx, tx, name, id)
-		v.Needed, v.WaitingOn = st.Pending, st.WaitingOn
+		st, err := e.app.approvals.StatusFor(ctx, tx, p, name, id)
+		v.Needed, v.WaitingOn, v.Roles, v.Why = st.Pending, st.WaitingOn, st.Roles, st.Why
 		return err
 	})
 	return v, err

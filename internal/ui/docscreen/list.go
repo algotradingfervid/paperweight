@@ -118,11 +118,12 @@ func (d Deps) listRows(ctx context.Context, dt *doctype.DocType, cols []componen
 				vals[c.Key] = s
 			}
 			rows[i] = components.Row{
-				Href:   href(dt.Name, lr.Info.ID),
-				Title:  lr.Info.Display,
-				Party:  lr.Info.Party,
-				Values: vals,
-				State:  lr.Info.State,
+				Href:       href(dt.Name, lr.Info.ID),
+				Title:      lr.Info.Display,
+				Party:      lr.Info.Party,
+				Values:     vals,
+				State:      lr.Info.State,
+				StateLabel: dt.StateLabels[lr.Info.State],
 			}
 		}
 		return nil

@@ -42,7 +42,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-004 · Changing the PO on a draft with lines is refused
 - **Priority:** P1
 - **Level:** unit
-- **Given** a draft GRN with lines against the reference PO **When** it is saved with another approved PO in `purchase_order_id` **Then** it is refused on that field with "Delete this draft to receive against another order." and nothing changes. **Given** a draft with no lines **When** the PO is changed **Then** it saves and the snapshots follow the new PO. A blank PO is refused with "Choose a purchase order."
+- **Given** a draft GRN with lines against the reference PO **When** it is saved with another approved PO in `purchase_order_id` **Then** it is refused on that field with "Delete this draft to receive against another order." and nothing changes. **Given** a draft with no lines **When** the PO is changed **Then** it saves and the snapshots follow the new PO. A blank PO is refused with "Choose a purchase order." After each refused step save, no derived value is stale (CD-302): the header snapshots, vendor, site and project match the stored PO, and each line's snapshots match its own PO line.
 - **Go test:** `TestGRN_POFixedOnceLines`
 - **Sources:** GRN spec §3.1, §4, §16
 - **Built in:** G2
@@ -82,7 +82,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-009 · Accepted = received − rejected; value at the PO's net rate
 - **Priority:** P1
 - **Level:** unit
-- **Given** line 1 received 800.000 kg, rejected 40.000 kg, and line 2 received 50.000 kg **When** it is saved **Then** line 1 `accepted_qty` is 760.000 and line 2 50.000, and `accepted_value` is ₹52,300.00 (760 × ₹62.5000 + 50 × ₹96.0000), before tax.
+- **Given** line 1 received 800.000 kg, rejected 40.000 kg, and line 2 received 50.000 kg **When** it is saved **Then** line 1 `accepted_qty` is 760.000 and line 2 50.000, and `accepted_value` is ₹52,300.00 (760 × ₹62.5000 + 50 × ₹96.0000), before tax. **When** rejected on line 1 is then raised to 900.000 (refused) **Then** line 1's `accepted_qty` is 0 and `accepted_value` is the sum of the lines as stored (CD-302).
 - **Go test:** `TestGRN_AcceptedValue`
 - **Sources:** GRN spec §3.1, §3.2, §16
 - **Built in:** G2

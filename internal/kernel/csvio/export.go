@@ -3,18 +3,21 @@ package csvio
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/list"
+	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
 // FormatCell is the export text of v, a list.Row value of field f. A Link
-// value is the target's code (Export resolves it); nil is "".
+// value is the target's code, or a document's label (Export resolves it);
+// nil is "".
 func FormatCell(f doctype.Field, v any) string {
 	if v == nil {
 		return ""
@@ -90,7 +93,7 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 		if total > MaxExportRows {
 			return &list.QueryError{Msg: "Too many rows to export (" + types.FormatCount(total) + "). Narrow the filters to 50,000 rows or fewer."}
 		}
-		codes, err := linkCodes(ctx, tx, fields)
+		codes, docs, err := linkCodes(ctx, tx, fields)
 		if err != nil {
 			return err
 		}
@@ -122,6 +125,19 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 					// A missing link target exports an empty cell on purpose:
 					// the map lookup gives "".
 					v = codes[f.Name][id]
+					if target := docs[f.Name]; target != "" {
+						// CD-297, CD-233: CheckLinkTx is CanTx(read) on the target's
+						// full RecordRef, in this read tx. A Forbidden or NotFound
+						// refusal (hidden or gone) blanks the cell; any other error
+						// ends the export.
+						err := ex.auth.CheckLinkTx(ctx, tx, p, target, id)
+						switch {
+						case errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrNotFound):
+							v = ""
+						case err != nil:
+							return err
+						}
+					}
 				}
 				rec[i] = FormatCell(f, v)
 			}
@@ -142,28 +158,40 @@ func (ex *Exporter) Export(ctx context.Context, w io.Writer, p auth.Principal, d
 	return n, nil
 }
 
-// linkCodes maps each Link field's name to its target's id → code.
-func linkCodes(ctx context.Context, tx *db.Tx, fields []doctype.Field) (map[string]map[int64]string, error) {
-	codes := map[string]map[int64]string{}
+// linkCodes maps each Link field's name to its target's id → code. A target
+// that isn't a master gives naming.Label(number, id) instead, and docs maps
+// the field's name to that target's DocType name (CD-297).
+func linkCodes(ctx context.Context, tx *db.Tx, fields []doctype.Field) (codes map[string]map[int64]string, docs map[string]string, err error) {
+	codes, docs = map[string]map[int64]string{}, map[string]string{}
 	for _, f := range fields {
 		if f.Type != doctype.Link {
 			continue
 		}
 		target, ok := doctype.Lookup(f.Link)
 		if !ok {
-			return nil, fmt.Errorf("csvio: field %s links to unknown DocType %q", f.Name, f.Link)
+			return nil, nil, fmt.Errorf("csvio: field %s links to unknown DocType %q", f.Name, f.Link)
 		}
-		m, err := tableCodes(ctx, tx, target.Table)
+		col := target.Table + ".code"
+		if !target.IsMaster() {
+			col = "COALESCE(" + target.Table + ".number, '')"
+		}
+		m, err := tableCodes(ctx, tx, target.Table, col)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		if !target.IsMaster() {
+			for id, number := range m {
+				m[id] = naming.Label(number, id)
+			}
+			docs[f.Name] = target.Name
 		}
 		codes[f.Name] = m
 	}
-	return codes, nil
+	return codes, docs, nil
 }
 
-func tableCodes(ctx context.Context, tx *db.Tx, table string) (map[int64]string, error) {
-	rows, err := tx.SQL().QueryContext(ctx, "SELECT "+table+".id, "+table+".code FROM "+table)
+func tableCodes(ctx context.Context, tx *db.Tx, table, col string) (map[int64]string, error) {
+	rows, err := tx.SQL().QueryContext(ctx, "SELECT "+table+".id, "+col+" FROM "+table)
 	if err != nil {
 		return nil, err
 	}

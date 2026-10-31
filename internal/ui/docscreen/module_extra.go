@@ -1,8 +1,13 @@
 package docscreen
 
 import (
+	"errors"
+	"slices"
+	"strconv"
+
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
 // closeRight is the right DocType name's close needs: its CloseRight, blank
@@ -54,4 +59,30 @@ func noteLines(lines []LineView, notes map[int]string) {
 			lines[i].Card.Note = n
 		}
 	}
+}
+
+// applyPageExtra puts pv.Extra's Notice, More and Primary on the page
+// (CD-263 G3 to G5): a blank Notice Kind means Info; the module's More
+// entries go before docscreen's; its Primary, which must have an Href,
+// becomes the bar's primary only when the bar has no primary and no note.
+func applyPageExtra(pv *pageView) error {
+	x := pv.Extra
+	if x.Notice != nil && x.Notice.Kind == "" {
+		n := *x.Notice
+		n.Kind = components.Info
+		pv.Extra.Notice = &n
+	}
+	pv.More = slices.Concat(x.More, pv.More)
+	if x.Primary == nil {
+		return nil
+	}
+	if x.Primary.Href == "" {
+		return errors.New("docscreen: PageExtra.Primary " + strconv.Quote(x.Primary.Label) + " has no Href")
+	}
+	if pv.Bar.Primary == nil && pv.Bar.Note == "" {
+		b := *x.Primary
+		b.Variant = components.Primary
+		pv.Bar.Primary = &b
+	}
+	return nil
 }

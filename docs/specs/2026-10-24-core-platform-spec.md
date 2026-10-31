@@ -160,7 +160,7 @@ e2e/                          chromedp browser tests (build tag e2e)
    | `print` | `auth`, `files` |
    | `gstcalc` | (nothing else) |
    | `list` | `auth`, `naming` |
-   | `csvio` | `auth`, `list`, `audit` |
+   | `csvio` | `auth`, `list`, `audit`, `naming` (CD-301) |
    | `doc` | `auth`, `naming`, `approval`, `audit`, `files` |
 
    Where a package needs facts owned by a package it may not import, it declares a small interface and `internal/app` passes in the implementation (for example `doctype.InfoSource`, `auth.Directory`, `print.Letterhead`).

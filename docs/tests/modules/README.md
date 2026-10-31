@@ -9,10 +9,10 @@ Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18
 | File | Area | Cases | P1 | P2 | unit | integration | e2e |
 |---|---|---|---|---|---|---|---|
 | [`po.md`](po.md) | PO — purchase orders and requests | 70 | 69 | 1 | 8 | 60 | 2 |
-| [`hook.md`](hook.md) | HOOK — docscreen module hooks | 33 | 33 | 0 | 0 | 32 | 1 |
+| [`hook.md`](hook.md) | HOOK — docscreen module hooks | 36 | 36 | 0 | 1 | 33 | 2 |
 | [`exp.md`](exp.md) | EXP — expense claims and advances | 67 | 67 | 0 | 5 | 56 | 6 |
 | [`grn.md`](grn.md) | GRN — goods receipts | 50 | 50 | 0 | 7 | 40 | 3 |
-| **Total** | | **220** | **219** | **1** | **20** | **188** | **12** |
+| **Total** | | **223** | **222** | **1** | **21** | **189** | **13** |
 
 Level counts group variants as in core: "unit (fuzz)" counts as unit, "integration (golden file)" as integration. Every e2e case's Go test starts with `TestE2E_`.
 
@@ -99,7 +99,7 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 
 ### hook.md — HOOK — docscreen module hooks
 
-33 cases: 33 P1 / 0 P2; 0 unit, 32 integration, 1 e2e.
+36 cases: 36 P1 / 0 P2; 1 unit, 33 integration, 2 e2e.
 
 | ID | Go test | P | Level |
 |---|---|---|---|
@@ -135,6 +135,9 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 | HOOK-030 | `TestPage_ApproverNeedsYourApproval` | P1 | integration |
 | HOOK-031 | `TestApprovalStatus_RolesAndWhy` | P1 | integration |
 | HOOK-032 | `TestApp_ApproverLineReal` | P1 | integration |
+| HOOK-043 | `TestModule_StepTop` | P1 | integration |
+| HOOK-047 | `TestLargeQtyInput` | P1 | unit |
+| HOOK-048 | `TestLargeQtyInputBrowser_Size` | P1 | e2e |
 | HOOK-049 | `TestE2E_Field_EchoKeepsSaveInPlace` | P1 | e2e |
 
 ### exp.md — EXP — expense claims and advances
