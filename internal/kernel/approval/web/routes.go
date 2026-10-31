@@ -1,7 +1,8 @@
 // Package web holds the approval screens: the inbox ("Waiting for my
 // approval"), My requests, the inbox count badge, the approval-rule admin
-// screens (WP1-APR Task 11) and Stuck approvals (Task 16). It is built from
-// internal/ui components and adds nothing to internal/ui (CD-46).
+// screens (WP1-APR Task 11), Stuck approvals (Task 16) and Overdue approvals
+// (MOD-0 M0-12). It is built from internal/ui components and adds nothing to
+// internal/ui (CD-46).
 package web
 
 import (
@@ -26,6 +27,7 @@ func Routes(d Deps) func(r chi.Router) {
 		r.Get("/approvals/count", h.count)
 		r.Get("/approvals/mine", h.mine)
 		r.Get("/admin/approvals/stuck", h.stuck)
+		r.Get("/admin/approvals/overdue", h.overdue)
 		r.Get("/admin/approval-rules", h.rules)
 		r.Get("/admin/approval-rules/new", h.newRule)
 		r.Post("/admin/approval-rules", h.createRule)

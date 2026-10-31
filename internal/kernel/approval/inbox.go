@@ -106,6 +106,7 @@ func (a *Approvals) MyRequests(ctx context.Context, p auth.Principal, page types
 			items = append(items, RequestItem{
 				InboxItem: inboxItem(r, in), Outcome: r.Outcome, DecidedByName: r.DecidedByName,
 				Reason: r.Reason, DecidedAt: r.DecidedAt, State: string(in.State),
+				WaitingDays: a.waitingDays(r),
 			})
 		}
 		return nil

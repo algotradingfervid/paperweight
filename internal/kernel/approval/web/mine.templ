@@ -8,9 +8,13 @@ import (
 )
 
 // minePairs are a My requests card's facts: the inbox facts, the document's
-// state and, once decided, who decided, when and why.
+// state, how long it has waited once overdue (spec §14.3) and, once decided,
+// who decided, when and why.
 func minePairs(it approval.RequestItem) []components.Pair {
 	pairs := append(inboxPairs(it.InboxItem), components.Pair{Label: "Status", Value: components.StateLabel(doctype.State(it.State))})
+	if it.WaitingDays > 0 {
+		pairs = append(pairs, waitingPair(it.WaitingDays))
+	}
 	if it.DecidedByName != "" {
 		pairs = append(pairs,
 			components.Pair{Label: "Decided by", Value: it.DecidedByName},
