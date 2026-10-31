@@ -104,6 +104,7 @@ type CheckExtra struct {
 	Warnings []string          // components.Warnings
 	Totals   []components.Pair // after the grand total and its words (UX-E6)
 	Cards    []templ.Component // after Attachments, before the grand total
+	Covers   []string          // fields Totals show, left out of the steps' details (CD-326 (4))
 }
 
 // PageExtra is what Module.Page adds to the document page. A LineNotes
@@ -129,6 +130,7 @@ type FilesCard struct {
 // ReasonExtra is what Module.Reason adds to a reason page.
 type ReasonExtra struct {
 	Note, Hint string // shown above the field; the field's hint
+	NoteWarn   bool   // Note is a warning, not information (CD-326 (7))
 }
 
 // LineFieldID is the id of line no's field input, f-lines-{no}-{field}: the

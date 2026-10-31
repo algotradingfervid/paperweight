@@ -55,6 +55,7 @@ type reasonView struct {
 	Link     *components.Link // the document that refused a cancel
 	Errors   []components.FieldErr
 	Note     string // the module's note above the field (hooks spec §4.4)
+	NoteWarn bool   // the note is a warning (CD-326 (7))
 }
 
 func trimReason(s string) string { return strings.TrimSpace(s) }
@@ -156,18 +157,22 @@ func (d Deps) reasonViewWith(r *http.Request, dt *doctype.DocType, v DocView, na
 	pr.Fields = unhiddenAll(c, pr.Fields)
 	hideSummary(c, &v)
 	rv := reasonViewOf(dt, v, name, rp, version, typed, pr)
-	rv.Note, rv.Field.Hint = extra.Note, extra.Hint
+	rv.Note, rv.NoteWarn, rv.Field.Hint = extra.Note, extra.NoteWarn, extra.Hint
 	return rv, nil
 }
 
 // reasonField is the reason field, with the module's note above it as an
-// info banner when there is one.
+// info banner when there is one, or a warning banner with NoteWarn.
 func reasonField(rv reasonView) templ.Component {
 	field := components.Textarea(rv.Field, rv.MaxLen)
 	if rv.Note == "" {
 		return field
 	}
-	return templ.Join(components.Banner(components.BannerProps{Kind: components.Info, Message: rv.Note}), field)
+	kind := components.Info
+	if rv.NoteWarn {
+		kind = components.Warning
+	}
+	return templ.Join(components.Banner(components.BannerProps{Kind: kind, Message: rv.Note}), field)
 }
 
 func reasonViewOf(dt *doctype.DocType, v DocView, name string, rp reasonPage, version int, typed string, pr Problem) reasonView {

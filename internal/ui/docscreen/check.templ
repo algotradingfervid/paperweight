@@ -8,8 +8,8 @@ import (
 // checkBody is the check page after the step form: the approval preview
 // and the module's notes and warnings, one summary card per step, the
 // Attachments card, the module's cards (CD-263 G2), the total in figures
-// and words, the module's totals (CD-275), and More actions
-// (design-system §8.3).
+// and words, the module's totals apart from them (CD-275, CD-326 (4)), and
+// More actions (design-system §8.3).
 templ checkBody(cv checkView) {
 	if cv.AmendedFrom != "" {
 		<p>
@@ -47,6 +47,20 @@ templ checkBody(cv checkView) {
 	for _, c := range cv.Extra.Cards {
 		@c
 	}
+	if len(cv.Extra.Totals) > 0 {
+		<div class="stack">
+			@grandTotal(cv)
+			@components.SummaryList(cv.Extra.Totals)
+		</div>
+	} else {
+		@grandTotal(cv)
+	}
+	@components.MoreActions(cv.More)
+}
+
+// grandTotal is the total in figures and words; the module's totals follow
+// it with a gap (CD-326 (4)).
+templ grandTotal(cv checkView) {
 	if cv.GrandTotal != "" {
 		<div>
 			<p class="num text-2xl font-semibold">{ cv.GrandTotal }</p>
@@ -55,8 +69,4 @@ templ checkBody(cv checkView) {
 			}
 		</div>
 	}
-	if len(cv.Extra.Totals) > 0 {
-		@components.SummaryList(cv.Extra.Totals)
-	}
-	@components.MoreActions(cv.More)
 }

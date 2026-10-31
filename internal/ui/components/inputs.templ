@@ -144,24 +144,30 @@ func withSuffix(p FieldProps, s string) FieldProps {
 	return p
 }
 
-func dateHint(p FieldProps) FieldProps {
+// dateField is p with the date hint when it has none, and the weekday of
+// its value as the echo when it has none (CD-326 (5)).
+func dateField(p FieldProps) FieldProps {
 	if p.Hint == "" {
 		p.Hint = "For example, 27-03-2026"
+	}
+	if p.Echo == "" {
+		p.Echo = weekday(p.Value)
 	}
 	return p
 }
 
 // DateInput is a dd-mm-yyyy text input with "Today" and "Yesterday" buttons
-// (date.js) and the weekday echo in the message region.
+// (date.js) and the weekday echo in the message region, rendered here on
+// every draw and by /ui/validate/date on change.
 templ DateInput(p DateProps) {
-	@field(dateHint(p.FieldProps)) {
+	@field(dateField(p.FieldProps)) {
 		<input
 			type="text"
 			inputmode="numeric"
 			autocomplete="off"
 			value={ p.Value }
 			{ validateAttrs(p.FieldProps, "date")... }
-			{ controlAttrs(dateHint(p.FieldProps), "input field__input")... }
+			{ controlAttrs(dateField(p.FieldProps), "input field__input")... }
 		/>
 		<div class="field__actions">
 			<button type="button" class="btn btn-outline tap" data-set-date={ p.Today } aria-controls={ p.ID }>Today</button>
