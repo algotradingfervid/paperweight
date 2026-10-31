@@ -18,9 +18,10 @@ import (
 )
 
 // MOD-PO P15-0 (hooks spec §3, HOOK-001's rule for a module): the app wires
-// purchase's Modules for Order and Request, and with their stubs every Order
-// and Request document, step, check and reason page renders byte-identically
-// to the same page with no Module.
+// purchase's Modules for Order and Request, and with the Order's stubs every
+// Order document, step, check and reason page renders byte-identically to the
+// same page with no Module. P15d built the Request's Module, so its pages
+// differ by design (purchase/web's p15d tests).
 func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	w := newWorld(t)
 	admin, _, _ := w.canonical()
@@ -48,17 +49,12 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	maps.Copy(poValues, header)
 	poLine := map[string]string{"price": "62.5", "tax_code_id": id("tax_code", "GST18"), "hsn_sac": "7216"}
 	maps.Copy(poLine, line)
-	prValues := map[string]string{"request_date": "2026-10-24"}
-	maps.Copy(prValues, header)
 
-	po, pr := "/doc/"+purchase.DocType+"/", "/doc/"+purchase.RequestDocType+"/"
+	po := "/doc/" + purchase.DocType + "/"
 	poDraft, poDone := po+save(purchase.DocType, poValues, poLine, false), po+save(purchase.DocType, poValues, poLine, true)
-	prDraft, prDone := pr+save(purchase.RequestDocType, prValues, line, false), pr+save(purchase.RequestDocType, prValues, line, true)
 	paths := []string{
 		po + "new", poDraft, poDraft + "/edit/details", poDraft + "/edit/terms", poDraft + "/edit/items", poDraft + "/edit/check",
 		poDraft + "/lines/1", poDraft + "/delete", poDone, poDone + "/close", poDone + "/cancel",
-		pr + "new", prDraft, prDraft + "/edit/details", prDraft + "/edit/items", prDraft + "/edit/check",
-		prDraft + "/lines/1", prDraft + "/delete", prDone, prDone + "/close", prDone + "/cancel",
 	}
 
 	withMods := w.app.DocDeps()
@@ -96,8 +92,8 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	for _, path := range paths {
 		check(admin, path)
 	}
-	// Ravi reads Administrator's drafts on the read-only document page (G1).
-	for _, path := range []string{poDraft, prDraft} {
+	// Ravi reads Administrator's draft on the read-only document page (G1).
+	for _, path := range []string{poDraft} {
 		if pg := render(none, ravi, path); pg.code != http.StatusOK {
 			t.Fatalf("Ravi GET %s = %d, want the read-only page", path, pg.code)
 		}

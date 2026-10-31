@@ -13,7 +13,7 @@ import (
 // Request, and until each screen task builds its part every field keeps
 // docscreen's generic behaviour: generic steps, no hidden field, the line's
 // own card and no extras. internal/app's TestApp_PurchaseModulesUnchanged
-// renders the pages.
+// renders the pages. P15d built the Request's (p15d_*_test.go).
 func TestModules_StubsKeepGeneric(t *testing.T) {
 	mods := Modules(Deps{})
 	if len(mods) != 2 {
@@ -22,7 +22,10 @@ func TestModules_StubsKeepGeneric(t *testing.T) {
 	card := components.LineCard{Item: "MS Angle 50"}
 	line := docscreen.LineView{No: 1, Card: card}
 	field := doctype.Field{Name: "remarks"}
-	for _, dt := range []string{purchase.DocType, purchase.RequestDocType} {
+	if _, ok := mods[purchase.RequestDocType]; !ok {
+		t.Fatalf("Modules has no %s", purchase.RequestDocType)
+	}
+	for _, dt := range []string{purchase.DocType} {
 		m, ok := mods[dt]
 		if !ok {
 			t.Fatalf("Modules has no %s", dt)

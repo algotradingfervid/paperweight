@@ -64,7 +64,7 @@ func newP13Web(t *testing.T) *p13Web {
 	})(r)
 	w := &p13Web{env: env, router: r}
 	saved := renderFromRequest
-	renderFromRequest = func(rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {
+	renderFromRequest = func(_ *handlers, rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {
 		w.renders = append(w.renders, p13Render{status: status, errs: errs})
 		plainErrors(rw, status, errs)
 	}

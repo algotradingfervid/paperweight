@@ -1,0 +1,126 @@
+package purchaseweb
+
+import (
+	"github.com/vardhan/internaltools/internal/modules/modkit"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// orderOpts are the PO pages' frame: title, the form width, Back to the PO
+// and the redraw's refusal banner.
+func orderOpts(title, display string, id int64, e pageErrs) layout.PageOpts {
+	return layout.PageOpts{
+		Title: title, Width: layout.Form, Back: &components.Link{Label: display, Href: poHref(id)}, BannerSlot: e.banner(),
+	}
+}
+
+// refusalBanner is a state refusal: the page has no form then.
+templ refusalBanner(msg string) {
+	@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg})
+}
+
+// handoverPage is Hand over (UX §5.12).
+templ handoverPage(v handoverView) {
+	@layout.Page(orderOpts("Hand over "+v.st.Display, v.st.Display, v.id, v.e)) {
+		<p>{ summaryLine(v.st.Vendor, v.st.Total, "Owned by "+v.st.Owner) }</p>
+		if v.refusal() != "" {
+			@refusalBanner(v.refusal())
+		} else if len(v.st.Eligible) == 0 {
+			@components.Banner(components.BannerProps{Kind: components.Info, Message: msgNobodyEligible})
+		} else {
+			@components.ErrorSummary(v.e.summary)
+			@components.Form(components.FormProps{Action: orderPage(v.id, "/handover")}) {
+				@components.Hidden("version", v.version)
+				@components.Radios(components.FieldProps{
+					ID: components.FieldID("to"), Name: "to", Label: handOverTo, Value: v.to, Error: v.e.fields["to"],
+				}, v.choices())
+				@components.Textarea(components.FieldProps{
+					ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: noteHintHandOver, Optional: true,
+					Value: v.note, Error: v.e.fields["note"],
+				}, modkit.MaxCommentRunes)
+				@components.ActionBar(components.ActionBarProps{
+					Primary: &components.ButtonProps{Label: handOverLabel, Busy: "Handing over…", Variant: components.Primary},
+				})
+			}
+		}
+	}
+}
+
+// sendPage is Send to vendor (UX §5.13; CD-258 Q1: the print view, no
+// Share).
+templ sendPage(v sendView) {
+	@layout.Page(orderOpts("Send "+v.st.Display, v.st.Display, v.id, v.e)) {
+		if v.sentBanner() != "" {
+			@components.Banner(components.BannerProps{Kind: components.Info, Message: v.sentBanner()})
+		}
+		<p>{ summaryLine(v.st.Vendor, v.st.Total) }</p>
+		if v.refusal() != "" {
+			@refusalBanner(v.refusal())
+		} else {
+			<h2>{ sendGetHeading }</h2>
+			<p>{ sendFileHint }</p>
+			@components.Button(components.ButtonProps{Label: sendPrintLabel, Href: printHref(v.id), Variant: components.Secondary})
+			<h2>{ sendRecordHeading }</h2>
+			@components.ErrorSummary(v.e.summary)
+			{{ today, yesterday := v.today() }}
+			@components.Form(components.FormProps{Action: orderPage(v.id, "/send")}) {
+				@components.Hidden("version", v.version)
+				@components.DateInput(components.DateProps{
+					FieldProps: components.FieldProps{ID: components.FieldID("sent_on"), Name: "sent_on", Label: "Sent on", Value: v.on, Error: v.e.fields["sent_on"]},
+					Today:      today, Yesterday: yesterday,
+				})
+				@components.Radios(components.FieldProps{
+					ID: components.FieldID("sent_via"), Name: "sent_via", Label: "How", Value: v.via, Error: v.e.fields["sent_via"],
+				}, sentVia)
+				@components.Textarea(components.FieldProps{
+					ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: sendNoteHint, Optional: true,
+					Value: v.note, Error: v.e.fields["note"],
+				}, noteMax)
+				@components.ActionBar(components.ActionBarProps{
+					Primary: &components.ButtonProps{Label: "Mark as sent", Busy: "Marking…", Variant: components.Primary},
+				})
+			}
+			if v.st.Sent != nil {
+				@components.Form(components.FormProps{Action: orderPage(v.id, "/send/undo")}) {
+					@components.Hidden("version", v.version)
+					@components.Button(components.ButtonProps{Label: "Mark as not sent", Busy: "Marking…", Variant: components.Secondary})
+				}
+			}
+		}
+	}
+}
+
+// expectedPage is Expected on (UX §5.20), built like the Send page.
+templ expectedPage(v expectedView) {
+	@layout.Page(orderOpts("Expected delivery for "+v.st.Display, v.st.Display, v.id, v.e)) {
+		<p>{ v.summary() }</p>
+		if v.st.Refusal != "" {
+			@refusalBanner(v.st.Refusal)
+		} else {
+			@components.ErrorSummary(v.e.summary)
+			{{ today, yesterday := v.today() }}
+			@components.Form(components.FormProps{Action: orderPage(v.id, "/expected")}) {
+				@components.Hidden("version", v.version)
+				@components.DateInput(components.DateProps{
+					FieldProps: components.FieldProps{
+						ID: components.FieldID("expected_on"), Name: "expected_on", Label: "Expected on", Hint: expectedHint,
+						Value: v.on, Error: v.e.fields["expected_on"],
+					},
+					Today: today, Yesterday: yesterday,
+				})
+				@components.Textarea(components.FieldProps{
+					ID: components.FieldID("note"), Name: "note", Label: "Note", Optional: true, Value: v.note, Error: v.e.fields["note"],
+				}, noteMax)
+				@components.ActionBar(components.ActionBarProps{
+					Primary: &components.ButtonProps{Label: "Save date", Busy: "Saving…", Variant: components.Primary},
+				})
+			}
+			if v.st.Set {
+				@components.Form(components.FormProps{Action: orderPage(v.id, "/expected/clear")}) {
+					@components.Hidden("version", v.version)
+					@components.Button(components.ButtonProps{Label: "Clear date", Busy: "Clearing…", Variant: components.Secondary})
+				}
+			}
+		}
+	}
+}

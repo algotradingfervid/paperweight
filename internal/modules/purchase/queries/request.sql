@@ -20,6 +20,12 @@ FROM purchase_request_line
 WHERE parent_id = ?
 ORDER BY line_no;
 
+-- name: SetRequestDate :exec
+-- Validate's draft write of today's business date into a blank request date
+-- (CD-258 Q8 (a): the Details step hides it). A plain UPDATE inside DOC's
+-- write.
+UPDATE purchase_request SET request_date = sqlc.arg(request_date) WHERE id = sqlc.arg(id);
+
 -- name: SetRequestProject :exec
 -- Validate's draft write of the project default from the site (P5). A plain
 -- UPDATE inside DOC's write.
