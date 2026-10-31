@@ -157,6 +157,30 @@ func TestGRN_DuplicateChallan_IDOrder(t *testing.T) {
 	}
 	want := g11Dup(challan, "GR/26-27/00002, GR/26-27/00003, GR/26-27/00001 and "+fmt.Sprintf("Draft %d", draft.ID))
 	g11Want(t, "three approved GRNs and a draft", env, env.Suresh, subject.ID, want)
+
+	// G11 review: SQLite returns these rows in id order even with no ORDER
+	// BY; reverse_unordered_selects reverses any scan the query doesn't
+	// order, so only the query's ORDER BY o.id keeps the list in id order.
+	// The pragma sticks to the pooled connection, so it goes off again.
+	var got string
+	if err := env.DB.Read(t.Context(), func(tx *db.Tx) error {
+		if _, err := tx.SQL().ExecContext(t.Context(), "PRAGMA reverse_unordered_selects = ON"); err != nil {
+			return err
+		}
+		defer func() {
+			if _, err := tx.SQL().ExecContext(t.Context(), "PRAGMA reverse_unordered_selects = OFF"); err != nil {
+				t.Errorf("turn reverse_unordered_selects off: %v", err)
+			}
+		}()
+		var err error
+		got, err = goodsreceipt.DuplicateChallan(t.Context(), tx, env.Suresh, subject.ID)
+		return err
+	}); err != nil {
+		t.Fatalf("DuplicateChallan(GRN %d) with reversed unordered scans: %v", subject.ID, err)
+	}
+	if got != want {
+		t.Errorf("with reversed unordered scans:\n got %q\nwant %q", got, want)
+	}
 }
 
 // Row 4: one duplicate the viewer can't read. Suresh (sites PUNE-WH and
@@ -273,4 +297,29 @@ func TestGRN_DuplicateChallan_ReadRight(t *testing.T) {
 	subject := g11GRN(t, env, env.Suresh, po, challan, doctype.StateDraft)
 	g11Want(t, "read-only user", env, reader, subject.ID, g11Dup(challan, other.Number))
 	g11Want(t, "no Goods Receipt rights", env, nobody, subject.ID, g11DupHidden(challan))
+}
+
+// G11 review: the read check sees each other GRN's project and creator.
+// Priya, restricted to project PRJ-METRO, is told the number of a PRJ-METRO
+// GRN on METRO-SITE she can read (dropping the project from the record
+// makes it unreadable to her). An own-scope user (env.OwnReceiver, as G7's
+// TestGRNBill_ReviewOwnScope) is told the number of a GRN they created, and
+// gets the "another receipt" form once a GRN by Suresh, which they can't
+// read, also holds the challan.
+func TestGRN_DuplicateChallan_ProjectAndOwnScope(t *testing.T) {
+	env := grntest.New(t)
+	po := g2RefPO(t, env)
+
+	const metro = "DC-7008"
+	subject := g11GRN(t, env, env.Suresh, po, metro, doctype.StateDraft)
+	other := g11GRN(t, env, env.Suresh, po, metro, doctype.StateApproved)
+	g11Want(t, "Priya, a PRJ-METRO duplicate", env, env.Priya, subject.ID, g11Dup(metro, other.Number))
+
+	const owned = "DC-7009"
+	own := env.OwnReceiver(t)
+	mine := g11GRN(t, env, own, po, owned, doctype.StateDraft)
+	made := g11GRN(t, env, own, po, owned, doctype.StateApproved)
+	g11Want(t, "own-scope user, a duplicate they created", env, own, mine.ID, g11Dup(owned, made.Number))
+	g11GRN(t, env, env.Suresh, po, owned, doctype.StateApproved)
+	g11Want(t, "own-scope user, and one by Suresh", env, own, mine.ID, g11DupHidden(owned))
 }
