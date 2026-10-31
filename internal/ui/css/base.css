@@ -2,6 +2,8 @@
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* daisyUI paints :root with --root-bg (base-100, white); the canvas grey goes on html so it never stops. */
+  html { --root-bg: var(--color-canvas); }
   html { scroll-padding-block: calc(var(--header-h) + var(--space-2)) calc(var(--actionbar-h) + var(--space-2)); }
   body { margin: 0; overflow-wrap: anywhere; }
   body { font: var(--text-base)/var(--leading-body) var(--font-sans); background: var(--color-canvas); color: var(--color-text); }
@@ -14,5 +16,5 @@
   :focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
   /* htmx's own indicator styles are off (includeIndicatorStyles: false, CSP). */
   .htmx-indicator { opacity: 0; }
-  .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; transition: opacity var(--dur-base) var(--ease-standard); }
+  .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; transition: opacity var(--dur-base) var(--ease-out); }
 }

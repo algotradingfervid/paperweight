@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
-	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // MsgMethodNotAllowed is the 405's text.
@@ -24,6 +23,3 @@ func (a *App) SetJobEvery(d time.Duration) { a.jobEvery = d }
 func (a *App) ReceiveLink() func(ctx context.Context, p auth.Principal, poID int64) (string, bool) {
 	return a.receiveLink
 }
-
-// DocDeps is the generic document screens' Deps as routes built them.
-func (a *App) DocDeps() docscreen.Deps { return a.docDeps() }

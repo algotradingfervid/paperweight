@@ -5,7 +5,7 @@
   & .dialog-head h2 { margin: 0; min-inline-size: 0; font-size: var(--h3); line-height: var(--leading-tight); }
   &::backdrop { background-color: var(--color-overlay); }
   @media (prefers-reduced-motion: no-preference) {
-    & .modal-box { transition: translate var(--dur-base) var(--ease-enter), opacity var(--dur-base) var(--ease-enter); }
+    & .modal-box { transition: translate var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
     &[open] .modal-box { @starting-style { translate: 0 var(--space-8); opacity: 0; } }
   }
 }
