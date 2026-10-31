@@ -27,14 +27,16 @@ func orderRights() map[string]map[string]string {
 }
 
 // requestRights are purchase.Request's production DefaultRights (PO spec
-// §20.6) without the approve rows, which P5 adds once auth.Applies allows
-// approve through CloseRight (M0-24, CD-280 D2).
+// §20.6). Requests aren't approvable, so approve only closes, through the
+// Request's CloseRight (CD-253, CD-255; auth.Applies allows it, M0-24,
+// CD-280 D2): the requester closes their own, a Purchase Manager or Director
+// any.
 func requestRights() map[string]map[string]string {
 	return map[string]map[string]string{
-		"Employee":         rights("own", "read", "create", "write", "submit", "cancel", "delete"),
+		"Employee":         rights("own", "read", "create", "write", "submit", "cancel", "delete", "approve"),
 		"Stores":           rights("all", "read"),
 		"Purchase User":    rights("all", "read"),
-		"Purchase Manager": rights("all", "read"),
-		"Director":         rights("all", "read"),
+		"Purchase Manager": rights("all", "read", "approve"),
+		"Director":         rights("all", "read", "approve"),
 	}
 }
