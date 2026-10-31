@@ -13,6 +13,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/masters/item"
 	"github.com/vardhan/internaltools/internal/masters/party"
+	"github.com/vardhan/internaltools/internal/masters/paymentterms"
 	"github.com/vardhan/internaltools/internal/masters/project"
 	"github.com/vardhan/internaltools/internal/masters/site"
 	"github.com/vardhan/internaltools/internal/masters/uom"
@@ -449,4 +450,62 @@ func TestPO_StepSaveNoVendorClears(t *testing.T) {
 	}
 	p2AllCleared(t, "vendor blanked", p2Snap(t, env, po.ID, p2VendorCols...), p2VendorCols...)
 	p2HeaderIsSum(t, "vendor blanked", env, po.ID)
+}
+
+// Test 2, address (CD-302 vendor part, CD-176): a save that posts BHARAT's
+// Bengaluru address for a SHREE draft with Only naming remarks (Only scopes
+// errors, not values) commits with CD-176's error as a problem. The
+// address snapshot fails, so the vendor part is cleared: neither SHREE's
+// stored values nor BHARAT's address are left.
+func TestPO_StepSaveAddressRefusedClearsVendor(t *testing.T) {
+	env := purchasetest.New(t)
+	po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(p2RefLines(t, env)...))
+	p2SHREEVendor(t, "SHREE draft", env, p2Snap(t, env, po.ID, p2VendorCols...))
+
+	res, err := p2Step(t, env, env.Priya, po.ID, []string{"remarks"},
+		map[string]string{"vendor_address_id": p2AddressID(t, env, "BHARAT", "Bengaluru"), "remarks": "Wrong address"}, nil)
+	p2WantProblems(t, "BHARAT's address posted outside Only", res, err, doctype.FieldError{Field: "vendor_address_id", Message: p2MsgAddressOwner})
+	p2AllCleared(t, "BHARAT's address, snapshot refused", p2Snap(t, env, po.ID, p2VendorCols...), p2VendorCols...)
+	p2HeaderIsSum(t, "BHARAT's address, snapshot refused", env, po.ID)
+}
+
+// Test 2, terms (CD-302 vendor part; PO spec §3.1 payment_terms_id,
+// snap_terms_name): the payment terms are the user's input and their own
+// part, so a refused vendor leaves them as set. A SHREE draft (SHREE has no
+// default terms) is saved with NET45; a save posting ACME, a customer, with
+// Only naming remarks commits with the role error as a problem, and
+// payment_terms_id is still NET45 with snap_terms_name its name, not blank.
+func TestPO_StepSaveRefusedVendorKeepsTerms(t *testing.T) {
+	env := purchasetest.New(t)
+	ctx := t.Context()
+	rows, err := paymentterms.ParseRows([]paymentterms.RawRow{{Portion: "100", Days: "45"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	net45, err := paymentterms.New(p2Kit(env)).Create(ctx, env.Admin, paymentterms.Input{Code: "NET45", Name: "Net 45 days", Rows: rows})
+	if err != nil {
+		t.Fatalf("create terms NET45: %v", err)
+	}
+	if _, err := party.New(p2Kit(env)).Create(ctx, env.Admin, party.Input{Code: "ACME", Name: "Acme Builders", IsCustomer: true}); err != nil {
+		t.Fatalf("create customer ACME: %v", err)
+	}
+	po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderHeader(map[string]string{"payment_terms_id": ""}),
+		purchasetest.OrderLines(p2RefLines(t, env)...))
+	termsID := strconv.FormatInt(net45.ID, 10)
+	p2Must(t, "choose NET45")(p2Save(t, env, env.Priya, po.ID, map[string]string{"payment_terms_id": termsID}, nil))
+	want := map[string]string{"payment_terms_id": termsID, "snap_terms_name": "Net 45 days"}
+	if got := p2Snap(t, env, po.ID, "payment_terms_id", "snap_terms_name"); !mapsEqual(got, want) {
+		t.Fatalf("draft terms %v before the refusal, want %v", got, want)
+	}
+	p2SHREEVendor(t, "SHREE draft with NET45", env, p2Snap(t, env, po.ID, p2VendorCols...))
+
+	res, err := p2Step(t, env, env.Priya, po.ID, []string{"remarks"},
+		map[string]string{"vendor_id": masterID(t, env.DB, "party", "ACME"), "remarks": "Customer by mistake"}, nil)
+	p2WantProblems(t, "ACME posted outside Only", res, err, doctype.FieldError{Field: "vendor_id",
+		Message: "Acme Builders is not marked as a vendor. Tick Vendor on the party first."})
+	if got := p2Snap(t, env, po.ID, "payment_terms_id", "snap_terms_name"); !mapsEqual(got, want) {
+		t.Errorf("terms after the vendor refusal = %v, want %v (the user's terms and their name kept)", got, want)
+	}
+	p2AllCleared(t, "ACME refused, terms kept", p2Snap(t, env, po.ID, p2VendorCols...), p2VendorCols...)
+	p2HeaderIsSum(t, "ACME refused, terms kept", env, po.ID)
 }
