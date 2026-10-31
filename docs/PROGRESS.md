@@ -336,6 +336,10 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | G3, G4, G6, G8 | GRN effects, PO interplay tests, PO picker, print | High/Std | tw, impl, rev opus (AD-12) | — | — | 1–2 | mutation passes | 9f2fed6; make ci 0 (P1 784/816), e2e 0 |
 | M0-41, M0-44, M0-40 (a,c), M0-46 | list.CanFilter; CSV codeless links (CD-318); grid fit and gate (CD-315); hidden fields (CD-319 1-5) | Light/Std | impl, rev opus (AD-10) | — | — | 1–4 | see AD rows | bd30a1c; e2e 0; ci: only the NoSecondConn load flake (allmasters ok alone) |
 | M0-51 | NoSecondConn fails only when a goroutine waits (cap 2m) | Light | impl opus (head) | — | — | 1 | head review | see merge |
+| M0-48 | Docscreen document links need read (CD-321) | Std | impl, rev opus (head) | — | — | 1 | 0/0/2 | c0ceaa8; ci 0, e2e 0 |
+| M0-40 (b), (c2) | Display line grid (CD-313); fixture.Quote | High/Std | tw, impl, rev opus (AD-10) | — | — | 2/1 | 0/2/5→0/0/1; 0/0/7 | 092c22a |
+| Tooling T1-T5 + fix1 | make handin, make mutate, e2e-quick, briefcds, redraw and visibility sweeps (CD-328) | Std | impl, rev opus (internaltools-5f) | — | — | 1–3 | approved; fix1 after Quote clash | 849a8c8, a7baa87; ci 0 (P1 810/842), e2e 0 |
+| MOD-PO batch 4 | P23, P15d, P15e (CD-330) | High/Std | tw, impl, rev opus (AD-13) | — | — | 1–2 | fix 1 each | see merge |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
