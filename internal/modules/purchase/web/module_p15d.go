@@ -49,9 +49,6 @@ const (
 	unreadableNoun = "order"
 )
 
-// receiptLabels are a linked order's receipt status words (UX §5.16).
-var receiptLabels = map[string]string{"not_received": "Not received", "part_received": "Part received", "fully_received": "Fully received"}
-
 // requestCardsOnly: a request's Items step is cards at every width (CD-315).
 const requestCardsOnly = true
 
@@ -323,7 +320,7 @@ func linkedOrdersCard(c docscreen.Ctx, orders []purchase.LinkedOrder) (templ.Com
 			Values: map[string]string{"vendor": o.VendorName}, State: o.State,
 		}
 		if o.State == doctype.StateApproved || o.State == doctype.StateClosed {
-			row.Values["receipt"] = receiptLabels[o.ReceiptStatus]
+			row.Values["receipt"] = purchase.ReceiptLabel(o.ReceiptStatus)
 		}
 		rows = append(rows, row)
 	}

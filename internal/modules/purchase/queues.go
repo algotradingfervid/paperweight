@@ -78,13 +78,6 @@ const (
 	metaSep          = " · "
 )
 
-// receiptLabels and orderLabels are the receipt_status and order_status
-// texts of UX §5.2.
-var (
-	receiptLabels = map[string]string{"not_received": "Not received", "part_received": "Part received"}
-	orderLabels   = map[string]string{"not_ordered": "Not ordered", "part_ordered": "Part ordered", "ordered": "Ordered"}
-)
-
 // queueList is every row of a queue in its order, without titles, and
 // oldestDays, the waiting queue's first row's Approvals.WaitingDays.
 type queueList struct {
@@ -348,7 +341,7 @@ func (s *Service) awaiting(ctx context.Context, tx *db.Tx, pred auth.Predicate) 
 				overdue = metaOverdue
 			}
 		}
-		l.rows = append(l.rows, orderRow(r.ID, r.RoundedTotal, doctype.State(r.State), r.SnapVendorName, receiptLabels[r.ReceiptStatus], due, overdue))
+		l.rows = append(l.rows, orderRow(r.ID, r.RoundedTotal, doctype.State(r.State), r.SnapVendorName, ReceiptLabel(r.ReceiptStatus), due, overdue))
 	}
 	return l, nil
 }
@@ -430,7 +423,7 @@ func myRequests(ctx context.Context, tx *db.Tx, owner auth.UserID, pred auth.Pre
 		if err != nil {
 			return queueList{}, err
 		}
-		l.rows = append(l.rows, requestRow(r.ID, doctype.State(r.State), join(r.SiteCode, needed), orderLabels[r.OrderStatus]))
+		l.rows = append(l.rows, requestRow(r.ID, doctype.State(r.State), join(r.SiteCode, needed), orderStatusLabel(r.OrderStatus)))
 	}
 	return l, nil
 }
