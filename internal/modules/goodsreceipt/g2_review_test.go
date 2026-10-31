@@ -1,6 +1,7 @@
 package goodsreceipt_test
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 
@@ -143,6 +144,19 @@ func TestGRN_Review_BlankPOLine(t *testing.T) {
 		}
 	}
 	g2CheckDerived(t, "blank PO line", env, d.ID)
+
+	// With the PO blanked too, no line is marked foreign, and the line whose
+	// po_line_id doesn't resolve still gets no quantity check (no "more than
+	// twice the 0 ordered"). Kills: `|| !l.PoID.Valid` removed from
+	// checkLine's guard.
+	res, err = g2Save(t, env, env.Suresh, d.ID, map[string]string{"purchase_order_id": "", "remarks": "Nothing known"},
+		g2StoredLines(t, env, d.ID, nil), "remarks")
+	if err != nil {
+		t.Fatalf("step save of a blank PO and a blank PO line: %v %+v", err, g1FieldErrors(err))
+	}
+	if want := []doctype.FieldError{{Field: "purchase_order_id", Message: g2MsgChoosePO}}; !slices.Equal(res.Problems, want) {
+		t.Errorf("step save of a blank PO and a blank PO line: problems %+v, want exactly %+v", res.Problems, want)
+	}
 }
 
 // GRN-007, GRN-008 (submit rules): a challan no. and a reject reason of
@@ -184,6 +198,13 @@ func TestGRN_Review_ForeignLineOnly(t *testing.T) {
 	_, err = g2Create(t, env, env.Suresh, g2Header(t, env, po), g2Line(po.Lines[0], "100", "", ""), g2Line(po2.Lines[0], "250", "", ""))
 	g2WantInvalid(t, "a foreign line over twice its own PO line", err,
 		doctype.FieldError{Field: "po_line_id", Line: 2, Message: "Line 2: This line isn't on PO/26-27/00001."})
+
+	// Rejected above received reads only the line itself, so a foreign line
+	// still gets it. Kills: `!foreign &&` added to the rejected check.
+	_, err = g2Create(t, env, env.Suresh, g2Header(t, env, po), g2Line(po.Lines[0], "100", "", ""), g2Line(po2.Lines[0], "10", "20", "Wet"))
+	g2WantInvalid(t, "a foreign line rejecting more than received", err,
+		doctype.FieldError{Field: "po_line_id", Line: 2, Message: "Line 2: This line isn't on PO/26-27/00001."},
+		doctype.FieldError{Field: "rejected_qty", Line: 2, Message: "Line 2: Rejected can't be more than received."})
 }
 
 // GRN-022 (CD-302): amending writes only the amendment. The cancelled GRN's
