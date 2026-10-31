@@ -811,7 +811,8 @@ type checkSection struct {
 // (CD-178); each section lists its header and whole-lines problems and DOC's
 // line problems. Then the totals, the approval preview, and the bar's state
 // action posting to /submit with the version. A field the module hides is
-// neither summarised nor a problem (CD-256 (1)). The module's Check
+// neither summarised nor a problem (CD-256 (1)), nor, as the figure field,
+// the grand total (CD-319 (8)). The module's Check
 // additions come last; its error is returned (hooks spec §4.4).
 func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error {
 	r, dt := c.Req, c.DT
@@ -824,6 +825,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 	if bar.Primary != nil {
 		sv.Bar = wizard.Bar{Primary: bar.Primary.Label}
 	}
+	hideSummary(c, &v)
 	cv := checkView{Preview: v.Approval.Preview, GrandTotal: v.GrandTotal, Words: v.InWords, More: more, Attach: attachOf(dt, v, rights)}
 	if v.Origin.AmendedFrom != "" {
 		cv.AmendedFrom, cv.AmendedURL = v.Origin.AmendedFrom, docURL(dt.Name, v.Origin.AmendedFromID)

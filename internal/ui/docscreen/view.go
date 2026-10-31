@@ -139,7 +139,7 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 		if v.Inputs[f.Name], err = inputValue(f, plain); err != nil {
 			return DocView{}, err
 		}
-		if f.ListPriority == int(components.PFigure) && f.Type == doctype.Money {
+		if figure(f) {
 			m, err := types.ParseMoney(plain)
 			if err != nil {
 				return DocView{}, err
@@ -264,6 +264,12 @@ func itemOf(ctx context.Context, tx *db.Tx, f doctype.Field, plain, shown string
 	}
 	mi, _, err := dt.Master.Lookup(ctx, tx, id)
 	return mi.Name, mi.Code, err
+}
+
+// figure reports whether f is the header Money field the grand total and its
+// words come from: the list's PFigure column.
+func figure(f doctype.Field) bool {
+	return f.ListPriority == int(components.PFigure) && f.Type == doctype.Money
 }
 
 // required matches DOC's check: a Check field is never "missing".
