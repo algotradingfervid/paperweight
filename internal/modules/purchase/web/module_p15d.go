@@ -55,9 +55,12 @@ var receiptLabels = map[string]string{"not_received": "Not received", "part_rece
 // requestCardsOnly: a request's Items step is cards at every width (CD-315).
 const requestCardsOnly = true
 
-// requestHide hides Request date: Validate fills today (CD-258 Q8 (a)).
-func (m *module) requestHide(_ docscreen.Ctx, f doctype.Field) bool {
-	return f.Name == "request_date"
+// requestHide hides Request date only as an input, on a new request or a
+// draft: Validate fills today (CD-258 Q8 (a), CD-327). A nil View is a new
+// record. When Ctx gains Listing (M0-47), the condition becomes
+// `!c.Listing && (...)`.
+func (m *module) requestHide(c docscreen.Ctx, f doctype.Field) bool {
+	return f.Name == "request_date" && (c.View == nil || c.View.Info.State == doctype.StateDraft)
 }
 
 // requestLineCard is a request line's card: the quantity with its unit and
