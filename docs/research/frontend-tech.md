@@ -418,6 +418,7 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
 
   /* ---------- Primary (actions, links, focus) ---------- */
   --color-primary-50:  #EEF3FF;  /* selected row, primary-tinted backgrounds */
+  --color-primary-100: #DDE8FE;  /* pressed state on tints, selected chip, focus halo on inputs */
   --color-primary-600: #1F4FD1;  /* solid buttons, links, active stepper */
   --color-primary-700: #1A3FA8;  /* hover */
   --color-primary-800: #16348A;  /* active/pressed; text on primary-50 */
@@ -470,7 +471,7 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
   /* ---------- Sizing ---------- */
   --target-min: 2.75rem;    /* 44px minimum touch target (WCAG 2.5.8 AA asks 24px) */
   --target-primary: 3rem;   /* 48px primary actions in the mobile action bar */
-  --control-h: 2.75rem;     /* input/select/button height */
+  --control-h: 3rem;        /* 48px input/select height */
   --control-h-lg: 3.5rem; /* 56px gloved quantity entry (CD-282 Q4) */
   --icon-sm: 1rem;
   --icon-md: 1.25rem;
@@ -483,10 +484,10 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
   /* ---------- Borders and radii ---------- */
   --border-w: 1px;
   --border-w-strong: 2px;
-  --radius-sm: 0.25rem;  /*  4: badges */
-  --radius-md: 0.5rem;   /*  8: inputs, buttons */
-  --radius-lg: 0.75rem;  /* 12: cards */
-  --radius-xl: 1rem;     /* 16: sheets, dialogs */
+  --radius-sm: 0.5rem;   /*  8: icon tiles, segment thumbs */
+  --radius-md: 0.625rem; /* 10: inputs, buttons */
+  --radius-lg: 0.875rem; /* 14: cards */
+  --radius-xl: 1.25rem;  /* 20: sheets, dialogs */
   --radius-pill: 999px;
 
   /* ---------- Elevation (light only, subtle) ---------- */
@@ -510,12 +511,11 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
   --z-toast: 500;
 
   /* ---------- Motion ---------- */
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
-  --dur-slow: 300ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-enter:    cubic-bezier(0, 0, 0, 1);
-  --ease-exit:     cubic-bezier(0.3, 0, 1, 1);
+  --dur-fast: 150ms;  /* press, hover, switch, chip */
+  --dur-base: 200ms;  /* fades, errors appearing, leaving */
+  --dur-slow: 250ms;  /* sheets, drawer, step change */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);  /* entering and moving */
+  --ease-in:  cubic-bezier(0.3, 0, 1, 1);  /* leaving */
 
   /* ---------- Safe areas ---------- */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -536,10 +536,12 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 0.01ms; --dur-base: 0.01ms; --dur-slow: 0.01ms; }
   html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
 /* Applied in base.css (shown here for completeness) */
 /* :focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+   html { --root-bg: var(--color-canvas); }
    html { scroll-padding-block: calc(var(--header-h) + var(--space-2)) calc(var(--actionbar-h) + var(--space-2)); } */
 ```
 
@@ -576,6 +578,11 @@ Text needs 4.5:1 (normal) and UI components, focus indicators and large text nee
 | White on info-700 #0A64A0 | 6.28 | 4.5 | Pass |
 | primary-800 on primary-50 (#16348A / #EEF3FF) | 9.99 | 4.5 | Pass |
 | primary-700 on primary-50 | 8.15 | 4.5 | Pass |
+| primary-800 on primary-100 (#16348A / #DDE8FE, pressed) | 9.01 | 4.5 | Pass |
+| primary-700 on primary-100 | 7.35 | 4.5 | Pass |
+| primary-600 on primary-100 (link on a selected chip) | 5.50 | 4.5 | Pass |
+| text on primary-100 | 14.19 | 4.5 | Pass |
+| focus ring on primary-100 (focus halo) | 5.50 | 3.0 | Pass |
 | success-800 on success-50 (#0F5326 / #EAF7EE) | 8.33 | 4.5 | Pass |
 | warning-800 on warning-50 (#7A3F00 / #FFF6E5) | 7.71 | 4.5 | Pass |
 | danger-800 on danger-50 (#8F1F18 / #FDEEEC) | 7.83 | 4.5 | Pass |

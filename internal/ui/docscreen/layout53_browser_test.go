@@ -145,3 +145,63 @@ func TestModuleBrowser_CardsOnlyLayout53(t *testing.T) {
 		t.Errorf("CSP: %s", p)
 	}
 }
+
+// m60Code is a 20-character item code with no break point.
+const m60Code = "CEMOPC53GRADE50KGBAG"
+
+// m60LineCard is a PO-style card whose type and code are both the unbroken
+// code (a description that starts with a code), for every amount.
+func m60LineCard(_ docscreen.Ctx, l docscreen.LineView) components.LineCard {
+	c := l.Card
+	c.Item, c.Code, c.Amount = m60Code, m60Code, m53Amounts[(l.No-1)%3]
+	return c
+}
+
+// m60CodeJS lists the cards whose type, its text or its code is wider than
+// its box or leaves the card's content, or whose code isn't shown whole.
+const m60CodeJS = `(() => {
+  const out = [];
+  for (const [i, c] of [...document.querySelectorAll("li.lines-card")].entries()) {
+    const cb = c.getBoundingClientRect(), cs = getComputedStyle(c);
+    const right = cb.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+    const name = c.querySelector(".lines-name");
+    for (const el of [name, name.firstElementChild, name.querySelector(".code")]) {
+      const r = el.getBoundingClientRect();
+      if (r.right > right + 0.5) out.push("card " + (i + 1) + ": " + (el.className || "type text") + " ends at " + Math.round(r.right) + ", past the card's content " + Math.round(right));
+      if (el.scrollWidth > el.clientWidth + 1) out.push("card " + (i + 1) + ": " + (el.className || "type text") + " content " + el.scrollWidth + " > box " + el.clientWidth);
+    }
+    if (c.querySelector(".lines-name .code").textContent !== "` + m60Code + `") out.push("card " + (i + 1) + ": the code isn't shown whole");
+  }
+  return out;
+})()`
+
+// CD-344 (2): a 20-character unbroken item code, as the type's word and as
+// the code, shrinks with the type and wraps inside the card at 320 and 360,
+// on the Items step and the check page.
+func TestModuleBrowser_CardsOnlyLongCode(t *testing.T) {
+	ctx := uibrowser.New(t)
+	e, id := m20Env(t, 3, docscreen.Module{CardsOnly: true, LineCard: m60LineCard})
+	srv := m26Server(t, e)
+	for _, step := range []string{"items", "check"} {
+		for _, width := range []int64{320, 360} {
+			what := step + " at " + strconv.FormatInt(width, 10)
+			if err := uibrowser.At(ctx, width, srv+m01bURL(id)+"/edit/"+step); err != nil {
+				t.Fatal(err)
+			}
+			problems, err := m26Step(ctx, what, chromedp.Evaluate[[]string](m60CodeJS))
+			if err != nil {
+				t.Fatalf("%s: %v", what, err)
+			}
+			for _, p := range problems {
+				t.Errorf("%s: %s", what, p)
+			}
+			over, err := uibrowser.Overflow(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, p := range over {
+				t.Errorf("%s: overflow: %s", what, p)
+			}
+		}
+	}
+}

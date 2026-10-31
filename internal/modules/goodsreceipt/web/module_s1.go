@@ -153,8 +153,9 @@ type poPick struct {
 	Field     components.FieldProps
 	Options   []components.Option
 	Select    bool
-	All       bool             // fully received orders are listed
-	Toggle    *components.Link // widens or narrows the list
+	Search    *components.PickerProps // the combobox, at minPOSearch orders or more (S1b)
+	All       bool                    // fully received orders are listed
+	Toggle    *components.Link        // widens or narrows the list
 	EmptyLink *components.Link
 }
 
@@ -234,19 +235,12 @@ func (m *module) pick(c docscreen.Ctx, s docscreen.StepState) (poPick, error) {
 	p := poPick{
 		Field: components.FieldProps{ID: components.FieldID("purchase_order_id"), Name: "purchase_order_id", Label: labelPO,
 			Hint: hint, Error: errorOf(s.Errors, "purchase_order_id"), Value: chosen},
-		Select: len(list) > maxRadios,
-		All:    all,
+		All: all,
 	}
-	if p.Select {
-		p.Options = append(p.Options, components.Option{})
-	}
-	for _, o := range list {
-		id := strconv.FormatInt(o.ID, 10)
-		if p.Select {
-			p.Options = append(p.Options, components.Option{Value: id, Label: o.Display + " · " + o.VendorName + " · " + o.SiteName + " · " + pendingText(o)})
-			continue
-		}
-		p.Options = append(p.Options, components.Option{Value: id, Label: o.Display + " · " + o.VendorName, Hint: o.SiteName + " · " + pendingText(o)})
+	if len(list) >= minPOSearch {
+		p.Search = poCombobox(p.Field, list, all) // Options stay empty (UX doc §5.2)
+	} else {
+		p.Options, p.Select = poOptions(list)
 	}
 	switch {
 	case len(list) > 0 && all:
@@ -257,6 +251,24 @@ func (m *module) pick(c docscreen.Ctx, s docscreen.StepState) (poPick, error) {
 		p.EmptyLink = &components.Link{Label: labelShowAll, Href: pickURL(c, true)}
 	}
 	return p, nil
+}
+
+// poOptions are list as radios, or as a Select after a blank first option
+// when there are more than maxRadios.
+func poOptions(list []goodsreceipt.POChoice) (opts []components.Option, sel bool) {
+	sel = len(list) > maxRadios
+	if sel {
+		opts = append(opts, components.Option{})
+	}
+	for _, o := range list {
+		id := strconv.FormatInt(o.ID, 10)
+		if sel {
+			opts = append(opts, components.Option{Value: id, Label: o.Display + " · " + o.VendorName + " · " + o.SiteName + " · " + pendingText(o)})
+			continue
+		}
+		opts = append(opts, components.Option{Value: id, Label: o.Display + " · " + o.VendorName, Hint: o.SiteName + " · " + pendingText(o)})
+	}
+	return opts, sel
 }
 
 // preselect is the ?po= order when p may receive against it (CD-283), with

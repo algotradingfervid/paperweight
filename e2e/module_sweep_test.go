@@ -36,7 +36,7 @@ func TestModule_EveryDocTypeSwept(t *testing.T) {
 			docs = append(docs, dt.Name)
 		}
 	}
-	missing := docscreen.Unswept(list)
+	missing := docscreen.Unswept(list, h.App.DocDeps())
 	if !slices.Contains(docs, fixture.Order) || slices.Contains(missing, fixture.Order) {
 		t.Errorf("fixture.Order registered %v, unswept %v; want it registered and fully swept, the floor of this check",
 			slices.Contains(docs, fixture.Order), slices.Contains(missing, fixture.Order))
