@@ -1,6 +1,7 @@
 package purchaseweb
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
@@ -178,14 +179,15 @@ var sentVia = []components.Option{
 	{Value: "by_hand", Label: "By hand"}, {Value: "other", Label: "Other"},
 }
 
-func viaLabel(v string) string {
-	for _, o := range sentVia {
-		if o.Value == v {
-			return o.Label
-		}
-	}
-	return v
+// viaWords are sentVia's ways as words in the Sent sentence, "by hand" and
+// not "by By hand" (UX §5.13); TestP24_SentBannerWords keeps both lists in
+// step.
+var viaWords = map[string]string{
+	"email": "email", "whatsapp": "WhatsApp", "courier": "courier", "by_hand": "hand", "other": "other means",
 }
+
+// viaSentence is way v in the Sent sentence, v itself when it has no words.
+func viaSentence(v string) string { return cmp.Or(viaWords[v], v) }
 
 // sendView is the Send page (UX §5.13).
 type sendView struct {
@@ -207,7 +209,7 @@ func (v sendView) sentBanner() string {
 	if v.st.Sent == nil {
 		return ""
 	}
-	return fmt.Sprintf(msgSentBanner, types.FormatDate(v.st.Sent.SentOn), viaLabel(v.st.Sent.SentVia), v.st.SentByName)
+	return fmt.Sprintf(msgSentBanner, types.FormatDate(v.st.Sent.SentOn), viaSentence(v.st.Sent.SentVia), v.st.SentByName)
 }
 
 func (v sendView) today() (string, string) {
