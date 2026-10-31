@@ -31,14 +31,14 @@ func validateAdvance(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctyp
 				return nil, err
 			}
 		}
+		var e dbq.E2EmployeeRow // blank with no employee (CD-302)
 		if emp.Valid {
-			e, err := q.E2Employee(ctx, emp.Int64)
-			if err != nil {
+			if e, err = q.E2Employee(ctx, emp.Int64); err != nil {
 				return nil, err
 			}
-			if err := q.E2SnapAdvance(ctx, dbq.E2SnapAdvanceParams{SnapEmployeeCode: e.Code, SnapEmployeeName: e.Name, ID: id}); err != nil {
-				return nil, err
-			}
+		}
+		if err := q.E2SnapAdvance(ctx, dbq.E2SnapAdvanceParams{SnapEmployeeCode: e.Code, SnapEmployeeName: e.Name, ID: id}); err != nil {
+			return nil, err
 		}
 		if err := q.E2SnapAdvanceLines(ctx, id); err != nil {
 			return nil, err
