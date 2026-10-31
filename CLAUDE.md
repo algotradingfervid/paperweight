@@ -116,6 +116,7 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - After a new gate or sweep lands on main, the head merges only MERGE-READYs whose ci ran on a head that includes it: PO batch 4 was green on a base without the tooling sweeps and turned main red (11 purchase.Request cells, 31 Oct).
 - A module page extra (pairs, cards) that shows a stored field's value checks the registered Module.Hide, and so does anything derived from it (Left from Used); the redraw sweep's read-only probe fails otherwise (MOD-EXP S3, REPEAT).
 - A docscreen `Step.Save` hook, like a handler, runs after the posted version, state and right checks, never before parsing or validating posted values; docscreen enforces it from M0-56 (CD-335). It reached P15c after the handler-side date parse (CD-259, AD-13, REPEAT).
+- A CSS change in a fix round runs the full `make e2e`, not an e2e-quick subset: M0-53 fix1 passed its layout subset and broke TestE2E_AttachmentsAxe (target size) on main.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
