@@ -77,6 +77,12 @@ type testResponse struct {
 // lets Administrators through (authfake HasRole) and refuses others with msg.
 func newScreenEnv(t *testing.T, now time.Time) *screenEnv {
 	t.Helper()
+	return newScreenEnvSeries(t, now, true)
+}
+
+// newScreenEnvSeries is newScreenEnv, with the fixture series only when seed.
+func newScreenEnvSeries(t *testing.T, now time.Time, seed bool) *screenEnv {
+	t.Helper()
 	ctx := context.Background()
 	roles := authfake.New()
 	roles.AddRole(testAnil.ID, "Administrator")
@@ -85,6 +91,9 @@ func newScreenEnv(t *testing.T, now time.Time) *screenEnv {
 	clk := clock.NewFixed(now)
 	nm := naming.New(testkit.NewDB(t), clk, roles, auditfake.New())
 	for _, s := range testSeries {
+		if !seed {
+			break
+		}
 		if err := nm.EnsureSeries(ctx, s.doctype, s.label, s.tpl); err != nil {
 			t.Fatalf("EnsureSeries(%s, %q, %q): %v", s.doctype, s.label, s.tpl, err)
 		}
@@ -312,6 +321,18 @@ func TestNumberingScreen_List(t *testing.T) {
 		const want = "Purchase Order · PO/{FY}/{#####} · Next: PO/27-28/00001"
 		if txt := testPageText(r); !strings.Contains(txt, want) {
 			t.Errorf("list text missing %q (IST date); page text %q", want, txt)
+		}
+	})
+
+	// With no document types installed there are no series: the page says
+	// so instead of rendering an empty body.
+	t.Run("no_series_empty_state", func(t *testing.T) {
+		e := newScreenEnvSeries(t, testNow, false)
+		r := e.get("anil", "/settings/numbering")
+		wantStatus(t, "admin GET /settings/numbering with no series", r, http.StatusOK)
+		const want = "No numbering series yet. Each document type, such as Purchase Order, adds its own here."
+		if got := testNorm(r.doc.Find(".empty-state").Text()); got != want {
+			t.Errorf("empty state text %q, want %q", got, want)
 		}
 	})
 

@@ -8,6 +8,7 @@ import (
 const (
 	seriesHint = "Use {FY} for the financial year, {YYYY} or {YY} for the year, {MM} for the month, and end with a number part like {#####}."
 	previewID  = "numbering-preview"
+	listEmpty  = "No numbering series yet. Each document type, such as Purchase Order, adds its own here."
 )
 
 // listPage is one row per series, by label, each linking to its edit page.
@@ -15,6 +16,9 @@ const (
 // text is the whole row (NAM-051).
 templ listPage(rows []listRow) {
 	@layout.Page(layout.PageOpts{Title: "Numbering"}) {
+		if len(rows) == 0 {
+			@components.EmptyState(listEmpty, nil)
+		}
 		<ul>
 			for _, row := range rows {
 				<li><a href={ templ.SafeURL(row.Href) }>{ row.Text }</a></li>

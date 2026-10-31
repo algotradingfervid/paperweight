@@ -16,6 +16,7 @@ import (
 const (
 	seriesHint = "Use {FY} for the financial year, {YYYY} or {YY} for the year, {MM} for the month, and end with a number part like {#####}."
 	previewID  = "numbering-preview"
+	listEmpty  = "No numbering series yet. Each document type, such as Purchase Order, adds its own here."
 )
 
 // listPage is one row per series, by label, each linking to its edit page.
@@ -54,7 +55,13 @@ func listPage(rows []listRow) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<ul>")
+			if len(rows) == 0 {
+				templ_7745c5c3_Err = components.EmptyState(listEmpty, nil).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -66,7 +73,7 @@ func listPage(rows []listRow) templ.Component {
 				var templ_7745c5c3_Var3 templ.SafeURL
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(row.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 20, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 24, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -79,7 +86,7 @@ func listPage(rows []listRow) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(row.Text)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 20, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 24, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -183,7 +190,7 @@ func editPage(f editForm) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(previewID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 44, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 48, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
@@ -325,7 +332,7 @@ func previewError(msg string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 65, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/naming/web/numbering.templ`, Line: 69, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
