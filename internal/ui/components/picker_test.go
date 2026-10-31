@@ -274,3 +274,25 @@ func TestPickerResults_Max20AndEmpty(t *testing.T) {
 		t.Errorf("empty text = %q", got)
 	}
 }
+
+// TestPicker_SearchTextStaysOutOfForm: the search text doesn't submit with
+// the enclosing form (no q= on GET filter URLs), while htmx still sends it
+// as q with the picker's own search, which reads the input's name.
+func TestPicker_SearchTextStaysOutOfForm(t *testing.T) {
+	doc := uitest.Render(t, components.Picker(pickerProps()))
+	in := doc.Find(`input[role="combobox"]`)
+	if f, ok := in.Attr("form"); !ok || f != "" {
+		t.Errorf(`search input form = %q (set %v), want form="" so it has no form owner`, f, ok)
+	}
+	if got := in.AttrOr("name", ""); got != "q" {
+		t.Errorf("search input name = %q, want q for the htmx search", got)
+	}
+	for _, k := range []string{"hx-params", "hx-disinherit"} {
+		if _, ok := in.Attr(k); ok {
+			t.Errorf("search input has %s, which could drop q from the htmx search", k)
+		}
+	}
+	if doc.Find(`input[type="hidden"][name="item_id"]`).AttrOr("form", "unset") != "unset" {
+		t.Error("the chosen id must still submit with the form")
+	}
+}

@@ -16,7 +16,13 @@ func DataList(p DataListProps) templ.Component {
 }
 
 templ dataList(p DataListProps, l listLayout) {
-	<div class="datalist" data-cols={ strconv.Itoa(l.tracks()) }>
+	<div
+		class="datalist"
+		data-cols={ strconv.Itoa(l.tracks()) }
+		if l.nowrapTracks() != "" {
+			data-nowrap={ l.nowrapTracks() }
+		}
+	>
 		<div class="datalist-head" aria-hidden="true">
 			if l.title != nil {
 				@listHead(*l.title)
@@ -58,14 +64,14 @@ templ listCard(l listLayout, r Row) {
 	<a class="datalist-link" href={ templ.URL(r.Href) }>
 		<div class="datalist-r1">
 			if l.title != nil {
-				@listCell(*l.title, true, false, false) {
+				@listCell(cardCell{Column: *l.title, title: true}) {
 					{ r.Values[l.title.Key] }
 				}
 			} else {
 				<p class="datalist-cell datalist-title">{ r.Title }</p>
 			}
 			if l.figure != nil {
-				@listCell(*l.figure, false, false, false) {
+				@listCell(cardCell{Column: *l.figure}) {
 					{ r.Values[l.figure.Key] }
 				}
 			}
@@ -74,47 +80,50 @@ templ listCard(l listLayout, r Row) {
 			<p class="datalist-cell datalist-party">{ r.Party }</p>
 		} else if c := l.listSecond(r); c != nil {
 			<div class="datalist-r2">
-				@listCell(*c, false, false, false) {
+				@listCell(cardCell{Column: *c}) {
 					{ r.Values[c.Key] }
 				}
 			</div>
 		}
 		<div class="datalist-r3">
-			for i, c := range l.listThird(r) {
-				@listCell(c, false, i > 0, false) {
-					{ r.Values[c.Key] }
-				}
-			}
-			if sep, low := l.stateSep(r); l.state != nil {
-				@listCell(*l.state, false, sep, low) {
-					@StateBadgeLabel(r.State, r.StateLabel)
+			for _, c := range l.thirdCells(r) {
+				if c.state {
+					@listCell(c) {
+						@StateBadgeLabel(r.State, r.StateLabel)
+					}
+				} else {
+					@listCell(c) {
+						{ r.Values[c.Key] }
+					}
 				}
 			}
 		</div>
 	</a>
 }
 
-// listCell is one labelled value; sep puts " · " before it on cards, and
-// sepLow hides that separator with the low-priority values.
-templ listCell(c Column, title, sep, sepLow bool) {
+// listCell is one labelled value. On cards a blank value is hidden (it keeps
+// its track in aligned rows), sep ends the value with " · " so a wrapped line
+// never starts with one, and sepLow hides that separator with the
+// low-priority values.
+templ listCell(c cardCell) {
 	<dl
-		class={ listCellClass(c, title) }
+		class={ listCellClass(c.Column, c.title), templ.KV("datalist-nowrap", c.NoWrap), templ.KV("datalist-blank", c.blank) }
 		if c.Priority >= PLow {
 			data-priority="low"
 		}
 	>
 		<dt class="visually-hidden">{ c.Label }</dt>
 		<dd>
-			if sep {
+			{ children... }
+			if c.sep {
 				<span
 					class="datalist-sep"
 					aria-hidden="true"
-					if sepLow {
+					if c.sepLow {
 						data-priority="low"
 					}
-				>{ " · " }</span>
+				>{ listSep }</span>
 			}
-			{ children... }
 		</dd>
 	</dl>
 }
