@@ -39,6 +39,9 @@ SELECT * FROM approval_rules WHERE id = ?;
 -- name: ListRules :many
 SELECT * FROM approval_rules ORDER BY doctype, from_amount, id;
 
+-- name: HasRulesForDocType :one
+SELECT EXISTS (SELECT 1 FROM approval_rules WHERE doctype = ? AND enabled = 1);
+
 -- name: ListEnabledRulesForDocType :many
 SELECT * FROM approval_rules WHERE doctype = ? AND enabled = 1 ORDER BY from_amount;
 

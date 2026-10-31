@@ -27,6 +27,11 @@ func (a *Approvals) waitingDays(r Request) int {
 	return 0
 }
 
+// WaitingDays is r's "Waiting {n} days" for other modules: the calendar days
+// in IST since submit while r is pending and OverdueAfterDays or more, else 0
+// (CD-254, CD-280).
+func (a *Approvals) WaitingDays(r Request) int { return a.waitingDays(r) }
+
 // Overdue lists, oldest first, the open requests waiting OverdueAfterDays or
 // more, with who can approve each now (Administrators only). A request whose
 // document can't be read is skipped.

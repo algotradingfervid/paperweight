@@ -209,6 +209,17 @@ func (q *Queries) GetRule(ctx context.Context, id int64) (ApprovalRule, error) {
 	return i, err
 }
 
+const hasRulesForDocType = `-- name: HasRulesForDocType :one
+SELECT EXISTS (SELECT 1 FROM approval_rules WHERE doctype = ? AND enabled = 1)
+`
+
+func (q *Queries) HasRulesForDocType(ctx context.Context, doctype string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasRulesForDocType, doctype)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const insertHistory = `-- name: InsertHistory :one
 INSERT INTO approval_history (
     doctype, doc_id, request_id, action, user_id, user_name, at, amount, rule_id, reason, self_approved
