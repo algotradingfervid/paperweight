@@ -58,6 +58,9 @@ templ fieldsBody() {
 		@components.ErrorSummary([]components.FieldErr{{ID: "e-name", Message: uitest.LongError}})
 		@fieldSet("e", uitest.LongError)
 	}
+	@components.Card("Gloved quantity entry", nil) {
+		@components.LargeQtyInput(components.FieldProps{ID: "f-received", Name: "received", Label: "Received now", Value: "9,99,999.9999"}, false, "kg")
+	}
 }
 
 // fieldSet is every input, with ids prefixed by pre; errText fills each

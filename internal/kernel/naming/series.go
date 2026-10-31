@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -87,7 +88,8 @@ func matchPrefix(t template, prefix string) bool {
 
 // checkPrefixFree returns ErrDuplicatePrefix when t renders, for some month,
 // the same prefix as another DocType's series, so two series never share a
-// counter key's numbers.
+// counter key's numbers. A registered TestOnly DocType doesn't clash with a
+// registered real one (CD-291); an unregistered name clashes with any.
 func checkPrefixFree(ctx context.Context, q db.DBTX, doctype string, t template) error {
 	all, err := dbq.New(q).ListSeries(ctx)
 	if err != nil {
@@ -95,7 +97,7 @@ func checkPrefixFree(ctx context.Context, q db.DBTX, doctype string, t template)
 	}
 	ds := months()
 	for _, s := range all {
-		if s.DocType == doctype {
+		if s.DocType == doctype || testOnlyPair(doctype, s.DocType) {
 			continue
 		}
 		o, err := parseTemplate(s.Template)
@@ -109,4 +111,12 @@ func checkPrefixFree(ctx context.Context, q db.DBTX, doctype string, t template)
 		}
 	}
 	return nil
+}
+
+// testOnlyPair reports whether a and b are both registered and exactly one of
+// them is TestOnly (CD-291).
+func testOnlyPair(a, b string) bool {
+	x, okA := doctype.Lookup(a)
+	y, okB := doctype.Lookup(b)
+	return okA && okB && x.TestOnly != y.TestOnly
 }

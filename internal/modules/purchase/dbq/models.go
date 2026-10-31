@@ -8,6 +8,17 @@ import (
 	"database/sql"
 )
 
+type BusinessSetting struct {
+	ID             int64
+	LockedUpTo     sql.NullString
+	DefaultPoTerms string
+	Version        int64
+	CreatedAt      string
+	CreatedBy      sql.NullInt64
+	UpdatedAt      string
+	UpdatedBy      sql.NullInt64
+}
+
 type PurchaseOrder struct {
 	ID                 int64
 	Number             sql.NullString

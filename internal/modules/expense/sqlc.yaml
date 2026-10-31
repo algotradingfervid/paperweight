@@ -1,0 +1,25 @@
+version: "2"
+sql:
+  - engine: sqlite
+    # Only expense's own migrations and those of the tables it reads (CD-117):
+    # add every later migration that alters one of them.
+    schema:
+      - ../../../migrations/00100_auth_users.sql
+      - ../../../migrations/00300_audit_log.sql
+      - ../../../migrations/00401_approval_requests.sql
+      - ../../../migrations/00402_approval_history.sql
+      - ../../../migrations/00500_attachment.sql
+      - ../../../migrations/01050_company_branch.sql
+      - ../../../migrations/01300_tax_code.sql
+      - ../../../migrations/01400_project.sql
+      - ../../../migrations/01450_site.sql
+      - ../../../migrations/01500_employee.sql
+      - ../../../migrations/01550_expense_type.sql
+      - ../../../migrations/10350_expense_claim.sql
+      - ../../../migrations/10360_employee_advance.sql
+      - ../../../migrations/10370_fallback_approver_role.sql
+    queries: queries/
+    gen:
+      go:
+        package: dbq
+        out: dbq

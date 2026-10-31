@@ -23,10 +23,11 @@ const (
 	Finish
 )
 
-// Nav is the step form's nav button: "back", "finish" or "".
+// Nav is the step form's nav button: "back", "finish", "stay" (save and
+// redraw the same step) or "".
 func Nav(r *http.Request) string {
 	switch v := r.PostFormValue("nav"); v {
-	case "back", "finish":
+	case "back", "finish", "stay":
 		return v
 	}
 	return ""
