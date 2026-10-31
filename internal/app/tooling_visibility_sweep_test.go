@@ -157,18 +157,16 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	out := map[string]st{
 		"/": {Control: []int{see}}, // to the inbox
 		// A document page: 303 is a writer's draft going to its check step,
-		// 404 a TestOnly DocType's missing sample; a hidden record is 404, or
-		// 403 where the viewer holds no right on the DocType (fixture.Receipt).
-		"/doc/{doctype}":                                       {Control: []int{ok, forbidden}},         // 403: fixture.Receipt
-		"/doc/{doctype}/export.csv":                            {Control: []int{ok, forbidden, failed}}, // 500: knownBroken
-		"/doc/{doctype}/new":                                   {Control: []int{forbidden}},             // the viewer holds no create
-		"/doc/{doctype}/{id}":                                  {Control: []int{ok, see, missing}, Hidden: []int{forbidden, missing}},
+		// 404 a TestOnly DocType's missing sample; a hidden record is 404.
+		"/doc/{doctype}/export.csv":                            {Control: []int{ok, failed}},    // 500: knownBroken
+		"/doc/{doctype}/new":                                   {Control: []int{ok, forbidden}}, // 200: goods receipts, the only create the viewer holds
+		"/doc/{doctype}/{id}":                                  {Control: []int{ok, see, missing}},
 		"/doc/{doctype}/{id}/edit/{step}":                      {Control: []int{ok, see}},
 		"/doc/{doctype}/{id}/lines/new":                        {Control: []int{ok, see}},
 		"/doc/{doctype}/{id}/lines/{no}":                       {Control: []int{ok, see}},
 		"/doc/{doctype}/{id}/lines/{no}/remove":                {Control: []int{ok, see}},
-		"/doc/{doctype}/{id}/{action}":                         {Control: []int{ok, forbidden}},                                  // 200: reject, which the viewer may
-		"/print/{doctype}/{id}":                                {Control: []int{ok, missing}, Hidden: []int{forbidden, missing}}, // 404: no print view
+		"/doc/{doctype}/{id}/{action}":                         {Control: []int{ok, forbidden}}, // 200: reject, which the viewer may
+		"/print/{doctype}/{id}":                                {Control: []int{ok, missing}},   // 404: no print view
 		"/print/{doctype}/{id}/page.css":                       {Control: []int{ok, missing}},
 		"/files/*":                                             {Control: []int{missing}},
 		"/m/party/{id:[1-9][0-9]*}/contacts/{row:[1-9][0-9]*}": {Control: []int{missing}},     // no contact rows
@@ -206,7 +204,8 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	} {
 		out[r] = st{Control: []int{stub}, Hidden: []int{stub}}
 	}
-	for _, r := range []string{"/modules/purchase", "/modules/purchase/q/{queue}", "/reports/purchase/pending", "/reports/purchase/pending/export.csv", "/reports/purchase/pending/filter"} {
+	for _, r := range []string{"/modules/purchase", "/modules/purchase/q/{queue}", "/reports/purchase/pending", "/reports/purchase/pending/filter",
+		"/reports/grn/bills", "/reports/grn/bills/export.csv", "/reports/grn/items", "/reports/grn/items/export.csv"} {
 		out[r] = st{Control: []int{stub}}
 	}
 	return out
@@ -241,6 +240,7 @@ var noControl = map[string]string{
 	"/print/{doctype}/{id}/page.css":   "the print page's size rules, no data",
 	"/approvals/count":                 "checked by checkInboxCount",
 	"/users/{id}":                      "the viewer's own user page",
+	"/doc/{doctype}/new":               "a blank new-document form",
 	"/doc/{doctype}/{id}/lines/new":    "a blank line form",
 	"/reports/expense/open/filter":     "a filter form: no rows",
 	"/reports/expense/lines/filter":    "a filter form: no rows",
@@ -492,6 +492,7 @@ func (s *sweepSeed) docPages() map[string][]sweepPage {
 			add("/print/{doctype}/{id}/page.css", "/print/"+dt.Name+"/999999/page.css", false)
 		}
 		add("/doc/{doctype}", base+"?q="+hiddenQuery, false)
+		add("/doc/{doctype}", base+"?q="+controlQuery, false)
 		add("/doc/{doctype}/export.csv", base+"/export.csv?q="+hiddenQuery, false)
 		add("/doc/{doctype}/export.csv", base+"/export.csv", false)
 		if f, ok := dt.Field("state"); ok && f.Filterable {
@@ -503,7 +504,7 @@ func (s *sweepSeed) docPages() map[string][]sweepPage {
 		}
 	}
 	for _, r := range s.records {
-		if r.doc.Number != "" && r.hidden {
+		if r.doc.Number != "" && (r.hidden || s.searchable(r.dt)) {
 			add("/search", "/search?q="+url.QueryEscape(r.doc.Number[1:]), false) // not the whole number: the page echoes q
 		}
 	}
@@ -708,8 +709,9 @@ func (s *sweepSeed) query(q string) []string {
 }
 
 // controlReports are the derived pages that list a DocType's approved
-// records.
+// records (the pending report: approved orders not fully received).
 var controlReports = map[string][]string{
+	purchase.DocType:       {"/reports/purchase/pending/export.csv"},
 	expense.ClaimDocType:   {"/reports/expense/open", "/reports/expense/lines"},
 	expense.AdvanceDocType: {"/reports/expense/advances"},
 }
@@ -752,14 +754,22 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 			}
 			add(page, r.doc.Number)
 			if s.searchable(r.dt) {
-				add("/search?q="+controlQuery, types.FormatMoney(r.amount))
+				// CD-317: number and a free-text field are SearchFields.
+				add("/search?q="+url.QueryEscape(r.doc.Number[1:]), r.doc.Number)
+				add("/search?q="+controlQuery, dt.PluralLabel+" (")
+				add("/doc/"+r.dt+"?q="+controlQuery, r.doc.Number)
 			}
 			if _, ok := print.Default.Lookup(r.dt); ok {
 				add("/print/"+r.dt+"/"+idText(r.id), r.doc.Number)
 			}
 			for _, rep := range controlReports[r.dt] {
+				if r.state != stApproved {
+					continue
+				}
 				add(rep, r.doc.Number)
-				add(rep+"/export.csv", r.doc.Number)
+				if !strings.HasSuffix(rep, ".csv") {
+					add(rep+"/export.csv", r.doc.Number)
+				}
 			}
 		}
 		switch {

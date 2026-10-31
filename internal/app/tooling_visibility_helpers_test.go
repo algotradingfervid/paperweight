@@ -10,19 +10,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/kernel/approval"
-	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/kernel/files/filestest"
-	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
@@ -62,9 +59,6 @@ const (
 	// hiddenQty is every hidden line's quantity: not 1, so a line's rate and
 	// amount differ, and long enough to be a marker.
 	hiddenQty = "12.345"
-	// fixtureOrderCounter moves fixture.Order's PO/ series past
-	// purchase.Order's, which shares its prefix (CD-295).
-	fixtureOrderCounter = 50000
 )
 
 // seedState is where add takes a record.
@@ -100,7 +94,6 @@ type sweepSeed struct {
 	viewer   auth.Principal
 	wide     auth.Principal // the wide approver
 	approver auth.Principal
-	m        fixture.Masters
 	records  []*sweepRecord
 	ids      map[string]map[string]int64 // master table → code → id
 }
@@ -125,23 +118,24 @@ func (s *sweepSeed) id(table, code string) int64 {
 
 func (s *sweepSeed) idText(table, code string) string { return idText(s.id(table, code)) }
 
-// noRights are the DocTypes the viewer holds no right on: a record of theirs
-// is hidden by the missing grant, not by scope or restriction.
-var noRights = map[string]bool{fixture.Receipt: true}
-
 // viewerRights is what viewerRole grants on dt: read, plus write, print and
 // export so the check step, print and CSV pages open, plus submit and approve
 // where the DocType is approvable, so the viewer holds the rules' approver
 // slot and has requests of its own. Own scope where the DocType has an
-// employee, all otherwise; the project restriction applies on top.
+// employee, and on goods receipts (with create, so the viewer makes its own
+// control receipt while the admin's receipt on a control order stays hidden);
+// all otherwise. The project restriction applies on top.
 func viewerRights(dt *doctype.DocType) map[auth.Right]auth.Scope {
 	scope := auth.ScopeAll
-	if dt.EmployeeField != "" {
+	if dt.EmployeeField != "" || dt.Name == goodsreceipt.DocType {
 		scope = auth.ScopeOwn
 	}
 	want := []auth.Right{auth.RightRead, auth.RightWrite, auth.RightPrint, auth.RightExport}
 	if dt.Approvable {
 		want = append(want, auth.RightSubmit, auth.RightApprove)
+	}
+	if dt.Name == goodsreceipt.DocType {
+		want = append(want, auth.RightCreate)
 	}
 	out := map[auth.Right]auth.Scope{}
 	for _, r := range want {
@@ -153,14 +147,15 @@ func viewerRights(dt *doctype.DocType) map[auth.Right]auth.Scope {
 }
 
 // sweepSeeders seed each registered module DocType, in this order (orders
-// link to requests). TestOnly DocTypes (CD-291) are not in the release: only
-// seedCauses uses two of them, for the roll-up history no module has yet.
+// link to requests, receipts to orders). TestOnly DocTypes (CD-291) are not
+// in the release: their pages are swept, empty.
 var sweepSeeders = []struct {
 	name string
 	seed func(*sweepSeed)
 }{
 	{purchase.RequestDocType, seedRequests},
 	{purchase.DocType, seedOrders},
+	{goodsreceipt.DocType, seedReceipts},
 	{expense.AdvanceDocType, seedAdvances},
 	{expense.ClaimDocType, seedClaims},
 }
@@ -173,16 +168,13 @@ var sweepSeeders = []struct {
 func seedSweep(t *testing.T) *sweepSeed {
 	t.Helper()
 	w := newWorld(t)
-	admin, _, m := w.canonical()
-	s := &sweepSeed{w: w, admin: admin, m: m, ids: map[string]map[string]int64{}}
+	admin, _, _ := w.canonical()
+	s := &sweepSeed{w: w, admin: admin, ids: map[string]map[string]int64{}}
 	ctx := context.Background()
 	if err := w.app.Auth().CreateRole(ctx, admin, viewerRole); err != nil {
 		t.Fatalf("create the viewer role: %v", err)
 	}
 	for _, dt := range doctype.All() {
-		if noRights[dt.Name] {
-			continue
-		}
 		if err := w.app.Auth().SetRights(ctx, admin, viewerRole, dt.Name, viewerRights(dt)); err != nil {
 			t.Fatalf("viewer rights on %s: %v", dt.Name, err)
 		}
@@ -227,7 +219,7 @@ func seedSweep(t *testing.T) *sweepSeed {
 		if dt.IsDocument() && !dt.TestOnly && !listed[dt.Name] {
 			t.Fatalf("document DocType %s has no seeder in sweepSeeders: add one, so the visibility sweep covers it", dt.Name)
 		}
-		if dt.IsDocument() && !dt.TestOnly && dt.Approvable {
+		if ruled[dt.Name] {
 			// APR asks AUTH about the role as the signed-in user (app.go roleDirectory).
 			if _, err := w.app.Approvals().CreateRule(auth.WithPrincipal(ctx, admin), admin, approval.RuleInput{DocType: dt.Name, ApproverType: approval.ApproverRole, Role: viewerRole}); err != nil {
 				t.Fatalf("approval rule on %s: %v", dt.Name, err)
@@ -237,7 +229,6 @@ func seedSweep(t *testing.T) *sweepSeed {
 	for _, sd := range sweepSeeders {
 		sd.seed(s)
 	}
-	seedCauses(s)
 	s.reload()
 	return s
 }
@@ -247,7 +238,11 @@ func (s *sweepSeed) act(p auth.Principal, dt string, id int64, a doctype.Action,
 	s.w.t.Helper()
 	res, err := s.w.app.Engine().Do(context.Background(), p, dt, id, a, in)
 	if err != nil {
-		s.w.t.Fatalf("%s %s %d as %s: %v", a, dt, id, p.Name, err)
+		var fields []doctype.FieldError
+		if he, ok := errors.AsType[doctype.HTTPError](err); ok {
+			fields = he.FieldErrors()
+		}
+		s.w.t.Fatalf("%s %s %d as %s: %v %+v", a, dt, id, p.Name, err, fields)
 	}
 	return res
 }
@@ -398,21 +393,6 @@ func (s *sweepSeed) find(dt string, hidden bool, st seedState) *sweepRecord {
 	return nil
 }
 
-// firstLineID is the id of record r's line 1.
-func (s *sweepSeed) firstLineID(r *sweepRecord) string {
-	s.w.t.Helper()
-	var d doc.Doc
-	err := s.w.app.DB().Read(context.Background(), func(tx *db.Tx) error {
-		var err error
-		d, err = doc.LoadDoc(context.Background(), tx, r.dt, r.id)
-		return err
-	})
-	if err != nil || len(d.Lines) == 0 {
-		s.w.t.Fatalf("lines of %s %d: %v", r.dt, r.id, err)
-	}
-	return idText(d.Lines[0].ID)
-}
-
 // seedRequests: the control approved request is the one a hidden order's
 // line orders (seedOrders).
 func seedRequests(s *sweepSeed) {
@@ -438,22 +418,18 @@ func seedRequests(s *sweepSeed) {
 	}
 }
 
-// seedOrders: one hidden approved order's line orders the control approved
-// request's line (request_line_id, register.go Links), so the request's page
-// has a linked record the viewer can't read.
+// seedOrders: no hidden order can order a readable request's line: an order
+// must match its request's project and site (purchase validate), so a
+// request linked from a project-B order is on project B too.
 func seedOrders(s *sweepSeed) {
-	linked := s.firstLineID(s.find(purchase.RequestDocType, false, stApproved))
-	order := func(hidden bool, st seedState, price, requestLine string) {
-		project, site, vendor, qty := projectA, siteA, controlVendor, "1"
+	order := func(hidden bool, st seedState, price string) {
+		project, site, vendor, qty := projectA, siteA, controlVendor, "3" // 3: two receipts leave it pending
 		if hidden {
 			project, site, vendor, qty = projectB, siteB, hiddenVendor, hiddenQty
 		}
 		line := map[string]string{
 			"item_id": s.idText("item", "MS-ANGLE-50"), "uom_id": s.idText("uom", "KGS"), "qty": qty, "price": price,
 			"tax_code_id": s.idText("tax_code", "GST18"), "hsn_sac": "7216", "description": text(hidden, "po-line"),
-		}
-		if requestLine != "" {
-			line["request_line_id"] = requestLine
 		}
 		s.add(purchase.DocType, hidden, st, doc.ActionInput{
 			Values: map[string]string{
@@ -464,13 +440,11 @@ func seedOrders(s *sweepSeed) {
 		})
 	}
 	for i, st := range []seedState{stDraft, stApproved, stPending, stMine, stRejected, stClosed} {
-		order(false, st, strconv.Itoa(1111+111*i)+".10", "")
+		order(false, st, strconv.Itoa(1111+111*i)+".10")
 	}
 	for i, st := range []seedState{stDraft, stApproved, stCancelled, stPending, stRejected, stClosed} {
-		order(true, st, strconv.Itoa(67891+i)+".19", "")
+		order(true, st, strconv.Itoa(67891+i)+".19")
 	}
-	order(true, stApproved, "67999.19", linked)
-	s.records[len(s.records)-1].label += " (orders the control request's line)"
 }
 
 func (s *sweepSeed) employee(hidden bool) string {
@@ -522,32 +496,60 @@ func seedClaims(s *sweepSeed) {
 	}
 }
 
-// seedCauses gives a control document a roll-up caused by a document the
-// viewer can't read, so its history has a cause to hide (CD-248 (1)). No
-// module DocType has a RollUp yet, so it uses the fixture pair: a hidden
-// fixture.Receipt (the viewer holds no right on it) receiving a control
-// fixture.Order's line on project A.
-func seedCauses(s *sweepSeed) {
+// ruled are the DocTypes with a ₹0 rule whose approver slot is viewerRole.
+// Goods receipts have none: nobody but the admin may approve them, so their
+// submit approves.
+var ruled = map[string]bool{purchase.DocType: true, expense.ClaimDocType: true, expense.AdvanceDocType: true}
+
+// seedReceipts: hidden receipts (the admin's; own scope hides them) against
+// a hidden order, in draft and approved, and one against the control
+// approved order, so that order's received quantity, receipt status and
+// history come from a receipt the viewer can't read (the GRN roll-up,
+// CD-248 (1)). The viewer's own receipt on the same order is the control.
+func seedReceipts(s *sweepSeed) {
 	s.w.t.Helper()
-	if s.m.Project[projectA] != s.id("project", projectA) {
-		s.w.t.Fatalf("fixture project %s id %d != real project id %d: the restriction would not apply to the fixture order", projectA, s.m.Project[projectA], s.id("project", projectA))
+	receipt := func(by auth.Principal, hidden bool, st seedState, po *sweepRecord, qty string) *sweepRecord {
+		d := s.load(po)
+		in := doc.ActionInput{
+			Values: map[string]string{
+				"purchase_order_id": idText(po.id), "site_id": idText(d.Header["site_id"].(int64)), "project_id": idText(d.Header["project_id"].(int64)),
+				"receipt_date": "2026-10-24", "challan_kind": "Delivery challan", "challan_no": text(hidden, "dc-"+string(st)),
+				"remarks": text(hidden, "gr-"+string(st)), "transporter": text(hidden, "transport"),
+			},
+			Lines: []map[string]string{{"po_line_id": idText(d.Lines[0].ID), "received_qty": qty}},
+		}
+		res := s.act(by, goodsreceipt.DocType, 0, doctype.ActionSave, in)
+		if st == stApproved {
+			res = s.act(by, goodsreceipt.DocType, res.ID, doctype.ActionSubmit, doc.ActionInput{Version: res.Version})
+			if res.State != doctype.StateApproved {
+				s.w.t.Fatalf("receipt %d after submit = %s, want approved", res.ID, res.State)
+			}
+		}
+		r := &sweepRecord{dt: goodsreceipt.DocType, label: goodsreceipt.DocType + " " + string(st), id: res.ID, hidden: hidden, state: st}
+		s.records = append(s.records, r)
+		return r
 	}
-	namer := naming.New(s.w.app.DB(), testkit.Clock(), s.w.app.Auth(), audit.Default)
-	if err := namer.SetCounter(context.Background(), s.admin, fixture.Order, "PO/26-27/", fixtureOrderCounter); err != nil {
-		s.w.t.Fatalf("move fixture.Order's counter: %v", err)
+	hiddenPO := s.find(purchase.DocType, true, stApproved)
+	controlPO := s.find(purchase.DocType, false, stApproved)
+	receipt(s.admin, true, stDraft, hiddenPO, "1.234")
+	receipt(s.admin, true, stApproved, hiddenPO, hiddenQty)
+	receipt(s.admin, true, stApproved, controlPO, "1").label += " (receives the control order's line)"
+	receipt(s.viewer, false, stApproved, controlPO, "1")
+}
+
+// load is record r's stored document.
+func (s *sweepSeed) load(r *sweepRecord) doc.Doc {
+	s.w.t.Helper()
+	var d doc.Doc
+	err := s.w.app.DB().Read(context.Background(), func(tx *db.Tx) error {
+		var err error
+		d, err = doc.LoadDoc(context.Background(), tx, r.dt, r.id)
+		return err
+	})
+	if err != nil || len(d.Lines) == 0 {
+		s.w.t.Fatalf("load %s %d: %v", r.dt, r.id, err)
 	}
-	order := s.add(fixture.Order, false, stApproved, doc.ActionInput{
-		Values: map[string]string{
-			"supplier_id": idText(s.m.Party[controlVendor]), "project_id": idText(s.m.Project[projectA]),
-			"order_date": "2026-10-24", "amount": "4321.00", "remarks": text(false, "fo"),
-		},
-		Lines: []map[string]string{{"item_id": idText(s.m.Item["MS-ANGLE-50"]), "qty": "5", "rate": "10.0000", "uom": "kg", "description": text(false, "fo-line")}},
-	})
-	s.add(fixture.Receipt, true, stApproved, doc.ActionInput{
-		Values: map[string]string{"receipt_date": "2026-10-24", "remarks": text(true, "gr")},
-		Lines:  []map[string]string{{"order_line_id": s.firstLineID(order), "qty": "2"}},
-	})
-	s.records[len(s.records)-1].label += " (receives the control fixture order's line)"
+	return d
 }
 
 // markers are what a page must never show to the viewer for record r: its

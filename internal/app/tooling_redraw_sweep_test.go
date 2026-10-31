@@ -121,6 +121,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -299,20 +300,25 @@ type rsEnv struct {
 
 	orderOnce sync.Once
 	orderLine string // an approved fixture.Order's line, which every receipt receives
+
+	poOnce              sync.Once
+	po, poLine, poLine2 string // an approved purchase.Order and its two lines, which every goods receipt receives
 }
 
 // rsDoc is one DocType's probe: the fields it hides and their seeded values.
 type rsDoc struct {
-	e        *rsEnv
-	dt       *doctype.DocType
-	steps    []docscreen.FormStep
-	hide     map[string]bool
-	sentinel map[string]string // a hidden Text field's stored value
-	shown    map[string]string // a hidden Link's master name, as cards and pages show it
-	valid    func(t *testing.T) (values, line map[string]string)
-	mu       sync.Mutex
-	seen     map[string][]string // bugs seen, by cell
-	rows     atomic.Bool         // a 422/409 redraw compared non-empty read-only rows
+	e         *rsEnv
+	dt        *doctype.DocType
+	steps     []docscreen.FormStep
+	hide      map[string]bool
+	sentinel  map[string]string // a hidden Text field's stored value
+	shown     map[string]string // a hidden Link's master name, as cards and pages show it
+	valid     func(t *testing.T) (values, line map[string]string)
+	mod       docscreen.Module // the app's own Module for dt
+	itemsNone bool             // the probe draft's items step draws no probe field; see draft
+	mu        sync.Mutex
+	seen      map[string][]string // bugs seen, by cell
+	rows      atomic.Bool         // a 422/409 redraw compared non-empty read-only rows
 }
 
 // newRSEnv is one App with the canonical seed, the sweep's users, an
@@ -344,11 +350,11 @@ func newRSEnv(t *testing.T) *rsEnv {
 			}
 		}
 	}
-	// fixture.Order's PO/ and fixture.Claim's EX/ series share purchase.Order's
-	// and expense.Claim's prefixes, and a number is unique across DocTypes
-	// (CD-295).
+	// fixture.Order's PO/, fixture.Claim's EX/ and fixture.Receipt's GR/ series
+	// share purchase.Order's, expense.Claim's and goodsreceipt.Receipt's
+	// prefixes, and a number is unique across DocTypes (CD-295).
 	namer := naming.New(w.app.DB(), testkit.Clock(), w.app.Auth(), audit.Default)
-	for name, prefix := range map[string]string{fixture.Order: "PO/26-27/", fixture.Claim: "EX/26-27/"} {
+	for name, prefix := range map[string]string{fixture.Order: "PO/26-27/", fixture.Claim: "EX/26-27/", fixture.Receipt: "GR/26-27/"} {
 		if err := namer.SetCounter(ctx, admin, name, prefix, 50000); err != nil {
 			t.Fatalf("move %s's counter: %v", name, err)
 		}
@@ -369,6 +375,7 @@ func newRSEnv(t *testing.T) *rsEnv {
 		plain, inject, line := map[string]docscreen.Module{}, map[string]docscreen.Module{}, map[string]docscreen.Module{}
 		for name, d := range e.doc {
 			m := base[name]
+			d.mod = m
 			own := m.Hide
 			m.Hide = func(c docscreen.Ctx, f doctype.Field) bool {
 				return (probe && d.hide[f.Name]) || (own != nil && own(c, f))
@@ -496,6 +503,33 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 					"supplier_gstin": "27AABCS1429B1ZU", "invoice_no": "INV-RS-" + strconv.FormatInt(e.count.Add(1), 10),
 				}
 		}
+	case goodsreceipt.DocType:
+		return func(t *testing.T) (map[string]string, map[string]string) {
+			e.poOnce.Do(func() {
+				// Two lines with room for every receipt the sweep approves: a
+				// receipt names each PO line once.
+				values, line := e.doc[purchase.DocType].valid(t)
+				line["qty"] = "1000"
+				admin := e.who[rsAdmin]
+				res, err := e.w.app.Engine().Do(t.Context(), admin, purchase.DocType, 0, doc.ActionSave, doc.ActionInput{Values: values, Lines: []map[string]string{line, maps.Clone(line)}})
+				if err == nil {
+					res, err = e.w.app.Engine().Do(t.Context(), admin, purchase.DocType, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
+				}
+				if err == nil {
+					res, err = e.w.app.Engine().Do(t.Context(), e.who[rsApprover], purchase.DocType, res.ID, doc.ActionApprove, doc.ActionInput{Version: res.Version})
+				}
+				if err != nil || res.State != doctype.StateApproved {
+					t.Fatalf("an approved purchase.Order for the receipts: %v (%s)", err, res.State)
+				}
+				lines := e.load(t, purchase.DocType, res.ID).Lines
+				e.po, e.poLine, e.poLine2 = strconv.FormatInt(res.ID, 10), lines[0]["id"], lines[1]["id"]
+			})
+			if e.poLine == "" {
+				t.Fatal("no approved purchase.Order line for the receipts")
+			}
+			return map[string]string{"purchase_order_id": e.po, "receipt_date": day, "challan_kind": "Delivery challan", "challan_date": day},
+				map[string]string{"po_line_id": e.poLine, "received_qty": "1"}
+		}
 	case fixture.Order:
 		return func(*testing.T) (map[string]string, map[string]string) {
 			return map[string]string{
@@ -548,7 +582,8 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 // when there is one) and a Required
 // field, keeping one editable field shown; on the lines, a Text field (with a
 // sentinel) and the first Link (the card's item), or else the first field,
-// keeping one shown; and one ReadOnly header field.
+// keeping one shown; and one ReadOnly header field with a label no other
+// field has.
 func (d *rsDoc) pick() {
 	for _, s := range d.steps {
 		if s.Lines || s.Slug == "check" {
@@ -570,7 +605,9 @@ func (d *rsDoc) pick() {
 			d.sentinel[editable[i].Name] = "ZqH" + strconv.Itoa(len(d.sentinel))
 			left--
 		}
-		if i := slices.IndexFunc(editable, func(f doctype.Field) bool { return f.Required && !d.hide[f.Name] }); i >= 0 && left > 1 {
+		// Not a link to a document (a goods receipt's purchase order): its
+		// source, which a create needs, so a draft without it can't be made.
+		if i := slices.IndexFunc(editable, func(f doctype.Field) bool { return f.Required && !d.hide[f.Name] && !rsDocLink(f) }); i >= 0 && left > 1 {
 			d.hide[editable[i].Name] = true
 		}
 	}
@@ -594,12 +631,40 @@ func (d *rsDoc) pick() {
 		d.hide[lineFields[0].Name] = true // no Text or Link on the lines
 	}
 	for _, f := range d.dt.Fields {
-		if f.ReadOnly && !f.OnLine && f.Name != "number" && f.Name != "state" {
+		if f.ReadOnly && !f.OnLine && f.Name != "number" && f.Name != "state" && d.uniqueLabel(f) {
 			d.hide[f.Name] = true
 			break
 		}
 	}
 }
+
+// rsDocLink reports whether f links to a document DocType.
+func rsDocLink(f doctype.Field) bool {
+	target, ok := doctype.Lookup(f.Link)
+	return f.Type == doctype.Link && ok && target.IsDocument()
+}
+
+// uniqueLabel reports whether no other field or step of dt has f's label,
+// so a page showing it names f (see rsReasonLabels for reason pages).
+func (d *rsDoc) uniqueLabel(f doctype.Field) bool {
+	n := 0
+	for _, g := range d.dt.Fields {
+		if strings.EqualFold(g.Label, f.Label) {
+			n++
+		}
+	}
+	for _, s := range d.steps {
+		if strings.EqualFold(s.Label, f.Label) {
+			n++
+		}
+	}
+	return n == 1
+}
+
+// rsReasonLabels are the labels docscreen's reason pages give their own
+// reason field (reasons.go): on a reason page, a field with one of them isn't
+// named by it.
+var rsReasonLabels = []string{"Reason for rejecting", "Reason for cancelling", "Reason for closing"}
 
 // names reads the master names a page shows for the hidden Links of a valid
 // document: on a line card, the item's; in a header, the party's.
@@ -638,9 +703,11 @@ func (d *rsDoc) names(t *testing.T) {
 
 // injecting is m with Save hooks on every wizard step but check that refuse
 // with the probe errors (hooks spec §4.1): the 422 paths for errors on hidden
-// fields and on other steps, which no generic post gives. Inject mode
-// replaces a real module's Save, and with it what its Validate would write
-// (CD-302); plain mode keeps both.
+// fields and on other steps, which no generic post gives. The app wires the
+// real modules' Modules since 981bbcb4: inject mode replaces their step Save
+// hooks, and with them what their Validate would write (CD-302), and line
+// mode replaces their Line's Save; plain mode (and its control twin) is what
+// exercises the real modules' hooks as the app runs them.
 func (d *rsDoc) injecting(m docscreen.Module) docscreen.Module {
 	m.Steps = maps.Clone(m.Steps)
 	if m.Steps == nil {
@@ -717,11 +784,11 @@ func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
 	var out []string
 	if d.steps[i].Lines {
 		if _, ok := d.shownLine(); ok {
-			out = append(out, rsLinesTarget(lines)+"|"+rsMsgVisible)
+			out = append(out, d.linesTarget(lines)+"|"+rsMsgVisible)
 		}
 		if _, ok := d.hiddenLine(); ok {
 			if !hide {
-				hidden = rsLinesTarget(lines) + "|" + rsMsgHidden
+				hidden = d.linesTarget(lines) + "|" + rsMsgHidden
 			}
 			out = append(out, hidden)
 		}
@@ -739,10 +806,16 @@ func (d *rsDoc) wantProbe(i, lines int, hide bool) []string {
 	return append(out, "#step-title|"+rsMsgPlain)
 }
 
-// rsLinesTarget is where a line error links on the generic items step: the
-// line editor when there are lines, else the step heading.
-func rsLinesTarget(lines int) string {
-	if lines > 0 {
+// grid reports whether the items step has docscreen's editable grid: not
+// when the module turns it off (CardsOnly, Line, NoLinePages; CD-256 (6)).
+func (d *rsDoc) grid() bool {
+	return !d.mod.CardsOnly && d.mod.Line == nil && !d.mod.NoLinePages
+}
+
+// linesTarget is where a line error links on the generic items step: the
+// line editor when the grid shows lines, else the step heading.
+func (d *rsDoc) linesTarget(lines int) string {
+	if d.grid() && lines > 0 {
 		return "#line-editor"
 	}
 	return "#step-title"
@@ -870,8 +943,23 @@ func (d *rsDoc) withSentinels(values map[string]string, onLine bool) map[string]
 	return out
 }
 
-// draft saves a new draft as the admin: the header holds only the sentinels,
-// so its Required fields are empty, and two valid lines with theirs.
+// sources is the seeder's value of each Required header link to a document
+// (a goods receipt's purchase order): a create needs its source.
+func (d *rsDoc) sources(t *testing.T) map[string]string {
+	t.Helper()
+	values, _ := d.valid(t)
+	out := map[string]string{}
+	for _, f := range d.dt.Fields {
+		if !f.OnLine && f.Required && rsDocLink(f) {
+			out[f.Name] = values[f.Name]
+		}
+	}
+	return out
+}
+
+// draft saves a new draft as the admin: the header holds only the sentinels
+// and its sources, so its other Required fields are empty, and two valid
+// lines with theirs.
 func (d *rsDoc) draft(t *testing.T) int64 {
 	t.Helper()
 	_, line := d.valid(t)
@@ -879,8 +967,11 @@ func (d *rsDoc) draft(t *testing.T) int64 {
 	if d.dt.LinesTable != "" {
 		line = d.withSentinels(line, true)
 		lines = []map[string]string{line, maps.Clone(line)}
+		if d.dt.Name == goodsreceipt.DocType {
+			lines[1]["po_line_id"] = d.e.poLine2 // a receipt names each PO line once
+		}
 	}
-	res, err := d.e.w.app.Engine().Do(t.Context(), d.e.who[rsAdmin], d.dt.Name, 0, doc.ActionSave, doc.ActionInput{Values: d.withSentinels(nil, false), Lines: lines})
+	res, err := d.e.w.app.Engine().Do(t.Context(), d.e.who[rsAdmin], d.dt.Name, 0, doc.ActionSave, doc.ActionInput{Values: d.withSentinels(d.sources(t), false), Lines: lines})
 	if err != nil {
 		pr, _ := docscreen.Classify(err)
 		t.Fatalf("saving the %s probe draft: %v %v", d.dt.Name, err, pr.Fields)
@@ -894,6 +985,12 @@ func (d *rsDoc) draft(t *testing.T) int64 {
 func (d *rsDoc) submitted(t *testing.T) (doc.Result, error) {
 	t.Helper()
 	values, line := d.valid(t)
+	return d.submittedWith(t, values, line)
+}
+
+// submittedWith is submitted with the given valid values.
+func (d *rsDoc) submittedWith(t *testing.T, values, line map[string]string) (doc.Result, error) {
+	t.Helper()
 	e := d.e
 	res, err := e.w.app.Engine().Do(t.Context(), e.who[rsAdmin], d.dt.Name, 0, doc.ActionSave, doc.ActionInput{
 		Values: d.withSentinels(values, false), Lines: []map[string]string{d.withSentinels(line, true)},
@@ -929,7 +1026,14 @@ func (d *rsDoc) act(t *testing.T, user string, id int64, a doctype.Action, reaso
 // approved is a new approved document; see submitted.
 func (d *rsDoc) approved(t *testing.T) (int64, error) {
 	t.Helper()
-	res, err := d.submitted(t)
+	values, line := d.valid(t)
+	return d.approvedWith(t, values, line)
+}
+
+// approvedWith is approved with the given valid values.
+func (d *rsDoc) approvedWith(t *testing.T, values, line map[string]string) (int64, error) {
+	t.Helper()
+	res, err := d.submittedWith(t, values, line)
 	if err != nil {
 		return 0, err
 	}
@@ -1127,13 +1231,6 @@ type rsMark struct{ field, kind, bug string }
 // master name, or its label (when no other field or step has it). A ReadOnly
 // field posted by a form is a mark too (CD-79).
 func (d *rsDoc) marks(r rsResp) []rsMark {
-	labels := map[string]int{}
-	for _, f := range d.dt.Fields {
-		labels[strings.ToLower(f.Label)]++
-	}
-	for _, s := range d.steps {
-		labels[strings.ToLower(s.Label)]++
-	}
 	// Card text: the line cards and the remove page's question.
 	var cards strings.Builder
 	r.page.Find(".lines-card").Each(func(_ int, s *goquery.Selection) { cards.WriteString(s.Text() + "\n") })
@@ -1184,7 +1281,8 @@ func (d *rsDoc) marks(r rsResp) []rsMark {
 			i := strings.Index(r.body, text)
 			add(kind+" "+strconv.Quote(text)+" in "+strconv.Quote(r.body[max(0, i-200):i+len(text)]), bug)
 		}
-		if labels[strings.ToLower(f.Label)] == 1 {
+		reasonPage := r.page.Find(`[name="reason"]`).Length() > 0
+		if d.uniqueLabel(f) && !(reasonPage && slices.ContainsFunc(rsReasonLabels, func(l string) bool { return strings.EqualFold(l, f.Label) })) {
 			r.page.Find("label, dt, th, legend").Each(func(_ int, s *goquery.Selection) {
 				if strings.EqualFold(strings.Join(strings.Fields(s.Text()), " "), f.Label) {
 					add("its label "+strconv.Quote(f.Label), "")
@@ -1230,6 +1328,7 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 			d.names(t)
 			d.sweepNew(t)
 			id := d.draft(t)
+			d.itemsNone = d.itemsDrawNone(t, id)
 			d.sweepSteps(t, id)
 			d.sweepLines(t, id)
 			d.sweepActions(t, id)
@@ -1252,14 +1351,34 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 	}
 }
 
+// itemsDrawNone reports whether draft id's items step draws no probe field
+// but as a known bug: with the grid off (CardsOnly) its lines are cards
+// (bugCard), so only the totals can show one, a hidden ReadOnly header field
+// with a stored value.
+func (d *rsDoc) itemsDrawNone(t *testing.T, id int64) bool {
+	if d.grid() || d.dt.LinesTable == "" {
+		return false
+	}
+	values := d.e.load(t, d.dt.Name, id).Values
+	for name := range d.hide {
+		if f, _ := d.dt.Field(name); f.ReadOnly && !f.OnLine && values[name] != "" && d.uniqueLabel(f) {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *rsDoc) base() string        { return "/doc/" + d.dt.Name }
 func (d *rsDoc) url(id int64) string { return d.base() + "/" + strconv.FormatInt(id, 10) }
 
-// none reports whether step i, as a draft shows it, draws no probe field: a
-// header step with no hidden field of its own. The items step and check
-// show the hidden line fields and labels.
+// none reports whether step i, as the probe draft shows it, draws no probe
+// field: a header step with no hidden field of its own; the items step when
+// itemsNone. Check shows the hidden fields' labels.
 func (d *rsDoc) none(i int) bool {
-	if d.steps[i].Lines || i == len(d.steps)-1 {
+	if d.steps[i].Lines {
+		return d.itemsNone
+	}
+	if i == len(d.steps)-1 {
 		return false
 	}
 	return !slices.ContainsFunc(d.steps[i].Fields, func(name string) bool { return d.hide[name] })
@@ -1278,6 +1397,9 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 	shown := names(fresh.page, "#wizard-form")
 	post := func(t *testing.T, mode string, edit func(url.Values), htmx bool) rsResp {
 		form := formValues(get(t, mode).page, "#wizard-form")
+		for name, v := range d.sources(t) {
+			form.Set(name, v) // a link's input value is its id
+		}
 		if edit != nil {
 			edit(form)
 		}
@@ -1626,6 +1748,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	})
 	d.cell(t, "grid 422", nil, func(t *testing.T) {
+		d.noGrid(t, id, form(t, "plain"))
 		f, ok := d.parseLine()
 		if !ok {
 			t.Fatalf("%s shows no number or date line field to mistype", d.dt.Name)
@@ -1643,6 +1766,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	})
 	d.cell(t, "grid 409", nil, func(t *testing.T) {
+		d.noGrid(t, id, form(t, "plain"))
 		r := d.both(t, "grid 409", "plain", false, func(t *testing.T, mode string) rsResp {
 			v := form(t, mode)
 			v.Set("version", d.stale(t, id))
@@ -1656,6 +1780,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	})
 	d.cell(t, "grid ok", nil, func(t *testing.T) {
+		d.noGrid(t, id, form(t, "plain"))
 		r := d.both(t, "grid ok", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, "1"), form(t, mode), true).want(t, "grid POST line 1", http.StatusOK)
 		})
@@ -1665,7 +1790,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 	})
 	_, link := d.hiddenLink()
 	d.cell(t, "card", bugIf(link || d.sentinel["uom"] != "", bugCard), func(t *testing.T) {
-		d.both(t, "GET items", "plain", false, func(t *testing.T, mode string) rsResp {
+		d.both(t, "GET items", "plain", d.itemsNone, func(t *testing.T, mode string) rsResp {
 			r := e.do(t, mode, rsAdmin, http.MethodGet, d.url(id)+"/edit/items", nil, false).want(t, "GET items", http.StatusOK)
 			if r.page.Find(".lines-card").Length() == 0 {
 				t.Fatalf("GET items: no line cards")
@@ -1691,7 +1816,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		}
 	})
 	d.cell(t, "move 409", nil, func(t *testing.T) {
-		r := d.both(t, "POST move 409", "plain", false, func(t *testing.T, mode string) rsResp {
+		r := d.both(t, "POST move 409", "plain", d.itemsNone, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, "1")+"/move?dir=down", url.Values{"version": {d.stale(t, id)}}, false).want(t, "POST move line 1 with a stale version", http.StatusConflict)
 		})
 		d.sameSummary(t, "POST move 409", r, nil)
@@ -1740,7 +1865,7 @@ var rsRefusals = []rsRefusal{
 	}},
 	{"parse", func(d *rsDoc) string {
 		if _, ok := d.numericLine(); !ok {
-			return "no number field on the lines"
+			return "no number field without a foreign key on the lines"
 		}
 		return ""
 	}, func(t *testing.T, d *rsDoc) (int64, string) {
@@ -1835,9 +1960,12 @@ func (d *rsDoc) unkeyed() (doctype.Field, bool) {
 	return doctype.Field{}, false
 }
 
-// numericLine is a line field a parser reads but not a date, the hidden one first.
+// numericLine is a line field a parser reads but not a date, with no
+// foreign key, the hidden one first.
 func (d *rsDoc) numericLine() (doctype.Field, bool) {
-	return first(slices.DeleteFunc(append(d.lineFields(true), d.lineFields(false)...), func(f doctype.Field) bool { return !rsParsed(f) || f.Type == doctype.Date }))
+	return first(slices.DeleteFunc(append(d.lineFields(true), d.lineFields(false)...), func(f doctype.Field) bool {
+		return !rsParsed(f) || f.Type == doctype.Date || d.e.foreignKey(d.dt.LinesTable, cmp.Or(f.Column, f.Name))
+	}))
 }
 
 // maxLenLine is a line Text with a MaxLen, the hidden one first.
@@ -1943,6 +2071,21 @@ func (d *rsDoc) linesRefused(t *testing.T) {
 			}
 		})
 	}
+}
+
+// noGrid skips a grid cell when the module turns the grid off; the check is
+// that an htmx post of line 1 takes the line page's path (303), not a grid
+// row's.
+func (d *rsDoc) noGrid(t *testing.T, id int64, form url.Values) {
+	t.Helper()
+	if d.grid() {
+		return
+	}
+	r := d.e.do(t, "plain", rsAdmin, http.MethodPost, d.lineURL(id, "1"), form, true)
+	if r.code != http.StatusSeeOther {
+		t.Fatalf("an htmx post of line 1 = %d, want the line page's 303 with the grid off", r.code)
+	}
+	t.Skip("the module turns the editable grid off (CardsOnly, Line or NoLinePages; CD-256 (6)), so no row post is a grid post (checked)")
 }
 
 func (d *rsDoc) sweepActions(t *testing.T, id int64) {
@@ -2198,7 +2341,7 @@ func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool
 		case e.Field == "" || d.hide[e.Field]:
 			out = append(out, "#step-title|"+e.Message)
 		case e.Line > 0 || e.Field == "lines":
-			out = append(out, rsLinesTarget(lines)+"|"+e.Message)
+			out = append(out, d.linesTarget(lines)+"|"+e.Message)
 		default:
 			out = append(out, "#"+components.FieldID(e.Field)+"|"+e.Message)
 		}
