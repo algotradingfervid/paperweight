@@ -498,7 +498,7 @@ func m03NoGrid(t *testing.T, page *goquery.Document, base string) {
 	if n := page.Find(".linelist .lines-card").Length(); n != 2 {
 		t.Errorf("Items step has %d line cards, want 2", n)
 	}
-	if page.Find(`.linelist a[href="` + base + `/lines/new"]`).Length() != 1 {
+	if page.Find(`.linelist a[href="`+base+`/lines/new"]`).Length() != 1 {
 		t.Errorf("Items step has no Add an item link to %s/lines/new", base)
 	}
 	for _, no := range []string{"1", "2"} {
