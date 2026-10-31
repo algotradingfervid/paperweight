@@ -45,7 +45,9 @@ func TestApp_OrderPageOverTotalLimit(t *testing.T) {
 		t.Fatalf("step save, reverse charge off: %v", err)
 	}
 
-	page := "/doc/purchase.Order/" + strconv.FormatInt(res.ID, 10)
+	// A draft's page redirects an editor to its check step (docscreen
+	// page.go), which draws the stored totals.
+	page := "/doc/purchase.Order/" + strconv.FormatInt(res.ID, 10) + "/edit/check"
 	r := w.signedIn(adminEmail).get(page)
 	if r.status != http.StatusOK {
 		t.Fatalf("GET %s = %d (%q), want 200", page, r.status, r.pageText())
