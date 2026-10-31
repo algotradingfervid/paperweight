@@ -1,10 +1,12 @@
 # Module spec: Purchase Order
 
-Version 0.5 · 31 October 2026 · Status: v0.4 accepted (CD-238); the v0.5 additions (§20 to §25, CD-246) are for owner review · Authors: AD-6 (v0.4), head director (v0.5)
+Version 0.6 · 31 October 2026 · Status: v0.4 accepted (CD-238); v0.5 (§20 to §26) accepted (CD-246, CD-253, CD-258); v0.6 (§27) follows the research rulings (CD-272, CD-276) · Authors: AD-6 (v0.4), head director (v0.5), AD-13 (v0.6)
 
 Builds on the core platform spec, the design system, the decision log (to CD-229) and `docs/tests/core/`. Where this spec names a kernel rule it does not restate it. Goods Receipt and Expense specs depend on the shared decisions in §14 and the cutover plan in §12.
 
 **What changed in v0.5.** The owner asked for a fuller module, modelled on Zoho Books and other SME ERPs, that stays simple and never turns PO creation into a fight between people (31 October). The research (§17, "SME ERPs") and the owner's four answers (CD-246) add: Purchase Requests (§20), one owner per document with hand-over (§21), internal comments (§22), sending to the vendor and the To send queue (§23), copy and last-price defaults (§24), and a Purchase home with work queues (§25). Sections 2, 3, 4, 10, 11, 15, 16, 18 and 19 point to them. Nothing in v0.4 is removed except two non-goals.
+
+**What changed in v0.6.** The procure-to-pay research (`docs/research/2026-10-31-procure-to-pay-erp-practice.md`, CD-272, CD-276) adds: an `Expected on` record outside the PO, which the pending report and Overdue use ahead of `required_by` (§27.1); the GRN's `Vendor says the rest won't come` tick, with the Purchase home's `To close` queue (§27.2); a check-page warning when a site's branch and its project's branch are in different states (§27.3); the same item on two lines stays allowed (§27.4); and 15 new cases, PO-071 to PO-085 (§27.5). §13, §20.3, §23 and §25 point to them.
 
 **How to read the marks.**
 - **(CD-234)**, **(CD-235)**: the owner's answers of 30 October.
@@ -302,7 +304,7 @@ Owner decisions: go live as soon as the modules are ready (CD-228). Open POs are
 
 The generic list and CSV export cover the PO register, with `export` right and scope (AUTH-090, CD-145). One new report:
 
-**Pending items** (`/reports/purchase/pending`, CSV at `…/export.csv`). One row per PO line with pending above 0, on approved POs. Columns: PO number, order date, required by, vendor, project, site, item code, item name, ordered, received (including already received), pending, UoM, net rate, pending value. Overdue rows (required-by before today) carry the word `Overdue`, not just colour. Filters: vendor, project, site, item, overdue only. Guarded by `read` with the export right checked in the handler; rows use `Scope`, so restrictions apply and it can't widen access (AUTH-110).
+**Pending items** (`/reports/purchase/pending`, CSV at `…/export.csv`). One row per PO line with pending above 0, on approved POs. Columns: PO number, order date, required by, expected on (§27.1), vendor, project, site, item code, item name, ordered, received (including already received), pending, UoM, net rate, pending value. A row's due date is its PO's `Expected on` when set, else `required_by` (§27.1). Overdue rows (due date before today) carry the word `Overdue`, not just colour. A closed PO has no rows, so it is never overdue (PO-079). Filters: vendor, project, site, item, overdue only. Guarded by `read` with the export right checked in the handler; rows use `Scope`, so restrictions apply and it can't widen access (AUTH-110).
 
 Out for v1: spend analysis, vendor performance, delay reports. All of them can be done from the CSV.
 
@@ -549,7 +551,7 @@ No line field name repeats a header field name (CD-151).
 - **Close** means "no longer needed". The owner or a Purchase Manager or Director closes it (CD-253): `purchase.Request`'s `CloseRight` is `approve`, held `own` by Employee and `all` by Purchase Manager and Director; requests aren't approvable, so `approve` has no other effect. It asks for a reason (3 to 500 characters). A buyer who won't order something says so in a comment (§22) and the requester (or a Purchase Manager) closes it. A closed request can't be pulled into a PO, and lines already ordered stay ordered. When a draft, pending or rejected PO still holds its lines, the close page warns, through the Reason hook: `{n} rows are on orders not yet approved: {list}. Those orders can't be approved until the rows are removed.` The kernel then refuses to approve such a PO with DOC's closed text (§20.5); the approver rejects it and the buyer removes the rows.
 - **Cancel** is done by the owner. The kernel blocks it while a pending, approved or closed PO links the request (DOC-052, `LinkSpec`). A draft or rejected PO still holding the row gets DOC's cancelled text on its next save.
 - There is no amend or withdraw: to change a submitted request, the owner closes it and raises a new one.
-- **`order_status`** is `not_ordered` when nothing is ordered, `ordered` when every line's ordered quantity reaches its requested quantity, and `part_ordered` otherwise. `purchase.RefreshOrderStatus(ctx, tx, requestIDs []int64)` recomputes `ordered_qty` and `order_status` from `lineOrdered`, counting the PO in its new state. It writes them as the kernel's roll-up writes system fields: no version bump and no audit entry (the plan check confirms against `rollup.go`). Callers: PO `ApplyEffects` (approve), `ReverseEffects` (cancel), `OnClose` (close, §15 item 18), and MOD-GRN wherever it calls `RefreshReceiptStatus` on a closed PO, because a GRN cancelled against a closed PO changes that PO's ordered amount.
+- **`order_status`** is `not_ordered` when nothing is ordered, `ordered` when every line's ordered quantity reaches its requested quantity, and `part_ordered` otherwise. `purchase.RefreshOrderStatus(ctx, tx, requestIDs []int64)` recomputes `ordered_qty` and `order_status` from `lineOrdered`, counting the PO in its new state. It writes them as the kernel's roll-up writes system fields: no version bump and no audit entry (the plan check confirms against `rollup.go`). Callers: PO `ApplyEffects` (approve), `ReverseEffects` (cancel), `OnClose` (close, §15 item 18), and `RefreshReceiptStatus` itself when the PO is closed, because a GRN cancelled against a closed PO changes that PO's ordered amount. GRN's hooks run before the kernel's roll-up rewrites `received_qty`, so for a closed PO `RefreshReceiptStatus` computes `lineOrdered` as `min(qty, already_received + accepted)` from the map it was given. MOD-GRN makes that one call and never touches requests (CD-272 S59, CD-276).
 
 ### 20.4 Turning requests into a PO
 
@@ -648,7 +650,7 @@ A shared feature in `modkit`. PO and Request opt in now; GRN and Expense can opt
 ## 23. Sending to the vendor
 
 - **Table.** `purchase_order_sent`, at most one row per PO: `po_id` (primary key, references `purchase_order` ON DELETE CASCADE), `sent_on` Date, `sent_via` (CHECK in `email`, `whatsapp`, `courier`, `by_hand`, `other`), `note` (max 200), `sent_by`, `sent_at`, `version`. It is separate from the PO because an approved PO doesn't change (R7). The form posts the row's `version`, 0 when there is no row. Mark as sent inserts (posted 0) or updates (posted current) with `version + 1`; Mark as not sent deletes the row (posted current). A stale version is a 409 with DOC's stale text. Each change writes an audit entry on the PO (`Marked as sent`, `Marked as not sent`) through `audit.Writer`.
-- **Page.** `/modules/purchase/orders/{id}/send`, for approved POs only. It has `Download PDF`, and `Share` on devices with the Web Share API for files (the PDF goes to WhatsApp, a mail app and so on; the button is hidden where unsupported, so the page works without JavaScript). Below those is a form: Sent on (default today), How (radios: Email, WhatsApp, Courier, By hand, Other), Note, and the button `Mark as sent`. Once sent, the page shows `Mark as not sent`.
+- **Page.** `/modules/purchase/orders/{id}/send`, for approved POs only. It has `Print or save as PDF`, which opens the print view. v1 has no Share button and no server-side PDF (CD-258, D-FILE-10). Below those is a form: Sent on (default today), How (radios: Email, WhatsApp, Courier, By hand, Other), Note, and the button `Mark as sent`. Once sent, the page shows `Mark as not sent`.
 - **Who.** The PO's owner (`write`), or anyone with `approve` on Purchase Order (Purchase Manager, Director), or an Administrator. Anyone else gets AUTH's 403 text.
 - **Document page.** It shows `Sent to vendor on {date} by {how} ({name})`, or `Not sent yet` with `Send to vendor`. After approval, the owner finds the PO in the To send queue (§25).
 - **Queue.** The To send queue (§25) lists approved POs with no row.
@@ -686,8 +688,9 @@ Item entry is docscreen's grid on desktop and add-to-a-list on phones (§11). Ve
 | Waiting for approval | My POs pending, with `Waiting {n} days` (§14.3) | create on PO |
 | To approve | Count of my approval requests, linking to `/approvals` | approve on PO |
 | To send | Approved POs not sent: mine, or all for a user with `approve` | create or approve on PO |
+| To close | Approved POs where a GRN said the rest won't come (§27.2) | amend on PO (the Order's `CloseRight`) |
 | Awaiting delivery | Approved POs not fully received | read on PO |
-| Overdue deliveries | Lines past required-by with pending above 0, linking to the pending report filtered to overdue | read on PO |
+| Overdue deliveries | Lines past their due date (`Expected on`, else required-by, §27.1) with pending above 0, linking to the pending report filtered to overdue | read on PO |
 | Requests to order | Submitted requests with pending to order, oldest needed-by first | create on PO |
 | My requests | My open requests, each with its order status | create on Request |
 | Recent comments | §22 | anyone |
@@ -725,3 +728,65 @@ These are added to §18. They are in the same area, PO, so `checktestids` needs 
 | PO-068 | Phone flow: Suresh requests, Priya creates the PO, Ravi approves, Priya marks it sent, Suresh sees Ordered | `TestE2E_RequestToSentFlow` | P1 | e2e |
 
 PO-041 changes with §10: Purchase User `write`, `submit` and `delete` become `own`.
+
+---
+
+# v0.6 additions (CD-272, CD-276)
+
+The procure-to-pay research (`docs/research/2026-10-31-procure-to-pay-erp-practice.md`, from ERPNext, Odoo, Tryton, Oracle docs and the CGST Rules) compared these rules with common practice. CD-272 ruled the gaps, and CD-276 froze the calls MOD-GRN makes. Each scenario case in §27.5 cites its source.
+
+## 27.1 Expected on (Gap 7)
+
+Vendors move delivery dates after a PO is approved. `required_by` is frozen by R7, so without this record the Overdue report shows dates the vendor has already changed (research S31; Odoo moves the planned date, OD-PSO:219).
+
+- **Table.** `purchase_order_expected`, at most one row per PO: `po_id` (primary key, references `purchase_order` ON DELETE CASCADE), `expected_on` Date, `note` (max 200), `set_by`, `set_at`, `version`. It sits outside the PO, like the Sent record (§23), so R7 still holds: quantity and rate never change after approval.
+- **Who.** Anyone with `amend` or `approve` on the PO (`CanTx` with the PO's `RecordRef`): the owner and every Purchase User (amend, all), a Purchase Manager or Director (approve), an Administrator. Anyone else gets AUTH's 403 text.
+- **Service.** `SetExpected(ctx, p, poID int64, version int, on types.Date, note string) error` inserts (posted 0) or updates (posted current) with `version + 1`. `ClearExpected(ctx, p, poID int64, version int) error` deletes the row (posted current). `ExpectedInfo(ctx, tx, poID) (Expected, bool, error)` reads it. A stale version is a 409 with DOC's stale text. Each change writes an audit entry on the PO: `Expected on set to {dd-mm-yyyy}`, `Expected on cleared`.
+- **Route.** `GET/POST /modules/purchase/orders/{id}/expected` sets; `POST …/expected/clear` clears. The form posts the row's `version`, 0 when there is no row.
+- **Messages.** Not approved: `Only an approved order can have an expected date.` Blank: `Enter the expected date.` Before the order date: `Expected on can't be before the order date.` A past date is allowed (a late update), and so is a future one.
+- **Due date.** Everywhere a PO line's lateness is judged, the due date is `expected_on` when the row exists, else `required_by`. That covers the pending report's `Overdue` word and filter (§13), the Purchase home's Overdue deliveries card (§25) and the Awaiting delivery queue's `Overdue` meta. A line with neither is never overdue.
+- **Not copied** by Copy or amend, never printed. A closed or cancelled PO keeps its row for the record, and its lines have no pending, so they are never overdue.
+
+## 27.2 The rest won't come, and the To close queue (Gap 8)
+
+At the gate, Stores often learns that the vendor won't send the rest. Odoo's "no backorder" receipt leaves a warning on the PO (research S43, OD-PSO:877). Here the GRN has a tick, `Vendor says the rest won't come` (GRN spec, MOD-GRN), and purchase records it.
+
+- **Table.** `purchase_order_rest`: `po_id` (references `purchase_order` ON DELETE CASCADE), `grn_id`, `created_by`, `created_at`, primary key `(po_id, grn_id)`.
+- **Call (frozen, CD-276).** `purchase.SetRestNotComing(ctx context.Context, tx *db.Tx, poID, grnID int64, by types.UserID, on bool) error`. MOD-GRN calls it from its hooks, inside the engine's transaction, with no principal: `on=true` from `ApplyEffects` when the tick is set, `on=false` from `ReverseEffects`. `by` is the GRN row's `updated_by`.
+  - `on=true` inserts the row and posts a comment on the PO as `by` through M0-14b's `(*modkit.Comments).AddTx`: `Vendor says the rest won't come. Close this order if nothing more is due.` The comment names no GRN, so a PO reader who can't read the GRN learns nothing about it (CD-240 family). Calling it again for the same pair inserts nothing and posts nothing.
+  - `on=false` deletes the row; a missing row is a no-op. The comment stays (comments are append-only, §22).
+- **No state change.** The PO stays approved until a Purchase User closes it (§6.4).
+- **Queue.** `To close` on the Purchase home (§25): approved POs with at least one row, oldest row first. Closing or cancelling the PO drops it through its state alone. A row names no GRN; it reads `Vendor says the rest won't come · {date}` with the oldest row's date. The PO page's Goods receipts card already lists the GRNs the viewer can read.
+
+## 27.3 Site and project in different states (Gap 14)
+
+The place of supply follows where the goods' movement ends (IGST s.10(1)(a)), and the PO takes the place state from the site's branch (§7, CD-234). A Site has no state of its own (`migrations/01450_site.sql`), and CD-272 makes no master change. But a project has a branch too (`migrations/01400_project.sql`), and a site set up under the wrong state's branch usually shows as a mismatch with its project's branch.
+
+- `Validate` returns a stored warning (like `Already received is more than the quantity.`) when the site's branch state differs from the project's branch state: `Site {site code} is under branch {branch code} in {state}, but project {project code} belongs to branch {branch code} in {state}. Check the tax with your CA.` States print as names through `gstcalc`'s state table.
+- It is a warning, never a refusal (CD-228 keeps tax judgement out). The check page shows it among its warnings.
+
+## 27.4 Same item on two lines (S16)
+
+Allowed, with no warning. ERPNext allows it by default (EN-PO:1049, `allow_multiple_items`), and construction POs split one item by description or size. Each line keeps its own pending. A request row on two lines of one PO is still refused (§20.5).
+
+## 27.5 v0.6 tests
+
+Added to §18 and §26, in area PO.
+
+| ID | Behaviour | Go test | P | Level |
+|---|---|---|---|---|
+| PO-071 | Line qty 0 or −1 refused with DOC's positive text, on save and on a crafted post (S14) | `TestPO_QtyMustBePositive` | P1 | integration |
+| PO-072 | Negative rate refused with DOC's not-negative text (S15) | `TestPO_RateNotNegative` | P1 | integration |
+| PO-073 | Same item on two lines saves; each line keeps its own pending (S16) | `TestPO_SameItemTwoLines` | P1 | integration |
+| PO-074 | Vendor disabled while the PO is pending: approve refused with DOC's disabled text; a new PO with it refused (S18) | `TestPO_VendorDisabledWhilePending` | P1 | integration |
+| PO-075 | Ordering more than the request row asked warns on the check page with §20.5's text and saves (S05) | `TestPO_OverRequestWarning` | P1 | integration |
+| PO-076 | A rejected or withdrawn PO still holds its request rows; a deleted draft frees them (S09) | `TestRequest_HeldByRejectedWithdrawnDeleted` | P1 | integration |
+| PO-077 | Closing a PO whose request is already closed succeeds and recomputes `ordered_qty` (S03) | `TestRequest_ClosePOOfClosedRequest` | P1 | integration |
+| PO-078 | One request row split across POs to two vendors: ordered once both are approved, both linked (S08) | `TestRequest_SplitAcrossVendors` | P1 | integration |
+| PO-079 | A closed PO leaves Overdue: no pending report rows and no Overdue count (S44) | `TestPO_ClosedLeavesOverdue` | P1 | integration |
+| PO-080 | Expected on: set and clear, rights, approved only, messages, version 0 and stale 409, audit | `TestPO_ExpectedOn` | P1 | integration |
+| PO-081 | Expected on is the due date ahead of required-by in the pending report, its overdue filter and the Overdue count (S31) | `TestPO_PendingUsesExpectedOn` | P1 | integration |
+| PO-082 | `SetRestNotComing`: row and comment on, idempotent, off deletes and keeps the comment, PO state unchanged (S43) | `TestPO_RestNotComing` | P1 | integration |
+| PO-083 | To close queue: approved POs with a row, oldest first, no GRN named, closing drops it, count matches, `amend` needed | `TestPurchaseHome_ToClose` | P1 | integration |
+| PO-084 | Site and project branches in different states warn on save and on the check page; same state no warning | `TestPO_SiteProjectStateWarning` | P1 | integration |
+| PO-085 | An over-received PO line shows `Over by {qty} {uom}` on the document page; none at or below qty (GRN spec §4, CD-277) | `TestPO_OverByLineNote` | P1 | integration |
