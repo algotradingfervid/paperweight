@@ -340,3 +340,19 @@ func TestSettings_UnchangedSaveWritesNothing(t *testing.T) {
 		t.Errorf("%d audit entries, want 1 (the real save only)", n)
 	}
 }
+
+// An unchanged save still checks the version first (company's order,
+// CD-208): saving the stored values from an old version is the stale 409,
+// the version stays and nothing is audited.
+func TestSettings_UnchangedStaleSaveRefused(t *testing.T) {
+	e := newEnv(t)
+	in := modkit.SettingsInput{LockedUpTo: lock(mar31), DefaultPOTerms: terms}
+	e.save(t, 1, in)
+
+	err := e.kit.SaveSettings(t.Context(), testkit.Principal(t, adminEmail), 1, in)
+	wantRefusal(t, "SaveSettings of the stored values from version 1", err, 409, msgStale)
+	wantSettings(t, "after the stale unchanged save", e.get(t), modkit.Settings{LockedUpTo: lock(mar31), DefaultPOTerms: terms, Version: 2})
+	if n := len(e.rec.Entries()); n != 1 {
+		t.Errorf("%d audit entries, want 1 (the first save only)", n)
+	}
+}
