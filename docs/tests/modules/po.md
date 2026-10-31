@@ -236,7 +236,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-032 · Already received above qty warns and saves; needs Earlier PO no.
 - **Priority:** P1
 - **Level:** unit
-- **Given** a line whose `already_received` is above its `qty` **When** it is saved **Then** it saves with the warning "Line {n}: Already received is more than the quantity." (CD-234). **When** a line has `already_received` and `earlier_po_no` is blank **Then** "Earlier PO no. is required when a line has Already received."
+- **Given** a line whose `already_received` is above its `qty` **When** it is saved **Then** it saves, and `OrderWarnings` (shown on the check page, CD-280) returns "Line {n}: Already received is more than the quantity." (CD-234). **When** a line has `already_received` and `earlier_po_no` is blank **Then** "Earlier PO no. is required when a line has Already received."
 - **Go test:** `TestPO_AlreadyReceivedRules`
 - **Sources:** PO spec §3.2, §4, §18
 
@@ -560,7 +560,7 @@ PO spec §27. Each case cites its research scenario (`docs/research/2026-10-31-p
 ### PO-075 · Ordering more than the request row asked warns and saves
 - **Priority:** P1
 - **Level:** integration
-- **Given** PR-A line 1 for 40 Bag **When** a PO line linked to it is saved with 45 Bag **Then** it saves, and the check page's warnings (the stored warnings of the save) include "Line 1: ordering 5 more than request PR/26-27/00001 asked for." At 40 Bag there is no warning.
+- **Given** PR-A line 1 for 40 Bag **When** a PO line linked to it is saved with 45 Bag **Then** it saves, and `OrderWarnings` (shown on the check page, CD-280) includes "Line 1: ordering 5 more than request PR/26-27/00001 asked for." At 40 Bag there is no warning.
 - **Go test:** `TestPO_OverRequestWarning`
 - **Sources:** PO spec §20.5, §27.5; research S05 (ERPNext `test_purchase_order.py:242` refuses without an allowance; we warn)
 
@@ -623,13 +623,13 @@ PO spec §27. Each case cites its research scenario (`docs/research/2026-10-31-p
 ### PO-084 · Site and project branches in different states warn
 - **Priority:** P1
 - **Level:** integration
-- **Given** site `PUNE-WH` (branch PUNE, Maharashtra, no project) and project `PRJ-TECHPARK` (branch BLR, Karnataka) **When** a PO with both is saved **Then** it saves with the warning "Site PUNE-WH is under branch PUNE in Maharashtra, but project PRJ-TECHPARK belongs to branch BLR in Karnataka. Check the tax with your CA.", and the check page shows it. With `METRO-SITE` and `PRJ-METRO` (both PUNE) there is no warning.
+- **Given** site `PUNE-WH` (branch PUNE, Maharashtra, no project) and project `PRJ-TECHPARK` (branch BLR, Karnataka) **When** a PO with both is saved **Then** it saves, and `OrderWarnings` (shown on the check page, CD-280) returns "Site PUNE-WH is under branch PUNE in Maharashtra, but project PRJ-TECHPARK belongs to branch BLR in Karnataka. Check the tax with your CA.", and the check page shows it. With `METRO-SITE` and `PRJ-METRO` (both PUNE) there is no warning.
 - **Go test:** `TestPO_SiteProjectStateWarning`
 - **Sources:** PO spec §27.3; CD-272 Gap 14, CD-276 (branch states compared); research S72 (IGST s.10(1)(a))
 
 ### PO-085 · An over-received line shows Over by on the document page
 - **Priority:** P1
 - **Level:** integration
-- **Given** an approved PO line for 40 Bag **When** `RefreshReceiptStatus` and the roll-up leave `already_received + received_qty` at 45 **Then** the document page's line notes include "Over by 5 Bag" (`types.FormatQtyUoM`), pending reads 0, and the receipt status is `fully_received`. At 40 or below there is no Over by note. The received figure is set through P4's path in the test (no GRN needed); MOD-GRN's GRN-014 covers it with a real GRN.
+- **Given** an approved cutover PO (Earlier PO no. `P-17`) with a line for 40 Bag and `already_received` 45 (PO-032's path: it warns and saves), and a second line for 40 Bag with `received_qty` 45 set through `purchasetest.SetReceived` **Then** the document page's line notes include "Over by 5 Bag" (`types.FormatQtyUoM`), pending reads 0, and the receipt status is `fully_received`. At 40 or below there is no Over by note. Both lines show the note. MOD-GRN's GRN-014 covers the real GRN path.
 - **Go test:** `TestPO_OverByLineNote`
 - **Sources:** PO spec §27.5; GRN spec §4; CD-234 (over-receipt warns only), CD-277

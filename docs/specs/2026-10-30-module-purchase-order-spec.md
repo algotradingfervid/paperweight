@@ -120,7 +120,7 @@ Line snapshot columns: `snap_item_code`, `snap_item_name`, `snap_uom_code`, `sna
 | Earlier PO date with no Earlier PO no. | `Earlier PO no. is required with an earlier PO date.` | Save |
 | Tax code disabled | CD-170 pattern | Save |
 | Reverse charge on with a Nil-Rated, Exempted or Non-GST line | `Line {n}: Reverse charge needs a taxable tax code on every line.` | Submit |
-| Request rows: the five conditions in §20.5 | §20.5's texts | Save and submit |
+| Request rows: the conditions in §20.5 (DOC's three link texts and six module texts) | §20.5's texts | Save and submit |
 
 `BeforeSubmit` re-reads what can change under a pending document: vendor still enabled, site and project still valid, and the line UoM conversions. The kernel re-runs validation on approve (D-APR-15), so a document pending when a master is disabled fails at approve with the kernel's text.
 
@@ -551,7 +551,7 @@ No line field name repeats a header field name (CD-151).
 - **Close** means "no longer needed". The owner or a Purchase Manager or Director closes it (CD-253): `purchase.Request`'s `CloseRight` is `approve`, held `own` by Employee and `all` by Purchase Manager and Director; requests aren't approvable, so `approve` has no other effect. It asks for a reason (3 to 500 characters). A buyer who won't order something says so in a comment (§22) and the requester (or a Purchase Manager) closes it. A closed request can't be pulled into a PO, and lines already ordered stay ordered. When a draft, pending or rejected PO still holds its lines, the close page warns, through the Reason hook: `{n} rows are on orders not yet approved: {list}. Those orders can't be approved until the rows are removed.` The kernel then refuses to approve such a PO with DOC's closed text (§20.5); the approver rejects it and the buyer removes the rows.
 - **Cancel** is done by the owner. The kernel blocks it while a pending, approved or closed PO links the request (DOC-052, `LinkSpec`). A draft or rejected PO still holding the row gets DOC's cancelled text on its next save.
 - There is no amend or withdraw: to change a submitted request, the owner closes it and raises a new one.
-- **`order_status`** is `not_ordered` when nothing is ordered, `ordered` when every line's ordered quantity reaches its requested quantity, and `part_ordered` otherwise. `purchase.RefreshOrderStatus(ctx, tx, requestIDs []int64)` recomputes `ordered_qty` and `order_status` from `lineOrdered`, counting the PO in its new state. It writes them as the kernel's roll-up writes system fields: no version bump and no audit entry (the plan check confirms against `rollup.go`). Callers: PO `ApplyEffects` (approve), `ReverseEffects` (cancel), `OnClose` (close, §15 item 18), and `RefreshReceiptStatus` itself when the PO is closed, because a GRN cancelled against a closed PO changes that PO's ordered amount. GRN's hooks run before the kernel's roll-up rewrites `received_qty`, so for a closed PO `RefreshReceiptStatus` computes `lineOrdered` as `min(qty, already_received + accepted)` from the map it was given. MOD-GRN makes that one call and never touches requests (CD-272 S59, CD-276).
+- **`order_status`** is `not_ordered` when nothing is ordered, `ordered` when every line's ordered quantity reaches its requested quantity, and `part_ordered` otherwise. `purchase.RefreshOrderStatus(ctx, tx, requestIDs []int64)` recomputes `ordered_qty` and `order_status` from `lineOrdered`, counting the PO in its new state. It writes them with plain UPDATEs: no version bump, no `updated_at`/`updated_by` change and no audit entry. This is unlike the kernel's roll-up (`doc/rollup.go:82`, which bumps the version), because it runs from hooks and frozen calls with no principal, and the rows it touches can't be edited (CD-280). `RefreshReceiptStatus` writes `receipt_status` the same way. Callers: PO `ApplyEffects` (approve), `ReverseEffects` (cancel), `OnClose` (close, §15 item 18), and `RefreshReceiptStatus` itself when the PO is closed, because a GRN cancelled against a closed PO changes that PO's ordered amount. GRN's hooks run before the kernel's roll-up rewrites `received_qty`, so for a closed PO `RefreshReceiptStatus` computes `lineOrdered` as `min(qty, already_received + accepted)` from the map it was given. MOD-GRN makes that one call and never touches requests (CD-272 S59, CD-276).
 
 ### 20.4 Turning requests into a PO
 
@@ -695,7 +695,7 @@ Item entry is docscreen's grid on desktop and add-to-a-list on phones (§11). Ve
 | My requests | My open requests, each with its order status | create on Request |
 | Recent comments | §22 | anyone |
 
-The two main buttons are `New purchase order` and `New request`. When nothing is waiting, the page says: `Nothing waiting for you.`
+The two main buttons are `New purchase order` and `New purchase request` (docscreen's labels, CD-258 Q5). When nothing is waiting, the page says: `Nothing waiting for you.`
 
 ## 26. v0.5 tests
 
@@ -762,8 +762,8 @@ At the gate, Stores often learns that the vendor won't send the rest. Odoo's "no
 
 The place of supply follows where the goods' movement ends (IGST s.10(1)(a)), and the PO takes the place state from the site's branch (§7, CD-234). A Site has no state of its own (`migrations/01450_site.sql`), and CD-272 makes no master change. But a project has a branch too (`migrations/01400_project.sql`), and a site set up under the wrong state's branch usually shows as a mismatch with its project's branch.
 
-- `Validate` returns a stored warning (like `Already received is more than the quantity.`) when the site's branch state differs from the project's branch state: `Site {site code} is under branch {branch code} in {state}, but project {project code} belongs to branch {branch code} in {state}. Check the tax with your CA.` States print as names through `gstcalc`'s state table.
-- It is a warning, never a refusal (CD-228 keeps tax judgement out). The check page shows it among its warnings.
+- The check page warns, through `(*purchase.Service).OrderWarnings` (modules have no save-time warning channel: `Hooks.Validate` returns only refusals; CD-280), when the site's branch state differs from the project's branch state: `Site {site code} is under branch {branch code} in {state}, but project {project code} belongs to branch {branch code} in {state}. Check the tax with your CA.` States print as names through `gstcalc`'s state table.
+- It is a warning, never a refusal (CD-228 keeps tax judgement out). The same function returns the Already received warning (§3.2) and the over-request warnings (§20.5).
 
 ## 27.4 Same item on two lines (S16)
 
