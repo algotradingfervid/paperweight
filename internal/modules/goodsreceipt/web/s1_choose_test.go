@@ -344,7 +344,7 @@ func TestGRNWeb_ChoosePOFixed(t *testing.T) {
 	}
 
 	version := strconv.Itoa(w.Load(t, goodsreceipt.DocType, id).Version)
-	r = w.post(w.Suresh, path, url.Values{"version": {version}, "receipt_date": {"23-10-2026"}})
+	r = w.post(w.Suresh, path, url.Values{"version": {version}, "receipt_date": {"23-10-2026"}, "purchase_order_id": {strconv.FormatInt(po.ID, 10)}})
 	if r.status != http.StatusSeeOther {
 		t.Fatalf("save the date = %d %q", r.status, r.errorSummary())
 	}

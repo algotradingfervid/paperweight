@@ -18,7 +18,8 @@ import (
 // the tick, which step 2 draws and posts whatever Hide says, stays.
 func TestGRNWeb_StepsHonourHide(t *testing.T) {
 	w := newS1World(t)
-	id := w.draft(w.po("SHREE", "10"))
+	order := w.po("SHREE", "10")
+	id := w.draft(order)
 	delivery := stepPath(id, "delivery")
 	version := func() string { return strconv.Itoa(w.Load(t, goodsreceipt.DocType, id).Version) }
 	stored := url.Values{"challan_kind": {"Tax invoice"}, "challan_no": {"SST/2627/0457"}, "challan_date": {"23-10-2026"}, "vehicle_no": {"MH12AB1234"},
@@ -76,7 +77,7 @@ func TestGRNWeb_StepsHonourHide(t *testing.T) {
 		t.Errorf("rest_not_coming %v after an unticked post, want false: the tick is always posted", h["rest_not_coming"])
 	}
 	for _, date := range []string{"x", "22-10-2026"} {
-		if r := w.post(w.Suresh, stepPath(id, "details"), url.Values{"version": {version()}, "receipt_date": {date}}); r.status != http.StatusSeeOther {
+		if r := w.post(w.Suresh, stepPath(id, "details"), url.Values{"version": {version()}, "receipt_date": {date}, "purchase_order_id": {strconv.FormatInt(order.ID, 10)}}); r.status != http.StatusSeeOther {
 			t.Errorf("step 1 of a draft with lines, receipt_date %s = %d %q, want 303: a hidden date isn't read", date, r.status, r.errorSummary())
 		}
 	}

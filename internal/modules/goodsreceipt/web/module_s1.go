@@ -84,9 +84,9 @@ func (m *module) deliveryStep() docscreen.Step {
 }
 
 // hide hides site_id, project_id and po_line_id everywhere (the steps post
-// them, Validate resets them); rest_not_coming on a saved draft or document
-// while it is off (UX doc §5.6): step 2's own Body and Save draw and post it
-// whatever Hide says, so a new tick is never dropped; and the document
+// them, Validate resets them); rest_not_coming on a saved document past
+// draft while it is off (UX doc §5.6, CD-332): a draft's pages show the
+// pair, as step 2 draws and posts the tick; and the document
 // fields of a receipt with only service lines (UX doc §5.3). A failed read
 // shows the field.
 func (m *module) hide(c docscreen.Ctx, f doctype.Field) bool {
@@ -94,7 +94,7 @@ func (m *module) hide(c docscreen.Ctx, f doctype.Field) bool {
 	case f.Name == "site_id" || f.Name == "project_id" || f.Name == "po_line_id":
 		return true
 	case f.Name == "rest_not_coming":
-		return c.View != nil && !ticked(c.View.Inputs[f.Name])
+		return c.View != nil && c.View.Info.State != doctype.StateDraft && !ticked(c.View.Inputs[f.Name])
 	case slices.Contains(documentFields, f.Name):
 		only, err := m.serviceOnly(c)
 		return err == nil && only
@@ -192,7 +192,7 @@ func (m *module) fixedPO(c docscreen.Ctx, date components.DateProps, dated bool)
 		return nil, err
 	}
 	po := []components.Pair{{Label: labelPO, Value: f.PONumber + " · " + f.VendorName}, {Label: labelSite, Value: f.SiteName}}
-	return fixedPOView(po, href, date, dated), nil
+	return fixedPOView(po, c.View.Inputs["purchase_order_id"], href, date, dated), nil
 }
 
 // pick builds the choice of order (UX doc §5.2). The chosen order is the
@@ -334,12 +334,18 @@ func pickURL(c docscreen.Ctx, all bool) string {
 	return c.Req.URL.Path + "?" + q.Encode()
 }
 
-// detailsSave is step 1's save. A draft with lines saves only the receipt
-// date, plus a posted order, which Validate refuses as a change (spec §4).
-// Otherwise the chosen order's values and pending lines come from
-// DraftFromPO (plan G6 Do 3), with the typed receipt date; a blank order is
-// its 422, another site's order its 403 (CD-240).
+// detailsSave is step 1's save. On an existing draft docscreen has loaded
+// it and checked the write right; a stale page or a document past draft
+// saves nothing of its own, so DOC answers the conflict or the state before
+// anything posted is parsed (CD-259). A draft with lines saves only the
+// receipt date; a posted order other than its own, or none, is refused
+// (spec §4). Otherwise the chosen order's values and pending lines come
+// from DraftFromPO (plan G6 Do 3), with the typed receipt date; a blank
+// order is its 422, another site's order its 403 (CD-240).
 func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
+	if c.View != nil && (c.Req.PostFormValue("version") != strconv.Itoa(c.View.Version) || c.View.Info.State != doctype.StateDraft) {
+		return docscreen.Save{Values: map[string]string{}}, nil
+	}
 	dated := shown(c, "receipt_date")
 	var date string
 	if dated {
@@ -353,9 +359,11 @@ func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 		if dated {
 			v["receipt_date"] = date
 		}
-		if po, ok := c.Req.PostForm["purchase_order_id"]; ok {
-			v["purchase_order_id"] = po[0]
+		po := c.Req.PostFormValue("purchase_order_id")
+		if po != c.View.Inputs["purchase_order_id"] {
+			return docscreen.Save{Errors: []doctype.FieldError{{Field: "purchase_order_id", Message: msgDeleteToChange}}}, nil
 		}
+		v["purchase_order_id"] = po
 		return docscreen.Save{Values: v}, nil
 	}
 	id, _ := strconv.ParseInt(c.Req.PostFormValue("purchase_order_id"), 10, 64) // not an id: 0, "Choose a purchase order."

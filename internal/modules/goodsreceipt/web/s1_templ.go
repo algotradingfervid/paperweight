@@ -92,8 +92,9 @@ func choosePOView(p poPick, date components.DateProps, showDate bool) templ.Comp
 
 // fixedPOView is step 1 of a draft with lines: its order as text, the hint
 // that says how to change it, Delete draft for a user who may, and the
-// receipt date when showDate (UX doc §5.2, spec §3.1).
-func fixedPOView(po []components.Pair, deleteHref string, date components.DateProps, showDate bool) templ.Component {
+// receipt date when showDate (UX doc §5.2, spec §3.1). The stored order
+// posts as poID, which detailsSave checks.
+func fixedPOView(po []components.Pair, poID, deleteHref string, date components.DateProps, showDate bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -118,6 +119,10 @@ func fixedPOView(po []components.Pair, deleteHref string, date components.DatePr
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		templ_7745c5c3_Err = components.Hidden("purchase_order_id", poID).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -125,7 +130,7 @@ func fixedPOView(po []components.Pair, deleteHref string, date components.DatePr
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(msgDeleteToChange)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 34, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 36, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -250,7 +255,7 @@ func deliveryView(d deliveryForm) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(msgPhotoLater)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 71, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 73, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {

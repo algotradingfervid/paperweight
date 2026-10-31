@@ -28,9 +28,11 @@ templ choosePOView(p poPick, date components.DateProps, showDate bool) {
 
 // fixedPOView is step 1 of a draft with lines: its order as text, the hint
 // that says how to change it, Delete draft for a user who may, and the
-// receipt date when showDate (UX doc §5.2, spec §3.1).
-templ fixedPOView(po []components.Pair, deleteHref string, date components.DateProps, showDate bool) {
+// receipt date when showDate (UX doc §5.2, spec §3.1). The stored order
+// posts as poID, which detailsSave checks.
+templ fixedPOView(po []components.Pair, poID, deleteHref string, date components.DateProps, showDate bool) {
 	@components.SummaryList(po)
+	@components.Hidden("purchase_order_id", poID)
 	<p>{ msgDeleteToChange }</p>
 	if deleteHref != "" {
 		@components.Button(components.ButtonProps{Label: deleteDraftLabel, Href: deleteHref, Variant: components.Secondary})
