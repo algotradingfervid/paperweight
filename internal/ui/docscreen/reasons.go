@@ -145,7 +145,8 @@ func (d Deps) blockerLink(ctx context.Context, p auth.Principal, name string, id
 // reasonViewWith is reasonViewOf with the module's Reason additions: its
 // note above the field and its hint as the field's (hooks spec §4.4). An
 // error on a field the module hides is a plain message, and a hidden party
-// field leaves the party out of the summary (CD-319).
+// or figure field leaves the party or the grand total out of the summary
+// (CD-319).
 func (d Deps) reasonViewWith(r *http.Request, dt *doctype.DocType, v DocView, name string, rp reasonPage, version int, typed string, pr Problem) (reasonView, error) {
 	c := d.ctxOf(r, dt, &v)
 	extra, err := reasonExtra(c, rp.action)
@@ -153,7 +154,7 @@ func (d Deps) reasonViewWith(r *http.Request, dt *doctype.DocType, v DocView, na
 		return reasonView{}, err
 	}
 	pr.Fields = unhiddenAll(c, pr.Fields)
-	v.Info.Party = partyShown(c, v)
+	hideSummary(c, &v)
 	rv := reasonViewOf(dt, v, name, rp, version, typed, pr)
 	rv.Note, rv.Field.Hint = extra.Note, extra.Hint
 	return rv, nil

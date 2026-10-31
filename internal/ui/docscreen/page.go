@@ -107,8 +107,8 @@ func takeSuccess(ctx context.Context) string {
 	return text
 }
 
-// pageViewOf is document v's page: its Details, display values and party
-// without the fields the module hides, Header and HeaderNames kept parallel, and the
+// pageViewOf is document v's page: its Details, display values, party and
+// grand total without the fields the module hides, Header and HeaderNames kept parallel, and the
 // module's line summaries (CD-256 (1)), and the module's Page additions,
 // whose error it returns (hooks spec §4.4).
 func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType, v DocView) (pageView, error) {
@@ -128,7 +128,7 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 			shown.Display[name] = s
 		}
 	}
-	shown.Info.Party = partyShown(c, v)
+	hideSummary(c, &shown)
 	applyLineCards(c, &shown)
 	extra, err := pageExtra(c)
 	if err != nil {

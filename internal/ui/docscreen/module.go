@@ -4,17 +4,21 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/a-h/templ"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
 // Module is what one DocType adds to the generic screens (hooks spec §3).
 // Every field is optional; nil keeps today's behaviour.
+//
+// LineCard's l.Card is the default card with the fields Hide hides already
+// left out (CD-319 (9)): start from it. l.Display and l.Inputs still hold
+// hidden fields; read them only behind a check with Hide, or not at all.
 type Module struct {
 	StepLabels  map[string]string                           // step slug → label
 	Steps       map[string]Step                             // step slug → custom step
@@ -39,13 +43,17 @@ type LineNoun struct {
 	Add, Title, Empty string
 }
 
-// Ctx is what a hook reads. View is nil only on a new document's first step.
+// Ctx is what a hook reads. View is nil on a new document's first step, and
+// on the list and search pages, where Listing is true and Hide is asked once
+// per DocType (CD-319 (7), CD-327 (1)). Listing is false everywhere else. A
+// Hide treats a nil View as "no record" and never dereferences it.
 type Ctx struct {
 	Req       *http.Request
 	Principal auth.Principal
 	DT        *doctype.DocType
 	View      *DocView
 	Deps      Deps // for FieldInput and the rest
+	Listing   bool // the list or search page: no View
 }
 
 // Step replaces a wizard step's body, its save, or both.
@@ -174,17 +182,25 @@ func unhidden(c Ctx, e doctype.FieldError) doctype.FieldError {
 	return e
 }
 
-// partyShown is v's Info.Party, or "" when a header field the module hides
-// shows that same value, as the party field does (CD-319 (4)). A Link's
-// display is "{Code} {Name}", DOC's party "{Name}" for a master without a
-// code, hence the trim.
-func partyShown(c Ctx, v DocView) string {
+// partyHidden reports whether the module hides the header field DOC reads
+// Info.Party from (CD-319 (4), (6)): the field decides, never its value.
+func partyHidden(c Ctx) bool {
+	f, ok := doc.PartyField(c.DT)
+	return ok && hidden(c, f)
+}
+
+// hideSummary leaves out of v the party when its field is hidden, and the
+// grand total and its words when the header Money field they come from
+// (figure) is hidden (CD-319 (4), (8)).
+func hideSummary(c Ctx, v *DocView) {
+	if partyHidden(c) {
+		v.Info.Party = ""
+	}
 	for _, f := range c.DT.HeaderFields() {
-		if hidden(c, f) && strings.TrimSpace(v.Display[f.Name]) == v.Info.Party {
-			return ""
+		if figure(f) && hidden(c, f) {
+			v.GrandTotal, v.InWords = "", ""
 		}
 	}
-	return v.Info.Party
 }
 
 // unhiddenAll is unhidden on each of errs.
@@ -196,21 +212,21 @@ func unhiddenAll(c Ctx, errs []doctype.FieldError) []doctype.FieldError {
 	return out
 }
 
-// applyLineCards gives each of v's lines the module's LineCard, or else the
-// default card without the fields the module hides (CD-319; Hide sees the
-// line's stored inputs in Deps), then clears Received on a document that is
+// applyLineCards gives each of v's lines the default card without the fields
+// the module hides (CD-319; Hide sees the line's stored inputs in Deps), and
+// the module's LineCard of that line, so it is handed the filtered card
+// (CD-319 (9)); then it clears Received on a document that is
 // neither approved nor closed (CD-242), after the override (CD-256 (11)).
 // v.Lines is replaced, never changed in place.
 func applyLineCards(c Ctx, v *DocView) {
 	card := c.Deps.modOf(c.DT).LineCard
 	lines := slices.Clone(v.Lines)
 	for i := range lines {
+		lc := c
+		lc.Deps = c.Deps.WithStored(lines[i].Inputs)
+		lines[i].Card = defaultCard(c.DT, lines[i], func(f doctype.Field) bool { return !hidden(lc, f) })
 		if card != nil {
 			lines[i].Card = card(c, lines[i])
-		} else {
-			lc := c
-			lc.Deps = c.Deps.WithStored(lines[i].Inputs)
-			lines[i].Card = defaultCard(c.DT, lines[i], func(f doctype.Field) bool { return !hidden(lc, f) })
 		}
 		if v.Info.State != doctype.StateApproved && v.Info.State != doctype.StateClosed {
 			lines[i].Card.Received = "" // only approved and closed documents show receipts (CD-242)
