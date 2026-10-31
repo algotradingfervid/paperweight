@@ -155,6 +155,11 @@ type Deps struct {
 	// doctype.ErrNotFound or auth.ErrForbidden means not. nil reads nothing, so
 	// a posted link shows its raw id (CD-233).
 	LinkRead func(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) error
+	// DocLinkRead reports whether p may read document id of DocType target,
+	// inside tx (the app wires auth.CheckLinkTx). doctype.ErrNotFound,
+	// auth.ErrForbidden or a *auth.LinkError means not, and a link to it shows
+	// blank; nil reads nothing, so every document link shows blank (CD-321).
+	DocLinkRead func(ctx context.Context, tx *db.Tx, p auth.Principal, target string, id int64) error
 	// Modules holds each DocType's additions to these screens, by DocType
 	// name; internal/app fills it. A DocType with no entry keeps the generic
 	// screens (hooks spec §3).

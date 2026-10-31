@@ -133,6 +133,10 @@ func docDeps() docscreen.Deps {
 		InboxURL:  "/approvals",
 		PrintURL:  func(name string, id int64) string { return "/print/" + name + "/" + strconv.FormatInt(id, 10) },
 		Modules:   map[string]docscreen.Module{docscreentest.Hooked: hookedModule()},
+		// The gallery viewer may read every seeded record. Hooked's fixture
+		// Link targets aren't registered here, so docscreen shows them as
+		// documents, which need this check to show at all (CD-321).
+		DocLinkRead: func(context.Context, *db.Tx, auth.Principal, string, int64) error { return nil },
 	}
 }
 

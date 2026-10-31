@@ -56,7 +56,7 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		return
 	}
 	cols := ListColumns(dt)
-	rows, err := d.listRows(ctx, dt, cols, res.Rows, docURL)
+	rows, err := d.listRows(auth.WithPrincipal(ctx, p), dt, cols, res.Rows, docURL)
 	if err != nil {
 		problem(w, r, err)
 		return
@@ -111,7 +111,7 @@ func (d Deps) listRows(ctx context.Context, dt *doctype.DocType, cols []componen
 				if !ok {
 					continue
 				}
-				s, err := Display(ctx, tx, d.Engine, f, lr.Values[c.Key])
+				s, err := d.display(ctx, tx, f, lr.Values[c.Key])
 				if err != nil {
 					return err
 				}

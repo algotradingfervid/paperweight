@@ -240,7 +240,9 @@ func (a *App) docDeps() docscreen.Deps {
 		Parse:     parsers(),
 		// A posted link shows its target's label only to a reader (CD-233).
 		LinkRead: mstkit.Env{Auth: a.auth}.CanLinkTargetTx,
-		Modules:  a.docModules,
+		// A document link shows its number only to a reader (CD-321).
+		DocLinkRead: a.auth.CheckLinkTx,
+		Modules:     a.docModules,
 	}
 }
 
