@@ -314,6 +314,11 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | E5, E7, E2b | Approvals tests; prints; computed-or-cleared (CD-302, CD-304) | High/Std/High | tw, impl, rev opus (AD-11) | — | — | 1/2/1 | E7 round 1 changes | 971acc6; f694ec3 make ci 0 (P1 651/812) |
 | E4, E4b, E5b | Advance settlement and invariants; CD-305; stand-ins removed | High | tw, impl, rev opus (AD-11) | — | — | 1 | mutation 31/31 | c51b7e4; f21ac4f make ci 0 (P1 668/812) |
 | M0-21, M0-34 | Line page uploads; list filtered Op in (CD-306) | Std/Light | tw, impl, rev opus (AD-10) | — | — | 3/1 | 0/1/2→0; 0/0/2 | be90904 |
+| MOD-PO PO-M1 | P1, P2, P4, P19 with P3, P5, P7, P10, P11, P18 (CD-309) | High/Std | tw, impl, rev opus (AD-13) | — | — | 1–3 | P2 2 rounds (CD-302) | 8a86982, c39c5e2 |
+| S4 | Expense report pages and filter pages | Standard | impl, rev opus (AD-11) | — | — | 2 | 19/19 mutants | faf02b1; make ci 0 (P1 720/813), e2e 0 |
+| M0-37 | Letterhead prints state and GSTIN once (CD-309 (6)) | Light | impl opus (head) | — | — | 1 | head review | ad3f595; make ci 0 |
+| M0-36 | DataList blank cells, separators, NoWrap tracks; Picker (CD-307) | Standard | impl, rev opus (head) | — | — | 2 | 0/3/2→0/0/1 | fc3bfc2; make ci 0, e2e 0 |
+| E10 | Document total limit; less_advance NonNegative (CD-308, CD-311) | Standard | impl, rev opus (AD-11) | — | — | 2 | — | 0a374fe |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
