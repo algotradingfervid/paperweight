@@ -90,7 +90,10 @@ func TestRequest_AddFromRequests(t *testing.T) {
 			t.Errorf("%s row: hint %q, quantity %q, ticked %v; want %q, %q, unticked", c.code, r.hint(), r.value(), r.ticked(), c.hint, c.qty)
 		}
 		id, _ := r.qty.Attr("id")
-		if got := p15cCollapse(page.doc.Find(`label[for="` + id + `"]`).Text()); got != p15cQtyLabel {
+		// The label's name: the required marker (CD-341 (2)) is left out by class.
+		l := page.doc.Find(`label[for="` + id + `"]`).Clone()
+		l.Find(".field__req, .visually-hidden").Remove()
+		if got := p15cCollapse(l.Text()); got != p15cQtyLabel {
 			t.Errorf("%s quantity label = %q, want %q", c.code, got, p15cQtyLabel)
 		}
 	}
