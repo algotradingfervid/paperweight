@@ -78,7 +78,10 @@ func TestModules_ImportsFollowOrder(t *testing.T) {
 			t.Fatalf("walking internal/modules: %v", err)
 		}
 		// Floors: a rename must not leave this test green with nothing scanned.
-		for _, p := range []string{"internal/modules/modkit", "internal/modules/modkit/web"} {
+		for _, p := range []string{
+			"internal/modules/modkit", "internal/modules/modkit/web",
+			"internal/modules/expense", "internal/modules/expense/web",
+		} {
 			if !seen[p] {
 				t.Errorf("package %s was not scanned", p)
 			}
