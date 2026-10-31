@@ -360,7 +360,7 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 ### HOOK-052 · The line grid fits the largest amount at every width it renders at
 - **Priority:** P1
 - **Level:** e2e
-- **Given** fixture.Claim (three cells), two expense.Advance drafts (five cells, amount input in column 4, three lines with move buttons) and fixture.Order (five cells, largest rate) with ₹10,00,00,00,000.00 lines **When** the Items step, check page and document page are shown at 1328 (64rem editor), 1440 and every sweep width **Then** no box overflows and the page never scrolls sideways; money and rate inputs, the amount and the action buttons fit on one line; each head and row has one cell per column and lines up; each required element is counted, so none is skipped.
+- **Given** fixture.Claim (three cells), fixture.Quote (TestOnly, five cells, amount input in grid column 5 beside rate and quantity; one line and three lines with move buttons) and fixture.Order (five cells, largest rate) with ₹10,00,00,00,000.00 lines **When** the Items step, check page and document page are shown at 1328 (64rem editor), 1440 and every sweep width **Then** no box overflows and the page never scrolls sideways; money and rate inputs, the amount and the action buttons fit on one line; each head and row has one cell per column and lines up; each required element is counted, so none is skipped.
 - **Go test:** `TestE2E_LineGridFitsLargestAmount`
 - **Sources:** CD-308 (2), (3); M0-35
 
@@ -461,3 +461,101 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** fixture.Order with its party field hidden **When** the document page and every reason page Screens lists render **Then** no party line shows.
 - **Go test:** `TestHide46_PartyHidden`
 - **Sources:** CD-319 (4); M0-46
+
+### HOOK-066 · Display cells render Text, muted Sub and a Kind marker
+- **Priority:** P1
+- **Level:** unit
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** display cells render text, muted sub and a kind marker is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayCells`
+- **Sources:** CD-313; M0-40
+
+### HOOK-067 · A display row has no form or input
+- **Priority:** P1
+- **Level:** unit
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** a display row has no form or input is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayNoForm`
+- **Sources:** CD-313; M0-40
+
+### HOOK-068 · Display row actions are Change, Remove and Move with line labels
+- **Priority:** P1
+- **Level:** unit
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** display row actions are change, remove and move with line labels is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayActions`
+- **Sources:** CD-313; M0-40
+
+### HOOK-069 · Display off leaves the editable grid byte-identical
+- **Priority:** P1
+- **Level:** unit
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** display off leaves the editable grid byte-identical is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_EditableUnchanged`
+- **Sources:** CD-313; M0-40
+
+### HOOK-070 · Every display cell carries its column label for screen readers
+- **Priority:** P1
+- **Level:** unit
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** every display cell carries its column label for screen readers is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayCellLabels`
+- **Sources:** CD-313; M0-40
+
+### HOOK-071 · The display grid shows the taxable total
+- **Priority:** P1
+- **Level:** unit
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** the display grid shows the taxable total is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayTotal`
+- **Sources:** CD-313; M0-40
+
+### HOOK-072 · A Module LineGrid draws the display grid on the Items step
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** a module linegrid draws the display grid on the items step is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayItemsStep`
+- **Sources:** CD-313; M0-40
+
+### HOOK-073 · The check page draws the display grid without actions
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** the check page draws the display grid without actions is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayCheckPage`
+- **Sources:** CD-313; M0-40
+
+### HOOK-074 · A read-only draft viewer gets the display grid without actions
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** a read-only draft viewer gets the display grid without actions is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayReaderDraft`
+- **Sources:** CD-313; M0-40
+
+### HOOK-075 · An approved document shows the display grid with LineNotes and no actions
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** an approved document shows the display grid with linenotes and no actions is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayApprovedPage`
+- **Sources:** CD-313; M0-40
+
+### HOOK-076 · With LineGrid an htmx line save answers 303 to Items
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** with linegrid an htmx line save answers 303 to items is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayLineSave`
+- **Sources:** CD-313; M0-40
+
+### HOOK-077 · NoLinePages with LineGrid shows no line actions
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** nolinepages with linegrid shows no line actions is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestLineGrid_DisplayNoLinePages`
+- **Sources:** CD-313; M0-40
+
+### HOOK-078 · The widest display row fits at 64rem and 1440
+- **Priority:** P1
+- **Level:** e2e
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** the widest display row fits at 64rem and 1440 is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestGalleryBrowser_DisplayLineGrid`
+- **Sources:** CD-313; M0-40
+
+### HOOK-079 · Three- and five-cell display rows with money fit at 64rem and 1440
+- **Priority:** P1
+- **Level:** e2e
+- **Given** a Module whose `LineGrid` returns display cells (CD-313 props) **When** three- and five-cell display rows with money fit at 64rem and 1440 is checked **Then** it holds as CD-313 and CD-308 (3) state.
+- **Go test:** `TestGalleryBrowser_DisplayLineGridKinds`
+- **Sources:** CD-313; M0-40
