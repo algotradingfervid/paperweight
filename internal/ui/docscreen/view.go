@@ -64,7 +64,7 @@ func (d Deps) View(ctx context.Context, p auth.Principal, name string, id int64)
 		if err != nil {
 			return err
 		}
-		v, err = d.fromRecord(ctx, tx, dt, rec)
+		v, err = d.fromRecord(auth.WithPrincipal(ctx, p), tx, dt, rec)
 		return err
 	})
 	if err != nil {
@@ -125,12 +125,14 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 			}
 			continue
 		}
-		shown, err := Display(ctx, tx, d.Engine, f, plain)
+		shown, err := d.display(ctx, tx, f, plain)
 		if err != nil {
 			return DocView{}, err
 		}
-		v.Header = append(v.Header, components.Pair{Label: f.Label, Value: shown, Num: numeric(f)})
-		v.HeaderNames = append(v.HeaderNames, f.Name)
+		if shown != "" { // a hidden document link reads as empty (CD-321)
+			v.Header = append(v.Header, components.Pair{Label: f.Label, Value: shown, Num: numeric(f)})
+			v.HeaderNames = append(v.HeaderNames, f.Name)
+		}
 		v.Display[f.Name] = shown
 		if v.Inputs[f.Name], err = inputValue(f, plain); err != nil {
 			return DocView{}, err
@@ -181,7 +183,7 @@ func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no i
 			}
 			continue
 		}
-		shown, err := Display(ctx, tx, d.Engine, f, plain)
+		shown, err := d.display(ctx, tx, f, plain)
 		if err != nil {
 			return LineView{}, nil, err
 		}
