@@ -28,15 +28,18 @@ type Expected struct {
 	Version    int
 }
 
-// ExpectedState is what the Expected on page shows: the PO's display, the
-// record when Set, the version the form posts (0 with no row) and Refusal,
-// the not-approved text when the PO isn't approved ("" otherwise).
+// ExpectedState is what the Expected on page shows: the PO's display, vendor,
+// rounded total and required by (its summary, UX §5.20; RequiredBy is the
+// zero Date when blank), the record when Set, the version the form posts (0
+// with no row), Today for the date's buttons and Refusal, the not-approved
+// text when the PO isn't approved ("" otherwise).
 type ExpectedState struct {
-	Display  string
-	Expected Expected
-	Set      bool
-	Version  int
-	Refusal  string
+	Display, Vendor, Total string
+	RequiredBy, Today      types.Date
+	Expected               Expected
+	Set                    bool
+	Version                int
+	Refusal                string
 }
 
 // ExpectedInfo reads poID's Expected on record in tx; ok false when there is
@@ -89,7 +92,11 @@ func (s *Service) ExpectedState(ctx context.Context, p auth.Principal, poID int6
 		if err != nil {
 			return err
 		}
-		st = ExpectedState{Display: info.Display, Expected: e, Set: ok, Version: e.Version}
+		vendor, total, requiredBy, err := orderSummary(ctx, tx, poID)
+		if err != nil {
+			return err
+		}
+		st = ExpectedState{Display: info.Display, Vendor: vendor, Total: total, RequiredBy: requiredBy, Today: types.Today(s.d.Clock), Expected: e, Set: ok, Version: e.Version}
 		if info.State != doctype.StateApproved {
 			st.Refusal = msgExpectedNotApproved
 		}

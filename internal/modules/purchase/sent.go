@@ -34,15 +34,18 @@ type Sent struct {
 	Version int
 }
 
-// SendState is what the Send page shows: the PO's display, the record (nil
-// with no row), the version the form posts (0 with no row) and Refusal, the
-// not-approved error the POST returns when the PO isn't approved (nil
-// otherwise).
+// SendState is what the Send page shows: the PO's display, vendor and
+// rounded total (its summary, UX §5.13), the record (nil with no row) with
+// SentByName, its author's name, the version the form posts (0 with no row),
+// Today for the date's buttons and Refusal, the not-approved error the POST
+// returns when the PO isn't approved (nil otherwise).
 type SendState struct {
-	Display string
-	Sent    *Sent
-	Version int
-	Refusal error
+	Display, Vendor, Total string
+	Sent                   *Sent
+	SentByName             string
+	Version                int
+	Today                  types.Date
+	Refusal                error
 }
 
 // SentInfo reads poID's Sent record in tx; ok false when there is none.
@@ -78,9 +81,16 @@ func (s *Service) SendState(ctx context.Context, p auth.Principal, poID int64) (
 		if err != nil {
 			return err
 		}
-		st = SendState{Display: info.Display, Version: e.Version}
+		vendor, total, _, err := orderSummary(ctx, tx, poID)
+		if err != nil {
+			return err
+		}
+		st = SendState{Display: info.Display, Vendor: vendor, Total: total, Version: e.Version, Today: types.Today(s.d.Clock)}
 		if ok {
 			st.Sent = &e
+			if st.SentByName, err = s.userName(ctx, tx, map[int64]string{}, int64(e.SentBy)); err != nil {
+				return err
+			}
 		}
 		if info.State != doctype.StateApproved {
 			st.Refusal = sentNotApproved()
@@ -173,6 +183,26 @@ func (s *Service) sentWrite(ctx context.Context, tx *db.Tx, p auth.Principal, po
 		return doctype.Info{}, 0, &doc.Error{Kind: doc.KindStale, Message: fmt.Sprintf(msgSentStale, info.Display)}
 	}
 	return info, e.Version, nil
+}
+
+// orderSummary is PO poID's vendor (its snapshot), rounded total as
+// HandOverState formats it and required by (the zero Date when blank), for
+// the Send and Expected on pages (UX §5.13, §5.20).
+func orderSummary(ctx context.Context, tx *db.Tx, poID int64) (vendor, total string, requiredBy types.Date, err error) {
+	row, err := dbq.New(tx.SQL()).OrderPageSummary(ctx, poID)
+	if err != nil {
+		return "", "", types.Date{}, err
+	}
+	amount, err := amountOrder(ctx, tx, poID)
+	if err != nil {
+		return "", "", types.Date{}, err
+	}
+	if row.RequiredBy != "" {
+		if requiredBy, err = types.DateFromISO(row.RequiredBy); err != nil {
+			return "", "", types.Date{}, err
+		}
+	}
+	return row.SnapVendorName, types.FormatINR(amount), requiredBy, nil
 }
 
 // sentPO loads poID in tx and checks that p is its owner (write) or holds

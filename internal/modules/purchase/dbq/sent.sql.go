@@ -69,6 +69,25 @@ func (q *Queries) InsertSent(ctx context.Context, arg InsertSentParams) error {
 	return err
 }
 
+const orderPageSummary = `-- name: OrderPageSummary :one
+SELECT snap_vendor_name, CAST(COALESCE(required_by, '') AS TEXT) AS required_by
+FROM purchase_order WHERE id = ?
+`
+
+type OrderPageSummaryRow struct {
+	SnapVendorName string
+	RequiredBy     string
+}
+
+// The Send and Expected on pages' summary from the PO's snapshot (P15e):
+// the vendor name and required by (blank reads ”).
+func (q *Queries) OrderPageSummary(ctx context.Context, id int64) (OrderPageSummaryRow, error) {
+	row := q.db.QueryRowContext(ctx, orderPageSummary, id)
+	var i OrderPageSummaryRow
+	err := row.Scan(&i.SnapVendorName, &i.RequiredBy)
+	return i, err
+}
+
 const updateSent = `-- name: UpdateSent :exec
 UPDATE purchase_order_sent
 SET sent_on = ?, sent_via = ?, note = ?, sent_by = ?, sent_at = ?, version = version + 1

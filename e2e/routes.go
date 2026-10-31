@@ -46,15 +46,16 @@ const (
 // sweepState is what the screens need beyond the canonical seed: a row of
 // worst-case values in every master and a document in every state.
 type sweepState struct {
-	long   testkit.LongRows
-	order  docscreen.SampleIDs
-	amend  int64
-	claim  int64
-	file   int64
-	role   int64
-	admin  int64
-	rule   int64
-	master map[string]int64 // record id by /m/ slug
+	long     testkit.LongRows
+	order    docscreen.SampleIDs
+	amend    int64
+	claim    int64
+	file     int64
+	role     int64
+	admin    int64
+	rule     int64
+	master   map[string]int64 // record id by /m/ slug
+	purchase int64            // a purchase.Order draft of Priya's (P15e)
 }
 
 // prepareSweep seeds sweepState. The stand-in masters' rows the reference order
@@ -117,6 +118,7 @@ func (h *Harness) prepareSweep() sweepState {
 	})
 	s.claim = c.ID
 	s.file = h.attach(deepak, fixture.Claim, c.ID, uitest.LongName100+".jpg")
+	s.purchase = h.purchaseDraft()
 	return s
 }
 
@@ -224,7 +226,41 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
 	out = append(out, expenseReportScreens()...)
+	out = append(out, purchasePageScreens(s.purchase)...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
+}
+
+// purchasePageScreens are MOD-PO P15e's module pages as Priya: the home, a
+// queue, the pending report and its filter page, and the hand-over, Send and
+// Expected on pages of her draft po (the last two show their refusal).
+func purchasePageScreens(po int64) []screens.Screen {
+	order := "/modules/purchase/orders/" + strconv.FormatInt(po, 10)
+	return []screens.Screen{
+		{Name: "purchase home", Route: "/modules/purchase", URL: "/modules/purchase", As: priya},
+		{Name: "purchase queue", Route: "/modules/purchase/q/{queue}", URL: "/modules/purchase/q/drafts", As: priya},
+		{Name: "purchase hand over", Route: "/modules/purchase/orders/{id}/handover", URL: order + "/handover", As: priya},
+		{Name: "purchase send", Route: "/modules/purchase/orders/{id}/send", URL: order + "/send", As: priya},
+		{Name: "purchase expected on", Route: "/modules/purchase/orders/{id}/expected", URL: order + "/expected", As: priya},
+		{Name: "purchase pending report", Route: "/reports/purchase/pending", URL: "/reports/purchase/pending", As: priya},
+		{Name: "purchase pending filter", Route: "/reports/purchase/pending/filter", URL: "/reports/purchase/pending/filter", As: priya},
+	}
+}
+
+// purchaseDraft is a purchase.Order draft of Priya's, for the P15e pages.
+func (h *Harness) purchaseDraft() int64 {
+	h.t.Helper()
+	id := func(table, code string) string {
+		return strconv.FormatInt(Scalar[int64](h, `SELECT id FROM `+table+` WHERE code = ?`, code), 10)
+	}
+	return h.Do(priya, "purchase.Order", 0, doctype.ActionSave, doc.ActionInput{
+		Values: map[string]string{
+			"vendor_id": id("party", "SHREE"), "site_id": id("site", "METRO-SITE"), "project_id": id("project", "PRJ-METRO"), "order_date": plainDate,
+		},
+		Lines: []map[string]string{{
+			"item_id": id("item", "MS-ANGLE-50"), "uom_id": id("uom", "KGS"), "qty": "100", "price": "62.5",
+			"tax_code_id": id("tax_code", "GST18"), "hsn_sac": "7216",
+		}},
+	}).ID
 }
 
 // expenseReportScreens are MOD-EXP S4's report pages and their filter pages,
@@ -476,14 +512,7 @@ var expenseStubs = []string{
 // give the pages screens and remove their routes here; P16 checks the list
 // is empty.
 var purchaseStubs = []struct{ route, owner string }{
-	{"/modules/purchase", "P15e"},
-	{"/modules/purchase/q/{queue}", "P15e"},
-	{"/modules/purchase/orders/{id}/handover", "P15e"},
-	{"/modules/purchase/orders/{id}/send", "P15e"},
-	{"/modules/purchase/orders/{id}/expected", "P15e"},
 	{"/modules/purchase/requests/{id}/order", "P15d"},
-	{"/reports/purchase/pending", "P15e"},
-	{"/reports/purchase/pending/filter", "P15e"},
 }
 
 // grnStubs are MOD-GRN's GET routes that still answer G1's 501 stub, each
