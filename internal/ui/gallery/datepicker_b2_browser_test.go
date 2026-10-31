@@ -3,6 +3,7 @@
 package gallery
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
@@ -18,9 +19,11 @@ const datePick = `const t = document.getElementById("f-date"), b = document.quer
 
 // TestDateInputBrowser_Picker (A-15, CD-336 (1)): Tab reaches the 44 px
 // "Choose date" button from the text box; the button opens the picker on the
-// box's date (showPicker stubbed, as headless Chrome draws no picker) and
-// falls back to focusing the date input when showPicker throws; a picked
-// date is written as dd-mm-yyyy and fires change, so the weekday echo runs.
+// box's date in every digit form, else on today (showPicker stubbed, as
+// headless Chrome draws no picker; CD-351 (1)); when showPicker throws it
+// focuses and clicks the date input, then gives focus back to the button; a
+// picked date is written as dd-mm-yyyy and fires change, so the weekday echo
+// runs.
 func TestDateInputBrowser_Picker(t *testing.T) {
 	s := httptest.NewServer(Handler())
 	t.Cleanup(s.Close)
@@ -40,22 +43,42 @@ func TestDateInputBrowser_Picker(t *testing.T) {
 			t.Errorf("%d: the button isn't inside the text box", w)
 		}
 
-		got := value[string](t, ctx, `(() => { `+datePick+` let seen = "none"; d.showPicker = function () { seen = this.value; }; t.value = "05-03-2026"; b.click(); return seen; })()`)
-		if got != "2026-03-05" {
-			t.Errorf("%d: showPicker saw %q, want 2026-03-05 (the box's date)", w, got)
+		// CD-351 (1): every digit form the server accepts opens on the box's
+		// date; d-Mon-yyyy, invalid and partial values open on today (an empty
+		// value), over a stale one, without an exception.
+		for _, c := range []struct{ typed, want string }{
+			{"05-03-2026", "2026-03-05"},
+			{"5-3-2026", "2026-03-05"},
+			{"05/03/2026", "2026-03-05"},
+			{"5/3/2026", "2026-03-05"},
+			{"5.3.2026", "2026-03-05"},
+			{" 27-10-2026 ", "2026-10-27"},
+			{"5-Mar-2026", ""},
+			{"31-02-2026", ""},
+			{"05-03", ""},
+			{"5-3-26", ""},
+			{"", ""},
+		} {
+			got := value[[]string](t, ctx, `(() => { `+datePick+` let seen = "not called", errs = []; const onErr = function (e) { errs.push(String(e.message)); }; window.addEventListener("error", onErr); d.value = "2020-01-01"; d.showPicker = function () { seen = this.value; }; t.value = `+jsString(c.typed)+`; b.click(); window.removeEventListener("error", onErr); return [seen, errs.join("; ")]; })()`)
+			if got[0] != c.want || got[1] != "" {
+				t.Errorf("%d: typed %q: showPicker saw %q (errors %q), want %q", w, c.typed, got[0], got[1], c.want)
+			}
 		}
-		got = value[string](t, ctx, `(() => { `+datePick+` d.showPicker = function () { throw new DOMException("no", "NotAllowedError"); }; b.click(); return document.activeElement === d ? "focused" : "not focused"; })()`)
-		if got != "focused" {
-			t.Errorf("%d: when showPicker throws, the date input is %s", w, got)
+		got := value[string](t, ctx, `(() => { `+datePick+` let calls = []; d.addEventListener("focus", function () { calls.push("focus"); }, { once: true }); d.addEventListener("click", function () { calls.push("click"); }, { once: true }); d.showPicker = function () { throw new DOMException("no", "NotAllowedError"); }; b.click(); return calls.join(",") + (document.activeElement === b ? " back on the button" : " focus elsewhere"); })()`)
+		if got != "focus,click back on the button" {
+			t.Errorf("%d: when showPicker throws: %q, want the date input focused and clicked, then focus back on the button", w, got)
 		}
 
-		act(t, ctx, "pick 1 November 2026", chromedp.Evaluate[chromedp.Void](`(() => { `+datePick+` window.__b2changes = 0; t.addEventListener("change", function () { window.__b2changes++; }); d.value = "2026-11-01"; d.dispatchEvent(new Event("change", { bubbles: true })); })()`))
-		if got := value[string](t, ctx, `document.getElementById("f-date").value`); got != "01-11-2026" {
-			t.Errorf("%d: box = %q, want 01-11-2026", w, got)
-		}
-		if got := value[int](t, ctx, `window.__b2changes`); got != 1 {
-			t.Errorf("%d: %d change events on the box, want 1", w, got)
+		got = value[string](t, ctx, `(() => { `+datePick+` let changes = 0; t.addEventListener("change", function () { changes++; }); d.value = "2026-11-01"; d.dispatchEvent(new Event("change", { bubbles: true })); return t.value + " " + changes; })()`)
+		if got != "01-11-2026 1" {
+			t.Errorf("%d: after the pick, box and change count = %q, want \"01-11-2026 1\"", w, got)
 		}
 		until(t, ctx, "the weekday echo", `document.getElementById("f-date-msg").textContent.trim() === "Sunday, 1 November 2026"`)
 	}
+}
+
+// jsString is s as a JavaScript string literal.
+func jsString(s string) string {
+	b, _ := json.Marshal(s) //nolint:errchkjson // a string always marshals
+	return string(b)
 }

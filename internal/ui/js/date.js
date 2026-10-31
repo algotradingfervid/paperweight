@@ -2,8 +2,12 @@
 // button (CD-336 (1)). The button opens the platform picker of a hidden
 // date input on the box's date; a picked date is written back as
 // dd-mm-yyyy. The change event sends the value to /ui/validate/date.
-// "dd-mm-yyyy" and "yyyy-mm-dd" turn into each other by reversing the parts.
-const flip = (v) => v.split("-").reverse().join("-");
+// toISO is a typed d-m-yyyy, d/m/yyyy or d.m.yyyy date as yyyy-mm-dd, or ""
+// (the picker then opens on today) for anything else (CD-351 (1)).
+const toISO = (v) => {
+  const m = /^(\d\d?)[-/.](\d\d?)[-/.](\d{4})$/.exec(v.trim());
+  return m ? m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0") : "";
+};
 
 function setDate(id, v) {
   const input = document.getElementById(id);
@@ -15,13 +19,15 @@ function setDate(id, v) {
 document.addEventListener("click", function (e) {
   const pick = e.target.closest("[data-date-pick]");
   if (pick) {
-    const d = pick.nextElementSibling;
-    d.value = flip(document.getElementById(pick.getAttribute("aria-controls")).value);
+    const id = pick.getAttribute("aria-controls");
+    const d = document.querySelector('[data-date-picker="' + id + '"]');
+    d.value = toISO(document.getElementById(id).value);
     try {
       d.showPicker();
     } catch {
       d.focus();
       d.click();
+      pick.focus();
     }
     return;
   }
@@ -31,5 +37,5 @@ document.addEventListener("click", function (e) {
 
 document.addEventListener("change", function (e) {
   const d = e.target;
-  if (d.dataset.datePicker && d.value) setDate(d.dataset.datePicker, flip(d.value));
+  if (d.dataset.datePicker && d.value) setDate(d.dataset.datePicker, d.value.split("-").reverse().join("-"));
 });
