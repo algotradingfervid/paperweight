@@ -435,11 +435,11 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 	case purchase.DocType:
 		return func(t *testing.T) (map[string]string, map[string]string) {
 			return map[string]string{
-					"vendor_id": e.idOf(t, "party", "SHREE"), "site_id": e.idOf(t, "site", "METRO-SITE"), "project_id": e.idOf(t, "project", "PRJ-METRO"), "order_date": day,
-				}, map[string]string{
-					"item_id": e.idOf(t, "item", "MS-ANGLE-50"), "uom_id": e.idOf(t, "uom", "KGS"), "qty": "1", "price": "10.00",
-					"tax_code_id": e.idOf(t, "tax_code", "GST18"), "hsn_sac": "7216",
-				}
+				"vendor_id": e.idOf(t, "party", "SHREE"), "site_id": e.idOf(t, "site", "METRO-SITE"), "project_id": e.idOf(t, "project", "PRJ-METRO"), "order_date": day,
+			}, map[string]string{
+				"item_id": e.idOf(t, "item", "MS-ANGLE-50"), "uom_id": e.idOf(t, "uom", "KGS"), "qty": "1", "price": "10.00",
+				"tax_code_id": e.idOf(t, "tax_code", "GST18"), "hsn_sac": "7216",
+			}
 		}
 	case expense.AdvanceDocType:
 		return func(t *testing.T) (map[string]string, map[string]string) {
