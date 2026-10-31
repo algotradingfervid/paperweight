@@ -1002,14 +1002,13 @@ func (d *rsDoc) sources(t *testing.T) map[string]string {
 var rsDraftInputs = map[string][]string{purchase.DocType: {"site_id"}}
 
 // rsBodyInputs is, by DocType, a step whose module Body draws a declared
-// field only once the draft holds other header inputs: P15a's Terms step
-// draws the vendor address radios only with a vendor (UX §5.5). The probe
-// draft holds those inputs too, so drawsDeclared can expect the field; the
-// "body inputs" cell checks each one is still needed.
+// field only once the draft holds other header inputs. None does today:
+// P15a's Terms step posts vendor_address_id even with no vendor (an empty
+// hidden input). The "body inputs" cell checks each entry is still needed.
 var rsBodyInputs = map[string]struct {
 	step, field string
 	inputs      []string
-}{purchase.DocType: {"terms", "vendor_address_id", []string{"vendor_id"}}}
+}{}
 
 // bodyInputs checks d's rsBodyInputs entry: on a draft without the inputs,
 // the module's Body leaves the field out.
