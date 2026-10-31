@@ -33,6 +33,8 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/company"
 	companyweb "github.com/vardhan/internaltools/internal/masters/company/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
+	"github.com/vardhan/internaltools/internal/modules/modkit"
+	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/migrations"
@@ -75,6 +77,8 @@ type App struct {
 	approvals *approval.Approvals
 	files     *files.Store
 	masters   *allmasters.Services
+	comments  *modkit.Comments
+	purchase  *purchase.Service
 	router    chi.Router
 	screens   map[string]bool // the mounted master list paths
 	installed atomic.Bool     // a user exists; once true it stays true
@@ -172,6 +176,12 @@ func New(ctx context.Context, cfg Config) (a *App, err error) {
 	dir.Directory = a.masters.Directory
 	fileInfo.InfoSource = companyweb.Info(a.masters.Company, a.engine)
 	a.masters.Letterhead.LogoURL = companyweb.LogoURL(a.masters.Company, a.files)
+	a.comments = modkit.NewComments(modkit.CommentsDeps{DB: d, Auth: a.auth, Info: a.engine, Clock: cfg.Clock})
+	// purchase's hooks read their dependencies for this database only (CD-284).
+	purchase.Wire(d, purchase.HookDeps{Clock: cfg.Clock, Comments: a.comments})
+	a.purchase = purchase.New(purchase.ServiceDeps{
+		DB: d, Engine: a.engine, Auth: a.auth, Audit: audit.Default, Approvals: a.approvals, Comments: a.comments, Clock: cfg.Clock,
+	})
 
 	if err := a.auth.SeedDefaults(ctx, seedOptions); err != nil {
 		return nil, err
