@@ -51,7 +51,9 @@ func p12Blank(label, code string) string {
 	return label + " " + code + " is disabled, so it was left blank."
 }
 
-// p12Dropped is the note for a source line left out (spec §24.1).
+// p12Dropped is the note for a source line left out (spec §24.1). The label
+// is mid-sentence, so callers pass it lower-cased as DOC writes a label there
+// (doc/validate.go, strings.ToLower(f.Label)): "item", "uom", "tax code".
 func p12Dropped(n int, display, label, code string) string {
 	return "Line " + strconv.Itoa(n) + " of " + display + " was left out: " + label + " " + code + " is disabled."
 }
@@ -319,7 +321,7 @@ func TestPO_Copy(t *testing.T) {
 		if len(lines) != 2 || !mapsEqual(lines[0], srcLines[0]) || !mapsEqual(lines[1], srcLines[2]) {
 			t.Errorf("copy lines = %v, want the source's lines 1 and 3 %v %v (line 2's item is disabled)", lines, srcLines[0], srcLines[2])
 		}
-		want := strings.Join([]string{p12First(display), p12Blank("Payment terms", "NET30"), p12Dropped(2, display, "Item", "WIRE-18G")}, "\n")
+		want := strings.Join([]string{p12First(display), p12Blank("Payment terms", "NET30"), p12Dropped(2, display, "item", "WIRE-18G")}, "\n")
 		if got := p12Notes(t, env, newID); got != want {
 			t.Errorf("copy_notes =\n%q\nwant\n%q", got, want)
 		}
@@ -345,7 +347,7 @@ func TestPO_Copy(t *testing.T) {
 			t.Errorf("copy lines = %v, want the source's lines 1 and 3 %v %v", lines, srcLines[0], srcLines[2])
 		}
 		want := strings.Join([]string{
-			p12First(display), p12Dropped(2, display, "UoM", "NOS"), p12Dropped(4, display, "Tax code", "GST12"),
+			p12First(display), p12Dropped(2, display, "uom", "NOS"), p12Dropped(4, display, "tax code", "GST12"),
 		}, "\n")
 		if got := p12Notes(t, env, newID); got != want {
 			t.Errorf("copy_notes =\n%q\nwant\n%q", got, want)

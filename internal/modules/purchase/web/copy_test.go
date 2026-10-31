@@ -285,15 +285,24 @@ func p12Disable(t *testing.T, env *purchasetest.Env, table, code string) {
 // to the PO page with one danger flash holding DOC's field message(s), joined
 // with a space, and nothing created.
 func TestPurchaseWeb_CopyPostDisabledSiteProject(t *testing.T) {
-	for _, c := range []struct{ name, table, code, text string }{
-		{"disabled project", "project", "PRJ-METRO", p12MsgProjectOff},
-		{"disabled site", "site", "METRO-SITE", p12MsgSiteOff},
+	for _, c := range []struct {
+		name    string
+		disable [][2]string // table, code
+		text    string
+	}{
+		{"disabled project", [][2]string{{"project", "PRJ-METRO"}}, p12MsgProjectOff},
+		{"disabled site", [][2]string{{"site", "METRO-SITE"}}, p12MsgSiteOff},
+		// Both: one flash, DOC's field errors in its order (site first),
+		// joined by a space.
+		{"disabled site and project", [][2]string{{"site", "METRO-SITE"}, {"project", "PRJ-METRO"}}, p12MsgSiteOff + " " + p12MsgProjectOff},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			env := purchasetest.New(t)
 			w := newP12Web(t, env, env.Service)
 			po := purchasetest.NewOrder(t, env) // METRO-SITE / PRJ-METRO
-			p12Disable(t, env, c.table, c.code)
+			for _, d := range c.disable {
+				p12Disable(t, env, d[0], d[1])
+			}
 			n, _ := w.orders(t)
 
 			a := w.post(t, env.Arjun, p12Path(strconv.FormatInt(po.ID, 10)))
