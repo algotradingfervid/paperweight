@@ -375,8 +375,9 @@ func TestRequest_RefreshOnlyLinked(t *testing.T) {
 			p2Must(t, "close")(p2Do(t, env, env.Priya, am.ID, doc.ActionClose, p6CloseReason))
 		}, "5", "part_ordered"},
 		{"RefreshReceiptStatus on R1's closed PO", func(t *testing.T) {
+			line := p2Load(t, env, am.ID).Lines[0].ID // read before the write: p2Load opens its own read tx
 			if err := env.DB.Write(t.Context(), func(tx *db.Tx) error {
-				return purchase.RefreshReceiptStatus(t.Context(), tx, am.ID, map[int64]types.Qty{p2Load(t, env, am.ID).Lines[0].ID: p6Q(t, "8")})
+				return purchase.RefreshReceiptStatus(t.Context(), tx, am.ID, map[int64]types.Qty{line: p6Q(t, "8")})
 			}); err != nil {
 				t.Fatalf("RefreshReceiptStatus: %v", err)
 			}

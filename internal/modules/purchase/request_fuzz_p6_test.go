@@ -28,23 +28,28 @@ import (
 //     over-ordered (more than the row's quantity minus the other POs');
 //   - a save, submit or approve is refused with "is already on" exactly when
 //     the other POs' ordered plus held reach a row it links (§20.5), and
-//     otherwise goes through while the request is submitted.
+//     otherwise goes through while the request is submitted;
+//   - on a closed request it is refused, except that an amendment whose
+//     every linked row is one its amended-from PO held keeps them and
+//     follows the quantity rule above (CD-279 (10), G0c; AD-13 ruling).
 func FuzzRequest_OrderInvariants(f *testing.F) {
 	// A save's arg picks bags p6FuzzBags[arg%6] and kg p6FuzzKg[arg/6%4]
 	// (4 = 40 Bag, 3 = 25 Bag, 5 = 45 Bag, 16 = 40 Bag and 100 kg); an op of
 	// 11 + a acts on slot 1 (Arjun), 22 + a on slot 2.
 	for _, seed := range [][]byte{
-		{0, 4, 1, 0, 2, 0},                              // save 40 Bag, submit, approve
-		{0, 4, 1, 0, 2, 0, 7, 0, 9, 0, 1, 0, 2, 0},      // approve, cancel, amend, submit, approve
-		{0, 4, 1, 0, 2, 0, 8, 2},                        // approve, short close after 25 received
-		{0, 4, 11, 4, 11, 1},                            // a second buyer's 40 and 10 Bag refused
-		{0, 3, 11, 4, 1, 0, 12, 0, 13, 0},               // 25 + 40 save; the first submit is refused
-		{0, 4, 1, 0, 3, 0, 11, 4, 5, 0, 6, 0, 11, 4},    // rejected holds; revise, delete frees
-		{0, 4, 1, 0, 4, 0, 6, 0, 11, 4},                 // withdrawn holds; delete frees
-		{0, 5, 1, 0, 2, 0, 10, 0, 22, 1, 8, 3},          // over-order 45, request closed, save refused, close
-		{0, 4, 1, 0, 2, 0, 8, 1, 22, 3, 23, 0, 24, 0},   // close after 10 received; 25 of the freed 30 re-ordered
-		{0, 16, 1, 0, 2, 0, 11, 8, 7, 0, 11, 8},         // both rows ordered; another buyer refused until the cancel
-		{11, 16, 12, 0, 13, 0, 18, 2, 0, 3, 1, 0, 2, 0}, // Arjun's PO closed at 25 received; Priya over-orders the rest
+		{0, 4, 1, 0, 2, 0},                                            // save 40 Bag, submit, approve
+		{0, 4, 1, 0, 2, 0, 7, 0, 9, 0, 1, 0, 2, 0},                    // approve, cancel, amend, submit, approve
+		{0, 4, 1, 0, 2, 0, 8, 2},                                      // approve, short close after 25 received
+		{0, 4, 11, 4, 11, 1},                                          // a second buyer's 40 and 10 Bag refused
+		{0, 3, 11, 4, 1, 0, 12, 0, 13, 0},                             // 25 + 40 save; the first submit is refused
+		{0, 4, 1, 0, 3, 0, 11, 4, 5, 0, 6, 0, 11, 4},                  // rejected holds; revise, delete frees
+		{0, 4, 1, 0, 4, 0, 6, 0, 11, 4},                               // withdrawn holds; delete frees
+		{0, 5, 1, 0, 2, 0, 10, 0, 22, 1, 8, 3},                        // over-order 45, request closed, save refused, close
+		{0, 4, 1, 0, 2, 0, 8, 1, 22, 3, 23, 0, 24, 0},                 // close after 10 received; 25 of the freed 30 re-ordered
+		{0, 16, 1, 0, 2, 0, 11, 8, 7, 0, 11, 8},                       // both rows ordered; another buyer refused until the cancel
+		{11, 16, 12, 0, 13, 0, 18, 2, 0, 3, 1, 0, 2, 0},               // Arjun's PO closed at 25 received; Priya over-orders the rest
+		{0, 1, 1, 0, 2, 0, 7, 0, 9, 0, 1, 0, 10, 0, 2, 0},             // 10 Bag approved, cancelled, amended, submitted; request closed; amendment approved (G0c)
+		{0, 1, 1, 0, 2, 0, 7, 0, 10, 0, 9, 0, 0, 7, 0, 1, 1, 0, 2, 0}, // request closed after the cancel; the amendment's save adding row 2 refused, keeping only row 1 approved
 	} {
 		f.Add(seed)
 	}
@@ -72,8 +77,9 @@ type p6World struct {
 	want       [2]types.Qty // the rows' requested quantities
 	slots      [3]int64     // PO id per slot, 0 = none
 	owners     [3]auth.Principal
-	closed     bool // the request is closed
-	overOrders bool // some save ordered more than the row's quantity minus the other POs'
+	closed     bool            // the request is closed
+	amendedOf  map[int64]int64 // amendment PO id -> the PO it amends
+	overOrders bool            // some save ordered more than the row's quantity minus the other POs'
 }
 
 func p6NewWorld(t *testing.T) *p6World {
@@ -84,9 +90,10 @@ func p6NewWorld(t *testing.T) *p6World {
 		p5Line(t, env, "CEMENT-OPC", "BAG", "40"), p5Line(t, env, "MS-ANGLE-50", "KGS", "100")})
 	return &p6World{
 		env: env, req: req,
-		rows:   [2]int64{req.Lines[0].ID, req.Lines[1].ID},
-		want:   [2]types.Qty{p6Q(t, "40"), p6Q(t, "100")},
-		owners: [3]auth.Principal{env.Priya, env.Arjun, env.Priya},
+		rows:      [2]int64{req.Lines[0].ID, req.Lines[1].ID},
+		want:      [2]types.Qty{p6Q(t, "40"), p6Q(t, "100")},
+		owners:    [3]auth.Principal{env.Priya, env.Arjun, env.Priya},
+		amendedOf: map[int64]int64{},
 	}
 }
 
@@ -189,7 +196,7 @@ func (w *p6World) expectRule(t *testing.T, what string, id int64, on map[int]typ
 		}
 	}
 	switch {
-	case w.closed:
+	case w.closed && !w.keepsHeld(t, id, on):
 		if err == nil {
 			t.Errorf("%s of PO %d with the request closed: saved, want DOC's closed refusal", what, id)
 		}
@@ -200,6 +207,24 @@ func (w *p6World) expectRule(t *testing.T, what string, id int64, on map[int]typ
 	case err != nil:
 		t.Errorf("%s of PO %d (others %v below rows %v): %v %+v, want it through", what, id, others, w.want, err, p5Fields(err))
 	}
+}
+
+// keepsHeld reports whether PO id is an amendment and every row in on is
+// one its amended-from PO linked: G0c lets it keep them on a closed request
+// (CD-279 (10)). Any other row, or a PO that amends nothing, is refused.
+func (w *p6World) keepsHeld(t *testing.T, id int64, on map[int]types.Qty) bool {
+	t.Helper()
+	from := w.amendedOf[id]
+	if id == 0 || from == 0 || len(on) == 0 {
+		return false
+	}
+	held := w.linked(t, from)
+	for i := range on {
+		if _, ok := held[i]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // p6FieldText joins err's field error messages.
@@ -316,6 +341,7 @@ func (w *p6World) step(t *testing.T, op, arg byte) {
 		if st == doctype.StateCancelled {
 			if res, err := p2Do(t, env, owner, id, doc.ActionAmend, ""); err == nil {
 				w.slots[slot] = res.ID
+				w.amendedOf[res.ID] = id
 			}
 		}
 	case 10:
