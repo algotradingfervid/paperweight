@@ -33,6 +33,8 @@ import (
 // and western grouping) or URL. Every route answers the status sweepStatus
 // says, and the controls, which the viewer may read, appear on every route
 // that answers 200 unless noControl says why not, so an empty page can't pass.
+// checkBuyer then opens the purchase queues, home and Create PO as a buyer
+// with the same read scope, which also holds the rights those queues need.
 func TestTooling_VisibilitySweep(t *testing.T) {
 	s := seedSweep(t)
 	s.checkReadable(t)
@@ -51,9 +53,13 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 	}
 	bodies := map[string]string{}
 	got := map[string]map[bool]map[int]bool{} // route → hidden page → statuses seen
+	pinned := s.urlStatuses()
 	for _, p := range pages {
 		r := v.get(p.url)
 		bodies[p.url] = r.body
+		if want, ok := pinned[p.url]; ok && r.status != want {
+			t.Errorf("GET %s (route %s) = %d, want %d: update urlStatuses if the change is right", p.url, p.route, r.status, want)
+		}
 		if got[p.route] == nil {
 			got[p.route] = map[bool]map[int]bool{}
 		}
@@ -98,6 +104,11 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 			t.Errorf("sweepStatuses lists %s, which the router no longer has", route)
 		}
 	}
+	for u := range pinned {
+		if _, ok := bodies[u]; !ok {
+			t.Errorf("urlStatuses pins %s, which the sweep no longer GETs", u)
+		}
+	}
 
 	routeOf := map[string]string{}
 	for _, p := range pages {
@@ -132,6 +143,7 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 	}
 	s.checkInboxCount(t, v)
 	s.checkWideInbox(t, hidden)
+	s.checkBuyer(t, hidden)
 	t.Logf("swept %d GETs over %d routes as the viewer", len(pages), len(got))
 }
 
@@ -193,6 +205,30 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	}
 	return out
 }()
+
+// urlStatuses pins, URL by URL, what the viewer gets on routes whose
+// sweepStatuses entry allows more than one status: each queue (404 is a
+// queue whose card's right the viewer lacks: create or amend on orders,
+// create on requests; only no-such-queue is unknown), and Create PO on the
+// control and hidden request (403: no create on orders, after read; 404:
+// read is checked first).
+func (s *sweepSeed) urlStatuses() map[string]int {
+	const ok, forbidden, missing = http.StatusOK, http.StatusForbidden, http.StatusNotFound
+	q := "/modules/purchase/q/"
+	out := map[string]int{
+		q + purchase.QueueDrafts: missing, q + purchase.QueueWaiting: missing, q + purchase.QueueToSend: ok,
+		q + purchase.QueueToClose: missing, q + purchase.QueueAwaitingDelivery: ok, q + purchase.QueueRequestsToOrder: missing,
+		q + purchase.QueueMyRequests: missing, q + "no-such-queue": missing,
+	}
+	for _, c := range s.candidates("/modules/purchase/requests/{id}/order", "id") {
+		want := forbidden
+		if c.hidden {
+			want = missing
+		}
+		out["/modules/purchase/requests/"+c.value+"/order"] = want
+	}
+	return out
+}
 
 // sweepStatus is what route may answer the viewer.
 func sweepStatus(route string, hidden bool) []int {
@@ -576,7 +612,9 @@ func (s *sweepSeed) candidates(route, param string) []candidate {
 			return plain(masterSections[slug]...)
 		}
 	case strings.HasPrefix(route, "/modules/purchase/orders/"):
-		return ids(purchase.DocType)
+		// Plus the approved control, whose send, hand-over and expected pages
+		// draw their forms (controlExpectations).
+		return append(ids(purchase.DocType), candidate{value: idText(s.find(purchase.DocType, false, stApproved).id)})
 	case strings.HasPrefix(route, "/modules/purchase/requests/"):
 		return ids(purchase.RequestDocType)
 	case strings.HasPrefix(route, "/modules/expense/advances/"):
@@ -689,23 +727,20 @@ type controlExpectation struct{ url, want string }
 
 // controlExpectations: each control's list, export, page and print page show
 // it, the expense and pending reports and the purchase queues show the
-// approved controls, the first control order's send, hand-over and expected
-// pages show its total, and the inbox and My requests show the pending ones.
+// approved controls, the approved control order's send, hand-over and
+// expected pages show its total, and the inbox and My requests show the
+// pending ones. The buyer's own records are checkBuyer's.
 func (s *sweepSeed) controlExpectations() []controlExpectation {
 	var out []controlExpectation
 	add := func(u, want string) { out = append(out, controlExpectation{u, want}) }
-	firstPO := true // the control order candidates sweeps on /modules/purchase/orders/
 	for _, r := range s.records {
-		if r.hidden {
+		if r.hidden || r.buyer {
 			continue
 		}
-		if r.dt == purchase.DocType && firstPO {
-			firstPO = false
+		if r.dt == purchase.DocType && r.state == stApproved {
 			for _, p := range []string{"send", "handover", "expected"} {
 				add("/modules/purchase/orders/"+idText(r.id)+"/"+p, types.FormatMoney(r.amount))
 			}
-		}
-		if r.dt == purchase.DocType && r.state == stApproved {
 			add("/modules/purchase/q/"+purchase.QueueToSend, r.doc.Number)
 			add("/modules/purchase/q/"+purchase.QueueAwaitingDelivery, r.doc.Number)
 		}
@@ -770,5 +805,101 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 	// The home's To send card counts the one approved control, not the
 	// hidden approved order too.
 	add("/modules/purchase", "1 approved order not sent yet")
+	return out
+}
+
+// checkBuyer: the buyer (create on orders and requests, amend on orders,
+// the viewer's read scope and project-A restriction) opens every queue with
+// 200, only no-such-queue answering 404, and each queue shows its control by
+// title: the buyer's own draft and pending order, the approved control
+// order (to send, to close through its rest row, awaiting delivery), the
+// submitted control request and the buyer's own request. The home's cards
+// count the controls only. Create PO on the submitted control request shows
+// its line; on the hidden one it is 404, because read is checked first. No
+// page names a hidden record, though the buyer owns a hidden draft, pending
+// order and request on project B and the hidden approved order has a rest
+// row too.
+func (s *sweepSeed) checkBuyer(t *testing.T, hidden []hiddenMarks) {
+	t.Helper()
+	own := func(dt string, st seedState) *sweepRecord {
+		for _, r := range s.records {
+			if r.buyer && !r.hidden && r.dt == dt && r.state == st {
+				return r
+			}
+		}
+		t.Fatalf("no buyer's control %s %s seeded", dt, st)
+		return nil
+	}
+	po := s.find(purchase.DocType, false, stApproved)
+	pr := s.find(purchase.RequestDocType, false, stApproved)
+	hiddenPR := s.find(purchase.RequestDocType, true, stApproved)
+	const ok, missing = http.StatusOK, http.StatusNotFound
+	q := "/modules/purchase/q/"
+	pages := []struct {
+		url    string
+		status int
+		want   []string
+	}{
+		{q + purchase.QueueDrafts, ok, []string{s.display(own(purchase.DocType, stDraft))}},
+		{q + purchase.QueueWaiting, ok, []string{s.display(own(purchase.DocType, stPending))}},
+		{q + purchase.QueueToSend, ok, []string{po.doc.Number}},
+		{q + purchase.QueueToClose, ok, []string{po.doc.Number}},
+		{q + purchase.QueueAwaitingDelivery, ok, []string{po.doc.Number}},
+		{q + purchase.QueueRequestsToOrder, ok, []string{pr.doc.Number}},
+		{q + purchase.QueueMyRequests, ok, []string{s.display(own(purchase.RequestDocType, stDraft))}},
+		{q + "no-such-queue", missing, nil},
+		// Each card's text runs together: its title, its figure, its line.
+		{"/modules/purchase", ok, []string{
+			"My drafts" + "1" + "1 order", "To send" + "1" + "1 approved order not sent yet",
+			"To close" + "1" + "1 order the vendor won't complete", "Requests to order" + "1" + "1 request with items to order",
+			"Waiting for approval" + "1" + "1 order", "My purchase requests" + "1" + "1 open",
+			"Awaiting delivery" + "1" + "1 order not fully received",
+		}},
+		{"/modules/purchase/requests/" + idText(pr.id) + "/order", ok, []string{text(false, "pr-line")}},
+		{"/modules/purchase/requests/" + idText(hiddenPR.id) + "/order", missing, nil},
+	}
+	b := s.w.signedIn(buyerEmail)
+	for _, p := range pages {
+		r := b.get(p.url)
+		if r.status != p.status {
+			t.Errorf("buyer GET %s = %d, want %d", p.url, r.status, p.status)
+		}
+		for _, w := range p.want {
+			if !shows(r.pageText(), w) {
+				t.Errorf("buyer GET %s doesn't show the control's %q: the page shows no data, so the check proves nothing there", p.url, w)
+			}
+		}
+		for _, m := range []string{"Rajkot Castings", hiddenVendor, hiddenToken} {
+			if strings.Contains(r.body, m) {
+				t.Errorf("buyer GET %s names a hidden record's vendor or text: %q", p.url, m)
+			}
+		}
+		for _, h := range hidden {
+			if m := leak(r.body, h.markers, h.url); m != "" {
+				t.Errorf("buyer GET %s names hidden %s %d: %q", p.url, h.r.label, h.r.id, m)
+			}
+		}
+	}
+}
+
+// shows reports whether text holds want not followed by a digit, so "Draft
+// 4" doesn't match "Draft 41".
+func shows(text, want string) bool {
+	return regexp.MustCompile(regexp.QuoteMeta(want) + `([^0-9]|$)`).MatchString(text)
+}
+
+// display is r's title as DOC gives it: its number, or "Draft {id}".
+func (s *sweepSeed) display(r *sweepRecord) string {
+	s.w.t.Helper()
+	var out string
+	ctx := context.Background()
+	err := s.w.app.DB().Read(ctx, func(tx *db.Tx) error {
+		info, err := s.w.app.Engine().Info(ctx, tx, r.dt, r.id)
+		out = info.Display
+		return err
+	})
+	if err != nil {
+		s.w.t.Fatalf("info of %s %d: %v", r.dt, r.id, err)
+	}
 	return out
 }

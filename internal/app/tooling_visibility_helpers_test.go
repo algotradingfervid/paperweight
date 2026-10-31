@@ -42,6 +42,14 @@ const (
 	wideEmail   = "kavya@vardhan.test" // EMP-006
 	wideID      = auth.UserID(6)
 	viewerEmail = deepakEmail // linked to EMP-007, so own scope has an employee
+	// The buyer (Ravi) holds viewerRole, so it reads what the viewer reads,
+	// plus buyerRole: create on orders and requests and amend on orders, the
+	// rights the drafts, waiting, to-close, requests-to-order and my-requests
+	// queues and the create-from-request page need. Same project-A
+	// restriction as the viewer.
+	buyerRole  = "Tooling sweep buyer"
+	buyerEmail = raviEmail
+	buyerID    = raviID
 
 	projectA, siteA = "PRJ-METRO", "METRO-SITE"
 	projectB, siteB = "PRJ-TECHPARK", "TECH-SITE"
@@ -85,6 +93,7 @@ type sweepRecord struct {
 	eligible  bool        // the viewer is one of its eligible approvers
 	wideOK    bool        // the wide approver is one of its eligible approvers
 	file      int64       // an attachment's id, 0 = none
+	buyer     bool        // the buyer's own record (seedBuyer), checked by checkBuyer
 }
 
 // sweepSeed is the seeded world the sweep reads as the viewer.
@@ -94,6 +103,7 @@ type sweepSeed struct {
 	viewer   auth.Principal
 	wide     auth.Principal // the wide approver
 	approver auth.Principal
+	buyer    auth.Principal
 	records  []*sweepRecord
 	ids      map[string]map[string]int64 // master table → code → id
 }
@@ -207,9 +217,28 @@ func seedSweep(t *testing.T) *sweepSeed {
 	if err := w.app.Auth().ChangeRestrictions(ctx, admin, wideID, auth.DimProject, []int64{s.id("project", projectA)}, nil, nil); err != nil {
 		t.Fatalf("restrict the wide approver: %v", err)
 	}
+	if err := w.app.Auth().CreateRole(ctx, admin, buyerRole); err != nil {
+		t.Fatalf("create the buyer role: %v", err)
+	}
+	buyerRights := map[string]map[auth.Right]auth.Scope{
+		purchase.DocType:        {auth.RightCreate: auth.ScopeAll, auth.RightAmend: auth.ScopeAll},
+		purchase.RequestDocType: {auth.RightCreate: auth.ScopeAll},
+	}
+	for dt, rights := range buyerRights {
+		d, _ := doctype.Lookup(dt)
+		rights[auth.RightRead] = viewerRights(d)[auth.RightRead] // AUTH needs read beside any right; the viewer's scope
+		if err := w.app.Auth().SetRights(ctx, admin, buyerRole, dt, rights); err != nil {
+			t.Fatalf("buyer rights on %s: %v", dt, err)
+		}
+	}
+	roles = []string{viewerRole, buyerRole}
+	if _, err := w.app.Auth().UpdateUser(ctx, admin, buyerID, auth.UserPatch{Roles: &roles}); err != nil {
+		t.Fatalf("buyer roles: %v", err)
+	}
 	s.wide = w.principal(wideID)
 	s.viewer = w.principal(deepakID)
 	s.approver = w.principal(approverID)
+	s.buyer = w.principal(buyerID) // unrestricted until seedBuyer has made its project-B records
 
 	listed := map[string]bool{}
 	for _, sd := range sweepSeeders {
@@ -229,6 +258,7 @@ func seedSweep(t *testing.T) *sweepSeed {
 	for _, sd := range sweepSeeders {
 		sd.seed(s)
 	}
+	seedBuyer(s)
 	s.reload()
 	return s
 }
@@ -250,7 +280,14 @@ func (s *sweepSeed) act(p auth.Principal, dt string, id int64, a doctype.Action,
 // add saves a draft as the admin and takes it to st.
 func (s *sweepSeed) add(dt string, hidden bool, st seedState, in doc.ActionInput) *sweepRecord {
 	s.w.t.Helper()
-	res := s.act(s.admin, dt, 0, doctype.ActionSave, in)
+	return s.addAs(s.admin, dt, hidden, st, in)
+}
+
+// addAs saves a draft as by and takes it to st; by submits, cancels and
+// closes it (stMine: the viewer submits).
+func (s *sweepSeed) addAs(by auth.Principal, dt string, hidden bool, st seedState, in doc.ActionInput) *sweepRecord {
+	s.w.t.Helper()
+	res := s.act(by, dt, 0, doctype.ActionSave, in)
 	reason := doc.ActionInput{Reason: tokenOf(hidden) + "-reason-" + string(st)}
 	step := func(p auth.Principal, a doctype.Action, in doc.ActionInput) {
 		in.Version = res.Version
@@ -261,7 +298,7 @@ func (s *sweepSeed) add(dt string, hidden bool, st seedState, in doc.ActionInput
 	case stMine:
 		step(s.viewer, doctype.ActionSubmit, doc.ActionInput{})
 	default:
-		step(s.admin, doctype.ActionSubmit, doc.ActionInput{})
+		step(by, doctype.ActionSubmit, doc.ActionInput{})
 	}
 	switch st {
 	case stApproved, stCancelled, stClosed:
@@ -273,9 +310,9 @@ func (s *sweepSeed) add(dt string, hidden bool, st seedState, in doc.ActionInput
 	}
 	switch st {
 	case stCancelled:
-		step(s.admin, doctype.ActionCancel, reason)
+		step(by, doctype.ActionCancel, reason)
 	case stClosed:
-		step(s.admin, doctype.ActionClose, reason)
+		step(by, doctype.ActionClose, reason)
 	}
 	want := map[seedState]doctype.State{
 		stDraft: doctype.StateDraft, stPending: doctype.StatePending, stMine: doctype.StatePending, stApproved: doctype.StateApproved,
@@ -284,7 +321,10 @@ func (s *sweepSeed) add(dt string, hidden bool, st seedState, in doc.ActionInput
 	if res.State != want {
 		s.w.t.Fatalf("%s %d: state %s, want %s", dt, res.ID, res.State, want)
 	}
-	r := &sweepRecord{dt: dt, label: dt + " " + string(st), id: res.ID, hidden: hidden, state: st}
+	r := &sweepRecord{dt: dt, label: dt + " " + string(st), id: res.ID, hidden: hidden, state: st, buyer: by.ID == buyerID}
+	if r.buyer {
+		r.label = "buyer's " + r.label
+	}
 	s.records = append(s.records, r)
 	return r
 }
@@ -320,8 +360,8 @@ func (s *sweepSeed) reload() {
 	}
 }
 
-// readErr is the viewer's read check on r, through the real auth.Service.
-func (s *sweepSeed) readErr(r *sweepRecord) error {
+// readErr is p's read check on r, through the real auth.Service.
+func (s *sweepSeed) readErr(p auth.Principal, r *sweepRecord) error {
 	s.w.t.Helper()
 	ctx := context.Background()
 	var got error
@@ -331,7 +371,7 @@ func (s *sweepSeed) readErr(r *sweepRecord) error {
 			return err
 		}
 		rec := auth.RecordRef{DocType: info.DocType, ID: info.ID, CreatedBy: info.CreatedBy, EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs}
-		got = s.w.app.Auth().CanTx(ctx, tx, s.viewer, r.dt, auth.RightRead, &rec)
+		got = s.w.app.Auth().CanTx(ctx, tx, p, r.dt, auth.RightRead, &rec)
 		return nil
 	})
 	if err != nil {
@@ -341,16 +381,23 @@ func (s *sweepSeed) readErr(r *sweepRecord) error {
 }
 
 // checkReadable asserts that the viewer reads every control and no hidden
+// record, and the buyer every purchase control and no hidden purchase
 // record, so the sweep's split is the auth.Service's.
 func (s *sweepSeed) checkReadable(t *testing.T) {
 	t.Helper()
 	for _, r := range s.records {
-		err := s.readErr(r)
-		switch {
-		case r.hidden && !errors.Is(err, auth.ErrForbidden) && !errors.Is(err, auth.ErrNotFound):
-			t.Errorf("viewer read on hidden %s %d = %v, want ErrForbidden or ErrNotFound (hidden reads as missing)", r.dt, r.id, err)
-		case !r.hidden && err != nil:
-			t.Errorf("viewer read on control %s %d = %v, want nil", r.dt, r.id, err)
+		who := []auth.Principal{s.viewer}
+		if r.dt == purchase.DocType || r.dt == purchase.RequestDocType {
+			who = append(who, s.buyer)
+		}
+		for _, p := range who {
+			err := s.readErr(p, r)
+			switch {
+			case r.hidden && !errors.Is(err, auth.ErrForbidden) && !errors.Is(err, auth.ErrNotFound):
+				t.Errorf("%s read on hidden %s %d = %v, want ErrForbidden or ErrNotFound (hidden reads as missing)", p.Name, r.dt, r.id, err)
+			case !r.hidden && err != nil:
+				t.Errorf("%s read on control %s %d = %v, want nil", p.Name, r.dt, r.id, err)
+			}
 		}
 	}
 }
@@ -396,55 +443,96 @@ func (s *sweepSeed) find(dt string, hidden bool, st seedState) *sweepRecord {
 // seedRequests: the control approved request is the one a hidden order's
 // line orders (seedOrders).
 func seedRequests(s *sweepSeed) {
-	request := func(hidden bool, st seedState) {
-		project, site, qty := projectA, siteA, "1"
-		if hidden {
-			project, site, qty = projectB, siteB, hiddenQty
-		}
-		s.add(purchase.RequestDocType, hidden, st, doc.ActionInput{
-			Values: map[string]string{
-				"site_id": s.idText("site", site), "project_id": s.idText("project", project),
-				"request_date": "2026-10-24", "purpose": text(hidden, "pr-"+string(st)),
-			},
-			Lines: []map[string]string{{
-				"item_id": s.idText("item", "MS-ANGLE-50"), "uom_id": s.idText("uom", "KGS"), "qty": qty,
-				"description": text(hidden, "pr-line"), "note": text(hidden, "pr-note"),
-			}},
-		})
-	}
 	for _, st := range []seedState{stDraft, stApproved, stClosed} {
-		request(false, st)
-		request(true, st)
+		s.request(s.admin, false, st)
+		s.request(s.admin, true, st)
 	}
+}
+
+// request adds by's request on project A, or on project B when hidden.
+func (s *sweepSeed) request(by auth.Principal, hidden bool, st seedState) *sweepRecord {
+	s.w.t.Helper()
+	project, site, qty := projectA, siteA, "1"
+	if hidden {
+		project, site, qty = projectB, siteB, hiddenQty
+	}
+	return s.addAs(by, purchase.RequestDocType, hidden, st, doc.ActionInput{
+		Values: map[string]string{
+			"site_id": s.idText("site", site), "project_id": s.idText("project", project),
+			"request_date": "2026-10-24", "purpose": text(hidden, "pr-"+string(st)),
+		},
+		Lines: []map[string]string{{
+			"item_id": s.idText("item", "MS-ANGLE-50"), "uom_id": s.idText("uom", "KGS"), "qty": qty,
+			"description": text(hidden, "pr-line"), "note": text(hidden, "pr-note"),
+		}},
+	})
 }
 
 // seedOrders: no hidden order can order a readable request's line: an order
 // must match its request's project and site (purchase validate), so a
 // request linked from a project-B order is on project B too.
 func seedOrders(s *sweepSeed) {
-	order := func(hidden bool, st seedState, price string) {
-		project, site, vendor, qty := projectA, siteA, controlVendor, "3" // 3: two receipts leave it pending
-		if hidden {
-			project, site, vendor, qty = projectB, siteB, hiddenVendor, hiddenQty
-		}
-		line := map[string]string{
-			"item_id": s.idText("item", "MS-ANGLE-50"), "uom_id": s.idText("uom", "KGS"), "qty": qty, "price": price,
-			"tax_code_id": s.idText("tax_code", "GST18"), "hsn_sac": "7216", "description": text(hidden, "po-line"),
-		}
-		s.add(purchase.DocType, hidden, st, doc.ActionInput{
-			Values: map[string]string{
-				"vendor_id": s.idText("party", vendor), "site_id": s.idText("site", site), "project_id": s.idText("project", project),
-				"order_date": "2026-10-24", "remarks": text(hidden, "po-"+string(st)), "vendor_quote_ref": text(hidden, "quote"),
-			},
-			Lines: []map[string]string{line},
-		})
-	}
 	for i, st := range []seedState{stDraft, stApproved, stPending, stMine, stRejected, stClosed} {
-		order(false, st, strconv.Itoa(1111+111*i)+".10")
+		s.order(s.admin, false, st, strconv.Itoa(1111+111*i)+".10")
 	}
 	for i, st := range []seedState{stDraft, stApproved, stCancelled, stPending, stRejected, stClosed} {
-		order(true, st, strconv.Itoa(67891+i)+".19")
+		s.order(s.admin, true, st, strconv.Itoa(67891+i)+".19")
 	}
+}
+
+// order adds by's order on project A from the control vendor, or on project
+// B from the hidden vendor when hidden.
+func (s *sweepSeed) order(by auth.Principal, hidden bool, st seedState, price string) *sweepRecord {
+	s.w.t.Helper()
+	project, site, vendor, qty := projectA, siteA, controlVendor, "3" // 3: two receipts leave it pending
+	if hidden {
+		project, site, vendor, qty = projectB, siteB, hiddenVendor, hiddenQty
+	}
+	line := map[string]string{
+		"item_id": s.idText("item", "MS-ANGLE-50"), "uom_id": s.idText("uom", "KGS"), "qty": qty, "price": price,
+		"tax_code_id": s.idText("tax_code", "GST18"), "hsn_sac": "7216", "description": text(hidden, "po-line"),
+	}
+	return s.addAs(by, purchase.DocType, hidden, st, doc.ActionInput{
+		Values: map[string]string{
+			"vendor_id": s.idText("party", vendor), "site_id": s.idText("site", site), "project_id": s.idText("project", project),
+			"order_date": "2026-10-24", "remarks": text(hidden, "po-"+string(st)), "vendor_quote_ref": text(hidden, "quote"),
+		},
+		Lines: []map[string]string{line},
+	})
+}
+
+// seedBuyer, after the module seeders: the buyer's own draft and pending
+// order and draft request on project A (the drafts, waiting and my-requests
+// queues' controls) and the same on project B, made before the buyer is
+// restricted to project A, so those queues have a hidden record of the
+// buyer's own to leave out. Then a rest row (the vendor says the rest won't
+// come) on the control approved order, the to-close queue's control, and on
+// the hidden approved order; and the buyer's restriction.
+func seedBuyer(s *sweepSeed) {
+	s.w.t.Helper()
+	s.order(s.buyer, false, stDraft, "1777.10")
+	s.order(s.buyer, false, stPending, "1888.10")
+	s.request(s.buyer, false, stDraft)
+	s.order(s.buyer, true, stDraft, "67901.19")
+	s.order(s.buyer, true, stPending, "67902.19")
+	s.request(s.buyer, true, stDraft)
+	ctx := context.Background()
+	err := s.w.app.DB().Write(ctx, func(tx *db.Tx) error {
+		for _, hidden := range []bool{false, true} {
+			po, grn := s.find(purchase.DocType, hidden, stApproved), s.find(goodsreceipt.DocType, hidden, stApproved)
+			if err := purchase.SetRestNotComing(ctx, tx, po.id, grn.id, s.admin.ID, true); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		s.w.t.Fatalf("rest rows: %v", err)
+	}
+	if err := s.w.app.Auth().ChangeRestrictions(ctx, s.admin, buyerID, auth.DimProject, []int64{s.id("project", projectA)}, nil, nil); err != nil {
+		s.w.t.Fatalf("restrict the buyer: %v", err)
+	}
+	s.buyer = s.w.principal(buyerID)
 }
 
 func (s *sweepSeed) employee(hidden bool) string {
