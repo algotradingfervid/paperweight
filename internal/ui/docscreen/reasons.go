@@ -8,11 +8,14 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/a-h/templ"
+
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/layout"
@@ -22,7 +25,7 @@ import (
 // or, with no label, the delete confirm page.
 type reasonPage struct {
 	action    doctype.Action
-	right     auth.Right // the GET also needs it (CD-46)
+	right     auth.Right // the GET also needs it (CD-46); close's is closeRight's
 	verb      string     // title: "{verb} {Display}"
 	label     string     // the reason field's label; "" = no reason
 	maxLen    int
@@ -34,7 +37,7 @@ type reasonPage struct {
 var reasonPages = map[string]reasonPage{
 	"reject": {action: doctype.ActionReject, right: "approve", verb: "Reject", label: "Reason for rejecting", maxLen: 1000, button: "Reject and send back"},
 	"cancel": {action: doctype.ActionCancel, right: "cancel", verb: "Cancel", label: "Reason for cancelling", maxLen: 500, button: "Cancel", withLabel: true, danger: true},
-	"close":  {action: doctype.ActionClose, right: "submit", verb: "Close", label: "Reason for closing", maxLen: 500, button: "Close", withLabel: true},
+	"close":  {action: doctype.ActionClose, verb: "Close", label: "Reason for closing", maxLen: 500, button: "Close", withLabel: true},
 	"delete": {action: doctype.ActionDelete, right: "delete", button: "Delete draft", danger: true},
 }
 
@@ -51,24 +54,39 @@ type reasonView struct {
 	Danger   string
 	Link     *components.Link // the document that refused a cancel
 	Errors   []components.FieldErr
+	Note     string // the module's note above the field (hooks spec §4.4)
 }
 
 func trimReason(s string) string { return strings.TrimSpace(s) }
 
 // reasonGet shows the page to a user who may read the document and holds
-// the page's right; anyone else gets AUTH's error (CD-46).
+// the page's right; anyone else gets AUTH's error (CD-46). The close page
+// needs the DocType's CloseRight, and is a 404 when it is CloseNone
+// (CD-255, CD-277).
 func (d Deps) reasonGet(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, name string, rp reasonPage) {
+	right := rp.right
+	if rp.action == doctype.ActionClose {
+		var ok bool
+		if right, ok = closeRight(dt.Name); !ok {
+			problem(w, r, doctype.ErrNotFound)
+			return
+		}
+	}
 	p := d.principal(r)
 	v, err := d.View(r.Context(), p, dt.Name, id)
 	if err != nil {
 		problem(w, r, err)
 		return
 	}
-	if err := d.Auth.Can(r.Context(), p, dt.Name, rp.right, &v.Record); err != nil {
+	if err := d.Auth.Can(r.Context(), p, dt.Name, right, &v.Record); err != nil {
 		problem(w, r, err)
 		return
 	}
-	rv := reasonViewOf(dt, v, name, rp, v.Version, "", Problem{})
+	rv, err := d.reasonViewWith(r, dt, v, name, rp, v.Version, "", Problem{})
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	ui.Render(w, r, http.StatusOK, reasonPageFull(rv), reasonPageMain(rv))
 }
 
@@ -81,7 +99,11 @@ func (d Deps) reasonPost(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		problem(w, r, err)
 		return
 	}
-	rv := reasonViewOf(dt, v, name, rp, version, r.PostFormValue("reason"), pr)
+	rv, err := d.reasonViewWith(r, dt, v, name, rp, version, r.PostFormValue("reason"), pr)
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
 	if pr.Blocked {
 		rv.Link = d.blockerLink(r.Context(), p, dt.Name, id)
 	}
@@ -118,6 +140,28 @@ func (d Deps) blockerLink(ctx context.Context, p auth.Principal, name string, id
 		return nil
 	}
 	return link
+}
+
+// reasonViewWith is reasonViewOf with the module's Reason additions: its
+// note above the field and its hint as the field's (hooks spec §4.4).
+func (d Deps) reasonViewWith(r *http.Request, dt *doctype.DocType, v DocView, name string, rp reasonPage, version int, typed string, pr Problem) (reasonView, error) {
+	extra, err := reasonExtra(d.ctxOf(r, dt, &v), rp.action)
+	if err != nil {
+		return reasonView{}, err
+	}
+	rv := reasonViewOf(dt, v, name, rp, version, typed, pr)
+	rv.Note, rv.Field.Hint = extra.Note, extra.Hint
+	return rv, nil
+}
+
+// reasonField is the reason field, with the module's note above it as an
+// info banner when there is one.
+func reasonField(rv reasonView) templ.Component {
+	field := components.Textarea(rv.Field, rv.MaxLen)
+	if rv.Note == "" {
+		return field
+	}
+	return templ.Join(components.Banner(components.BannerProps{Kind: components.Info, Message: rv.Note}), field)
 }
 
 func reasonViewOf(dt *doctype.DocType, v DocView, name string, rp reasonPage, version int, typed string, pr Problem) reasonView {

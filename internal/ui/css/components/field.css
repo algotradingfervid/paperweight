@@ -13,6 +13,10 @@
   }
   /* A value longer than the box ends in an ellipsis until it is edited; never a number (CD-169). */
   & .input:not(.num) { text-overflow: ellipsis; }
+  /* A control checked on blur keeps one message line reserved, so the reply
+     that fills it never moves Save from under a pressed mouse (CD-287). */
+  &:has([hx-post^="/ui/validate/"]) > .field__msg { min-block-size: 1lh; }
+  &:has([hx-post^="/ui/validate/"]) > .field__msg:empty { display: block; }
 }
 
 @utility field__label {

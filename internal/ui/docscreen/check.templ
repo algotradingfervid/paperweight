@@ -5,9 +5,10 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
-// checkBody is the check page after the step form: the approval preview,
-// one summary card per step, the Attachments card, the total in figures and
-// words, and More actions (design-system §8.3).
+// checkBody is the check page after the step form: the approval preview
+// and the module's notes and warnings, one summary card per step, the
+// Attachments card, the total in figures and words, the module's totals
+// (CD-275), and More actions (design-system §8.3).
 templ checkBody(cv checkView) {
 	if cv.AmendedFrom != "" {
 		<p>
@@ -17,6 +18,10 @@ templ checkBody(cv checkView) {
 	if cv.Preview != "" {
 		@components.Banner(components.BannerProps{Kind: components.Info, Message: cv.Preview})
 	}
+	for _, n := range cv.Extra.Notes {
+		@components.Banner(components.BannerProps{Kind: components.Info, Message: n})
+	}
+	@components.Warnings(cv.Extra.Warnings)
 	for _, s := range cv.Sections {
 		@wizard.CheckSection(s.Title, s.Status, s.ChangeURL) {
 			if len(s.Problems) > 0 {
@@ -45,6 +50,9 @@ templ checkBody(cv checkView) {
 				@components.AmountInWords(cv.Words)
 			}
 		</div>
+	}
+	if len(cv.Extra.Totals) > 0 {
+		@components.SummaryList(cv.Extra.Totals)
 	}
 	@components.MoreActions(cv.More)
 }

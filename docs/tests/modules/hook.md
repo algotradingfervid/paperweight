@@ -132,3 +132,10 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** a Module with `NoLinePages` **When** any line route is requested **Then** it answers 404. **Given** a Module with `CardsOnly` **When** the Items step renders at a desktop width **Then** it shows the add-to-a-list cards and no grid.
 - **Go test:** `TestModule_LineFlags`
 - **Sources:** Hooks spec §3, §4.2, §6
+
+### HOOK-049 · A field checked on blur keeps Save in place while its echo arrives
+- **Priority:** P1
+- **Level:** e2e
+- **Given** a wizard step whose date field posts to `/ui/validate/` on blur **When** the user presses the mouse on Save, the field's echo arrives, and the user releases at the same point **Then** Save has not moved and step 2 loads: the empty message line was reserved (CD-287).
+- **Go test:** `TestE2E_Field_EchoKeepsSaveInPlace`
+- **Sources:** CD-287

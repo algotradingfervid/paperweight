@@ -137,6 +137,9 @@ type MasterLookup interface {
 	Lookup(ctx context.Context, tx *db.Tx, id int64) (MasterInfo, bool, error)
 }
 
+// CloseNone as a DocType's CloseRight means it can't be closed (CD-277).
+const CloseNone = "none"
+
 type DocType struct {
 	Name, Label, PluralLabel, Table, LinesTable                     string // CD-35
 	Series                                                          string
