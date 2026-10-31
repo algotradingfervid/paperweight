@@ -487,6 +487,16 @@ var purchaseStubs = []struct{ route, owner string }{
 	{"/reports/purchase/pending/export.csv", "P9"},
 }
 
+// grnStubs are MOD-GRN's GET routes that still answer G1's 501 stub, each
+// with the task that builds it (AD-12). S4 gives the report pages screens and
+// G9 moves the exports to the "a CSV" entries; each removes its routes here.
+var grnStubs = []struct{ route, owner string }{
+	{"/reports/grn/bills", "S4"},
+	{"/reports/grn/items", "S4"},
+	{"/reports/grn/bills/export.csv", "G9"},
+	{"/reports/grn/items/export.csv", "G9"},
+}
+
 // notPageStatus is the status a sample answers with when it isn't 200.
 var notPageStatus = func() map[string]int {
 	m := map[string]int{"/files/*": http.StatusNotFound}
@@ -495,6 +505,9 @@ var notPageStatus = func() map[string]int {
 	}
 	for _, p := range purchaseStubs {
 		m[p.route] = http.StatusNotImplemented
+	}
+	for _, g := range grnStubs {
+		m[g.route] = http.StatusNotImplemented
 	}
 	return m
 }()
@@ -522,6 +535,9 @@ func notPages(s sweepState) []notPage {
 	for _, p := range purchaseStubs {
 		url := strings.NewReplacer("{id}", "1", "{queue}", "open").Replace(p.route)
 		out = append(out, notPage{p.route, url, "a MOD-PO stub until " + p.owner + " builds it"})
+	}
+	for _, g := range grnStubs {
+		out = append(out, notPage{g.route, g.route, "a MOD-GRN stub until " + g.owner + " builds it"})
 	}
 	for _, r := range []string{"open", "lines", "advances"} {
 		out = append(out, notPage{"/reports/expense/" + r + "/export.csv", "/reports/expense/" + r + "/export.csv", "a CSV"})
