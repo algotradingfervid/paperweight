@@ -96,6 +96,9 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Parse posted values inside the service after load, right, version and state checks (CD-259): a handler-side parse let a bad date skip 403/409 (AD-13).
 - After `make generate`, check `git status --porcelain -- '**/dbq/'` (diffs and untracked files) before a hand-in: a stale generated file passed P7's hand-in.
 - Date tests include a clock just after IST midnight (e.g. 18:31 UTC): a fixed clock on the same date in UTC and IST leaves the business-date boundary untested (AD-13).
+- covertouched marks a returned value covered when the code runs: assert the value itself (e.g. a back-dated document's number for a Date hook). A wrong Amount/Date hook value passed G1's tests (AD-12).
+- Test a guard in the setups where it changes the result, not only the common one: every DataList test had a state column, so the low-separator branch for lists without one had no test (M0-36).
+- A change to `internal/ui/js/*` runs every browser test that loads or uploads through that script, not only the task's own: gallery `-run 'Attach|Upload'` and e2e `-run 'TestE2E_Attachment|TestCheckStep_UploadThenSubmit|TestDocPage_AddAfterApproval|TestE2E_CompanyLogo|TestE2E_ExpenseFromPhoneWithReceipt'` (M0-22 passed HOOK-041 and broke five others).
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here
