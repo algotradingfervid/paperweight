@@ -10,8 +10,8 @@ Sources: PO spec `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5 §18
 |---|---|---|---|---|---|---|---|
 | [`po.md`](po.md) | PO — purchase orders and requests | 70 | 69 | 1 | 8 | 60 | 2 |
 | [`hook.md`](hook.md) | HOOK — docscreen module hooks | 18 | 18 | 0 | 0 | 18 | 0 |
-| [`exp.md`](exp.md) | EXP — expense claims and advances | 41 | 41 | 0 | 5 | 35 | 1 |
-| **Total** | | **129** | **128** | **1** | **13** | **113** | **3** |
+| [`exp.md`](exp.md) | EXP — expense claims and advances | 67 | 67 | 0 | 5 | 56 | 6 |
+| **Total** | | **155** | **154** | **1** | **13** | **134** | **8** |
 
 Level counts group variants as in core: "unit (fuzz)" counts as unit, "integration (golden file)" as integration. Every e2e case's Go test starts with `TestE2E_`.
 
@@ -123,7 +123,7 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 
 ### exp.md — EXP — expense claims and advances
 
-41 cases: 41 P1 / 0 P2; 5 unit, 35 integration, 1 e2e.
+67 cases: 67 P1 / 0 P2; 5 unit, 56 integration, 6 e2e. EXP-042 onward come from the ERP research (CD-271).
 
 | ID | Go test | P | Level |
 |---|---|---|---|
@@ -168,3 +168,29 @@ Level counts group variants as in core: "unit (fuzz)" counts as unit, "integrati
 | EXP-039 | `TestExp_DirectorClaim` | P1 | integration |
 | EXP-040 | `TestExp_OnlyFallback` | P1 | integration |
 | EXP-041 | `TestExp_FallbackLeaves` | P1 | integration |
+| EXP-042 | `TestExp_AmountPositive` | P1 | integration |
+| EXP-043 | `TestAdv_FullyUsedNotOffered` | P1 | integration |
+| EXP-044 | `TestAdv_NotApprovedRefused` | P1 | integration |
+| EXP-045 | `TestAdv_LeftForOneClaim` | P1 | integration |
+| EXP-046 | `TestAdv_ClosedWhileClaimPending` | P1 | integration |
+| EXP-047 | `TestAdv_DraftClaimDoesNotBlockCancel` | P1 | integration |
+| EXP-048 | `TestAdv_RejectedClaimRechecks` | P1 | integration |
+| EXP-049 | `TestAdv_AmendKeepsAdvance` | P1 | integration |
+| EXP-050 | `TestExp_ManagerDisabledFallback` | P1 | integration |
+| EXP-051 | `TestAdv_DirectorAdvance` | P1 | integration |
+| EXP-052 | `TestExp_LinesReportStates` | P1 | integration |
+| EXP-053 | `TestExp_MiddleManagerOwnClaim` | P1 | integration |
+| EXP-054 | `TestAdv_MarkAsPaid` | P1 | integration |
+| EXP-055 | `TestAdv_OnlyPaidSetOff` | P1 | integration |
+| EXP-056 | `TestExp_DuplicateWithinClaim` | P1 | integration |
+| EXP-057 | `TestExp_DuplicateInvoice` | P1 | integration |
+| EXP-058 | `TestExp_BilledTo` | P1 | integration |
+| EXP-059 | `TestAdv_ClosePageShowsLeft` | P1 | integration |
+| EXP-060 | `TestAdv_OtherAdvanceWarning` | P1 | integration |
+| EXP-061 | `TestExp_TimeBarWarning` | P1 | integration |
+| EXP-062 | `TestExp_BackEntryWarnings` | P1 | integration |
+| EXP-063 | `TestE2E_AdvanceTwoClaimsClose` | P1 | e2e |
+| EXP-064 | `TestE2E_ClaimAboveAdvance` | P1 | e2e |
+| EXP-065 | `TestE2E_DirectorClaimFallback` | P1 | e2e |
+| EXP-066 | `TestE2E_RejectReviseReceipt` | P1 | e2e |
+| EXP-067 | `TestE2E_BuyerCashClaim` | P1 | e2e |

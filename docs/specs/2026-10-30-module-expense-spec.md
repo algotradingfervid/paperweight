@@ -1,6 +1,6 @@
 # Module spec: Expense Claim and Employee Advance
 
-Version 0.5 · 30 October 2026 · Status: for owner review, with CD-234, CD-235 and CD-237 applied · Author: AD-6
+Version 0.6 · 31 October 2026 · Status: accepted (CD-238), with CD-264 and the research rulings of CD-271 applied (§4 Paid out, §3.2 Billed to, §5 warnings, §17 EXP-042 onward) · Authors: AD-6, AD-11
 
 Follows the Purchase Order spec (`docs/specs/2026-10-30-module-purchase-order-spec.md`), whose §14 shared decisions, §12 cutover plan and §17 sources apply here. Marks **(CD-234)**, **[Assumption]** and **CA** mean the same as there. This module depends on no other module, so it can run beside the PO.
 
@@ -78,7 +78,7 @@ Snapshots: `snap_employee_name`, `snap_employee_code`. `doc.partyOf` follows `Em
 
 | Field | Label | Type | Rule |
 |---|---|---|---|
-| `expense_date` | Date | Date | Required. Not in the future, not after the claim date |
+| `expense_date` | Date | Date | Required. Not in the future, not after the claim date. On a company bill it is the bill's date: hint `Use the bill date.` (Rule 46(c), CD-271 G9) |
 | `expense_type_id` | Type | Link Expense Type | Required |
 | `description` | Note | Text, max 200 | Optional; printed |
 | `amount` | Amount | Money | Required, more than 0. Includes any GST. Mileage is an ordinary line with an amount (CD-234) |
@@ -89,11 +89,12 @@ Snapshots: `snap_employee_name`, `snap_employee_code`. `doc.partyOf` follows `Em
 | `company_bill` | Bill in company GSTIN | Check | Default off (CD-234) |
 | `supplier_gstin` | Supplier GSTIN | Text | Required when ticked; `gstin.ValidateGSTIN` |
 | `invoice_no` | Invoice no. | Text, max 40 | Required when ticked |
+| `billed_to_id` | Billed to | Link Branch | Company bills only: the branch whose GSTIN is on the bill (Rule 46(d), CD-271 G4). While the company has one branch GSTIN it is hidden and set to that branch; with more than one it is required at submit when ticked. Snapshot `snap_billed_gstin` |
 | `tax_code_id` | Tax code | Link Tax Code | Default from the expense type (MST-123) |
 | `hsn_sac` | HSN/SAC | Text | Default from the expense type |
 | `gst_amount` | GST on the bill | Money | Optional. Part of `amount`, not added to it. Not above it |
 
-Line snapshots: `snap_type_code`, `snap_type_name`, `snap_project_code`, `snap_site_code`.
+Line snapshots: `snap_type_code`, `snap_type_name`, `snap_project_code`, `snap_site_code`, `snap_billed_gstin`.
 
 No `uom.RegisterQtyUse`: the table has no UoM column.
 
@@ -112,7 +113,18 @@ No `uom.RegisterQtyUse`: the table has no UoM column.
 
 It has a lines table because `checkFields` refuses a submit with no lines on every DocType (`internal/kernel/doc/validate.go`), and because people ask for an advance by purpose. HRMS keeps it as a separate document too.
 
-**Header.** `number`; `employee_id` (same rules as a claim); `advance_date` (Date, required, not in the future; sets the FY and is the lock date); `purpose` (required at submit); `amount` (Money, read-only, sum of lines, list priority 2); `used_amount` (Money, `System`, `ReadOnly`, `EditableAfterSubmit`: total set against claims); `left_amount` is never stored: `amount − used_amount`.
+**Header.** `number`; `employee_id` (same rules as a claim); `advance_date` (Date, required, not in the future; sets the FY and is the lock date); `purpose` (required at submit); `amount` (Money, read-only, sum of lines, list priority 2); `used_amount` (Money, `System`, `ReadOnly`, `EditableAfterSubmit`: total set against claims); `left_amount` is never stored: `amount − used_amount`; `paid_on` (Date, `System`, `ReadOnly`, `EditableAfterSubmit`; set only by Mark as paid, CD-271 G1).
+
+**Mark as paid (CD-271 G1).** An advance must be paid out before a claim sets it off, as HRMS offers only paid advances (`expense_claim.py:849-854`). The module route `POST /modules/expense/advances/{id}/paid` sets `paid_on` (default today, not in the future, not before `advance_date`) on an approved advance, for a user holding `cancel` on it (Director, Administrator). `POST …/unpaid` clears it while no approved, closed or pending claim names the advance. Both post `version`, run in `db.Write`, bump the version and write an audit entry (action `paid` or `unpaid`). Messages:
+
+| Condition | Message |
+|---|---|
+| Not approved | `Only an approved advance can be marked as paid.` |
+| Date in the future | `Paid on can't be in the future.` |
+| Date before the advance date | `Paid on can't be before the advance date.` |
+| Already paid | `This advance is already marked as paid.` |
+| Undo while a claim uses it | `A claim already uses this advance, so it stays paid.` |
+| No `cancel` right | AUTH's 403 |
 
 **Lines.** `expense_type_id` (required), `description`, `amount` (more than 0), `project_id`, `site_id`. No receipts: nothing has been spent yet.
 
@@ -122,13 +134,13 @@ It has a lines table because `checkFields` refuses a submit with no lines on eve
 
 | Case | What happens |
 |---|---|
-| Claim uses an advance | At submit, `BeforeSubmit` reads inside the transaction (CD-94): the advance belongs to this employee, it's approved, and `less_advance` is no more than what's left, counting other approved and closed claims |
+| Claim uses an advance | At submit, `BeforeSubmit` reads inside the transaction (CD-94): the advance belongs to this employee, it's approved, it's marked as paid, and `less_advance` is no more than what's left, counting other approved and closed claims. The claim's radios list only this employee's paid advances with something left |
 | Claim approved | `ApplyEffects` recomputes `used_amount` as the sum over approved and closed claims naming this advance and bumps the advance's `version`. It writes an audit entry with action `effect`, `By` the claim's `updated_by`, and `CausedBy` the claim with action `approve`, since a hook can't tell submit from approve. Recompute, never increment (D-DOC-13) |
 | Claim cancelled | `ReverseEffects` recomputes the same way, with cause `cancel` |
 | Claim spends more than the advance | `net_payable` is the balance owed to the employee |
 | Claim spends less | `left_amount` stays on the advance for the next claim |
-| Nothing more to come | **Close** the advance with a reason, for example `₹2,000 returned by NEFT 1234 on 30-11-2026`. A closed advance can't be picked again (DOC-017). The app holds the note, not a payment record. Close has no hook, so a claim pending on the advance isn't checked: its approve then fails with DOC-017's text, and the approver rejects it |
-| Advance not paid out | Cancel it with a reason |
+| Nothing more to come | **Close** the advance with a reason, for example `₹2,000 returned by NEFT 1234 on 30-11-2026`. The close page shows `₹{left} is left on this advance. Closing treats it as returned.` A closed advance stays closed; a mistaken close is fixed with a new back-dated advance (CD-271 G5). A closed advance can't be picked again (DOC-017). The app holds the note, not a payment record. Close has no hook, so a claim pending on the advance isn't checked: its approve then fails with DOC-017's text, and the approver rejects it |
+| Advance not paid out | It isn't offered to claims. Cancel it with a reason |
 
 A `less_advance` of 0 with an advance named is refused, so a claim can't block an advance's cancel for nothing.
 
@@ -156,14 +168,21 @@ Required at submit (CD-178). `Validate` reads inside the transaction, computes t
 | Ticked with no invoice no. | `Line {n}: Invoice no. is required for a bill in the company GSTIN.` | Submit |
 | Bad GSTIN | MST-031's text with `Line {n}: ` (CD-38) | Save |
 | GST above amount | `Line {n}: GST can't be more than the amount.` | Save |
+| Line amount 0 or less (claim and advance lines) | DOC's `Line {n}: Amount must be more than 0.` (`Positive`) | Save |
+| Ticked, more than one branch GSTIN, no Billed to | `Line {n}: Billed to is required for a bill in the company GSTIN.` | Submit |
+| Advance not marked as paid | `{advance} hasn't been marked as paid yet.` | Submit, Approve |
 
 An advance's employee and date rules use the same text, with `Advance date` as the label and `advances` for `claims`.
 
-**Warnings, never refusals.** Shown on the check and approval pages through `Module.Check`:
-- Same receipt hash on another live claim: `Line {n}: This receipt is also on {claim}.`
+**Warnings, never refusals.** Shown on the check page (`Module.Check`) and the approval page (`Module.Page`). A claim or advance the viewer can't read is never named: the text says `another claim` or `another advance` (CD-264 item 4, CD-240, CD-248).
+- Same receipt hash on another live claim, of any employee: `Line {n}: This receipt is also on {claim}.`
 - Same employee, date, type and amount on another live claim: `Line {n}: This looks the same as a line on {claim}.`
+- Two lines of the same claim with the same date, type and amount, unless they share one receipt on purpose (a split bill): `Line {n}: This looks the same as line {m}.` (CD-271 G2)
+- Same supplier GSTIN and invoice no. on another live claim, of any employee: `Line {n}: Invoice {invoice} from {gstin} is also on {claim}.` (Rule 46(b), CD-271 G3)
+- A company bill dated in a financial year whose 30 November has passed (by the clock): `Line {n}: This bill is dated in FY {fy}. Input tax credit on it closed on 30-11-{yyyy}.` (CGST s.16(4), CD-271 G8)
+- On an advance's check and approval pages, when the employee has money left on another approved advance: `{employee} still has ₹{x} left on {advance}.` (CD-271 G7)
 
-Odoo's duplicate checks work the same way and are soft there too. A cancelled claim doesn't count.
+Odoo's duplicate checks work the same way and are soft there too. A cancelled claim doesn't count. A back-entered claim with no approval rule still shows the warnings on its check page (CD-271 G12).
 
 ## 6. States, close and approvals
 
@@ -215,6 +234,10 @@ The approver can't change an amount. A claim with one wrong line goes back with 
 | Fuel | No GST field needed; the tick stays off | CA: petrol and diesel are outside GST at present |
 | Cash limit | No check. The app doesn't know how a bill was paid | CA: Income-tax Act 2025 s.36(4), ₹10,000 per day to a person. How it applies to reimbursements couldn't be verified |
 | TDS, RCM, IRN, e-way | Not relevant to the claim screen | CA |
+| Recipient GSTIN | `Billed to` on company bills when the company has more than one branch GSTIN (§3.2, CD-271 G4) | CA: credit goes to the GSTIN on the bill (Rule 46(d)) |
+| Time bar | Soft warning on company bills from a financial year whose 30 November has passed (§5, CD-271 G8) | CA: CGST s.16(4) |
+| Period lock | Follows `claim_date`, not line dates: September bills can go on an October claim after September is locked. Normal practice; don't "fix" it (CD-271 G11) | — |
+| Files after approval | Can still be added (D-FILE-06); line hashes are frozen after submit, so an added file can't become a receipt (CD-271 G10). Receipts stay out of the print (G13) | — |
 | Retention | Receipts stay as attachments; backups per CD-226, CD-228 | CA: GST 72 months from the annual return due date (CGST s.36). Rule 56(8) wants changes logged, which the audit does. Income-tax rule period unconfirmed |
 
 ## 9. Links to masters
@@ -263,6 +286,7 @@ UX design and approval first (CD-97). Everyone files these on a phone, so 360 px
 | Approval page | §8.5, receipts next to each line, full screen on tap |
 | Advance wizard | Details → Items → Check and submit |
 | Advance document page | Amount, used, left, claims set against it, read through `doc.LinkedBlockers` |
+| Mark as paid | Module page `/modules/expense/advances/{id}/paid`: `Paid on` date, `Mark as paid`; `Undo paid` on the advance page while no claim uses it (§4, CD-271 G1) |
 
 **Measurable goal for the UX document:** one expense with a photo in under 30 seconds on a phone.
 
@@ -272,9 +296,9 @@ The generic list and CSV cover both registers. Each report is guarded by `read` 
 
 **Open claims** (`/reports/expense/open`). Approved, not closed. Columns: claim, employee, purpose, approved on, approved by, total, less advance, to pay, lines without a receipt. Mirrors HRMS's Unpaid Expense Claim, without payment figures.
 
-**Expense lines** (`/reports/expense/lines`). One row per line: claim, employee, date, type, project, site, note, amount, GST, supplier GSTIN, invoice no., receipt yes or no, state. Filters: month, type, project, employee. Staff key your accounting system from this CSV, and project spend comes from it.
+**Expense lines** (`/reports/expense/lines`). One row per line of an approved or closed claim (draft, pending, rejected and cancelled claims are left out, so project spend counts only approved money, CD-271 G6): claim, employee, date, type, project, site, note, amount, GST, supplier GSTIN, invoice no., billed-to GSTIN, receipt yes or no, state. Filters: month, type, project, employee. Staff key your accounting system from this CSV, and project spend comes from it.
 
-**Open advances** (`/reports/expense/advances`). Approved, not closed. Columns: advance, employee, date, purpose, amount, used, left, age in days. Filter: employee.
+**Open advances** (`/reports/expense/advances`). Approved, not closed. Columns: advance, employee, date, purpose, amount, paid on, used, left, age in days. Filter: employee.
 
 ## 14. Cutover
 
@@ -282,7 +306,7 @@ PO spec §12 applies.
 - Back-entered claims and advances use their real dates. An Administrator enters them for employees (§3.1). With no approval rule they approve on submit.
 - No photo: type `Paper file` as the reason. That's one short entry per line, and there's no bulk route [Assumption].
 - Set `EX/` and `EA/` series as in the PO plan; the owner has no earlier advance numbers on record that I know of.
-- Advances open on go-live day go in as back-dated advances, then their claims set against them, or as an advance for the balance. The Administrator picks one.
+- Advances open on go-live day go in as back-dated advances, marked as paid on their real payment date, then their claims set against them, or as an advance for the balance. The Administrator picks one.
 - Each employee needs a linked user and, normally, a reporting manager before rules go in.
 - Go-live day: give Fallback Approver to the Director and a second person, confirm both are active, then enter the rules for Expense Claim and Employee Advance: ₹0, reporting manager, fallback role Fallback Approver.
 
@@ -355,6 +379,34 @@ Fixtures: `00-fixtures.md`, `TRAVEL`, `FOOD`, `FUEL`, `LODGING`, `SITE-MISC`. Ad
 | EXP-036 | Default rights match §11 | `TestExp_DefaultRights` | P1 | unit |
 | EXP-037 | Random claim and advance sequences: total equals the lines, used equals the sum, left never below 0 | `FuzzExp_Invariants` | P1 | unit (fuzz) |
 | EXP-038 | Phone flow with a photo at 360 px, with overflow check | `TestE2E_ExpenseFlow` | P1 | e2e |
+| EXP-042 | Line amount 0 or less refused on save, for a claim line and an advance line (S-04, S-50) | `TestExp_AmountPositive` | P1 | integration |
+| EXP-043 | A fully used advance isn't offered and is refused at submit with the left text (S-38) | `TestAdv_FullyUsedNotOffered` | P1 | integration |
+| EXP-044 | An advance in draft, pending, rejected or cancelled is refused with DOC's source texts (S-39) | `TestAdv_NotApprovedRefused` | P1 | integration |
+| EXP-045 | One claim setting more than what's left is refused at submit with the left text (S-40) | `TestAdv_LeftForOneClaim` | P1 | integration |
+| EXP-046 | Advance closed while a claim on it is pending: approve refused with DOC-017's text; the approver rejects (S-45) | `TestAdv_ClosedWhileClaimPending` | P1 | integration |
+| EXP-047 | A draft claim doesn't block the advance's cancel; the draft's submit is then refused (S-46) | `TestAdv_DraftClaimDoesNotBlockCancel` | P1 | integration |
+| EXP-048 | A rejected claim on an advance leaves used unchanged; revise and resubmit re-check what's left (S-47) | `TestAdv_RejectedClaimRechecks` | P1 | integration |
+| EXP-049 | Amend keeps the advance and re-checks it at submit; refused if the advance was closed meanwhile (S-48) | `TestAdv_AmendKeepsAdvance` | P1 | integration |
+| EXP-050 | Manager's user disabled while a claim is pending: a Fallback Approver approves it (S-33) | `TestExp_ManagerDisabledFallback` | P1 | integration |
+| EXP-051 | Director's advance goes to the other Fallback Approver (S-35) | `TestAdv_DirectorAdvance` | P1 | integration |
+| EXP-052 | Expense lines report counts approved and closed claims only; a cancel removes the line (S-10) | `TestExp_LinesReportStates` | P1 | integration |
+| EXP-053 | A middle manager approves a report's claim but not her own, which goes to her manager (S-30) | `TestExp_MiddleManagerOwnClaim` | P1 | integration |
+| EXP-054 | Mark as paid: rights, states, dates, undo while unused, version, audit (G1) | `TestAdv_MarkAsPaid` | P1 | integration |
+| EXP-055 | Only paid advances are offered and can be set off (G1) | `TestAdv_OnlyPaidSetOff` | P1 | integration |
+| EXP-056 | Duplicate lines within one claim warn; lines sharing a receipt on purpose don't (G2) | `TestExp_DuplicateWithinClaim` | P1 | integration |
+| EXP-057 | Same supplier GSTIN and invoice no. on another live claim warns, across employees, hidden claims unnamed (G3) | `TestExp_DuplicateInvoice` | P1 | integration |
+| EXP-058 | Billed to: hidden and defaulted with one branch GSTIN, required with more, snapshot kept (G4) | `TestExp_BilledTo` | P1 | integration |
+| EXP-059 | The advance close page shows what's left and that it's treated as returned (G5) | `TestAdv_ClosePageShowsLeft` | P1 | integration |
+| EXP-060 | Money left on another advance warns on the advance check and approval pages (G7) | `TestAdv_OtherAdvanceWarning` | P1 | integration |
+| EXP-061 | Company bill from a FY whose 30 November has passed warns (s.16(4)) (G8) | `TestExp_TimeBarWarning` | P1 | integration |
+| EXP-062 | A back-entered claim with no rule shows the duplicate warnings on its check page (G12) | `TestExp_BackEntryWarnings` | P1 | integration |
+| EXP-063 | Advance → two claims → close, at 360 px, stored state asserted (X3) | `TestE2E_AdvanceTwoClaimsClose` | P1 | e2e |
+| EXP-064 | Claim above the advance pays the balance, check page and print (X4) | `TestE2E_ClaimAboveAdvance` | P1 | e2e |
+| EXP-065 | Director's own claim through the fallback (X6) | `TestE2E_DirectorClaimFallback` | P1 | e2e |
+| EXP-066 | Reject, revise, fix a receipt, resubmit, approve (X7) | `TestE2E_RejectReviseReceipt` | P1 | e2e |
+| EXP-067 | A buyer's own cash claim for a local buy, outside PO and GRN (X5; MOD-EXP or MOD-GRN, whichever finishes last) | `TestE2E_BuyerCashClaim` | P1 | e2e |
+
+EXP-042 onward come from the research catalogue `docs/research/2026-10-31-expense-erp-practice.md` (S-ids and G-ids in brackets; CD-271). EXP-014 also gains a cross-employee receipt case (S-15). Test helpers follow the report's §2 patterns: business-step builders that can stop at draft, an assertion on the linked advance after every step including cancel, refusal helpers that also assert nothing was written, and a stored-state check after each browser flow.
 
 Review focus: EXP-017 proves why claims declare no restriction fields. EXP-020 must fail if `CloseRight` is removed. EXP-027 runs as a non-admin (CD-213).
 
