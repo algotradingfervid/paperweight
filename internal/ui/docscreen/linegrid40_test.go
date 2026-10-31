@@ -3,6 +3,7 @@ package docscreen
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/components"
 
 	// Every module's DocTypes are registered, as in the app.
 	_ "github.com/vardhan/internaltools/internal/modules/expense"
@@ -60,15 +62,15 @@ func TestLineGrid_EveryDocTypeFits(t *testing.T) {
 			}
 			continue
 		}
-		n, shown := gridCells(t, d, dt)
+		n, shown, problems := lineGridProblems(t, d, dt)
 		if !shown {
 			continue
 		}
 		checked[dt.Name] = n
-		// CD-313: a DocType edited on the line page shows a display-only
-		// grid, which passes here once docscreen has it (M0-40 (b)).
-		if !slices.Contains(gridCellCounts, n) {
-			t.Errorf("%s: an editable line grid with %d cells; the grid lays out %v", dt.Name, n, gridCellCounts)
+		// CD-313: a DocType edited on the line page shows the display grid
+		// (Module.LineGrid), whose rows must fit the same layouts (M0-40b).
+		for _, p := range problems {
+			t.Error(p)
 		}
 	}
 	// Every module registers its DocTypes here: a module directory whose
@@ -152,6 +154,84 @@ func TestLineGrid_SkipsNoGrid(t *testing.T) {
 	}
 	if _, shown := gridCells(t, Deps{Modules: map[string]Module{fixture.Order: {}}}, order); !shown {
 		t.Error("fixture.Order with an empty Module renders no line grid")
+	}
+}
+
+// lineGridProblems is the gate for one DocType under d (M0-40, M0-40b;
+// CD-313, CD-315): n is the cells of the grid its Items step shows and
+// shown whether it shows one. With Module.LineGrid that is the display grid,
+// whose cell count is LineGrid's on one empty line, and the editable grid
+// must not show (lines are edited only on the line page); otherwise it is
+// the editable grid. Either must have a row size the grid lays out.
+func lineGridProblems(t *testing.T, d Deps, dt *doctype.DocType) (n int, shown bool, problems []string) {
+	t.Helper()
+	n, shown = gridCells(t, d, dt)
+	if lg := d.modOf(dt).LineGrid; lg != nil {
+		steps, err := FormSteps(dt)
+		if err != nil || !slices.ContainsFunc(steps, func(s FormStep) bool { return s.Lines }) {
+			return n, shown, nil // no Items step, no grid
+		}
+		if shown {
+			problems = append(problems, fmt.Sprintf("%s: Module.LineGrid is set and the editable grid with %d cells shows too; lines are edited only on the line page (CD-313)", dt.Name, n))
+		}
+		r := httptest.NewRequest("GET", "/", nil)
+		v := DocView{Lines: []LineView{{No: 1}}}
+		n, shown = len(lg(d.ctxOf(r, dt, &v), v.Lines[0])), true
+		if !slices.Contains(gridCellCounts, n) {
+			problems = append(problems, fmt.Sprintf("%s: a display line grid (Module.LineGrid) with %d cells; the grid lays out %v", dt.Name, n, gridCellCounts))
+		}
+		return n, shown, problems
+	}
+	if shown && !slices.Contains(gridCellCounts, n) {
+		problems = append(problems, fmt.Sprintf("%s: an editable line grid with %d cells; the grid lays out %v", dt.Name, n, gridCellCounts))
+	}
+	return n, shown, problems
+}
+
+// m40bLineGrid is a Module.LineGrid giving every line n text cells.
+func m40bLineGrid(n int) func(Ctx, LineView) []components.GridCell {
+	return func(_ Ctx, l LineView) []components.GridCell {
+		cells := make([]components.GridCell, n)
+		for i := range cells {
+			cells[i] = components.GridCell{Label: "Cell " + strconv.Itoa(i+1), Text: strconv.Itoa(l.No)}
+		}
+		return cells
+	}
+}
+
+// TestLineGrid_DisplayGate (M0-40b, CD-313, CD-315): the gate fails a
+// DocType whose Module.LineGrid gives 4 cells, and passes one giving 3 or
+// 5, on fixture.Order (5 editable cells) and with one editable cell hidden
+// (4, cards). A 3- or 5-cell LineGrid passes only when the editable grid
+// doesn't show beside it.
+func TestLineGrid_DisplayGate(t *testing.T) {
+	order, ok := doctype.Lookup(fixture.Order)
+	if !ok {
+		t.Fatal("fixture.Order is not registered")
+	}
+	for _, hide := range []string{"", "description"} {
+		for _, n := range []int{3, 4, 5} {
+			m := Module{LineGrid: m40bLineGrid(n)}
+			if hide != "" {
+				m.Hide = func(_ Ctx, f doctype.Field) bool { return f.Name == hide }
+			}
+			d := Deps{Modules: map[string]Module{fixture.Order: m}}
+			got, shown, problems := lineGridProblems(t, d, order)
+			what := fmt.Sprintf("LineGrid of %d cells, hiding %q", n, hide)
+			if !shown || got != n {
+				t.Errorf("%s: the gate sees a grid %v of %d cells, want the display grid of %d", what, shown, got, n)
+			}
+			want := []string{}
+			if n == 4 {
+				want = []string{fmt.Sprintf("%s: a display line grid (Module.LineGrid) with 4 cells; the grid lays out %v", fixture.Order, gridCellCounts)}
+			}
+			if !slices.Equal(problems, want) {
+				t.Errorf("%s: gate problems %q, want %q", what, problems, want)
+			}
+			if _, editable := gridCells(t, d, order); editable {
+				t.Errorf("%s: the editable grid shows beside Module.LineGrid (CD-313)", what)
+			}
+		}
 	}
 }
 
