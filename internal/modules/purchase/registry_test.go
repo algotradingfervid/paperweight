@@ -48,9 +48,9 @@ func scoped(scope string, rights ...string) map[string]string {
 // PO-041 (PO spec §10, §20.6; CD-247, CD-253, CD-280): purchase.Order's
 // DefaultRights equal the purchase.Order rows of 00-fixtures.md for every
 // role, with Purchase User write, submit and delete at own and amend at all,
-// and CloseRight amend. purchase.Request's rows are §20.6's without the
-// approve rows, which P5 adds once M0-24 is on main (CD-280). The same rows
-// reach the real auth.Service through SeedDefaults.
+// and CloseRight amend. purchase.Request's rows are §20.6's, approve
+// included (P5, M0-24, CD-280 D2). The same rows reach the real
+// auth.Service through SeedDefaults.
 func TestPO_DefaultRights(t *testing.T) {
 	if purchase.DocType != "purchase.Order" || purchase.RequestDocType != "purchase.Request" {
 		t.Fatalf("DocType, RequestDocType = %q, %q; want purchase.Order, purchase.Request (CD-276)", purchase.DocType, purchase.RequestDocType)
@@ -64,11 +64,11 @@ func TestPO_DefaultRights(t *testing.T) {
 		"Stores":           scoped("all", "read"),
 	}
 	wantRequest := map[string]map[string]string{
-		"Employee":         scoped("own", "read", "create", "write", "submit", "cancel", "delete"),
+		"Employee":         scoped("own", "read", "create", "write", "submit", "cancel", "delete", "approve"),
 		"Stores":           scoped("all", "read"),
 		"Purchase User":    scoped("all", "read"),
-		"Purchase Manager": scoped("all", "read"),
-		"Director":         scoped("all", "read"),
+		"Purchase Manager": scoped("all", "read", "approve"),
+		"Director":         scoped("all", "read", "approve"),
 	}
 
 	order := lookup(t, purchase.DocType)
