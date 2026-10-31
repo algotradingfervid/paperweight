@@ -502,3 +502,30 @@ Items 1, 13 and 16 are recorded in the plan. | AD-12 DECISION, head accepted. |
 - (f) Whichever of PO-M1 and M0-5 reaches main second adds both DocTypes to the sweep.
 
 | AD-13 DECISION, head accepted. |
+| CD-281 | **MOD-EXP research follow-up rulings (AD-11, after CD-271).**
+
+*Texts accepted as proposed.*
+- Mark as paid:
+  - `Only an approved advance can be marked as paid.`
+  - `Paid on can't be in the future.`
+  - `Paid on can't be before the advance date.`
+  - `This advance is already marked as paid.`
+  - `A claim already uses this advance, so it stays paid.`
+  - `This advance isn't marked as paid.`
+- On a claim naming an unpaid advance: `{advance} hasn't been marked as paid yet.`
+- Billed to: `Line {n}: Billed to is required for a bill in the company GSTIN.` and `Line {n}: Choose a branch with a GSTIN.`
+- The G2, G3, G7 and G8 warnings as worded in the expense spec v0.6.
+- On the close page: `₹{left} is left on this advance. Closing treats it as returned.`
+
+*Rules.*
+- (a) Only pending, approved or closed claims use an advance; draft and rejected claims don't block Undo paid.
+- (b) A paid advance can't be cancelled: `This advance is marked as paid. Undo paid first, or close it with the balance noted.` DOC-052 fires first when a live claim names the advance.
+- (c) Billed to counts the distinct non-blank GSTINs of enabled branches. With one, Validate sets the head-office branch that holds it, or else the lowest code. Branches without a GSTIN are never offered.
+- (d) The G7 warning counts paid advances only, as HRMS does.
+- (e) **Behaviour change:** the expense lines report lists only approved and closed claims, so project spend counts approved money only. Draft, pending, rejected and cancelled claims are left out.
+
+*Placement.*
+- EXP-067 (X5, a buyer's cash claim) belongs to whichever of MOD-EXP and MOD-GRN finishes last. grn.md cross-references it when MOD-GRN takes it.
+- Optional MOD-0 minor: CheckRegistry refuses AllowBlocked on a non-Link field.
+
+The expense spec is v0.6, and exp.md now has EXP-042 to EXP-067 (67 cases). | AD-11 MERGE-READY and DECISION, head accepted. |
