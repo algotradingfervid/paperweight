@@ -2,6 +2,7 @@ package purchaseweb
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -16,7 +17,7 @@ import (
 // fromRequestPost creates a PO draft from the request in the path (PO spec
 // §20.4 item 1) with the posted version (missing or not a number is AUTH's
 // bad form, CD-146) and vendor_id (blank or not a number is no vendor), then
-// redirects to the new PO's Details step. A 422 or 409 redraws through
+// redirects to the new PO's Details step with the created flash (UX §5.18). A 422 or 409 redraws through
 // renderFromRequest; anything else (AUTH's 403 and 404 among them) is the
 // platform's error page.
 func (h *handlers) fromRequestPost(w http.ResponseWriter, r *http.Request) {
@@ -28,17 +29,18 @@ func (h *handlers) fromRequestPost(w http.ResponseWriter, r *http.Request) {
 	}
 	vendorID, _ := strconv.ParseInt(r.PostFormValue("vendor_id"), 10, 64)
 	p, _ := auth.PrincipalFrom(r.Context())
-	poID, err := h.d.Service.CreateFromRequest(r.Context(), p, id, version, vendorID)
+	poID, source, err := h.d.Service.CreateFromRequestWithSource(r.Context(), p, id, version, vendorID)
 	var he doctype.HTTPError
 	switch {
 	case err == nil:
+		web.Flash(r.Context(), "success", fmt.Sprintf(msgCreatedFromRequest, poID, source))
 		http.Redirect(w, r, "/doc/"+purchase.DocType+"/"+strconv.FormatInt(poID, 10)+"/edit/details", http.StatusSeeOther)
 	case errors.As(err, &he) && (he.Status() == http.StatusUnprocessableEntity || he.Status() == http.StatusConflict):
 		errs := he.FieldErrors()
 		if len(errs) == 0 {
 			errs = []doctype.FieldError{{Message: err.Error()}}
 		}
-		renderFromRequest(w, r, he.Status(), errs)
+		renderFromRequest(h, w, r, he.Status(), errs)
 	default:
 		web.ErrorFrom(w, r, err)
 	}

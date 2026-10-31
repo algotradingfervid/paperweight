@@ -24,25 +24,20 @@ import (
 // Create runs through Engine.Do with the vendor, so Validate fills the last
 // price and its discount; its refusals pass through.
 func (s *Service) CreateFromRequest(ctx context.Context, p auth.Principal, requestID int64, version int, vendorID int64) (poID int64, err error) {
+	poID, _, err = s.CreateFromRequestWithSource(ctx, p, requestID, version, vendorID)
+	return poID, err
+}
+
+// CreateFromRequestWithSource is CreateFromRequest, also returning the
+// request's display for the caller's message (as CopyWithSource does).
+func (s *Service) CreateFromRequestWithSource(ctx context.Context, p auth.Principal, requestID int64, version int, vendorID int64) (poID int64, source string, err error) {
 	var in doc.ActionInput
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		info, err := s.d.Engine.Info(ctx, tx, RequestDocType, requestID)
-		if errors.Is(err, doctype.ErrNotFound) {
-			return auth.ErrNotFound
-		}
+		info, err := s.fromRequestRights(ctx, tx, p, requestID)
 		if err != nil {
 			return err
 		}
-		ref := &auth.RecordRef{
-			DocType: info.DocType, ID: info.ID, CreatedBy: info.CreatedBy,
-			EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
-		}
-		if err := s.d.Auth.CanTx(ctx, tx, p, RequestDocType, auth.RightRead, ref); err != nil {
-			return err
-		}
-		if err := s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil); err != nil {
-			return err
-		}
+		source = info.Display
 		req, err := doc.LoadDoc(ctx, tx, RequestDocType, requestID)
 		if err != nil {
 			return err
@@ -86,13 +81,34 @@ func (s *Service) CreateFromRequest(ctx context.Context, p auth.Principal, reque
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	res, err := s.d.Engine.Do(ctx, p, DocType, 0, doctype.ActionSave, in)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
-	return res.ID, nil
+	return res.ID, source, nil
+}
+
+// fromRequestRights loads request requestID's info and checks, in this
+// order, that p may read it (missing or hidden is AUTH's 404, CD-245) and
+// create a PO (CD-259).
+func (s *Service) fromRequestRights(ctx context.Context, tx *db.Tx, p auth.Principal, requestID int64) (doctype.Info, error) {
+	info, err := s.d.Engine.Info(ctx, tx, RequestDocType, requestID)
+	if errors.Is(err, doctype.ErrNotFound) {
+		return doctype.Info{}, auth.ErrNotFound
+	}
+	if err != nil {
+		return doctype.Info{}, err
+	}
+	ref := &auth.RecordRef{
+		DocType: info.DocType, ID: info.ID, CreatedBy: info.CreatedBy,
+		EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
+	}
+	if err := s.d.Auth.CanTx(ctx, tx, p, RequestDocType, auth.RightRead, ref); err != nil {
+		return doctype.Info{}, err
+	}
+	return info, s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightCreate, nil)
 }
 
 // plainOf is a stored link, text or date value as a posted form value; nil
