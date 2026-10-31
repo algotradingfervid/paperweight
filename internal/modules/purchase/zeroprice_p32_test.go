@@ -9,9 +9,9 @@ import (
 )
 
 // CD-337 (4): a PO line whose price is exactly ₹0 warns `Price is ₹0 on line
-// {n}.` in OrderWarnings, once per such line; ₹0.01 and a blank price warn
-// nothing. Removing the line removes the warning, and a ₹0 line still
-// submits, keeping the warning.
+// {n}.` in OrderWarnings, once per such line, and so does a blank price on a line
+// with an item (P35); ₹0.01 warns nothing. Removing the line removes the
+// warning, and a ₹0 line still submits, keeping the warning.
 func TestPO_ZeroPriceWarning(t *testing.T) {
 	env := purchasetest.New(t)
 	angle := func(price string) map[string]string { return p2Line(t, env, "MS-ANGLE-50", "KGS", "10", price) }
@@ -25,7 +25,7 @@ func TestPO_ZeroPriceWarning(t *testing.T) {
 		{"lines 1 and 3 at 0", []map[string]string{angle("0"), angle("62.5"), angle("0")},
 			[]string{"Price is ₹0 on line 1.", "Price is ₹0 on line 3."}},
 		{"0.01", []map[string]string{angle("0.01")}, nil},
-		{"blank", []map[string]string{angle("")}, nil},
+		{"blank (CD-337 (4): paid as ₹0)", []map[string]string{angle("")}, []string{"Price is ₹0 on line 1."}},
 	} {
 		po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(c.lines...))
 		if got := p2Warnings(t, env, env.Priya, po.ID); !slices.Equal(got, c.warnings) {

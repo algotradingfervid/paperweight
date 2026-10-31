@@ -35,7 +35,9 @@ func stateField() doctype.Field {
 }
 
 // orderFields are PO spec §3.1 and §3.2. System fields are kept by the module
-// and never copied by amend (doc/terminal.go:162). request_line_id,
+// and never copied by amend (doc/terminal.go:162); they (but copy_notes,
+// which Copy sets) and the RollUp are ReadOnly, so no form draws an input
+// for them (P34). request_line_id,
 // copied_from_no and copied_from_id are set by module routes on create, so
 // they are not ReadOnly (checkReadOnly refuses them); Module.Hide hides them
 // and Validate owns their rules (CD-247 (1)).
@@ -72,13 +74,13 @@ func orderFields() []doctype.Field {
 		{Name: "copied_from_no", Label: "Copied from", Type: doctype.Text, MaxLen: 40},
 		{Name: "copied_from_id", Label: "Copied from id", Type: doctype.Int},
 		{Name: "copy_notes", Label: "Copy notes", Type: doctype.Text, System: true},
-		{Name: "net_total", Label: "Taxable value", Type: doctype.Money, System: true},
-		{Name: "cgst_total", Label: "CGST", Type: doctype.Money, System: true},
-		{Name: "sgst_total", Label: "SGST", Type: doctype.Money, System: true},
-		{Name: "igst_total", Label: "IGST", Type: doctype.Money, System: true},
-		{Name: "grand_total", Label: "Grand total", Type: doctype.Money, System: true},
-		{Name: "rounded_total", Label: "Rounded total", Type: doctype.Money, System: true, Sortable: true, ListPriority: 2},
-		{Name: "receipt_status", Label: "Receipt", Type: doctype.Select, System: true, Filterable: true,
+		{Name: "net_total", Label: "Taxable value", Type: doctype.Money, System: true, ReadOnly: true},
+		{Name: "cgst_total", Label: "CGST", Type: doctype.Money, System: true, ReadOnly: true},
+		{Name: "sgst_total", Label: "SGST", Type: doctype.Money, System: true, ReadOnly: true},
+		{Name: "igst_total", Label: "IGST", Type: doctype.Money, System: true, ReadOnly: true},
+		{Name: "grand_total", Label: "Grand total", Type: doctype.Money, System: true, ReadOnly: true},
+		{Name: "rounded_total", Label: "Rounded total", Type: doctype.Money, System: true, ReadOnly: true, Sortable: true, ListPriority: 2},
+		{Name: "receipt_status", Label: "Receipt", Type: doctype.Select, System: true, ReadOnly: true, Filterable: true,
 			Options:      []string{"not_received", "part_received", "fully_received"},
 			OptionLabels: map[string]string{"not_received": "Not received", "part_received": "Part received", "fully_received": "Fully received"}}, // UX §5.2, CD-325
 		stateField(),
@@ -106,13 +108,14 @@ func orderFields() []doctype.Field {
 		{Name: "igst", Label: "IGST", Type: doctype.Money, ReadOnly: true, OnLine: true},
 		{Name: "already_received", Label: "Already received", Type: doctype.Qty, NonNegative: true, Default: "0", OnLine: true,
 			Hint: "What arrived before this order was entered in the app."},
-		{Name: "received_qty", Label: "Received", Type: doctype.Qty, RollUp: true, OnLine: true},
+		{Name: "received_qty", Label: "Received", Type: doctype.Qty, RollUp: true, ReadOnly: true, OnLine: true},
 		{Name: "request_line_id", Label: "Request row", Type: doctype.Int, OnLine: true},
 	}
 }
 
 // requestFields are PO spec §20.2. order_status and ordered_qty are System
-// fields kept by RefreshOrderStatus (§20.3), not a RollUp (CD-247 (4)).
+// fields kept by RefreshOrderStatus (§20.3), not a RollUp (CD-247 (4)), and
+// ReadOnly, so no form draws an input for them (P34).
 func requestFields() []doctype.Field {
 	return []doctype.Field{
 		{Name: "number", Label: "Request number", Type: doctype.Text, ReadOnly: true, ListPriority: 1},
@@ -125,7 +128,7 @@ func requestFields() []doctype.Field {
 			Hint: "The date you need the items, on or after the request date."},
 		{Name: "purpose", Label: "What is it for?", Type: doctype.Text, MaxLen: 500,
 			Hint: "For example, \"Slab casting on level 3\"."},
-		{Name: "order_status", Label: "Ordered", Type: doctype.Select, System: true, Filterable: true, ListPriority: 2,
+		{Name: "order_status", Label: "Ordered", Type: doctype.Select, System: true, ReadOnly: true, Filterable: true, ListPriority: 2,
 			Options:      []string{"not_ordered", "part_ordered", "ordered"},
 			OptionLabels: map[string]string{"not_ordered": "Not ordered", "part_ordered": "Part ordered", "ordered": "Ordered"}}, // UX §5.2, §5.14, CD-325
 		stateField(),
@@ -140,7 +143,7 @@ func requestFields() []doctype.Field {
 			Hint: "How many you need in the chosen unit, more than 0."},
 		{Name: "note", Label: "Note", Type: doctype.Text, MaxLen: 200, OnLine: true,
 			Hint: "For example, a brand or size."},
-		{Name: "ordered_qty", Label: "Ordered", Type: doctype.Qty, System: true, OnLine: true},
+		{Name: "ordered_qty", Label: "Ordered", Type: doctype.Qty, System: true, ReadOnly: true, OnLine: true},
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 
 // OrderWarnings are the PO's warnings, which never refuse a save (CD-280 D1):
 // per line, Already received above the quantity (PO spec §3.2) and a price
-// of exactly ₹0 (CD-337 (4); a blank price warns nothing); then the
+// of ₹0 or, on a line with an item, blank (CD-337 (4), P35); then the
 // site and project branches in different states (§27.3); then the
 // over-request warnings (§20.5, P6). They are read in one read tx after the
 // read check: a PO p can't read is AUTH's refusal, with no warnings.
@@ -38,7 +38,7 @@ func (s *Service) OrderWarnings(ctx context.Context, p auth.Principal, poID int6
 			if types.Qty(l.AlreadyReceived) > types.Qty(l.Qty) {
 				out = append(out, fmt.Sprintf(msgAlreadyAbove, l.LineNo))
 			}
-			if l.Price.Valid && l.Price.Int64 == 0 {
+			if l.ItemID != 0 && (!l.Price.Valid || l.Price.Int64 == 0) {
 				out = append(out, fmt.Sprintf(msgZeroPrice, l.LineNo))
 			}
 		}

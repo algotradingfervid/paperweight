@@ -80,7 +80,7 @@ func New(t testing.TB, opts ...EnvOpt) *Env {
 	d := testkit.NewDB(t)
 	fx := testkit.Seed(t, d)
 	clk := testkit.Clock()
-	arjun := insertArjun(t, d, clk)
+	arjun := InsertArjun(t, d, clk)
 
 	refs, dir := &engineRef{}, &directoryRef{}
 	a := auth.New(auth.Deps{DB: d, Clock: clk, Directory: dir, Audit: audit.Default, Refs: refs, Info: refs})
@@ -149,10 +149,10 @@ func (e *Env) SetNow(t testing.TB, at time.Time) {
 	t.Cleanup(func() { e.Clock.Set(before) })
 }
 
-// insertArjun adds the module-only fixture user arjun@vardhan.test (Purchase
+// InsertArjun adds the module-only fixture user arjun@vardhan.test (Purchase
 // User and Employee, EMP-009 reporting to EMP-003, no restrictions; CD-257)
 // with plain SQL, as testkit.Seed adds the others, and returns his principal.
-func insertArjun(t testing.TB, d *db.DB, clk clock.Clock) auth.Principal {
+func InsertArjun(t testing.TB, d *db.DB, clk clock.Clock) auth.Principal {
 	t.Helper()
 	ctx := context.Background()
 	at := types.TimestampOf(clk.Now()).String()
