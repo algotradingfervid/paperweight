@@ -1,0 +1,29 @@
+package purchaseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// termsView is the Terms body: the fields, then the earlier-PO ones under
+// their summary.
+templ termsView(fields, earlier []templ.Component, open bool) {
+	for _, f := range fields {
+		@f
+	}
+	if len(earlier) > 0 {
+		@components.Disclosure(earlierSummary, open) {
+			for _, f := range earlier {
+				@f
+			}
+		}
+	}
+}
+
+// noVendorView replaces the address radios on a draft with no vendor.
+templ noVendorView(href string) {
+	<p>{ noVendorText }</p>
+	@components.Button(components.ButtonProps{Label: goToDetailsLabel, Href: href})
+}
+
+// noAddressView replaces the address radios for a vendor with none.
+templ noAddressView(msg string) {
+	<p>{ msg }</p>
+}
