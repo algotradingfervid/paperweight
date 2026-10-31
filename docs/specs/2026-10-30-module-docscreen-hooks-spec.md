@@ -181,6 +181,7 @@ A test-only `docscreentest.Hooked` DocType exercises every hook, on the real eng
 2. **Import guard.** Accepted (CD-237). `importRule` refuses non-kernel packages, and nothing guards `internal/modules`, so spec §4.2 rule 5 gains `modules/*/web`, and MOD-0 adds a contract test: service packages import no `internal/ui`, `web` packages may, and a module imports only earlier modules.
 3. **Route prefix.** `/modules/<module>/…`, accepted (CD-237).
 4. **Plan-check rulings for M0-2/M0-3 (CD-256).** They are binding over §3 and §4 where the two differ. They add `StepState.Defaults`, a seam task M0-1b (Hide everywhere a field renders or posts), the merge rules for `Save.Lines`, a nil `Save.Lines` on a Line save, and how `Module.Line` turns the grid off. They also settle `NoLinePages` 404s, the `Steps` keys and `Ctx.Deps = d.WithStored(...)`. Read CD-256 in `contract-changes.md`.
+5. **Gap hooks G1 to G9(a) (CD-263).** These are binding additions to §3: `Step.Bar` and `StepBar`, `CheckExtra.Cards`, and `PageExtra.Notice`, `More` and `Primary`. Outside module.go they add `ApprovalView.Roles` and `Why`, `approval.Status.Roles` and `Why`, `components.Row.StateLabel`, `components.StateBadgeLabel`, `wizard.Bar.PrimaryNav` and `BackLink`, and `nav=stay`. G1 (a read-only draft for readers without `write`) and G9(a) (`Needs your approval: {roles}, {why}`) are named exceptions to §1's "no behaviour change without hooks". Read CD-263.
 
 ## 8. Work outline (MOD-0)
 

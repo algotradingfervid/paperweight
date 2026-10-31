@@ -332,3 +332,28 @@ Request IDs: AUTH `C1–C14` (wp1-auth), NAM `C1–C9` (wp1-naming), DOC (wp1-do
 | CD-260 | **DOC-112 amended (follows CD-259).** The two racing reassigners are non-admin users holding `approve` (ravi and meena), not the owner and ravi: with rights checked before the version, an owner who has lost ownership gets AUTH's 403, not DOC-069's text, so the old case was flaky. DOC-111 covers the owner's stale retry. | AD-9 DECISION, head accepted. |
 | CD-261 | **MOD-EXP starts in parallel (owner, 31 Oct).** The owner accepted every Expense spec §16 assumption. AD-11 runs MOD-EXP on `wp/mod-exp` (`.worktrees/mod-exp`), budget 6. Phase A, now: the plan `docs/superpowers/plans/2026-10-31-mod-exp.md` with a fresh plan check against main, the EXP test docs `docs/tests/modules/exp.md` (spec §17), the fixture rows (spec §15.3, §15.6), and the UX design `docs/ux/2026-10-31-expense.md` with review, all sent to the head for merge and owner approval. Phase B: the Expense-only MOD-0 items (`Field.AllowBlocked`, `msgLimit` and `pol.MaxCount`, `files.ListTx`), started after AD-9's M0-10 merges because they touch DOC and files, then the services once G-M0S is met, and the screens once AD-10's hooks and the owner-approved UX are in. The purchase AD (AD-12, P1 onward) starts at G-M0S. Budgets: AD-9 8, AD-10 5, AD-11 6, head 2. | Owner via AskUserQuestion; head director. |
 | CD-262 | **M0-7 and M0-14 rulings (AD-9).** Business settings: a non-admin opening or saving the page gets its own refusal, `Only an administrator can change business settings.` (403, CD-147/152). A stale save uses DOC's wording with the label Business settings (`Someone else changed Business settings after you opened it. Reload it and make your changes again.`, 409), checked as the UPDATE's condition. Lock dates print with `types.FormatDate` (dd-mm-yyyy), 422. Nav: `Business settings` in the admin group, beside Numbering. Comments: their own service, `modkit.NewComments(CommentsDeps{DB, Auth, Info, Clock})`. A hidden record, a missing record and an unregistered DocType all get auth.ErrNotFound's 404 (CD-245). The body is trimmed; an empty body and one over 1,000 runes get §22's two messages (422). `RecentComments(ctx, p)` returns at most 10 comments from the last 7 days, newest first, on registered DocTypes where `Info.CreatedBy == p.ID` and that p can read, each with the document's Display. `modkitweb.Deps` gains `Info`. The M0-6 import guard also refuses a service package reaching `internal/ui` through any web package. | AD-9 DECISION, head accepted. |
+| CD-263 | **Docscreen gaps G1 to G9(a): tasks and hooks spec additions (AD-10 plan check against 8c20b99; builds CD-258).**
+
+*Tasks.*
+- M0-15 (serial, High) adds the new §3 types and G1.
+- Then, in lanes split by function: M0-16 (High, G2 to G5: pageViewOf, docBanners, docBar, check.templ, checkStep), M0-17 (High, G6), M0-18 (Standard, G7) and M0-19 (High, G9(a)).
+- M0-5 stays on the critical path, and each of M0-15 to M0-19 adds its own pages to the sweep.
+- Tests are HOOK-019 to HOOK-032, with names as in AD-10's proposal; AD-10 adds them to hook.md.
+
+*G1.* A draft's page is its check page only for a user with `write` on the record (`Auth.Can` after View, outside any tx; rights, not created_by). Every other reader gets the read-only document page, every step and line GET answers 303 there, and POSTs keep DOC's 403. This applies to every DocType, so a Director without write sees a fixture.Order draft read-only. Design-system §8.3 is amended.
+
+*G2 to G5.*
+- G2: `CheckExtra.Cards` sit after the Attachments card and before the grand total, outside the step form.
+- G3: `PageExtra.Notice` comes last among the document banners; a blank Kind means Info.
+- G4: `PageExtra.More` entries come before docscreen's own, whose order doesn't change (Copy, Hand over, then Print, Close, Cancel, Delete draft).
+- G5: `PageExtra.Primary` shows only when the bar has no primary and no note, and it must have an Href.
+
+*G6.* A nil Body component means the generic body. `nav=stay` redraws the same step. `Step.Bar` returns a `StepBar` with Primary, Stay and Back.
+
+*G7.* Overrides only: components keep their own words. `StateBadgeLabel(s, label)` and `Row.StateLabel` take `dt.StateLabels[s]` or an empty string. successText uses `doctype.StateLabel(dt, StateApproved)`. This amends CD-255: `components.StateLabel` doesn't call `doctype.StateLabel`.
+
+*G8.* No docscreen task: the Order LineCard (P15a) and a new Request LineCard (P15-0 and P15d) show the unit.
+
+*G9(a).* `approval.Status` and `docscreen.ApprovalView` gain Roles and Why, filled only when pending. uiadapters copies them, and the approver's waiting line reads `Needs your approval: {Roles}, {Why}`. A rule from 0 reads `…, Any amount`, and a reporting-manager rule shows only the fallback role. AD-10 builds it, touching approval/model.go, inbox.go and uiadapters.go.
+
+*Administrators.* An Administrator still holds every right, so they can edit anyone's draft. PO spec §21.1's "only the owner edits" applies to the business roles; the Administrator is the break-glass user, and this is unchanged. | AD-10 DECISION, head accepted. |

@@ -228,13 +228,13 @@ Components are still ours: the templ function, its props, its ARIA and behaviour
 - **Approval preview** from `approval.Evaluate` (read-only): "This order needs approval from a Purchase Manager because it is ₹50,000 or more." or "No approval needed. It will be approved and numbered when you submit."
 - Primary button is the state action: "Submit for approval" or "Submit".
 - Server re-validates everything on submit; any failure sends the user to the first failing step with its errors.
-- **Reopening a draft** from a list lands on the check page with each section marked "Complete" or "Needs attention", not on step 1.
+- **Reopening a draft** from a list lands on the check page with each section marked "Complete" or "Needs attention", not on step 1, for a user who may change it (`write` on the record). Anyone else who can read it gets the read-only document page (§8.4), and every step and line URL sends them there (CD-263, G1).
 
 **Lifecycle mapping (spec §3.2).**
 
 | Event | Screen |
 |---|---|
-| Submit | Document page with banner "Submitted for approval to Ravi Kulkarni (Purchase Manager)." or "Approved. PO/26-27/00001 has been numbered." |
+| Submit | Document page with banner "Submitted for approval to Purchase Manager." (the kernel's text, CD-263) or "Approved. PO/26-27/00001 has been numbered." |
 | Pending | Read-only document page; Withdraw (R2) for the submitter returns it to draft and the check page |
 | Rejected | Document page with the reason in a danger banner at the top; "Revise" → draft → check page |
 | Cancelled → Amend | New draft opened on the check page with banner "Amending PO/26-27/00042" |
