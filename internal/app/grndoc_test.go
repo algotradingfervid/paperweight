@@ -48,6 +48,7 @@ func init() {
 	doctype.Register(doctype.DocType{
 		Name: grnType, Label: "GRN", PluralLabel: "GRNs",
 		Table: "apptest_grn", LinesTable: "apptest_grn_line", Series: "GN/{FY}/{#####}",
+		TestOnly:    true, // CD-291
 		Submittable: true, OwnerField: "created_by",
 		ProjectFields: []string{"project_id"},
 		SiteFields:    []string{"site_id", "lines.line_site_id"},
