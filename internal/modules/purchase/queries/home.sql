@@ -57,19 +57,19 @@ WHERE o.state = 'approved' AND o.receipt_status <> 'fully_received'
 ORDER BY due = '', due, o.id;
 
 -- name: HomeRequestsToOrder :many
--- Requests to order (P14, spec 25): submitted (approved) requests, oldest
--- needed-by first, those with none last. The caller keeps those with a row
--- pending to order.
+-- Requests to order (P14, spec 25): every request, oldest needed-by first,
+-- those with none last. The caller keeps those with a row pending to order
+-- among HomeRequestLines, which reads only submitted (approved) requests.
 SELECT r.id, r.state, r.created_by,
        CAST(COALESCE(r.required_by, '') AS TEXT) AS required_by,
        CAST(COALESCE(s.code, '') AS TEXT) AS site_code
 FROM purchase_request r
 LEFT JOIN site s ON s.id = r.site_id
-WHERE r.state = 'approved'
 ORDER BY r.required_by IS NULL, r.required_by, r.id;
 
 -- name: HomeRequestLines :many
--- The rows of the submitted requests, for PendingToOrder (P14).
+-- The rows of the submitted (approved) requests, for PendingToOrder (P14):
+-- the Requests to order queue's only state filter.
 SELECT l.id, l.parent_id
 FROM purchase_request_line l
 JOIN purchase_request r ON r.id = l.parent_id

@@ -134,11 +134,11 @@ func (s *Service) Queue(ctx context.Context, p auth.Principal, name string, page
 // or when p lacks the card's right (spec §25).
 func (s *Service) source(ctx context.Context, p auth.Principal, name string) (lister, bool, error) {
 	switch name {
-	case QueueDrafts, QueueWaiting:
+	case QueueDrafts:
 		pred, ok, err := s.scope(ctx, p, DocType, auth.RightCreate)
-		if name == QueueDrafts {
-			return func(ctx context.Context, tx *db.Tx) (queueList, error) { return s.drafts(ctx, tx, p.ID, pred) }, ok, err
-		}
+		return func(ctx context.Context, tx *db.Tx) (queueList, error) { return s.drafts(ctx, tx, p.ID, pred) }, ok, err
+	case QueueWaiting:
+		pred, ok, err := s.scope(ctx, p, DocType, auth.RightCreate)
 		return func(ctx context.Context, tx *db.Tx) (queueList, error) { return s.waiting(ctx, tx, p.ID, pred) }, ok, err
 	case QueueToSend:
 		pred, approver, err := s.scope(ctx, p, DocType, auth.RightApprove)
@@ -157,13 +157,9 @@ func (s *Service) source(ctx context.Context, p auth.Principal, name string) (li
 		if _, ok, err := s.scope(ctx, p, DocType, auth.RightCreate); err != nil || !ok {
 			return nil, false, err
 		}
-		pred, readable, err := s.scope(ctx, p, RequestDocType, auth.RightRead)
-		return func(ctx context.Context, tx *db.Tx) (queueList, error) {
-			if !readable {
-				return queueList{}, nil
-			}
-			return s.requestsToOrder(ctx, tx, pred)
-		}, true, err
+		// Without read on requests, pred is noRows: the queue is empty.
+		pred, _, err := s.scope(ctx, p, RequestDocType, auth.RightRead)
+		return func(ctx context.Context, tx *db.Tx) (queueList, error) { return s.requestsToOrder(ctx, tx, pred) }, true, err
 	case QueueMyRequests:
 		pred, ok, err := s.scope(ctx, p, RequestDocType, auth.RightCreate)
 		return func(ctx context.Context, tx *db.Tx) (queueList, error) { return myRequests(ctx, tx, p.ID, pred) }, ok, err
@@ -171,12 +167,17 @@ func (s *Service) source(ctx context.Context, p auth.Principal, name string) (li
 	return nil, false, nil
 }
 
-// scope is Auth.Scope with a missing right as ok false rather than an error.
+// noRows is a predicate that matches no row.
+var noRows = auth.Predicate{SQL: "0 = 1"}
+
+// scope is Auth.Scope with a missing right as ok false rather than an
+// error. It fails closed: without the right the predicate is noRows, never
+// the empty "every row" filter.
 func (s *Service) scope(ctx context.Context, p auth.Principal, dt string, r auth.Right) (auth.Predicate, bool, error) {
 	pred, err := s.d.Auth.Scope(ctx, p, dt, r)
 	var denied *auth.DeniedError
 	if errors.As(err, &denied) {
-		return auth.Predicate{}, false, nil
+		return noRows, false, nil
 	}
 	return pred, err == nil, err
 }
@@ -388,8 +389,8 @@ func (s *Service) requestsToOrder(ctx context.Context, tx *db.Tx, pred auth.Pred
 	names := map[int64]string{}
 	var l queueList
 	for _, r := range rows {
-		k := open[r.ID]
-		if !in(r.ID) || k == 0 {
+		k := open[r.ID] // only lines of requests in pred are counted
+		if k == 0 {
 			continue
 		}
 		by, err := s.userName(ctx, tx, names, r.CreatedBy)
