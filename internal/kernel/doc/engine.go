@@ -71,13 +71,19 @@ func (e *engine) Do(ctx context.Context, p auth.Principal, doctype string, id in
 		res, err = e.do(ctx, tx, p, dt, id, a, in)
 		return err
 	})
-	if errors.Is(err, db.ErrBusy) {
-		return Result{}, &Error{Kind: KindBusy, Message: db.ErrBusy.Error(), Err: db.ErrBusy}
-	}
-	if err != nil {
+	if err := busy(err); err != nil {
 		return Result{}, err
 	}
 	return res, nil
+}
+
+// busy maps a busy database to a KindBusy error (503) and returns other
+// errors unchanged.
+func busy(err error) error {
+	if errors.Is(err, db.ErrBusy) {
+		return &Error{Kind: KindBusy, Message: db.ErrBusy.Error(), Err: db.ErrBusy}
+	}
+	return err
 }
 
 func (e *engine) do(ctx context.Context, tx *db.Tx, p auth.Principal, dt *DocType, id int64, a Action, in ActionInput) (Result, error) {
