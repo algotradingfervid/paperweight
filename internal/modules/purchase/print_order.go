@@ -56,9 +56,8 @@ func printOrder(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 	if h.SnapVendorName != "" && h.SnapPlaceState != "" {
 		d.PlaceReason = gstcalc.PlaceReason(h.SnapVendorCategory, h.SnapVendorName, h.SnapVendorState, h.SnapPlaceState)
 	}
-	if h.ReverseCharge == 1 {
-		tax := types.Money(h.CgstTotal + h.SgstTotal + h.IgstTotal)
-		d.ReverseChargeNote = "Reverse charge applies. GST of " + types.FormatINR(tax) + " is payable by us, not to the vendor."
+	if d.ReverseChargeNote, err = ReverseChargeNote(ctx, tx, id); err != nil {
+		return nil, err
 	}
 	lines, err := q.OrderPrintLines(ctx, id)
 	if err != nil {
@@ -83,6 +82,22 @@ func printOrder(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 		return nil, err
 	}
 	return print.TradeDocument(d), nil
+}
+
+// ReverseChargeNote is the PO print's reverse-charge note for order poID,
+// with the PO's GST total, or "" when the PO has reverse charge off. It reads
+// inside the caller's tx and makes no right check: the caller checks read
+// on the PO first. An unknown poID returns the query's sql.ErrNoRows.
+func ReverseChargeNote(ctx context.Context, tx *db.Tx, poID int64) (string, error) {
+	h, err := dbq.New(tx.SQL()).OrderPrint(ctx, poID)
+	if err != nil {
+		return "", err
+	}
+	if h.ReverseCharge != 1 {
+		return "", nil
+	}
+	tax := types.Money(h.CgstTotal + h.SgstTotal + h.IgstTotal)
+	return "Reverse charge applies. GST of " + types.FormatINR(tax) + " is payable by us, not to the vendor.", nil
 }
 
 // addressLines are the vendor address snapshot's lines without its last
