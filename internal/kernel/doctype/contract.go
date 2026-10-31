@@ -94,6 +94,9 @@ type Field struct {
 	// column, and Register keeps it out of Fields (CD-199, CD-210). Only
 	// ImportFields lists it, and the importer's RowFunc gets its cell.
 	ImportOnly bool
+
+	// AllowBlocked lets a Link accept a master whose lookup is Blocked; Disabled is still refused (CD-237).
+	AllowBlocked bool
 }
 
 type SortKey struct {

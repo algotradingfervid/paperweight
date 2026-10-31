@@ -176,7 +176,7 @@ func checkField(ctx context.Context, tx *db.Tx, f Field, v any, line int, submit
 			display = mi.Code + " " + mi.Name
 		}
 		return fieldErr(f, line, msgLinkDisabled, display, strings.ToLower(f.Label)), "", true
-	case mi.Blocked != "":
+	case mi.Blocked != "" && !f.AllowBlocked:
 		return FieldError{Field: f.Name, Line: line, Message: linePrefix(line) + mi.Blocked}, "", true
 	case mi.Warning != "":
 		return FieldError{}, linePrefix(line) + mi.Warning, false
