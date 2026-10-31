@@ -19,5 +19,4 @@ WHERE id = ?;
 -- Each PO line's ordered, already received and received (the roll-up).
 SELECT COALESCE(qty, 0) AS qty, COALESCE(already_received, 0) AS already_received, received_qty
 FROM purchase_order_line
-WHERE parent_id = ?
-ORDER BY line_no;
+WHERE parent_id = ?;

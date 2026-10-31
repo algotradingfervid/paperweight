@@ -73,10 +73,8 @@ func (s *Service) Page(ctx context.Context, p auth.Principal, id int64) (Receipt
 				out.EWay = n
 			}
 		}
-		bill, ok, err := billRow(ctx, q, id)
-		if ok {
-			out.Invoice = bill.InvoiceNo
-		}
+		bill, _, err := billRow(ctx, q, id) // a zero BillView when there's no bill
+		out.Invoice = bill.InvoiceNo
 		return err
 	})
 	return out, err

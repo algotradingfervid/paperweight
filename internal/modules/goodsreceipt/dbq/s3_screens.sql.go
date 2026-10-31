@@ -40,7 +40,6 @@ const s3OrderLines = `-- name: S3OrderLines :many
 SELECT COALESCE(qty, 0) AS qty, COALESCE(already_received, 0) AS already_received, received_qty
 FROM purchase_order_line
 WHERE parent_id = ?
-ORDER BY line_no
 `
 
 type S3OrderLinesRow struct {
