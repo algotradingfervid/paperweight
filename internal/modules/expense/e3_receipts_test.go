@@ -126,7 +126,7 @@ func TestExp_ReceiptOrReason(t *testing.T) {
 
 	e.WantRefused(t, e3NoReceipt(1), func() error {
 		_, err := e.Engine.Do(context.Background(), deepak, expense.ClaimDocType, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
-		e3WantField(t, err, 1, "", e3NoReceipt(1))
+		e3WantField(t, err, 1, "no_receipt_reason", e3NoReceipt(1))
 		return err
 	})
 
@@ -140,7 +140,7 @@ func TestExp_ReceiptOrReason(t *testing.T) {
 	two := e.DraftClaim(t, deepak, nil, nil, expensetest.Values{"no_receipt_reason": ""})
 	e.WantRefused(t, e3NoReceipt(2), func() error {
 		_, err := e.Engine.Do(context.Background(), deepak, expense.ClaimDocType, two.ID, doc.ActionSubmit, doc.ActionInput{Version: two.Version})
-		e3WantField(t, err, 2, "", e3NoReceipt(2))
+		e3WantField(t, err, 2, "no_receipt_reason", e3NoReceipt(2))
 		return err
 	})
 }
@@ -340,7 +340,7 @@ func TestExp_ReceiptCheckSameTx(t *testing.T) {
 	// Submit: line 2 has neither receipt nor reason.
 	e.WantRefused(t, e3NoReceipt(2), func() error {
 		_, err := do(deepak, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
-		e3WantField(t, err, 2, "", e3NoReceipt(2))
+		e3WantField(t, err, 2, "no_receipt_reason", e3NoReceipt(2))
 		return err
 	})
 
