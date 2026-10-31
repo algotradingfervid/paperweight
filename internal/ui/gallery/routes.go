@@ -273,7 +273,7 @@ func wizardBody(i int) func(*http.Request) templ.Component {
 }
 
 // Screens lists every gallery page, a few page states, and the docscreen
-// pages of the sample DocType, under base. Nobody signs in: the gallery's
+// pages of the sample DocType and of Hooked with its module, under base. Nobody signs in: the gallery's
 // shell is Priya's.
 func Screens(base string) []screens.Screen {
 	const route = "/_gallery/{page}"
@@ -299,7 +299,11 @@ func Screens(base string) []screens.Screen {
 		screens.Screen{Name: "gallery wizard-1, supplier chosen", Route: route, URL: base + "/_gallery/wizard-1?supplier=3"},
 		screens.Screen{Name: "gallery wizard-3, conflict", Route: route, URL: base + "/_gallery/wizard-3?conflict=1"},
 	)
-	for _, s := range docscreen.Screens(docscreentest.Sample, galleryIDs) {
+	hooked := append(docscreen.Screens(docscreentest.Hooked, hookedIDs), screens.Screen{
+		Name: docscreentest.Hooked + " read-only draft", Route: "/doc/{doctype}/{id}",
+		URL: "/doc/" + docscreentest.Hooked + "/" + strconv.FormatInt(hookedReadOnly, 10),
+	})
+	for _, s := range slices.Concat(docscreen.Screens(docscreentest.Sample, galleryIDs), hooked) {
 		s.URL, s.As = base+s.URL, ""
 		out = append(out, s)
 	}

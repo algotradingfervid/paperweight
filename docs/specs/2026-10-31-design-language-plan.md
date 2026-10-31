@@ -70,8 +70,8 @@ Everything else stays as it is: product rules §1, people §2, stack §3 (except
 |---|---|---|
 | P1 | **Tokens only.** No raw colour, length, duration, easing, shadow or z-index outside `tokens.css`, `theme.css` and the generated theme file | Lint rules `raw-colour` (exists), `raw-duration`, `raw-easing`, `raw-shadow`, `raw-z` (§7) |
 | P2 | **One meaning per icon, one icon per meaning.** A glyph is used for exactly one concept app-wide, and screens name icons by meaning, not by drawing | Registry test: no glyph appears under two semantic names unless listed as an allowed alias (§4.7) |
-| P3 | **Brand is accent, never meaning.** The theme colours actions, links, selection and focus. It never carries status, and status colours never change per company | Theme test: generated theme CSS sets only themeable variables; status variables are absent from it (§3.6) |
-| P4 | **Any accent stays accessible.** Every derived colour passes WCAG AA against every surface it can sit on, or the app adjusts it and says so | Property test over random accents (§3.7, §7) |
+| P3 | **Meaning never rests on colour alone.** Every colour is the company's to set (§3.6), so every state, error and warning also shows its word and icon | Component tests: each state badge, banner and field error renders its icon and text |
+| P4 | **The company sees before it ships.** A theme preview shows every component in every state with the company's colours; the company judges contrast and feel (CD-296) | `make theme-preview` renders every gallery page for a theme file |
 | P5 | **Motion explains, then gets out of the way.** Only transform and opacity animate; nothing over 300 ms in the UI; everything is instant under reduced motion; no motion blocks input | Lint `transition-property` allow-list; e2e `getAnimations()` check under normal and reduced-motion emulation (§7) |
 | P6 | **Same job, same look.** One active, hover, pressed and focus treatment for every selectable thing (nav, list row, radio row, segmented control) | Gallery page "states" with a chromedp check that the computed styles of the four states match the tokens |
 | P7 | **Phone first, thumb first.** 44 px targets (48 px in the action bar), primary action nearest the thumb, nothing hidden behind hover | Existing e2e target-size gate plus a `@media (hover: hover)` lint for hover-only styles |
@@ -82,7 +82,7 @@ Everything else stays as it is: product rules §1, people §2, stack §3 (except
 
 ### 3.1 Colour roles
 
-Fixed (never themeable): neutrals, status, danger, overlay. Themeable: the **accent** ramp (and optionally a second **document accent** for print). `primary` keeps its name in code, because daisyUI and the current tokens use it.
+**Every role below is set in the theme file (§3.6, CD-296)**; the values here are the built-in defaults. Nothing is derived or adjusted: each colour is used exactly as the file gives it. `primary` keeps its name in code, because daisyUI and the current tokens use it.
 
 | Role | Token | Default value | Use | Themeable |
 |---|---|---|---|---|
@@ -92,10 +92,10 @@ Fixed (never themeable): neutrals, status, danger, overlay. Themeable: the **acc
 | Text / secondary / muted / disabled | `--color-text…` | `#141A23` / `#46505E` / `#5E6878` / `#8A93A1` | As today | No |
 | Border / subtle | `--color-border`, `--color-border-subtle` | `#7C8696` / `#DCE0E6` | Input edges (3.68:1) / dividers | No |
 | **Accent 600** | `--color-primary-600` | `#1F4FD1` | Primary button fill, links, focus ring, current step, active nav bar | **Yes** |
-| **Accent 700** | `--color-primary-700` | `#1A3FA8` | Hover on fills, link hover | **Yes (derived)** |
-| **Accent 800** | `--color-primary-800` | `#16348A` | Pressed fill; text and icon on accent tints | **Yes (derived)** |
-| **Accent 100** (new) | `--color-primary-100` | derived | Pressed background on tinted rows; selected chip | **Yes (derived)** |
-| **Accent 50** | `--color-primary-50` | `#EEF3FF` | Active nav item, selected row, tinted panels | **Yes (derived)** |
+| **Accent 700** | `--color-primary-700` | `#1A3FA8` | Hover on fills, link hover | **Yes** (`accent_hover`) |
+| **Accent 800** | `--color-primary-800` | `#16348A` | Pressed fill; text and icon on accent tints | **Yes** (`accent_pressed`, `accent_text`) |
+| **Accent 100** (new) | `--color-primary-100` | `#DDE8FE` | Pressed background on tinted rows; selected chip | **Yes** (`accent_tint_strong`) |
+| **Accent 50** | `--color-primary-50` | `#EEF3FF` | Active nav item, selected row, tinted panels | **Yes** (`accent_tint`) |
 | On-accent | `--color-text-on-fill` | `#FFFFFF` | Text on accent and status fills | No (always white; the accent is darkened until white passes) |
 | Focus | `--color-focus` | = accent 600 | 2 px ring, 2 px offset | Follows accent (§3.5) |
 | Status ×4 | `--color-{success,warning,danger,info}-{50,600,700,800}` | As today | States, banners, field errors | **No** |
@@ -159,111 +159,60 @@ This replaces daisyUI's `menu-active` slate (A3). Selected now reads as the hove
 
 2 px solid `--color-focus`, 2 px offset (WCAG 2.4.13 asks for at least a 2 px perimeter and 3:1 change). `--color-focus` equals accent-600, which the theme check (§3.7) guarantees is at least 4.5:1 on canvas, surface and sunken. That is above the 3:1 needed. Exception: an element that already has a coloured border of its own (ErrorSummary, A12; banners) gets the ring in `--color-text` instead, so two coloured frames never compete.
 
-### 3.6 Theming model: what a deployment may change
+### 3.6 Theming model (CD-296: build-time file, every colour, no automatic checks)
 
-| Input (config key) | Required | Drives | Fixed alternatives |
-|---|---|---|---|
-| `accent` | Yes (default `#1F4FD1`) | accent 600 and every derived step (700, 800, 100, 50), focus, daisyUI `--color-primary` and `--color-accent` | none |
-| `accent_700`, `accent_800`, `accent_50`, `accent_100` | No | Manual override of a derived step, still contrast-checked | derived |
-| `document_accent` | No | Print accent | = accent 600 |
-| `radius` | No: `compact` / `default` / `round` | Radius tokens and daisyUI radii | `default` |
-| `app_name`, logos, favicon | §3.9 | Header, drawer, sign-in, print, tab | embedded defaults |
+A deployment gets its look from **one theme file**, `theme/theme.json` in the repository (or a copy passed to the build with `THEME=<path>`). The build reads it and bakes the colours into the binary: **change the file, rebuild, deploy**. Nothing is read or changed at runtime, and the app never checks, adjusts or refuses a colour. Contrast and feel are the company's call, made from the preview (§3.7).
 
-**Not themeable, and why**: neutrals (text contrast is computed against them, and tinted neutrals make status tints harder to read), status colours and danger (they carry meaning, P3), focus independently of the accent (it follows the accent, so one less thing to check), fonts (a new font is a dependency and changes metrics, which can break the overflow gate), the second brand colour (`secondary`; one accent is calmer, and daisyUI's `secondary` stays mapped to the neutral). A deployment that wants these needs a design change, not a config change.
+Every colour role is a key. Any key left out keeps the built-in default from §3.1, so a file can be as short as one accent or set every role:
 
-### 3.7 Deriving the palette from one colour, with automatic checks
+| Group | Keys |
+|---|---|
+| Backgrounds | `canvas`, `surface`, `sunken`, `overlay` |
+| Text | `text`, `text_secondary`, `text_muted`, `text_disabled`, `text_on_accent`, `text_on_status`, `link`, `link_hover` |
+| Lines | `border`, `border_subtle`, `focus` |
+| Accent (each step given, none derived) | `accent`, `accent_hover`, `accent_pressed`, `accent_tint`, `accent_tint_strong`, `accent_text` (text and icons on tints) |
+| Elements | `header_bg`, `header_text`, `nav_bg`, `nav_text`, `nav_active_bg`, `nav_active_text`, `nav_active_bar`, `actionbar_bg`, `input_bg`, `input_border`, `card_bg`, `card_border`, `badge_count_bg`, `badge_count_text` |
+| Status, each with `_bg`, `_text`, `_icon`, `_border` | `draft`, `pending`, `approved`, `rejected`, `cancelled`, `closed`, `info`, `success`, `warning`, `danger` |
+| Print | `document_accent`, `document_text` |
+| Shape | `radius`: `compact` / `default` / `round` |
+| Identity | `app_name`, `show_name`, `app_logo`, `app_mark`, `favicon`, `document_logo` (files beside `theme.json`, §3.9) |
 
-Algorithm (in `internal/platform/brand`, pure Go, stdlib only, extends `colour.go`'s OKLab code to OKLCH):
+Validation is **syntax only**, at build time: a known key, a `#RRGGBB` colour, an allowed `radius`, a logo file that exists and is a real image. Fonts stay fixed: a new font is a dependency and changes metrics, which can break the overflow gate.
 
-1. Parse `accent` (#RRGGBB). Convert to OKLCH (L, C, H).
-2. **600** = the input if it passes all of: white text on it ≥ 4.5; it as text on surface, canvas and sunken ≥ 4.5. Otherwise lower L in steps of 0.005, keeping H and C (reducing C only to stay inside sRGB), until it passes. Record "adjusted".
-3. **700** = L(600) − 0.07, same H and C. **800** = L(600) − 0.14, C × 0.9.
-4. **50** = L 0.97, C = min(C × 0.25, 0.03). **100** = L 0.93, C = min(C × 0.35, 0.05).
-5. Check every pair the UI uses: white on 600 and 700 ≥ 4.5; 600 on surface, canvas and sunken ≥ 4.5 (link text, focus); 800 on 50 and 100 ≥ 4.5 (active nav, selected row); 600 on 50 ≥ 3 (active bar and icon); `document_accent` on white ≥ 4.5.
-6. **Manual overrides** (`accent_700`…) are checked by the same pairs and are **never adjusted**: a failing override refuses to start, with the pair named.
-7. **Status distance warning**: if the OKLab distance from 600 to any status-700 colour is below 0.10, log a warning (not a refusal). The default blue is already 0.099 from info-700, so the mitigations hold for every theme anyway. Status never uses the accent; every state has an icon and a word; a solid danger fill appears only on a confirm page (§5.2).
+### 3.7 Preview: the company decides
 
-Policy on failure:
+`make theme-preview THEME=<path>` writes a self-contained HTML file, with no server needed, that shows the theme on the real components before anything is built:
 
-| Failure | Behaviour | Message (exact form) |
-|---|---|---|
-| `accent` fails a contrast pair, no choice recorded | **Refuses to start** and points to the preview (owner, CD-244: the company decides, nothing is changed silently) | `brand: accent #00897B fails "white text on accent" (4.32:1, needs 4.5:1). Run "app brand preview" to compare it with the readable shade #007A6E, then either set "accent" to #007A6E or set "accept_low_contrast": true to keep #00897B.` |
-| `accent` fails and `"accept_low_contrast": true` | Starts with the colour as given; logs a warning naming every failing pair on each start | `brand: using accent #00897B as given ("accept_low_contrast" is true); white text on it is 4.32:1, below 4.5:1.` |
-| An override fails | Refuses to start | `brand: accent_800 #5A7BD6 on accent_50 #EEF3FF is 3.62:1, needs 4.5:1. Remove accent_800 to derive it, or pick a darker colour.` |
-| Status distance | Warning only | `brand: accent #AA5403 is close to the warning colour #985000 (distance 0.04). States stay readable because they always show an icon and a word, but consider a different accent.` |
+- the shell: header, drawer with the current item, the user area;
+- buttons in every state (rest, hover, pressed, focus, disabled), links, inputs with focus and an error;
+- every state badge and banner, toasts, empty states, a wizard step with its action bar;
+- a document page, an approval page, a list on a phone and a desktop width;
+- a printed letterhead.
 
-**Preview (CD-244).** `app brand preview <dir>` writes a self-contained HTML file (no server needed; open it in a browser) showing, side by side, the accent as given and the computed readable shade on the real components: header and drawer with the active item, primary and secondary buttons, a link, a status badge row, a form with a focus ring and an error, and a printed letterhead. Each pair shows its contrast number and pass or fail. `app brand check` prints the same numbers as text. The company then writes its choice into `brand.json`. Built in DL-4 with the palette code.
+Each page can be shown beside the default theme. The preview shows; it does not grade. The company adjusts the file and previews again until it is happy, then builds. The same pages are the gallery the UI review uses.
 
-### 3.8 Sample themes (computed with the algorithm above; contrast is WCAG 2 relative luminance)
+### 3.8 Sample themes
 
-| | **Default (Paperweight blue)** | **Teal company** (input `#00897B`) | **Saffron company** (input `#F57C00`) | **Maroon company** (input `#8B1E3F`) |
-|---|---|---|---|---|
-| Input passes? | yes | **no**: white on it 4.32, on sunken 3.75 | **no**: white on it 2.70, on sunken 2.35 | yes |
-| 600 | `#1F4FD1` | `#007A6E` (adjusted) | `#AA5403` (adjusted) | `#8B1E3F` |
-| 700 | `#1A3FA8`\* | `#006459` | `#8C4502` | `#73002D` |
-| 800 | `#16348A`\* | `#014E45` | `#703601` | `#55001F` |
-| 100 | `#DDE8FE` | `#D1EFEA` | `#FEE1D0` | `#FFDFE3` |
-| 50 | `#EEF3FF`\* | `#E5FBF6` | `#FEF3EB` | `#FEF1F3` |
-| White on 600 | 6.78 | 5.24 | 5.28 | 8.92 |
-| White on 700 | 9.05 | 7.08 | 7.08 | 11.89 |
-| 600 on surface / canvas / sunken | 6.78 / 6.27 / 5.89 | 5.24 / 4.84 / 4.55 | 5.28 / 4.88 / 4.58 | 8.92 / 8.25 / 7.74 |
-| 800 on 50 (active nav text) | 9.99 | 8.94 | 8.68 | 13.58 |
-| 600 on 50 (active bar, icon ≥ 3) | 6.10 | 4.85 | 4.83 | 8.11 |
-| Distance to nearest status-700 | info 0.10 | success 0.08 ⚠ | warning 0.04 ⚠, danger 0.09 ⚠ | danger 0.10 |
+Teal, saffron and maroon sample theme files ship in `theme/samples/`, as starting points for a new company and as the three themes the e2e sweep renders (DL-13). Each is a complete file written by hand; nothing is computed.
 
-\* The default keeps today's hand-set 700/800/50 from `brand.json` (derivation would give `#0D37B9` / `#042597` / `#F0F5FF`, also passing). Saffron shows the adjusted case clearly: the company's bright orange is too light for white text, so buttons use a burnt orange. The logo keeps its true colour, because logos are images and are not recoloured. Script used: `docs/ux/design-audit/dl-palette.py`. It becomes the Go test table in task DL-4.
+### 3.9 Logos
 
-### 3.9 Configuration file and logos
-
-**Location and loading.** Today `brand.json` is embedded and checked at `go generate`. New: `app serve --brand <dir>` (default `<data>/brand`, so `/var/lib/paperweight/brand` under `deploy/app.service`, which is already readable). It is read **once at startup**:
-
-- Folder or `brand.json` absent: embedded defaults; log `brand: no brand folder at /var/lib/paperweight/brand; using the built-in Paperweight look.`
-- Present and invalid: **refuse to start**, with one message per problem (unknown key, bad colour, missing file, logo rule), in the same style as today's `Parse` messages. systemd's `Restart=on-failure` makes the error visible in `journalctl -u paperweight`.
-- `app brand check <dir>` runs the same validation and prints the computed palette and contrast table (the §3.8 rows), so a deploy is checked before restart.
-- Changes need a restart. No live reload: that keeps hashing and caching simple.
-
-**Format** (JSON, unknown keys refused, as today; documented in `internal/platform/brand/README.md`):
-
-```json
-{
-  "app_name": "Shree Infra",
-  "accent": "#8B1E3F",
-  "document_accent": "#8B1E3F",
-  "radius": "default",
-  "accept_low_contrast": false,
-  "app_logo": "logo.svg",
-  "app_mark": "mark.svg",
-  "document_logo": "letterhead.png",
-  "favicon": "favicon.png"
-}
-```
-
-`primary`, `primary_700`, `primary_800` and `primary_50` are accepted as aliases for one release, so existing files keep working, then removed.
-
-**Logo slots** (all shown inside fixed boxes, `object-fit: contain`, real `width`/`height` on the `<img>`, as CD-99):
+Logo files sit beside `theme.json` and are embedded at build time:
 
 | Slot | Where | Box | Formats and limits | Fallback chain |
 |---|---|---|---|---|
-| `app_logo` (wordmark) | Desktop header (≥48rem), sign-in page, drawer top on phones | header 160 × 32, sign-in 240 × 64, drawer 160 × 32 | SVG with `viewBox`, or PNG ≥ 2× box size; ≤ 200 KB; ratio 1:2–8:1 | built-in Paperweight logo |
-| `app_mark` (square, new) | Phone header (beside the title, optional), drawer when no wordmark fits, generated favicon, Apple touch icon | 32 × 32 (header), 180 × 180 (touch icon) | SVG or PNG ≥ 180 × 180, square ±5 % | `favicon` → generated monogram (first letter of `app_name`, white on accent-600, an SVG made at startup and served as a file) |
-| `favicon` | Browser tab | 32 × 32 and 180 × 180 | PNG square ≥ 32 (≥ 180 recommended) | `app_mark` → monogram |
-| `document_logo` | Print/PDF letterhead | 60 × 20 mm | PNG or JPEG ≤ 1 MB, ≥ 709 px wide (300 dpi at 60 mm) | **Company logo uploaded in the app (CD-209 `Store.LatestURL`)** → `document_logo` → `app_logo` → company legal name as text |
+| `app_logo` (wordmark) | Desktop header (≥48rem), sign-in page, drawer top on phones | header 160 × 32, sign-in 240 × 64, drawer 160 × 32 | SVG with `viewBox`, or PNG ≥ 2× box size; ≤ 200 KB | built-in Paperweight logo |
+| `app_mark` (square) | Phone header, drawer when no wordmark fits, favicon, Apple touch icon | 32 × 32, 180 × 180 | SVG or PNG ≥ 180 × 180, square | `favicon` → monogram (first letter of `app_name` on `accent`) |
+| `favicon` | Browser tab | 32 × 32 and 180 × 180 | PNG square ≥ 32 | `app_mark` → monogram |
+| `document_logo` | Print/PDF letterhead | 60 × 20 mm | PNG or JPEG ≤ 1 MB | **Company logo uploaded in the app (CD-209)** → `document_logo` → `app_logo` → company legal name as text |
 
-Rules: the **logo must not contain the app name as well as being followed by it**. If `app_logo` is a wordmark, set `"show_name": false` (new key, default true) so the header doesn't repeat it (A6). Logos are images and keep their own colours. Our own placeholder logo is redrawn to use no hard-coded accent, with a neutral mark and no wordmark. SVG logos are refused if they contain `<script>`, `<foreignObject>`, event attributes or external `href`s. They are only ever shown through `<img>`, where scripts don't run.
-
-The CD-209 company logo stays the letterhead source (owner decision D3), because admins can change it in the app without a redeploy.
+If `app_logo` is a wordmark, `"show_name": false` stops the header repeating the name (A6). Logos keep their own colours. SVG logos are refused at build if they contain `<script>`, `<foreignObject>`, event attributes or external `href`s, and are only ever shown through `<img>`. The CD-209 company logo stays the letterhead source, because admins can change it in the app without a rebuild.
 
 ### 3.10 How the theme reaches the browser under CSP
 
-1. At startup `brand.Theme(cfg)` returns CSS text: `:root{--color-primary-600:#8B1E3F;…;--color-primary:…;--color-primary-content:#FFFFFF;--color-accent:…;--radius-field:…;…}`, plus the print variables. It sets **only** themeable variables (P3, tested).
-2. The bytes are hashed (sha256, first 8 hex characters) and served at `/static/theme.<hash>.css` with `Cache-Control: public, max-age=31536000, immutable`, through the same handler as the other static assets. Logos, the mark and the favicon are served the same way, under hashed names.
-3. `layout.Page` links it **after** `app.css`, so it wins without `!important`. Print links `/print/assets/theme.<hash>.css`.
-4. `cmd/buildassets` **stops appending `brand.CSS`**. The CSS bundle then no longer depends on the brand, so `TestAssets_UpToDate` is independent of any deployment.
-5. `brand_gen.go` constants (`AppLogoURL`, sizes) become fields of a runtime `brand.Active` value, set once in `app serve` and read by templates through `ui.Shell`.
+`go generate` turns `theme.json` into `internal/ui/css/theme-vars.css` (generated, committed for the default theme) and the logo files into embedded assets. `cmd/buildassets` bundles it into the hashed `app.css` as today, so no runtime file, inline `<style>` or `style=` is needed, and today's CSP holds. A company build sets `THEME=` and runs `make build`; `TestAssets_UpToDate` checks the default theme only.
 
-No inline `<style>`, no `style=`. This works with today's CSP and with the target `style-src 'self'` (A19).
-
-**Light only, confirmed.** A dark theme doubles every contrast check and every screenshot gate, and adds a second set of status tints and a second brand derivation per company. Staff use the app in offices and on sites in daylight, so the benefit is small. Keep `color-scheme: light`.
+**Light only, confirmed.** A dark theme doubles every screenshot gate and adds a second full set of colours per company. Keep `color-scheme: light`.
 
 ### 3.11 Mapping to Tailwind `@theme` and daisyUI
 
@@ -278,7 +227,7 @@ No inline `<style>`, no `style=`. This works with today's CSP and with the targe
 | `--radius-selector/-field/-box` | radius preset | `theme.css` default; theme file |
 | `--root-bg` | canvas (fixes A7) | `base.css` |
 | `--depth`, `--noise` | 0 | `theme.css` |
-| Tailwind `@theme static` tokens (`--color-primary-600` …) | `tokens.css` | runtime theme file overrides the themeable ones |
+| Tailwind `@theme static` tokens (`--color-primary-600` …) | `tokens.css` | the generated `theme-vars.css` sets them from `theme.json` |
 
 ---
 
@@ -680,7 +629,6 @@ Choreography: one thing moves at a time. Container first, content second (a shee
 | Icon registry | `icons_test.go` | duplicate glyph without an alias reason; SVG off-grid (gen checks); gallery missing an entry |
 | DocType icon coverage | `internal/app` test | a registered DocType with no nav icon |
 | Theme scope | `brand` test | generated theme CSS sets a non-themeable variable |
-| Palette property test | `brand` test | for 10,000 random accents, any derived pair below its threshold, or the derivation not terminating |
 | Sample-theme table | `brand` test | §3.8's four themes don't give the listed values |
 | **Computed-colour sweep** (new e2e) | chromedp, every screen in the overflow sweep × 3 themes (default, saffron, maroon) | any rendered `color`, `background-color`, `border-color` or `outline-color` not in the active theme's token set (catches raw colours that slip past lint, for example from daisyUI defaults) |
 | axe-core contrast | existing e2e gate, now × 3 themes | any WCAG AA contrast violation |
@@ -703,8 +651,8 @@ Tiers per `docs/superpowers/plans/2026-10-25-execution-protocol.md` §3. UI work
 | DL-1 | Tokens v2: motion, icon sizes, radius presets, elevation names, state recipe, `--root-bg` fix (A7), Closed → neutral | `ui/css/tokens.css`, `theme.css`, `base.css`, `components/badge.css` | Light | `TestTheme_MatchesTokens` extended; contrast table rows | no (no layout change) | 1 | DL-0 |
 | DL-2 | Lint rules §7 (six new rules with fixtures) | `ui/lint_test.go`, `ui/testdata/lint/*` | Standard | each rule's bad/good fixture | no | 1.5 | DL-1 |
 | DL-3 | Icon registry: two-column `icons.txt`, typed names, gen validation, re-pin Lucide 1.65.0, `icons/custom/`, gallery icons page, DocType icon map in `internal/app` | `ui/icons/**`, `ui/gallery/*`, `internal/app/routes.go`, every `Icon(` call site | Standard | registry, gallery coverage, DocType coverage, SVG validation | no | 2.5 | DL-1 |
-| DL-4 | Palette derivation (OKLCH), contrast checks, refuse-until-chosen policy and `accept_low_contrast` (CD-244), `app brand preview` HTML, status-distance warning, sample-theme table | `platform/brand/colour.go`, `brand.go` | Standard | property test (10k accents), §3.8 table, each message | no | 1.5 | DL-0 |
-| DL-5 | Runtime brand: `--brand` flag, startup load, defaults, `app brand check`, hashed `theme.<hash>.css` and logo serving, `brand.Active` replaces `brand_gen.go` constants, `buildassets` stops appending brand CSS, print theme file, `show_name`, `app_mark`, monogram, letterhead fallback chain (CD-209) | `platform/brand/**`, `cmd/app/main.go`, `ui/cmd/buildassets/build/build.go`, `ui/layout/page.templ`, `header.templ`, `kernel/print/web/print.go`, `deploy/app.service`, `docs/operations.md` | Standard | startup with absent, valid and invalid folders; hash changes with config; served headers; fallback chain; e2e page links the theme file | no | 3 | DL-4 |
+| DL-4 | Theme file: schema (every key in §3.6), syntax validation, defaults, `go generate` to `theme-vars.css`, sample files, `make theme-preview` HTML (CD-296) | `platform/brand/**`, `theme/`, `Makefile` | Standard | each key reaches its CSS variable; unknown key and bad colour refused at build; preview renders every gallery page | no | 1.5 | DL-0 |
+| DL-5 | Build-time identity: logos and favicon embedded from the theme folder, `show_name`, `app_mark`, monogram, letterhead fallback chain (CD-209), `brand_gen.go` reads `theme.json` | `platform/brand/**`, `ui/cmd/buildassets/build/build.go`, `ui/layout/page.templ` | Standard | fallback chain; a build with each sample theme | no | 1.5 | DL-4 |
 | DL-6 | Logo validation: SVG refusal rules, PNG/JPEG decode limits, ratios, sizes | `platform/brand/logo.go` | **High** | test-writer first: hostile SVGs (script, foreignObject, external href, huge viewBox), oversize and corrupt images | no | 1.5 | DL-5 |
 | DL-7 | Motion base: `motion.css` utilities, daisyUI modal and drawer overrides (A17), reduced-motion rules, htmx swap classes, toast exit, view-transition CSS, Alpine class-form utilities | `ui/css/components/motion.css`, `dialog.css`, `toast.css`, `ui/js/toast.js`, `ui/js/app.js` | Standard | motion e2e (§7), reduced-motion e2e, gallery motion page | no | 2 | DL-1, DL-2 |
 | DL-8 | Shell: grouped nav, states, drawer header and user area, close-button scale, focus-on-open, header title on scroll, sidebar (A1–A6, A8) | `ui/layout/nav.templ`, `header.templ`, `page.templ`, `layout.css`, new `components/nav.css`, `ui/js/dialog.js` | Light (batch) | layout tests for groups, active state and focus; states gallery; overflow; target size | **yes** (DL-0) | 2 | DL-3, DL-5, DL-7 |
@@ -724,8 +672,8 @@ Tiers per `docs/superpowers/plans/2026-10-25-execution-protocol.md` §3. UI work
 
 | Risk | Mitigation |
 |---|---|
-| Runtime theme breaks the "CSS bundle is generated and committed" model | The bundle stays committed and brand-free; only the small theme file is runtime. `TestAssets_UpToDate` then gets simpler |
-| A company's colour is adjusted and they complain the buttons "aren't our colour" | `app brand check` shows the adjustment before go-live; the logo keeps the true colour; the message names the colour that passes |
+| A company build drifts from the default theme | The e2e sweep renders the three sample themes (DL-13); a company's own file is previewed before its build |
+| A company picks colours that read poorly | Their call by design (CD-296); the preview shows every component and state before the build, and meaning never rests on colour alone (P3) |
 | View Transitions behave differently in Safari 18 vs Chrome | Used only for wizard steps and page cross-fade, both safe to drop; browser tests run without them (Chromium flag) as well as with them |
 | Icon re-pin changes glyph shapes slightly | Gallery screenshots before and after in the DL-3 review |
 | Typed icon names touch many call sites | Mechanical; the compiler finds every one |
@@ -741,10 +689,10 @@ Tiers per `docs/superpowers/plans/2026-10-25-execution-protocol.md` §3. UI work
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Theme config read at startup from `<data>/brand` (restart to change), not edited in the app | **Accepted:** **Yes.** A file is auditable, deploys with the instance, and needs no new rights or screens. An in-app theme editor is a later add-on |
-| D2 | Failing accent | **Decided (CD-244):** a preview shows the colour as given and the computed readable shade side by side, with contrast numbers, on sample screens; the company chooses. Until a choice is in the config the app refuses to start |
+| D1 | Theme config | **Decided (CD-296):** one build-time file, `theme/theme.json`, with every colour role; change it and rebuild. Not edited in the app |
+| D2 | Colours that read poorly | **Decided (CD-296, replaces CD-244's gate):** the app never checks, adjusts or refuses. `make theme-preview` shows the result and the company decides |
 | D3 | Letterhead logo source | **Accepted:** **Company logo uploaded in the app (CD-209) first**, then the deployment's `document_logo`, then `app_logo`, then the name as text |
-| D4 | Closed state moves from blue tint to neutral | **Accepted:** **Yes**, so no company accent can make a state look like another (P3) |
+| D4 | Closed state moves from blue tint to neutral | **Accepted** as the default; every state colour is now configurable (CD-296), and each state keeps its icon and word (P3) |
 | D5 | Filled icons for the selected nav item | **Accepted:** **No.** Selection shows through the row (tint, bar, weight). It avoids drawing about 30 filled twins |
 | D6 | Desktop sidebar collapse to icons only (spec §6) | **Accepted:** **Drop it.** Icon-only nav needs memorisation and tooltips; the 16rem sidebar fits from 64rem |
 | D7 | List first-render stagger (30 ms per row, max 5) | **Accepted:** **No** for v1. It is decoration on screens people open dozens of times a day |

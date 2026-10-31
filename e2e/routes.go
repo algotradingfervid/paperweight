@@ -453,8 +453,21 @@ type notPage struct {
 	route, url, why string
 }
 
+// expenseStubs are MOD-EXP's routes that still answer E1's 501 stub. S3 and
+// S4 give the pages screens and remove their routes here.
+var expenseStubs = []string{
+	"/reports/expense/open", "/reports/expense/lines", "/reports/expense/advances",
+	"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid",
+}
+
 // notPageStatus is the status a sample answers with when it isn't 200.
-var notPageStatus = map[string]int{"/files/*": http.StatusNotFound}
+var notPageStatus = func() map[string]int {
+	m := map[string]int{"/files/*": http.StatusNotFound}
+	for _, r := range expenseStubs {
+		m[r] = http.StatusNotImplemented
+	}
+	return m
+}()
 
 // notPageAfter names the screen whose state a sample needs, opened first.
 var notPageAfter = map[string]string{"/m/import/errors.csv": "import check"}
@@ -472,6 +485,12 @@ func notPages(s sweepState) []notPage {
 	}
 	for slug := range s.master {
 		out = append(out, notPage{"/m/" + slug + "/export.csv", "/m/" + slug + "/export.csv", "a CSV"})
+	}
+	for _, r := range expenseStubs {
+		out = append(out, notPage{r, strings.Replace(r, "{id}", "1", 1), "a MOD-EXP stub until its task builds it"})
+	}
+	for _, r := range []string{"open", "lines", "advances"} {
+		out = append(out, notPage{"/reports/expense/" + r + "/export.csv", "/reports/expense/" + r + "/export.csv", "a CSV"})
 	}
 	for _, name := range []string{"Branch", "Company", "Employee", "Expense Type", "Item", "Party", "Payment Terms", "Project", "Site", "Tax Code", "UoM"} {
 		out = append(out, notPage{"/pick/" + name, "/pick/" + strings.ReplaceAll(name, " ", "%20") + "?q=a", "a picker's htmx rows"})

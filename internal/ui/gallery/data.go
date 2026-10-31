@@ -78,8 +78,9 @@ func sampleInfo(id int64, s doctype.State) doctype.Info {
 	return info
 }
 
-// docDeps seeds docfake with the sample documents and builds the docscreen
-// dependencies: Priya holds every right on the sample DocType.
+// docDeps seeds docfake with the sample and Hooked documents and builds the
+// docscreen dependencies: Priya holds every right on the sample DocType, and
+// on Hooked with its module (seedHooked).
 func docDeps() docscreen.Deps {
 	docscreentest.RegisterSample()
 	docscreentest.SetMaster(docscreentest.Supplier, 1, doctype.MasterInfo{Code: uitest.LongCode60, Name: uitest.LongName100})
@@ -116,6 +117,7 @@ func docDeps() docscreen.Deps {
 	for _, r := range auth.AllRights {
 		az.Grant("Buyer", docscreentest.Sample, r, auth.ScopeAll)
 	}
+	rows = append(rows, seedHooked(docs, az)...)
 	az.AddRole(priya.ID, "Buyer")
 
 	return docscreen.Deps{
@@ -129,6 +131,7 @@ func docDeps() docscreen.Deps {
 		Today:     func() (string, string) { return "24-10-2026", "23-10-2026" },
 		InboxURL:  "/approvals",
 		PrintURL:  func(name string, id int64) string { return "/print/" + name + "/" + strconv.FormatInt(id, 10) },
+		Modules:   map[string]docscreen.Module{docscreentest.Hooked: hookedModule()},
 	}
 }
 
@@ -139,14 +142,14 @@ func (allowAll) CheckApprover(context.Context, *db.Tx, auth.Principal, string, i
 	return nil
 }
 
-// searchLister lists the seeded rows whose display or party contains the
-// search text, so the "list empty" screen is empty.
+// searchLister lists the DocType's seeded rows whose display or party
+// contains the search text, so the "list empty" screen is empty.
 type searchLister struct{ rows []docscreen.ListRow }
 
-func (l searchLister) List(_ context.Context, _ auth.Principal, _ *doctype.DocType, q docscreen.ListQuery) (types.Result[docscreen.ListRow], error) {
+func (l searchLister) List(_ context.Context, _ auth.Principal, dt *doctype.DocType, q docscreen.ListQuery) (types.Result[docscreen.ListRow], error) {
 	var out []docscreen.ListRow
 	for _, r := range l.rows {
-		if strings.Contains(r.Info.Display, q.Search) || strings.Contains(r.Info.Party, q.Search) {
+		if r.Info.DocType == dt.Name && (strings.Contains(r.Info.Display, q.Search) || strings.Contains(r.Info.Party, q.Search)) {
 			out = append(out, r)
 		}
 	}

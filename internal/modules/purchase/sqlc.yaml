@@ -9,6 +9,8 @@ sql:
       - ../../../migrations/10070_purchase_order_sent.sql
       - ../../../migrations/10080_purchase_order_expected.sql
       - ../../../migrations/10090_purchase_order_rest.sql
+      # modkit's settings: Validate reads default_po_terms in its tx (P2).
+      - ../../../migrations/10000_business_settings.sql
     queries: queries/
     gen:
       go:

@@ -213,9 +213,11 @@ func TestPO_RestNotComing(t *testing.T) {
 	}{
 		{"draft", func(t *testing.T) doc.Doc { return purchasetest.NewOrder(t, env, purchasetest.StopAtDraft()) }, doctype.StateDraft},
 		{"pending", func(t *testing.T) doc.Doc {
-			// The default PO (₹94,164.00) waits on the Purchase Manager once
-			// P2's amountOrder is in; before that it approves on submit.
-			draft := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
+			// The reference PO (p2RefLines, ₹94,164.00) waits on the Purchase
+			// Manager once P2's amountOrder is in; before that it approves on
+			// submit. The default PO (₹7,375.00) is under the ₹50,000 rule.
+			ref := purchasetest.OrderLines(p2RefLines(t, env)...)
+			draft := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), ref)
 			var amt types.Money
 			if err := env.DB.Read(t.Context(), func(tx *db.Tx) error {
 				var err error
@@ -227,7 +229,7 @@ func TestPO_RestNotComing(t *testing.T) {
 			if amt == 0 {
 				t.Skip("pending needs P2's amountOrder (the amount stub is 0, so a PO approves on submit); this case runs once P2 is on wp/mod-po")
 			}
-			return purchasetest.NewOrder(t, env, purchasetest.StopAtPending())
+			return purchasetest.NewOrder(t, env, purchasetest.StopAtPending(), ref)
 		}, doctype.StatePending},
 		{"closed", func(t *testing.T) doc.Doc {
 			return terminal(t, env, purchasetest.NewOrder(t, env, purchasetest.StopAtApproved()), doctype.ActionClose)

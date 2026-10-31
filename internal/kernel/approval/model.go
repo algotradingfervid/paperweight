@@ -89,6 +89,8 @@ type Status struct {
 	Line      string
 	Pending   bool
 	WaitingOn string // who a pending document waits on, as named in Line
+	Roles     string // StatusFor only, when pending: why the viewer is eligible (CD-266, CD-290)
+	Why       string // StatusFor only, when pending: WhyText of the request's rule
 }
 
 // InboxType is one document type in an inbox, with how many requests it holds.
