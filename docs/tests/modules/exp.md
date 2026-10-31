@@ -1,9 +1,13 @@
 # Expense Claim and Employee Advance (EXP)
 
 ## Scope
-The Expense module of `docs/specs/2026-10-30-module-expense-spec.md` v0.5: `expense.Claim` and `expense.Advance`, photo-first claims with one receipt per line, optional GST capture, one reporting-manager approval with the Fallback Approver role, advances set against claims, close, print and reports. Cases are spec §17 (EXP-001 to EXP-041), in one area, `EXP`. The plan is `docs/superpowers/plans/2026-10-31-mod-exp.md`.
+The Expense module of `docs/specs/2026-10-30-module-expense-spec.md` v0.6: `expense.Claim` and `expense.Advance`, photo-first claims with one receipt per line, optional GST capture, one reporting-manager approval with the Fallback Approver role, advances set against claims, close, print and reports. Cases are spec §17 (EXP-001 to EXP-067), in one area, `EXP`. EXP-042 onward come from the ERP research catalogue `docs/research/2026-10-31-expense-erp-practice.md` (CD-271); each cites its scenario (S-) or gap (G-) and the ERP source. The plan is `docs/superpowers/plans/2026-10-31-mod-exp.md`.
 
 Fixtures are in `docs/tests/core/00-fixtures.md`, including the `expense.Claim` and `expense.Advance` rights rows, the Fallback Approver role and the expense test seed. Expense types `TRAVEL`, `FOOD`, `FUEL`, `LODGING` and `SITE-MISC`. Clock 2026-10-24 10:30 IST, FY 2026-27. Both approval rules are seeded by the expense test environment: ₹0.00, reporting manager, fallback role Fallback Approver. No fixture user holds Fallback Approver; each test gives it (usually to Meena and Kavya) in its own setup. Meena also holds Employee in the expense seed (spec §11, §15 item 3).
+
+Every advance a claim sets off in these cases is marked as paid on its approval date (CD-271 G1), unless the case says otherwise. The company fixture has two branch GSTINs (PUNE, BLR), so `Billed to` is shown and required on company bills unless a case disables BLR.
+
+Test helpers follow the research report's §2 patterns (CD-271): business-step builders that can stop at draft (`DraftClaim`, `ApprovedClaim`, `ApprovedAdvance`, `PaidAdvance`), the advance's used and left asserted after every step including cancel, a refusal helper that also asserts nothing was written (state, version, used, audit count), and a stored-state check after each browser flow.
 
 Money is shown as the app formats it (`₹4,000.00`). Messages are exact; texts owned by another package (AUTH, DOC, APR, FILE, MST, the period lock) are expected by that package's text (CD-142).
 
@@ -84,7 +88,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-011 · The GST tick requires GSTIN and invoice no.; a bad GSTIN uses MST-031's text
 - **Priority:** P1
 - **Level:** integration
-- **Given** line 1 with `company_bill` ticked **When** the claim is submitted with no supplier GSTIN and no invoice no. **Then** it is refused with "Line 1: Supplier GSTIN is required for a bill in the company GSTIN." and "Line 1: Invoice no. is required for a bill in the company GSTIN." (both pass on a draft save). **When** the supplier GSTIN is `27AABCS1429B1Z5` **Then** the save is refused with "Line 1: GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes." `27AABCS1429B1ZU` with invoice no. `INV-778` submits.
+- **Given** line 1 with `company_bill` ticked **When** the claim is submitted with no supplier GSTIN and no invoice no. **Then** it is refused with "Line 1: Supplier GSTIN is required for a bill in the company GSTIN." and "Line 1: Invoice no. is required for a bill in the company GSTIN." (both pass on a draft save). **When** the supplier GSTIN is `27AABCS1429B1Z5` **Then** the save is refused with "Line 1: GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes." `27AABCS1429B1ZU` with invoice no. `INV-778` and Billed to PUNE submits.
 - **Go test:** `TestExp_GSTFields`
 - **Sources:** Expense spec §3.2, §5, §8, §17; `06-masters.md` MST-031; CD-38, CD-234
 
@@ -105,7 +109,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-014 · Duplicate receipt and duplicate line warn, never refuse; cancelled claims are ignored
 - **Priority:** P1
 - **Level:** integration
-- **Given** Deepak's approved `EX/26-27/00001` with a line on 2026-10-20, `TRAVEL`, ₹1,250.00 and receipt hash H **When** his new claim has line 1 with the same hash and line 2 with the same date, type and amount **Then** the check page and the approval page warn "Line 1: This receipt is also on EX/26-27/00001." and "Line 2: This looks the same as a line on EX/26-27/00001.", and submit still succeeds. **When** `EX/26-27/00001` is cancelled **Then** neither warning appears. **When** the other claim is one the viewer can't read **Then** the warning doesn't name it ("another claim", proposed CD; CD-240, CD-248), on the real `auth.Service`.
+- **Given** Deepak's approved `EX/26-27/00001` with a line on 2026-10-20, `TRAVEL`, ₹1,250.00 and receipt hash H **When** his new claim has line 1 with the same hash and line 2 with the same date, type and amount **Then** the check page and the approval page warn "Line 1: This receipt is also on EX/26-27/00001." and "Line 2: This looks the same as a line on EX/26-27/00001.", and submit still succeeds. **When** `EX/26-27/00001` is cancelled **Then** neither warning appears. **When** the other claim is one the viewer can't read **Then** the warning doesn't name it ("another claim", proposed CD; CD-240, CD-248), on the real `auth.Service`. **Given** Suresh's live claim holding the same receipt bytes as Deepak's line 3 (a shared taxi bill) **Then** Deepak's check page warns "Line 3: This receipt is also on another claim." (he can't read Suresh's), and Meena (Director) sees Suresh's number (S-15, Odoo `hr_expense.py:876-882`).
 - **Go test:** `TestExp_DuplicateWarnings`
 - **Sources:** Expense spec §5 (Warnings), §17
 
@@ -210,7 +214,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-029 · An advance's cancel is blocked by a live claim
 - **Priority:** P1
 - **Level:** integration
-- **Given** EXP-025's approved claim naming `EA/26-27/00001` **When** `meena` cancels the advance **Then** it is refused with DOC-052's text naming the claim, and the advance stays approved. After the claim is cancelled, the advance cancels.
+- **Given** EXP-025's approved claim naming `EA/26-27/00001` **When** `meena` cancels the advance **Then** it is refused with DOC-052's text naming the claim, and the advance stays approved. After the claim is cancelled, the cancel is refused with "This advance is marked as paid. Undo paid first, or close it with the balance noted."; after `meena` undoes paid, the advance cancels.
 - **Go test:** `TestAdv_CancelBlocked`
 - **Sources:** Expense spec §3 (Links), §4, §17; `03-document.md` DOC-052
 
@@ -245,14 +249,14 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-034 · Open claims and open advances reports: columns, scope, `export`
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved and closed claims and advances for Deepak and Kavya **Then** `/reports/expense/open` lists approved, not closed claims with the columns claim, employee, purpose, approved on, approved by, total, less advance, to pay, lines without a receipt; `/reports/expense/advances` lists approved, not closed advances with advance, employee, date, purpose, amount, used, left, age in days, and its employee filter. `priya` sees only her team's rows, `meena` all. The CSV needs `export` (AUTH's 403 otherwise).
+- **Given** approved and closed claims and advances for Deepak and Kavya **Then** `/reports/expense/open` lists approved, not closed claims with the columns claim, employee, purpose, approved on, approved by, total, less advance, to pay, lines without a receipt; `/reports/expense/advances` lists approved, not closed advances with advance, employee, date, purpose, amount, paid on (blank when unpaid), used, left, age in days, each asserted by value, and its employee filter. `priya` sees only her team's rows, `meena` all. The CSV needs `export` (AUTH's 403 otherwise).
 - **Go test:** `TestExp_OpenReports`
 - **Sources:** Expense spec §13, §17
 
 ### EXP-035 · Expense lines report: every column read back
 - **Priority:** P1
 - **Level:** integration
-- **Given** claims whose lines set every field **When** `/reports/expense/lines` and its CSV are read **Then** each row has claim, employee, date, type, project, site, note, amount, GST, supplier GSTIN, invoice no., receipt yes or no and state, each asserted by value; the month, type, project and employee filters each narrow the rows.
+- **Given** claims whose lines set every field **When** `/reports/expense/lines` and its CSV are read **Then** each row has claim, employee, date, type, project, site, note, amount, GST, supplier GSTIN, invoice no., billed-to GSTIN, receipt yes or no and state, each asserted by value; the month, type, project and employee filters each narrow the rows.
 - **Go test:** `TestExp_LinesReport`
 - **Sources:** Expense spec §13, §17
 
@@ -266,7 +270,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-037 · Random claim and advance sequences keep the invariants
 - **Priority:** P1
 - **Level:** unit (fuzz)
-- **Given** random sequences of save, submit, approve, reject, revise, cancel, close and amend over claims and advances **Then** after each step: a claim's total equals the sum of its lines; an advance's used equals the sum of `less_advance` over its approved and closed claims; left (`amount − used`) is never below 0.
+- **Given** random sequences of save, submit, approve, reject, revise, cancel, close, amend, mark as paid and undo paid over claims and advances, with paise amounts in the seeds, where each refusal (including the paid-cancel and not-paid refusals) is an expected outcome that changes nothing **Then** after each step: a claim's total equals the sum of its lines; an advance's used equals the sum of `less_advance` over its approved and closed claims; left (`amount − used`) is never below 0.
 - **Go test:** `FuzzExp_Invariants`
 - **Sources:** Expense spec §4, §17; lessons §8, §10
 
@@ -297,3 +301,194 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** Meena's claim pending with `kavya`, and Deepak's pending with `priya` **When** `kavya` is disabled **Then** Meena's claim is on Stuck approvals (APR-043) and Deepak's is not. **When** `ravi` is given Fallback Approver **Then** Meena's claim leaves Stuck approvals and `ravi` approves it. On the real `auth.Service`.
 - **Go test:** `TestExp_FallbackLeaves`
 - **Sources:** Expense spec §6, §17; `04-approvals.md` APR-043; D-APR-18
+
+### EXP-042 · A line amount of 0 or less is refused, on a claim and an advance
+- **Priority:** P1
+- **Level:** integration
+- **Given** a claim line and an advance line **When** saved (draft) with amount ₹0.00 and again with -₹1.00 **Then** each save is refused with DOC's "Line 1: Amount must be more than 0." and nothing is written; ₹0.01 saves.
+- **Go test:** `TestExp_AmountPositive`
+- **Sources:** Expense spec §3.2, §4, §5; research S-04, S-50, T12 (Odoo `test_expenses.py:630-677`; HRMS `employee_advance.py:116-118`, `test_employee_advance.py:497-504`)
+
+### EXP-043 · A fully used advance isn't offered and is refused at submit
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's paid advance of ₹10,000.00 with ₹10,000.00 used by an approved claim **When** he opens a new claim's details step **Then** the advance isn't among the radios. **When** a claim names it anyway with less advance ₹100.00 and is submitted **Then** it is refused with "Less advance can't be more than the ₹0.00 left on EA/26-27/00001." and nothing is written.
+- **Go test:** `TestAdv_FullyUsedNotOffered`
+- **Sources:** Expense spec §4, §5; research S-38 (HRMS `expense_claim.py:849-854`)
+
+### EXP-044 · An advance that isn't approved is refused
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's advances in draft, pending, rejected and cancelled **When** a claim names each one **Then** it is refused with DOC's source text for that state (e.g. "EA/26-27/00002 is waiting for approval. Pick an approved employee advance."; a draft or rejected one by its `Draft {id}` label), and none is offered on the details step.
+- **Go test:** `TestAdv_NotApprovedRefused`
+- **Sources:** Expense spec §4; research S-39 (HRMS `expense_claim.py:851`); `03-document.md` DOC-017 family
+
+### EXP-045 · One claim setting more than what's left is refused at submit
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's paid advance of ₹10,000.00 with ₹6,000.00 used **When** a claim totalling ₹8,000.00 types less advance ₹5,000.00 and is submitted **Then** it is refused with "Less advance can't be more than the ₹4,000.00 left on EA/26-27/00001.", with state, version and used unchanged; ₹4,000.00 submits.
+- **Go test:** `TestAdv_LeftForOneClaim`
+- **Sources:** Expense spec §4, §5; research S-40 (HRMS `expense_claim.py:626-633`)
+
+### EXP-046 · An advance closed while a claim on it is pending
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's claim pending with ₹3,000.00 against `EA/26-27/00001` **When** `meena` closes the advance and `priya` then approves the claim **Then** the approve is refused with DOC's closed-source text for the advance (DOC-017) and the claim stays pending; `priya` rejects it with a reason; used stays as it was.
+- **Go test:** `TestAdv_ClosedWhileClaimPending`
+- **Sources:** Expense spec §4 (Close row); research S-45
+
+### EXP-047 · A draft claim doesn't block the advance's cancel
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's approved advance `EA/26-27/00001` not marked as paid, and a draft claim naming it **When** `meena` cancels the advance with a reason **Then** the cancel succeeds (DOC-052 counts pending, approved and closed documents only). **When** the draft is then submitted **Then** it is refused with DOC's cancelled-source text for the advance, and the draft is unchanged.
+- **Go test:** `TestAdv_DraftClaimDoesNotBlockCancel`
+- **Sources:** Expense spec §3 (Links), §4; research S-46; `03-document.md` DOC-052
+
+### EXP-048 · A rejected claim on an advance leaves used unchanged; resubmit re-checks
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's claim pending with ₹6,000.00 against a ₹10,000.00 advance **When** `priya` rejects it **Then** used is ₹0.00. **Given** a second claim then approved for ₹6,000.00 **When** the first is revised and resubmitted unchanged **Then** it is refused with "Less advance can't be more than the ₹4,000.00 left on EA/26-27/00001."
+- **Go test:** `TestAdv_RejectedClaimRechecks`
+- **Sources:** Expense spec §4; research S-47, T3
+
+### EXP-049 · Amend keeps the advance and re-checks it
+- **Priority:** P1
+- **Level:** integration
+- **Given** an approved claim with ₹6,000.00 against `EA/26-27/00001`, then cancelled (used back to ₹0.00) **When** it is amended **Then** the new draft names the same advance and less advance, and submits. **Given** the advance closed before the amended draft is submitted **Then** submit is refused with DOC's closed-source text.
+- **Go test:** `TestAdv_AmendKeepsAdvance`
+- **Sources:** Expense spec §4; research S-48 (HRMS `expense_claim.py:267`)
+
+### EXP-050 · The manager's user is disabled while a claim is pending
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's claim pending with `priya`, and Fallback Approver given to `meena` and `kavya` **When** `priya`'s user is disabled **Then** `meena` approves it. Before the disable, both `priya` and the Fallback Approver holders were eligible. On the real `auth.Service`.
+- **Go test:** `TestExp_ManagerDisabledFallback`
+- **Sources:** Expense spec §6; research S-33; D-APR-18
+
+### EXP-051 · The Director's advance goes to the other Fallback Approver
+- **Priority:** P1
+- **Level:** integration
+- **Given** Fallback Approver given to `meena` and `kavya` **When** `meena` submits an advance **Then** it is pending with `kavya` as the only eligible approver; with only `meena` holding the role, submit is refused with "No one else can approve this Employee Advance. Give the Fallback Approver role to another active user, then submit again." On the real `auth.Service`.
+- **Go test:** `TestAdv_DirectorAdvance`
+- **Sources:** Expense spec §4 (Rule), §6; research S-35
+
+### EXP-052 · The expense lines report counts approved and closed claims only
+- **Priority:** P1
+- **Level:** integration
+- **Given** claims tagged PRJ-METRO in draft, pending, rejected, approved, closed and cancelled **Then** `/reports/expense/lines` filtered to PRJ-METRO lists only the approved and closed claims' lines, and their total. **When** the approved claim is cancelled **Then** its lines leave the report.
+- **Go test:** `TestExp_LinesReportStates`
+- **Sources:** Expense spec §13; research S-10, T3 (HRMS `test_expense_claim.py:43-88`)
+
+### EXP-053 · A middle manager approves a report's claim, not her own
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's claim and Priya's own claim, both pending **Then** `priya` approves Deepak's; her own isn't hers to approve (APR's not-eligible text) and `ravi`, her manager, approves it. Her approvals inbox lists Deepak's only.
+- **Go test:** `TestExp_MiddleManagerOwnClaim`
+- **Sources:** Expense spec §6; research S-30, T8 (Odoo `test_expenses.py:1308-1346`)
+
+### EXP-054 · Mark as paid: rights, states, dates, undo
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's approved advance dated 2026-10-20 **Then**:
+  - `deepak` and `priya` posting Mark as paid get AUTH's 403 for `cancel`; `meena` sets `paid_on` 2026-10-21; version goes up by 1 and an audit entry with action `paid` is written;
+  - on a pending advance: "Only an approved advance can be marked as paid.";
+  - 2026-10-25: "Paid on can't be in the future."; 2026-10-19: "Paid on can't be before the advance date.";
+  - a second Mark as paid: "This advance is already marked as paid.";
+  - a stale `version`: DOC's stale text with 409;
+  - Undo paid clears `paid_on` (audit `unpaid`) while only draft or rejected claims name the advance; with a pending, approved or closed claim on it: "A claim already uses this advance, so it stays paid."; on an advance not marked as paid: "This advance isn't marked as paid.";
+  - Mark as paid on a closed or cancelled advance: "Only an approved advance can be marked as paid."; `kavya`, who can't read the advance, gets the same 404 as a missing one (CD-245);
+  - cancelling the paid advance: "This advance is marked as paid. Undo paid first, or close it with the balance noted."; after Undo paid it cancels.
+  Every refusal leaves state, version and audit count unchanged.
+- **Go test:** `TestAdv_MarkAsPaid`
+- **Sources:** Expense spec §4 (Mark as paid); research G1, S-42 (HRMS `expense_claim.py:849-854`, `test_employee_advance.py:295-337`); CD-271
+
+### EXP-055 · Only paid advances can be set off
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's approved advance not marked as paid **Then** it isn't offered on the details step. **When** a claim names it and is submitted **Then** it is refused with "EA/26-27/00001 hasn't been marked as paid yet." and the draft is unchanged. **When** `meena` marks it as paid **Then** it is offered, the same draft submits, and `priya` approves it (approve re-checks the paid mark, which can't be undone while the claim is pending, EXP-054).
+- **Go test:** `TestAdv_OnlyPaidSetOff`
+- **Sources:** Expense spec §4, §5; research G1; CD-271
+
+### EXP-056 · Duplicate lines within one claim warn
+- **Priority:** P1
+- **Level:** integration
+- **Given** a claim whose lines 1 and 2 have the same date, type and amount and different receipts **Then** the check page warns "Line 2: This looks the same as line 1." and submit still succeeds. **When** the two lines share one receipt on purpose (`Same receipt as line 1`, a split bill) **Then** no warning.
+- **Go test:** `TestExp_DuplicateWithinClaim`
+- **Sources:** Expense spec §5; research G2, S-16, S-18 (Odoo `hr_expense.py:872, 892-916`)
+
+### EXP-057 · The same supplier invoice on another live claim warns
+- **Priority:** P1
+- **Level:** integration
+- **Given** Suresh's approved claim with a company bill from `27AABCS1429B1ZU`, invoice `INV-778` **When** Deepak's claim has a company-bill line (Billed to PUNE) with the same GSTIN and invoice no. (a re-shot photo, different bytes) **Then** his check page warns "Line 1: Invoice INV-778 from 27AABCS1429B1ZU is also on another claim.", and Meena's view of the claim page names Suresh's claim number. Different invoice no., or Suresh's claim cancelled: no warning. Submit still succeeds.
+- **Go test:** `TestExp_DuplicateInvoice`
+- **Sources:** Expense spec §5; research G3, S-17 (Rule 46(b))
+
+### EXP-058 · Billed to on company bills
+- **Priority:** P1
+- **Level:** integration
+- **Given** the fixture company (PUNE `27AAFCV2449G1Z7`, BLR `29AAFCV2449G1Z3`) **When** a company-bill line has no Billed to **Then** submit is refused with "Line 1: Billed to is required for a bill in the company GSTIN."; with BLR it submits and `snap_billed_gstin` is `29AAFCV2449G1Z3`, unchanged after BLR's GSTIN is edited. With a branch `SITE-OFF` added in setup (enabled, blank GSTIN), a crafted post naming it is refused with "Line 1: Choose a branch with a GSTIN." **Given** BLR disabled (one branch GSTIN) **Then** the field is hidden, the line saves with Billed to set to PUNE, and submit needs nothing more. A line without the tick has no Billed to.
+- **Go test:** `TestExp_BilledTo`
+- **Sources:** Expense spec §3.2, §8; research G4, S-22 (Rule 46(d), Rule 36(2))
+
+### EXP-059 · The advance close page shows what's left
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's paid advance of ₹10,000.00 with ₹8,500.00 used **When** `meena` opens its close page **Then** it shows "₹1,500.00 is left on this advance. Closing treats it as returned." above the reason; after the close, the advance is closed and isn't offered to claims.
+- **Go test:** `TestAdv_ClosePageShowsLeft`
+- **Sources:** Expense spec §4 (Close row); research G5, S-43, S-44
+
+### EXP-060 · Money left on another advance warns
+- **Priority:** P1
+- **Level:** integration
+- **Given** Deepak's paid advance with ₹4,000.00 left **When** he checks a new advance **Then** the check page warns "Deepak Nair still has ₹4,000.00 left on EA/26-27/00001.", and `priya`'s approval page shows the same; submit and approve still succeed. A viewer who can't read the other advance sees "… left on another advance." An approved advance not marked as paid doesn't warn.
+- **Go test:** `TestAdv_OtherAdvanceWarning`
+- **Sources:** Expense spec §5; research G7, S-49 (HRMS `employee_advance.py:274-290`)
+
+### EXP-061 · A company bill past the s.16(4) date warns
+- **Priority:** P1
+- **Level:** integration
+- **Given** the clock at 2026-10-24 and an Administrator back-entering a claim **When** a company-bill line (Billed to PUNE) is dated 2025-03-31 **Then** the check page warns "Line 1: This bill is dated in FY 24-25. Input tax credit on it closed on 30-11-2025." A company bill dated 2026-03-31 (FY 25-26, closes 30-11-2026) and a non-company bill dated 2025-03-31 don't warn. The claim still submits.
+- **Go test:** `TestExp_TimeBarWarning`
+- **Sources:** Expense spec §5, §8; research G8, S-23 (CGST s.16(4))
+
+### EXP-062 · A back-entered claim shows the warnings on its check page
+- **Priority:** P1
+- **Level:** integration
+- **Given** no approval rule for `expense.Claim` and an Administrator back-entering a claim for EMP-007 whose line duplicates one on Deepak's approved claim **Then** the check page shows the duplicate warning before submit, and submit approves and numbers it at once.
+- **Go test:** `TestExp_BackEntryWarnings`
+- **Sources:** Expense spec §5, §14; research G12, S-19 (Odoo `hr_expense.py:1405`)
+
+### EXP-063 · Advance → two claims → close, at 360 px
+- **Priority:** P1
+- **Level:** e2e
+- **Given** a 360 px browser **When** `deepak` requests ₹10,000.00 and `priya` approves (`EA/26-27/00001`), `meena` marks it paid; claim 1 sets ₹6,000.00 against it and is approved (the advance page shows used ₹6,000.00, left ₹4,000.00); claim 2 sets ₹2,500.00 and is approved (left ₹1,500.00); `meena` closes the advance with "₹1,500 returned by NEFT 1234" **Then** a third claim's details step doesn't offer it. After the browser steps, the service shows used ₹8,500.00, state closed and two `effect` audit entries.
+- **Go test:** `TestE2E_AdvanceTwoClaimsClose`
+- **Sources:** research X3, T3, T10 (HRMS `test_employee_advance.py:73-161`)
+
+### EXP-064 · A claim above the advance pays the balance
+- **Priority:** P1
+- **Level:** e2e
+- **Given** Deepak's paid advance of ₹10,000.00 **When** he files a claim of ₹12,000.00 against it at 360 px **Then** the check page shows less advance ₹10,000.00 and to pay ₹2,000.00; after `priya` approves, the print shows "Rupees Two Thousand Only"; the service shows used ₹10,000.00.
+- **Go test:** `TestE2E_ClaimAboveAdvance`
+- **Sources:** research X4; EXP-026, EXP-032
+
+### EXP-065 · The Director's own claim through the fallback
+- **Priority:** P1
+- **Level:** e2e
+- **Given** Fallback Approver held by `meena` and `kavya` **When** `meena` files and submits a claim **Then** she sees no Approve button on it, `kavya` approves it, and the service shows it approved by `kavya`.
+- **Go test:** `TestE2E_DirectorClaimFallback`
+- **Sources:** research X6; EXP-039
+
+### EXP-066 · Reject, revise, fix a receipt, resubmit
+- **Priority:** P1
+- **Level:** e2e
+- **Given** Deepak's pending claim whose line 2 has a reason instead of a receipt **When** `priya` rejects with "Line 2 has no receipt", `deepak` revises, adds a photo to line 2 and resubmits, and `priya` approves **Then** the service shows line 2's `receipt_sha256` set, no reason, and the claim approved.
+- **Go test:** `TestE2E_RejectReviseReceipt`
+- **Sources:** research X7; EXP-019; `05-files-print.md` FILE-039
+
+### EXP-067 · A buyer's own cash claim for a local buy
+- **Priority:** P1
+- **Level:** e2e
+- **Given** `priya` buys site materials for cash **When** she files a claim with a `SITE-MISC` line tagged PRJ-METRO and METRO-SITE, ticks `Bill in company GSTIN` with `27AABCS1429B1ZU`, `INV-901` and Billed to PUNE, and `ravi` approves (Priya has no Approve button on her own) **Then** the expense lines report lists the line under PRJ-METRO with the GSTIN and invoice no., and it appears in no PO pending figure or GRN. Built by MOD-EXP or MOD-GRN, whichever finishes last (CD-271).
+- **Go test:** `TestE2E_BuyerCashClaim`
+- **Sources:** research X5; GRN spec §1, §12

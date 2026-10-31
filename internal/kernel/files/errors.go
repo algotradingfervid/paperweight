@@ -34,7 +34,7 @@ const (
 	msgType        = "File type %s is not allowed. Use PDF, JPG, PNG, WEBP, HEIC, XLSX, DOCX or CSV."
 	msgMismatch    = "File content does not match its %s extension. Upload the original file."
 	msgCSVEncoding = "CSV files must be UTF-8. Save the file as CSV UTF-8 and try again."
-	msgLimit       = "A document can have at most 20 attachments. Remove one first."
+	msgLimit       = "A document can have at most %s attachments. Remove one first."
 	msgParent      = "Save the document before attaching files."
 	msgForbidden   = "You don't have permission to add files to %s."
 	msgCancelled   = "This document is cancelled. Attach files to its amended copy instead."

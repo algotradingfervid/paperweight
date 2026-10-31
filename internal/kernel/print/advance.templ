@@ -1,0 +1,55 @@
+package print
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/types"
+)
+
+// AdvanceDocument is the employee advance print body: letterhead, title,
+// employee, date and purpose, lines, total, words, approval line and
+// signatory.
+templ AdvanceDocument(d AdvanceDoc) {
+	@LetterheadBlock(d.Letterhead)
+	@DocTitle("Employee Advance")
+	<p class="employee">{ "Employee: " + d.Employee }</p>
+	<p class="date">{ "Date: " + types.FormatDate(d.Date) }</p>
+	if d.Purpose != "" {
+		<p class="purpose">{ "Purpose: " + d.Purpose }</p>
+	}
+	<table class="lines">
+		<thead>
+			<tr><th>Sr</th><th>Expense</th><th>Amount</th></tr>
+		</thead>
+		<tbody>
+			for _, l := range d.Lines {
+				<tr>
+					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="item">
+						<div class="item-name">{ l.Type }</div>
+						if l.Description != "" {
+							<div class="desc">{ l.Description }</div>
+						}
+						if l.Project != "" {
+							<div class="project">{ "Project: " + l.Project }</div>
+						}
+					</td>
+					<td class="amount">{ types.FormatINR(l.Amount) }</td>
+				</tr>
+			}
+			if len(d.Lines) == 0 {
+				<tr><td colspan="3">No items</td></tr>
+			}
+		</tbody>
+	</table>
+	<div class="totals">
+		<p class="grand-total">{ "Total " + types.FormatINR(d.Total) }</p>
+	</div>
+	if w := d.words(); w != "" {
+		<p class="words">{ w }</p>
+	}
+	if d.ApprovedBy != "" {
+		<p class="approved">{ "Approved by " + d.ApprovedBy + " on " + types.FormatIST(d.ApprovedAt) }</p>
+	}
+	@Signatory(d.Letterhead.LegalName)
+}
