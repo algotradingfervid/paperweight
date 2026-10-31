@@ -17,7 +17,8 @@ import (
 )
 
 // itemsPart is the items step after the step form: #grid-alerts for a
-// refused grid save, the line cards and grid, and the computed totals.
+// refused grid save, the line cards and grid, the computed totals and, with
+// AddAgain, the add button once more, outside #doc-totals (CD-275).
 func itemsPart(iv itemsView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -50,6 +51,12 @@ func itemsPart(iv itemsView) templ.Component {
 		templ_7745c5c3_Err = docTotals(iv.Totals, false).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
+		}
+		if iv.AddAgain {
+			templ_7745c5c3_Err = components.Button(iv.List.AddButton()).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		return nil
 	})
@@ -137,7 +144,7 @@ func gridItem(id, label, shown, name, value, errText string) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(label + ": ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 39, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 43, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -150,7 +157,7 @@ func gridItem(id, label, shown, name, value, errText string) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(shown)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 39, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 43, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -171,7 +178,7 @@ func gridItem(id, label, shown, name, value, errText string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 42, Col: 33}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 46, Col: 33}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 		if templ_7745c5c3_Err != nil {
@@ -184,7 +191,7 @@ func gridItem(id, label, shown, name, value, errText string) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 42, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 46, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
@@ -392,7 +399,8 @@ func linePageBanners(lp linePageView) templ.Component {
 	})
 }
 
-// linePageBody is the line form ("Save line") or the remove question.
+// linePageBody is the line form ("Save line") or the remove question; the
+// module's Top sits before the form, never inside it (UX-E1).
 func linePageBody(lp linePageView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -422,13 +430,19 @@ func linePageBody(lp linePageView) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(lp.Question)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 86, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 91, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		if lp.Top != nil {
+			templ_7745c5c3_Err = lp.Top.Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -452,7 +466,7 @@ func linePageBody(lp linePageView) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(lp.Version))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 89, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 97, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 			if templ_7745c5c3_Err != nil {
@@ -478,7 +492,7 @@ func linePageBody(lp linePageView) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = components.Form(components.FormProps{Action: lp.Action}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Form(components.FormProps{ID: lp.FormID, Action: lp.Action}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
