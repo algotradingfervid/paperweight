@@ -213,9 +213,10 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	} {
 		out[r] = st{Control: []int{forbidden}}
 	}
-	// Stubs answer 501 before reading the id (expense E1).
+	// Mark as paid and Undo paid need cancel, which the viewer lacks: 403 on
+	// an advance it reads, AUTH-108's 404 on a hidden one (UX §5.18).
 	for _, r := range []string{"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid"} {
-		out[r] = st{Control: []int{stub}, Hidden: []int{stub}}
+		out[r] = st{Control: []int{forbidden}}
 	}
 	// The GRN report pages are S4's stubs; their CSVs are built (G9).
 	for _, r := range []string{"/reports/grn/bills", "/reports/grn/items"} {

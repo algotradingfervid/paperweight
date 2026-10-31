@@ -1,0 +1,11 @@
+package expenseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// unusedCard lists the claim's files no line holds, each with FILE's own
+// Remove and confirm (UX §5.6).
+templ unusedCard(items []components.Attachment) {
+	@components.Card(unusedTitle, nil) {
+		@components.Attachments(items)
+	}
+}

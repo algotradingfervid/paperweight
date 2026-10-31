@@ -1,0 +1,18 @@
+package expenseweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// claimsCard lists the readable claims set against the advance, then one
+// row for the ones the viewer can't read; with neither, its empty text.
+templ claimsCard(v claimsView) {
+	@components.Card(claimsTitle, nil) {
+		if len(v.rows) == 0 && v.other == "" {
+			@components.EmptyState(claimsNone, nil)
+		} else {
+			@components.DataList(components.DataListProps{Label: claimsTitle, Columns: claimsColumns, Rows: v.rows})
+			if v.other != "" {
+				@components.SummaryList([]components.Pair{{Label: claimsOther, Value: v.other, Num: true}})
+			}
+		}
+	}
+}

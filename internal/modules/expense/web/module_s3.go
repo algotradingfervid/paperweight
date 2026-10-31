@@ -1,27 +1,123 @@
 package expenseweb
 
 import (
+	"fmt"
+	"slices"
+
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
-// S3 (Pages) fills these in; nil keeps the generic screen.
+// S3 (Pages): the claim's and the advance's document page and reason page
+// additions, and the advance's hidden fields (UX §5.7 to §5.12).
 
-// claimPage is the claim's document page additions.
-func claimPage(_ Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) { return nil }
+// The hints and notes of the reason pages (UX §5.9, §5.12; spec §4, §6).
+const (
+	hintHowPaid     = "For example how it was paid"
+	hintReturned    = `For example "₹2,000 returned by NEFT 1234 on 30-11-2026"`
+	noteLeftOnClose = "%s is left on this advance. Closing treats it as returned."
+)
 
-// claimReason is the claim's reason page additions.
+// claimPage is the claim's document page additions (UX §5.7, §5.8): the
+// warnings while it can still change, the draft notice for a reader, the
+// Period pair unless Hide hides a date of it (CD-319), the Closed pair, and
+// only the files no line holds (UX-E7).
+func claimPage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
+	return func(c docscreen.Ctx) (docscreen.PageExtra, error) {
+		var x docscreen.PageExtra
+		v := c.View
+		switch v.Info.State {
+		case doctype.StateDraft, doctype.StatePending, doctype.StateRejected:
+			ws, err := d.Service.ClaimWarnings(c.Req.Context(), c.Principal, v.Info.ID)
+			if err != nil {
+				return x, err
+			}
+			x.Warnings = ws
+		}
+		if v.Info.State == doctype.StateDraft {
+			name, err := d.Service.ClaimEmployee(c.Req.Context(), c.Principal, v.Info.ID)
+			if err != nil {
+				return x, err
+			}
+			x.Notice = &components.BannerProps{Message: name + " hasn't submitted this claim yet."}
+		}
+		if from, to := v.Display["period_from"], v.Display["period_to"]; from != "" && to != "" && !pairHides(c, "period_from") && !pairHides(c, "period_to") {
+			x.Pairs = append(x.Pairs, components.Pair{Label: "Period", Value: from + " to " + to})
+		}
+		x.Pairs = append(x.Pairs, closedPair(v)...)
+		files, err := otherFiles(c, d)
+		if err != nil {
+			return x, err
+		}
+		x.Files = &docscreen.FilesCard{Title: "Other files", Items: files}
+		return x, nil
+	}
+}
+
+// claimReason adds the close hint (spec §6).
 func claimReason(_ Deps) func(docscreen.Ctx, doctype.Action) (docscreen.ReasonExtra, error) {
-	return nil
+	return func(_ docscreen.Ctx, a doctype.Action) (docscreen.ReasonExtra, error) {
+		if a != doctype.ActionClose {
+			return docscreen.ReasonExtra{}, nil
+		}
+		return docscreen.ReasonExtra{Hint: hintHowPaid}, nil
+	}
 }
 
-// advancePage is the advance's document page additions.
-func advancePage(_ Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) { return nil }
-
-// advanceReason is the advance's reason page additions.
-func advanceReason(_ Deps) func(docscreen.Ctx, doctype.Action) (docscreen.ReasonExtra, error) {
-	return nil
+// advancePage is the advance's document page additions (UX §5.11).
+func advancePage(d Deps) func(docscreen.Ctx) (docscreen.PageExtra, error) {
+	return func(c docscreen.Ctx) (docscreen.PageExtra, error) { return advanceExtra(c, d) }
 }
 
-// advanceHide hides the advance's fields a viewer doesn't need.
-func advanceHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool { return nil }
+// advanceReason adds, on Close, the note on what's left (EXP-059) as a
+// warning (CD-326 (7)) and the hint for how it was settled; with nothing left, or Used hidden, the
+// claims' hint.
+func advanceReason(d Deps) func(docscreen.Ctx, doctype.Action) (docscreen.ReasonExtra, error) {
+	return func(c docscreen.Ctx, a doctype.Action) (docscreen.ReasonExtra, error) {
+		if a != doctype.ActionClose {
+			return docscreen.ReasonExtra{}, nil
+		}
+		left, err := d.Service.LeftOn(c.Req.Context(), c.Principal, c.View.Info.ID)
+		if err != nil {
+			return docscreen.ReasonExtra{}, err
+		}
+		if left <= 0 || pairHides(c, "used_amount") { // what's left reveals Used
+			return docscreen.ReasonExtra{Hint: hintHowPaid}, nil
+		}
+		return docscreen.ReasonExtra{Note: fmt.Sprintf(noteLeftOnClose, types.FormatINR(left)), NoteWarn: true, Hint: hintReturned}, nil
+	}
+}
+
+// advanceHide hides used_amount and paid_on as fields, which the page shows
+// as pairs (asPair), and, as an input only, the employee from everyone but
+// an Administrator: on a new advance (no View) and a draft (UX §5 intro,
+// CD-327 (2)).
+func advanceHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool {
+	return func(c docscreen.Ctx, f doctype.Field) bool {
+		switch f.Name {
+		case "used_amount", "paid_on":
+			return !asPair(c)
+		case "employee_id":
+			input := c.View == nil || c.View.Info.State == doctype.StateDraft
+			return input && !slices.Contains(c.Principal.Roles, auth.RoleAdministrator)
+		}
+		return false
+	}
+}
+
+// advanceLineCard is an advance line's card (UX §5.10): docscreen's card
+// with the type's name, not its code, and the line's note unless the
+// registered Hide hides it (CD-319 (9)).
+func advanceLineCard(_ Deps) func(docscreen.Ctx, docscreen.LineView) components.LineCard {
+	return func(c docscreen.Ctx, l docscreen.LineView) components.LineCard {
+		card := l.Card
+		card.Code = ""
+		if !hides(c, "description") {
+			card.Note = l.Display["description"]
+		}
+		return card
+	}
+}
