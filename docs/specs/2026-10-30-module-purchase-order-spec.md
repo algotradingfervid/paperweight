@@ -386,7 +386,7 @@ The owner has answered both batches (CD-234, CD-235).
 - Hand-over moves a draft to another Purchase User; a Purchase Manager can hand over anyone's draft, but never edits it (§21.2).
 - Comments can't be edited or deleted, and nobody is notified; the Purchase home shows recent comments on your documents (§22).
 - Mark as sent is recorded by the PO's owner or a Purchase Manager or Director, and can be undone (§23).
-- Only the requester closes a request; a buyer who won't order something says so in a comment (§20.3).
+- ~~Only the requester closes a request~~ Owner answered (CD-253): the requester or a Purchase Manager or Director closes a request (§20.3). The other assumptions here are accepted as written.
 - A short-closed PO counts only what was received as ordered, so the rest can go on a new PO (§20.2).
 - The default price is the last price paid to the same vendor for the same item and UoM on the same project, else the item's standard rate (§24.2).
 
@@ -546,7 +546,7 @@ No line field name repeats a header field name (CD-151).
 ### 20.3 States
 
 - **Submit** moves a request straight to approved and numbers it (no approval rule applies, F5). The screen calls the state **Submitted**: the state label for a non-approvable DocType is a docscreen display label, which the plan check confirms.
-- **Close** means "no longer needed". Only the owner closes (the default close right, `submit`, is `own`). It asks for a reason (3 to 500 characters). A buyer who won't order something says so in a comment (§22) and the requester closes it: one owner, no fight. A closed request can't be pulled into a PO, and lines already ordered stay ordered. When a draft, pending or rejected PO still holds its lines, the close page warns, through the Reason hook: `{n} rows are on orders not yet approved: {list}. Those orders can't be approved until the rows are removed.` The kernel then refuses to approve such a PO with DOC's closed text (§20.5); the approver rejects it and the buyer removes the rows.
+- **Close** means "no longer needed". The owner or a Purchase Manager or Director closes it (CD-253): `purchase.Request`'s `CloseRight` is `approve`, held `own` by Employee and `all` by Purchase Manager and Director; requests aren't approvable, so `approve` has no other effect. It asks for a reason (3 to 500 characters). A buyer who won't order something says so in a comment (§22) and the requester (or a Purchase Manager) closes it. A closed request can't be pulled into a PO, and lines already ordered stay ordered. When a draft, pending or rejected PO still holds its lines, the close page warns, through the Reason hook: `{n} rows are on orders not yet approved: {list}. Those orders can't be approved until the rows are removed.` The kernel then refuses to approve such a PO with DOC's closed text (§20.5); the approver rejects it and the buyer removes the rows.
 - **Cancel** is done by the owner. The kernel blocks it while a pending, approved or closed PO links the request (DOC-052, `LinkSpec`). A draft or rejected PO still holding the row gets DOC's cancelled text on its next save.
 - There is no amend or withdraw: to change a submitted request, the owner closes it and raises a new one.
 - **`order_status`** is `not_ordered` when nothing is ordered, `ordered` when every line's ordered quantity reaches its requested quantity, and `part_ordered` otherwise. `purchase.RefreshOrderStatus(ctx, tx, requestIDs []int64)` recomputes `ordered_qty` and `order_status` from `lineOrdered`, counting the PO in its new state. It writes them as the kernel's roll-up writes system fields: no version bump and no audit entry (the plan check confirms against `rollup.go`). Callers: PO `ApplyEffects` (approve), `ReverseEffects` (cancel), `OnClose` (close, §15 item 18), and MOD-GRN wherever it calls `RefreshReceiptStatus` on a closed PO, because a GRN cancelled against a closed PO changes that PO's ordered amount.
@@ -582,10 +582,10 @@ Ordering more than was requested is allowed. The check page warns: `Row {n}: ord
 
 | Role | Rights on Purchase Request (scope) |
 |---|---|
-| Employee | read, create, write, submit, cancel, delete (own); close through `submit` (own) |
+| Employee | read, create, write, submit, cancel, delete, approve (own); close through `CloseRight` `approve` (CD-253) |
 | Stores | read (all) |
 | Purchase User | read (all) |
-| Purchase Manager, Director | read (all) |
+| Purchase Manager, Director | read, approve (all); approve only closes (CD-253) |
 | Administrator | every applicable right |
 
 Site and project restrictions apply, so Suresh raises and sees requests for PUNE-WH and METRO-SITE only. Every user has Employee by default (D-AUTH-22), so everyone can request. That is the intent [Assumption].

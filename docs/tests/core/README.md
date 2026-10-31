@@ -10,12 +10,12 @@ Reconciled with the spec on 24 October 2026 and regenerated after contract decis
 |---|---|---|---|---|---|---|---|
 | [`01-auth.md`](01-auth.md) | AUTH — identity and permissions | 121 | 92 | 29 | 44 | 76 | 1 |
 | [`02-naming.md`](02-naming.md) | NAM — naming series | 65 | 48 | 17 | 20 | 44 | 1 |
-| [`03-document.md`](03-document.md) | DOC — document lifecycle and audit | 106 | 76 | 30 | 23 | 79 | 4 |
+| [`03-document.md`](03-document.md) | DOC — document lifecycle and audit | 112 | 82 | 30 | 24 | 84 | 4 |
 | [`04-approvals.md`](04-approvals.md) | APR — approvals | 97 | 72 | 25 | 23 | 72 | 2 |
 | [`05-files-print.md`](05-files-print.md) | FILE — files and printing | 83 | 67 | 16 | 28 | 48 | 7 |
 | [`06-masters.md`](06-masters.md) | MST — masters | 129 | 96 | 33 | 71 | 58 | 0 |
 | [`07-numbers-lists.md`](07-numbers-lists.md) | NUM — numbers, lists and CSV | 121 | 105 | 16 | 70 | 49 | 2 |
-| **Total** | | **722** | **556** | **166** | **279** | **426** | **17** |
+| **Total** | | **728** | **562** | **166** | **280** | **431** | **17** |
 
 Level counts group variants: "unit (fuzz)" counts as unit, "integration (golden file)" as integration. Every e2e case's Go test starts with `TestE2E_` and is owned by WP3 (CD-40, CD-74). A Go test written `TestFunc/sub` names a subtest of `TestFunc`.
 
@@ -224,7 +224,7 @@ Level counts group variants: "unit (fuzz)" counts as unit, "integration (golden 
 
 ### 03-document.md — DOC — document lifecycle and audit
 
-106 cases: 76 P1 / 30 P2; 23 unit, 79 integration, 4 e2e.
+112 cases: 82 P1 / 30 P2; 24 unit, 84 integration, 4 e2e.
 
 | ID | Go test | P | Level |
 |---|---|---|---|
@@ -334,6 +334,12 @@ Level counts group variants: "unit (fuzz)" counts as unit, "integration (golden 
 | DOC-104 | `TestDoc_ApproveReject_CheckOrder` | P1 | integration |
 | DOC-105 | `TestDoc_Save_ChecksRestrictions` | P1 | integration |
 | DOC-106 | `TestDoc_Link_MasterWarning` | P2 | integration |
+| DOC-107 | `TestDoc_Amend_RunsValidate` | P1 | integration |
+| DOC-108 | `TestDoc_Close_CloseRight` | P1 | integration |
+| DOC-109 | `TestDoc_Close_CloserHook` | P1 | integration |
+| DOC-110 | `TestDoc_StateLabels_PerDocType` | P1 | unit |
+| DOC-111 | `TestDoc_Reassign_Rules` | P1 | integration |
+| DOC-112 | `TestDoc_Reassign_Concurrent` | P1 | integration |
 
 ### 04-approvals.md — APR — approvals
 

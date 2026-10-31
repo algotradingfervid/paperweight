@@ -816,6 +816,52 @@ Core recomputes every declared `RollUp` as `SUM(source field) over source lines 
 - **Go test:** `TestDoc_Link_MasterWarning`
 - **Sources:** Contract decisions CD-21 (`MasterInfo.Warning`), CD-68
 
+### DOC-107 · Amend runs Validate once; its writes are kept and its errors ignored
+- **Priority:** P1
+- **Level:** integration
+- **Given** cancelled order A and a hooks value whose `Validate` writes a value on the document it is given and returns a field error **When** A is amended **Then** `Hooks.Validate` is called exactly once, on the new draft, inside the amend transaction, after the copy. The amend succeeds: the draft exists, the value `Validate` wrote is stored on it, and the field error is not returned. A stays cancelled.
+- **Go test:** `TestDoc_Amend_RunsValidate`
+- **Sources:** PO spec §15 item 8; CD-237; MOD-PO plan M0-10
+
+### DOC-108 · CloseRight replaces the close right
+- **Priority:** P1
+- **Level:** integration
+- **Given** an approved document of a DocType with a blank `CloseRight` **When** it is closed **Then** the right checked is `submit`, as today (DOC-014). **Given** a DocType with `CloseRight` = `amend` (as `purchase.Order`) **When** a user who holds `amend` but not `submit` closes an approved document **Then** it closes. **When** a user who holds `submit` but not `amend` closes it **Then** AUTH's 403 error is returned unchanged and nothing changes (state, version, audit count).
+- **Go test:** `TestDoc_Close_CloseRight`
+- **Sources:** CD-237, CD-247 (3); PO spec §10; MOD-PO plan M0-10
+
+### DOC-109 · Closer.OnClose runs inside close, and its error rolls the close back
+- **Priority:** P1
+- **Level:** integration
+- **Given** a hooks value implementing `doctype.Closer` **When** an approved document is closed **Then** `OnClose(ctx, tx, id)` is called once, with the closing document's id, inside the close transaction after the state is set and the transition recorded, so it reads `state = "closed"` through `tx`. **When** `OnClose` returns an error **Then** the close is rolled back: the document stays approved with the same version and no new audit entry, and the error is classified like any hook error. A hooks value without `Closer` closes as before (DOC-014).
+- **Go test:** `TestDoc_Close_CloserHook`
+- **Sources:** CD-247 (4); PO spec §15 item 18; MOD-PO plan M0-10
+
+### DOC-110 · StateLabels overrides the label for one DocType only
+- **Priority:** P1
+- **Level:** unit
+- **Given** DocType A with `StateLabels{approved: "Submitted"}` and DocType B without `StateLabels` **Then** `doctype.StateLabel(A, approved)` is "Submitted", `doctype.StateLabel(B, approved)` is the global label "Approved", and every state missing from A's map, or mapped to a blank label, gives the global label.
+- **Go test:** `TestDoc_StateLabels_PerDocType`
+- **Sources:** CD-247 (4); PO spec §15 item 17, §20.3; MOD-PO plan M0-10
+
+### DOC-111 · Reassign changes the owner of a draft or rejected document only
+- **Priority:** P1
+- **Level:** integration
+- **Given** an order owned by `priya` **When** `Reassign(ctx, p, doctype, id, version, to)` runs **Then**:
+  - from draft and from rejected, by the owner and by a user holding `approve`, to an eligible enabled user: `OwnerField` (`created_by`) becomes `to`, `version` goes up by 1, and an audit entry and a history row are written in the same transaction;
+  - each `*doc.ReassignError` `Reason` is returned for its condition, with nothing changed: approved, closed or cancelled → `NotDraft`; pending approval → `Pending`; `to` is the current owner → `SameOwner`; `to` is disabled → `Disabled`; `to` lacks `create` on the record → `CantCreate`; `to` lacks `read` on the record → `CantSee`. `ReassignError` carries no user text;
+  - a caller who is neither the owner nor holds `approve` (`CanTx` with the record) gets AUTH's 403 error unchanged;
+  - a stale posted `version` gets DOC-069's message and nothing changes.
+- **Go test:** `TestDoc_Reassign_Rules`
+- **Sources:** PO spec §15 item 13, §21.2; CD-246, CD-247 (2); MOD-PO plan M0-13
+
+### DOC-112 · Concurrent reassigns as non-admin users: exactly one wins
+- **Priority:** P1
+- **Level:** integration
+- **Given** a draft owned by `priya` at version 5, and two non-admin callers allowed to reassign it (the owner and `ravi`) **When** both reassign it concurrently from version 5, on two connections **Then** exactly one succeeds, the other gets DOC-069's message, `version = 6`, and exactly one reassign audit entry is written. The test runs as non-admin users because `Can` returns early for an Administrator (CD-213).
+- **Go test:** `TestDoc_Reassign_Concurrent`
+- **Sources:** MOD-PO plan M0-13 (non-admin concurrency case, lessons §11); CD-94, CD-213
+
 ## Deferred and excluded
 | Scenario | Source | later/never | Reason |
 |---|---|---|---|

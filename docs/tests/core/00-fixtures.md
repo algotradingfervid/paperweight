@@ -66,18 +66,53 @@ Test password for all fixture users: `Correct-Horse-42`.
 | Role | DocType | Rights (scope) |
 |---|---|---|
 | Administrator | every DocType | every applicable right (all) |
-| Purchase Manager | Purchase Order / `fixture.Order` | read, approve, cancel, amend, print, export (all) |
-| Purchase User | Purchase Order / `fixture.Order` | read, create, write, submit, print, export (all); delete (own) |
+| Purchase Manager | `fixture.Order` | read, approve, cancel, amend, print, export (all) |
+| Purchase User | `fixture.Order` | read, create, write, submit, print, export (all); delete (own) |
 | Stores | GRN / `fixture.Receipt` | read, create, write, submit, print (all) |
-| Stores | Purchase Order / `fixture.Order` | read (all) |
+| Stores | `fixture.Order` | read (all) |
 | Employee | Expense Claim / `fixture.Claim` | read, create, write, submit, print (own) |
 | Employee | Expense Claim / `fixture.Claim` | read, approve (team: claims of employees who report directly to me) |
-| Director | Purchase Order / `fixture.Order`, Expense Claim / `fixture.Claim` | read, approve, print, export (all) |
+| Director | `fixture.Order`, Expense Claim / `fixture.Claim` | read, approve, print, export (all) |
 | Masters Manager | every master | read, create, write, delete, export, import (all) |
 
 Scopes are `own`, `team` and `all` (CD-11). So Priya creates and submits orders, Ravi approves them (and has no Withdraw button), Suresh receives goods, and Priya approves Deepak's expense claims as Deepak's reporting manager. A test that needs anything else adds it in its own setup.
 
+`fixture.Order` keeps this seed (CD-247). The production Purchase Order and Purchase Request rights differ, so they have their own rows below.
+
+### Purchase Order rights (`purchase.Order`, PO spec §10)
+
+| Role | Rights (scope) |
+|---|---|
+| Purchase User | read, create, amend, print, export (all); write, submit, delete (own) |
+| Purchase Manager | read, approve, cancel, print, export (all) |
+| Director | read, approve, print, export (all) |
+| Stores | read (all) |
+| Administrator | every applicable right |
+
+`purchase.Order`'s `CloseRight` is `amend`, so any Purchase User closes an approved PO; `amend` has no other effect on an approved PO (CD-247). Only a draft's owner edits, submits, withdraws, revises or deletes it (§21). A Purchase Manager or Director hands over any draft through `approve` (§21.2); hand-over is not a right of its own.
+
+### Purchase Request rights (`purchase.Request`, PO spec §20.6)
+
+| Role | Rights (scope) |
+|---|---|
+| Employee | read, create, write, submit, cancel, delete (own); close through `submit` (own) |
+| Stores | read (all) |
+| Purchase User | read (all) |
+| Purchase Manager, Director | read (all) |
+| Administrator | every applicable right |
+
+Site and project restrictions apply, so Suresh raises and sees requests for PUNE-WH and METRO-SITE only. Every user has Employee by default (D-AUTH-22), so everyone can request.
+
 Permission-denied (403) message, owned by AUTH and used everywhere: "You don't have permission to {right} {DocType}. Ask your administrator for a role that allows it."
+
+## Purchase Request fixtures (MOD-PO)
+
+| Fixture | Requester | Needed at / project | Rows |
+|---|---|---|---|
+| `PR-A` | `suresh@vardhan.test` (Suresh Patil) | `METRO-SITE` / `PRJ-METRO` | 2 |
+| `PR-B` | `deepak@vardhan.test` (Deepak Nair) | `PUNE-WH` / `PRJ-TECHPARK` | 1 |
+
+`PUNE-WH` has no project, so any project is valid on PR-B. The items, quantities, dates and states of the rows are not fixed here; each test sets them.
 
 ## Approval rules (test seed)
 
