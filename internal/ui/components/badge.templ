@@ -1,6 +1,8 @@
 package components
 
 import (
+	"cmp"
+
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
@@ -28,12 +30,17 @@ func StateLabel(s doctype.State) string {
 
 // StateBadge shows a document state as word, tint and icon, never colour alone.
 templ StateBadge(s doctype.State) {
+	@StateBadgeLabel(s, "")
+}
+
+// StateBadgeLabel is StateBadge with label in place of the state's word; "" keeps the word.
+templ StateBadgeLabel(s doctype.State, label string) {
 	if l, ok := stateLooks[s]; ok {
 		<span class={ l.class }>
 			@icons.Icon(l.icon)
-			{ l.word }
+			{ cmp.Or(label, l.word) }
 		</span>
 	} else {
-		<span class="badge badge--neutral">{ string(s) }</span>
+		<span class="badge badge--neutral">{ cmp.Or(label, string(s)) }</span>
 	}
 }
