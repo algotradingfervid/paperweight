@@ -15,8 +15,10 @@ import (
 // rows, by the head's ruling, each with who removes it. Each entry must name
 // a registered, unswept DocType, so it can't outlive its reason.
 var notYetSwept = map[string]string{
-	"expense.Claim":   "AD-11 MOD-EXP S-task (CD-298)",
-	"expense.Advance": "AD-11 MOD-EXP S-task (CD-298)",
+	"expense.Claim":    "AD-11 MOD-EXP S-task (CD-298)",
+	"expense.Advance":  "AD-11 MOD-EXP S-task (CD-298)",
+	"purchase.Order":   "AD-13 MOD-PO P16 sweep (CD-298)",
+	"purchase.Request": "AD-13 MOD-PO P16 sweep (CD-298)",
 }
 
 // TestModule_EveryDocTypeSwept (hooks spec §6) is the gate screens.Uncovered
