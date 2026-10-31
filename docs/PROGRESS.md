@@ -1,6 +1,6 @@
 # Progress
 
-Status on 31 October 2026: **core v1 complete, tag `core-v1`.** WP0, WP1 (NUM, NAM, APR, DOC, FILE, UI, AUTH), WP2 masters and WP3 integration are done, plus attachments on document pages (CD-241 to CD-251). Final gate on main: `make ci` and full `make e2e` green, P1 556/556, restore drill passed. Next: the PO, GRN and Expense modules (specs accepted CD-238; PO v0.5 and the MOD-PO plan, CD-246 and CD-247), then the design-language rollout (CD-244).
+Status on 31 October 2026: **core v1 complete, tag `core-v1`.** WP0, WP1 (NUM, NAM, APR, DOC, FILE, UI, AUTH), WP2 masters and WP3 integration are done, plus attachments on document pages (CD-241 to CD-251). Final gate on main: `make ci` and full `make e2e` green, P1 556/556, restore drill passed. MOD-PO build running (CD-252): AD-9 MOD-0 services, AD-10 docscreen hooks; UX design in review. Then GRN and Expense: (specs accepted CD-238; PO v0.5 and the MOD-PO plan, CD-246 and CD-247), then the design-language rollout (CD-244).
 
 ## Read in this order
 
@@ -272,6 +272,10 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | CD-241 | Attachments: B3 components, docscreen panel (CD-249) | High | tw, impl, rev opus (AD-8) | 01:13 | 01:53 | 1 + TEST-DISPUTE | 0/0/5 | lane/wp3-attach |
 | CD-241 | Attachments: B4 e2e | Standard | impl, rev opus (AD-8) | 01:53 | 02:38 | 1 | 0/0/6 | 79b3e08 (lane/wp3-attach 46c2d3f); P1 556/556 |
 | WP3-T6 | Final gate; picker flows follow the prefill (t6d); binary sizes | High | AD-7 | 31 Oct | 31 Oct | 1 | gate passed | 504cc89 (wp/wp3 8a9f26b); make ci, make e2e green; tag core-v1 |
+| fix | Numbering page empty state (no series before modules) | Light | head | 08:15 | 08:22 | 1 | — | e531f8c |
+| MOD-PO D0 | Module test docs (PO 70, HOOK 18), DOC-107..112, purchase fixtures | — | drafter opus (head) | 08:25 | 08:38 | 1 | — | 772dd9c; core P1 556/562 until M0-10, M0-13 |
+| M0-8 | gstcalc.PlaceReason | High | tw, impl, rev opus (AD-9) | 08:25 | 08:45 | 1 | 0/0/1 | e671ec4 (wp/mod0 eab2705) |
+| M0-9 | print.TradeDoc additions | Standard | impl, rev opus (AD-9) | 08:25 | 08:45 | 1 | 0/0/2 | e671ec4 (wp/mod0 eab2705) |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
