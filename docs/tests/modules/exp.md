@@ -426,7 +426,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-058 · Billed to on company bills
 - **Priority:** P1
 - **Level:** integration
-- **Given** the fixture company (PUNE `27AAFCV2449G1Z7`, BLR `29AAFCV2449G1Z3`) **When** a company-bill line has no Billed to **Then** submit is refused with "Line 1: Billed to is required for a bill in the company GSTIN."; with BLR it submits and `snap_billed_gstin` is `29AAFCV2449G1Z3`, unchanged after BLR's GSTIN is edited. A crafted post naming a branch with no GSTIN is refused with "Line 1: Choose a branch with a GSTIN." **Given** BLR disabled (one branch GSTIN) **Then** the field is hidden, the line saves with Billed to set to PUNE, and submit needs nothing more. A line without the tick has no Billed to.
+- **Given** the fixture company (PUNE `27AAFCV2449G1Z7`, BLR `29AAFCV2449G1Z3`) **When** a company-bill line has no Billed to **Then** submit is refused with "Line 1: Billed to is required for a bill in the company GSTIN."; with BLR it submits and `snap_billed_gstin` is `29AAFCV2449G1Z3`, unchanged after BLR's GSTIN is edited. With a branch `SITE-OFF` added in setup (enabled, blank GSTIN), a crafted post naming it is refused with "Line 1: Choose a branch with a GSTIN." **Given** BLR disabled (one branch GSTIN) **Then** the field is hidden, the line saves with Billed to set to PUNE, and submit needs nothing more. A line without the tick has no Billed to.
 - **Go test:** `TestExp_BilledTo`
 - **Sources:** Expense spec §3.2, §8; research G4, S-22 (Rule 46(d), Rule 36(2))
 
