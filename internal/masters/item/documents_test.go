@@ -101,7 +101,7 @@ func TestUoM_WholeNumberLineQty(t *testing.T) { // MST-086
 
 	_, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, w.shree(), []mstfixture.Line{w.line(bolt, "NOS", 3400)})
 	wantSaveError(t, "qty 3.4 NOS", err, doctype.FieldError{Field: "qty", Line: 1,
-		Message: "Row 1: Quantity 3.4 can't be a fraction for UoM NOS. Enter a whole number."})
+		Message: "Line 1: Quantity 3.4 can't be a fraction for UoM NOS. Enter a whole number."})
 
 	id := w.draft(t, w.line(bolt, "NOS", 3*wholeQty))
 	if got := mstfixture.Snapshot(t, w.env, id).Lines[0].StockQty; got != 3*wholeQty {
@@ -127,7 +127,7 @@ func TestUoM_WholeNumberStockQty(t *testing.T) { // MST-087
 
 	_, err = mstfixture.Save(ctx, w.env, w.env.Kavya, 0, w.shree(), []mstfixture.Line{w.line(saved.ID, "KGS", 1300)})
 	wantSaveError(t, "qty 1.3 KGS", err, doctype.FieldError{Field: "qty", Line: 1,
-		Message: "Row 1: 1.3 KGS = 15.6 NOS, but NOS must be a whole number. Change the quantity."})
+		Message: "Line 1: 1.3 KGS = 15.6 NOS, but NOS must be a whole number. Change the quantity."})
 }
 
 func TestItemUoM_StockUoMLocked(t *testing.T) { // MST-090

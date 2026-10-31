@@ -89,20 +89,22 @@ func IsWhole(q types.Qty) bool { return q%qtyUnit == 0 }
 // flags of its UoM (MST-086) and of the item's stock UoM after conversion by
 // f (MST-087). The stock quantity is rounded to quantity precision first, so
 // conversion dust passes (MST-088); a stock quantity past types.MaxQty is
-// refused with NUM's message. It returns nil when the line is fine.
+// refused with NUM's message. Each message starts with "Line {n}: " (CD-264
+// (8)), since DOC shows a module's errors as they are. It returns nil when the
+// line is fine.
 func CheckLineQty(line int, qty types.Qty, lineUoM, stockUoM UoM, f types.Factor) *doctype.FieldError {
-	row := "Row " + strconv.Itoa(line) + ": "
+	prefix := "Line " + strconv.Itoa(line) + ": "
 	if lineUoM.WholeNumber && !IsWhole(qty) {
 		return &doctype.FieldError{Field: "qty", Line: line,
-			Message: row + "Quantity " + types.FormatQty(qty) + " can't be a fraction for UoM " + lineUoM.Code + ". Enter a whole number."}
+			Message: prefix + "Quantity " + types.FormatQty(qty) + " can't be a fraction for UoM " + lineUoM.Code + ". Enter a whole number."}
 	}
 	stock, err := types.StockQty(qty, f)
 	if err != nil {
-		return &doctype.FieldError{Field: "qty", Line: line, Message: row + err.Error()}
+		return &doctype.FieldError{Field: "qty", Line: line, Message: prefix + err.Error()}
 	}
 	if stockUoM.WholeNumber && !IsWhole(stock) {
 		return &doctype.FieldError{Field: "qty", Line: line,
-			Message: row + types.FormatQtyUoM(qty, lineUoM.Code) + " = " + types.FormatQtyUoM(stock, stockUoM.Code) +
+			Message: prefix + types.FormatQtyUoM(qty, lineUoM.Code) + " = " + types.FormatQtyUoM(stock, stockUoM.Code) +
 				", but " + stockUoM.Code + " must be a whole number. Change the quantity."}
 	}
 	return nil

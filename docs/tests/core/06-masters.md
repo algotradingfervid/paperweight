@@ -649,14 +649,14 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-086 · Whole-number UoM refuses fractional line quantities
 - **Priority:** P1
 - **Level:** integration
-- **Given** item `BOLT-M12`, UoM NOS whole-number **When** a PO line has qty 3.4 NOS **Then** fails with "Row 1: Quantity 3.4 can't be a fraction for UoM NOS. Enter a whole number." **And** qty 3 passes.
+- **Given** item `BOLT-M12`, UoM NOS whole-number **When** a PO line has qty 3.4 NOS **Then** fails with "Line 1: Quantity 3.4 can't be a fraction for UoM NOS. Enter a whole number." (CD-264, CD-277: line texts read `Line {n}: `, once) **And** qty 3 passes.
 - **Go test:** `TestUoM_WholeNumberLineQty`
 - **Sources:** `erpnext/erpnext/buying/doctype/purchase_order/test_purchase_order.py:888` (`test_uom_integer_validation`), `erpnext/erpnext/utilities/transaction_base.py:644`
 
 ### MST-087 · Converted stock qty must be whole when the stock UoM is whole-number
 - **Priority:** P1
 - **Level:** integration
-- **Given** item `TEST-CLIP` created in this test, stock UoM NOS (whole), purchase UoM KGS (not whole) with row (KGS, 12) **When** PO qty 1.25 KGS **Then** stock qty 15 NOS passes. **When** qty 1.3 KGS **Then** fails with "Row 1: 1.3 KGS = 15.6 NOS, but NOS must be a whole number. Change the quantity."
+- **Given** item `TEST-CLIP` created in this test, stock UoM NOS (whole), purchase UoM KGS (not whole) with row (KGS, 12) **When** PO qty 1.25 KGS **Then** stock qty 15 NOS passes. **When** qty 1.3 KGS **Then** fails with "Line 1: 1.3 KGS = 15.6 NOS, but NOS must be a whole number. Change the quantity."
 - **Go test:** `TestUoM_WholeNumberStockQty`
 - **Sources:** `erpnext/erpnext/buying/doctype/purchase_order/test_purchase_order.py:930` (`test_uom_integer_check_tolerates_conversion_dust`)
 

@@ -395,7 +395,7 @@ func TestMstFixture_HookRefusals(t *testing.T) {
 	})
 	t.Run("whole number", func(t *testing.T) {
 		_, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, w.shree(), []mstfixture.Line{w.line("BOLT-M12", "NOS", 3400)})
-		wantFieldError(t, err, doctype.FieldError{Field: "qty", Line: 1, Message: "Row 1: Quantity 3.4 can't be a fraction for UoM NOS. Enter a whole number."})
+		wantFieldError(t, err, doctype.FieldError{Field: "qty", Line: 1, Message: "Line 1: Quantity 3.4 can't be a fraction for UoM NOS. Enter a whole number."})
 	})
 	t.Run("no conversion", func(t *testing.T) {
 		_, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, w.shree(),
