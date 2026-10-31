@@ -393,17 +393,17 @@ func TestS1_ClaimDetailsEmployeeCode(t *testing.T) {
 	s := s1New(t)
 	ab := s.signedIn(adminEmail)
 	r := s1Page(t, ab, s1Claims+"/new")
-	if in := r.doc.Find(`input[name="employee_code"]`); in.Length() != 1 || in.AttrOr("value", "") != "" {
+	if in := r.doc.Find(`input[name="employee_id"]`); in.Length() != 1 || in.AttrOr("value", "") != "" {
 		t.Errorf("Anil's new claim: %d code inputs, value %q; want one, blank", in.Length(), in.AttrOr("value", ""))
 	}
-	r = ab.post(s1Claims+"/new", url.Values{"purpose": {"Own visit"}, "claim_date": {"24-10-2026"}, "employee_code": {" "}})
+	r = ab.post(s1Claims+"/new", url.Values{"purpose": {"Own visit"}, "claim_date": {"24-10-2026"}, "employee_id": {" "}})
 	if r.status != http.StatusSeeOther {
 		t.Fatalf("POST new with a blank code = %d (%q), want 303", r.status, r.pageText())
 	}
 	if emp := s.text(`SELECT e.code FROM expense_claim c JOIN employee e ON e.id = c.employee_id WHERE c.id = (SELECT MAX(id) FROM expense_claim)`); emp != "EMP-001" {
 		t.Errorf("Anil's blank-code claim employee = %s, want his own EMP-001", emp)
 	}
-	form := url.Values{"purpose": {"Site visit"}, "claim_date": {"24-10-2026"}, "employee_code": {"emp-008"}}
+	form := url.Values{"purpose": {"Site visit"}, "claim_date": {"24-10-2026"}, "employee_id": {"emp-008"}}
 	r = ab.post(s1Claims+"/new", form)
 	if r.status != http.StatusSeeOther {
 		t.Fatalf("POST new with EMP-008 = %d (%q), want 303", r.status, r.pageText())
@@ -414,14 +414,14 @@ func TestS1_ClaimDetailsEmployeeCode(t *testing.T) {
 	}
 	n, _ := strconv.ParseInt(id, 10, 64)
 	r = s1Page(t, ab, s1URL(n, "/edit/details"))
-	if v := r.doc.Find(`input[name="employee_code"]`).AttrOr("value", ""); v != "EMP-008" {
+	if v := r.doc.Find(`input[name="employee_id"]`).AttrOr("value", ""); v != "EMP-008" {
 		t.Errorf("reopened code = %q, want EMP-008", v)
 	}
 	s1Has(t, "admin details", r.pageText(), "Employee code",
 		"Leave blank for your own claim. Type a code to enter a claim for someone else, including someone who has left.")
 
 	before := s.count(`SELECT COUNT(*) FROM expense_claim`)
-	form.Set("employee_code", "EMP-999")
+	form.Set("employee_id", "EMP-999")
 	r = ab.post(s1Claims+"/new", form)
 	if r.status != http.StatusUnprocessableEntity {
 		t.Errorf("POST new with EMP-999 = %d, want 422", r.status)
@@ -430,16 +430,35 @@ func TestS1_ClaimDetailsEmployeeCode(t *testing.T) {
 	if after := s.count(`SELECT COUNT(*) FROM expense_claim`); after != before {
 		t.Errorf("unknown code wrote a claim: %d → %d", before, after)
 	}
+	// A numeric id is only a code that names no employee: the same 422.
+	suresh := s.text(`SELECT CAST(id AS TEXT) FROM employee WHERE code = 'EMP-005'`)
+	form.Set("employee_id", suresh)
+	r = ab.post(s1Claims+"/new", form)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Errorf("POST new with employee id %s = %d, want 422", suresh, r.status)
+	}
+	s1Has(t, "numeric id", r.pageText(), "No employee has the code "+suresh+".")
+	if after := s.count(`SELECT COUNT(*) FROM expense_claim`); after != before {
+		t.Errorf("a numeric id wrote a claim: %d → %d", before, after)
+	}
+	// The code is read from employee_id only: any other name is ignored.
+	r = ab.post(s1Claims+"/new", url.Values{"purpose": {"Own visit"}, "claim_date": {"24-10-2026"},
+		"employee_code": {"EMP-008"}, "employee": {"EMP-008"}, "code": {"EMP-008"}})
+	if r.status != http.StatusSeeOther {
+		t.Fatalf("POST new with the code under other names = %d (%q), want 303", r.status, r.pageText())
+	}
+	if emp := s.text(`SELECT e.code FROM expense_claim c JOIN employee e ON e.id = c.employee_id WHERE c.id = (SELECT MAX(id) FROM expense_claim)`); emp != "EMP-001" {
+		t.Errorf("Anil's claim with the code under other names: employee = %s, want his own EMP-001", emp)
+	}
 
 	dk := s.signedIn(deepakEmail)
 	r = s1Page(t, dk, s1Claims+"/new")
-	if n := r.doc.Find(`input[name="employee_code"], input[name="employee_id"]`).Length(); n != 0 {
+	if n := r.doc.Find(`input[name="employee_id"]`).Length(); n != 0 {
 		t.Errorf("Deepak sees %d employee inputs, want none", n)
 	}
 	s1Lacks(t, "Deepak's details", r.pageText(), "Employee code")
-	suresh := s.text(`SELECT CAST(id AS TEXT) FROM employee WHERE code = 'EMP-005'`)
 	r = dk.post(s1Claims+"/new", url.Values{"purpose": {"Site visit"}, "claim_date": {"24-10-2026"},
-		"employee_id": {suresh}, "employee_code": {"EMP-005"}})
+		"employee_id": {suresh}})
 	if r.status != http.StatusSeeOther {
 		t.Fatalf("Deepak's POST new = %d (%q), want 303", r.status, r.pageText())
 	}
