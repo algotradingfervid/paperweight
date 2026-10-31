@@ -1,0 +1,52 @@
+package grnweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// choosePOView is step 1 with the order still open to choose (UX doc §5.2):
+// the radios or the select, or the empty text, then the link that widens or
+// narrows the orders, then the receipt date.
+templ choosePOView(p poPick, date components.DateProps) {
+	if len(p.Options) == 0 {
+		@components.EmptyState(msgNoOrders, p.EmptyLink)
+		<p>{ msgAskBuyer }</p>
+	} else if p.Select {
+		@components.Select(p.Field, p.Options)
+	} else {
+		@components.Radios(p.Field, p.Options)
+	}
+	if p.All {
+		@components.Hidden("all", "1")
+	}
+	if p.Toggle != nil {
+		@components.Button(components.ButtonProps{Label: p.Toggle.Label, Href: p.Toggle.Href, Variant: components.Ghost})
+	}
+	@components.DateInput(date)
+}
+
+// fixedPOView is step 1 of a draft with lines: its order as text, the hint
+// that says how to change it, Delete draft for a user who may, and the
+// receipt date (UX doc §5.2, spec §3.1).
+templ fixedPOView(po []components.Pair, deleteHref string, date components.DateProps) {
+	@components.SummaryList(po)
+	<p>{ msgDeleteToChange }</p>
+	if deleteHref != "" {
+		@components.Button(components.ButtonProps{Label: deleteDraftLabel, Href: deleteHref, Variant: components.Secondary})
+	}
+	@components.DateInput(date)
+}
+
+// deliveryView is step 2 (UX doc §5.3): the document fields for a receipt
+// with goods, remarks, the tick as one row, and where the photo is taken.
+templ deliveryView(d deliveryForm) {
+	if !d.ServiceOnly {
+		@components.Radios(d.Kind, kindOptions)
+		@components.TextInput(d.Number)
+		@components.DateInput(d.Date)
+		@components.TextInput(d.Vehicle)
+		@components.TextInput(d.Transporter)
+		@components.TextInput(d.EWay)
+	}
+	@components.Textarea(d.Remarks, remarksMax)
+	@components.Checkboxes(d.Rest, restOptions, d.RestChecked)
+	<p>{ msgPhotoLater }</p>
+}

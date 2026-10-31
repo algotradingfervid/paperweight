@@ -7,7 +7,8 @@ import (
 
 // module carries Deps to each screen task's Module functions.
 type module struct {
-	d Deps //nolint:unused // read by the hooks S1 to S3 build
+	d     Deps
+	facts factsCache // S1: one Facts read per request
 }
 
 // Modules is what the GRN adds to the generic document screens, for
