@@ -24,7 +24,7 @@ import (
 // validateRequest computes none), so CD-308 has nothing to check there.
 
 // p20TotalTooLarge is CD-308's text with the Order's DocType label.
-const p20TotalTooLarge = "The total is too large. The most a Purchase Order can be is ₹10,00,00,00,000.00. Split it into more than one Purchase Order."
+const p20TotalTooLarge = "The total is too large. The most a purchase order can be is ₹10,00,00,00,000.00. Split it into more than one purchase order."
 
 // p20Err is the CD-308 refusal on the lines.
 var p20Err = doctype.FieldError{Field: "lines", Line: 0, Message: p20TotalTooLarge}
