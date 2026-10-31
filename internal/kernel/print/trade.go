@@ -7,7 +7,8 @@ import (
 )
 
 // Party is the vendor, customer or employee block, as saved on the document
-// (FILE-063). An empty GSTIN prints "GSTIN: Unregistered".
+// (FILE-063). An empty GSTIN prints "GSTIN: Unregistered"; an empty Name
+// prints no block at all (CD-316).
 type Party struct {
 	Label, Name string
 	Address     []string
