@@ -110,7 +110,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/a-h/templ"
-	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/fixture"
@@ -399,7 +398,7 @@ func (e *rsEnv) mount(mods map[string]docscreen.Module) http.Handler {
 		p, ok := e.who[r.Header.Get("X-Rs-User")]
 		return p, ok
 	}
-	r := web.NewRouter(web.Options{Logger: slog.New(slog.NewTextHandler(e.w.logs, nil)), Sessions: scs.New()})
+	r := web.NewRouter(web.Options{Logger: slog.New(slog.NewTextHandler(e.w.logs, nil)), Sessions: e.w.app.ToolingRedrawSessions()})
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			next.ServeHTTP(w, r.WithContext(ui.WithShell(r.Context(), ui.Shell{CSRF: "rs-csrf"})))
@@ -435,11 +434,11 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 	case purchase.DocType:
 		return func(t *testing.T) (map[string]string, map[string]string) {
 			return map[string]string{
-					"vendor_id": e.idOf(t, "party", "SHREE"), "site_id": e.idOf(t, "site", "METRO-SITE"), "project_id": e.idOf(t, "project", "PRJ-METRO"), "order_date": day,
-				}, map[string]string{
-					"item_id": e.idOf(t, "item", "MS-ANGLE-50"), "uom_id": e.idOf(t, "uom", "KGS"), "qty": "1", "price": "10.00",
-					"tax_code_id": e.idOf(t, "tax_code", "GST18"), "hsn_sac": "7216",
-				}
+				"vendor_id": e.idOf(t, "party", "SHREE"), "site_id": e.idOf(t, "site", "METRO-SITE"), "project_id": e.idOf(t, "project", "PRJ-METRO"), "order_date": day,
+			}, map[string]string{
+				"item_id": e.idOf(t, "item", "MS-ANGLE-50"), "uom_id": e.idOf(t, "uom", "KGS"), "qty": "1", "price": "10.00",
+				"tax_code_id": e.idOf(t, "tax_code", "GST18"), "hsn_sac": "7216",
+			}
 		}
 	case expense.AdvanceDocType:
 		return func(t *testing.T) (map[string]string, map[string]string) {
@@ -811,9 +810,13 @@ func (d *rsDoc) typedField(i int) (doctype.Field, bool) {
 	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return f.Type != doctype.Text }))
 }
 
-// parseField is step i's first shown field a parser reads (number or date).
-func (d *rsDoc) parseField(i int) (doctype.Field, bool) {
-	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return !rsParsed(f) }))
+// parseField is step i's first shown field a parser reads (number or date)
+// among drawn, the inputs a fresh GET of the step posts. A field the module's
+// own Hide hides isn't drawn, and docscreen never reads its posted value
+// (postedStep, hooks spec §4.3), so it can't be mistyped: purchase.Request's
+// request_date on a new request or a draft (CD-258 Q8 (a)).
+func (d *rsDoc) parseField(i int, drawn []string) (doctype.Field, bool) {
+	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return !rsParsed(f) || !slices.Contains(drawn, f.Name) }))
 }
 
 func rsParsed(f doctype.Field) bool {
@@ -1408,9 +1411,9 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		}
 	})
 	d.cell(t, "new 422 parse", func(t *testing.T) {
-		f, ok := d.parseField(0)
+		f, ok := d.parseField(0, shown)
 		if !ok {
-			d.noParsed(t, 0)
+			d.noParsed(t, 0, shown)
 			t.Skip("step 1 shows no number or date field to mistype (checked)")
 		}
 		r := d.both(t, "POST new parse 422", "plain", d.none(0), func(t *testing.T, mode string) rsResp {
@@ -1436,9 +1439,9 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 }
 
 // noParsed checks the skip reason "step i shows no field to mistype".
-func (d *rsDoc) noParsed(t *testing.T, i int) {
+func (d *rsDoc) noParsed(t *testing.T, i int, drawn []string) {
 	t.Helper()
-	if f, ok := d.parseField(i); ok {
+	if f, ok := d.parseField(i, drawn); ok {
 		t.Fatalf("step %s shows the parsed field %s: the skip is stale", d.steps[i].Slug, f.Name)
 	}
 }
@@ -1513,9 +1516,9 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			}
 		})
 		d.cell(t, "step 422 parse "+s.Slug, func(t *testing.T) {
-			f, ok := d.parseField(i)
+			f, ok := d.parseField(i, shown)
 			if !ok {
-				d.noParsed(t, i)
+				d.noParsed(t, i, shown)
 				t.Skip("the step shows no number or date field to mistype (checked)")
 			}
 			where := "POST " + s.Slug + " with " + f.Name + "=zz"
