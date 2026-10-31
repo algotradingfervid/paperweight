@@ -384,3 +384,24 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** a field and an op (unknown field, not Filterable, OnLine without the `line.` prefix, header field with it, a line field without a lines table, an op the kind refuses, and accepted cases) **When** `list.CanFilter` is asked and `list.Build` builds the same filter **Then** CanFilter is true exactly when Build accepts it; Screens uses it for the filtered list screen.
 - **Go test:** `TestCanFilter_AgreesWithBuild`
 - **Sources:** M0-41 (head ruling after M0-38)
+
+### HOOK-055 · Every DocType that shows the editable line grid has a 3- or 5-cell row
+- **Priority:** P1
+- **Level:** integration
+- **Given** every registered document DocType (every module under internal/modules imported) **When** docscreen decides whether its Items step shows the editable grid **Then** a grid is only ever shown for a 3- or 5-cell row; masters, DocTypes without lines and CardsOnly/Line/NoLinePages skips each fail a check if their reason stops being true.
+- **Go test:** `TestLineGrid_EveryDocTypeFits`
+- **Sources:** CD-315; M0-40
+
+### HOOK-056 · A row of any other size shows cards
+- **Priority:** P1
+- **Level:** integration
+- **Given** rows of 2, 4, 6 and 11 editable cells, and of 3 and 5 **When** the grid decision runs **Then** 2/4/6/11 give cards at every width and 3/5 give the grid.
+- **Go test:** `TestLineGrid_FallsBackToCards`
+- **Sources:** CD-315; M0-40
+
+### HOOK-057 · The card fallback holds on every grid path
+- **Priority:** P1
+- **Level:** integration
+- **Given** Hooked with a 4-cell row (and a 3-cell control) **When** the Items step is shown, a line is saved over htmx and a submit lands on Items with a line error **Then** no grid input or row renders, the save answers 303 to the Items step, and the error links to `#step-title`.
+- **Go test:** `TestLineGrid_FallbackOnEveryPath`
+- **Sources:** CD-315; M0-40
