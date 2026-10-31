@@ -90,13 +90,15 @@ func TestGRNWeb_ItemsFullOpenOnTyped(t *testing.T) {
 	id := w.draft(po)
 	page := w.s2Items(id)
 	for _, c := range []struct {
-		name string
-		set  s2Set
+		name  string
+		set   s2Set
+		blank []s2Set // the card's other inputs, posted blank so they can't open it
 	}{
-		{"rejected typed", s2Set{"rejected", 2, "1"}},
-		{"reason typed", s2Set{"reason", 2, "Wet"}},
+		{"rejected typed", s2Set{"rejected", 2, "1"}, nil},
+		{"reason typed", s2Set{"reason", 2, "Wet"}, nil},
+		{"received typed", s2Set{"received", 2, "5"}, []s2Set{{"rejected", 2, ""}, {"reason", 2, ""}}},
 	} {
-		r := w.s2Save(id, page, s2Set{"received", 1, "abc"}, c.set)
+		r := w.s2Save(id, page, append([]s2Set{{"received", 1, "abc"}, c.set}, c.blank...)...)
 		if r.status != http.StatusUnprocessableEntity {
 			t.Errorf("%s: save = %d, want 422 (card 1 can't be read)", c.name, r.status)
 			continue
