@@ -103,7 +103,8 @@
   display: flex;
   gap: var(--space-1);
   align-items: flex-start;
-  &.field__msg { color: var(--color-danger-800); } /* field__msg's own colour comes later in the bundle */
+  /* Deliberately two classes: .field__msg's own colour comes later in the bundle and would win at equal specificity. */
+  &.field__msg { color: var(--color-danger-800); }
   font-weight: 550; /* between medium and semibold, as the design asks (UI v2 §5.5 item 6) */
   & .icon {
     flex: none;

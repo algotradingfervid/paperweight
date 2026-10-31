@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/url"
 	"strconv"
-	"unicode/utf8"
 
 	"github.com/a-h/templ"
 
@@ -19,10 +18,6 @@ import (
 // maxRadios is the most options shown as radios; more is a Select.
 const maxRadios = 6
 
-// maxHintRunes is the longest hint shown under the label: one line at
-// 320 px. A longer hint moves behind the field's info tip (UI v2 §5.5 item 4).
-const maxHintRunes = 40
-
 // FieldInput is the form control for f with the element id id, the value in
 // input form and an error message (CD-42): Text is a TextInput, or a
 // Textarea with a counter past 200 characters; Int a numeric TextInput;
@@ -32,12 +27,7 @@ const maxHintRunes = 40
 // checked by the server (CD-48); Date a DateInput with d.Today; Timestamp
 // read-only text. MST's master forms reuse it.
 func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Component {
-	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Error: errMsg, Value: value, Required: f.Required, Optional: !f.Required}
-	if utf8.RuneCountInString(f.Hint) > maxHintRunes {
-		p.Tip = f.Hint
-	} else {
-		p.Hint = f.Hint
-	}
+	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Error: errMsg, Value: value, Required: f.Required, Optional: !f.Required}
 	switch f.Type {
 	case doctype.Text:
 		if f.MaxLen > 200 {
