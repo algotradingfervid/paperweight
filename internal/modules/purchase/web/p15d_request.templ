@@ -1,0 +1,60 @@
+package purchaseweb
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// linkedOrdersView is the Linked orders card (UX §5.16): a DataList row per
+// readable order, then the count of the others with no state or link.
+templ linkedOrdersView(rows []components.Row, others string) {
+	@components.Card(linkedOrdersTitle, nil) {
+		if len(rows) > 0 {
+			@components.DataList(components.DataListProps{Label: linkedOrdersTitle, Columns: linkedOrderColumns, Rows: rows})
+		} else if others == "" {
+			<p>{ noLinkedOrders }</p>
+		}
+		if others != "" {
+			<p>{ others }</p>
+		}
+	}
+}
+
+templ fromRequestPage(v fromRequestView) {
+	@layout.Page(v.opts) {
+		@fromRequestBody(v)
+	}
+}
+
+templ fromRequestMain(v fromRequestView) {
+	@layout.Main(v.opts) {
+		@fromRequestBody(v)
+	}
+}
+
+// fromRequestBody is the Create PO page (UX §5.18): the banners, the summary
+// line, then either the nothing-pending note or the rows and the vendor form.
+templ fromRequestBody(v fromRequestView) {
+	if v.conflict != "" {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.conflict, Link: &components.Link{Label: "Reload", Href: v.action}})
+	}
+	for _, msg := range v.refusals {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg})
+	}
+	@components.ErrorSummary(v.errs)
+	<p>{ v.summary }</p>
+	if v.nothing != "" {
+		@components.Banner(components.BannerProps{Kind: components.Info, Message: v.nothing, Link: &v.back})
+	} else {
+		@components.Card(itemsToOrderTitle, nil) {
+			@components.LineList(components.LineListProps{Cards: v.cards, Total: len(v.cards)})
+		}
+		@components.Form(components.FormProps{Action: v.action}) {
+			<input type="hidden" name="version" value={ strconv.Itoa(v.version) }/>
+			@components.Picker(v.vendor)
+			@components.Button(components.ButtonProps{Label: createLabel, Busy: createBusy, Variant: components.Primary})
+		}
+	}
+}

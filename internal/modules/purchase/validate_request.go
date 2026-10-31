@@ -2,6 +2,7 @@ package purchase
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -14,7 +15,8 @@ import (
 // validateRequest is the request's Validate hook (PO spec §20.2). It runs on
 // every save and on submit (D-APR-15) and reads inside the tx (CD-94). It
 // checks the dates, the site and project (the PO's rule and texts, §4) and
-// each line's unit and quantity. While the request is a draft it writes the
+// each line's unit and quantity. While the request is a draft it writes
+// today into a blank request date (hidden on Details, CD-258 Q8 (a)), the
 // project default from the site and each line's description and unit
 // defaults from its item, even when it returns field errors (CD-302); a
 // refused site and project check skips only the project default.
@@ -27,6 +29,11 @@ func validateRequest(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldEr
 	rows, err := q.RequestLinesForValidate(ctx, id)
 	must(err)
 
+	draft := h.State == string(doctype.StateDraft)
+	if draft && h.RequestDate == "" {
+		h.RequestDate = types.Today(deps.Clock).ISO()
+		must(q.SetRequestDate(ctx, dbq.SetRequestDateParams{ID: id, RequestDate: sql.NullString{String: h.RequestDate, Valid: true}}))
+	}
 	errs := checkRequestDates(h, types.Today(deps.Clock))
 	projectID, fe, err := checkSiteProject(ctx, tx, h.SiteID, h.ProjectID)
 	must(err)
@@ -34,7 +41,6 @@ func validateRequest(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldEr
 		errs = append(errs, *fe)
 		projectID = h.ProjectID
 	}
-	draft := h.State == string(doctype.StateDraft)
 	if draft {
 		must(q.SetRequestProject(ctx, dbq.SetRequestProjectParams{ID: id, ProjectID: nullID(projectID)}))
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
+	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
@@ -50,6 +51,7 @@ type sweepState struct {
 	order  docscreen.SampleIDs
 	amend  int64
 	claim  int64
+	pr     int64 // Suresh's submitted purchase request (P15d's Create PO page)
 	file   int64
 	role   int64
 	admin  int64
@@ -117,7 +119,22 @@ func (h *Harness) prepareSweep() sweepState {
 	})
 	s.claim = c.ID
 	s.file = h.attach(deepak, fixture.Claim, c.ID, uitest.LongName100+".jpg")
+	s.pr = h.purchaseRequest()
 	return s
+}
+
+// purchaseRequest is Suresh's submitted METRO-SITE / PRJ-METRO purchase
+// request with one row of 100 kg MS-ANGLE-50.
+func (h *Harness) purchaseRequest() int64 {
+	h.t.Helper()
+	code := func(table, c string) string {
+		return strconv.FormatInt(Scalar[int64](h, `SELECT id FROM `+table+` WHERE code = ?`, c), 10)
+	}
+	r := h.Do(suresh, purchase.RequestDocType, 0, doctype.ActionSave, doc.ActionInput{
+		Values: map[string]string{"site_id": code("site", "METRO-SITE"), "project_id": code("project", "PRJ-METRO"), "request_date": plainDate},
+		Lines:  []map[string]string{{"item_id": code("item", "MS-ANGLE-50"), "uom_id": code("uom", "KGS"), "qty": "100"}},
+	})
+	return h.Do(suresh, purchase.RequestDocType, r.ID, doctype.ActionSubmit, doc.ActionInput{Version: r.Version}).ID
 }
 
 // longOrder is a draft of Priya's with lines lines of worst-case values.
@@ -209,6 +226,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		{Name: "claim new", Route: "/doc/{doctype}/new", URL: "/doc/" + fixture.Claim + "/new", As: deepak},
 		{Name: "claim page", Route: "/doc/{doctype}/{id}", URL: DocPath(fixture.Claim, s.claim), As: deepak},
 		{Name: "receipt new", Route: "/doc/{doctype}/new", URL: "/doc/" + fixture.Receipt + "/new", As: suresh},
+		{Name: "create PO from request", Route: "/modules/purchase/requests/{id}/order", URL: "/modules/purchase/requests/" + strconv.FormatInt(s.pr, 10) + "/order", As: priya},
 		{Name: "company logo", Route: "/m/company/1/logo", URL: "/m/company/1/logo", As: admin},
 	}
 	for _, sc := range docscreen.Screens(fixture.Order, s.order) {
@@ -472,16 +490,15 @@ var expenseStubs = []string{
 }
 
 // purchaseStubs are MOD-PO's GET routes that still answer P1's 501 stub,
-// whatever the id, each with the task that builds it (AD-13). P15e and P15d
-// give the pages screens and remove their routes here; P16 checks the list
-// is empty.
+// whatever the id, each with the task that builds it (AD-13). P15e gives the
+// pages screens and removes their routes here (P15d did); P16 checks the
+// list is empty.
 var purchaseStubs = []struct{ route, owner string }{
 	{"/modules/purchase", "P15e"},
 	{"/modules/purchase/q/{queue}", "P15e"},
 	{"/modules/purchase/orders/{id}/handover", "P15e"},
 	{"/modules/purchase/orders/{id}/send", "P15e"},
 	{"/modules/purchase/orders/{id}/expected", "P15e"},
-	{"/modules/purchase/requests/{id}/order", "P15d"},
 	{"/reports/purchase/pending", "P15e"},
 	{"/reports/purchase/pending/filter", "P15e"},
 }
