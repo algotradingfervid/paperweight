@@ -50,7 +50,8 @@ type Module struct {
 	Reason     func(c Ctx, a doctype.Action) (ReasonExtra, error)
 }
 
-// Ctx is what a hook reads. View is nil only on a new document's first step.
+// Ctx is what a hook reads. View is nil on a new document's first step and on
+// the list and search pages, where Listing is true (CD-327).
 type Ctx struct {
 	Req       *http.Request
 	Principal auth.Principal

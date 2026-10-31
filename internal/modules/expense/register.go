@@ -17,6 +17,7 @@ func init() {
 		CloseRight: "cancel", // Director and Administrator close (spec §6, CD-255)
 		// An advance can't be cancelled while a live claim names it (DOC-052).
 		Links:         []doctype.LinkSpec{{Field: "advance_id", Target: AdvanceDocType}},
+		SearchFields:  []string{"number", "purpose"}, // CD-317
 		DefaultRights: defaultRights(),
 		Fields:        claimFields(),
 		Hooks:         claimHooks{},
@@ -27,6 +28,7 @@ func init() {
 		Submittable: true, Approvable: true, Printable: true,
 		OwnerField: "created_by", EmployeeField: "employee_id",
 		CloseRight:    "cancel",
+		SearchFields:  []string{"number", "purpose"}, // CD-317
 		DefaultRights: defaultRights(),
 		Fields:        advanceFields(),
 		Hooks:         advanceHooks{},

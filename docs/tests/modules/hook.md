@@ -377,3 +377,87 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** registered document DocTypes with and without a filterable header `state` field (including one with a non-Filterable `state` and one whose `state` is on the line), and an unregistered name **When** `Screens` builds their screens **Then** exactly the DocTypes for which list accepts `state in [...]` get "list filtered", and an unregistered name keeps it.
 - **Go test:** `TestScreens_FilteredOnlyWithStateFilter`
 - **Sources:** M0-38 (head ruling after M0-34)
+
+### HOOK-054 · list.CanFilter agrees with list.Build
+- **Priority:** P1
+- **Level:** unit
+- **Given** a field and an op (unknown field, not Filterable, OnLine without the `line.` prefix, header field with it, a line field without a lines table, an op the kind refuses, and accepted cases) **When** `list.CanFilter` is asked and `list.Build` builds the same filter **Then** CanFilter is true exactly when Build accepts it; Screens uses it for the filtered list screen.
+- **Go test:** `TestCanFilter_AgreesWithBuild`
+- **Sources:** M0-41 (head ruling after M0-38)
+
+### HOOK-055 · Every DocType that shows the editable line grid has a 3- or 5-cell row
+- **Priority:** P1
+- **Level:** integration
+- **Given** every registered document DocType (every module under internal/modules imported) **When** docscreen decides whether its Items step shows the editable grid **Then** a grid is only ever shown for a 3- or 5-cell row; masters, DocTypes without lines and CardsOnly/Line/NoLinePages skips each fail a check if their reason stops being true.
+- **Go test:** `TestLineGrid_EveryDocTypeFits`
+- **Sources:** CD-315; M0-40
+
+### HOOK-056 · A row of any other size shows cards
+- **Priority:** P1
+- **Level:** integration
+- **Given** rows of 2, 4, 6 and 11 editable cells, and of 3 and 5 **When** the grid decision runs **Then** 2/4/6/11 give cards at every width and 3/5 give the grid.
+- **Go test:** `TestLineGrid_FallsBackToCards`
+- **Sources:** CD-315; M0-40
+
+### HOOK-057 · The card fallback holds on every grid path
+- **Priority:** P1
+- **Level:** integration
+- **Given** Hooked with a 4-cell row (and a 3-cell control) **When** the Items step is shown, a line is saved over htmx and a submit lands on Items with a line error **Then** no grid input or row renders, the save answers 303 to the Items step, and the error links to `#step-title`.
+- **Go test:** `TestLineGrid_FallbackOnEveryPath`
+- **Sources:** CD-315; M0-40
+
+### HOOK-058 · A line page error on a hidden field is a plain message
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module hiding a line field and a line save with an error on it **When** the line page redraws **Then** the summary shows the message without a link and the hidden input is not rendered.
+- **Go test:** `TestHide46_LinePageSummary`
+- **Sources:** CD-319 (1); M0-46
+
+### HOOK-059 · A refused submit for a submit-only user lists no hidden field
+- **Priority:** P1
+- **Level:** integration
+- **Given** a user with read and submit only, on the real auth.Service, and a Required error on a hidden field **When** submit is refused **Then** the error list has no link to the hidden field and no dead link.
+- **Go test:** `TestHide46_RefusedWithoutWrite`
+- **Sources:** CD-319 (2); M0-46
+
+### HOOK-060 · The default line card leaves hidden fields out
+- **Priority:** P1
+- **Level:** integration
+- **Given** fixture.Order with uom hidden **When** the Items step, check page and document page render **Then** the card reads quantity and rate without the unit.
+- **Go test:** `TestHide46_DefaultCard`
+- **Sources:** CD-319 (3); M0-46
+
+### HOOK-061 · Reason pages filter hidden-field errors
+- **Priority:** P1
+- **Level:** integration
+- **Given** a reason page with a DOC error on a hidden field **When** it renders **Then** the error is a plain message with no dead link.
+- **Go test:** `TestHide46_ReasonPage`
+- **Sources:** CD-319 (5); M0-46
+
+### HOOK-062 · A refused grid row shows its hidden-field error
+- **Priority:** P1
+- **Level:** integration
+- **Given** an editable grid row save refused on a hidden field **When** the row answers **Then** the alert carries the message.
+- **Go test:** `TestHide46_GridAlert`
+- **Sources:** CD-319; M0-46
+
+### HOOK-063 · A hidden item Link blanks the card name
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Module hiding the line item Link **When** the card renders **Then** it has no item name.
+- **Go test:** `TestHide46_DefaultCardItem`
+- **Sources:** CD-319 (3); M0-46
+
+### HOOK-064 · Hide on the card sees the stored line
+- **Priority:** P1
+- **Level:** integration
+- **Given** a Hide that depends on the line inputs **When** the default card is built **Then** the line stored inputs decide what is hidden, as on the grid.
+- **Go test:** `TestHide46_DefaultCardLineDeps`
+- **Sources:** CD-319 (3); M0-46
+
+### HOOK-065 · The party is left out when its field is hidden
+- **Priority:** P1
+- **Level:** integration
+- **Given** fixture.Order with its party field hidden **When** the document page and every reason page Screens lists render **Then** no party line shows.
+- **Go test:** `TestHide46_PartyHidden`
+- **Sources:** CD-319 (4); M0-46

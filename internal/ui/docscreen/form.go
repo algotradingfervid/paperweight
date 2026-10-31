@@ -115,10 +115,7 @@ func stepErrors(c Ctx, steps []FormStep, i int, errs []doctype.FieldError) []doc
 	var out []doctype.FieldError
 	for _, e := range errs {
 		if e.Field == "" || steps[i].owns(e) || !slices.ContainsFunc(steps, func(s FormStep) bool { return s.owns(e) }) {
-			if f, ok := c.DT.Field(e.Field); ok && hidden(c, f) {
-				e = doctype.FieldError{Message: e.Message}
-			}
-			out = append(out, e)
+			out = append(out, unhidden(c, e))
 		}
 	}
 	return out
@@ -710,7 +707,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		case body != nil && e.Line > 0 && strings.Contains(bodyHTML.String(), ` id="`+LineFieldID(e.Line, e.Field)+`"`):
 			sv.M.Errors[n].ID = LineFieldID(e.Line, e.Field)
 		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
-			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(dt) && body == nil) // a Body's component replaces the line editor
+			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(r, dt, *v) && body == nil) // a Body's component replaces the line editor
 		}
 	}
 	for _, name := range s.Fields {

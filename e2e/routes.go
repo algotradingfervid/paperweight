@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"slices"
@@ -16,11 +17,13 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/fixture"
+	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	authscreens "github.com/vardhan/internaltools/internal/kernel/auth/web/screens"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
+	"github.com/vardhan/internaltools/internal/modules/expense"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/testkit"
@@ -47,16 +50,18 @@ const (
 // sweepState is what the screens need beyond the canonical seed: a row of
 // worst-case values in every master and a document in every state.
 type sweepState struct {
-	long   testkit.LongRows
-	order  docscreen.SampleIDs
-	amend  int64
-	claim  int64
-	pr     int64 // Suresh's submitted purchase request (P15d's Create PO page)
-	file   int64
-	role   int64
-	admin  int64
-	rule   int64
-	master map[string]int64 // record id by /m/ slug
+	long     testkit.LongRows
+	order    docscreen.SampleIDs
+	amend    int64
+	claim    int64
+	pr       int64 // Suresh's submitted purchase request (P15d's Create PO page)
+	file     int64
+	role     int64
+	admin    int64
+	rule     int64
+	master   map[string]int64               // record id by /m/ slug
+	purchase int64                          // a purchase.Order draft of Priya's (P15e)
+	exp      map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
 }
 
 // prepareSweep seeds sweepState. The stand-in masters' rows the reference order
@@ -120,6 +125,8 @@ func (h *Harness) prepareSweep() sweepState {
 	s.claim = c.ID
 	s.file = h.attach(deepak, fixture.Claim, c.ID, uitest.LongName100+".jpg")
 	s.pr = h.purchaseRequest()
+	s.purchase = h.purchaseDraft()
+	s.exp = h.expenseSamples(s.long)
 	return s
 }
 
@@ -135,6 +142,90 @@ func (h *Harness) purchaseRequest() int64 {
 		Lines:  []map[string]string{{"item_id": code("item", "MS-ANGLE-50"), "uom_id": code("uom", "KGS"), "qty": "100"}},
 	})
 	return h.Do(suresh, purchase.RequestDocType, r.ID, doctype.ActionSubmit, doc.ActionInput{Version: r.Version}).ID
+}
+
+// Expense samples: three lines whose amounts add up to maxAmount, and 500
+// lines that stay under the largest amount too.
+const (
+	expLineAmount = "3333333333.33"
+	exp500Amount  = "19999999.99"
+)
+
+// expenseSamples seeds Priya's claims and advances in every state, approved
+// by her reporting manager Ravi under a reporting-manager rule (expensetest's
+// rules; the fixture rule names "Expense Claim"). The approved advance is
+// paid, and the draft claim is set against it; one line of each claim is a
+// company bill with its Billed to.
+func (h *Harness) expenseSamples(long testkit.LongRows) map[string]docscreen.SampleIDs {
+	h.t.Helper()
+	p := h.Principal(admin)
+	ctx := auth.WithPrincipal(context.Background(), p) // the app's role directory reads it, as in approvalRules
+	for _, dt := range []string{expense.ClaimDocType, expense.AdvanceDocType} {
+		if _, err := h.App.Approvals().CreateRule(ctx, p, approval.RuleInput{
+			DocType: dt, ApproverType: approval.ApproverManager, FallbackRole: expense.RoleFallbackApprover,
+		}); err != nil {
+			h.t.Fatalf("approval rule for %s: %v", dt, err)
+		}
+	}
+	typ := strconv.FormatInt(long.ExpenseType, 10)
+	draft := func(dt string, lines int, amount string, header map[string]string) doc.Result {
+		in := doc.ActionInput{Values: map[string]string{"purpose": uitest.LongName100, "remarks": uitest.LongError[:longRemarks]}}
+		maps.Copy(in.Values, header)
+		for i := range lines {
+			l := map[string]string{"expense_type_id": typ, "description": uitest.LongName100}
+			if dt == expense.AdvanceDocType {
+				l["line_amount"] = amount
+			} else {
+				maps.Copy(l, map[string]string{"expense_date": plainDate, "amount": amount, "no_receipt_reason": uitest.LongName100})
+				if i == 0 {
+					maps.Copy(l, map[string]string{
+						"company_bill": "true", "supplier_gstin": h.Fx.Parties[0].Addresses[0].GSTIN, "invoice_no": uitest.LongCode60[:40],
+						"billed_to_id": strconv.FormatInt(long.Branch, 10), "gst_amount": "1.00",
+					})
+				}
+			}
+			in.Lines = append(in.Lines, l)
+		}
+		return h.Do(priya, dt, 0, doctype.ActionSave, in)
+	}
+	out := map[string]docscreen.SampleIDs{}
+	var paid string // the paid advance, which the draft claim is set against
+	for _, dt := range []string{expense.AdvanceDocType, expense.ClaimDocType} {
+		date := map[string]string{expense.AdvanceDocType: "advance_date", expense.ClaimDocType: "claim_date"}[dt]
+		header := map[string]string{date: plainDate}
+		submitted := func() doc.Result {
+			r := draft(dt, longLines, expLineAmount, header)
+			return h.Do(priya, dt, r.ID, doctype.ActionSubmit, doc.ActionInput{Version: r.Version})
+		}
+		approved := func() doc.Result {
+			r := submitted()
+			return h.Do(ravi, dt, r.ID, doctype.ActionApprove, doc.ActionInput{Version: r.Version})
+		}
+		ids := docscreen.SampleIDs{CloseAs: meena}
+		ids.Pending = submitted().ID
+		ids.Approved = approved().ID
+		r := submitted()
+		ids.Rejected = h.Do(ravi, dt, r.ID, doctype.ActionReject, doc.ActionInput{Version: r.Version, Reason: uitest.LongError}).ID
+		r = approved()
+		ids.Closed = h.Do(meena, dt, r.ID, doctype.ActionClose, doc.ActionInput{Version: r.Version, Reason: uitest.LongError}).ID
+		r = approved()
+		ids.Cancelled = h.Do(meena, dt, r.ID, doctype.ActionCancel, doc.ActionInput{Version: r.Version, Reason: uitest.LongError}).ID
+		if dt == expense.AdvanceDocType {
+			// expensetest.PaidAdvance's fixture query: the Mark as paid page is S3's.
+			if _, err := h.App.DB().SQL().ExecContext(context.Background(),
+				`UPDATE employee_advance SET paid_on = advance_date WHERE id = ?`, ids.Approved); err != nil {
+				h.t.Fatalf("mark advance %d paid: %v", ids.Approved, err)
+			}
+			paid = strconv.FormatInt(ids.Approved, 10)
+		}
+		ids.Lines500 = draft(dt, manyLines, exp500Amount, header).ID
+		if dt == expense.ClaimDocType {
+			header["advance_id"] = paid
+		}
+		ids.Draft = draft(dt, longLines, expLineAmount, header).ID
+		out[dt] = ids
+	}
+	return out
 }
 
 // longOrder is a draft of Priya's with lines lines of worst-case values.
@@ -238,11 +329,56 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		}
 		out = append(out, sc)
 	}
+	for _, dt := range []string{expense.ClaimDocType, expense.AdvanceDocType} {
+		for _, sc := range docscreen.Screens(dt, s.exp[dt]) {
+			switch {
+			case strings.HasSuffix(sc.Name, " reject"):
+				sc.As = ravi // Priya's reporting manager approves
+			case strings.HasSuffix(sc.Name, " cancel"):
+				sc.As = meena // the Director holds cancel
+			}
+			out = append(out, sc)
+		}
+	}
 	out = append(out, authscreens.Screens(authscreens.SweepIDs{
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
 	out = append(out, expenseReportScreens()...)
+	out = append(out, purchasePageScreens(s.purchase)...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
+}
+
+// purchasePageScreens are MOD-PO P15e's module pages as Priya: the home, a
+// queue, the pending report and its filter page, and the hand-over, Send and
+// Expected on pages of her draft po (the last two show their refusal).
+func purchasePageScreens(po int64) []screens.Screen {
+	order := "/modules/purchase/orders/" + strconv.FormatInt(po, 10)
+	return []screens.Screen{
+		{Name: "purchase home", Route: "/modules/purchase", URL: "/modules/purchase", As: priya},
+		{Name: "purchase queue", Route: "/modules/purchase/q/{queue}", URL: "/modules/purchase/q/drafts", As: priya},
+		{Name: "purchase hand over", Route: "/modules/purchase/orders/{id}/handover", URL: order + "/handover", As: priya},
+		{Name: "purchase send", Route: "/modules/purchase/orders/{id}/send", URL: order + "/send", As: priya},
+		{Name: "purchase expected on", Route: "/modules/purchase/orders/{id}/expected", URL: order + "/expected", As: priya},
+		{Name: "purchase pending report", Route: "/reports/purchase/pending", URL: "/reports/purchase/pending", As: priya},
+		{Name: "purchase pending filter", Route: "/reports/purchase/pending/filter", URL: "/reports/purchase/pending/filter", As: priya},
+	}
+}
+
+// purchaseDraft is a purchase.Order draft of Priya's, for the P15e pages.
+func (h *Harness) purchaseDraft() int64 {
+	h.t.Helper()
+	id := func(table, code string) string {
+		return strconv.FormatInt(Scalar[int64](h, `SELECT id FROM `+table+` WHERE code = ?`, code), 10)
+	}
+	return h.Do(priya, "purchase.Order", 0, doctype.ActionSave, doc.ActionInput{
+		Values: map[string]string{
+			"vendor_id": id("party", "SHREE"), "site_id": id("site", "METRO-SITE"), "project_id": id("project", "PRJ-METRO"), "order_date": plainDate,
+		},
+		Lines: []map[string]string{{
+			"item_id": id("item", "MS-ANGLE-50"), "uom_id": id("uom", "KGS"), "qty": "100", "price": "62.5",
+			"tax_code_id": id("tax_code", "GST18"), "hsn_sac": "7216",
+		}},
+	}).ID
 }
 
 // expenseReportScreens are MOD-EXP S4's report pages and their filter pages,
@@ -490,18 +626,9 @@ var expenseStubs = []string{
 }
 
 // purchaseStubs are MOD-PO's GET routes that still answer P1's 501 stub,
-// whatever the id, each with the task that builds it (AD-13). P15e gives the
-// pages screens and removes their routes here (P15d did); P16 checks the
-// list is empty.
-var purchaseStubs = []struct{ route, owner string }{
-	{"/modules/purchase", "P15e"},
-	{"/modules/purchase/q/{queue}", "P15e"},
-	{"/modules/purchase/orders/{id}/handover", "P15e"},
-	{"/modules/purchase/orders/{id}/send", "P15e"},
-	{"/modules/purchase/orders/{id}/expected", "P15e"},
-	{"/reports/purchase/pending", "P15e"},
-	{"/reports/purchase/pending/filter", "P15e"},
-}
+// whatever the id, each with the task that builds it (AD-13). P15d and P15e
+// gave their pages screens; P16 checks the list is empty.
+var purchaseStubs = []struct{ route, owner string }{}
 
 // grnStubs are MOD-GRN's GET routes that still answer G1's 501 stub, each
 // with the task that builds it (AD-12). S4 gives the report pages screens and

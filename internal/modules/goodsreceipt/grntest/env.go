@@ -2,8 +2,9 @@
 // (a testkit database with the canonical seed, the real AUTH, DOC, APR and
 // naming, comments and purchase.Service on one fixed clock) with no approval
 // rule for purchase.Order or goodsreceipt.Receipt, so both approve on submit
-// (00-fixtures.md, GRN test seed; CD-279 (8)), plus the real files.Store and
-// goodsreceipt's Wiring for that database. POs come from
+// (00-fixtures.md, GRN test seed; CD-279 (8)), and a real files.Store that
+// the engine and the module share, plus goodsreceipt's Wiring for that
+// database. POs come from
 // purchasetest.NewOrder; the builders here go through Engine.Do, never
 // insert document rows (research §2 pattern 2). Later lanes add their
 // helpers in grntest/<task>.go.
@@ -22,47 +23,36 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
-	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/modkit"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	"github.com/vardhan/internaltools/internal/platform/db"
-	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// Env is one test's GRN world. Files is a real files.Store for the module's
-// own code (Deps.Files), but the engine is purchasetest's, built with
-// filesfake: DOC's DeleteAll (draft delete) and CopyAll (amend) run against
-// the fake, so a test that attaches through Files and then deletes or amends
-// must not rely on the real store seeing those calls.
+// Env is one test's GRN world. The embedded Env.Files is the engine's real
+// files.Store, and Deps.Files is the same store, so DOC's DeleteAll (draft
+// delete) and CopyAll (amend) see what the module attached.
 type Env struct {
 	*purchasetest.Env
-	Files   *files.Store
 	Deps    goodsreceipt.Deps
 	Service *goodsreceipt.Service
 }
 
-// New builds the world on purchasetest.New(t, WithNoRules()) and wires
-// goodsreceipt's hooks for its database only (CD-284).
+// New builds the world on purchasetest.New(t, WithNoRules(), WithRealFiles())
+// and wires goodsreceipt's hooks for its database only (CD-284).
 func New(t testing.TB) *Env {
 	t.Helper()
-	pe := purchasetest.New(t, purchasetest.WithNoRules())
-	store, err := files.New(files.Config{
-		DataDir: testkit.DataDir(t), DB: pe.DB, Auth: pe.Auth, Info: pe.Engine, Clock: pe.Clock, Audit: audit.Default,
-	})
-	if err != nil {
-		t.Fatalf("grntest.New: files.New: %v", err)
-	}
+	pe := purchasetest.New(t, purchasetest.WithNoRules(), purchasetest.WithRealFiles())
 	dt, _ := doctype.Lookup(goodsreceipt.DocType)
 	if err := naming.New(pe.DB, pe.Clock, pe.Auth, audit.Default).EnsureSeries(context.Background(), dt.Name, dt.Label, dt.Series); err != nil {
 		t.Fatalf("grntest.New: EnsureSeries(%s): %v", dt.Name, err)
 	}
-	deps := goodsreceipt.Deps{DB: pe.DB, Clock: pe.Clock, Auth: pe.Auth, Audit: audit.Default, Files: store}
+	deps := goodsreceipt.Deps{DB: pe.DB, Clock: pe.Clock, Auth: pe.Auth, Audit: audit.Default, Files: pe.Files}
 	goodsreceipt.Wire(pe.DB, deps)
-	return &Env{Env: pe, Files: store, Deps: deps, Service: goodsreceipt.New(deps)}
+	return &Env{Env: pe, Deps: deps, Service: goodsreceipt.New(deps)}
 }
 
 // Line is one GRN line to post: the PO line it receives against and its

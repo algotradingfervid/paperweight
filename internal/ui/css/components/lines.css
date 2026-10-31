@@ -59,12 +59,11 @@
     & .linegrid {
       display: grid;
       gap: var(--space-2);
-      /* Rate may be the third or fourth cell (fixture.Order declares it
-         before UoM); its minimum below gives it the width it needs in either.
-         Item and those two cells share less than before M0-35, so Quantity
-         keeps 1,00,000 whole at 64rem beside the largest rate and amount
-         (CD-169). */
-      grid-template-columns: 0.5fr 1.5fr 1.25fr 1.5fr 1.5fr 1fr 1.25fr 2fr;
+      /* The four cells after Item come in any order (fixture.Order declares
+         Rate before UoM), so their columns share alike; the minimums below
+         keep Quantity, Rate, the amount and the actions whole in every order
+         at 64rem, and the rest goes to Item first (CD-169, M0-40). */
+      grid-template-columns: 0.5fr 2fr 1.25fr 1.25fr 1.25fr 1.25fr 1.25fr 2fr;
     }
     /* Three cells (item, quantity, rate): the numbers get the widths the
        five-cell columns give Rate, so worst-case values show whole (CD-169). */
@@ -85,9 +84,15 @@
     & .linegrid-form > :has(input:is([hx-post="/ui/validate/money"], [hx-post="/ui/validate/rate"])) { font-size: var(--text-base); }
     & .linegrid-form > :has(input[hx-post="/ui/validate/money"]) { min-inline-size: calc(16ch + 2 * var(--space-3) + 2 * var(--border-w)); }
     & .linegrid-form > :has(input[hx-post="/ui/validate/rate"]) { min-inline-size: calc(15.5ch + 2 * var(--space-3) + 2 * var(--border-w)); }
+    /* A quantity input shows 1,00,000 whole (7.5 digit widths of figures,
+       its padding and border) beside its unit suffix, in any cell order: the
+       cell's minimum is its content's, so a longer unit widens it (M0-40). */
+    & .linegrid-form > :has(input[hx-post="/ui/validate/qty"]) { font-size: var(--text-base); min-inline-size: min-content; & > .field__control { min-inline-size: min-content; } }
+    & .linegrid-form input[hx-post="/ui/validate/qty"] { min-inline-size: calc(7.5ch + 2 * var(--space-3) + 2 * var(--border-w)); }
     & .linegrid-form { display: contents; & > * { min-inline-size: 0; } }
     & .linegrid-actions {
       display: flex;
+      min-inline-size: min-content;
       flex-wrap: wrap;
       gap: var(--space-2);
       & form { display: contents; }
