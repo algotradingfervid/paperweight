@@ -1,0 +1,57 @@
+package modkitweb
+
+import (
+	"github.com/vardhan/internaltools/internal/modules/modkit"
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// CommentsPanel is the Comments section of a document page (PO spec 22,
+// UX 5.10): the comments in the order given, each with name and time, then
+// the box and Post comment.
+templ CommentsPanel(dt string, id int64, comments []modkit.Comment, csrf string) {
+	@CommentsPanelDraft(dt, id, comments, csrf, "", "")
+}
+
+// CommentsPanelDraft is CommentsPanel with a refused post's typed text and
+// message in the box (TakeCommentDraft, UX 5.10's no-script path).
+templ CommentsPanelDraft(dt string, id int64, comments []modkit.Comment, csrf, typed, errMsg string) {
+	@components.Card("Comments", nil) {
+		<div id={ regionID }>
+			@commentsRegion(region{dt: dt, id: id, comments: comments, csrf: csrf, typed: typed, msg: errMsg})
+		</div>
+		<p { announceAttrs(statusID, false)... }></p>
+	}
+}
+
+// commentsRegion is the entries and the box; the htmx post redraws it, with
+// the announcement swapped in out of band.
+templ commentsRegion(v region) {
+	if len(v.comments) == 0 {
+		@components.EmptyState("No comments yet.", nil)
+	} else {
+		<ol>
+			for _, c := range v.comments {
+				<li>
+					<p>{ c.CreatedByName } · { types.FormatIST(c.CreatedAt) }</p>
+					<p class="whitespace-pre-line wrap-anywhere">{ c.Body }</p>
+				</li>
+			}
+		</ol>
+	}
+	@components.Form(components.FormProps{Action: commentPath(v.dt, v.id), CSRF: v.csrf, HX: true, Target: "#" + regionID, Swap: "innerHTML"}) {
+		@components.Textarea(v.box(), modkit.MaxCommentRunes)
+		@components.Button(components.ButtonProps{Label: "Post comment", Busy: "Posting…", Variant: components.Secondary})
+	}
+}
+
+// commentsRedraw is the htmx answer: the region's content and, out of band,
+// the announcement.
+templ commentsRedraw(v region) {
+	@commentsRegion(v)
+	<p { announceAttrs(statusID, true)... }>
+		if v.posted {
+			{ msgPosted }
+		}
+	</p>
+}

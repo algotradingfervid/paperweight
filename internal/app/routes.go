@@ -114,7 +114,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		namingweb.Mount(r, namingweb.Deps{Svc: namer, Admin: namer, Clock: a.cfg.Clock}, a.srv.Admin)
 
 		modkit := chi.NewRouter()
-		modkitweb.Routes(modkitweb.Deps{DB: a.db, Auth: a.auth, Audit: audit.Default, Clock: a.cfg.Clock})(modkit)
+		modkitweb.Routes(modkitweb.Deps{DB: a.db, Auth: a.auth, Audit: audit.Default, Clock: a.cfg.Clock, Info: a.engine, Sessions: sm})(modkit)
 		mount(r, modkit, self)
 
 		mount(r, printweb.Routes(printweb.Config{DB: a.db, Auth: a.auth, Info: a.engine, Letterhead: a.masters.Letterhead}), self)

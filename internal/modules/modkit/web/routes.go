@@ -3,10 +3,12 @@ package modkitweb
 import (
 	"net/http"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
@@ -17,10 +19,14 @@ type Deps struct {
 	Auth  auth.Service
 	Audit audit.Writer
 	Clock clock.Clock
+	Info  doctype.InfoSource // resolves a commented record for its read check
+	// Sessions keep a comment refused without htmx for the document page
+	// (TakeCommentDraft); the router runs inside its LoadAndSave.
+	Sessions *scs.SessionManager
 }
 
-// handlers carries Deps to each task's handler file (settings.go, and
-// stubs_m014.go until M0-14 replaces it).
+// handlers carries Deps to each task's handler file (settings.go,
+// comments.go).
 type handlers struct{ d Deps }
 
 // Routes registers modkit's routes.
