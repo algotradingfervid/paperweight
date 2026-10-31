@@ -162,16 +162,33 @@ func allowedOps(t doctype.FieldType) ([]Op, string) {
 	}
 }
 
-func filterCond(dt *doctype.DocType, f Filter) (string, []any, error) {
-	name, onLine := strings.CutPrefix(f.Field, linePrefix)
+// CanFilter reports whether list accepts a filter on field (a header field
+// name, or "line.<field>" for an OnLine one) with op, whatever its values.
+func CanFilter(dt *doctype.DocType, field string, op Op) bool {
+	_, err := filterField(dt, field, op)
+	return err == nil
+}
+
+// filterField returns the field a filter on field with op names, or the
+// refusal when list can't filter that field with that op.
+func filterField(dt *doctype.DocType, field string, op Op) (doctype.Field, error) {
+	name, onLine := strings.CutPrefix(field, linePrefix)
 	i := slices.IndexFunc(dt.Fields, func(fd doctype.Field) bool { return fd.Name == name && fd.Filterable && fd.OnLine == onLine })
 	if i < 0 || (onLine && dt.LinesTable == "") {
-		return "", nil, badQuery(fmt.Sprintf("You can't filter %s by '%s'.", dt.PluralLabel, f.Field))
+		return doctype.Field{}, badQuery(fmt.Sprintf("You can't filter %s by '%s'.", dt.PluralLabel, field))
 	}
 	fd := dt.Fields[i]
 	ops, hint := allowedOps(fd.Type)
-	if !slices.Contains(ops, f.Op) {
-		return "", nil, badQuery(fmt.Sprintf("'%s' can't be used on %s. %s", f.Op, fd.Label, hint))
+	if !slices.Contains(ops, op) {
+		return doctype.Field{}, badQuery(fmt.Sprintf("'%s' can't be used on %s. %s", op, fd.Label, hint))
+	}
+	return fd, nil
+}
+
+func filterCond(dt *doctype.DocType, f Filter) (string, []any, error) {
+	fd, err := filterField(dt, f.Field, f.Op)
+	if err != nil {
+		return "", nil, err
 	}
 	col := column(dt, fd)
 	isText := fd.Type == doctype.Text || fd.Type == doctype.Select

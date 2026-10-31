@@ -377,3 +377,10 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** registered document DocTypes with and without a filterable header `state` field (including one with a non-Filterable `state` and one whose `state` is on the line), and an unregistered name **When** `Screens` builds their screens **Then** exactly the DocTypes for which list accepts `state in [...]` get "list filtered", and an unregistered name keeps it.
 - **Go test:** `TestScreens_FilteredOnlyWithStateFilter`
 - **Sources:** M0-38 (head ruling after M0-34)
+
+### HOOK-054 · list.CanFilter agrees with list.Build
+- **Priority:** P1
+- **Level:** unit
+- **Given** a field and an op (unknown field, not Filterable, OnLine without the `line.` prefix, header field with it, a line field without a lines table, an op the kind refuses, and accepted cases) **When** `list.CanFilter` is asked and `list.Build` builds the same filter **Then** CanFilter is true exactly when Build accepts it; Screens uses it for the filtered list screen.
+- **Go test:** `TestCanFilter_AgreesWithBuild`
+- **Sources:** M0-41 (head ruling after M0-38)
