@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -156,7 +157,7 @@ func TestPO_PendingExportRight(t *testing.T) {
 	t.Run("read without export is refused", func(t *testing.T) {
 		for _, path := range []string{p9ExportPath, p9ExportPath + "?overdue=1"} {
 			rec := p9Get(t, env, env.Suresh, path)
-			body := rec.Body.String()
+			body := html.UnescapeString(rec.Body.String())
 			if rec.Code != http.StatusForbidden || !strings.Contains(body, p9ExportDenied) {
 				t.Errorf("GET %s as Suresh = %d %q, want 403 with %q", path, rec.Code, body, p9ExportDenied)
 			}
