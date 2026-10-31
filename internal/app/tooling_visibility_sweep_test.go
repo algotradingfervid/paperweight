@@ -17,6 +17,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/print"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -216,7 +217,8 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	for _, r := range []string{"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid"} {
 		out[r] = st{Control: []int{stub}, Hidden: []int{stub}}
 	}
-	for _, r := range []string{"/reports/grn/bills", "/reports/grn/bills/export.csv", "/reports/grn/items", "/reports/grn/items/export.csv"} {
+	// The GRN report pages are S4's stubs; their CSVs are built (G9).
+	for _, r := range []string{"/reports/grn/bills", "/reports/grn/items"} {
 		out[r] = st{Control: []int{stub}}
 	}
 	return out
@@ -746,6 +748,7 @@ var controlReports = map[string][]string{
 	purchase.DocType:       {"/reports/purchase/pending"},
 	expense.ClaimDocType:   {"/reports/expense/open", "/reports/expense/lines"},
 	expense.AdvanceDocType: {"/reports/expense/advances"},
+	goodsreceipt.DocType:   {"/reports/grn/bills/export.csv", "/reports/grn/items/export.csv"},
 }
 
 // controlExpectation is a page that must show a control record.
