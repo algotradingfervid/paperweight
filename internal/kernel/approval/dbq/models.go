@@ -392,6 +392,145 @@ type Project struct {
 	UpdatedBy  sql.NullInt64
 }
 
+type PurchaseOrder struct {
+	ID                 int64
+	Number             sql.NullString
+	State              string
+	StateReason        string
+	AmendedFromID      sql.NullInt64
+	AmendmentRootID    sql.NullInt64
+	AmendmentNo        int64
+	Version            int64
+	CreatedAt          string
+	CreatedBy          int64
+	UpdatedAt          string
+	UpdatedBy          int64
+	VendorID           sql.NullInt64
+	VendorAddressID    sql.NullInt64
+	SiteID             sql.NullInt64
+	BranchID           sql.NullInt64
+	ProjectID          sql.NullInt64
+	OrderDate          sql.NullString
+	RequiredBy         sql.NullString
+	PaymentTermsID     sql.NullInt64
+	VendorQuoteRef     string
+	Terms              string
+	ReverseCharge      int64
+	Remarks            string
+	EarlierPoNo        string
+	EarlierPoDate      sql.NullString
+	CopiedFromNo       string
+	CopiedFromID       sql.NullInt64
+	CopyNotes          string
+	NetTotal           int64
+	CgstTotal          int64
+	SgstTotal          int64
+	IgstTotal          int64
+	GrandTotal         int64
+	RoundedTotal       int64
+	ReceiptStatus      string
+	SnapVendorID       sql.NullInt64
+	SnapVendorCode     string
+	SnapVendorName     string
+	SnapVendorGstin    string
+	SnapVendorCategory string
+	SnapVendorState    string
+	SnapVendorAddress  string
+	SnapBranchName     string
+	SnapBranchGstin    string
+	SnapPlaceState     string
+	SnapSiteName       string
+	SnapTermsName      string
+}
+
+type PurchaseOrderExpected struct {
+	PoID       int64
+	ExpectedOn string
+	Note       string
+	SetBy      int64
+	SetAt      string
+	Version    int64
+}
+
+type PurchaseOrderLine struct {
+	ID              int64
+	ParentID        int64
+	LineNo          int64
+	ItemID          sql.NullInt64
+	Description     string
+	UomID           sql.NullInt64
+	Qty             sql.NullInt64
+	Price           sql.NullInt64
+	DiscountPct     sql.NullInt64
+	Rate            sql.NullInt64
+	TaxCodeID       sql.NullInt64
+	HsnSac          string
+	Amount          sql.NullInt64
+	Cgst            sql.NullInt64
+	Sgst            sql.NullInt64
+	Igst            sql.NullInt64
+	AlreadyReceived sql.NullInt64
+	ReceivedQty     int64
+	RequestLineID   sql.NullInt64
+	SnapItemCode    string
+	SnapItemName    string
+	SnapUomCode     string
+	SnapFactor      int64
+	SnapStockQty    int64
+	SnapGstRate     int64
+	SnapTaxCode     string
+}
+
+type PurchaseOrderRest struct {
+	PoID      int64
+	GrnID     int64
+	CreatedBy int64
+	CreatedAt string
+}
+
+type PurchaseOrderSent struct {
+	PoID    int64
+	SentOn  string
+	SentVia string
+	Note    string
+	SentBy  int64
+	SentAt  string
+	Version int64
+}
+
+type PurchaseRequest struct {
+	ID              int64
+	Number          sql.NullString
+	State           string
+	StateReason     string
+	AmendedFromID   sql.NullInt64
+	AmendmentRootID sql.NullInt64
+	AmendmentNo     int64
+	Version         int64
+	CreatedAt       string
+	CreatedBy       int64
+	UpdatedAt       string
+	UpdatedBy       int64
+	SiteID          sql.NullInt64
+	ProjectID       sql.NullInt64
+	RequestDate     sql.NullString
+	RequiredBy      sql.NullString
+	Purpose         string
+	OrderStatus     string
+}
+
+type PurchaseRequestLine struct {
+	ID          int64
+	ParentID    int64
+	LineNo      int64
+	ItemID      sql.NullInt64
+	Description string
+	UomID       sql.NullInt64
+	Qty         sql.NullInt64
+	Note        string
+	OrderedQty  int64
+}
+
 type Role struct {
 	ID        int64
 	Name      string
