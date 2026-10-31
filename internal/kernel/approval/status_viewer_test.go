@@ -38,7 +38,7 @@ func m19Want(t *testing.T, label string, e *at.Env, viewer auth.Principal, d at.
 }
 
 // HOOK-031 (CD-263 G9(a), CD-266). Roles names why the viewer is eligible:
-// the request's roles the viewer holds now, joined, or "{requester}'s
+// the request's roles the viewer holds now, joined, or "{employee}'s
 // reporting manager", which wins when both apply. Why is WhyText of the rule
 // the request was opened under. Both are empty unless the document is pending.
 func TestApprovalStatus_RolesAndWhy(t *testing.T) {
