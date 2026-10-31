@@ -1,7 +1,7 @@
 # Purchase Order and Purchase Request (PO)
 
 ## Scope
-The Purchase Order module of `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5: `purchase.Order` and `purchase.Request`, one owner per draft with hand-over, comments, Mark as sent, Copy, last price, the pending items report and the Purchase home with its queues. Cases are spec §18 (PO-001 to PO-047) and §26 (PO-048 to PO-070), in one area, `PO`. The plan is `docs/superpowers/plans/2026-10-31-mod-po.md`.
+The Purchase Order module of `docs/specs/2026-10-30-module-purchase-order-spec.md` v0.5: `purchase.Order` and `purchase.Request`, one owner per draft with hand-over, comments, Mark as sent, Copy, last price, the pending items report and the Purchase home with its queues. Cases are spec §18 (PO-001 to PO-047), §26 (PO-048 to PO-070) and §27.5 (PO-071 to PO-085), in one area, `PO`. The plan is `docs/superpowers/plans/2026-10-31-mod-po.md`.
 
 Fixtures are in `docs/tests/core/00-fixtures.md`, including the `purchase.Order` and `purchase.Request` rights rows and the request fixtures PR-A and PR-B (CD-247). The reference PO gives the worked numbers: taxable ₹79,800.00, CGST and SGST ₹7,182.00 each, grand total ₹94,164.00.
 
@@ -236,7 +236,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-032 · Already received above qty warns and saves; needs Earlier PO no.
 - **Priority:** P1
 - **Level:** unit
-- **Given** a line whose `already_received` is above its `qty` **When** it is saved **Then** it saves with the warning "Line {n}: Already received is more than the quantity." (CD-234). **When** a line has `already_received` and `earlier_po_no` is blank **Then** "Earlier PO no. is required when a line has Already received."
+- **Given** a line whose `already_received` is above its `qty` **When** it is saved **Then** it saves, and `OrderWarnings` (shown on the check page, CD-280) returns "Line {n}: Already received is more than the quantity." (CD-234). **When** a line has `already_received` and `earlier_po_no` is blank **Then** "Earlier PO no. is required when a line has Already received."
 - **Go test:** `TestPO_AlreadyReceivedRules`
 - **Sources:** PO spec §3.2, §4, §18
 
@@ -486,7 +486,7 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 ### PO-065 · Last price default from same vendor, item, UoM and project, else standard rate; hint scoped
 - **Priority:** P1
 - **Level:** integration
-- **Given** approved or closed POs with lines for the same item **When** a line is saved with a blank price **Then** price and discount come from the newest line (latest `order_date`, then highest id) on an approved or closed PO with the same vendor, item, UoM and project, else the item's standard rate. The Items step note "Last bought at ₹{rate} from {vendor} on {date} ({PO})" is the newest for that item and UoM across vendors, read through `Auth.Scope`, so it never shows a PO the user can't see. `LastPrices(ctx, p, itemID, uomID, limit)` returns up to three.
+- **Given** approved or closed POs with lines for the same item **When** a line is saved with a blank price **Then** price and discount come from the newest line (latest `order_date`, then highest id) on an approved or closed PO with the same vendor, item, UoM and project, else the item's standard rate. The Items step note "Last bought at ₹{rate} from {vendor} on {date} ({PO})" is the newest for that item and UoM across vendors, read through `Auth.Scope`, so it never shows a PO the user can't see. `LastPricesFor(ctx, p, keys)` returns the newest per item and UoM, hiding unreadable POs (CD-258 Q6 (a)).
 - **Go test:** `TestPO_LastPrice`
 - **Sources:** PO spec §24.2, §26
 
@@ -524,3 +524,112 @@ Review focus (spec §18): PO-012 and PO-013 must run on the real `auth.Service`,
 - **Given** the same data as PO-066 **When** each user opens `/modules/purchase/q/{queue}` **Then** the rows are only the user's scoped rows and their number matches the card's count.
 - **Go test:** `TestPurchaseHome_Queues`
 - **Sources:** PO spec §25, §26
+
+## v0.6 cases: procure-to-pay research (CD-272, CD-276)
+
+PO spec §27. Each case cites its research scenario (`docs/research/2026-10-31-procure-to-pay-erp-practice.md` §3, `S{nn}`) and the source the researcher read there. Tests follow the CD-272 patterns: do and undo in one test, the real Engine path through the module's builder, exact message text, quantity walk tables, rollback by row counts, a frozen clock for date rules (`authtest.T0` is 24-10-2026 10:30 IST; a case that names another date sets it), and a comment citing the CD.
+
+### PO-071 · Line qty 0 or −1 refused, on save and on a crafted post
+- **Priority:** P1
+- **Level:** integration
+- **Given** a draft PO **When** line 1 is saved with qty `0`, and again with `-1` posted directly to the engine **Then** each is refused with "Line 1: Quantity must be more than 0." (DOC's positive text), and the line row count is unchanged.
+- **Go test:** `TestPO_QtyMustBePositive`
+- **Sources:** PO spec §3.2, §27.5; research S14 (ERPNext `test_purchase_order.py:35`, `:74`)
+
+### PO-072 · Negative rate refused
+- **Priority:** P1
+- **Level:** integration
+- **Given** a draft PO **When** line 1 is saved with price `-1.0000` **Then** it is refused with "Line 1: Rate can't be negative." (DOC's not-negative text). Price `0.0000` saves.
+- **Go test:** `TestPO_RateNotNegative`
+- **Sources:** PO spec §3.2, §27.5; research S15 (ERPNext `test_purchase_order.py:59`)
+
+### PO-073 · Same item on two lines saves; each keeps its own pending
+- **Priority:** P1
+- **Level:** integration
+- **Given** a draft PO with two lines of `MS-ANGLE-50`, 100 kg and 50 kg, with different descriptions **When** it is saved, submitted and approved **Then** both lines save with no warning, and `Pending` is 100 and 50 per line. Two lines with the same request row are still refused (PO-053).
+- **Go test:** `TestPO_SameItemTwoLines`
+- **Sources:** PO spec §27.4; CD-276; research S16 (ERPNext `test_purchase_order.py:1049` `test_group_same_items`)
+
+### PO-074 · Vendor disabled while the PO is pending: approve refused; a new PO with it refused
+- **Priority:** P1
+- **Level:** integration
+- **Given** `priya`'s PO for `SHREE` pending approval **When** `SHREE` is disabled and `ravi` approves **Then** the approve is refused with DOC's disabled text for the vendor link ("Vendor {display} is disabled. Pick an active vendor, or ask an admin to enable it."), the PO stays pending with no number, and the approval request stays open. **When** a new draft names `SHREE` **Then** its save is refused with the same text. Re-enabling `SHREE` lets the approve through (undo).
+- **Go test:** `TestPO_VendorDisabledWhilePending`
+- **Sources:** PO spec §4 (`BeforeSubmit`), §27.5; D-APR-15; research S18 (ERPNext `test_purchase_order.py:1074` `test_po_for_blocked_supplier_all`)
+
+### PO-075 · Ordering more than the request row asked warns and saves
+- **Priority:** P1
+- **Level:** integration
+- **Given** PR-A line 1 for 40 Bag **When** a PO line linked to it is saved with 45 Bag **Then** it saves, and `OrderWarnings` (shown on the check page, CD-280) includes "Line 1: ordering 5 more than request PR/26-27/00001 asked for." At 40 Bag there is no warning.
+- **Go test:** `TestPO_OverRequestWarning`
+- **Sources:** PO spec §20.5, §27.5; research S05 (ERPNext `test_purchase_order.py:242` refuses without an allowance; we warn)
+
+### PO-076 · A rejected or withdrawn PO still holds its request rows; a deleted draft frees them
+- **Priority:** P1
+- **Level:** integration
+- **Given** PR-A line 1 (40 Bag) on `priya`'s PO for 40 Bag **When** the PO is submitted and rejected **Then** pending to order is 0 (held). **When** she revises, resubmits and withdraws it **Then** it is still 0. **When** she deletes the draft **Then** pending to order is 40 again and a second buyer's PO for 40 Bag saves. A walk table asserts `ordered_qty`, held and pending after each step.
+- **Go test:** `TestRequest_HeldByRejectedWithdrawnDeleted`
+- **Sources:** PO spec §20.2 (`lineOrdered`), §27.5; research S09 (Tryton `modules/purchase_request/tests/scenario_purchase_request.rst:108-144`)
+
+### PO-077 · Closing a PO whose request is already closed succeeds and recomputes ordered_qty
+- **Priority:** P1
+- **Level:** integration
+- **Given** PR-A line 1 (40 Bag) on approved `PO/26-27/00001` for 40 Bag, with 25 received, and PR-A closed by `suresh` **When** a Purchase User closes the PO with a reason **Then** the close succeeds, and PR-A line 1's `ordered_qty` reads 25 (`min(qty, received)`), with `order_status` `part_ordered`. No version bump and no audit entry on PR-A.
+- **Go test:** `TestRequest_ClosePOOfClosedRequest`
+- **Sources:** PO spec §20.3, §27.5; research S03 (ERPNext `test_material_request.py:1913` `test_purchase_order_of_a_stopped_request_can_be_closed`)
+
+### PO-078 · One request row split across POs to two vendors
+- **Priority:** P1
+- **Level:** integration
+- **Given** PR-A line 1 for 40 Bag **When** `priya` orders 25 Bag from `SHREE` and `arjun` orders 15 Bag from `BHARAT`, and both POs are approved **Then** line 1 reads ordered 40 with `order_status` `ordered` once every line is ordered. `HeldBy` and the Linked orders read list both POs. Cancelling the `BHARAT` PO puts 15 back as pending to order.
+- **Go test:** `TestRequest_SplitAcrossVendors`
+- **Sources:** PO spec §20.4, §27.5; research S08 (Tryton `modules/purchase_requisition/tests/scenario_purchase_requisition.rst:213`)
+
+### PO-079 · A closed PO leaves Overdue
+- **Priority:** P1
+- **Level:** integration
+- **Given** an approved PO with 15 Bag pending and `required_by` 28-10-2026, with the clock at 31-10-2026 **Then** the pending report has its row marked `Overdue`, and the overdue-only filter lists it. **When** the PO is closed **Then** the report has no row for it, and the overdue count used by the Purchase home's Overdue deliveries card drops by one.
+- **Go test:** `TestPO_ClosedLeavesOverdue`
+- **Sources:** PO spec §13, §25, §27.5; research S44 (Odoo `addons/purchase_stock/tests/test_purchase_order.py:1100`)
+
+### PO-080 · Expected on: set and clear, rights, approved only, messages, version, audit
+- **Priority:** P1
+- **Level:** integration
+- **Given** approved `PO/26-27/00001` owned by `priya` **When** `arjun` (Purchase User) sets Expected on 05-11-2026 with posted version 0 **Then** a `purchase_order_expected` row is written at version 1 and the PO gets the audit entry "Expected on set to 05-11-2026". **When** `ravi` changes it with posted version 1 **Then** it is version 2. **When** clear is posted with version 2 **Then** the row is deleted with "Expected on cleared". `suresh` (Stores) gets AUTH's 403. Refusals: a draft PO "Only an approved order can have an expected date."; blank "Enter the expected date."; a date before the order date "Expected on can't be before the order date."; a stale version gives a 409 with DOC's stale text, and the row count is unchanged. One case runs on the real `auth.Service`.
+- **Go test:** `TestPO_ExpectedOn`
+- **Sources:** PO spec §27.1; CD-272 Gap 7; research S31 (Odoo `addons/purchase_stock/tests/test_purchase_order.py:219` `test_04_update_date_planned`)
+
+### PO-081 · Expected on is the due date ahead of required-by
+- **Priority:** P1
+- **Level:** integration
+- **Given** the clock at 31-10-2026 and three approved POs with pending: A with `required_by` 28-10-2026 and no Expected on; B with `required_by` 28-10-2026 and Expected on 05-11-2026; C with no `required_by` and Expected on 30-10-2026 **Then** the pending report marks A and C `Overdue` and not B, the overdue-only filter lists A and C, and the Overdue deliveries count is 2. **When** B's Expected on is cleared **Then** B is overdue again (undo). The CSV carries the Expected on column.
+- **Go test:** `TestPO_PendingUsesExpectedOn`
+- **Sources:** PO spec §13, §25, §27.1; CD-272 Gap 7; research S31
+
+### PO-082 · SetRestNotComing: on, idempotent, off
+- **Priority:** P1
+- **Level:** integration
+- **Given** approved `PO/26-27/00001` **When** `purchase.SetRestNotComing(ctx, tx, poID, grnID, suresh, true)` runs inside a `db.Write` **Then** one `purchase_order_rest` row exists and the PO has the comment "Vendor says the rest won't come. Close this order if nothing more is due." by `suresh`. The PO's state and version are unchanged. **When** it runs again with the same pair **Then** the row count and comment count are unchanged. **When** it runs with `on=false` **Then** the row is gone and the comment stays; `on=false` for a pair with no row returns nil. An unknown PO id is a plain internal error, and the transaction writes nothing.
+- **Go test:** `TestPO_RestNotComing`
+- **Sources:** PO spec §27.2; CD-272 Gap 8, CD-276; research S43 (Odoo `addons/purchase_stock/tests/test_purchase_order.py:877`). The GRN tick end to end is MOD-GRN's GRN-047.
+
+### PO-083 · To close queue
+- **Priority:** P1
+- **Level:** integration
+- **Given** two approved PRJ-METRO POs with a rest row (set on 25-10-2026 and 27-10-2026), one approved PO without, and one approved PRJ-TECHPARK PO with a row **When** `priya` opens the Purchase home and `/modules/purchase/q/to-close` **Then** the To close card counts 2 (the PRJ-TECHPARK PO is outside her scope), and the queue lists both, oldest row first, each with the meta "Vendor says the rest won't come · 25-10-2026" (and · 27-10-2026); no row names a GRN. `suresh` (no `amend`) gets no card, and the queue is a 404 for him. **When** one PO is closed **Then** the count is 1 and the queue lists one row.
+- **Go test:** `TestPurchaseHome_ToClose`
+- **Sources:** PO spec §25, §27.2; CD-272 Gap 8; CD-240 family (rows name no GRN); research S43 (Odoo `test_purchase_order.py:877`)
+
+### PO-084 · Site and project branches in different states warn
+- **Priority:** P1
+- **Level:** integration
+- **Given** site `PUNE-WH` (branch PUNE, Maharashtra, no project) and project `PRJ-TECHPARK` (branch BLR, Karnataka) **When** a PO with both is saved **Then** it saves, and `OrderWarnings` (shown on the check page, CD-280) returns "Site PUNE-WH is under branch PUNE in Maharashtra, but project PRJ-TECHPARK belongs to branch BLR in Karnataka. Check the tax with your CA.", and the check page shows it. With `METRO-SITE` and `PRJ-METRO` (both PUNE) there is no warning.
+- **Go test:** `TestPO_SiteProjectStateWarning`
+- **Sources:** PO spec §27.3; CD-272 Gap 14, CD-276 (branch states compared); research S72 (IGST s.10(1)(a))
+
+### PO-085 · An over-received line shows Over by on the document page
+- **Priority:** P1
+- **Level:** integration
+- **Given** an approved cutover PO (Earlier PO no. `P-17`) with a line for 40 Bag and `already_received` 45 (PO-032's path: it warns and saves), and a second line for 40 Bag with `received_qty` 45 set through `purchasetest.SetReceived` **Then** the document page's line notes include "Over by 5 Bag" (`types.FormatQtyUoM`), pending reads 0, and the receipt status is `fully_received`. At 40 or below there is no Over by note. Both lines show the note. MOD-GRN's GRN-014 covers the real GRN path.
+- **Go test:** `TestPO_OverByLineNote`
+- **Sources:** PO spec §27.5; GRN spec §4; CD-234 (over-receipt warns only), CD-277
