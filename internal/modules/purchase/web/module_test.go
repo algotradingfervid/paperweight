@@ -13,7 +13,8 @@ import (
 // Request, and until each screen task builds its part every field keeps
 // docscreen's generic behaviour: generic steps, no hidden field, the line's
 // own card and no extras. internal/app's TestApp_PurchaseModulesUnchanged
-// renders the pages. P15d built the Request's (p15d_*_test.go).
+// renders the pages. P15d built the Request's (p15d_*_test.go), P15c the
+// Order's items step (p15c_*_test.go).
 func TestModules_StubsKeepGeneric(t *testing.T) {
 	mods := Modules(Deps{})
 	if len(mods) != 2 {
@@ -31,6 +32,9 @@ func TestModules_StubsKeepGeneric(t *testing.T) {
 			t.Fatalf("Modules has no %s", dt)
 		}
 		for slug, s := range m.Steps {
+			if slug == "items" {
+				continue // P15c built it (p15c_*_test.go)
+			}
 			if s.Body != nil || s.Save != nil || s.Bar != nil || s.Top != nil {
 				t.Errorf("%s step %q isn't the generic step", dt, slug)
 			}

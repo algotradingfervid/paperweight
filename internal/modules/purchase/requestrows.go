@@ -184,6 +184,7 @@ type OpenRequestRow struct {
 	Description   string
 	UoMID         int64
 	UoMCode       string
+	UoMWhole      bool // the unit takes whole numbers only
 	Qty           types.Qty
 	Pending       types.Qty
 	Holders       []Holder
@@ -298,7 +299,7 @@ func (s *Service) openRequest(ctx context.Context, tx *db.Tx, q *dbq.Queries, r 
 			return OpenRequest{}, err
 		}
 		row := OpenRequestRow{RequestLineID: l.ID, LineNo: int(l.LineNo), ItemID: l.ItemID, ItemCode: it.Code, Description: l.Description,
-			UoMID: l.UomID, UoMCode: u.Code, Qty: types.Qty(l.Qty), Pending: pendingOf(l.ID, types.Qty(l.Qty), links)}
+			UoMID: l.UomID, UoMCode: u.Code, UoMWhole: u.WholeNumber, Qty: types.Qty(l.Qty), Pending: pendingOf(l.ID, types.Qty(l.Qty), links)}
 		for _, k := range links {
 			if o, h := linkedOrdered(k, 0, nil); k.RowID == l.ID && o+h > 0 {
 				row.Holders = append(row.Holders, holderOf(k))
