@@ -82,6 +82,7 @@
   padding-inline: var(--space-3);
   background: var(--color-sunken);
   border: var(--border-w) solid var(--color-border);
+  font-size: var(--text-base);
   color: var(--color-text-secondary);
 }
 
