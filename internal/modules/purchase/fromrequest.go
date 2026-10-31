@@ -23,7 +23,8 @@ import (
 // before create's own transaction, so checkRequestRows and DOC's LinkSpec
 // check inside create are the backstop for a request that changed in between.
 // Create runs through Engine.Do with the vendor, so Validate fills the last
-// price and its discount; its refusals pass through.
+// price and its discount; its refusals pass through. The order date is
+// today, as for Copy (PO spec §3.1 "default today").
 func (s *Service) CreateFromRequest(ctx context.Context, p auth.Principal, requestID int64, version int, vendorID int64) (poID int64, err error) {
 	poID, _, err = s.CreateFromRequestWithSource(ctx, p, requestID, version, vendorID)
 	return poID, err
@@ -81,6 +82,7 @@ func (s *Service) CreateFromRequestWithSource(ctx context.Context, p auth.Princi
 		in.Values = map[string]string{
 			"vendor_id": strconv.FormatInt(vendorID, 10), "site_id": plainOf(req.Header["site_id"]),
 			"project_id": plainOf(req.Header["project_id"]), "required_by": plainOf(req.Header["required_by"]),
+			"order_date": types.Today(s.d.Clock).ISO(),
 		}
 		return nil
 	})
