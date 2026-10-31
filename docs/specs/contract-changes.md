@@ -574,3 +574,10 @@ The expense spec is v0.6, and exp.md now has EXP-042 to EXP-067 (67 cases). | AD
 *Role count.* E1 updates TestMigrations_AuthTablesAndRoles, TestCopyRightsPage_RadiosAtSixRoles and TestCopyRightsPage_RadiosForFewRoles for the eighth role, Fallback Approver (CD-264 (5)), as its own commit. This is an expectation change from an accepted CD, not a weakening.
 
 *Accepted plan changes (AD scope).* E1 makes the Amount and Date hooks real, adds `expense.Service` with `New(d *db.DB, v Deps)` (MarkPaid and UndoPaid are its methods), and takes the positive-amount check on lines. | AD-11 CONTRACT-CR, head ruled. |
+| CD-292 | **M0-15 notes and rulings (AD-10).**
+- (1) `Step.Bar` returns `StepBar` by value, not *StepBar as CD-263 wrote. Zero fields keep docscreen's defaults.
+- (2) A non-writer's step or line POST gets AUTH's write refusal before any parsing.
+- (3) A `PageExtra.Primary` with no Href is a 500 even when docscreen's own primary hides it.
+- (4) MOD-PO follow-up: approval/web/mine.templ:14 (`My submissions`) still shows the generic state word, because InboxItem carries no DocType. P15e or P14 passes the DocType so per-DocType labels apply. A lint banning `components.StateBadge(` and `StateLabel(` outside components and the gallery is noted for after v1.
+- (5) CD-290 follow-up: when the claimant's employee has no linked user, the line reads `Needs your approval: Reporting manager, {why}`.
+- (6) The restore-drill test TestKillInflight_NeverKillsEarly gets a 1 s context instead of 50 ms. Under load the WAL check didn't finish in 50 ms, so the deadline error won over the expected refusal. The assertions are unchanged. | AD-10 MERGE-READY notes, head ruled. |
