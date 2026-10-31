@@ -27,7 +27,6 @@ func Modules(d Deps) map[string]docscreen.Module {
 			},
 			Hide:        m.hide,          // S1
 			NoLinePages: m.noLinePages(), // S2
-			LineCard:    m.lineCard,      // S2
 			Check:       m.check,         // S3
 			Page:        m.page,          // S3
 			Reason:      m.reason,        // S3

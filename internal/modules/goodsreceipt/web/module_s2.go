@@ -1,7 +1,6 @@
 package grnweb
 
 import (
-	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
@@ -13,8 +12,3 @@ func (m *module) itemsStep() docscreen.Step { return docscreen.Step{} }
 
 // noLinePages keeps docscreen's line pages.
 func (m *module) noLinePages() bool { return false }
-
-// lineCard keeps a GRN line's card.
-func (m *module) lineCard(_ docscreen.Ctx, l docscreen.LineView) components.LineCard {
-	return l.Card
-}
