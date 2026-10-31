@@ -214,6 +214,10 @@ func TestPO_PrintNoPlaceReasonWithoutParties(t *testing.T) {
 		}
 		p8Contains(t, "no vendor", body, `<h1 class="doc-title">Purchase Order`)
 		p8Lacks(t, "no vendor", body, `class="place-reason"`, "Intra-state", "Inter-state")
+		// No vendor means no address snapshot, so no address lines.
+		vendor := p8Section(body, "section", "party")
+		p8Contains(t, "no vendor's party block", vendor, "<h3>Vendor</h3>")
+		p8Lacks(t, "no vendor's party block", vendor, `<p class="address">`)
 	})
 	t.Run("no_site", func(t *testing.T) {
 		res := p2Must(t, "no site")(p2Create(t, env, env.Admin, p2Header(t, env, "SHREE", "", "PRJ-METRO"), p8RefLines(t, env)))
@@ -239,4 +243,16 @@ func TestPO_PrintDescription(t *testing.T) {
 	l["description"] = "Cut to 6 m lengths"
 	po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(l))
 	p8Contains(t, "described line", p8Print(t, env, env.Priya, po.ID), `<div class="desc">Cut to 6 m lengths</div>`)
+}
+
+// PO spec §9 (FILE-063): an unregistered vendor's address has no GSTIN line,
+// so its last line (the state) prints, and the block says GSTIN:
+// Unregistered. LOCAL (Ganesh Hardware) is the unregistered Pune vendor.
+func TestPO_PrintUnregisteredVendor(t *testing.T) {
+	env := purchasetest.New(t)
+	res := p2Must(t, "LOCAL vendor")(p2Create(t, env, env.Admin, p2Header(t, env, "LOCAL", "METRO-SITE", "PRJ-METRO"), p8RefLines(t, env)))
+	vendor := p8Section(p8Print(t, env, env.Admin, res.ID), "section", "party")
+	p8Contains(t, "unregistered vendor's party block", vendor,
+		"Ganesh Hardware",
+		`<p class="address">Maharashtra (27)</p><p class="gstin">GSTIN: Unregistered</p>`)
 }
