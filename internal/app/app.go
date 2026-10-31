@@ -38,6 +38,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/clock"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/migrations"
 )
 
@@ -85,6 +86,9 @@ type App struct {
 	screens   map[string]bool // the mounted master list paths
 	installed atomic.Bool     // a user exists; once true it stays true
 	jobEvery  time.Duration   // how often Run does the jobs
+
+	// docModules is each DocType's docscreen Module, set by routes.
+	docModules map[string]docscreen.Module
 }
 
 // engineRef lets AUTH, APR and FILE hold the engine, which needs them, before
