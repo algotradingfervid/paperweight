@@ -47,7 +47,7 @@ func TestPUX022_RequestPage(t *testing.T) {
 		t.Fatalf("Priya GET PR-A = %d: %s", page.status, page.text())
 	}
 	wantNotes := []string{
-		"Requested 40 BAG · Ordered 25 BAG · Pending to order 15 BAG",
+		"UltraTech or ACC only · Requested 40 BAG · Ordered 25 BAG · Pending to order 15 BAG",
 		"Requested 25 KGS · Ordered 0 KGS · Pending to order 0 KGS · On " + draft + " (Priya Shah)",
 	}
 	if got := page.notes(); !slices.Equal(got, wantNotes) {

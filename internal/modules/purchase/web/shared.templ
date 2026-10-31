@@ -9,3 +9,20 @@ templ ownerCardView(href string) {
 		@components.Button(components.ButtonProps{Label: handOverLabel, Href: href})
 	}
 }
+
+// linkedRowsView is a card of linked records, the Goods receipts (UX §5.9)
+// or Linked orders (UX §5.16) section: a DataList row per readable record,
+// then others, the count of the rest with no state or link; with neither,
+// the empty text.
+templ linkedRowsView(title, empty string, columns []components.Column, rows []components.Row, others string) {
+	@components.Card(title, nil) {
+		if len(rows) > 0 {
+			@components.DataList(components.DataListProps{Label: title, Columns: columns, Rows: rows})
+		} else if others == "" {
+			<p>{ empty }</p>
+		}
+		if others != "" {
+			<p>{ others }</p>
+		}
+	}
+}

@@ -141,12 +141,12 @@ func TestPUX025_CreatePOHiddenBeforeCreate(t *testing.T) {
 }
 
 // PUX-021's Request date fill (CD-258 Q8 (a)) touches only the saved draft:
-// a back-dated submitted request keeps its request_date after a new draft is
-// saved with a blank one.
+// a back-dated draft keeps its request_date after a new draft is saved with
+// a blank one. (It stays a draft: submit sets the date again, CD-330 (1).)
 func TestPUX021_RequestDateFillOnlyThisDraft(t *testing.T) {
 	w := newP15dWeb(t)
 	env := w.env
-	back := purchasetest.NewRequest(t, env, purchasetest.RequestHeader(map[string]string{"request_date": "20-10-2026"}))
+	back := purchasetest.NewRequest(t, env, purchasetest.StopAtDraft(), purchasetest.RequestHeader(map[string]string{"request_date": "20-10-2026"}))
 	draft := purchasetest.NewRequest(t, env, purchasetest.StopAtDraft(), purchasetest.RequestHeader(map[string]string{"request_date": ""}))
 	date := func(id int64) string {
 		t.Helper()

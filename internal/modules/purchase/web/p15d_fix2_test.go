@@ -3,6 +3,7 @@ package purchaseweb
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
@@ -15,10 +16,14 @@ import (
 // request's Details card shows it.
 
 // PUX-022's Details card shows a submitted request's Request date in
-// dd-mm-yyyy (UX §5.16).
+// dd-mm-yyyy (UX §5.16): submitted on 20-10-2026 (submit sets the date,
+// CD-330 (1)) and viewed on 24-10-2026, it shows the stored date.
 func TestPUX022_RequestDateShownSubmitted(t *testing.T) {
 	w := newP15dWeb(t)
+	now := w.env.Clock.Now()
+	w.env.SetNow(t, time.Date(2026, 10, 20, 6, 0, 0, 0, time.UTC))
 	pr := w.prA(t, purchasetest.RequestHeader(map[string]string{"request_date": "20-10-2026"}))
+	w.env.Clock.Set(now)
 	page := w.get(t, w.env.Priya, p15dDoc(purchase.RequestDocType, pr.ID))
 	if page.status != 200 {
 		t.Fatalf("Priya GET PR-A = %d: %s", page.status, page.text())

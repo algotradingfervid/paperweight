@@ -2,7 +2,6 @@ package purchaseweb
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -22,7 +21,6 @@ import (
 
 // Request page and close-page texts (UX §5.16, §5.17; spec §20.3, §20.7).
 const (
-	pairRaisedBy      = "Raised by"
 	createPOLabel     = "Create PO"
 	linkedOrdersTitle = "Linked orders"
 	noLinkedOrders    = "Not on any order yet."
@@ -49,18 +47,15 @@ const (
 	unreadableNoun = "order"
 )
 
-// receiptLabels are a linked order's receipt status words (UX §5.16).
-var receiptLabels = map[string]string{"not_received": "Not received", "part_received": "Part received", "fully_received": "Fully received"}
-
 // requestCardsOnly: a request's Items step is cards at every width (CD-315).
 const requestCardsOnly = true
 
 // requestHide hides Request date only as an input, on a new request or a
-// draft: Validate fills today (CD-258 Q8 (a), CD-327). A nil View is a new
-// record. When Ctx gains Listing (M0-47), the condition becomes
-// `!c.Listing && (...)`.
+// draft: Validate fills today and submit sets it again (CD-258 Q8 (a),
+// CD-327, CD-330 (1)). A nil View is a new record, except on the list and
+// search pages (Listing), which show it as a sort (CD-327 (1), CD-334).
 func (m *module) requestHide(c docscreen.Ctx, f doctype.Field) bool {
-	return f.Name == "request_date" && (c.View == nil || c.View.Info.State == doctype.StateDraft)
+	return f.Name == "request_date" && !c.Listing && (c.View == nil || c.View.Info.State == doctype.StateDraft)
 }
 
 // requestLineCard is a request line's card: the quantity with its unit and
@@ -70,12 +65,6 @@ func (m *module) requestLineCard(_ docscreen.Ctx, l docscreen.LineView) componen
 	card.QtyRate = strings.TrimSpace(l.Display["qty"] + " " + unitOf(l))
 	card.Note = l.Display["note"]
 	return card
-}
-
-// unitOf is line l's unit code, from its "{Code} {Name}" display (CD-68).
-func unitOf(l docscreen.LineView) string {
-	code, _, _ := strings.Cut(l.Display["uom_id"], " ")
-	return code
 }
 
 // requestCheck adds the Comments card to the check page (G2).
@@ -231,6 +220,9 @@ func (m *module) requestPage(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		if hidden > 0 {
 			note += " · On " + hiddenOrders(hidden)
 		}
+		if own := l.Display["note"]; own != "" {
+			note = own + " · " + note // the line's own note first (CD-330 (2))
+		}
 		x.LineNotes[l.No] = note
 	}
 	card, err := linkedOrdersCard(c, rr.linked)
@@ -262,16 +254,6 @@ func createPOShown(s doctype.State, canCreate, pending bool) bool {
 // fromRequestPath is request id's Create PO page (UX §5.18).
 func fromRequestPath(id int64) string {
 	return "/modules/purchase/requests/" + strconv.FormatInt(id, 10) + "/order"
-}
-
-// allowed reports whether the viewer holds right r on dt (for rec), nil
-// error meaning yes; a refusal is false with no error.
-func allowed(c docscreen.Ctx, dt string, r auth.Right, rec *auth.RecordRef) (bool, error) {
-	err := c.Deps.Auth.Can(c.Req.Context(), c.Principal, dt, r, rec)
-	if errors.Is(err, auth.ErrForbidden) {
-		return false, nil
-	}
-	return err == nil, err
 }
 
 // requestNotice is the owner notice (UX §5.16, G3): for anyone but the
@@ -320,11 +302,11 @@ func linkedOrdersCard(c docscreen.Ctx, orders []purchase.LinkedOrder) (templ.Com
 			Values: map[string]string{"vendor": o.VendorName}, State: o.State,
 		}
 		if o.State == doctype.StateApproved || o.State == doctype.StateClosed {
-			row.Values["receipt"] = receiptLabels[o.ReceiptStatus]
+			row.Values["receipt"] = purchase.ReceiptLabel(o.ReceiptStatus)
 		}
 		rows = append(rows, row)
 	}
-	return linkedOrdersView(rows, otherCount(hidden, unreadableNoun)), nil
+	return linkedRowsView(linkedOrdersTitle, noLinkedOrders, linkedOrderColumns, rows, otherCount(hidden, unreadableNoun)), nil
 }
 
 // requestReason adds the held-rows warning and the hint to the close page
