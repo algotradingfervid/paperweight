@@ -39,29 +39,32 @@ import (
 type g3Kind int
 
 const (
-	g3GRNApprove g3Kind = iota // Suresh creates and submits a GRN
-	g3GRNDraft                 // Suresh creates a draft GRN
-	g3GRNSave                  // Suresh saves a draft's line 1
-	g3GRNSubmit                // Suresh submits a draft
-	g3GRNCancel                // Ravi cancels an approved GRN
-	g3GRNAmend                 // Suresh amends a cancelled GRN
-	g3POAlready                // Priya saves already_received on a draft PO
-	g3POSubmit                 // Priya submits a draft PO (no rule: approves)
-	g3POClose                  // Priya closes an approved PO
-	g3POCancel                 // Ravi cancels an approved PO
-	g3POAmend                  // Priya amends a cancelled PO
+	g3GRNApprove        g3Kind = iota // Suresh creates and submits a GRN
+	g3GRNDraft                        // Suresh creates a draft GRN
+	g3GRNSave                         // Suresh saves a draft's line 1
+	g3GRNSubmit                       // Suresh submits a draft
+	g3GRNCancel                       // Ravi cancels an approved GRN
+	g3GRNAmend                        // Suresh amends a cancelled GRN
+	g3POAlready                       // Priya saves already_received on a draft PO
+	g3POSubmit                        // Priya submits a draft PO (no rule: approves)
+	g3POClose                         // Priya closes an approved PO
+	g3POCancel                        // Ravi cancels an approved PO
+	g3POAmend                         // Priya amends a cancelled PO
+	g3GRNApprovePending               // the Administrator approves a pending GRN
+	g3GRNReject                       // the Administrator rejects a pending GRN
 )
 
 var g3KindNames = [...]string{"GRN approve", "GRN draft", "GRN save", "GRN submit", "GRN cancel", "GRN amend",
-	"PO already", "PO submit", "PO close", "PO cancel", "PO amend"}
+	"PO already", "PO submit", "PO close", "PO cancel", "PO amend", "GRN approve pending", "GRN reject"}
 
 // g3GRNKinds weights GRN-035's sequences evenly; g3POKinds weights PO-044's
 // toward the PO's own lifecycle.
 var (
 	g3GRNKinds = []g3Kind{g3GRNApprove, g3GRNDraft, g3GRNSave, g3GRNSubmit, g3GRNCancel, g3GRNAmend,
-		g3POAlready, g3POSubmit, g3POClose, g3POCancel, g3POAmend}
+		g3POAlready, g3POSubmit, g3POClose, g3POCancel, g3POAmend, g3GRNApprovePending, g3GRNReject}
 	g3POKinds = []g3Kind{g3POAlready, g3POSubmit, g3POClose, g3POCancel, g3POAmend, g3POAlready, g3POCancel,
-		g3GRNApprove, g3GRNApprove, g3GRNCancel, g3GRNAmend, g3GRNSubmit, g3GRNDraft, g3GRNSave}
+		g3GRNApprove, g3GRNApprove, g3GRNCancel, g3GRNAmend, g3GRNSubmit, g3GRNDraft, g3GRNSave,
+		g3GRNApprovePending, g3GRNReject}
 )
 
 // g3MaxOps bounds a sequence, so each seed runs in seconds under -race.
@@ -145,6 +148,35 @@ func FuzzGRN_Invariants(f *testing.F) {
 		g3Op{g3GRNCancel, 0, 0, 0},  //
 		g3Op{g3GRNApprove, 0, 1, 4}, // closed PO A: refused
 	))
+	// With the GRN approval rule (setup byte 1: 4 = PO B approved, rule on;
+	// ₹10,000 and up waits for the Administrator): a pending GRN for all
+	// 1,200 kg of line 1 must not count when line 2's GRN is approved;
+	// reject; a new pending GRN blocks PO A's cancel; approve from pending;
+	// cancel and amend of it, the amendment pending again.
+	f.Add(g3Encode(k, [2]byte{0, 4},
+		g3Op{g3GRNApprove, 0, 0, 2},        // PO A line 1: 1,200 (₹75,000), pending
+		g3Op{g3GRNApprove, 0, 1, 11},       // PO A line 2: 50 (₹4,800), approved
+		g3Op{g3GRNReject, 0, 0, 0},         // the pending GRN rejected
+		g3Op{g3GRNApprove, 0, 0, 2},        // line 1 again, pending
+		g3Op{g3POCancel, 0, 0, 0},          // PO A: refused (approved and pending GRNs)
+		g3Op{g3GRNApprovePending, 0, 0, 0}, // approve from pending
+		g3Op{g3GRNCancel, 1, 0, 0},         // that GRN
+		g3Op{g3GRNAmend, 1, 0, 0},          // its amendment
+		g3Op{g3GRNSubmit, 0, 0, 0},         // pending again
+		g3Op{g3GRNApprove, 1, 0, 2},        // PO B: 100 (₹6,250), approved
+		g3Op{g3GRNApprove, 1, 0, 4},        // PO B: 200 (₹12,500), pending
+		g3Op{g3POClose, 0, 0, 0},           // PO A, with a pending GRN
+		g3Op{g3GRNApprovePending, 0, 0, 0}, // the amendment, on the closed PO
+		g3Op{g3GRNApprovePending, 0, 0, 0}, // PO B's pending GRN
+		g3Op{g3GRNCancel, 0, 0, 0},         //
+		g3Op{g3GRNCancel, 0, 0, 0},         //
+		g3Op{g3GRNCancel, 0, 0, 0},         // PO B's GRNs
+		g3Op{g3GRNCancel, 0, 0, 0},         //
+		g3Op{g3GRNApprove, 1, 0, 4},        // PO B: 200, pending
+		g3Op{g3POCancel, 0, 0, 0},          // PO B: refused, only a pending GRN is live
+		g3Op{g3GRNReject, 0, 0, 0},         //
+		g3Op{g3POCancel, 0, 0, 0},          // PO B: allowed
+	))
 	for seed := uint64(1); seed <= 4; seed++ {
 		f.Add(g3Random(seed, 2+4*g3MaxOps))
 	}
@@ -182,6 +214,17 @@ func FuzzPO_ReceiptInvariants(f *testing.F) {
 		g3Op{g3POClose, 0, 0, 0},    //
 		g3Op{g3GRNCancel, 1, 0, 0},  //
 	))
+	// A draft GRN for all 1,200 kg of line 1 must not count when line 2's
+	// GRN is approved or cancelled; once submitted it counts, also after
+	// the PO is closed.
+	f.Add(g3Encode(k, [2]byte{0, 0},
+		g3Op{g3GRNDraft, 0, 0, 2},    // PO A line 1: 1,200, draft
+		g3Op{g3GRNApprove, 0, 1, 11}, // PO A line 2: 50, approved
+		g3Op{g3GRNCancel, 0, 0, 0},   // line 2's GRN, the draft still open
+		g3Op{g3GRNSubmit, 0, 0, 0},   // the draft
+		g3Op{g3POClose, 0, 0, 0},     //
+		g3Op{g3GRNCancel, 0, 0, 0},   // on the closed PO
+	))
 	for seed := uint64(11); seed <= 14; seed++ {
 		f.Add(g3Random(seed, 2+4*g3MaxOps))
 	}
@@ -196,6 +239,7 @@ type g3World struct {
 	env     *grntest.Env
 	already map[int64]types.Qty
 	log     []string
+	rule    bool // a goodsreceipt.Receipt approval rule from ₹10,000 (setup byte 1)
 }
 
 // g3Run builds the world from setup and runs ops, checking the invariants
@@ -215,8 +259,9 @@ func g3Run(t *testing.T, data []byte, kinds []g3Kind) {
 
 // setup makes PO A (approved, earlier PO OLD-77: line 1 1,200 kg
 // MS-ANGLE-50 with s[0] choosing 0, 200 or 600 kg already received, line 2
-// 50 kg WIRE-18G) and, by s[1], no second PO, PO B approved or PO B a draft
-// (one line of 100 kg MS-ANGLE-50, earlier PO OLD-78).
+// 50 kg WIRE-18G) and, by s[1] % 3, no second PO, PO B approved or PO B a
+// draft (one line of 100 kg MS-ANGLE-50, earlier PO OLD-78); when
+// (s[1] / 3) % 2 is 1 it adds g3GRNRule, so GRNs from ₹10,000 wait pending.
 func (w *g3World) setup(s [2]byte) {
 	t, env := w.t, w.env
 	already := []string{"0", "200", "600"}[int(s[0])%3]
@@ -226,6 +271,10 @@ func (w *g3World) setup(s [2]byte) {
 			map[string]string{"qty": "1200", "price": "62.5", "already_received": already},
 			map[string]string{"item_id": g1MasterID(t, env.DB, "item", "WIRE-18G"), "qty": "50", "price": "96", "hsn_sac": "7217"},
 		))
+	if (int(s[1])/3)%2 == 1 {
+		g3GRNRule(t, env)
+		w.rule = true
+	}
 	switch int(s[1]) % 3 {
 	case 1:
 		purchasetest.NewOrder(t, env.Env, purchasetest.StopAtApproved(),
@@ -374,6 +423,20 @@ func (w *g3World) step(o g3Op) {
 		if err := w.act(goodsreceipt.DocType, id, doctype.ActionAmend, "", env.Suresh); err != nil {
 			w.refused(err, before, amended || !approved, "amend GRN "+g3Itoa(id))
 		}
+	case g3GRNApprovePending, g3GRNReject:
+		id, ok := g3Pick(w.ids("goods_receipt", doctype.StatePending), o.target)
+		if !ok {
+			return
+		}
+		approved := w.poState(w.grnPO(id)) == doctype.StateApproved
+		a, reason := doctype.ActionApprove, ""
+		if o.kind == g3GRNReject {
+			a, reason = doctype.ActionReject, "Wrong truck"
+		}
+		before := g3Snapshot(t, env)
+		if err := w.act(goodsreceipt.DocType, id, a, reason, env.Admin); err != nil {
+			w.refused(err, before, !approved, string(a)+" pending GRN "+g3Itoa(id))
+		}
 	case g3POAlready:
 		id, ok := g3Pick(w.ids("purchase_order", doctype.StateDraft), o.target)
 		if !ok {
@@ -422,7 +485,8 @@ func (w *g3World) step(o g3Op) {
 		if !ok {
 			return
 		}
-		live := g2Query(t, env.DB, `SELECT count(*) FROM goods_receipt WHERE purchase_order_id = ? AND state IN ('pending', 'approved', 'closed')`, id)[0][0] != "0"
+		live := g2Query(t, env.DB, `SELECT count(*) FROM goods_receipt WHERE purchase_order_id = ? AND state IN (?, ?, ?)`,
+			id, string(doctype.StatePending), string(doctype.StateApproved), string(doctype.StateClosed))[0][0] != "0"
 		before := g3Snapshot(t, env)
 		err := w.act(purchase.DocType, id, doctype.ActionCancel, "Vendor backed out", env.Ravi)
 		var de *doc.Error
@@ -473,6 +537,7 @@ func (w *g3World) submit(id int64) {
 		w.refused(err, before, state != doctype.StateApproved, "submit GRN "+g3Itoa(id))
 	case state == doctype.StateCancelled:
 		t.Fatalf("%s: GRN %d on a cancelled PO was submitted, want DOC-038's refusal", w.trail(), id)
+	case w.rule && res.State == doctype.StatePending:
 	case res.State != doctype.StateApproved:
 		t.Fatalf("%s: GRN %d is %s after submit with no rule, want approved", w.trail(), id, res.State)
 	}
