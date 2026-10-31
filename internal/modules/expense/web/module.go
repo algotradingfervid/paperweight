@@ -17,6 +17,8 @@ func ClaimModule(d Deps) docscreen.Module {
 		Line:       claimLine(d),       // S2
 		Page:       claimPage(d),       // S3
 		Reason:     claimReason(d),     // S3
+		// Cards at every width (EUX-025), until M0-40 and S2's Line.
+		CardsOnly: true,
 	}
 }
 
@@ -26,5 +28,8 @@ func AdvanceModule(d Deps) docscreen.Module {
 		Page:   advancePage(d),   // S3
 		Reason: advanceReason(d), // S3
 		Hide:   advanceHide(d),   // S3
+		// 5 editable line cells would give the grid (CD-315); cards at
+		// every width (EUX-025).
+		CardsOnly: true,
 	}
 }

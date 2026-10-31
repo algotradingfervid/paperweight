@@ -439,7 +439,7 @@ func TestS4b_ReportNoWrapCells(t *testing.T) {
 		nowrap, not []string
 	}{
 		{"/reports/expense/open", []string{"Claim"}, []string{"Approved", "Employee", "Purpose", "Without a receipt", "Total and less advance"}},
-		{"/reports/expense/lines", []string{"Claim and line", "Project and site", "GST details"}, []string{"Type and date", "Employee", "Receipt"}},
+		{"/reports/expense/lines", []string{"Claim and line", "Project and site"}, []string{"Type and date", "Employee", "Receipt", "GST details"}},
 		{"/reports/expense/advances", []string{"Advance", "Paid on"}, []string{"Date and purpose", "Employee", "Amount and used", "Age"}},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
