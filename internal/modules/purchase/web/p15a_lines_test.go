@@ -297,17 +297,27 @@ func TestPO_OrderLinesHonourHide(t *testing.T) {
 		gone     []string // texts the lines must not show
 		kept     []string // texts they still show
 		note     bool
+		qtyRate  string // the card's quantity and rate line, exactly
+		received string // the card's Received line, exactly ("" none)
 	}{
-		{"item_id", false, []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"BAG", "₹345.00", "GST 18%"}, false},
-		{"qty", false, []string{"40 BAG"}, []string{"₹345.00", "GST 18%"}, true},
-		{"uom_id", false, []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false},
-		{"price", false, []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false},
-		{"tax_code_id", false, []string{"GST 18%"}, []string{"40 BAG × ₹345.00"}, true},
-		{"vendor_id", false, []string{"Shree Steel Traders"}, full, false},
-		{"received_qty", true, []string{"Received"}, full, false},
-		{"description", true, nil, append(slices.Clone(full), "Received 0 of 40 BAG"), false},
+		{"item_id", false, []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"BAG", "₹345.00", "GST 18%"}, false, "40 BAG × ₹345.00", ""},
+		{"qty", false, []string{"40 BAG"}, []string{"₹345.00", "GST 18%"}, true, "₹345.00", ""},
+		{"uom_id", false, []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", ""},
+		{"price", false, []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", ""},
+		{"tax_code_id", false, []string{"GST 18%"}, []string{"40 BAG × ₹345.00"}, true, "40 BAG × ₹345.00", ""},
+		{"vendor_id", false, []string{"Shree Steel Traders"}, full, false, "40 BAG × ₹345.00", ""},
+		{"received_qty", true, []string{"Received"}, full, false, "40 BAG × ₹345.00", ""},
+		{"description", true, nil, append(slices.Clone(full), "Received 0 of 40 BAG"), false, "40 BAG × ₹345.00", "Received 0 of 40 BAG"},
+		// On an approved PO: Received names no hidden quantity or unit.
+		{"qty", true, []string{"40 BAG"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG"},
+		{"uom_id", true, []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40"},
+		{"price", true, []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", "Received 0 of 40 BAG"},
 	} {
-		t.Run(c.field, func(t *testing.T) {
+		name := c.field
+		if c.approved {
+			name += " approved"
+		}
+		t.Run(name, func(t *testing.T) {
 			w := p15aHiding(t, env, c.field)
 			p, path := env.Priya, p15dDoc(purchase.DocType, draft.ID)+"/edit/items"
 			if c.approved {
@@ -337,6 +347,27 @@ func TestPO_OrderLinesHonourHide(t *testing.T) {
 			}
 			if n := page.doc.Find(".linegrid-row .linegrid-cell").Length(); n != 5 {
 				t.Errorf("with %s hidden the grid row has %d cells, want 5", c.field, n)
+			}
+			// The card's own lines, uncollapsed, so a double space shows.
+			card := page.doc.Find(".lines-card")
+			if card.Length() != 1 {
+				t.Fatalf("with %s hidden: %d line cards, want 1", c.field, card.Length())
+			}
+			if got := strings.TrimSpace(card.Find(".lines-meta .num").Text()); got != c.qtyRate {
+				t.Errorf("with %s hidden the card's QtyRate = %q, want %q", c.field, got, c.qtyRate)
+			}
+			var received []string
+			card.Find("p.lines-meta").Each(func(_ int, s *goquery.Selection) {
+				if txt := strings.TrimSpace(s.Text()); strings.HasPrefix(txt, "Received") {
+					received = append(received, txt)
+				}
+			})
+			var want []string
+			if c.received != "" {
+				want = []string{c.received}
+			}
+			if !slices.Equal(received, want) {
+				t.Errorf("with %s hidden the card's Received = %q, want %q", c.field, received, want)
 			}
 		})
 	}
