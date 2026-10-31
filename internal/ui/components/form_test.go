@@ -120,8 +120,18 @@ func TestField_LabelHintErrorWiring(t *testing.T) {
 	if got, _ := doc.Find("label").Attr("for"); got != "f-x" {
 		t.Errorf("label for = %q", got)
 	}
-	if !strings.Contains(doc.Find("label").Text(), "(optional)") {
-		t.Errorf("label %q lacks (optional)", doc.Find("label").Text())
+	// CD-341 (2): optional fields carry no marker; only required ones are marked.
+	if got := doc.Find("label").Text(); strings.Contains(got, "(optional)") || strings.Contains(got, "(required)") || strings.Contains(got, "*") {
+		t.Errorf("optional label %q has a marker", got)
+	}
+	if _, ok := doc.Find("input#f-x").Attr("aria-required"); ok {
+		t.Error("an optional field has aria-required")
+	}
+	if _, ok := doc.Find("input#f-x").Attr("placeholder"); ok {
+		t.Error("placeholder rendered without Placeholder")
+	}
+	if doc.Find("details").Length() != 0 || doc.Find("#f-x-tip").Length() != 0 {
+		t.Error("an info tip rendered without Tip")
 	}
 	if got := doc.Find("p#f-x-hint").Text(); got != "As printed on the bill" {
 		t.Errorf("hint = %q", got)
@@ -151,6 +161,51 @@ func TestField_LabelHintErrorWiring(t *testing.T) {
 	}
 	if bad.Find("#f-x-msg svg").Length() != 1 {
 		t.Error("error message has no icon")
+	}
+
+	// Required: a red asterisk hidden from screen readers, a visually hidden
+	// " (required)" in the label and aria-required on the control (§5.5 item 2, A-9).
+	req := uitest.Render(t, components.TextInput(components.FieldProps{ID: "f-x", Name: "x", Label: "Reference", Required: true, Placeholder: "e.g. INV-2026-0042"}))
+	label := req.Find("label[for=f-x]")
+	if got := strings.TrimSpace(label.Find(`.field__req[aria-hidden="true"]`).Text()); got != "*" {
+		t.Errorf("asterisk = %q, want * with aria-hidden", got)
+	}
+	if got := label.Find(".visually-hidden").Text(); got != " (required)" {
+		t.Errorf("hidden text = %q, want \" (required)\"", got)
+	}
+	in = req.Find("input#f-x")
+	if got, _ := in.Attr("aria-required"); got != "true" {
+		t.Errorf("aria-required = %q, want true", got)
+	}
+	if got, _ := in.Attr("placeholder"); got != "e.g. INV-2026-0042" {
+		t.Errorf("placeholder = %q", got)
+	}
+
+	// Tip: an info "i" beside the label whose body the control's description
+	// names, between the hint and the message (§5.5 item 4, A-11).
+	p.Tip, p.Error = "Use the number printed at the top of the supplier's bill.", ""
+	tip := uitest.Render(t, components.TextInput(p))
+	if got, _ := tip.Find("input#f-x").Attr("aria-describedby"); got != "f-x-hint f-x-tip f-x-msg" {
+		t.Errorf("with tip: aria-describedby = %q, want f-x-hint f-x-tip f-x-msg", got)
+	}
+	if got := strings.TrimSpace(tip.Find("#f-x-tip").Text()); got != p.Tip {
+		t.Errorf("tip body = %q", got)
+	}
+	if got, _ := tip.Find("details.infotip > summary").Attr("aria-label"); got != "Help for Reference" {
+		t.Errorf("tip summary aria-label = %q, want Help for Reference", got)
+	}
+	if tip.Find("label details, label summary").Length() != 0 {
+		t.Error("the tip sits inside the label, so a tap on it would focus the input")
+	}
+	p.Hint = ""
+	noHint := uitest.Render(t, components.TextInput(p))
+	if got, _ := noHint.Find("input#f-x").Attr("aria-describedby"); got != "f-x-tip f-x-msg" {
+		t.Errorf("tip, no hint: aria-describedby = %q, want f-x-tip f-x-msg", got)
+	}
+	p.Error = "Enter a reference."
+	tipErr := uitest.Render(t, components.TextInput(p))
+	if got, _ := tipErr.Find("input#f-x").Attr("aria-describedby"); got != "f-x-tip f-x-msg" {
+		t.Errorf("tip and error: aria-describedby = %q, want f-x-tip f-x-msg", got)
 	}
 
 	if got := components.FieldID("lines[2].qty"); got != "f-lines-2-qty" {

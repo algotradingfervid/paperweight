@@ -295,6 +295,8 @@ func Screens(base string) []screens.Screen {
 				return chromedp.Do(ctx, chromedp.Click(chromedp.CSS("#f-item")),
 					settled(`document.querySelectorAll("#f-item-list [role=option]").length > 2 && document.querySelector(".htmx-request") === null`))
 			}},
+		screens.Screen{Name: "gallery fields, tips open", Route: route, URL: base + "/_gallery/fields",
+			Setup: run(`document.querySelectorAll("details.infotip").forEach(function (d) { d.open = true; })`, `document.querySelectorAll("details.infotip:not([open])").length === 0`)},
 		screens.Screen{Name: "gallery wizard-1, refused", Route: route, URL: base + "/_gallery/wizard-1?errors=1"},
 		screens.Screen{Name: "gallery wizard-1, supplier chosen", Route: route, URL: base + "/_gallery/wizard-1?supplier=3"},
 		screens.Screen{Name: "gallery wizard-3, conflict", Route: route, URL: base + "/_gallery/wizard-3?conflict=1"},

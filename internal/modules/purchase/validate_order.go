@@ -78,6 +78,7 @@ func inputError(err error, field string, line int) doctype.FieldError {
 
 // validateOrder is the Order's Validate hook (PO spec §4, §8). It runs on
 // every save, submit and approve (D-APR-15) and reads inside the tx (CD-94).
+// A blank order date on a draft is today (PO spec §3.1, as for a request).
 // It checks the dates, the vendor, the site and project and each line, and
 // while the PO is a draft writes the defaults, snapshots, totals and
 // receipt_status. Each part is written from the current inputs or cleared,
@@ -96,6 +97,10 @@ func validateOrder(ctx context.Context, tx *db.Tx, id int64) []doctype.FieldErro
 	rows, err := q.OrderLinesForValidate(ctx, id)
 	must(err)
 
+	if h.State == string(doctype.StateDraft) && h.OrderDate == "" {
+		h.OrderDate = types.Today(deps.Clock).ISO()
+		must(q.SetOrderDate(ctx, dbq.SetOrderDateParams{ID: id, OrderDate: sql.NullString{String: h.OrderDate, Valid: true}}))
+	}
 	errs := checkDates(h, types.Today(deps.Clock))
 	// A refused vendor leaves its part blank (cleared), never another
 	// party's; the payment terms stay as the user set them.

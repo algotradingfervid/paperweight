@@ -189,6 +189,9 @@ func TestExpLine_NewPage(t *testing.T) {
 		if got := s2Label(t, form, f.name); got != f.label {
 			t.Errorf("%s's label is %q, want %q", f.name, got, f.label)
 		}
+		if want := f.name == "amount" || f.name == "expense_date"; s2Required(t, form, f.name) != want {
+			t.Errorf("%s marked required = %v, want %v (CD-341 (2))", f.name, !want, want)
+		}
 		if f.hint != "" {
 			if got := s2Hint(t, form, f.name); got != f.hint {
 				t.Errorf("%s's hint is %q, want %q", f.name, got, f.hint)

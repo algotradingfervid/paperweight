@@ -7,10 +7,15 @@ import (
 )
 
 // FieldProps describes one form field. ID is the input's id (see FieldID);
-// Error and Echo fill the message region, Error first.
+// Error and Echo fill the message region, Error first. Required marks the
+// label with an asterisk and the control with aria-required (CD-341 (2));
+// Placeholder is an example value ("e.g. …"); Tip is longer help behind an
+// info "i" beside the label (UI v2 §5.5). Optional only lets a chosen Picker
+// be cleared (CD-217); it no longer marks the label.
 type FieldProps struct {
 	ID, Name, Label, Hint, Error, Value, Suffix, Echo string
-	Optional                                          bool
+	Placeholder, Tip                                  string
+	Required, Optional                                bool
 	Attrs                                             templ.Attributes
 
 	labelFor string // the label's control, when it isn't ID (a chosen Picker)
@@ -34,11 +39,16 @@ func FieldID(path string) string {
 	return strings.TrimSuffix(b.String(), "-")
 }
 
+// describedBy names the hint, the tip and the message region, in that order.
 func describedBy(p FieldProps) string {
-	if p.Hint == "" {
-		return p.ID + "-msg"
+	ids := ""
+	if p.Hint != "" {
+		ids += p.ID + "-hint "
 	}
-	return p.ID + "-hint " + p.ID + "-msg"
+	if p.Tip != "" {
+		ids += p.ID + "-tip "
+	}
+	return ids + p.ID + "-msg"
 }
 
 func labelTarget(p FieldProps) string {
@@ -60,6 +70,12 @@ func controlAttrs(p FieldProps, class string) templ.Attributes {
 		a["aria-invalid"] = "true"
 		a["class"] = class + " field--error"
 	}
+	if p.Required {
+		a["aria-required"] = "true"
+	}
+	if p.Placeholder != "" {
+		a["placeholder"] = p.Placeholder
+	}
 	for k, v := range p.Attrs {
 		a[k] = v
 	}
@@ -69,31 +85,54 @@ func controlAttrs(p FieldProps, class string) templ.Attributes {
 // field is the label, hint and message region around a control.
 templ field(p FieldProps) {
 	<div class="fieldset field">
-		<label for={ labelTarget(p) } class="fieldset-legend field__label">
-			{ p.Label }
-			if p.Optional {
-				<span class="field__optional">{ " (optional)" }</span>
-			}
-		</label>
+		if p.Tip != "" {
+			<div class="field__top">
+				@fieldLabel(p)
+				@InfoTip(p.ID+"-tip", p.Label, p.Tip)
+			</div>
+		} else {
+			@fieldLabel(p)
+		}
 		@fieldHint(p)
 		{ children... }
 		@fieldMsg(p.ID, p.Error, p.Echo)
 	</div>
 }
 
+// fieldLabel is the label; a required field's has the asterisk, a shape
+// screen readers skip, and the words they read instead (§5.5 item 2).
+templ fieldLabel(p FieldProps) {
+	<label for={ labelTarget(p) } class="fieldset-legend field__label">
+		{ p.Label }
+		if p.Required {
+			<span class="field__req" aria-hidden="true">*</span>
+			<span class="visually-hidden">{ " (required)" }</span>
+		}
+	</label>
+}
+
 // choiceGroup is field for radios and checkboxes: a fieldset with a legend.
+// A tip sits after the legend: a legend holds only its text.
 templ choiceGroup(p FieldProps) {
 	<fieldset class="fieldset field">
 		<legend class="fieldset-legend field__label">
 			{ p.Label }
-			if p.Optional {
-				<span class="field__optional">{ " (optional)" }</span>
+			if p.Required {
+				<span class="field__req" aria-hidden="true">*</span>
+				<span class="visually-hidden">{ " (required)" }</span>
 			}
 		</legend>
+		@choiceTip(p)
 		@fieldHint(p)
 		{ children... }
 		@fieldMsg(p.ID, p.Error, p.Echo)
 	</fieldset>
+}
+
+templ choiceTip(p FieldProps) {
+	if p.Tip != "" {
+		@InfoTip(p.ID+"-tip", p.Label, p.Tip)
+	}
 }
 
 templ fieldHint(p FieldProps) {
@@ -107,7 +146,7 @@ templ fieldHint(p FieldProps) {
 templ fieldMsg(id, errText, echo string) {
 	if errText != "" {
 		<p id={ id + "-msg" } class="field__msg field__msg--error">
-			@icons.Icon("alert-circle")
+			@icons.Icon("circle-alert")
 			<span>{ errText }</span>
 		</p>
 	} else {

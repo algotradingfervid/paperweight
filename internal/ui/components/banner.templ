@@ -30,6 +30,9 @@ func lookOf(k BannerKind) bannerLook {
 // Banner shows a message with its kind's icon and word; children follow the message.
 templ Banner(p BannerProps) {
 	{{ l := lookOf(p.Kind) }}
+	if p.Icon != "" {
+		{{ l.icon = p.Icon }}
+	}
 	<div
 		class={ "alert", "banner", l.tint }
 		if !p.NoRole {

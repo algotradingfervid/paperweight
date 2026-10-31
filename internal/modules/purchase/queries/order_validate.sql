@@ -30,6 +30,12 @@ FROM purchase_order_line
 WHERE parent_id = ?
 ORDER BY line_no;
 
+-- name: SetOrderDate :exec
+-- Validate's draft write of today's business date into a blank order date
+-- (PO spec 3.1 "default today"; AD-13 ruling on P35). A plain UPDATE inside
+-- DOC's write.
+UPDATE purchase_order SET order_date = sqlc.arg(order_date) WHERE id = sqlc.arg(id);
+
 -- name: SetOrderVendor :exec
 -- Validate's draft write of the vendor part: the address and payment terms
 -- defaults and the vendor snapshots (P2). Written on every draft Validate

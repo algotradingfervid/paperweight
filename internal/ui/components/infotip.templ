@@ -1,0 +1,17 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// InfoTip is the info "i" beside a field's label (UI v2 §5.5 item 4, N4): a
+// <details> whose summary is a 44 px "Help for {label}" button, so it opens
+// by tap, keyboard and screen reader with no script and no hover. Its body,
+// with the element id id, follows the details and shows while it is open;
+// the control's aria-describedby names id.
+templ InfoTip(id, label, text string) {
+	<details class="infotip">
+		<summary class="infotip__btn" aria-label={ "Help for " + label }>
+			@icons.Icon("info")
+		</summary>
+	</details>
+	<p id={ id } class="infotip__body">{ text }</p>
+}

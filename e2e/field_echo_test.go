@@ -34,12 +34,15 @@ func TestE2E_Field_EchoKeepsSaveInPlace(t *testing.T) {
 		t.Fatalf("the date's message before the press = %q, want it empty", text)
 	}
 	// Save's centre, top and bottom, without the pressed button's own nudge
-	// (daisyUI's .btn:active translate), which isn't a layout shift.
+	// (daisyUI's .btn:active translate, UI v2's pressed scale 0.98), which
+	// isn't a layout shift: top and bottom are the unscaled box around the
+	// untranslated centre.
 	save := `(() => {
   const m = ` + find + `;
   const r = m.getBoundingClientRect();
   const dy = parseFloat(getComputedStyle(m).translate.split(" ")[1]) || 0;
-  return [r.x + r.width / 2, r.y + r.height / 2, r.top - dy, r.bottom - dy];
+  const cy = (r.top + r.bottom) / 2 - dy;
+  return [r.x + r.width / 2, r.y + r.height / 2, cy - m.offsetHeight / 2, cy + m.offsetHeight / 2];
 })()`
 	Eval[bool](s, `(() => { (`+find+`).scrollIntoView({block: "center", behavior: "instant"}); return true; })()`)
 	at := Eval[[]float64](s, save)
