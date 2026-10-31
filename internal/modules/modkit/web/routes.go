@@ -19,8 +19,8 @@ type Deps struct {
 	Clock clock.Clock
 }
 
-// handlers carries Deps to each task's handler file (stubs_m07.go and
-// stubs_m014.go until M0-7 and M0-14 replace them).
+// handlers carries Deps to each task's handler file (settings.go, and
+// stubs_m014.go until M0-14 replaces it).
 type handlers struct{ d Deps }
 
 // Routes registers modkit's routes.

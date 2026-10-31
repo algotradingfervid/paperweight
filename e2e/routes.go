@@ -186,6 +186,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		{Name: "approval rule", Route: "/admin/approval-rules/{id}", URL: "/admin/approval-rules/" + strconv.FormatInt(s.rule, 10), As: admin},
 		{Name: "numbering", Route: "/settings/numbering", URL: "/settings/numbering", As: admin},
 		{Name: "numbering series", Route: "/settings/numbering/{doctype}", URL: "/settings/numbering/" + fixture.Order, As: admin},
+		{Name: "business settings", Route: "/settings/business", URL: "/settings/business", As: admin},
 		{Name: "phone menu", Route: "/approvals", URL: "/approvals", As: admin, Setup: func(ctx context.Context) error {
 			if err := submit(ctx, `document.getElementById("nav-sheet").showModal()`, "#nav-sheet"); err != nil {
 				return err

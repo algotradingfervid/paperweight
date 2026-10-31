@@ -420,6 +420,7 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 			ui.NavItem{Label: "Users", Href: "/users", Icon: "user", Group: groupAdmin},
 			ui.NavItem{Label: "Roles", Href: "/roles", Icon: "lock", Group: groupAdmin},
 			ui.NavItem{Label: "Numbering", Href: "/settings/numbering", Icon: "pencil", Group: groupAdmin},
+			ui.NavItem{Label: "Business settings", Href: "/settings/business", Icon: "pencil", Group: groupAdmin},
 			ui.NavItem{Label: "Approval rules", Href: "/admin/approval-rules", Icon: "check-circle", Group: groupAdmin},
 		)
 	}
