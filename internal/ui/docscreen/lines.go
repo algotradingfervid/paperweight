@@ -1,6 +1,7 @@
 package docscreen
 
 import (
+	"cmp"
 	"maps"
 	"net/http"
 	"strconv"
@@ -21,6 +22,10 @@ import (
 // (design-system §8.2).
 const phoneCards = 20
 
+// addAgainFrom is how many lines bring the module's AddTop button back
+// after the totals (UX-E2, EUX-037).
+const addAgainFrom = 4
+
 // itemsURL is draft id's items step.
 func itemsURL(name string, id int64) string {
 	return docURL(name, id) + "/edit/" + slugItems
@@ -30,10 +35,12 @@ func lineURL(name string, id int64, no int) string {
 	return docURL(name, id) + "/lines/" + strconv.Itoa(no)
 }
 
-// itemsView is the items step after the step form.
+// itemsView is the items step after the step form. AddAgain repeats the
+// add button after the totals.
 type itemsView struct {
-	List   components.LineListProps
-	Totals []components.Pair
+	List     components.LineListProps
+	Totals   []components.Pair
+	AddAgain bool
 }
 
 // itemsBody is the line editor (design-system §8.2): the first 20 cards
@@ -43,6 +50,7 @@ type itemsView struct {
 // leaves out every link to a line page (CD-256 (7)).
 func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 	dt := c.DT
+	m := d.modOf(dt)
 	grid := d.gridShown(dt)
 	q := c.Req.URL.Query()
 	find := strings.TrimSpace(q.Get("find"))
@@ -54,9 +62,13 @@ func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 			FindURL:    itemsURL(dt.Name, v.Info.ID),
 			Find:       find,
 			Total:      len(v.Lines),
-			Editable:   !d.modOf(dt).NoLinePages,
+			Editable:   !m.NoLinePages,
+			AddLabel:   m.LineNoun.Add,
+			AddTop:     m.AddTop,
+			Empty:      m.LineNoun.Empty,
 		},
-		Totals: totalsOf(c, v),
+		Totals:   totalsOf(c, v),
+		AddAgain: m.AddTop && !m.NoLinePages && len(v.Lines) >= addAgainFrom,
 	}
 	needle := strings.ToLower(find)
 	for _, lv := range v.Lines {
@@ -172,6 +184,8 @@ type linePageView struct {
 	Button   components.ButtonProps
 	Danger   string
 	Errors   []components.FieldErr
+	Top      templ.Component // the module's Line.Top, outside the form (UX-E1)
+	FormID   string          // the form's id: line-form with the module's Line
 }
 
 // draftView reads draft id for a line page; anything past draft goes to
@@ -189,11 +203,12 @@ func (d Deps) draftView(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	return v, true
 }
 
-// lineShell is line no's page (0 = a new line) without its inputs: title,
-// action, version, Back, button and the refusal.
+// lineShell is line no's page (0 = a new line) without its inputs: title
+// (in the module's LineNoun), action, version, Back, button and the refusal.
 func (d Deps) lineShell(dt *doctype.DocType, v DocView, no, version int, errs []doctype.FieldError, danger string) linePageView {
+	noun := d.modOf(dt).LineNoun
 	lv := linePageView{
-		Opts:    layout.PageOpts{Title: "Add an item", Width: layout.Form, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
+		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:  docURL(dt.Name, v.Info.ID) + "/lines/new",
 		Version: version,
 		Button:  components.ButtonProps{Label: "Save line", Variant: components.Primary},
@@ -201,7 +216,7 @@ func (d Deps) lineShell(dt *doctype.DocType, v DocView, no, version int, errs []
 		Errors:  fieldErrs(errs),
 	}
 	if no > 0 {
-		lv.Opts.Title = "Line " + strconv.Itoa(no)
+		lv.Opts.Title = cmp.Or(noun.Title, "Line") + " " + strconv.Itoa(no)
 		lv.Action = lineURL(dt.Name, v.Info.ID, no)
 	}
 	for n, e := range errs {
