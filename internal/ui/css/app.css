@@ -48,5 +48,7 @@
 @import "./components/upload.css";
 @import "./components/stepper.css";
 @import "./components/history.css";
+@import "./components/loadbar.css";
+@import "./motion.css";
 
 /* cmd/buildassets appends brand.CSS(brand.Load()) after the build (CD-99): unlayered and last, so brand values win. */

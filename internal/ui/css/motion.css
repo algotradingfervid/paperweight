@@ -1,0 +1,45 @@
+/* motion.css: page and step transitions, entry motion and the pressed state
+   (UI v2 §5.1 Motion). Everything here is inside prefers-reduced-motion:
+   no-preference; tokens.css already stops motion under reduce. Only
+   transform-like properties and opacity move. */
+@media (prefers-reduced-motion: no-preference) {
+  /* htmx swaps with transition:true cross-fade with the header held still.
+     Full page loads get no @view-transition: during one the page takes no
+     taps, so a tap right after a load was lost. */
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-fast); }
+}
+
+@utility app-header {
+  @media (prefers-reduced-motion: no-preference) {
+    view-transition-name: header;
+  }
+}
+
+/* Sheets slide up 24 px and fade in. */
+@utility sheet {
+  @media (prefers-reduced-motion: no-preference) {
+    & .modal-box { transition: translate var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out); }
+    &[open] .modal-box { @starting-style { translate: 0 24px; opacity: 0; } }
+  }
+}
+
+/* Toasts slide in from 16 px below. */
+@utility toasts {
+  @media (prefers-reduced-motion: no-preference) {
+    & > .alert {
+      animation: none;
+      transition: translate var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
+      @starting-style { translate: 0 16px; opacity: 0; }
+    }
+  }
+}
+
+/* A pressed button shrinks a little. */
+@utility tap {
+  &:active { scale: 0.98; }
+  @media (prefers-reduced-motion: no-preference) {
+    transition-property: color, background-color, border-color, box-shadow, scale;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-out);
+  }
+}
