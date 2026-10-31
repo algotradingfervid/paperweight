@@ -349,3 +349,10 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** an Items step whose Body has its own submit button before the Bar **When** the user presses Enter in a quantity input **Then** the step saves and continues as the primary does, not as the Body's button.
 - **Go test:** `TestModuleBrowser_EnterPressesPrimary`
 - **Sources:** CD-286 R4
+
+### HOOK-050 · Every Screens list URL is accepted by the list package
+- **Priority:** P1
+- **Level:** integration
+- **Given** every registered document DocType with a filterable `state` field **When** each `/doc/<name>?…` URL that `Screens` generates is parsed and built by the real list path (`ParseListQuery`, `list.ParseSort`, `list.Build`) **Then** list accepts it; the "list filtered" screen's two-state filter uses Op `in`.
+- **Go test:** `TestScreens_ListURLsAreAccepted`
+- **Sources:** M0-34 (head, AD-11 S0 sweep)
