@@ -328,3 +328,24 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 - **Given** the gallery's gloved quantity sample **When** it is shown at 320 and 360 px **Then** the input is at least 56 px tall with 20 px figures and a 16 px unit, `9,99,999.9999` is not clipped, and nothing overflows or is too small to tap.
 - **Go test:** `TestLargeQtyInputBrowser_Size`
 - **Sources:** CD-286 Q4, CD-169
+
+### HOOK-044 · A line error links to the Body's input only when the Body rendered it
+- **Priority:** P1
+- **Level:** integration
+- **Given** an Items step with a `Step.Body` and a `Save` returning line errors **When** the step redraws (full page and htmx) **Then** an error with a line and field links to `#` + `LineFieldID(line, field)` only when the Body rendered an element with exactly that id; otherwise, and for errors with no field, it links to `#step-title`.
+- **Go test:** `TestModule_BodyLineErrorLinks`
+- **Sources:** CD-286 R1
+
+### HOOK-045 · A step with a Body starts its form with the Enter copy of the primary
+- **Priority:** P1
+- **Level:** integration
+- **Given** a step whose `Step.Body` renders and a Bar with a primary **When** the step renders **Then** the form's first submit is a hidden, 0×0, untabbable copy of the primary with its name and value (and nav=stay when the primary stays), and the first visible submit is the primary; a nil Body or no primary renders no copy.
+- **Go test:** `TestModule_EnterPrimary`
+- **Sources:** CD-286 R4, CD-300 (3)
+
+### HOOK-046 · Enter in a Body's input presses the primary
+- **Priority:** P1
+- **Level:** e2e
+- **Given** an Items step whose Body has its own submit button before the Bar **When** the user presses Enter in a quantity input **Then** the step saves and continues as the primary does, not as the Body's button.
+- **Go test:** `TestModuleBrowser_EnterPressesPrimary`
+- **Sources:** CD-286 R4
