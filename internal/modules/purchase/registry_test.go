@@ -4,6 +4,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -308,6 +309,7 @@ func TestPurchase_SeriesAndRegistry(t *testing.T) {
 			t.Errorf("%s series %q: ValidateTemplate = %v, want nil", c.name, dt.Series, err)
 		}
 		got, err := n.PreviewTemplate(t.Context(), dt.Series, on)
+		got, _, _ = strings.Cut(got, ", ") // PreviewTemplate lists the next three numbers
 		if err != nil || got != c.first || len(got) > 14 {
 			t.Errorf("%s series %q renders %q (%d characters), %v; want %q, at most 14", c.name, dt.Series, got, len(got), err, c.first)
 		}
