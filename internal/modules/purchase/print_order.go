@@ -75,7 +75,7 @@ func printOrder(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 			Rate: types.Rate(l.Rate.Int64), Amount: types.Money(l.Amount.Int64),
 		})
 	}
-	d.Taxes = taxRows(lines)
+	d.Taxes = taxRows(lines, h.ReverseCharge == 1)
 	if d.ApprovedBy, d.ApprovedAt, err = orderApprovedBy(ctx, q, id); err != nil {
 		return nil, err
 	}
@@ -125,8 +125,9 @@ func orderRefs(h dbq.OrderPrintRow) ([]print.DocRef, error) {
 
 // taxRows are the CGST and SGST rows, or the IGST row, for each GST rate on
 // the lines, in the order the rates first appear, from the line snapshots. A
-// rate with no tax prints no row.
-func taxRows(lines []dbq.OrderPrintLinesRow) []print.TaxRow {
+// rate with no tax prints no row. On a reverse-charge PO each name carries
+// msgPrintReverseCharge (CD-316 (4)).
+func taxRows(lines []dbq.OrderPrintLinesRow, reverseCharge bool) []print.TaxRow {
 	type sums struct{ cgst, sgst, igst types.Money }
 	byRate := map[types.Percent]*sums{}
 	var rates []types.Percent
@@ -142,14 +143,18 @@ func taxRows(lines []dbq.OrderPrintLinesRow) []print.TaxRow {
 		s.sgst += types.Money(l.Sgst.Int64)
 		s.igst += types.Money(l.Igst.Int64)
 	}
+	var suffix string
+	if reverseCharge {
+		suffix = msgPrintReverseCharge
+	}
 	var rows []print.TaxRow
 	for _, r := range rates {
 		s := byRate[r]
 		if s.cgst != 0 || s.sgst != 0 {
-			rows = append(rows, print.TaxRow{Name: "CGST", Rate: r / 2, Amount: s.cgst}, print.TaxRow{Name: "SGST", Rate: r / 2, Amount: s.sgst})
+			rows = append(rows, print.TaxRow{Name: "CGST" + suffix, Rate: r / 2, Amount: s.cgst}, print.TaxRow{Name: "SGST" + suffix, Rate: r / 2, Amount: s.sgst})
 		}
 		if s.igst != 0 {
-			rows = append(rows, print.TaxRow{Name: "IGST", Rate: r, Amount: s.igst})
+			rows = append(rows, print.TaxRow{Name: "IGST" + suffix, Rate: r, Amount: s.igst})
 		}
 	}
 	return rows
