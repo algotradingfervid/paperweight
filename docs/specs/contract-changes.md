@@ -540,3 +540,4 @@ The expense spec is v0.6, and exp.md now has EXP-042 to EXP-067 (67 cases). | AD
 - Wiring never panics, and a second Wire for the same database replaces the value.
 - A test checks that two worlds in parallel each see their own Deps.
 - Services built directly by the app hold their deps as struct fields as usual; only kernel hooks go through Wiring. | AD-13 CROSS-WP, head ruled. |
+| CD-285 | **GRN print date label follows the challan kind (G0b follow-up).** The print reads `Challan date:` for a delivery challan and `Invoice date:` for a tax invoice. G8 (GRN print) builds it from ChallanLabel's kind. | AD-12 minor, head ruled. |
