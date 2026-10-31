@@ -811,13 +811,53 @@ func (d *rsDoc) typedField(i int) (doctype.Field, bool) {
 	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return f.Type != doctype.Text }))
 }
 
-// parseField is step i's first shown field a parser reads (number or date)
-// among drawn, the inputs a fresh GET of the step posts. A field the module's
-// own Hide hides isn't drawn, and docscreen never reads its posted value
-// (postedStep, hooks spec §4.3), so it can't be mistyped: purchase.Request's
-// request_date on a new request or a draft (CD-258 Q8 (a)).
-func (d *rsDoc) parseField(i int, drawn []string) (doctype.Field, bool) {
-	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return !rsParsed(f) || !slices.Contains(drawn, f.Name) }))
+// parseField is step i's first shown field a parser reads (number or date),
+// leaving out the fields the module's own Hide hides (own): docscreen never
+// draws one or reads its posted value (postedStep, hooks spec §4.3), so it
+// can't be mistyped: purchase.Request's request_date on a new request or a
+// draft (CD-258 Q8 (a)). drawsDeclared checks that the step draws the rest.
+func (d *rsDoc) parseField(i int, own func(doctype.Field) bool) (doctype.Field, bool) {
+	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return !rsParsed(f) || own(f) }))
+}
+
+// ownHide is the app's own Module.Hide for d.dt, unwrapped from the probe,
+// as docscreen calls it on the new page (view nil) or a draft's step.
+func (d *rsDoc) ownHide(t *testing.T, view *docscreen.DocView) func(doctype.Field) bool {
+	t.Helper()
+	if d.mod.Hide == nil {
+		return func(doctype.Field) bool { return false }
+	}
+	deps := d.e.w.app.ToolingRedrawDeps()
+	p := d.e.who[rsAdmin]
+	r := httptest.NewRequestWithContext(auth.WithPrincipal(t.Context(), p), http.MethodGet, "/", nil)
+	c := docscreen.Ctx{Req: r, Principal: p, DT: d.dt, View: view, Deps: deps}
+	return func(f doctype.Field) bool { return d.mod.Hide(c, f) }
+}
+
+// draftView is draft id as docscreen loads it for a step.
+func (d *rsDoc) draftView(t *testing.T, id int64) *docscreen.DocView {
+	t.Helper()
+	v, err := d.e.w.app.ToolingRedrawDeps().View(t.Context(), d.e.who[rsAdmin], d.dt.Name, id)
+	if err != nil {
+		t.Fatalf("View %s %d: %v", d.dt.Name, id, err)
+	}
+	return &v
+}
+
+// drawsDeclared checks a fresh GET of step i: it draws every field the step
+// declares that neither the probe nor the module's own Hide hides, and none
+// the module's own Hide hides. So a step that stops drawing a number or date
+// field fails here, not as a skipped parse cell.
+func (d *rsDoc) drawsDeclared(t *testing.T, where string, i int, own func(doctype.Field) bool, drawn []string) {
+	t.Helper()
+	for _, f := range d.stepFields(i, false) {
+		switch in := slices.Contains(drawn, f.Name); {
+		case own(f) && in:
+			t.Errorf("%s: the form posts %s, which the module's own Hide hides", where, f.Name)
+		case !own(f) && !in:
+			t.Errorf("%s: the form doesn't post the declared field %s (drawn %q)", where, f.Name, drawn)
+		}
+	}
 }
 
 func rsParsed(f doctype.Field) bool {
@@ -1372,7 +1412,11 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		return e.do(t, plainOf(mode), rsAdmin, http.MethodGet, d.base()+"/new", nil, false).want(t, "GET new", http.StatusOK)
 	}
 	var fresh rsResp
-	d.cell(t, "new GET", func(t *testing.T) { fresh = d.both(t, "GET new", "plain", d.none(0), get) })
+	own := d.ownHide(t, nil)
+	d.cell(t, "new GET", func(t *testing.T) {
+		fresh = d.both(t, "GET new", "plain", d.none(0), get)
+		d.drawsDeclared(t, "GET new", 0, own, names(fresh.page, "#wizard-form"))
+	})
 	if fresh.page == nil {
 		return
 	}
@@ -1421,10 +1465,9 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		}
 	})
 	d.cell(t, "new 422 parse", func(t *testing.T) {
-		f, ok := d.parseField(0, shown)
+		f, ok := d.parseField(0, own)
 		if !ok {
-			d.noParsed(t, 0, shown)
-			t.Skip("step 1 shows no number or date field to mistype (checked)")
+			t.Skip("step 1 declares no number or date field outside the module's Hide (drawsDeclared checked the GET)")
 		}
 		r := d.both(t, "POST new parse 422", "plain", d.none(0), func(t *testing.T, mode string) rsResp {
 			return post(t, mode, func(v url.Values) { v.Set(f.Name, "zz") }, false).want(t, "POST new with "+f.Name+"=zz", http.StatusUnprocessableEntity)
@@ -1446,14 +1489,6 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		}
 		t.Skip("a create can't conflict: POST new ignores the version (checked)")
 	})
-}
-
-// noParsed checks the skip reason "step i shows no field to mistype".
-func (d *rsDoc) noParsed(t *testing.T, i int, drawn []string) {
-	t.Helper()
-	if f, ok := d.parseField(i, drawn); ok {
-		t.Fatalf("step %s shows the parsed field %s: the skip is stale", d.steps[i].Slug, f.Name)
-	}
 }
 
 func (d *rsDoc) sameNames(t *testing.T, where string, r rsResp, want []string) {
@@ -1483,7 +1518,13 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			return e.do(t, plainOf(mode), rsAdmin, http.MethodGet, d.stepURL(id, i), nil, false).want(t, "GET "+s.Slug, http.StatusOK)
 		}
 		var fresh rsResp
-		d.cell(t, "step GET "+s.Slug, func(t *testing.T) { fresh = d.both(t, "GET "+s.Slug, "plain", d.none(i), get) })
+		own := d.ownHide(t, d.draftView(t, id))
+		d.cell(t, "step GET "+s.Slug, func(t *testing.T) {
+			fresh = d.both(t, "GET "+s.Slug, "plain", d.none(i), get)
+			if s.Slug != "check" {
+				d.drawsDeclared(t, "GET "+s.Slug, i, own, names(fresh.page, "#wizard-form"))
+			}
+		})
 		if fresh.page == nil || s.Slug == "check" {
 			continue
 		}
@@ -1532,10 +1573,9 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			}
 		})
 		d.cell(t, "step 422 parse "+s.Slug, func(t *testing.T) {
-			f, ok := d.parseField(i, shown)
+			f, ok := d.parseField(i, own)
 			if !ok {
-				d.noParsed(t, i, shown)
-				t.Skip("the step shows no number or date field to mistype (checked)")
+				t.Skip("the step declares no number or date field outside the module's Hide (drawsDeclared checked the GET)")
 			}
 			where := "POST " + s.Slug + " with " + f.Name + "=zz"
 			r := d.both(t, where, "plain", d.none(i), func(t *testing.T, mode string) rsResp {
