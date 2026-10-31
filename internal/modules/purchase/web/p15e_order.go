@@ -1,6 +1,7 @@
 package purchaseweb
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
@@ -61,10 +62,6 @@ func poHref(id int64) string { return "/doc/" + purchase.DocType + "/" + strconv
 // PDF (CD-258 Q1).
 func printHref(id int64) string {
 	return "/print/" + purchase.DocType + "/" + strconv.FormatInt(id, 10)
-}
-
-func orderPage(id int64, tail string) string {
-	return "/modules/purchase/orders/" + strconv.FormatInt(id, 10) + tail
 }
 
 // summaryLine joins the non-blank parts with " · " (UX §5.12 to §5.20).
@@ -178,14 +175,15 @@ var sentVia = []components.Option{
 	{Value: "by_hand", Label: "By hand"}, {Value: "other", Label: "Other"},
 }
 
-func viaLabel(v string) string {
-	for _, o := range sentVia {
-		if o.Value == v {
-			return o.Label
-		}
-	}
-	return v
+// viaWords are sentVia's ways as words in the Sent sentence, "by hand" and
+// not "by By hand" (UX §5.13); TestP24_SentBannerWords keeps both lists in
+// step.
+var viaWords = map[string]string{
+	"email": "email", "whatsapp": "WhatsApp", "courier": "courier", "by_hand": "hand", "other": "other means",
 }
+
+// viaSentence is way v in the Sent sentence, v itself when it has no words.
+func viaSentence(v string) string { return cmp.Or(viaWords[v], v) }
 
 // sendView is the Send page (UX §5.13).
 type sendView struct {
@@ -207,7 +205,7 @@ func (v sendView) sentBanner() string {
 	if v.st.Sent == nil {
 		return ""
 	}
-	return fmt.Sprintf(msgSentBanner, types.FormatDate(v.st.Sent.SentOn), viaLabel(v.st.Sent.SentVia), v.st.SentByName)
+	return fmt.Sprintf(msgSentBanner, types.FormatDate(v.st.Sent.SentOn), viaSentence(v.st.Sent.SentVia), v.st.SentByName)
 }
 
 func (v sendView) today() (string, string) {

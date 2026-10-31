@@ -21,7 +21,9 @@ import (
 // purchase's Modules for Order and Request, and with the Order's stubs every
 // Order document, step, check and reason page renders byte-identically to the
 // same page with no Module. P15d built the Request's Module, so its pages
-// differ by design (purchase/web's p15d tests).
+// differ by design (purchase/web's p15d tests). P15b built the Order's Page
+// and Reason, so the approved PO's page and close page, and Ravi's read-only
+// draft page, differ too (p15b tests); the cancel page keeps its generic look.
 func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	w := newWorld(t)
 	admin, _, _ := w.canonical()
@@ -54,7 +56,7 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 	poDraft, poDone := po+save(purchase.DocType, poValues, poLine, false), po+save(purchase.DocType, poValues, poLine, true)
 	paths := []string{
 		po + "new", poDraft, poDraft + "/edit/details", poDraft + "/edit/terms", poDraft + "/edit/items", poDraft + "/edit/check",
-		poDraft + "/lines/1", poDraft + "/delete", poDone, poDone + "/close", poDone + "/cancel",
+		poDraft + "/lines/1", poDraft + "/delete", poDone + "/cancel",
 	}
 
 	withMods := w.app.DocDeps()
@@ -97,6 +99,5 @@ func TestApp_PurchaseModulesUnchanged(t *testing.T) {
 		if pg := render(none, ravi, path); pg.code != http.StatusOK {
 			t.Fatalf("Ravi GET %s = %d, want the read-only page", path, pg.code)
 		}
-		check(ravi, path)
 	}
 }

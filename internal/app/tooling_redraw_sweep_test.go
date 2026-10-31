@@ -110,7 +110,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/a-h/templ"
-	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/fixture"
@@ -269,6 +268,7 @@ type rsDoc struct {
 	mod       docscreen.Module // the app's own Module for dt
 	itemsNone bool             // the probe draft's items step draws no probe field; see draft
 	rows      atomic.Bool      // a 422/409 redraw compared non-empty read-only rows
+	drawnRO   []string         // read-only fields a draft's step draws, nothing hidden; see sweepSteps
 	cardBug   atomic.Bool      // a module LineCard printed a hidden field; see rsCardBug
 }
 
@@ -399,7 +399,7 @@ func (e *rsEnv) mount(mods map[string]docscreen.Module) http.Handler {
 		p, ok := e.who[r.Header.Get("X-Rs-User")]
 		return p, ok
 	}
-	r := web.NewRouter(web.Options{Logger: slog.New(slog.NewTextHandler(e.w.logs, nil)), Sessions: scs.New()})
+	r := web.NewRouter(web.Options{Logger: slog.New(slog.NewTextHandler(e.w.logs, nil)), Sessions: e.w.app.ToolingRedrawSessions()})
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			next.ServeHTTP(w, r.WithContext(ui.WithShell(r.Context(), ui.Shell{CSRF: "rs-csrf"})))
@@ -435,11 +435,11 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 	case purchase.DocType:
 		return func(t *testing.T) (map[string]string, map[string]string) {
 			return map[string]string{
-					"vendor_id": e.idOf(t, "party", "SHREE"), "site_id": e.idOf(t, "site", "METRO-SITE"), "project_id": e.idOf(t, "project", "PRJ-METRO"), "order_date": day,
-				}, map[string]string{
-					"item_id": e.idOf(t, "item", "MS-ANGLE-50"), "uom_id": e.idOf(t, "uom", "KGS"), "qty": "1", "price": "10.00",
-					"tax_code_id": e.idOf(t, "tax_code", "GST18"), "hsn_sac": "7216",
-				}
+				"vendor_id": e.idOf(t, "party", "SHREE"), "site_id": e.idOf(t, "site", "METRO-SITE"), "project_id": e.idOf(t, "project", "PRJ-METRO"), "order_date": day,
+			}, map[string]string{
+				"item_id": e.idOf(t, "item", "MS-ANGLE-50"), "uom_id": e.idOf(t, "uom", "KGS"), "qty": "1", "price": "10.00",
+				"tax_code_id": e.idOf(t, "tax_code", "GST18"), "hsn_sac": "7216",
+			}
 		}
 	case expense.AdvanceDocType:
 		return func(t *testing.T) (map[string]string, map[string]string) {
@@ -806,14 +806,85 @@ func first(fs []doctype.Field) (doctype.Field, bool) {
 func (d *rsDoc) shownField(i int) (doctype.Field, bool)  { return first(d.stepFields(i, false)) }
 func (d *rsDoc) hiddenField(i int) (doctype.Field, bool) { return first(d.stepFields(i, true)) }
 
-// typedField is step i's first shown Text field: the one a redraw must keep typed.
-func (d *rsDoc) typedField(i int) (doctype.Field, bool) {
-	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return f.Type != doctype.Text }))
+// rsNoTyped is the typed-kept check's skip when the module's own Hide hides
+// every Text field the probe leaves on the step (ownText); the rest of the
+// cell ran. A step with no such Text field at all types nothing, as before.
+const rsNoTyped = "the module's own Hide hides every Text field the probe leaves on the step, so there is nothing to type (drawsDeclared checked they aren't drawn)"
+
+// ownText reports whether the module's own Hide hides a shown Text field of step i.
+func (d *rsDoc) ownText(i int, own func(doctype.Field) bool) bool {
+	return slices.ContainsFunc(d.stepFields(i, false), func(f doctype.Field) bool { return f.Type == doctype.Text && own(f) })
 }
 
-// parseField is step i's first shown field a parser reads (number or date).
-func (d *rsDoc) parseField(i int) (doctype.Field, bool) {
-	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return !rsParsed(f) }))
+// typedField is step i's first shown Text field, the one a redraw must keep
+// typed, leaving out the fields the module's own Hide hides (own), as
+// parseField does: docscreen draws none, so none can keep a typed value
+// (purchase.Order's copy_notes, P15a).
+func (d *rsDoc) typedField(i int, own func(doctype.Field) bool) (doctype.Field, bool) {
+	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return f.Type != doctype.Text || own(f) }))
+}
+
+// parseField is step i's first shown field a parser reads (number or date),
+// leaving out the fields the module's own Hide hides (own): docscreen never
+// draws one or reads its posted value (postedStep, hooks spec §4.3), so it
+// can't be mistyped: purchase.Request's request_date on a new request or a
+// draft (CD-258 Q8 (a)). drawsDeclared checks that the step draws the rest.
+func (d *rsDoc) parseField(i int, own func(doctype.Field) bool) (doctype.Field, bool) {
+	return first(slices.DeleteFunc(d.stepFields(i, false), func(f doctype.Field) bool { return !rsParsed(f) || own(f) }))
+}
+
+// ownHide is the app's own Module.Hide for d.dt, unwrapped from the probe,
+// as docscreen calls it on the new page (view nil) or a draft's step.
+func (d *rsDoc) ownHide(t *testing.T, view *docscreen.DocView) func(doctype.Field) bool {
+	t.Helper()
+	return d.ownHideWith(t, view, d.e.w.app.ToolingRedrawDeps())
+}
+
+// ownLineHide is ownHide on line 1 of view, which Hide sees through the
+// stored inputs as on the line page (docscreen's lineCtx).
+func (d *rsDoc) ownLineHide(t *testing.T, view *docscreen.DocView) func(doctype.Field) bool {
+	t.Helper()
+	if len(view.Lines) == 0 {
+		t.Fatalf("%s's draft has no line 1", d.dt.Name)
+	}
+	return d.ownHideWith(t, view, d.e.w.app.ToolingRedrawDeps().WithStored(view.Lines[0].Inputs))
+}
+
+func (d *rsDoc) ownHideWith(t *testing.T, view *docscreen.DocView, deps docscreen.Deps) func(doctype.Field) bool {
+	t.Helper()
+	if d.mod.Hide == nil {
+		return func(doctype.Field) bool { return false }
+	}
+	p := d.e.who[rsAdmin]
+	r := httptest.NewRequestWithContext(auth.WithPrincipal(t.Context(), p), http.MethodGet, "/", nil)
+	c := docscreen.Ctx{Req: r, Principal: p, DT: d.dt, View: view, Deps: deps}
+	return func(f doctype.Field) bool { return d.mod.Hide(c, f) }
+}
+
+// draftView is draft id as docscreen loads it for a step.
+func (d *rsDoc) draftView(t *testing.T, id int64) *docscreen.DocView {
+	t.Helper()
+	v, err := d.e.w.app.ToolingRedrawDeps().View(t.Context(), d.e.who[rsAdmin], d.dt.Name, id)
+	if err != nil {
+		t.Fatalf("View %s %d: %v", d.dt.Name, id, err)
+	}
+	return &v
+}
+
+// drawsDeclared checks a fresh GET of step i: it draws every field the step
+// declares that neither the probe nor the module's own Hide hides, and none
+// the module's own Hide hides. So a step that stops drawing a number or date
+// field fails here, not as a skipped parse cell.
+func (d *rsDoc) drawsDeclared(t *testing.T, where string, i int, own func(doctype.Field) bool, drawn []string) {
+	t.Helper()
+	for _, f := range d.stepFields(i, false) {
+		switch in := slices.Contains(drawn, f.Name); {
+		case own(f) && in:
+			t.Errorf("%s: the form posts %s, which the module's own Hide hides", where, f.Name)
+		case !own(f) && !in:
+			t.Errorf("%s: the form doesn't post the declared field %s (drawn %q)", where, f.Name, drawn)
+		}
+	}
 }
 
 func rsParsed(f doctype.Field) bool {
@@ -857,8 +928,10 @@ func (d *rsDoc) lineFields(hidden bool) []doctype.Field {
 func (d *rsDoc) shownLine() (doctype.Field, bool)  { return first(d.lineFields(false)) }
 func (d *rsDoc) hiddenLine() (doctype.Field, bool) { return first(d.lineFields(true)) }
 
-func (d *rsDoc) parseLine() (doctype.Field, bool) {
-	return first(slices.DeleteFunc(d.lineFields(false), func(f doctype.Field) bool { return !rsParsed(f) }))
+// parseLine is the first shown line field a parser reads, leaving out the
+// fields the module's own Hide hides on line 1 (own).
+func (d *rsDoc) parseLine(own func(doctype.Field) bool) (doctype.Field, bool) {
+	return first(slices.DeleteFunc(d.lineFields(false), func(f doctype.Field) bool { return !rsParsed(f) || own(f) }))
 }
 
 // hiddenLink is the hidden line Link, the line card's item.
@@ -922,12 +995,59 @@ func (d *rsDoc) sources(t *testing.T) map[string]string {
 	return out
 }
 
-// draft saves a new draft as the admin: the header holds only the sentinels
-// and its sources, so its other Required fields are empty, and two valid
-// lines with theirs.
+// rsDraftInputs is, by DocType, the seeder's header inputs the probe draft
+// also holds because a derived read-only field needs them (the PO's branch
+// comes from its site), so the 422/409 redraws compare a non-empty row. The
+// "derived rows" cell fails once they no longer give one.
+var rsDraftInputs = map[string][]string{purchase.DocType: {"site_id"}}
+
+// rsBodyInputs is, by DocType, a step whose module Body draws a declared
+// field only once the draft holds other header inputs: P15a's Terms step
+// draws the vendor address radios only with a vendor (UX §5.5). The probe
+// draft holds those inputs too, so drawsDeclared can expect the field; the
+// "body inputs" cell checks each one is still needed.
+var rsBodyInputs = map[string]struct {
+	step, field string
+	inputs      []string
+}{purchase.DocType: {"terms", "vendor_address_id", []string{"vendor_id"}}}
+
+// bodyInputs checks d's rsBodyInputs entry: on a draft without the inputs,
+// the module's Body leaves the field out.
+func (d *rsDoc) bodyInputs(t *testing.T) {
+	b, ok := rsBodyInputs[d.dt.Name]
+	switch {
+	case !ok:
+		t.Skip("no module Body needs other inputs to draw a declared field")
+	case d.mod.Steps[b.step].Body == nil:
+		t.Skipf("the %s step has no module Body; the generic form draws %s without %v (drawsDeclared checked)", b.step, b.field, b.inputs)
+	}
+	i := slices.IndexFunc(d.steps, func(s docscreen.FormStep) bool { return s.Slug == b.step })
+	if i < 0 {
+		t.Fatalf("%s has no %s step: drop it from rsBodyInputs", d.dt.Name, b.step)
+	}
+	res, err := d.e.w.app.Engine().Do(t.Context(), d.e.who[rsAdmin], d.dt.Name, 0, doc.ActionSave, doc.ActionInput{Values: d.withSentinels(d.sources(t), false)})
+	if err != nil {
+		t.Fatalf("saving a %s draft without %v: %v", d.dt.Name, b.inputs, err)
+	}
+	r := d.e.do(t, "plain", rsAdmin, http.MethodGet, d.stepURL(res.ID, i), nil, false).want(t, "GET "+b.step, http.StatusOK)
+	if slices.Contains(names(r.page, "#wizard-form"), b.field) {
+		t.Fatalf("GET %s without %v draws %s: drop %s from rsBodyInputs", b.step, b.inputs, b.field, d.dt.Name)
+	}
+}
+
+// draft saves a new draft as the admin: the header holds only the sentinels,
+// its sources and its rsDraftInputs, so its other Required fields are empty,
+// and two valid lines with theirs.
 func (d *rsDoc) draft(t *testing.T) int64 {
 	t.Helper()
-	_, line := d.valid(t)
+	values, line := d.valid(t)
+	header := d.sources(t)
+	for _, name := range rsDraftInputs[d.dt.Name] {
+		header[name] = values[name]
+	}
+	for _, name := range rsBodyInputs[d.dt.Name].inputs {
+		header[name] = values[name]
+	}
 	var lines []map[string]string
 	if d.dt.LinesTable != "" {
 		line = d.withSentinels(line, true)
@@ -936,7 +1056,7 @@ func (d *rsDoc) draft(t *testing.T) int64 {
 			lines[1]["po_line_id"] = d.e.poLine2 // a receipt names each PO line once
 		}
 	}
-	res, err := d.e.w.app.Engine().Do(t.Context(), d.e.who[rsAdmin], d.dt.Name, 0, doc.ActionSave, doc.ActionInput{Values: d.withSentinels(d.sources(t), false), Lines: lines})
+	res, err := d.e.w.app.Engine().Do(t.Context(), d.e.who[rsAdmin], d.dt.Name, 0, doc.ActionSave, doc.ActionInput{Values: d.withSentinels(header, false), Lines: lines})
 	if err != nil {
 		pr, _ := docscreen.Classify(err)
 		t.Fatalf("saving the %s probe draft: %v %v", d.dt.Name, err, pr.Fields)
@@ -1288,6 +1408,7 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 			id := d.draft(t)
 			d.itemsNone = d.itemsDrawNone(t, id)
 			d.sweepSteps(t, id)
+			d.cell(t, "body inputs", d.bodyInputs)
 			d.sweepLines(t, id)
 			d.sweepActions(t, id)
 			d.sweepApproval(t)
@@ -1305,14 +1426,13 @@ func TestToolingRedraw_Sweep(t *testing.T) {
 				if d.rows.Load() {
 					return
 				}
-				for _, s := range d.steps[:len(d.steps)-1] {
-					for _, name := range s.Fields {
-						if f, _ := d.dt.Field(name); f.ReadOnly {
-							t.Fatalf("step %s shows the read-only %s, but no 422/409 redraw compared read-only rows", s.Slug, name)
-						}
-					}
+				if in := rsDraftInputs[dt.Name]; in != nil {
+					t.Fatalf("the draft's %v no longer give a read-only row a 422/409 redraw compares: drop %s from rsDraftInputs", in, dt.Name)
 				}
-				t.Skip("no wizard step but check shows a read-only field (checked)")
+				if len(d.drawnRO) > 0 {
+					t.Fatalf("the draft's steps draw the read-only %v, but no 422/409 redraw compared read-only rows", d.drawnRO)
+				}
+				t.Skip("no wizard step of the draft draws a read-only field with a value, nothing hidden (checked)")
 			})
 		})
 	}
@@ -1359,7 +1479,11 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		return e.do(t, plainOf(mode), rsAdmin, http.MethodGet, d.base()+"/new", nil, false).want(t, "GET new", http.StatusOK)
 	}
 	var fresh rsResp
-	d.cell(t, "new GET", func(t *testing.T) { fresh = d.both(t, "GET new", "plain", d.none(0), get) })
+	own := d.ownHide(t, nil)
+	d.cell(t, "new GET", func(t *testing.T) {
+		fresh = d.both(t, "GET new", "plain", d.none(0), get)
+		d.drawsDeclared(t, "GET new", 0, own, names(fresh.page, "#wizard-form"))
+	})
 	if fresh.page == nil {
 		return
 	}
@@ -1389,7 +1513,7 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		d.both(t, "POST new ok", "plain", none, run)
 	})
 	d.cell(t, "new 422 module", func(t *testing.T) {
-		f, typed := d.typedField(0)
+		f, typed := d.typedField(0, own)
 		r := d.both(t, "POST new 422", "inject", d.none(0), func(t *testing.T, mode string) rsResp {
 			r := post(t, mode, func(v url.Values) {
 				if typed {
@@ -1406,12 +1530,14 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		if typed && inputValue(r.page, f.Name) != rsTyped {
 			t.Errorf("POST new 422: %s = %q, want the typed %q kept", f.Name, inputValue(r.page, f.Name), rsTyped)
 		}
+		if !typed && d.ownText(0, own) {
+			t.Skip(rsNoTyped)
+		}
 	})
 	d.cell(t, "new 422 parse", func(t *testing.T) {
-		f, ok := d.parseField(0)
+		f, ok := d.parseField(0, own)
 		if !ok {
-			d.noParsed(t, 0)
-			t.Skip("step 1 shows no number or date field to mistype (checked)")
+			t.Skip("step 1 declares no number or date field outside the module's Hide (drawsDeclared checked the GET)")
 		}
 		r := d.both(t, "POST new parse 422", "plain", d.none(0), func(t *testing.T, mode string) rsResp {
 			return post(t, mode, func(v url.Values) { v.Set(f.Name, "zz") }, false).want(t, "POST new with "+f.Name+"=zz", http.StatusUnprocessableEntity)
@@ -1433,14 +1559,6 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		}
 		t.Skip("a create can't conflict: POST new ignores the version (checked)")
 	})
-}
-
-// noParsed checks the skip reason "step i shows no field to mistype".
-func (d *rsDoc) noParsed(t *testing.T, i int) {
-	t.Helper()
-	if f, ok := d.parseField(i); ok {
-		t.Fatalf("step %s shows the parsed field %s: the skip is stale", d.steps[i].Slug, f.Name)
-	}
 }
 
 func (d *rsDoc) sameNames(t *testing.T, where string, r rsResp, want []string) {
@@ -1470,12 +1588,23 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			return e.do(t, plainOf(mode), rsAdmin, http.MethodGet, d.stepURL(id, i), nil, false).want(t, "GET "+s.Slug, http.StatusOK)
 		}
 		var fresh rsResp
-		d.cell(t, "step GET "+s.Slug, func(t *testing.T) { fresh = d.both(t, "GET "+s.Slug, "plain", d.none(i), get) })
+		own := d.ownHide(t, d.draftView(t, id))
+		d.cell(t, "step GET "+s.Slug, func(t *testing.T) {
+			fresh = d.both(t, "GET "+s.Slug, "plain", d.none(i), get)
+			if s.Slug != "check" {
+				d.drawsDeclared(t, "GET "+s.Slug, i, own, names(fresh.page, "#wizard-form"))
+			}
+		})
 		if fresh.page == nil || s.Slug == "check" {
 			continue
 		}
 		shown := names(fresh.page, "#wizard-form")
 		before := derived(fresh.page, "#wizard")
+		// The control twin's rows, nothing hidden: they keep a read-only
+		// field the probe hides (a total, the PO's branch) compared too.
+		whole := get(t, "plain"+rsShow).page
+		beforeShow := derived(whole, "#wizard")
+		d.drawnRO = append(d.drawnRO, d.drawsReadOnly(t, id, i, whole)...)
 		var posted string
 		forms := map[string]url.Values{} // by GET mode; the version is set on each post
 		post := func(t *testing.T, mode string, edit func(url.Values), htmx bool) rsResp {
@@ -1492,7 +1621,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			return e.do(t, mode, rsAdmin, http.MethodPost, d.stepURL(id, i), form, htmx)
 		}
 		d.cell(t, "step 422 module "+s.Slug, func(t *testing.T) {
-			f, typed := d.typedField(i)
+			f, typed := d.typedField(i, own)
 			where := "POST " + s.Slug + " with probe errors"
 			r := d.both(t, where, "inject", d.none(i), func(t *testing.T, mode string) rsResp {
 				r := post(t, mode, func(v url.Values) {
@@ -1502,6 +1631,7 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 				}, false).want(t, where, http.StatusUnprocessableEntity)
 				if isShow(mode) {
 					d.sameSummary(t, where+", nothing hidden", r, d.wantProbe(i, lines, false))
+					d.sameRows(t, where+", nothing hidden", r, beforeShow)
 				}
 				return r
 			})
@@ -1511,16 +1641,22 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			if typed && inputValue(r.page, f.Name) != rsTyped {
 				t.Errorf("%s: %s = %q, want the typed %q kept", where, f.Name, inputValue(r.page, f.Name), rsTyped)
 			}
+			if !typed && d.ownText(i, own) {
+				t.Skip(rsNoTyped)
+			}
 		})
 		d.cell(t, "step 422 parse "+s.Slug, func(t *testing.T) {
-			f, ok := d.parseField(i)
+			f, ok := d.parseField(i, own)
 			if !ok {
-				d.noParsed(t, i)
-				t.Skip("the step shows no number or date field to mistype (checked)")
+				t.Skip("the step declares no number or date field outside the module's Hide (drawsDeclared checked the GET)")
 			}
 			where := "POST " + s.Slug + " with " + f.Name + "=zz"
 			r := d.both(t, where, "plain", d.none(i), func(t *testing.T, mode string) rsResp {
-				return post(t, mode, func(v url.Values) { v.Set(f.Name, "zz") }, false).want(t, where, http.StatusUnprocessableEntity)
+				r := post(t, mode, func(v url.Values) { v.Set(f.Name, "zz") }, false).want(t, where, http.StatusUnprocessableEntity)
+				if isShow(mode) {
+					d.sameRows(t, where+", nothing hidden", r, beforeShow)
+				}
+				return r
 			})
 			d.sameNames(t, where, r, shown)
 			if got := summary(r.page); len(got) != 1 || !strings.HasPrefix(got[0], "#"+components.FieldID(f.Name)+"|") {
@@ -1529,17 +1665,21 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			d.keeps(t, where, r, posted, before)
 		})
 		d.cell(t, "step 409 "+s.Slug, func(t *testing.T) {
-			f, typed := d.typedField(i)
+			f, typed := d.typedField(i, own)
 			where := "POST " + s.Slug + " with a stale version"
 			var stale string
 			r := d.both(t, where, "plain", d.none(i), func(t *testing.T, mode string) rsResp {
 				stale = d.stale(t, id)
-				return post(t, mode, func(v url.Values) {
+				r := post(t, mode, func(v url.Values) {
 					v.Set("version", stale)
 					if typed {
 						v.Set(f.Name, rsTyped)
 					}
 				}, false).want(t, where, http.StatusConflict)
+				if isShow(mode) {
+					d.sameRows(t, where+", nothing hidden", r, beforeShow)
+				}
+				return r
 			})
 			d.sameNames(t, where, r, shown)
 			d.sameSummary(t, where, r, nil)
@@ -1549,6 +1689,9 @@ func (d *rsDoc) sweepSteps(t *testing.T, id int64) {
 			d.keeps(t, where, r, stale, before)
 			if typed && inputValue(r.page, f.Name) != rsTyped {
 				t.Errorf("%s: %s = %q, want the typed %q kept", where, f.Name, inputValue(r.page, f.Name), rsTyped)
+			}
+			if !typed && d.ownText(i, own) {
+				t.Skip(rsNoTyped)
 			}
 		})
 		d.cell(t, "step stay "+s.Slug, func(t *testing.T) {
@@ -1587,12 +1730,36 @@ func (d *rsDoc) keeps(t *testing.T, where string, r rsResp, posted string, befor
 	if got := r.page.Find("#doc-version").AttrOr("value", ""); got != posted {
 		t.Errorf("%s: #doc-version = %q, want the posted %q (CD-94)", where, got, posted)
 	}
+	d.sameRows(t, where, r, before)
+}
+
+// sameRows is check (d): r's read-only rows are before, a fresh GET's.
+func (d *rsDoc) sameRows(t *testing.T, where string, r rsResp, before []string) {
+	t.Helper()
 	if got := derived(r.page, "#wizard"); !eq(got, before) {
 		t.Errorf("%s: read-only rows %q, want %q as a fresh GET (CD-302)", where, got, before)
 	}
 	if len(before) > 0 {
 		d.rows.Store(true)
 	}
+}
+
+// drawsReadOnly is the read-only fields of step i that draft id stores a
+// value for and whose label page (the step, nothing hidden) shows: rows a
+// 422/409 redraw must have compared. It reads the page's text, not the
+// summary rows derived reads, so a redraw that moves them out of derived's
+// reach still counts.
+func (d *rsDoc) drawsReadOnly(t *testing.T, id int64, i int, page *goquery.Document) []string {
+	t.Helper()
+	values := d.e.load(t, d.dt.Name, id).Values
+	text := strings.Join(strings.Fields(page.Find("#wizard").Text()), " ")
+	var out []string
+	for _, name := range d.steps[i].Fields {
+		if f, _ := d.dt.Field(name); f.ReadOnly && values[name] != "" && strings.Contains(text, f.Label) {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 func (d *rsDoc) lineURL(id int64, no string) string { return d.url(id) + "/lines/" + no }
@@ -1608,6 +1775,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		})
 		return
 	}
+	lineOwn := d.ownLineHide(t, d.draftView(t, id))
 	getLine := func(no string) func(t *testing.T, mode string) rsResp {
 		return func(t *testing.T, mode string) rsResp {
 			return e.do(t, plainOf(mode), rsAdmin, http.MethodGet, d.lineURL(id, no), nil, false).want(t, "GET line "+no, http.StatusOK)
@@ -1648,7 +1816,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 		})
 	})
 	d.cell(t, "line 422 parse", func(t *testing.T) {
-		f, ok := d.parseLine()
+		f, ok := d.parseLine(lineOwn)
 		if !ok {
 			t.Fatalf("%s shows no number or date line field to mistype", d.dt.Name)
 		}
@@ -1707,7 +1875,7 @@ func (d *rsDoc) sweepLines(t *testing.T, id int64) {
 	})
 	d.cell(t, "grid 422", func(t *testing.T) {
 		d.noGrid(t, id, form)
-		f, ok := d.parseLine()
+		f, ok := d.parseLine(lineOwn)
 		if !ok {
 			t.Fatalf("%s shows no number or date line field to mistype", d.dt.Name)
 		}
@@ -2074,9 +2242,10 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 		}
 	})
 	// The delete page shows the draft's number, party and total: the probe
-	// draft's party is empty.
+	// draft's party is empty unless the draft holds it (rsBodyInputs).
 	d.cell(t, "reason GET", func(t *testing.T) {
-		d.both(t, "GET delete", "plain", true, func(t *testing.T, mode string) rsResp {
+		none := d.partyNone() || !slices.Contains(rsBodyInputs[d.dt.Name].inputs, d.party())
+		d.both(t, "GET delete", "plain", none, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.url(id)+"/delete", nil, false).want(t, "GET delete", http.StatusOK)
 		})
 	})

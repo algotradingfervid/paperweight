@@ -13,8 +13,9 @@ import (
 // Request, and until each screen task builds its part every field keeps
 // docscreen's generic behaviour: generic steps, no hidden field, the line's
 // own card and no extras. internal/app's TestApp_PurchaseModulesUnchanged
-// renders the pages. P15d built the Request's (p15d_*_test.go), P15c the
-// Order's items step (p15c_*_test.go).
+// renders the pages. P15d built the Request's (p15d_*_test.go), P15b the
+// Order's Page and Reason (p15b_*_test.go), P15c its items step
+// (p15c_*_test.go).
 func TestModules_StubsKeepGeneric(t *testing.T) {
 	mods := Modules(Deps{})
 	if len(mods) != 2 {
@@ -47,12 +48,6 @@ func TestModules_StubsKeepGeneric(t *testing.T) {
 		}
 		if ce, err := m.Check(docscreen.Ctx{}); err != nil || ce.Notes != nil || ce.Warnings != nil || ce.Totals != nil || ce.Cards != nil {
 			t.Errorf("%s Check = %+v, %v; want nothing", dt, ce, err)
-		}
-		if pe, err := m.Page(docscreen.Ctx{}); err != nil || pe.Warnings != nil || pe.LineNotes != nil || pe.Pairs != nil || pe.Cards != nil || pe.Notice != nil || pe.More != nil || pe.Primary != nil || pe.Files != nil {
-			t.Errorf("%s Page = %+v, %v; want nothing", dt, pe, err)
-		}
-		if re, err := m.Reason(docscreen.Ctx{}, doctype.ActionClose); err != nil || re != (docscreen.ReasonExtra{}) {
-			t.Errorf("%s Reason = %+v, %v; want nothing", dt, re, err)
 		}
 		if got := m.LineCard(docscreen.Ctx{}, line); got.Item != card.Item {
 			t.Errorf("%s LineCard = %+v, want the line's own card", dt, got)

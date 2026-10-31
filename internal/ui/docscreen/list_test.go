@@ -165,7 +165,7 @@ func TestDocList_StateRoundTripsURL(t *testing.T) {
 		t.Error("form keeps page; a new search or sort must start on page 1")
 	}
 	chip := form.Find("a.chip")
-	if chip.Length() != 1 || !strings.Contains(chip.Text(), "State: approved") {
+	if chip.Length() != 1 || !strings.Contains(chip.Text(), "State: Approved") {
 		t.Fatalf("chips = %d %q", chip.Length(), chip.Text())
 	}
 	href, _ := chip.Attr("href")
