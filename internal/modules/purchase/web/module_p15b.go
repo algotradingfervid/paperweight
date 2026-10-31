@@ -155,10 +155,10 @@ func readOrderRecords(c docscreen.Ctx) (orderRecords, error) {
 	return r, err
 }
 
-// orderPage is the Order's document page additions (UX §5.9): the pairs,
+// orderPageHook is the Order's document page additions (UX §5.9): the pairs,
 // the owner notice, line notes, the Owner, Sent to vendor, Expected
 // delivery, Goods receipts and Comments cards, More actions and the primary.
-func (m *module) orderPage(c docscreen.Ctx) (docscreen.PageExtra, error) {
+func (m *module) orderPageHook(c docscreen.Ctx) (docscreen.PageExtra, error) {
 	v := c.View
 	id, state := v.Info.ID, v.Info.State
 	owner, err := ownerName(c, v.Info.CreatedBy)
@@ -379,7 +379,7 @@ func receiptsCard(c docscreen.Ctx, bs []doc.Blocker) (templ.Component, error) {
 			Values: map[string]string{"date": types.FormatDate(on)}, State: b.State,
 		})
 	}
-	return receiptsView(rows, otherCount(hidden, receiptNoun)), nil
+	return linkedRowsView(receiptsTitle, noReceipts, receiptColumns, rows, otherCount(hidden, receiptNoun)), nil
 }
 
 // orderReason adds the pending warning and the hint to the close page (UX

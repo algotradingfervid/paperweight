@@ -2,7 +2,6 @@ package purchaseweb
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -22,7 +21,6 @@ import (
 
 // Request page and close-page texts (UX §5.16, §5.17; spec §20.3, §20.7).
 const (
-	pairRaisedBy      = "Raised by"
 	createPOLabel     = "Create PO"
 	linkedOrdersTitle = "Linked orders"
 	noLinkedOrders    = "Not on any order yet."
@@ -70,12 +68,6 @@ func (m *module) requestLineCard(_ docscreen.Ctx, l docscreen.LineView) componen
 	card.QtyRate = strings.TrimSpace(l.Display["qty"] + " " + unitOf(l))
 	card.Note = l.Display["note"]
 	return card
-}
-
-// unitOf is line l's unit code, from its "{Code} {Name}" display (CD-68).
-func unitOf(l docscreen.LineView) string {
-	code, _, _ := strings.Cut(l.Display["uom_id"], " ")
-	return code
 }
 
 // requestCheck adds the Comments card to the check page (G2).
@@ -267,16 +259,6 @@ func fromRequestPath(id int64) string {
 	return "/modules/purchase/requests/" + strconv.FormatInt(id, 10) + "/order"
 }
 
-// allowed reports whether the viewer holds right r on dt (for rec), nil
-// error meaning yes; a refusal is false with no error.
-func allowed(c docscreen.Ctx, dt string, r auth.Right, rec *auth.RecordRef) (bool, error) {
-	err := c.Deps.Auth.Can(c.Req.Context(), c.Principal, dt, r, rec)
-	if errors.Is(err, auth.ErrForbidden) {
-		return false, nil
-	}
-	return err == nil, err
-}
-
 // requestNotice is the owner notice (UX §5.16, G3): for anyone but the
 // requester, on a draft or a submitted request; none on closed or cancelled.
 func requestNotice(c docscreen.Ctx, requester string) (*components.BannerProps, error) {
@@ -327,7 +309,7 @@ func linkedOrdersCard(c docscreen.Ctx, orders []purchase.LinkedOrder) (templ.Com
 		}
 		rows = append(rows, row)
 	}
-	return linkedOrdersView(rows, otherCount(hidden, unreadableNoun)), nil
+	return linkedRowsView(linkedOrdersTitle, noLinkedOrders, linkedOrderColumns, rows, otherCount(hidden, unreadableNoun)), nil
 }
 
 // requestReason adds the held-rows warning and the hint to the close page

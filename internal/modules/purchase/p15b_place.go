@@ -17,8 +17,14 @@ func PlaceReason(ctx context.Context, tx *db.Tx, poID int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return placeReasonOf(h), nil
+}
+
+// placeReasonOf is print row h's place-of-supply text, "" while its vendor
+// or delivery site snapshot is blank: the page and the print share it.
+func placeReasonOf(h dbq.OrderPrintRow) string {
 	if h.SnapVendorName == "" || h.SnapPlaceState == "" {
-		return "", nil
+		return ""
 	}
-	return gstcalc.PlaceReason(h.SnapVendorCategory, h.SnapVendorName, h.SnapVendorState, h.SnapPlaceState), nil
+	return gstcalc.PlaceReason(h.SnapVendorCategory, h.SnapVendorName, h.SnapVendorState, h.SnapPlaceState)
 }
