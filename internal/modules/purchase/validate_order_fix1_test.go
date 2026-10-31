@@ -17,8 +17,10 @@ import (
 // Validate once, ignores its errors and keeps its writes
 // (internal/kernel/doc/terminal.go). So Validate writes what it could compute
 // even when it returns field errors: the vendor snapshot, the line
-// snapshots, the totals and receipt_status. The part whose check failed (the
-// site, after METRO-SITE moved to project PRJ-DEPOT) is left as it was. A cutover
+// snapshots, the totals and receipt_status. Under CD-302 (AD-13 fix 2,
+// director-ruled change from fix 1's "left as it was") the site and branch
+// snapshots are still written from the site when its project check fails
+// (METRO-SITE renamed and moved to PRJ-DEPOT): the new name, not blank. A cutover
 // line (already received 200 of 1,200 kg) makes receipt_status
 // part_received, which differs from the column's default.
 func TestPO_AmendKeepsValidateWrites(t *testing.T) {
@@ -46,7 +48,8 @@ func TestPO_AmendKeepsValidateWrites(t *testing.T) {
 	p2Must(t, "Ravi cancels")(p2Do(t, env, env.Ravi, po.ID, doc.ActionCancel, "Wrong delivery site"))
 
 	// Break the site and project rule only: METRO-SITE moves to a new
-	// project on its own branch (PUNE), PRJ-DEPOT.
+	// project on its own branch (PUNE), PRJ-DEPOT, and is renamed, so the
+	// site snapshot shows whether it was written from the site as it is now.
 	sites := site.New(p2Kit(env))
 	var st site.Site
 	if err := env.DB.Read(ctx, func(tx *db.Tx) error {
@@ -60,7 +63,11 @@ func TestPO_AmendKeepsValidateWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create PRJ-DEPOT: %v", err)
 	}
-	if _, err := sites.Update(ctx, env.Admin, st.ID, st.Version, site.Input{Code: st.Code, Name: st.Name, BranchID: st.BranchID,
+	const renamed = "Metro Site Phase 2"
+	if src := p2Snap(t, env, po.ID, "snap_site_name")["snap_site_name"]; src != st.Name || src == renamed {
+		t.Fatalf("original snap_site_name %q, want the site's name %q (unlike %q)", src, st.Name, renamed)
+	}
+	if _, err := sites.Update(ctx, env.Admin, st.ID, st.Version, site.Input{Code: st.Code, Name: renamed, BranchID: st.BranchID,
 		ProjectID: depot.ID, Type: st.Type}); err != nil {
 		t.Fatalf("move METRO-SITE to PRJ-DEPOT: %v", err)
 	}
@@ -82,10 +89,12 @@ func TestPO_AmendKeepsValidateWrites(t *testing.T) {
 	if got := p2Snap(t, env, res.ID, "receipt_status")["receipt_status"]; got != "part_received" {
 		t.Errorf("amended draft receipt_status %q, want part_received (Validate's, from already_received)", got)
 	}
-	// The failed part is left as it was: no site snapshot on the new draft.
-	if got := p2Snap(t, env, res.ID, "snap_site_name")["snap_site_name"]; got != "" {
-		t.Errorf("amended draft snap_site_name %q, want blank (the site check failed)", got)
+	// CD-302: the site snapshot is written from the site even though the
+	// project check failed; the project default is skipped.
+	if got := p2Snap(t, env, res.ID, "snap_site_name")["snap_site_name"]; got != renamed {
+		t.Errorf("amended draft snap_site_name %q, want %q (the site now, despite the project error)", got, renamed)
 	}
+	p2HeaderIsSum(t, "amended draft", env, res.ID)
 
 	// The amend really hit the site and project error: a save of the new
 	// draft is refused with it.
