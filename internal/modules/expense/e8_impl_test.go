@@ -28,7 +28,7 @@ func e8ImplExec(t *testing.T, e *expensetest.Env, q string, args ...any) {
 // isn't listed.
 func e8ImplOpen(t *testing.T, e *expensetest.Env, number string) expense.OpenClaimRow {
 	t.Helper()
-	rows, err := e.Service.OpenClaimsReport(context.Background(), e.P(t, "meena@vardhan.test"))
+	rows, err := e.Service.OpenClaimsReport(context.Background(), e.P(t, "meena@vardhan.test"), expense.OpenClaimsFilter{})
 	if err != nil {
 		t.Fatalf("OpenClaimsReport: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestE8Impl_ScopeOwnTable(t *testing.T) {
 	e.E8OpenScenario(t)
 	priya := e.P(t, "priya@vardhan.test")
 
-	claims, err := e.Service.OpenClaimsReport(ctx, priya)
+	claims, err := e.Service.OpenClaimsReport(ctx, priya, expense.OpenClaimsFilter{})
 	if err != nil {
 		t.Fatalf("OpenClaimsReport: %v", err)
 	}

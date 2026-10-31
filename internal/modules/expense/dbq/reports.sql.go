@@ -15,6 +15,7 @@ SELECT c.id AS claim_id,
        CAST(COALESCE(c.number, '') AS TEXT) AS number,
        c.snap_employee_name,
        c.state,
+       l.line_no,
        CAST(COALESCE(l.expense_date, '') AS TEXT) AS expense_date,
        l.snap_type_name,
        l.snap_project_code,
@@ -48,6 +49,7 @@ type E8ClaimLinesRow struct {
 	Number           string
 	SnapEmployeeName string
 	State            string
+	LineNo           int64
 	ExpenseDate      string
 	SnapTypeName     string
 	SnapProjectCode  string
@@ -82,6 +84,7 @@ func (q *Queries) E8ClaimLines(ctx context.Context, arg E8ClaimLinesParams) ([]E
 			&i.Number,
 			&i.SnapEmployeeName,
 			&i.State,
+			&i.LineNo,
 			&i.ExpenseDate,
 			&i.SnapTypeName,
 			&i.SnapProjectCode,
@@ -184,6 +187,7 @@ LEFT JOIN approval_history h ON h.id = (
     SELECT MAX(x.id) FROM approval_history x
     WHERE x.doctype = 'expense.Claim' AND x.doc_id = c.id AND x.action IN ('approved', 'approved_no_rule'))
 WHERE c.state = 'approved'
+  AND (CAST(?1 AS INTEGER) = 0 OR c.employee_id = ?1)
 ORDER BY h.at, c.id
 `
 
@@ -205,9 +209,9 @@ type E8OpenClaimsRow struct {
 // of other records come from the snapshots.
 // Approved, not closed claims, with the latest approval (approved on and by;
 // NULL when the claim has no approval history row) and the count of lines
-// without a receipt.
-func (q *Queries) E8OpenClaims(ctx context.Context) ([]E8OpenClaimsRow, error) {
-	rows, err := q.db.QueryContext(ctx, e8OpenClaims)
+// without a receipt; employee_id 0 means every employee.
+func (q *Queries) E8OpenClaims(ctx context.Context, employeeID int64) ([]E8OpenClaimsRow, error) {
+	rows, err := q.db.QueryContext(ctx, e8OpenClaims, employeeID)
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +231,41 @@ func (q *Queries) E8OpenClaims(ctx context.Context) ([]E8OpenClaimsRow, error) {
 			&i.ApprovedBy,
 			&i.NoReceipt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const s4ExpenseTypes = `-- name: S4ExpenseTypes :many
+SELECT id, name
+FROM expense_type
+ORDER BY name, id
+`
+
+type S4ExpenseTypesRow struct {
+	ID   int64
+	Name string
+}
+
+// Every expense type by name, for the lines report's Type filter.
+func (q *Queries) S4ExpenseTypes(ctx context.Context) ([]S4ExpenseTypesRow, error) {
+	rows, err := q.db.QueryContext(ctx, s4ExpenseTypes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []S4ExpenseTypesRow
+	for rows.Next() {
+		var i S4ExpenseTypesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

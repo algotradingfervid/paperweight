@@ -223,7 +223,21 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 	out = append(out, authscreens.Screens(authscreens.SweepIDs{
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
+	out = append(out, expenseReportScreens()...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
+}
+
+// expenseReportScreens are MOD-EXP S4's report pages and their filter pages,
+// as Meena (Director: read all, export).
+func expenseReportScreens() []screens.Screen {
+	var out []screens.Screen
+	for _, r := range []string{"open", "lines", "advances"} {
+		base := "/reports/expense/" + r
+		out = append(out,
+			screens.Screen{Name: "expense report " + r, Route: base, URL: base, As: meena},
+			screens.Screen{Name: "expense report " + r + " filter", Route: base + "/filter", URL: base + "/filter", As: meena})
+	}
+	return append(out, screens.Screen{Name: "expense report lines filtered", Route: "/reports/expense/lines", URL: "/reports/expense/lines?month=2026-10", As: meena})
 }
 
 // masterScreens lists every master's list, new and record pages, the two create
@@ -454,7 +468,6 @@ type notPage struct {
 // expenseStubs are MOD-EXP's routes that still answer E1's 501 stub. S3 and
 // S4 give the pages screens and remove their routes here.
 var expenseStubs = []string{
-	"/reports/expense/open", "/reports/expense/lines", "/reports/expense/advances",
 	"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid",
 }
 
