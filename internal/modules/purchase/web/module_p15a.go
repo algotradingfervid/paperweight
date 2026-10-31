@@ -13,11 +13,9 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
-	"github.com/vardhan/internaltools/internal/kernel/gstcalc"
 	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
-	"github.com/vardhan/internaltools/internal/modules/purchase/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -124,13 +122,16 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 }
 
 // addressInput is the vendor address radios, `{city} · {GSTIN}` with the
-// address as hint, value checked or else the primary billing address; with
-// no vendor, or a vendor with no address, the text that says so instead.
+// address as hint, value checked when it is one of them or else the primary
+// billing address; with no vendor, or a vendor with no address, the text
+// that says so instead, msg and an empty posted address.
 func addressInput(c docscreen.Ctx, f doctype.Field, value, msg, details string) (templ.Component, error) {
+	p := components.FieldProps{ID: components.FieldID(f.Name), Name: f.Name, Label: f.Label, Error: msg}
 	vendor := c.View.Inputs["vendor_id"]
 	if vendor == "" {
 		href := "/doc/" + c.DT.Name + "/" + strconv.FormatInt(c.View.Info.ID, 10) + "/edit/" + details
-		return noVendorView(href), nil
+		p.Hint = noVendorText
+		return noVendorView(p, href), nil
 	}
 	id, err := strconv.ParseInt(vendor, 10, 64)
 	if err != nil {
@@ -146,19 +147,25 @@ func addressInput(c docscreen.Ctx, f doctype.Field, value, msg, details string) 
 	}
 	if len(list) == 0 {
 		_, name, _ := strings.Cut(c.View.Display["vendor_id"], " ")
-		return noAddressView(fmt.Sprintf(noAddressFormat, name)), nil
+		p.Hint = fmt.Sprintf(noAddressFormat, name)
+		return noAddressView(p), nil
 	}
 	opts := make([]components.Option, 0, len(list))
+	primary := ""
 	for _, a := range list {
 		v := strconv.FormatInt(a.ID, 10)
-		if value == "" && a.PrimaryBilling {
-			value = v
+		if v == value {
+			p.Value = v
+		}
+		if a.PrimaryBilling {
+			primary = v
 		}
 		opts = append(opts, components.Option{Value: v, Label: a.City + " · " + gstinOrNone(a.GSTIN), Hint: addressHint(a)})
 	}
-	return components.Radios(components.FieldProps{
-		ID: components.FieldID(f.Name), Name: f.Name, Label: f.Label, Error: msg, Value: value,
-	}, opts), nil
+	if p.Value == "" {
+		p.Value = primary
+	}
+	return components.Radios(p, opts), nil
 }
 
 func gstinOrNone(g string) string {
@@ -210,9 +217,13 @@ func stored(c docscreen.Ctx, name string) string {
 
 // hasRules reports whether an approval rule exists for purchase.Order, read
 // once per request. On an error the fields show (false) and it is logged.
+// With no request (c.Req nil) it reads every time.
 func (m *module) hasRules(c docscreen.Ctx) bool {
-	return rulesOf.get(c.Req, func() bool {
-		ctx := c.Req.Context()
+	ctx := context.Background()
+	if c.Req != nil {
+		ctx = c.Req.Context()
+	}
+	load := func() bool {
 		var has bool
 		err := c.Deps.DB.Read(ctx, func(tx *db.Tx) (err error) {
 			has, err = m.d.Approvals.HasRules(ctx, tx, purchase.DocType)
@@ -223,7 +234,11 @@ func (m *module) hasRules(c docscreen.Ctx) bool {
 			return false
 		}
 		return has
-	})
+	}
+	if c.Req == nil {
+		return load()
+	}
+	return rulesOf.get(c.Req, load)
 }
 
 // orderCheck adds to the check page (UX §5.8): the copy notes, the place
@@ -237,12 +252,12 @@ func (m *module) orderCheck(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 		x.Notes = strings.Split(n, "\n")
 	}
 	err := c.Deps.DB.Read(ctx, func(tx *db.Tx) error {
-		h, err := dbq.New(tx.SQL()).OrderPrint(ctx, id)
+		place, err := purchase.PlaceReason(ctx, tx, id)
 		if err != nil {
 			return err
 		}
-		if h.SnapVendorName != "" && h.SnapPlaceState != "" {
-			x.Notes = append(x.Notes, gstcalc.PlaceReason(h.SnapVendorCategory, h.SnapVendorName, h.SnapVendorState, h.SnapPlaceState))
+		if place != "" {
+			x.Notes = append(x.Notes, place)
 		}
 		rc, err := purchase.ReverseChargeNote(ctx, tx, id)
 		if rc != "" {
@@ -285,7 +300,14 @@ func (m *module) orderLineCard(c docscreen.Ctx, l docscreen.LineView) components
 	if card.Received != "" {
 		card.Received = ""
 		if r := l.Display["received_qty"]; r != "" {
-			card.Received = strings.TrimSpace("Received " + r + " of " + l.Display["qty"] + " " + unitOf(l))
+			parts := []string{"Received", r}
+			if q := l.Display["qty"]; q != "" {
+				parts = append(parts, "of", q)
+			}
+			if u := unitOf(l); u != "" {
+				parts = append(parts, u)
+			}
+			card.Received = strings.Join(parts, " ")
 		}
 	}
 	return card
@@ -299,12 +321,20 @@ func hides(c docscreen.Ctx, name string) bool {
 	return ok && h != nil && h(c, f)
 }
 
+// lineCtx is c for line l's fields: Deps carries l's stored inputs, as
+// docscreen's own line cards do.
+func lineCtx(c docscreen.Ctx, l docscreen.LineView) docscreen.Ctx {
+	c.Deps = c.Deps.WithStored(l.Inputs)
+	return c
+}
+
 // shownLine is l without the values of the line fields the screen hides.
 // l.Card is docscreen's, which leaves them out itself (M0-47, CD-319 (9)).
 func shownLine(c docscreen.Ctx, l docscreen.LineView) docscreen.LineView {
+	lc := lineCtx(c, l)
 	l.Inputs, l.Display = maps.Clone(l.Inputs), maps.Clone(l.Display)
 	for _, f := range c.DT.Fields {
-		if f.OnLine && hides(c, f.Name) {
+		if f.OnLine && hides(lc, f.Name) {
 			delete(l.Inputs, f.Name)
 			delete(l.Display, f.Name)
 		}
@@ -339,9 +369,11 @@ func lastPriceShown(s doctype.State) bool {
 // an error the note is left out and the error is logged.
 func (m *module) lastPriceNote(c docscreen.Ctx, l docscreen.LineView) string {
 	k, ok := lineKey(l)
-	if !ok || !lastPriceShown(c.View.Info.State) || hides(c, "vendor_id") || hides(c, "price") {
+	if !ok || !lastPriceShown(c.View.Info.State) || hides(c, "vendor_id") || hides(lineCtx(c, l), "price") {
 		return ""
 	}
+	// The memo's key set is the lines of the first View this request asks
+	// about; a later View in the same request reuses it.
 	prices := pricesOf.get(c.Req, func() map[purchase.ItemUoM]purchase.LastPrice {
 		var keys []purchase.ItemUoM
 		for _, line := range c.View.Lines {
@@ -368,9 +400,10 @@ func (m *module) lastPriceNote(c docscreen.Ctx, l docscreen.LineView) string {
 // Item (name, code under it), Qty, UoM, Rate and Tax; docscreen adds #,
 // Amount, the actions and the note. A hidden field's cell is blank.
 func (m *module) orderLineGrid(c docscreen.Ctx, l docscreen.LineView) []components.GridCell {
+	lc := lineCtx(c, l)
 	l = shownLine(c, l)
 	item := components.GridCell{Label: "Item", Text: l.Card.Item, Sub: l.Card.Code}
-	if hides(c, "item_id") {
+	if hides(lc, "item_id") {
 		item.Text, item.Sub = "", ""
 	}
 	return []components.GridCell{

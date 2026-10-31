@@ -17,13 +17,17 @@ templ termsView(fields, earlier []templ.Component, open bool) {
 	}
 }
 
-// noVendorView replaces the address radios on a draft with no vendor.
-templ noVendorView(href string) {
-	<p>{ noVendorText }</p>
+// noVendorView replaces the address radios on a draft with no vendor: the
+// field's label, the text and its error, with an empty address posted.
+templ noVendorView(p components.FieldProps, href string) {
+	@components.Radios(p, nil)
 	@components.Button(components.ButtonProps{Label: goToDetailsLabel, Href: href})
+	@components.Hidden(p.Name, "")
 }
 
-// noAddressView replaces the address radios for a vendor with none.
-templ noAddressView(msg string) {
-	<p>{ msg }</p>
+// noAddressView replaces the address radios for a vendor with none, as
+// noVendorView does without the link.
+templ noAddressView(p components.FieldProps) {
+	@components.Radios(p, nil)
+	@components.Hidden(p.Name, "")
 }
