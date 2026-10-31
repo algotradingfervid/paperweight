@@ -96,6 +96,16 @@ type GRNDoc struct {
 	ChallanNo   string
 	ChallanDate types.Date
 	Lines       []GRNLine
+	// ChallanLabel is "Delivery challan no." or "Tax invoice no." from
+	// challan_kind; blank prints "Challan or invoice no." (CD-272 Gap 5). A
+	// blank ChallanNo prints a dash and a zero ChallanDate omits its line.
+	// The fields below are each left out when empty (GRN spec §7, §9).
+	ChallanLabel      string
+	VehicleNo         string
+	Transporter       string
+	EWayBillNo        string
+	Remarks           string
+	ReverseChargeNote string
 }
 
 // GRNLine is one received item.
@@ -103,6 +113,8 @@ type GRNLine struct {
 	Sr                           int
 	Item, HSN, UoM               string
 	Received, Accepted, Rejected types.Qty
+	// RejectReason prints under the item when set.
+	RejectReason string
 }
 
 // ExpenseDoc is the model an expense claim print view fills for

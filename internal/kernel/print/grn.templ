@@ -13,8 +13,19 @@ templ GRNDocument(d GRNDoc) {
 	@DocTitle("Goods Receipt Note")
 	<p class="doc-date">{ "Date: " + types.FormatDate(d.Date) }</p>
 	<p class="po-ref">{ "Against PO: " + d.PONumber + " dated " + types.FormatDate(d.PODate) }</p>
-	<p class="challan">{ "Vendor Challan No.: " + d.ChallanNo }</p>
-	<p class="challan">{ "Challan Date: " + types.FormatDate(d.ChallanDate) }</p>
+	<p class="challan">{ challanLabel(d.ChallanLabel) + ": " + dashIfBlank(d.ChallanNo) }</p>
+	if d.ChallanDate != (types.Date{}) {
+		<p class="challan">{ "Challan Date: " + types.FormatDate(d.ChallanDate) }</p>
+	}
+	if d.VehicleNo != "" {
+		<p class="vehicle">{ "Vehicle no.: " + d.VehicleNo }</p>
+	}
+	if d.Transporter != "" {
+		<p class="transporter">{ "Transporter: " + d.Transporter }</p>
+	}
+	if d.EWayBillNo != "" {
+		<p class="eway-bill">{ "E-way bill no.: " + d.EWayBillNo }</p>
+	}
 	@PartyBlock(d.Party)
 	<table class="lines">
 		<thead>
@@ -24,7 +35,11 @@ templ GRNDocument(d GRNDoc) {
 			for _, l := range d.Lines {
 				<tr>
 					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
-					<td class="item">{ l.Item }</td>
+					if l.RejectReason != "" {
+						<td class="item">{ l.Item }<div class="reject-reason">{ "Reason for rejecting: " + l.RejectReason }</div></td>
+					} else {
+						<td class="item">{ l.Item }</td>
+					}
 					<td class="hsn">{ l.HSN }</td>
 					<td class="uom">{ l.UoM }</td>
 					<td class="qty">{ types.FormatQty(l.Received) }</td>
@@ -37,5 +52,27 @@ templ GRNDocument(d GRNDoc) {
 			}
 		</tbody>
 	</table>
+	if d.Remarks != "" {
+		<p class="remarks">{ "Remarks: " + d.Remarks }</p>
+	}
+	if d.ReverseChargeNote != "" {
+		<p class="reverse-charge">{ d.ReverseChargeNote }</p>
+	}
 	@Signatory(d.Letterhead.LegalName)
+}
+
+// challanLabel is the caller's label, or the neutral one when blank.
+func challanLabel(l string) string {
+	if l == "" {
+		return "Challan or invoice no."
+	}
+	return l
+}
+
+// dashIfBlank prints a dash for a blank value.
+func dashIfBlank(v string) string {
+	if v == "" {
+		return "-"
+	}
+	return v
 }
