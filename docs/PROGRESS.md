@@ -343,6 +343,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | P26 | Sweep fixes: shared session manager, parse probe, purchase sweepStatuses | Std | impl, rev opus (AD-13) | — | — | 1 | 5f review: coverage gaps → fix3 | 81703b9; ci 0 (P1 810/842), e2e 0 |
 | Tooling fix2–fix4 | Derived rows; buyer principal and per-queue statuses; typing probes follow Hide | Std | impl, rev opus (internaltools-5f) | — | — | 1–2 | fix3 re-review APPROVE | 1439d42, see merge |
 | M0-52 | Select option labels; state via StateLabel, out of Details (CD-325) | Std | impl, rev opus (head) | — | — | 3 | 0/0/2; sweep clash → fix2 | 609b1e1; ci 0, e2e 0 |
+| M0-55, M0-47, M0-50 | Screens NoLinePages (CD-329); hidden party/totals/cards, Ctx.Listing (CD-319 6-9, CD-327); 403 field-error redraw as 422 (CD-323) | Light/Std/Std | impl, rev opus (AD-10) | — | — | 1/2/3 | 0/0/1 each after fixes | 9b7a573 |
+| MOD0-HOOKS (AD-10) complete | 81 workers, 1217.5 worker-min; medians reviewer 3.9, implementer 17.2, test-writer 17.1; slowest M0-47 implementer 82 min (load ~85) | — | AD-10 | — | — | — | — | 9b7a573 |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
 
