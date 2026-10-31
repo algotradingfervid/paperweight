@@ -1,6 +1,10 @@
 package components
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
 
 // LineList is the line cards, the running taxable total and "Add an item"
 // (design-system §8.2), or AddLabel; AddTop puts it above the cards, and
@@ -32,6 +36,11 @@ templ LineList(p LineListProps) {
 						</span>
 						<span class="num lines-amount">{ c.Amount }</span>
 					</div>
+					if c.Receipt != nil {
+						<div class="lines-receipt">
+							@attachmentLink(*c.Receipt, lineAria("Receipt for", c.No))
+						</div>
+					}
 					<p class="lines-meta">
 						<span class="num">{ c.QtyRate }</span>
 						<span>{ c.Tax }</span>
@@ -41,6 +50,14 @@ templ LineList(p LineListProps) {
 					}
 					if c.Note != "" {
 						<p class="lines-meta">{ c.Note }</p>
+					}
+					if c.ReceiptNote != "" {
+						<p class="lines-meta lines-receipt-note">
+							if c.ReceiptWarn {
+								@icons.Icon("alert-circle")
+							}
+							<span>{ c.ReceiptNote }</span>
+						</p>
 					}
 					if p.Editable {
 						<div class="lines-actions">

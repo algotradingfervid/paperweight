@@ -1,6 +1,7 @@
 package docscreen
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"strconv"
@@ -65,12 +66,21 @@ func noteLines(lines []LineView, notes map[int]string) {
 // (CD-263 G3 to G5): a blank Notice Kind means Info; the module's More
 // entries go before docscreen's; its Primary, which must have an Href,
 // becomes the bar's primary only when the bar has no primary and no note.
+// Its Files are read-only, with no Remove, titled "Attachments" when the
+// Title is blank (UX-E7).
 func applyPageExtra(pv *pageView) error {
 	x := pv.Extra
 	if x.Notice != nil && x.Notice.Kind == "" {
 		n := *x.Notice
 		n.Kind = components.Info
 		pv.Extra.Notice = &n
+	}
+	if x.Files != nil {
+		f := FilesCard{Title: cmp.Or(x.Files.Title, "Attachments"), Items: slices.Clone(x.Files.Items)}
+		for i := range f.Items {
+			f.Items[i].RemoveURL = ""
+		}
+		pv.Extra.Files = &f
 	}
 	pv.More = slices.Concat(x.More, pv.More)
 	if x.Primary == nil {

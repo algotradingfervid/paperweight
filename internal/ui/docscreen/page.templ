@@ -97,6 +97,12 @@ templ docBody(pv pageView) {
 			</div>
 			if pv.Attach != nil {
 				@attachCard(*pv.Attach)
+			} else if !pv.DT.Attachable && pv.Extra.Files != nil {
+				if len(pv.Extra.Files.Items) > 0 {
+					@components.Card(pv.Extra.Files.Title, nil) {
+						@components.Attachments(pv.Extra.Files.Items)
+					}
+				}
 			} else if !pv.DT.Attachable && len(pv.V.Attachments) > 0 {
 				@components.Card("Attachments", nil) {
 					@components.Attachments(pv.V.Attachments)

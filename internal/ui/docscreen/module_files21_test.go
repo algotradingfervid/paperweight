@@ -250,6 +250,46 @@ func TestModule_PageFiles(t *testing.T) {
 		})
 	}
 
+	t.Run("module items keep their RemoveURL", func(t *testing.T) {
+		files := &docscreen.FilesCard{Title: m21FilesTitle, Items: []components.Attachment{m21Removable()}}
+		page := get(t, m21FilesModule(files), "module items")
+		if n := removeControls(page.Find(".app-page")); n != 0 {
+			t.Errorf("module items: %d Remove controls, want none", n)
+		}
+		if got, want := files.Items[0].RemoveURL, m21Removable().RemoveURL; got != want {
+			t.Errorf("after the render, the module's own item has RemoveURL %q, want %q: the page cleared it in the module's slice", got, want)
+		}
+	})
+
+	// A cancelled Attachable document has no Attachments card (attachOf is
+	// nil, CD-243); the module's Files must not add one.
+	t.Run("attachable cancelled unchanged", func(t *testing.T) {
+		de := newDocEnv(t, allRights...)
+		de.seed(doctype.StateCancelled)
+		de.extras.SetAttachments(docscreentest.Sample, 42, []components.Attachment{receiptJPG()})
+		render := func(m *docscreen.Module) string {
+			de.d.Modules = nil
+			if m != nil {
+				de.d.Modules = map[string]docscreen.Module{docscreentest.Sample: *m}
+			}
+			de.remount()
+			rec := de.get(t, doc42)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, body %.300s", rec.Code, rec.Body)
+			}
+			h, err := uitest.Doc(t, rec).Find("main#main").Html()
+			if err != nil {
+				t.Fatal(err)
+			}
+			return h
+		}
+		want := render(nil)
+		m := m21FilesModule(&docscreen.FilesCard{Title: m21FilesTitle, Items: []components.Attachment{m21Other()}})
+		if got := render(&m); got != want {
+			t.Errorf("Files changed a cancelled Attachable DocType's page:\ngot  %.2000s\nwant %.2000s", got, want)
+		}
+	})
+
 	t.Run("attachable unchanged", func(t *testing.T) {
 		de := newDocEnv(t, allRights...)
 		de.seed(doctype.StateApproved)
