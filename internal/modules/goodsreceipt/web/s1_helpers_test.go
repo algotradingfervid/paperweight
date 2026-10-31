@@ -39,7 +39,8 @@ const (
 // s1World is grntest's world behind docscreen's routes.
 type s1World struct {
 	*grntest.Env
-	t *testing.T
+	t      *testing.T
+	hidden map[string]bool // fields the Module's Hide also hides, as another Hide would (CD-319)
 }
 
 func newS1World(t *testing.T) *s1World {
@@ -67,6 +68,12 @@ func (w *s1World) do(p auth.Principal, method, path string, form url.Values) s1P
 		Principal: func(*http.Request) (auth.Principal, bool) { return p, true },
 		Today:     func() (string, string) { return s1Today, "23-10-2026" },
 		Modules:   grnweb.Modules(grnweb.Deps{Service: w.Service}),
+	}
+	if len(w.hidden) > 0 {
+		m := d.Modules[goodsreceipt.DocType]
+		own := m.Hide
+		m.Hide = func(c docscreen.Ctx, f doctype.Field) bool { return w.hidden[f.Name] || own(c, f) }
+		d.Modules[goodsreceipt.DocType] = m
 	}
 	r := chi.NewRouter()
 	docscreen.Routes(d)(r)

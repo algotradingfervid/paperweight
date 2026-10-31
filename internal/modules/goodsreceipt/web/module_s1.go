@@ -102,6 +102,15 @@ func (m *module) hide(c docscreen.Ctx, f doctype.Field) bool {
 	return false
 }
 
+// shown reports whether the Hide docscreen asks (the app's Module in
+// c.Deps.Modules) shows field name: a hidden field stays out of the custom
+// steps' renders and posts too (CD-319).
+func shown(c docscreen.Ctx, name string) bool {
+	f, _ := c.DT.Field(name)
+	h := c.Deps.Modules[c.DT.Name].Hide
+	return h == nil || !h(c, f)
+}
+
 // ticked reports whether a Check field's value is on.
 func ticked(v string) bool { return v == "1" || v == "true" }
 
@@ -156,6 +165,9 @@ func (m *module) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Comp
 	date := dateProps(c, s, components.FieldProps{Name: "receipt_date", Label: labelReceiptDate, Hint: hintReceiptDate})
 	if date.Value == "" && !s.Posted && c.View == nil {
 		date.Value = date.Today
+	}
+	if !shown(c, "receipt_date") {
+		date = components.DateProps{}
 	}
 	if c.View != nil && len(c.View.Lines) > 0 {
 		return m.fixedPO(c, date)
@@ -331,12 +343,16 @@ func pickURL(c docscreen.Ctx, all bool) string {
 // DraftFromPO (plan G6 Do 3), with the typed receipt date; a blank order is
 // its 422, another site's order its 403 (CD-240).
 func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
+	dated := shown(c, "receipt_date")
 	date, fe := posted(c, "receipt_date")
-	if fe != nil {
+	if fe != nil && dated {
 		return docscreen.Save{Errors: []doctype.FieldError{*fe}}, nil
 	}
 	if c.View != nil && len(c.View.Lines) > 0 {
-		v := map[string]string{"receipt_date": date}
+		v := map[string]string{}
+		if dated {
+			v["receipt_date"] = date
+		}
 		if po, ok := c.Req.PostForm["purchase_order_id"]; ok {
 			v["purchase_order_id"] = po[0]
 		}
@@ -351,13 +367,17 @@ func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 	if err != nil {
 		return docscreen.Save{}, err
 	}
-	values["receipt_date"] = date
+	if dated {
+		values["receipt_date"] = date
+	}
 	return docscreen.Save{Values: values, Lines: lines}, nil
 }
 
-// deliveryForm is step 2's inputs.
+// deliveryForm is step 2's inputs; Show holds the fields Hide shows (the
+// tick is always drawn, UX doc §5.6).
 type deliveryForm struct {
 	ServiceOnly                        bool
+	Show                               map[string]bool
 	Kind, Number, Vehicle, Transporter components.FieldProps
 	EWay, Remarks, Rest                components.FieldProps
 	Date                               components.DateProps
@@ -392,6 +412,10 @@ func (m *module) deliveryBody(c docscreen.Ctx, s docscreen.StepState) (templ.Com
 	if ticked(d.Rest.Value) {
 		d.RestChecked = []string{"1"}
 	}
+	d.Show = map[string]bool{}
+	for _, name := range append(slices.Clone(documentFields), "remarks") {
+		d.Show[name] = shown(c, name)
+	}
 	return deliveryView(d), nil
 }
 
@@ -402,20 +426,27 @@ func (m *module) deliverySave(c docscreen.Ctx) (docscreen.Save, error) {
 	if err != nil {
 		return docscreen.Save{}, err
 	}
-	v := map[string]string{"remarks": c.Req.PostFormValue("remarks"), "rest_not_coming": "false"}
+	v := map[string]string{"rest_not_coming": "false"}
 	if ticked(c.Req.PostFormValue("rest_not_coming")) {
 		v["rest_not_coming"] = "true"
+	}
+	if shown(c, "remarks") {
+		v["remarks"] = c.Req.PostFormValue("remarks")
 	}
 	if only {
 		return docscreen.Save{Values: v}, nil
 	}
-	date, fe := posted(c, "challan_date")
-	if fe != nil {
-		return docscreen.Save{Errors: []doctype.FieldError{*fe}}, nil
+	if shown(c, "challan_date") {
+		date, fe := posted(c, "challan_date")
+		if fe != nil {
+			return docscreen.Save{Errors: []doctype.FieldError{*fe}}, nil
+		}
+		v["challan_date"] = date
 	}
-	v["challan_date"] = date
 	for _, name := range []string{"challan_kind", "challan_no", "vehicle_no", "transporter", "eway_bill_no"} {
-		v[name] = c.Req.PostFormValue(name)
+		if shown(c, name) {
+			v[name] = c.Req.PostFormValue(name)
+		}
 	}
 	return docscreen.Save{Values: v}, nil
 }

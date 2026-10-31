@@ -12,7 +12,8 @@ import "github.com/vardhan/internaltools/internal/ui/components"
 
 // choosePOView is step 1 with the order still open to choose (UX doc §5.2):
 // the radios or the select, or the empty text, then the link that widens or
-// narrows the orders, then the receipt date.
+// narrows the orders, then the receipt date (none when date is zero: Hide
+// hides it, CD-319).
 func choosePOView(p poPick, date components.DateProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -46,7 +47,7 @@ func choosePOView(p poPick, date components.DateProps) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(msgAskBuyer)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 11, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 12, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -79,9 +80,11 @@ func choosePOView(p poPick, date components.DateProps) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = components.DateInput(date).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if date.Name != "" {
+			templ_7745c5c3_Err = components.DateInput(date).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		return nil
 	})
@@ -89,7 +92,7 @@ func choosePOView(p poPick, date components.DateProps) templ.Component {
 
 // fixedPOView is step 1 of a draft with lines: its order as text, the hint
 // that says how to change it, Delete draft for a user who may, and the
-// receipt date (UX doc §5.2, spec §3.1).
+// receipt date unless date is zero (UX doc §5.2, spec §3.1).
 func fixedPOView(po []components.Pair, deleteHref string, date components.DateProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -122,7 +125,7 @@ func fixedPOView(po []components.Pair, deleteHref string, date components.DatePr
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(msgDeleteToChange)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 31, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 34, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -138,16 +141,19 @@ func fixedPOView(po []components.Pair, deleteHref string, date components.DatePr
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = components.DateInput(date).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if date.Name != "" {
+			templ_7745c5c3_Err = components.DateInput(date).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		return nil
 	})
 }
 
 // deliveryView is step 2 (UX doc §5.3): the document fields for a receipt
-// with goods, remarks, the tick as one row, and where the photo is taken.
+// with goods, remarks, the tick as one row, and where the photo is taken;
+// each but the tick only when Hide shows it (CD-319).
 func deliveryView(d deliveryForm) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -170,53 +176,87 @@ func deliveryView(d deliveryForm) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if !d.ServiceOnly {
-			templ_7745c5c3_Err = components.Radios(d.Kind, kindOptions).Render(ctx, templ_7745c5c3_Buffer)
+			if d.Show["challan_kind"] {
+				templ_7745c5c3_Err = components.Radios(d.Kind, kindOptions).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.TextInput(d.Number).Render(ctx, templ_7745c5c3_Buffer)
+			if d.Show["challan_no"] {
+				templ_7745c5c3_Err = components.TextInput(d.Number).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.DateInput(d.Date).Render(ctx, templ_7745c5c3_Buffer)
+			if d.Show["challan_date"] {
+				templ_7745c5c3_Err = components.DateInput(d.Date).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.TextInput(d.Vehicle).Render(ctx, templ_7745c5c3_Buffer)
+			if d.Show["vehicle_no"] {
+				templ_7745c5c3_Err = components.TextInput(d.Vehicle).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.TextInput(d.Transporter).Render(ctx, templ_7745c5c3_Buffer)
+			if d.Show["transporter"] {
+				templ_7745c5c3_Err = components.TextInput(d.Transporter).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.TextInput(d.EWay).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
+			if d.Show["eway_bill_no"] {
+				templ_7745c5c3_Err = components.TextInput(d.EWay).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
 		}
-		templ_7745c5c3_Err = components.Textarea(d.Remarks, remarksMax).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if d.Show["remarks"] {
+			templ_7745c5c3_Err = components.Textarea(d.Remarks, remarksMax).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		templ_7745c5c3_Err = components.Checkboxes(d.Rest, restOptions, d.RestChecked).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(msgPhotoLater)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 51, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/modules/goodsreceipt/web/s1.templ`, Line: 71, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
