@@ -1,6 +1,7 @@
 package components_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -94,6 +95,27 @@ func TestValidateHandler_GroupedValues(t *testing.T) {
 		rec := uitest.Do(t, h, http.MethodPost, "/ui/validate/"+c.kind, url.Values{"_id": {"f-n"}, "_name": {"n"}, "n": {c.in}})
 		if ev := trigger(t, rec.Header()); ev.Field.Value != c.want || ev.Field.Invalid {
 			t.Errorf("%s %q: trigger = %+v, want value %q", c.kind, c.in, ev.Field, c.want)
+		}
+	}
+}
+
+// CD-355 (1): the ui:field event echoes the raw value the request carried,
+// so field.js writes back only while the input still holds exactly it. The
+// echo is the posted text for a valid, a refused and an empty value.
+func TestValidateHandler_EchoesSentValue(t *testing.T) {
+	h := components.ValidateHandler(components.NUMParsers())
+	for _, in := range []string{"1,500", "1.234,56", "", " ₹1,23 "} {
+		rec := uitest.Do(t, h, http.MethodPost, "/ui/validate/money", url.Values{"_id": {"f-n"}, "_name": {"n"}, "n": {in}})
+		var ev struct {
+			Field struct {
+				Sent *string `json:"sent"`
+			} `json:"ui:field"`
+		}
+		if err := json.Unmarshal([]byte(rec.Header().Get("HX-Trigger")), &ev); err != nil {
+			t.Fatalf("%q: HX-Trigger %q: %v", in, rec.Header().Get("HX-Trigger"), err)
+		}
+		if ev.Field.Sent == nil || *ev.Field.Sent != in {
+			t.Errorf("%q: sent = %v, want the posted value", in, ev.Field.Sent)
 		}
 	}
 }
