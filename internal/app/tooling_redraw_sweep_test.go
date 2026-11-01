@@ -577,7 +577,9 @@ func (e *rsEnv) seeder(dt *doctype.DocType) func(t *testing.T) (values, line map
 				t.Fatal("no approved purchase.Order line for the receipts")
 			}
 			return map[string]string{"purchase_order_id": e.po, "receipt_date": day, "challan_kind": "Delivery challan", "challan_date": day},
-				map[string]string{"po_line_id": e.poLine, "received_qty": "1"}
+				// One rejected, so the reject_reason sentinel reaches the line
+				// card and the sweep checks LineCard's Hide there (S3c review).
+				map[string]string{"po_line_id": e.poLine, "received_qty": "2", "rejected_qty": "1"}
 		}
 	case fixture.Order:
 		return func(*testing.T) (map[string]string, map[string]string) {
