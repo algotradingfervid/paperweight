@@ -46,7 +46,8 @@ const (
 type s1World struct {
 	*grntest.Env
 	t      *testing.T
-	hidden map[string]bool // fields the Module's Hide also hides, as another Hide would (CD-319)
+	hidden map[string]bool                             // fields the Module's Hide also hides, as another Hide would (CD-319)
+	hideIf func(c docscreen.Ctx, f doctype.Field) bool // another Hide asked with the Ctx, when set
 	sm     *scs.SessionManager
 	keep   bool // send the last answer's session cookie
 	htmx   bool // send HX-Request
@@ -81,10 +82,12 @@ func (w *s1World) do(p auth.Principal, method, path string, form url.Values) s1P
 		Today:     func() (string, string) { return s1Today, "23-10-2026" },
 		Modules:   grnweb.Modules(grnweb.Deps{Service: w.Service, Sessions: w.sm}),
 	}
-	if len(w.hidden) > 0 {
+	if len(w.hidden) > 0 || w.hideIf != nil {
 		m := d.Modules[goodsreceipt.DocType]
 		own := m.Hide
-		m.Hide = func(c docscreen.Ctx, f doctype.Field) bool { return w.hidden[f.Name] || own(c, f) }
+		m.Hide = func(c docscreen.Ctx, f doctype.Field) bool {
+			return w.hidden[f.Name] || (w.hideIf != nil && w.hideIf(c, f)) || own(c, f)
+		}
 		d.Modules[goodsreceipt.DocType] = m
 	}
 	r := chi.NewRouter()
