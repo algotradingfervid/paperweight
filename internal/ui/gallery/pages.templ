@@ -120,7 +120,7 @@ templ badgesBody() {
 	@components.Disclosure("More details", false) {
 		<p>{ uitest.LongError }</p>
 	}
-	@components.EmptyState("No sample orders yet.", &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"})
+	@components.EmptyList("No sample orders yet", "Sample orders you add show up here.")
 }
 
 templ dialogsBody() {
@@ -146,8 +146,16 @@ templ dialogsBody() {
 
 templ datalistBody() {
 	@components.DataList(sampleList(false))
+	<h2>Without a state column</h2>
+	@components.DataList(noStateList())
+	<h2>Inside a card</h2>
+	@components.Card("Waiting for you", nil) {
+		@components.DataList(sampleList(false))
+	}
 	<h2>An empty list</h2>
 	@components.DataList(sampleList(true))
+	<h2>Nothing matches</h2>
+	@components.NoMatch(`No sample orders match "`+uitest.LongName100+`"`, "Try fewer words, or clear the filters.", "/_gallery/datalist")
 }
 
 templ linesBody() {

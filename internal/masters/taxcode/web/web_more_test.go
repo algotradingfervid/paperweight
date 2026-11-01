@@ -185,7 +185,7 @@ func TestScreens_TaxCodeListCopy(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	webtest.WantText(t, w.h.Get(t, kavya, "/m/tax-code"), "No tax codes yet.")
+	webtest.WantText(t, w.h.Get(t, kavya, "/m/tax-code"), "No tax codes yet")
 }
 
 // Each successful write shows its success banner on the page the 303 leads

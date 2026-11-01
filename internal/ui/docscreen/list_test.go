@@ -242,19 +242,71 @@ func TestListColumns_FromListPriority(t *testing.T) {
 	docscreen.ListColumns(wide)
 }
 
+// CD-366 (UI v2 §5.14): with no search or filter an empty list says "yet"
+// with the plain line and no action (New is in the page head and the bottom
+// nav), for a creator and a reader alike; when a search or a filter hides
+// every row it says nothing matched and offers Clear filters, which keeps
+// the sort and size but drops the search and every filter. The message never
+// repeats a filter's value.
 func TestDocList_EmptyState(t *testing.T) {
-	e := newEnv(t, "read", "create")
-	rec := e.get(t, "/doc/docscreentest.Sample?q=no-such-thing-zz")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d", rec.Code)
+	plain := "/doc/docscreentest.Sample?size=50&sort=amount.desc"
+	for _, c := range []struct {
+		name               string
+		rights             []auth.Right
+		target, text, line string
+		action, href       string // "" action: no link at all
+	}{
+		{"no search or filter", []auth.Right{"read", "create"}, "/doc/docscreentest.Sample", "No sample orders yet", "Sample orders you add show up here.", "", ""},
+		{"no search or filter, read only", []auth.Right{"read"}, "/doc/docscreentest.Sample", "No sample orders yet", "Sample orders you add show up here.", "", ""},
+		{"search", []auth.Right{"read", "create"}, "/doc/docscreentest.Sample?q=no-such-thing-zz&sort=amount.desc&size=50", `No sample orders match "no-such-thing-zz"`, "Try fewer words, or clear the filters.", "Clear filters", plain},
+		{"filter, no search", []auth.Right{"read", "create"}, "/doc/docscreentest.Sample?f=state:=:draft&sort=amount.desc&size=50", "No sample orders match these filters", "Try fewer filters, or clear them.", "Clear filters", plain},
+		{"search and filter", []auth.Right{"read", "create"}, "/doc/docscreentest.Sample?q=zz&f=state:=:draft&sort=amount.desc&size=50", `No sample orders match "zz"`, "Try fewer words, or clear the filters.", "Clear filters", plain},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newEnv(t, c.rights...)
+			rec := e.get(t, c.target)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d", rec.Code)
+			}
+			empty := uitest.Doc(t, rec).Find(".empty-state")
+			if got := strings.TrimSpace(empty.Find("p.empty-state-text").Text()); got != c.text {
+				t.Errorf("empty message = %q, want %q", got, c.text)
+			}
+			if got := strings.TrimSpace(empty.Find("p.empty-state-line").Text()); got != c.line {
+				t.Errorf("empty line = %q, want %q", got, c.line)
+			}
+			if strings.Contains(empty.Text(), "draft") || strings.Contains(empty.Text(), "Draft") {
+				t.Errorf("empty state %q repeats the filter value", empty.Text())
+			}
+			a := empty.Find("a")
+			if c.action == "" {
+				if a.Length() != 0 {
+					t.Errorf("empty state has %d links, want none", a.Length())
+				}
+				return
+			}
+			if a.Length() != 1 || a.AttrOr("href", "") != c.href || strings.TrimSpace(a.Text()) != c.action {
+				t.Errorf("empty action = %d %q %q, want %q to %q", a.Length(), a.AttrOr("href", ""), strings.TrimSpace(a.Text()), c.action, c.href)
+			}
+		})
 	}
-	doc := uitest.Doc(t, rec)
-	empty := doc.Find(".empty-state")
-	if got := strings.TrimSpace(empty.Find("p").Text()); got != "No sample orders yet." {
-		t.Errorf("empty message = %q", got)
+}
+
+// A filter on a field the module hides on the list is dropped before the
+// Lister runs (CD-334), so it doesn't make the list "filtered": the empty
+// state says "yet" and never shows the hidden value.
+func TestDocList_EmptyStateIgnoresHiddenFilter(t *testing.T) {
+	registerM54Sorted()
+	e := newDocEnv(t, "read")
+	e.az.Grant("Buyer", m54Sorted, "read", auth.ScopeAll)
+	e.d.Modules = map[string]docscreen.Module{m54Sorted: {Hide: func(c docscreen.Ctx, f doctype.Field) bool { return c.Listing && f.Name == "secret" }}}
+	e.remount()
+	page := m01bOK(t, e.get(t, "/doc/"+m54Sorted+"?f=secret:=:zq-secret"), "GET with a filter on hidden Secret")
+	if got := strings.TrimSpace(page.Find(".empty-state p.empty-state-text").Text()); got != "No sorteds yet" {
+		t.Errorf("empty message = %q, want No sorteds yet", got)
 	}
-	if href, _ := empty.Find("a").Attr("href"); href != "/doc/docscreentest.Sample/new" || strings.TrimSpace(empty.Find("a").Text()) != "New sample order" {
-		t.Errorf("empty action = %q %q", href, empty.Find("a").Text())
+	if strings.Contains(page.Find("#main").Text(), "zq-secret") {
+		t.Error("the list shows the hidden filter's value")
 	}
 }
 

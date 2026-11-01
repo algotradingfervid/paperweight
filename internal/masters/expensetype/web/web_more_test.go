@@ -214,7 +214,7 @@ func TestScreens_ExpenseTypeCopy(t *testing.T) {
 	empty := w.h.Get(t, kavya, "/m/expense-type")
 	webtest.WantStatus(t, empty, http.StatusOK)
 	webtest.WantText(t, empty, "Expense Types")
-	webtest.WantText(t, empty, "No expense types yet.")
+	webtest.WantText(t, empty, "No expense types yet")
 	webtest.WantText(t, empty, "New expense type")
 	if !strings.Contains(empty.Body, "Search expense types") {
 		t.Error("list has no Search expense types label")

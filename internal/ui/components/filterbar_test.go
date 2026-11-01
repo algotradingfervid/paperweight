@@ -98,3 +98,33 @@ func TestFilterBar_LinksInBarOrder(t *testing.T) {
 		t.Errorf("links = %q, want %q", got, want)
 	}
 }
+
+// UI v2 §5.12: an active filter is a removable chip with an icon, its label
+// and an ×, named "Remove filter" for screen readers; the chips are a
+// labelled group ending in Clear all.
+func TestFilterBar_RemovableChips(t *testing.T) {
+	doc := uitest.Render(t, components.FilterBar(components.FilterBarProps{
+		Action: "/doc/po", ClearURL: "/doc/po",
+		Chips: []components.Chip{
+			{Label: "Site: Metro Depot Site", RemoveURL: "/doc/po?f=state:=:draft"},
+			{Label: "State: Draft", RemoveURL: "/doc/po?f=site_id:=:3"},
+		},
+	}))
+	ul := doc.Find("ul.filterbar-chips")
+	if got := ul.AttrOr("aria-label", ""); got != "Active filters" {
+		t.Errorf("chips aria-label = %q, want Active filters", got)
+	}
+	ul.Find("a.chip").Each(func(i int, a *goquery.Selection) {
+		kids := a.Children()
+		if kids.Length() != 3 || !kids.Eq(0).Is("svg") || !kids.Eq(1).Is("svg") || !kids.Eq(2).HasClass("visually-hidden") {
+			t.Errorf("chip %d: children %d; want icon, ×, then the hidden Remove filter", i, kids.Length())
+		}
+		if got := text(kids.Eq(2)); got != "Remove filter" {
+			t.Errorf("chip %d: hidden text %q", i, got)
+		}
+	})
+	last := ul.Children().Last().Find("a")
+	if text(last) != "Clear all" || last.AttrOr("href", "") != "/doc/po" {
+		t.Errorf("last item = %q %q, want Clear all to /doc/po", text(last), last.AttrOr("href", ""))
+	}
+}

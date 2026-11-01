@@ -214,7 +214,7 @@ func sampleList(empty bool) components.DataListProps {
 			{Key: "gstin", Label: "GSTIN", Priority: components.PMeta, NoWrap: true},
 			{Key: "hindi", Label: "Name in Hindi", Priority: components.PLow},
 		},
-		Empty: components.EmptyState("No sample orders yet.", &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"}),
+		Empty: components.EmptyList("No sample orders yet", "Sample orders you add show up here."),
 	}
 	if empty {
 		return p
@@ -227,6 +227,28 @@ func sampleList(empty bool) components.DataListProps {
 		{Href: "/_gallery/datalist", Party: "Shree Steel Traders", Values: map[string]string{"number": "PO/0043", "amount": "₹1,200.00", "date": "24-10-2026", "hindi": uitest.LongDevanagari}, State: doctype.StateApproved}, // blank GSTIN between two values
 	}
 	return p
+}
+
+// noStateList is a DataList with no state column (a non-submittable
+// DocType), with worst-case values in every place and one row each with a
+// blank first, middle and last value.
+func noStateList() components.DataListProps {
+	full := map[string]string{"code": uitest.LongCode60, "gstin": "29AAFCV2449G1Z5", "city": uitest.LongName100, "hindi": uitest.LongDevanagari}
+	return components.DataListProps{
+		Label: "Sample suppliers",
+		Columns: []components.Column{
+			{Key: "code", Label: "Code", Priority: components.PTitle, Code: true},
+			{Key: "gstin", Label: "GSTIN", Priority: components.PMeta, NoWrap: true},
+			{Key: "city", Label: "City", Priority: components.PMeta},
+			{Key: "hindi", Label: "Name in Hindi", Priority: components.PLow},
+		},
+		Rows: []components.Row{
+			{Href: "/_gallery/datalist", Party: uitest.LongName100, Values: full},
+			{Href: "/_gallery/datalist", Values: map[string]string{"code": "SUP-002", "city": uitest.LongName100, "hindi": uitest.LongDevanagari}},
+			{Href: "/_gallery/datalist", Party: uitest.LongDevanagari, Values: map[string]string{"code": "SUP-003", "gstin": "29AAFCV2449G1Z5", "hindi": uitest.LongDevanagari}},
+			{Href: "/_gallery/datalist", Party: "Shree Steel Traders", Values: map[string]string{"code": "SUP-004", "gstin": "29AAFCV2449G1Z5", "city": "Pune"}},
+		},
+	}
 }
 
 // lineCards are the first n of 500 worst-case lines.

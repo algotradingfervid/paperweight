@@ -304,7 +304,7 @@ func TestScreens_PaymentTermsListCopy(t *testing.T) {
 	kavya := w.h.Env.Kavya
 	ctx := context.Background()
 
-	webtest.WantText(t, w.h.Get(t, kavya, "/m/payment-terms"), "No payment terms yet.")
+	webtest.WantText(t, w.h.Get(t, kavya, "/m/payment-terms"), "No payment terms yet")
 
 	net30, adv50 := w.seed(t)
 	list := w.h.Get(t, kavya, "/m/payment-terms")

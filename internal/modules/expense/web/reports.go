@@ -146,7 +146,7 @@ func (h *handlers) report(w http.ResponseWriter, r *http.Request) {
 	if len(q) == 0 {
 		v.list.Empty = components.EmptyState(spec.none, nil)
 	} else {
-		v.list.Empty = components.EmptyState(spec.noMatch, &components.Link{Label: "Clear all", Href: base})
+		v.list.Empty = components.NoMatch(spec.noMatch, "", base)
 	}
 	if h.d.Auth.Can(ctx, p, spec.docType, auth.RightExport, nil) == nil {
 		v.bar.Export = &components.Link{Label: "Export", Href: withQuery(base+"/export.csv", q)}

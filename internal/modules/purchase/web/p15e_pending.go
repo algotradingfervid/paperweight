@@ -172,7 +172,7 @@ func (h *handlers) pendingReport(w http.ResponseWriter, r *http.Request) {
 		v.bar.Links = []components.Link{{Label: overdueOnly, Href: withQuery(pendingBase, over)}}
 	}
 	if len(q) > 0 {
-		v.list.Empty = components.EmptyState(msgPendingMiss, &components.Link{Label: "Clear all", Href: pendingBase})
+		v.list.Empty = components.NoMatch(msgPendingMiss, "", pendingBase)
 	}
 	if ok, err := h.can(ctx, p, purchase.DocType, auth.RightExport); err != nil {
 		web.ErrorFrom(w, r, err)

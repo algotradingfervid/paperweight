@@ -191,7 +191,7 @@ func TestScreens_UoMListKeepsSearch(t *testing.T) {
 	}
 }
 
-// With a search on, an empty result says it found nothing: "No UoMs yet."
+// With a search on, an empty result says it found nothing: "No UoMs yet"
 // would be untrue. The disabled filter doesn't change that.
 func TestScreens_UoMNoMatch(t *testing.T) {
 	w := newWorld(t)
@@ -199,8 +199,8 @@ func TestScreens_UoMNoMatch(t *testing.T) {
 	for _, target := range []string{"/m/uom?q=zzzz", "/m/uom?include_disabled=true&q=zzzz"} {
 		resp := w.h.Get(t, kavya, target)
 		webtest.WantStatus(t, resp, http.StatusOK)
-		webtest.WantText(t, resp, "No results. Try a different search.")
-		webtest.WantNoText(t, resp, "No UoMs yet.")
+		webtest.WantText(t, resp, `No UoMs match "zzzz"`)
+		webtest.WantNoText(t, resp, "No UoMs yet")
 	}
 }
 
