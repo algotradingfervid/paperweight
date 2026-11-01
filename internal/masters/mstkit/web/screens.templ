@@ -77,7 +77,7 @@ templ recordPageCancelTo(v recordView, cancel string) {
 					<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
 				}
 				@components.RequiredNote(v.Required)
-				for _, in := range v.Inputs {
+				for _, in := range grouped(v.Inputs) {
 					@in
 				}
 				@formRows(v.Rows)
@@ -132,4 +132,13 @@ templ problemBanner(v recordView) {
 // form without its version (400).
 templ problemPage(msg string, back components.Link) {
 	@layout.Page(layout.PageOpts{Title: msg, Error: true, Back: &back})
+}
+
+// moreGroup is b's inputs in a MoreDetails.
+templ moreGroup(b moreBox) {
+	@components.MoreDetails(b.labels, b.open) {
+		for _, c := range b.inputs {
+			@c
+		}
+	}
 }

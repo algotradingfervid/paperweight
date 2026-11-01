@@ -173,7 +173,7 @@ func lrLinks() []lrLink {
 			in.DefaultPaymentTermsID = id
 			return in
 		}).csv(func(_ *nsWorld, code string) map[string]string {
-			return map[string]string{"Code": "SRC-1", "Name": "Row", "Vendor": "Yes", "Payment Terms": code}
+			return map[string]string{"Code": "SRC-1", "Name": "Row", "Vendor": "Yes", "Payment terms": code}
 		}),
 		lrOf(item.Kind, "stock_uom_id", uom.Kind, item.MsgStockNotFound, lrItems, func(w *nsWorld, _ int64, code string, id int64) item.Input {
 			in := nsItemInput(w, code, "Row")

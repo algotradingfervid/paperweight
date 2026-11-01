@@ -583,7 +583,7 @@ func TestImport_PartyPaymentTerms(t *testing.T) {
 	}
 
 	rep := w.importFile(t, party.DocType, partiesCSV(partiesPartyHeader, "P-BAD,Vendor Bad Terms,Yes,,,,NET99,"))
-	partiesWantErrors(t, rep, "Row 2: Payment Terms 'NET99' not found. Use an existing Payment Terms code such as NET15.")
+	partiesWantErrors(t, rep, "Row 2: Payment terms 'NET99' not found. Use an existing Payment terms code such as NET15.")
 	partiesWantNotImported(t, rep, 1, 0)
 }
 

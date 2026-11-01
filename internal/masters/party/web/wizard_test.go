@@ -213,7 +213,7 @@ func TestScreens_PartyWizardFirstPage(t *testing.T) {
 	w := newWorld(t)
 	page := w.kavya().Get(t, wizardMain)
 	webtest.WantStatus(t, page, http.StatusOK)
-	for _, text := range []string{"New party", "Step 1 of 4", "Party details", "Addresses", "Contacts", "Check and save", "Payment Terms", "GST category"} {
+	for _, text := range []string{"New party", "Step 1 of 4", "Party details", "Addresses", "Contacts", "Check and save", "Payment terms", "GST category"} {
 		webtest.WantText(t, page, text)
 	}
 	for _, step := range []string{stepAddresses, stepContacts, stepCheck} {
@@ -824,7 +824,7 @@ func TestScreens_PartyWizardTermsLink(t *testing.T) {
 	// A chosen value offers Clear, and a blank post clears the draft.
 	webtest.WantRedirect(t, b.Post(t, stepDetails, with(details("MEHTA"), "default_payment_terms_id", id, "return", "check")), stepCheck)
 	page := b.Get(t, stepDetails)
-	if n := page.Doc.Find(`[data-picker-clear][aria-label="Clear Payment Terms"]`).Length(); n != 1 {
+	if n := page.Doc.Find(`[data-picker-clear][aria-label="Clear Payment terms"]`).Length(); n != 1 {
 		t.Errorf("Clear controls on Payment Terms = %d; want 1", n)
 	}
 	webtest.WantRedirect(t, b.Post(t, stepDetails, with(details("MEHTA"), "default_payment_terms_id", "", "return", "check")), stepCheck)
