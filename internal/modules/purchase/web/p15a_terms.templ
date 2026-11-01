@@ -2,15 +2,15 @@ package purchaseweb
 
 import "github.com/vardhan/internaltools/internal/ui/components"
 
-// termsView is the Terms body: the fields, then the earlier-PO ones under
-// their summary.
-templ termsView(fields, earlier []templ.Component, open bool) {
+// termsView is the Terms body: the fields, then the More ones, labelled
+// labels, in a MoreDetails.
+templ termsView(fields, more []templ.Component, labels []string, open bool) {
 	for _, f := range fields {
 		@f
 	}
-	if len(earlier) > 0 {
-		@components.Disclosure(earlierSummary, open) {
-			for _, f := range earlier {
+	if len(more) > 0 {
+		@components.MoreDetails(labels, open) {
+			for _, f := range more {
 				@f
 			}
 		}

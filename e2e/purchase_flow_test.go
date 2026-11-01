@@ -182,6 +182,7 @@ func TestE2E_PurchaseOrderFlow(t *testing.T) {
 	onStep(p, "Step 2 of 4")
 	po := p.DocID()
 	noOverflow(p, "Terms")
+	openMoreDetails(p)
 	p.Fill("vendor_quote_ref", "QT-2026-118")
 	p.Press(saveContinue)
 	onStep(p, "Step 3 of 4")
@@ -378,6 +379,7 @@ func TestE2E_PUX008_HandOverMidEdit(t *testing.T) {
 
 	p := h.SignIn(priya, phone360)
 	p.Open(page + "/edit/terms")
+	openMoreDetails(p)
 	p.WaitText("Vendor quote ref")
 	p.Fill("vendor_quote_ref", "QT-2026-118")
 	a := h.SignIn(arjun, phone360)
@@ -522,4 +524,13 @@ func TestE2E_PUX019_CommentBox(t *testing.T) {
 	if got := Scalar[string](h, `SELECT group_concat(body, '|') FROM module_comment WHERE doctype = ? AND record_id = ?`, purchase.DocType, po); got != "Please check the rate" {
 		t.Errorf("stored comments = %q, want only the valid one", got)
 	}
+}
+
+// openMoreDetails opens the page's More details group, whose summary names
+// the fields inside (P40, UI v2 §5.5 item 3).
+func openMoreDetails(s *Session) {
+	s.t.Helper()
+	find := `[...document.querySelectorAll("details > summary")].find((e) => e.checkVisibility() && e.textContent.trim().startsWith("More details"))`
+	s.Until("the More details group", `!!(`+find+`)`)
+	openDisclosure(s, Eval[string](s, `(`+find+`).textContent.trim()`))
 }

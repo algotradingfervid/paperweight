@@ -139,7 +139,7 @@ func TestPUX010_TermsAddressRadios(t *testing.T) {
 }
 
 // PUX-010's redraw (UX §5.5): a 422 on Terms keeps the posted radio and
-// values, and opens the Earlier paper order disclosure on its field's error;
+// values, and opens the More details group on its field's error;
 // a GET with both earlier-PO fields blank has it closed, and open with a
 // value.
 func TestPUX010_TermsRedraw(t *testing.T) {
@@ -149,14 +149,14 @@ func TestPUX010_TermsRedraw(t *testing.T) {
 	terms := p15dDoc(purchase.DocType, po.ID) + "/edit/terms"
 	disclosure := func(p p15dPage) (n int, open bool) {
 		d := p.doc.Find("details").FilterFunction(func(_ int, s *goquery.Selection) bool {
-			return p15dCollapse(s.Find("summary").Text()) == "Earlier paper order"
+			return strings.HasPrefix(p15dCollapse(s.Find("summary").Text()), "More details") // the earlier-PO fields are Field.More (P40)
 		})
 		_, open = d.Attr("open")
 		return d.Length(), open
 	}
 	page := w.get(t, env.Priya, terms)
 	if n, open := disclosure(page); n != 1 || open {
-		t.Errorf("GET terms: %d Earlier paper order disclosures, open %v; want one, closed", n, open)
+		t.Errorf("GET terms: %d More details groups, open %v; want one, closed", n, open)
 	}
 	if page.doc.Find(`details [name="earlier_po_no"]`).Length() != 1 || page.doc.Find(`details [name="earlier_po_date"]`).Length() != 1 {
 		t.Error("the earlier-PO fields are not inside the disclosure")
