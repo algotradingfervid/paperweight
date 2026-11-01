@@ -621,10 +621,16 @@ func TestApp_UnknownPath(t *testing.T) {
 	w.firstAdmin()
 	b := w.signedIn(adminEmail)
 	heading := func(r *response) string { return strings.TrimSpace(r.doc.Find("h1").First().Text()) }
+	// The 404 problem page (UI v2 §5.14, A-30): its heading, then the kernel
+	// text exactly as the body line.
+	const problemHeading = "We can't open this page"
+	isProblem := func(r *response) bool {
+		return heading(r) == problemHeading && r.doc.Find(".problem-message").Text() == auth.MsgNotFound
+	}
 
 	r := b.get(unknown)
-	if r.status != http.StatusNotFound || heading(r) != auth.MsgNotFound {
-		t.Errorf("signed-in GET %s = %d h1 %q, want 404 %q", unknown, r.status, heading(r), auth.MsgNotFound)
+	if r.status != http.StatusNotFound || !isProblem(r) {
+		t.Errorf("signed-in GET %s = %d h1 %q body %q, want 404 %q with %q", unknown, r.status, heading(r), r.doc.Find(".problem-message").Text(), problemHeading, auth.MsgNotFound)
 	}
 	if r.doc.Find(shellLink).Length() == 0 {
 		t.Errorf("signed-in GET %s has no shell navigation", unknown)
@@ -638,7 +644,7 @@ func TestApp_UnknownPath(t *testing.T) {
 
 	// A history restore needs the whole page; any other htmx request the notice.
 	restore := b.do(http.MethodGet, unknown, nil, "", map[string]string{"HX-Request": "true", "HX-History-Restore-Request": "true"})
-	if restore.status != http.StatusNotFound || heading(restore) != auth.MsgNotFound {
+	if restore.status != http.StatusNotFound || !isProblem(restore) {
 		t.Errorf("history-restore GET %s = %d h1 %q, want 404 page", unknown, restore.status, heading(restore))
 	}
 	hx := b.do(http.MethodGet, unknown, nil, "", map[string]string{"HX-Request": "true"})
@@ -653,8 +659,8 @@ func TestApp_UnknownPath(t *testing.T) {
 	// Signed out: no route means no guard, so the public 404 page, never a
 	// redirect to /signin: an unmatched path is 404 for a guest (CD-250).
 	guest := w.browser().get(unknown)
-	if guest.status != http.StatusNotFound || heading(guest) != auth.MsgNotFound || guest.doc.Find(shellLink).Length() != 0 {
-		t.Errorf("signed-out GET %s = %d h1 %q, want 404 %q with no navigation", unknown, guest.status, heading(guest), auth.MsgNotFound)
+	if guest.status != http.StatusNotFound || !isProblem(guest) || guest.doc.Find(shellLink).Length() != 0 {
+		t.Errorf("signed-out GET %s = %d h1 %q, want the 404 problem page with %q and no navigation", unknown, guest.status, heading(guest), auth.MsgNotFound)
 	}
 	if got := guest.header.Get("Cache-Control"); got == "private, no-store" {
 		t.Errorf("signed-out GET %s: Cache-Control %q, want no signed-in header", unknown, got)

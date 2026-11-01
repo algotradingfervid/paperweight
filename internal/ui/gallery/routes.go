@@ -18,6 +18,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/types"
@@ -76,6 +77,16 @@ var pages = []galleryPage{
 	{"auth-sessions", titled("Your sessions"), static(authSessionsBody())},
 	{"auth-users", titled("Users"), static(authUsersBody())},
 	{"auth-rights", layout.PageOpts{Title: "Rights for Employee", BarSlot: authRightsBar()}, static(authRightsBody())},
+	{"problem", layout.PageOpts{Title: "Problem page", NoHeading: true}, problemBody},
+}
+
+// problemBody is the 404 page's body with the kernel's text; ?status=403
+// gives the 403 one with an AUTH refusal (UI v2 §5.14).
+func problemBody(r *http.Request) templ.Component {
+	if r.URL.Query().Get("status") == "403" {
+		return components.ProblemPage(http.StatusForbidden, "You can only change Purchase Orders you created.")
+	}
+	return components.ProblemPage(http.StatusNotFound, doctype.ErrNotFound.Error())
 }
 
 // strictPolicy is WP0's policy without 'unsafe-inline' for styles, reporting
@@ -300,6 +311,7 @@ func Screens(base string) []screens.Screen {
 		screens.Screen{Name: "gallery wizard-1, refused", Route: route, URL: base + "/_gallery/wizard-1?errors=1"},
 		screens.Screen{Name: "gallery wizard-1, supplier chosen", Route: route, URL: base + "/_gallery/wizard-1?supplier=3"},
 		screens.Screen{Name: "gallery wizard-3, conflict", Route: route, URL: base + "/_gallery/wizard-3?conflict=1"},
+		screens.Screen{Name: "gallery problem, 403", Route: route, URL: base + "/_gallery/problem?status=403"},
 	)
 	hooked := append(docscreen.Screens(docscreentest.Hooked, hookedIDs), screens.Screen{
 		Name: docscreentest.Hooked + " read-only draft", Route: "/doc/{doctype}/{id}",

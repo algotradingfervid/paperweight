@@ -11,6 +11,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
 	"github.com/vardhan/internaltools/internal/ui/screens"
@@ -23,11 +24,20 @@ var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
 	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments",
+	"problem",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
 // Focus 1): the overflow sweep only proves something if the values are there.
 var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
+	"problem": func(t *testing.T, d *goquery.Document) {
+		if d.Find("main#main section.problem").Length() != 1 || d.Find("main#main h1").Length() != 1 {
+			t.Error("problem: want the 404 problem page as the only heading in main")
+		}
+		if got := d.Find(".problem-message").Text(); got != doctype.ErrNotFound.Error() {
+			t.Errorf("problem: message = %q, want the kernel 404 text", got)
+		}
+	},
 	"fields": func(t *testing.T, d *goquery.Document) {
 		if !strings.Contains(d.Text(), uitest.LongError) {
 			t.Error("fields: no field shows uitest.LongError (the 422 state)")

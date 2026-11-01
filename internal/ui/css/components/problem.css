@@ -1,0 +1,50 @@
+/* problem.css: the 403 and 404 page (UI v2 §5.14): a centred card with a
+   72 px icon circle, the heading, the kernel text, the next step and two
+   ways back, stacked on phones. */
+
+@utility problem {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  max-inline-size: 32rem;
+  margin-inline: auto;
+  margin-block-start: var(--space-6);
+  padding: var(--space-8) var(--space-4);
+  border: var(--border-w) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-1);
+  text-align: center;
+  overflow-wrap: anywhere;
+  & h1 { margin: 0; }
+  & p { margin: 0; }
+}
+
+@utility problem-icon {
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--space-16) + var(--space-2));
+  block-size: calc(var(--space-16) + var(--space-2));
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+  & .icon { inline-size: var(--space-8); block-size: var(--space-8); }
+}
+
+@utility problem-message { color: var(--color-text); }
+
+@utility problem-next {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+@utility problem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  margin-block-start: var(--space-2);
+  & > .btn { flex: 1 1 10rem; }
+}

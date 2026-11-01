@@ -485,7 +485,7 @@ func TestScreens_RowsNeedPartyRead(t *testing.T) {
 			w.grant(t, "Purchase User", c.rights, party.DocType)
 			want := b.Get(t, recordURL(shree.ID))
 			webtest.WantStatus(t, want, c.status)
-			msg := webtest.Squash(want.Doc.Find("h1").First().Text())
+			msg := webtest.Squash(want.Doc.Find(".problem-message").First().Text())
 			if msg == "" {
 				t.Fatalf("the record's refusal has no heading\nbody: %s", webtest.Squash(want.Body))
 			}

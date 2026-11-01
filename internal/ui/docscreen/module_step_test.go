@@ -717,7 +717,7 @@ func TestModule_Conflict(t *testing.T) {
 		if got := m02Attr(body.Find("#m02-ref"), "value"); got != m02Typed {
 			t.Errorf("%s: Body input = %q, want the typed %s kept", what, got, m02Typed)
 		}
-		if page.Find("#wizard .banner--danger").Length() == 0 {
+		if page.Find("#wizard .banner--warning").Length() == 0 {
 			t.Errorf("%s: no conflict banner", what)
 		}
 		m02WantUnchanged(t, e, id, before, audits, what)
