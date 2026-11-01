@@ -37,6 +37,7 @@ const (
 	s3bNotAppr   = "Add bill details after the receipt is approved."
 	s3bInvoice   = "INV-889"
 	s3bReload    = "Reload Bill details"
+	s3bKeep      = "Your entries stay on this page until you reload, so you can copy them."
 )
 
 // s3bPO is an approved PO of 1,200 KGS at ₹62.50.
@@ -352,8 +353,9 @@ func TestGRNBill_Refusals(t *testing.T) {
 		t.Helper()
 		noStatus(what, r)
 		s3bWantForm(t, what, r, g.ID, "0", "INV-NEW", "23-10-2026", "")
-		// UI v2 E6 (A-29): the 409 banner is a warning whose link names
-		// what to reload.
+		// The 409 banner is the ConflictBanner (CD-362, CD-365): a warning
+		// alert with DOC's text, the keep-your-entries line and a Reload
+		// button naming what it reloads.
 		got := r.s3bBanners("warning")
 		if len(got) != 1 || !strings.HasPrefix(got[0], s3bStale) {
 			t.Errorf("%s: warning banners %q, want [%q …]", what, got, s3bStale)
@@ -361,8 +363,15 @@ func TestGRNBill_Refusals(t *testing.T) {
 		if got := r.s3bBanners("danger"); len(got) != 0 {
 			t.Errorf("%s: error banners %q, want none", what, got)
 		}
-		if a := r.s3bCard().Find(".banner--warning a"); a.Length() != 1 || s2Norm(a.Text()) != s3bReload || a.AttrOr("href", "") != s3Doc(g.ID)+"#bill" {
-			t.Errorf("%s: %d links %q to %q, want %s to the page at #bill", what, a.Length(), s2Norm(a.Text()), a.AttrOr("href", ""), s3bReload)
+		b := r.s3bCard().Find(".banner--warning")
+		if b.AttrOr("role", "") != "alert" {
+			t.Errorf("%s: warning banner role %q, want alert", what, b.AttrOr("role", ""))
+		}
+		if got := s2Norm(b.Find(".banner-body > p").Eq(1).Text()); got != s3bKeep {
+			t.Errorf("%s: second line %q, want %q", what, got, s3bKeep)
+		}
+		if a := b.Find("a.btn.btn--secondary"); a.Length() != 1 || s2Norm(a.Text()) != s3bReload || a.AttrOr("href", "") != s3Doc(g.ID)+"#bill" {
+			t.Errorf("%s: %d buttons %q to %q, want %s to the page at #bill", what, a.Length(), s2Norm(a.Text()), a.AttrOr("href", ""), s3bReload)
 		}
 	}
 	w.keep = false
@@ -392,6 +401,9 @@ func TestGRNBill_Refusals(t *testing.T) {
 	r = s3OK(t, w.get(w.Suresh, s3Doc(c.ID)), "cancelled, next load")
 	if got := r.s3bBanners("danger"); len(got) != 1 || got[0] != s3bNotAppr || r.s3bCard().Find("form").Length() != 0 {
 		t.Errorf("cancelled, next load: error banners %q, want [%q] and no form", got, s3bNotAppr)
+	}
+	if b := r.s3bCard().Find(".banner"); b.Length() != 1 || strings.Contains(b.Text(), s3bKeep) || b.Find("a").Length() != 0 {
+		t.Errorf("cancelled, next load: %d banners %q, want only the danger one without the conflict line or a button", b.Length(), s2Norm(b.Text()))
 	}
 	if r := s3OK(t, w.get(w.Suresh, s3Doc(c.ID)), "cancelled, load after"); r.s3bCard().Length() != 0 {
 		t.Errorf("cancelled, load after: a Bill details card %q, want none", r.s3bText())
