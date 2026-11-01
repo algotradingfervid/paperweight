@@ -187,9 +187,11 @@ func TestE2E_GRNFlow(t *testing.T) {
 	start := time.Now()
 	grn := startGRN(s)
 	grnDelivery(s, grnChallan)
-	for i, name := range []string{"MS Angle 50x50x5", boltName, "Binding Wire 18G", "Armoured Cable 4 core 16 sq mm", "OPC Cement 53 Grade"} {
-		if !Eval[bool](s, cardInput("Received now, line "+strconv.Itoa(i+1)+", "+name)+`?.value !== ""`) {
-			t.Errorf("%s's Received now isn't prefilled with its pending", name)
+	for i, c := range []struct{ name, pending string }{
+		{"MS Angle 50x50x5", "1,200"}, {boltName, "500"}, {"Binding Wire 18G", "50"}, {"Armoured Cable 4 core 16 sq mm", "100"}, {"OPC Cement 53 Grade", "40"},
+	} {
+		if got := Eval[string](s, cardInput("Received now, line "+strconv.Itoa(i+1)+", "+c.name)+`?.value ?? ""`); got != c.pending {
+			t.Errorf("%s's Received now = %q, want its pending %q", c.name, got, c.pending)
 		}
 	}
 	rejectOn(s, 1, "MS Angle 50x50x5", "10", grnRejected)
