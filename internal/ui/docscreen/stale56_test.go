@@ -3,7 +3,6 @@ package docscreen_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"html"
 	"io"
 	"net/http"
@@ -18,12 +17,15 @@ import (
 
 	"github.com/vardhan/internaltools/internal/fixture"
 	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
+	"github.com/vardhan/internaltools/internal/kernel/approval"
+	"github.com/vardhan/internaltools/internal/kernel/audit/auditfake"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/auth/authtest"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
-	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/testkit"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
@@ -434,38 +436,67 @@ func TestStale56_StepPostGoneOnLoad(t *testing.T) {
 	}
 }
 
-// m56ReasonDoc is a fixture.Order by Priya in state s (pending or
-// approved). It returns its id.
-func m56ReasonDoc(t *testing.T, e *m15OrderEnv, s doctype.State) int64 {
+// m56AprEnv is the docscreen harness on fixture.Order with the real AUTH
+// (default rights) and the real APR behind the real engine, and the fixture
+// approval rules: orders from Rs 50,000 need a Purchase Manager, from
+// Rs 5,00,000 a Director.
+func m56AprEnv(t *testing.T) *m15OrderEnv {
 	t.Helper()
-	e.fx.Approvals.Needed = func(string, types.Money) bool { return s == doctype.StatePending }
+	ctx := t.Context()
+	h := fixturetest.New(t)
+	deps := doc.Deps{DB: h.DB, Clock: h.Clock, Naming: h.Naming, Numbers: fixturetest.Numbers(), Files: h.Files}
+	info := doc.NewEngine(deps) // AUTH and APR need an InfoSource before the engine on them exists
+	dir := testkit.Directory(h.F)
+	a := auth.New(auth.Deps{DB: h.DB, Clock: h.Clock, Directory: dir, Audit: auditfake.New(), Refs: &authtest.Refs{}, Info: info})
+	if err := a.SeedDefaults(ctx, auth.SeedOptions{}); err != nil {
+		t.Fatalf("SeedDefaults: %v", err)
+	}
+	rule := `INSERT INTO approval_rules (doctype, from_amount, approver_type, approver_role, fallback_role, created_at, created_by, updated_at, updated_by)
+		VALUES (?, ?, 'role', ?, '', '2026-10-24T05:00:00.000Z', 1, '2026-10-24T05:00:00.000Z', 1)`
+	h.Exec(t, rule, fixture.Order, 50_000_00, "Purchase Manager")
+	h.Exec(t, rule, fixture.Order, 5_00_000_00, "Director")
+	deps.Auth, deps.Approval = a, approval.New(approval.Deps{DB: h.DB, Clock: h.Clock, Auth: a, Info: info, Directory: dir})
+	h.Engine = doc.NewEngine(deps)
+	return &m15OrderEnv{scopeEnv: scopeMount(t, h, h.Engine, a, h.Priya), a: a}
+}
+
+// m56Order is a fixture.Order by Priya of amount (its approval amount),
+// submitted: approved below Rs 50,000, pending from there. It returns its id.
+func m56Order(t *testing.T, e *m15OrderEnv, amount string, want doctype.State) int64 {
+	t.Helper()
 	priya := m15Load(t, e.a, e.fx.Priya.ID)
-	res := e.fx.NewOrder(t, priya, fixturetest.OL{Item: "CEMENT-OPC", Qty: "10.000", Rate: "350.0000"})
+	res := e.fx.NewOrderWith(t, priya, map[string]string{"amount": amount}, fixturetest.OL{Item: "CEMENT-OPC", Qty: "10.000", Rate: "350.0000"})
 	sub, err := e.fx.Engine.Do(t.Context(), priya, fixture.Order, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
-	if err != nil || sub.State != s {
-		t.Fatalf("submitting order %d: state %s, err %v; want %s", res.ID, sub.State, err, s)
+	if err != nil || sub.State != want {
+		t.Fatalf("submitting order %d: state %s, err %v; want %s", res.ID, sub.State, err, want)
 	}
 	return res.ID
 }
 
-// HOOK-056j (CD-335, CD-259): a reason page posted with no reason checks
-// the load, the page's right, the version and the state before the missing
-// reason, on the real auth.Service and engine (fixture.Order, default
-// rights), for reject, cancel and close: a user with read only gets AUTH's
-// 403, a stale page DOC's 409, a document in the other state DOC's 409, and
-// only then is "Enter a reason." the 422. Nothing is written.
+// HOOK-056j (CD-354, CD-259): a reason post with no reason goes to the
+// engine, which checks the right, the approver, the state and the version
+// before it refuses the empty reason; only that last refusal shows as "Enter
+// a reason." (422). Real AUTH, APR and engine on fixture.Order, for reject,
+// cancel and close: a read-only user is refused (403), an approver APR finds
+// ineligible (a Rs 7,00,000 order needs a Director; Ravi is a Purchase
+// Manager) gets APR's refusal, a stale page and a document in another state
+// DOC's 409, and nothing is written.
 func TestStale56_EmptyReasonOrder(t *testing.T) {
 	for _, c := range []struct {
-		action       string
-		act          doctype.Action
-		state, else_ doctype.State
+		action string
+		act    doctype.Action
+		amount string        // the order the action fits
+		state  doctype.State // its state
+		other  string        // an order in another state
+		otherS doctype.State
+		who    func(e *m15OrderEnv) auth.UserID // a user who may take the action
 	}{
-		{"reject", doctype.ActionReject, doctype.StatePending, doctype.StateApproved},
-		{"cancel", doctype.ActionCancel, doctype.StateApproved, doctype.StatePending},
-		{"close", doctype.ActionClose, doctype.StateApproved, doctype.StatePending},
+		{"reject", doctype.ActionReject, "70000.00", doctype.StatePending, "3500.00", doctype.StateApproved, func(e *m15OrderEnv) auth.UserID { return e.fx.Ravi.ID }},
+		{"cancel", doctype.ActionCancel, "3500.00", doctype.StateApproved, "70000.00", doctype.StatePending, func(e *m15OrderEnv) auth.UserID { return e.fx.Admin.ID }},
+		{"close", doctype.ActionClose, "3500.00", doctype.StateApproved, "70000.00", doctype.StatePending, func(e *m15OrderEnv) auth.UserID { return e.fx.Admin.ID }},
 	} {
 		t.Run(c.action, func(t *testing.T) {
-			e := m15NewOrderEnv(t)
+			e := m56AprEnv(t)
 			ctx := t.Context()
 			if err := e.a.CreateRole(ctx, e.fx.Admin, "M56 Reader"); err != nil {
 				t.Fatalf("CreateRole: %v", err)
@@ -474,17 +505,17 @@ func TestStale56_EmptyReasonOrder(t *testing.T) {
 				t.Fatalf("SetRights: %v", err)
 			}
 			reader := m15User(t, e.a, e.fx.Admin, "m56-reader@vardhan.test", "M56 Reader")
-			admin := m15Load(t, e.a, e.fx.Admin.ID)
-			id := m56ReasonDoc(t, e, c.state)
-			other := m56ReasonDoc(t, e, c.else_)
+			actor := m15Load(t, e.a, c.who(e))
+			id := m56Order(t, e, c.amount, c.state)
+			other := m56Order(t, e, c.other, c.otherS)
 			u := m15DocURL(fixture.Order, id) + "/" + c.action
 			before := e.fx.Record(t, fixture.Order, id)
 			empty := func(path string, version int) *httptest.ResponseRecorder {
 				return e.post(t, path, url.Values{"version": {strconv.Itoa(version)}, "reason": {"  "}})
 			}
-			// DOC's own refusal of the action with a reason at version.
-			refusal := func(docID int64, version int) string {
-				_, err := e.fx.Engine.Do(ctx, admin, fixture.Order, docID, c.act, doc.ActionInput{Version: version, Reason: "m56 reason"})
+			// The engine's own refusal of the action as p, with a reason.
+			refusal := func(p auth.Principal, docID int64, version int) string {
+				_, err := e.fx.Engine.Do(ctx, p, fixture.Order, docID, c.act, doc.ActionInput{Version: version, Reason: "m56 reason"})
 				if err == nil {
 					t.Fatalf("the engine took %s on order %d at version %d, want its refusal", c.action, docID, version)
 				}
@@ -496,35 +527,38 @@ func TestStale56_EmptyReasonOrder(t *testing.T) {
 					t.Errorf("%s = %d, want %d; body %.400s", what, rec.Code, code, rec.Body)
 					return
 				}
-				if got := norm(html.UnescapeString(rec.Body.String())); !strings.Contains(got, text) {
-					t.Errorf("%s lacks %q; body %.600s", what, text, got)
+				page := uitest.Doc(t, rec)
+				if got := norm(page.Text()); !strings.Contains(got, text) {
+					t.Errorf("%s lacks %q; page %.600s", what, text, got)
+				}
+				if page.Find(`textarea[name="reason"]`).Length() != 1 {
+					t.Errorf("%s doesn't redraw the reason page", what)
 				}
 			}
 
 			e.who = reader
-			if rec := empty(u, before.Version); rec.Code != http.StatusForbidden {
-				t.Errorf("reader's empty %s = %d, want AUTH's 403; body %.400s", c.action, rec.Code, rec.Body)
-			}
-			e.who = admin
-			if c.act != doctype.ActionClose {
-				// Purchase User holds submit (the close right) but not approve
-				// or cancel: the page's own right decides.
-				e.who = m15Load(t, e.a, e.fx.Priya.ID)
-				if rec := empty(u, before.Version); rec.Code != http.StatusForbidden {
-					t.Errorf("Purchase User's empty %s = %d, want AUTH's 403; body %.400s", c.action, rec.Code, rec.Body)
-				}
-			}
-			e.who = admin
-			stale := empty(u, before.Version-1)
-			want(stale, http.StatusConflict, refusal(id, before.Version-1), "stale empty "+c.action)
-			if stale.Code == http.StatusConflict && uitest.Doc(t, stale).Find(`textarea[name="reason"]`).Length() != 1 {
-				t.Errorf("stale empty %s: the 409 doesn't redraw the reason page", c.action)
-			}
+			want(empty(u, before.Version), http.StatusForbidden, refusal(reader, id, before.Version), "read-only user's empty "+c.action)
+			e.who = actor
+			want(empty(u, before.Version-1), http.StatusConflict, refusal(actor, id, before.Version-1), "stale empty "+c.action)
 			otherVersion := e.fx.Record(t, fixture.Order, other).Version
-			want(empty(m15DocURL(fixture.Order, other)+"/"+c.action, otherVersion), http.StatusConflict, refusal(other, otherVersion), "empty "+c.action+" on a document "+string(c.else_))
-			want(empty(u, before.Version), http.StatusUnprocessableEntity, "Enter a reason.", "empty "+c.action)
+			want(empty(m15DocURL(fixture.Order, other)+"/"+c.action, otherVersion), http.StatusConflict, refusal(actor, other, otherVersion), "empty "+c.action+" on a document "+string(c.otherS))
+			if c.act == doctype.ActionReject {
+				big := m56Order(t, e, "700000.00", doctype.StatePending) // Rs 7,00,000: a Director's
+				bigVersion := e.fx.Record(t, fixture.Order, big).Version
+				want(empty(m15DocURL(fixture.Order, big)+"/reject", bigVersion), http.StatusForbidden, refusal(actor, big, bigVersion), "Ravi's empty reject of a Director's order")
+			}
+			rec := empty(u, before.Version)
+			want(rec, http.StatusUnprocessableEntity, "Enter a reason.", "empty "+c.action)
+			if got := norm(uitest.Doc(t, rec).Find("#" + components.FieldID("reason") + "-msg").Text()); got != "Enter a reason." {
+				t.Errorf("empty %s: reason field message = %q, want Enter a reason.", c.action, got)
+			}
+			// A reason the engine refuses for another cause keeps its own text.
+			long := e.post(t, u, url.Values{"version": {strconv.Itoa(before.Version)}, "reason": {strings.Repeat("m", 1001)}})
+			if long.Code != http.StatusUnprocessableEntity || strings.Contains(norm(long.Body.String()), "Enter a reason.") {
+				t.Errorf("over-long %s = %d with %q, want the engine's own 422 text", c.action, long.Code, norm(uitest.Doc(t, long).Find("#"+components.FieldID("reason")+"-msg").Text()))
+			}
 			if got := e.fx.Record(t, fixture.Order, id); got.Version != before.Version || got.Info.State != before.Info.State {
-				t.Errorf("the empty %s posts wrote: version %d state %s, want %d %s", c.action, got.Version, got.Info.State, before.Version, before.Info.State)
+				t.Errorf("the refused %s posts wrote: version %d state %s, want %d %s", c.action, got.Version, got.Info.State, before.Version, before.Info.State)
 			}
 		})
 	}
@@ -558,30 +592,6 @@ func TestStale56_EmptyReasonHidden(t *testing.T) {
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("hidden empty %s = %d, want 404; body %.300s", action, rec.Code, rec.Body)
 		}
-	}
-}
-
-// CD-335: an engine error with no status, met by the empty-reason checks,
-// is a plain 500.
-func TestStale56_EmptyReasonPlainError(t *testing.T) {
-	e := newDocEnv(t, allRights...)
-	e.seed(doctype.StatePending)
-	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionReject, doc.Result{}, errors.New("m56 disk on fire"))
-	rec := e.post(t, doc42+"/reject", url.Values{"version": {"2"}, "reason": {""}})
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("empty reject meeting a plain engine error = %d, want 500; body %.300s", rec.Code, rec.Body)
-	}
-}
-
-// CD-335: when the engine takes the action the stale check asked about (a
-// fake that accepts any version), the page answers as for any done action.
-func TestStale56_EmptyReasonEngineTakes(t *testing.T) {
-	e := newDocEnv(t, allRights...)
-	e.seed(doctype.StatePending)
-	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionReject, doc.Result{ID: 42, State: doctype.StateRejected, Version: 4}, nil)
-	rec := e.post(t, doc42+"/reject", url.Values{"version": {"2"}, "reason": {""}})
-	if rec.Code != http.StatusSeeOther {
-		t.Errorf("empty reject the fake engine takes = %d, want the done action's 303; body %.300s", rec.Code, rec.Body)
 	}
 }
 

@@ -197,11 +197,7 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 	if confirm {
 		a = rp.action
 		if rp.label != "" {
-			in.Reason = trimReason(r.PostFormValue("reason"))
-			if in.Reason == "" {
-				d.emptyReason(w, r, dt, id, name, rp, version)
-				return
-			}
+			in.Reason = trimReason(r.PostFormValue("reason")) // an empty one is the engine's to refuse (CD-354)
 		}
 	}
 	var display string
@@ -221,6 +217,9 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if confirm {
+			if in.Reason == "" {
+				pr = reasonMissing(pr)
+			}
 			d.reasonPost(w, r, dt, id, name, rp, version, pr)
 			return
 		}
