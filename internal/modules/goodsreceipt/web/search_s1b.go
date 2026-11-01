@@ -17,7 +17,8 @@ import (
 const (
 	poSearchURL  = "/modules/goodsreceipt/po-search"
 	hintPOSearch = "Search by PO number or vendor."
-	minPOSearch  = 50 // orders from which step 1 is the combobox
+	phPOSearch   = "PO number or vendor" // UI v2 §5.8, the order picker's text
+	minPOSearch  = 50                    // orders from which step 1 is the combobox
 )
 
 // poListboxID is the combobox's listbox, which the search fills.
@@ -52,7 +53,7 @@ func pickRow(o goodsreceipt.POChoice) components.PickRow {
 // searching poSearchURL (with all=1 when widened), and the chosen order, if
 // list has it, as its chosen row.
 func poCombobox(f components.FieldProps, list []goodsreceipt.POChoice, all bool) *components.PickerProps {
-	f.Hint = hintPOSearch
+	f.Hint, f.Placeholder = hintPOSearch, phPOSearch
 	p := &components.PickerProps{Field: f, SearchURL: poSearchURL, HiddenName: "purchase_order_id", ListboxID: poListboxID}
 	if all {
 		p.SearchURL += "?all=1"

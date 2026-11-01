@@ -166,7 +166,7 @@ func (s *Service) scoped(ctx context.Context, p auth.Principal, fn func(tx *db.T
 		po := func(int64) bool { return false }
 		if !noPO {
 			var err error
-			if po, err = scopedOrders(ctx, tx, poPred); err != nil {
+			if po, err = purchase.ReadableOrders(ctx, tx, poPred); err != nil {
 				return err
 			}
 		}

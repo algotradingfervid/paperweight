@@ -2,6 +2,7 @@ package goodsreceipt
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -40,7 +41,7 @@ func (s *Service) AllPOChoices(ctx context.Context, p auth.Principal) ([]POChoic
 	}
 	var out []POChoice
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		readable, err := scopedOrders(ctx, tx, pred)
+		readable, err := purchase.ReadableOrders(ctx, tx, pred)
 		if err != nil {
 			return err
 		}
@@ -59,14 +60,24 @@ type ReceiptFacts struct {
 	HasGoods                       bool
 }
 
-// Facts is GRN id's ReceiptFacts, for p, who must be able to read it.
+// Facts is GRN id's ReceiptFacts, for p, who must be able to read it: a
+// hidden or missing GRN is AUTH's 404 (CanTx read with the GRN's record, as
+// Page and BillCard; CD-245).
 func (s *Service) Facts(ctx context.Context, p auth.Principal, id int64) (ReceiptFacts, error) {
 	var f ReceiptFacts
 	err := s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		if err := s.d.Auth.CheckLinkTx(ctx, tx, p, DocType, id); err != nil {
+		q := dbq.New(tx.SQL())
+		g, err := q.G7Receipt(ctx, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return auth.ErrNotFound
+		}
+		if err != nil {
 			return err
 		}
-		r, err := dbq.New(tx.SQL()).S1Receipt(ctx, id)
+		if err := s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightRead, grnRef(id, g.CreatedBy, g.ProjectID, g.SiteID)); err != nil {
+			return err
+		}
+		r, err := q.S1Receipt(ctx, id)
 		f = ReceiptFacts{PONumber: r.PoNumber, VendorName: r.VendorName, SiteName: r.SiteName, HasGoods: r.HasGoods}
 		return err
 	})
