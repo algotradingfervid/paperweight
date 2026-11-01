@@ -254,27 +254,40 @@
   display: grid;
 }
 
+/* ErrorSummary (UI v2 §5.14): a white box with a 2 px danger border, a 6 px
+   start edge and a text-coloured focus ring (DL §3.5, A12). */
 @utility error-summary {
   display: grid;
-  gap: var(--space-2);
-  background: var(--color-danger-50);
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   border: var(--border-w-strong) solid var(--color-danger-600);
-  color: var(--color-danger-800);
+  border-inline-start-width: calc(var(--space-1) + var(--border-w-strong)); /* 6 px */
+  color: var(--color-text);
+  &:focus, &:focus-visible { outline: var(--focus-ring-w) solid var(--color-text); outline-offset: var(--focus-ring-offset); }
   & h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     margin: 0;
-    font-size: var(--h2);
+    font-size: var(--h3);
     line-height: var(--leading-tight);
+    color: var(--color-danger-800);
   }
+  & h2 .icon { flex: none; color: var(--color-danger-600); }
+  & p { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
   /* One column: daisyUI's alert puts a second child beside the first. */
   grid-template-columns: minmax(0, 1fr);
   grid-auto-flow: row;
-  & ul { margin: 0; padding-inline-start: var(--space-4); }
+  & ul { margin: 0; padding-inline-start: var(--space-5); }
   & a {
     display: inline-flex;
     align-items: center;
     min-block-size: var(--target-min);
     min-inline-size: var(--target-min);
     color: var(--color-danger-800);
+    font-weight: var(--weight-semibold);
     text-decoration: underline;
   }
 }

@@ -3,13 +3,16 @@ package purchaseweb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/kernel/approval"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/modkit"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
@@ -17,6 +20,7 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
 )
 
 const homePath = "/modules/purchase"
@@ -95,12 +99,115 @@ func commentHref(c modkit.Comment) string {
 	return "/doc/" + c.DocType + "/" + strconv.FormatInt(c.RecordID, 10) + "#comments"
 }
 
-// homeView is the Purchase home: the non-zero cards, the recent comments and
-// the bar.
+// homeView is the Purchase home (UI v2 §5.12): the non-zero cards, the
+// approvals waiting for p (the first homeWaitingSize and their total), p's
+// rejected drafts (changes) and orders to send, p's recent documents, the
+// quick actions, whether p reads orders (the Recent link), the recent
+// comments, and hidden, the registered Hide as the list asks it (nil hides
+// nothing).
 type homeView struct {
-	cards    []purchase.Card
-	comments []modkit.Comment
-	bar      components.ActionBarProps
+	cards           []purchase.Card
+	waiting         []approval.InboxItem
+	waitingTotal    int
+	changes, toSend []purchase.HomeRow
+	recent          []purchase.HomeRow
+	quick           []components.QuickActionProps
+	readOrders      bool
+	comments        []modkit.Comment
+	hidden          func(dt, field string) bool
+}
+
+// homeWaitingSize is how many waiting rows the home shows (UI v2 §5.12).
+const homeWaitingSize = 3
+
+// cardIcons are each home card's icon, by Card.Key.
+var cardIcons = map[string]string{
+	purchase.CardToApprove:         "check-check",
+	purchase.QueueDrafts:           "pencil-line",
+	purchase.QueueToSend:           "send",
+	purchase.QueueToClose:          "circle-stop",
+	purchase.QueueRequestsToOrder:  "clipboard-list",
+	purchase.QueueWaiting:          "hourglass",
+	purchase.QueueMyRequests:       "file-text",
+	purchase.QueueAwaitingDelivery: "truck",
+	purchase.CardOverdue:           "calendar-clock",
+}
+
+// homeProps is v as the shared module home: To approve is the hot card.
+func homeProps(v homeView) layout.HomeProps {
+	hp := layout.HomeProps{Title: homeTitle, Quick: v.quick}
+	for _, c := range v.cards {
+		hp.Counts = append(hp.Counts, components.StatCardProps{
+			Count: c.Count, Label: cardTitles[c.Key], Detail: cardLine(c), Icon: cardIcons[c.Key], Href: c.Href, Hot: c.Key == purchase.CardToApprove,
+		})
+	}
+	hide := v.hidden
+	if hide == nil {
+		hide = func(string, string) bool { return false }
+	}
+	cols := []components.Column{queueTitleCol, queueTotalCol, queueMetaCols[0], queueStateCol}
+	if hide(purchase.DocType, "state") || hide(purchase.RequestDocType, "state") {
+		cols = cols[:3] // the list leaves a hidden state's column out (CD-368 (3))
+	}
+	hp.Waiting = components.DataListProps{Label: waitingLabel, Columns: cols}
+	for _, it := range v.waiting {
+		why := waitingWhy
+		if it.Why != "" {
+			why += metaSep + it.Why
+		}
+		r := purchase.HomeRow{DocType: it.DocType, ID: it.DocID, Title: it.Title, Party: it.Party, Total: it.Amount, State: doctype.StatePending}
+		hp.Waiting.Rows = append(hp.Waiting.Rows, homeRow(r, why, hide))
+	}
+	for _, r := range v.changes {
+		meta := metaChanges
+		if r.Reason != "" {
+			meta += metaSep + `"` + r.Reason + `"`
+		}
+		hp.Waiting.Rows = append(hp.Waiting.Rows, homeRow(r, meta, hide))
+	}
+	for _, r := range v.toSend {
+		hp.Waiting.Rows = append(hp.Waiting.Rows, homeRow(r, metaNotSent, hide))
+	}
+	hp.Waiting.Rows = hp.Waiting.Rows[:min(len(hp.Waiting.Rows), homeWaitingSize)]
+	if v.waitingTotal > 0 {
+		hp.WaitingAll = &components.Link{Label: fmt.Sprintf(seeAllLabel, v.waitingTotal), Href: "/approvals?type=" + purchase.DocType}
+	}
+	hp.Recent = components.DataListProps{Label: recentDocsLabel, Columns: cols}
+	for _, r := range v.recent {
+		hp.Recent.Rows = append(hp.Recent.Rows, homeRow(r, "", hide))
+	}
+	if v.readOrders {
+		hp.RecentAll = &components.Link{Label: allOrdersLabel, Href: "/doc/" + purchase.DocType}
+	}
+	if len(v.comments) > 0 {
+		hp.Side = recentComments(v.comments)
+	}
+	return hp
+}
+
+// homeRow is a Recent or Waiting row (approvals included) for r with meta, leaving out each
+// value whose field the registered Hide hides (CD-368 (3)): the total and
+// the party; homeProps drops the state column when state is hidden.
+func homeRow(r purchase.HomeRow, meta string, hide func(dt, field string) bool) components.Row {
+	row := components.Row{Href: docHref(r.DocType, r.ID), Values: map[string]string{"title": r.Title, "m0": meta}}
+	if r.DocType == purchase.DocType && !hide(r.DocType, "rounded_total") {
+		row.Values["total"] = types.FormatINR(r.Total)
+	}
+	d, _ := doctype.Lookup(r.DocType)
+	if f, ok := doc.PartyField(d); !ok || !hide(r.DocType, f.Name) {
+		row.Party = r.Party
+	}
+	row.State, row.StateLabel = r.State, stateLabel(r.DocType, r.State)
+	return row
+}
+
+// docHref is a document's page.
+func docHref(dt string, id int64) string { return fmt.Sprintf("/doc/%s/%d", dt, id) }
+
+// stateLabel is purchase DocType dt's word for st.
+func stateLabel(dt string, st doctype.State) string {
+	d, _ := doctype.Lookup(dt)
+	return d.StateLabels[st]
 }
 
 // can reports whether p holds right on dt (Service.Can); AUTH's refusal is
@@ -113,7 +220,7 @@ func (h *handlers) can(ctx context.Context, p auth.Principal, dt string, right a
 	return err == nil, err
 }
 
-// newButtons is the home's bar (UX §5.1, CD-258 Q5): `New purchase order`
+// newButtons is a queue page's bar (UX §5.2, CD-258 Q5): `New purchase order`
 // as primary with create on Order, then `New purchase request` (primary
 // when it is alone) with create on Request.
 func (h *handlers) newButtons(ctx context.Context, p auth.Principal, order, request bool) (components.ActionBarProps, error) {
@@ -145,9 +252,46 @@ func (h *handlers) newButtons(ctx context.Context, p auth.Principal, order, requ
 	return bar, nil
 }
 
-// home answers GET /modules/purchase (UX §5.1): the cards p has the right
-// for whose count isn't 0, the recent comments and the New buttons. A user
-// who reads neither purchase DocType gets AUTH's 403.
+// hidden is the registered Hide for r's viewer as the list asks it
+// (Listing, no View, Deps.ListHidden).
+func (h *handlers) hidden(r *http.Request) func(dt, field string) bool {
+	return func(dt, field string) bool {
+		d, _ := doctype.Lookup(dt)
+		return h.d.ListHidden(r, d)(field)
+	}
+}
+
+// quickActions are the home's quick actions p's rights allow (UI v2 §5.12):
+// New purchase order with create on Order, New purchase request with create
+// on Request, Pending items with read on Order.
+func (h *handlers) quickActions(ctx context.Context, p auth.Principal, readOrders bool) ([]components.QuickActionProps, error) {
+	var out []components.QuickActionProps
+	for _, a := range []struct {
+		dt   string
+		item components.QuickActionProps
+	}{
+		{purchase.DocType, components.QuickActionProps{Icon: "shopping-cart", Label: newOrderLabel, Href: "/doc/" + purchase.DocType + "/new"}},
+		{purchase.RequestDocType, components.QuickActionProps{Icon: "clipboard-list", Label: newReqLabel, Href: "/doc/" + purchase.RequestDocType + "/new"}},
+	} {
+		ok, err := h.can(ctx, p, a.dt, auth.RightCreate)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, a.item)
+		}
+	}
+	if readOrders {
+		out = append(out, components.QuickActionProps{Icon: "list-checks", Label: pendingTitle, Href: "/reports/purchase/pending"})
+	}
+	return out, nil
+}
+
+// home answers GET /modules/purchase (UI v2 §5.12, UX §5.1): the cards p
+// has the right for whose count isn't 0, the purchase approvals waiting for
+// p, p's recent documents p may still read, the quick actions and the
+// recent comments. A user who reads neither purchase DocType gets AUTH's
+// 403.
 func (h *handlers) home(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	p, _ := auth.PrincipalFrom(ctx)
@@ -156,18 +300,34 @@ func (h *handlers) home(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, reqErr)
 		return
 	}
+	readOrders := orderErr == nil
 	hv, err := h.d.Service.Home(ctx, p)
 	if err != nil {
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	v := homeView{comments: hv.Comments}
+	v := homeView{comments: hv.Comments, readOrders: readOrders}
 	for _, c := range hv.Cards {
 		if c.Count > 0 {
 			v.cards = append(v.cards, c)
 		}
 	}
-	if v.bar, err = h.newButtons(ctx, p, true, true); err != nil {
+	inbox, _, err := h.d.Approvals.InboxOfType(ctx, p, purchase.DocType, types.Page{Number: 1, Size: homeWaitingSize})
+	if err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	v.waiting, v.waitingTotal = inbox.Rows, inbox.Total
+	if v.changes, v.toSend, err = h.d.Service.Waiting(ctx, p); err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	v.hidden = h.hidden(r)
+	if v.recent, err = h.d.Service.Recent(ctx, p); err != nil {
+		web.ErrorFrom(w, r, err)
+		return
+	}
+	if v.quick, err = h.quickActions(ctx, p, readOrders); err != nil {
 		web.ErrorFrom(w, r, err)
 		return
 	}

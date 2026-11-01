@@ -23,6 +23,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // Helpers and tests for P13's POST handler (MOD-PO P13; PO spec §20.4 item
@@ -58,10 +59,12 @@ func newP13Web(t *testing.T) *p13Web {
 	t.Helper()
 	env := purchasetest.New(t)
 	r := chi.NewRouter()
-	Routes(Deps{
+	pd := Deps{
 		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: scs.New(),
 		CSRF: func(*http.Request) string { return "p13-token" },
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(pd)}.ListHidden
+	Routes(pd)(r)
 	w := &p13Web{env: env, router: r}
 	saved := renderFromRequest
 	renderFromRequest = func(_ *handlers, rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {

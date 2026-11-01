@@ -301,7 +301,7 @@ func TestErrorSummary_LineFieldAnchors(t *testing.T) {
 	if got, _ := s.Attr("tabindex"); got != "-1" {
 		t.Errorf("tabindex = %q", got)
 	}
-	if got := doc.Find("h2#error-summary-title").Text(); got != "There is a problem" {
+	if got := strings.Join(strings.Fields(doc.Find("h2#error-summary-title").Text()), " "); got != "1 thing to fix before you continue" {
 		t.Errorf("title = %q", got)
 	}
 	a := s.Find(`a[href="#f-lines-2-qty"]`)

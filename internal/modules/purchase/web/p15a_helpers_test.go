@@ -67,6 +67,7 @@ func newP15aWebWith(t *testing.T, env *purchasetest.Env, svc *purchase.Service, 
 		},
 		Modules: mods,
 	})(r)
+	d.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(d)}.ListHidden
 	Routes(d)(r)
 	r.Get("/p15a-flash", func(w http.ResponseWriter, req *http.Request) {
 		_ = json.NewEncoder(w).Encode(web.TakeFlash(req.Context()))

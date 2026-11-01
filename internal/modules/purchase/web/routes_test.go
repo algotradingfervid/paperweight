@@ -16,6 +16,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	purchaseweb "github.com/vardhan/internaltools/internal/modules/purchase/web"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // p1Routes is every module route P1 mounts against a 501 stub (plan P1 Do 3),
@@ -51,13 +52,15 @@ func TestPurchaseWeb_RoutesStubbed(t *testing.T) {
 	pr := purchasetest.NewRequest(t, env, purchasetest.StopAtApproved())
 	sessions := scs.New()
 	r := chi.NewRouter()
-	purchaseweb.Routes(purchaseweb.Deps{
+	pd := purchaseweb.Deps{
 		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: sessions,
 		CSRF: func(*http.Request) string { return "token" },
 		ReceiveLink: func(context.Context, auth.Principal, int64) (string, bool) {
 			return "", false
 		},
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: purchaseweb.Modules(pd)}.ListHidden
+	purchaseweb.Routes(pd)(r)
 
 	var got []string
 	if err := chi.Walk(r, func(method, route string, _ http.Handler, mws ...func(http.Handler) http.Handler) error {

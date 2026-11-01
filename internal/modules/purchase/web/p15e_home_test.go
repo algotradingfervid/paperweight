@@ -19,27 +19,40 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-// homeCard is one card the home page shows: its title, figure, line and the
-// Open link's href.
+// homeCard is one count card the home page shows: its label, figure,
+// detail line and link.
 type homeCard struct{ title, figure, line, href string }
 
 // homeCards reads the count cards of the home page, in page order.
 func homeCards(p p15ePage) []homeCard {
 	var out []homeCard
-	p.doc.Find("section.card").Each(func(_ int, s *goquery.Selection) {
-		if s.Find("p.num").Length() == 0 {
-			return // Recent comments
-		}
-		href, _ := s.Find(".card-head a").Attr("href")
+	p.doc.Find("a.statcard").Each(func(_ int, s *goquery.Selection) {
+		href, _ := s.Attr("href")
 		out = append(out, homeCard{
-			title: squash(s.Find("h2.card-title").Text()), figure: squash(s.Find("p.num").Text()),
-			line: squash(s.Find("p.num").Next().Text()), href: href,
+			title: squash(s.Find(".statcard-label").Text()), figure: squash(s.Find(".statcard-count").Text()),
+			line: squash(s.Find(".statcard-detail").Text()), href: href,
 		})
 	})
 	return out
 }
 
-// barButtons are the action bar's buttons as "label href variant".
+// quickActions are the home's quick actions as "label href".
+func quickActions(p p15ePage) []string {
+	var out []string
+	p.doc.Find("main a.newtile").Each(func(_ int, s *goquery.Selection) {
+		href, _ := s.Attr("href")
+		out = append(out, squash(s.Text())+" "+href)
+	})
+	return out
+}
+
+const (
+	newOrderQuick   = "New purchase order /doc/purchase.Order/new"
+	newRequestQuick = "New purchase request /doc/purchase.Request/new"
+	pendingQuick    = "Pending items /reports/purchase/pending"
+)
+
+// barButtons are a queue page's action bar buttons as "label href variant".
 func barButtons(p p15ePage) []string {
 	var out []string
 	p.doc.Find(".actionbar .btn").Each(func(_ int, s *goquery.Selection) {
@@ -54,16 +67,15 @@ func barButtons(p p15ePage) []string {
 }
 
 const (
-	newOrderPrimary     = "New purchase order /doc/purchase.Order/new primary"
-	newRequestSecondary = "New purchase request /doc/purchase.Request/new secondary"
-	newRequestPrimary   = "New purchase request /doc/purchase.Request/new primary"
+	newOrderPrimary   = "New purchase order /doc/purchase.Order/new primary"
+	newRequestPrimary = "New purchase request /doc/purchase.Request/new primary"
 )
 
 // MOD-PO P15e, PUX-001 (UX §5.1, spec §25, CD-258 Q4/Q5/Q10): Priya's home
 // shows only her non-zero cards, in the action-first order, each count line
 // in the singular for 1, the Open links to each queue (Overdue deliveries to
 // the overdue report), Ravi's comment on her draft under Recent comments,
-// and the bar `New purchase order` (primary) and `New purchase request`.
+// and the quick actions (UI v2 §5.12, UIV2-E3; the home has no action bar).
 // The clock is just after IST midnight on 27-10 (18:31 UTC on 26-10), so a
 // PO due 26-10 is overdue only by the IST date.
 func TestPurchaseWeb_HomePriya(t *testing.T) {
@@ -121,17 +133,16 @@ func TestPurchaseWeb_HomePriya(t *testing.T) {
 	if href, _ := page.attr("section.card:has(h2:contains('Recent comments')) li a", "href"); href != "/doc/purchase.Order/"+strconv.FormatInt(draft.ID, 10)+"#comments" {
 		t.Errorf("recent comment link = %q, want the draft's comments", href)
 	}
-	if got := barButtons(page); !slices.Equal(got, []string{newOrderPrimary, newRequestSecondary}) {
-		t.Errorf("bar = %q, want %q and %q", got, newOrderPrimary, newRequestSecondary)
+	if got := quickActions(page); !slices.Equal(got, []string{newOrderQuick, newRequestQuick, pendingQuick}) {
+		t.Errorf("quick actions = %q, want %q, %q and %q", got, newOrderQuick, newRequestQuick, pendingQuick)
 	}
 }
 
 // MOD-PO P15e, PUX-002, PUX-003 and the To approve card (UX §5.1; CD-258
 // Q10 (c)): Suresh has no My drafts, To send or Requests to order card and
-// only `New purchase request`, as primary; Ravi (approve) gets To approve,
-// linking to /approvals; a user with every count 0 and no comments sees
-// `Nothing waiting for you.` and no cards; a user with neither read gets
-// AUTH's 403.
+// no New purchase order quick action; Ravi (approve) gets To approve,
+// linking to /approvals; a user with every count 0 sees `You're all caught
+// up.` (A-24) and no cards; a user with neither read gets AUTH's 403.
 func TestPurchaseWeb_HomeOthers(t *testing.T) {
 	env := p15eRuleEnv(t)
 	w := newP15eWeb(t, env)
@@ -145,8 +156,8 @@ func TestPurchaseWeb_HomeOthers(t *testing.T) {
 				t.Errorf("Suresh sees the %s card", c.title)
 			}
 		}
-		if got := barButtons(page); !slices.Equal(got, []string{newRequestPrimary}) {
-			t.Errorf("Suresh's bar = %q, want only %q", got, newRequestPrimary)
+		if got := quickActions(page); !slices.Equal(got, []string{newRequestQuick, pendingQuick}) {
+			t.Errorf("Suresh's quick actions = %q, want %q and %q", got, newRequestQuick, pendingQuick)
 		}
 	})
 
@@ -156,26 +167,26 @@ func TestPurchaseWeb_HomeOthers(t *testing.T) {
 		if len(cards) == 0 || cards[0] != (homeCard{"To approve", "1", "1 waiting for your approval", "/approvals"}) {
 			t.Errorf("Ravi's cards = %v, want To approve first with 1 waiting", cards)
 		}
-		if got := barButtons(page); !slices.Equal(got, []string{newRequestPrimary}) {
-			t.Errorf("Ravi's bar = %q, want only %q (no create on Order)", got, newRequestPrimary)
+		if got := quickActions(page); !slices.Equal(got, []string{newRequestQuick, pendingQuick}) {
+			t.Errorf("Ravi's quick actions = %q, want %q and %q (no create on Order)", got, newRequestQuick, pendingQuick)
 		}
 	})
 
 	t.Run("nothing waiting", func(t *testing.T) {
 		page := w.get(t, env.Kavya, "/modules/purchase")
-		if page.status != http.StatusOK || len(homeCards(page)) != 0 || !strings.Contains(page.text, "Nothing waiting for you.") {
+		if page.status != http.StatusOK || len(homeCards(page)) != 0 || !strings.Contains(page.text, "You're all caught up.") {
 			t.Errorf("Kavya's home = %d, cards %v, text %q; want 200, no cards and the empty text", page.status, homeCards(page), page.text)
 		}
 	})
 
 	t.Run("create rights", func(t *testing.T) {
 		orders := p15eUser(t, env, "Order Maker", map[string][]auth.Right{purchase.DocType: {auth.RightRead, auth.RightCreate}})
-		if got := barButtons(w.get(t, orders, "/modules/purchase")); !slices.Equal(got, []string{newOrderPrimary}) {
-			t.Errorf("create on Order only: bar = %q, want only %q", got, newOrderPrimary)
+		if got := quickActions(w.get(t, orders, "/modules/purchase")); !slices.Equal(got, []string{newOrderQuick, pendingQuick}) {
+			t.Errorf("create on Order only: quick actions = %q, want %q and %q", got, newOrderQuick, pendingQuick)
 		}
 		readers := p15eUser(t, env, "Order Looker", map[string][]auth.Right{purchase.DocType: {auth.RightRead}})
-		if got := barButtons(w.get(t, readers, "/modules/purchase")); len(got) != 0 {
-			t.Errorf("read only: bar = %q, want none", got)
+		if got := quickActions(w.get(t, readers, "/modules/purchase")); !slices.Equal(got, []string{pendingQuick}) {
+			t.Errorf("read only: quick actions = %q, want only %q", got, pendingQuick)
 		}
 	})
 

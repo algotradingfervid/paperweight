@@ -81,6 +81,15 @@ var pages = []galleryPage{
 	{"auth-rights", layout.PageOpts{Title: "Rights for Employee", BarSlot: authRightsBar()}, static(authRightsBody())},
 	{"problem", layout.PageOpts{Title: "Problem page", NoHeading: true}, problemBody},
 	{"stepper", formWidth("Stepper"), stepperBody},
+	{"statcard", titled("Count cards"), static(statcardBody())},
+	{"quickaction", titled("Quick actions"), static(quickactionBody())},
+	{"module-home", titled("Module home"), moduleHome},
+}
+
+// moduleHome is the module home filled with worst cases; ?empty=1 is a new
+// user's (UI v2 §5.12, A-24).
+func moduleHome(r *http.Request) templ.Component {
+	return moduleHomeBody(r.URL.Query().Get("empty") == "1")
 }
 
 // stepperBody is the stepper alone with five steps (UI v2 §5.6): by default
@@ -347,6 +356,7 @@ func Screens(base string) []screens.Screen {
 		screens.Screen{Name: "gallery problem, 403", Route: route, URL: base + "/_gallery/problem?status=403"},
 		screens.Screen{Name: "gallery stepper, first step", Route: route, URL: base + "/_gallery/stepper?at=0"},
 		screens.Screen{Name: "gallery stepper, last step", Route: route, URL: base + "/_gallery/stepper?at=4"},
+		screens.Screen{Name: "gallery module-home, new user", Route: route, URL: base + "/_gallery/module-home?empty=1"},
 	)
 	hooked := append(docscreen.Screens(docscreentest.Hooked, hookedIDs), screens.Screen{
 		Name: docscreentest.Hooked + " read-only draft", Route: "/doc/{doctype}/{id}",
