@@ -112,6 +112,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 			fn     http.HandlerFunc
 		}{{http.MethodGet, a.companyGet}, {http.MethodPost, a.companyPost}} {
 			r.Method(m.method, companyPath, a.srv.Admin(msgCompanyAdminOnly, m.fn))
+			r.Method(m.method, companyPath+"/{step}", a.srv.Admin(msgCompanyAdminOnly, m.fn))
 		}
 		r.Method(http.MethodPost, "/ui/validate/{kind}", a.srv.Self(components.ValidateHandler(parsers())))
 

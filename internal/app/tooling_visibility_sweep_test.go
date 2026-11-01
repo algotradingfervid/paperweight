@@ -205,7 +205,7 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 		"/admin/approval-rules", "/admin/approval-rules/new", "/admin/approval-rules/{id}", "/admin/approvals/overdue",
 		"/admin/approvals/stuck", "/rights/who-can", "/roles", "/roles/{id}", "/roles/{id}/copy-rights",
 		"/roles/{id}/rights/{doctype}", "/settings/business", "/settings/numbering", "/settings/numbering/preview",
-		"/settings/numbering/{doctype}", "/setup/company", "/users", "/users/{id}/access", "/m/import/template",
+		"/settings/numbering/{doctype}", "/setup/company", "/setup/company/{step}", "/users", "/users/{id}/access", "/m/import/template",
 		"/m/employee/new/{step}", "/m/party/new/{step}", "/m/party/{id:[1-9][0-9]*}/addresses/new",
 		"/m/party/{id:[1-9][0-9]*}/contacts/new",
 		"/m/branch/new", "/m/employee/new", "/m/expense-type/new", "/m/item/new", "/m/party/new",
@@ -660,6 +660,8 @@ func (s *sweepSeed) candidates(route, param string) []candidate {
 			}
 		}
 		return out
+	case route == "/setup/company/{step}":
+		return plain("company", "office", "check")
 	case strings.HasPrefix(route, "/users/"):
 		return plain(idText(int64(adminID)), idText(int64(deepakID)))
 	case strings.HasPrefix(route, "/roles/"), strings.HasPrefix(route, "/admin/approval-rules/"), strings.HasPrefix(route, "/settings/numbering/"):

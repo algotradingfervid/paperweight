@@ -233,12 +233,14 @@ func TestApp_RouteGuards(t *testing.T) {
 		t.Errorf("found %d /doc/ routes, want at least 16", docRoutes)
 	}
 	for route, want := range map[string]authweb.Kind{
-		"GET /":               authweb.KindSelf,
-		"GET /search":         authweb.KindSelf,
-		"GET /approvals":      authweb.KindSelf,
-		"GET /approvals/mine": authweb.KindSelf,
-		"GET /setup/company":  authweb.KindAdmin,
-		"POST /setup/company": authweb.KindAdmin,
+		"GET /":                      authweb.KindSelf,
+		"GET /search":                authweb.KindSelf,
+		"GET /approvals":             authweb.KindSelf,
+		"GET /approvals/mine":        authweb.KindSelf,
+		"GET /setup/company":         authweb.KindAdmin,
+		"POST /setup/company":        authweb.KindAdmin,
+		"GET /setup/company/{step}":  authweb.KindAdmin,
+		"POST /setup/company/{step}": authweb.KindAdmin,
 	} {
 		if got, ok := kinds[route]; !ok || got != want {
 			t.Errorf("%s: kind %d (registered %v), want %d", route, got, ok, want)
@@ -336,11 +338,13 @@ func TestApp_ApprovalsOpensForEveryone(t *testing.T) {
 	}
 }
 
-// goodSetup is CD-165's input with 00-fixtures.md's company.
+// goodSetup is CD-165's input with 00-fixtures.md's company, and the head
+// office address (CD-337 (7)).
 func goodSetup() url.Values {
 	return url.Values{
 		"legal_name": {"Vardhan Infra Projects Pvt Ltd"}, "state_code": {"27"}, "gstin": {"27AAFCV2449G1Z7"},
 		"pan": {""}, "branch_code": {"PUNE"}, "branch_name": {"Pune Works"},
+		"address_line1": {"Plot 12, MIDC Bhosari"}, "address_city": {"Pune"}, "address_pincode": {"411026"},
 	}
 }
 
@@ -383,9 +387,9 @@ func TestApp_SecureFirstInstall(t *testing.T) {
 	if r := b.get("/setup/company"); r.status != http.StatusOK {
 		t.Fatalf("GET /setup/company = %d, want 200", r.status)
 	}
-	r = b.post("/setup/company", goodSetup())
+	r = b.setupCompany(goodSetup())
 	if r.status != http.StatusSeeOther || r.location() != "/" {
-		t.Fatalf("POST /setup/company = %d to %q (%q), want 303 to /", r.status, r.location(), r.pageText())
+		t.Fatalf("Save company = %d to %q (%q), want 303 to /", r.status, r.location(), r.pageText())
 	}
 	r = b.get("/")
 	if r.status != http.StatusSeeOther || r.location() != "/approvals" {
@@ -407,9 +411,18 @@ func TestApp_CompanySetup(t *testing.T) {
 		if r.status != http.StatusOK {
 			t.Fatalf("GET /setup/company = %d, want 200", r.status)
 		}
+		b.toCheck(goodSetup())
+		for i, path := range []string{setupStep1, setupStep2} {
+			r := b.get(path)
+			for _, name := range setupStepFields[i] {
+				if r.doc.Find(`[name="`+name+`"]`).Length() != 1 {
+					t.Errorf("%s has no single %q field", path, name)
+				}
+			}
+		}
 		for name := range goodSetup() {
-			if r.doc.Find(`[name="`+name+`"]`).Length() != 1 {
-				t.Errorf("the form has no single %q field", name)
+			if !slices.ContainsFunc(setupStepFields, func(f []string) bool { return slices.Contains(f, name) }) {
+				t.Errorf("no step asks for %q", name)
 			}
 		}
 	})
@@ -419,7 +432,7 @@ func TestApp_CompanySetup(t *testing.T) {
 		if r := p.get("/setup/company"); r.status != http.StatusForbidden {
 			t.Errorf("GET /setup/company as Priya = %d, want 403", r.status)
 		}
-		if r := p.post("/setup/company", goodSetup()); r.status != http.StatusForbidden {
+		if r := p.post(setupStep1, goodSetup()); r.status != http.StatusForbidden {
 			t.Errorf("POST /setup/company as Priya = %d, want 403", r.status)
 		}
 		if n := w.count(`SELECT count(*) FROM company`); n != 0 {
@@ -442,7 +455,7 @@ func TestApp_CompanySetup(t *testing.T) {
 			})
 			form := goodSetup()
 			form.Set(c.field, c.value)
-			r := b.post("/setup/company", form)
+			r := b.setupCompany(form)
 			if r.status != http.StatusUnprocessableEntity {
 				t.Fatalf("POST = %d, want 422", r.status)
 			}
@@ -455,6 +468,9 @@ func TestApp_CompanySetup(t *testing.T) {
 				}
 			}
 			for name := range goodSetup() {
+				if r.doc.Find(`[name="`+name+`"]`).Length() == 0 {
+					continue // another step's field
+				}
 				if v, _ := r.doc.Find(`[name="` + name + `"]`).Attr("value"); name != c.field && v != form.Get(name) {
 					t.Errorf("%s after a refusal = %q, want the typed %q", name, v, form.Get(name))
 				}
@@ -469,9 +485,9 @@ func TestApp_CompanySetup(t *testing.T) {
 	}
 
 	t.Run("saves_and_closes", func(t *testing.T) {
-		r := b.post("/setup/company", goodSetup())
+		r := b.setupCompany(goodSetup())
 		if r.status != http.StatusSeeOther || r.location() != "/" {
-			t.Fatalf("POST = %d to %q (%q), want 303 to /", r.status, r.location(), r.pageText())
+			t.Fatalf("Save company = %d to %q (%q), want 303 to /", r.status, r.location(), r.pageText())
 		}
 		if got := w.text(`SELECT name || '/' || pan FROM company`); got != "Vardhan Infra Projects Pvt Ltd/AAFCV2449G" {
 			t.Errorf("company = %q, want the legal name and the PAN from the GSTIN", got)
@@ -482,8 +498,8 @@ func TestApp_CompanySetup(t *testing.T) {
 		if r := b.get("/setup/company"); r.status != http.StatusNotFound {
 			t.Errorf("GET /setup/company once a company exists = %d, want 404", r.status)
 		}
-		if r := b.post("/setup/company", goodSetup()); r.status != http.StatusNotFound {
-			t.Errorf("POST /setup/company once a company exists = %d, want 404", r.status)
+		if r := b.post(setupStep1, goodSetup()); r.status != http.StatusNotFound {
+			t.Errorf("POST step 1 once a company exists = %d, want 404", r.status)
 		}
 	})
 }
@@ -501,8 +517,8 @@ func TestApp_SignedInHome(t *testing.T) {
 	if r := priya.get("/"); r.status != http.StatusSeeOther || r.location() != "/approvals" {
 		t.Errorf("GET / as Priya with no company = %d to %q, want 303 to /approvals", r.status, r.location())
 	}
-	if r := admin.post("/setup/company", goodSetup()); r.status != http.StatusSeeOther {
-		t.Fatalf("POST /setup/company = %d (%q), want 303", r.status, r.pageText())
+	if r := admin.setupCompany(goodSetup()); r.status != http.StatusSeeOther {
+		t.Fatalf("Save company = %d (%q), want 303", r.status, r.pageText())
 	}
 	if r := admin.get("/"); r.status != http.StatusSeeOther || r.location() != "/approvals" {
 		t.Errorf("GET / as Administrator with a company = %d to %q, want 303 to /approvals", r.status, r.location())

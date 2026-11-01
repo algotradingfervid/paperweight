@@ -9,11 +9,25 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
-// companyPage asks for CD-165's fields, built only from internal/ui components.
+// Field help on the setup wizard (UI v2 §5.4; CD-363 for PAN).
+const (
+	hintLegalName  = "Exactly as on your GST certificate. Vendors see it on orders."
+	tipGSTIN       = "Your GSTIN tells the app which state you're in. When a vendor is in the same state, orders show CGST and SGST; otherwise IGST. Leave it blank only if the company isn't registered for GST."
+	hintStateCode  = "Only needed without a GSTIN. The two-digit GST state code."
+	hintPAN        = "Needed when there is no GSTIN. With a GSTIN, it's taken from the GSTIN when you leave it blank."
+	tipBranchCode  = "A short code printed on documents and used in numbering, for example HO."
+	hintBranchName = "Head Office when you leave it blank."
+	hintLine1      = "Prints on the letterhead of every order."
+	hintPincode    = "Six digits, in the head office's state."
+)
+
+// companyPage is one setup step as a whole page.
 func companyPage(v companyView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -47,47 +61,99 @@ func companyPage(v companyView) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Var3 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-				if !templ_7745c5c3_IsBuffer {
-					defer func() {
-						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-						if templ_7745c5c3_Err == nil {
-							templ_7745c5c3_Err = templ_7745c5c3_BufErr
-						}
-					}()
+			templ_7745c5c3_Err = companyFrame(v).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = layout.Page(layout.PageOpts{
+			Title:     v.M.Heading(),
+			NoHeading: true, // the frame's heading is the page's
+			Focus:     true,
+			Error:     len(v.M.Errors) > 0,
+			Width:     layout.Form,
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// companyFrame is the #wizard fragment: CD-165's fields and the head office
+// address (CD-337 (7)), built only from internal/ui components.
+func companyFrame(v companyView) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
 				}
-				ctx = templ.InitializeContext(ctx)
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var4 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			switch v.M.Current {
+			case 0:
+				if v.Welcome {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<p><strong>Welcome to ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var5 string
+					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(ui.ShellFrom(ctx).AppName)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/setup_company.templ`, Line: 42, Col: 54}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, ".</strong> Three short steps and your team can raise its first order. It takes about two minutes.</p>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 				templ_7745c5c3_Err = components.RequiredNote(true).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.TextInput(v.field("legal_name", "Legal name", "", true)).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.TextInput(withPlaceholder(v.field("legal_name", "Legal name", hintLegalName, true), "e.g. Vardhan Infra Projects Pvt Ltd")).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.TextInput(v.field("state_code", "State code", "The two-digit GST state code, for example 27.", true)).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.CodeInput(gstinProps(v), components.GSTIN).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.CodeInput(v.field("gstin", "GSTIN", "Leave blank for an unregistered company.", false), components.GSTIN).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = components.TextInput(v.field("branch_code", "Head office code", "", true)).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = components.TextInput(v.field("branch_name", "Head office name", "Head Office when you leave it blank.", false)).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "  ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Var4 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_Var6 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 					if !templ_7745c5c3_IsBuffer {
@@ -99,37 +165,122 @@ func companyPage(v companyView) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = components.CodeInput(v.field("pan", "PAN", "Taken from the GSTIN when you leave it blank.", false), components.PAN).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.TextInput(withPlaceholder(v.field("state_code", "State code", hintStateCode, false), "e.g. 27")).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = components.CodeInput(withPlaceholder(v.field("pan", "PAN", hintPAN, false), "e.g. AAFCV2449G"), components.PAN).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = components.MoreDetails([]string{"PAN"}, v.Values["pan"] != "" || v.Fields["pan"] != "").Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.MoreDetails([]string{"State code", "PAN"}, v.more("state_code", "pan")).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Save company", Variant: components.Primary}).Render(ctx, templ_7745c5c3_Buffer)
+			case 1:
+				templ_7745c5c3_Err = components.RequiredNote(true).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				return nil
-			})
-			templ_7745c5c3_Err = components.Form(components.FormProps{Action: companyPath}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
+				templ_7745c5c3_Err = components.TextInput(branchCodeProps(v)).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.TextInput(withPlaceholder(v.field("branch_name", "Head office name", hintBranchName, false), "e.g. Head Office")).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.TextInput(withPlaceholder(v.field("address_line1", "Address line 1", hintLine1, true), "e.g. Plot 12, MIDC Bhosari")).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.TextInput(withPlaceholder(v.field("address_city", "City", "", true), "e.g. Pune")).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.CodeInput(withPlaceholder(v.field("address_pincode", "Pincode", hintPincode, false), "e.g. 411026"), components.Pincode).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout.Page(layout.PageOpts{
-			Title: "Set up your company", Width: layout.Form, Error: len(v.Errors) > 0,
-			BannerSlot: components.ErrorSummary(v.Errors),
-		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = wizard.Frame(v.M, v.Bar).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		return nil
 	})
+}
+
+// setupCheckCards is Check's summary, one card per step with Change.
+func setupCheckCards(cards []setupCard) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var7 == nil {
+			templ_7745c5c3_Var7 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		for _, c := range cards {
+			templ_7745c5c3_Var8 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Err = components.SummaryList(c.Pairs).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = wizard.CheckSection(c.Title, "", c.Change).Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		return nil
+	})
+}
+
+func withPlaceholder(p components.FieldProps, placeholder string) components.FieldProps {
+	p.Placeholder = placeholder
+	return p
+}
+
+// gstinProps is the GSTIN field with its tip and the echo of a stored GSTIN.
+func gstinProps(v companyView) components.FieldProps {
+	p := withPlaceholder(v.field("gstin", "GSTIN", "", false), "e.g. 27AABCS1429B1ZU")
+	p.Tip, p.Echo = tipGSTIN, v.Echo
+	return p
+}
+
+func branchCodeProps(v companyView) components.FieldProps {
+	p := withPlaceholder(v.field("branch_code", "Head office code", "", true), "e.g. HO")
+	p.Tip = tipBranchCode
+	return p
 }
 
 var _ = templruntime.GeneratedTemplate

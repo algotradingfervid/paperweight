@@ -658,7 +658,7 @@ func importScreens() []screens.Screen {
 }
 
 // freshScreens are the first-run pages: only an empty install shows /setup,
-// and only an admin with no company /setup/company.
+// and only an admin with no company the /setup/company wizard.
 func freshScreens() (setup, company []screens.Screen) {
 	empty := `(() => {
   const f = document.querySelector("input[name=password]").form;
@@ -670,12 +670,37 @@ func freshScreens() (setup, company []screens.Screen) {
   f.noValidate = true;
   f.requestSubmit();
 })()`
+	// The setup wizard's later steps: step 1, then step 2, each posted as a
+	// user does. Nothing is saved, so the install stays open for the next.
+	toOffice := func(ctx context.Context) error {
+		return submit(ctx, `(() => {
+  const f = document.querySelector("input[name=legal_name]").form;
+  f.elements.legal_name.value = "Vardhan Infra Projects Pvt Ltd";
+  f.elements.gstin.value = "27AAFCV2449G1Z7";
+  f.requestSubmit();
+})()`, "input[name=branch_code]")
+	}
+	toCheck := func(ctx context.Context) error {
+		if err := toOffice(ctx); err != nil {
+			return err
+		}
+		return submit(ctx, `(() => {
+  const f = document.querySelector("input[name=branch_code]").form;
+  f.elements.branch_code.value = "PUNE";
+  f.elements.address_line1.value = "Plot 12, MIDC Bhosari";
+  f.elements.address_city.value = "Pune";
+  f.elements.address_pincode.value = "411026";
+  f.requestSubmit();
+})()`, `.stepper__step.is-current:nth-child(3)`)
+	}
 	return []screens.Screen{
 		{Name: "setup", Route: "/setup", URL: "/setup"},
 		{Name: "setup refused", Route: "/setup", URL: "/setup", Setup: func(ctx context.Context) error { return submit(ctx, empty, ".error-summary") }},
 	}, []screens.Screen{
 		{Name: "setup company", Route: "/setup/company", URL: "/setup/company", As: freshAdmin},
 		{Name: "setup company refused", Route: "/setup/company", URL: "/setup/company", As: freshAdmin, Setup: func(ctx context.Context) error { return submit(ctx, noCompany, ".error-summary") }},
+		{Name: "setup company office", Route: "/setup/company/{step}", URL: "/setup/company", As: freshAdmin, Setup: toOffice},
+		{Name: "setup company check", Route: "/setup/company/{step}", URL: "/setup/company", As: freshAdmin, Setup: toCheck},
 	}
 }
 
