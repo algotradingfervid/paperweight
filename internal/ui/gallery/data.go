@@ -193,6 +193,7 @@ var (
 		{Value: "test", Label: "Test certificate", Hint: uitest.LongDevanagari},
 	}
 	priorityOptions = []components.Option{{Value: "Normal", Label: "Normal"}, {Value: "Urgent", Label: "Urgent"}}
+	expenseOptions  = []components.Option{{Value: "fuel", Label: "Fuel"}, {Value: "travel", Label: "Local travel"}, {Value: "food", Label: "Food and refreshments"}, {Value: "stay", Label: "Stay"}, {Value: "other", Label: uitest.LongName100}}
 	termOptions     = []components.Option{{Value: "0", Label: "Advance"}, {Value: "30", Label: "30 days"}, {Value: "60", Label: uitest.LongName100}}
 )
 

@@ -122,6 +122,8 @@ Internal business tools (purchase orders, goods receipts, expenses) for a small 
 - Fake a read failure in the service (a closed DB), never by cancelling the request context: a cancelled-ctx test couldn't fail (AD-12, S1b). The goodsreceipt package needs about 13 minutes under -race, so its hand-ins use -timeout 20m or more.
 - A head lane branched from an older commit merges main before its hand-in, and checks every "no module uses X" claim against main: B1 (base 48c776c2) hid 22 purchase hints behind tips because P29 landed on main in between (REPEAT of the compare-with-main lesson). `pkill -f` without your own worktree path in the pattern happened again in B1.
 - testkit.NoSecondConn's 3 s deadline can trip under heavy load (allmasters project chain at load 80, AD-11): rerun the one test alone before treating it as a real second connection.
+- Never stop a run by walking up its process tree or killing a parent process: an M0-56 worker did that and killed the head director's Claude Code session (1 Nov, 05:59, six hours lost). Kill only the exact PID of a `go test` you started, found with `pgrep -f` on a pattern holding your own worktree path.
+- A module's own POST handler answers htmx the way docscreen does (200 with HX-Redirect and the flash, as wizard.Respond Finish); a recorder test without HX-Request passed E9's paid route while the browser lost the flash (AD-11, REPEAT). TestE2E_PrintButton and TestE2E_ListStateInURL time out under load and pass alone: rerun before treating them as failures.
 - Local Go is 1.25.5; the `toolchain go1.27.3` line in `go.mod` downloads the right one. Don't install Go by hand.
 
 ## How work runs here

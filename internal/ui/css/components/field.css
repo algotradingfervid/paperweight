@@ -226,37 +226,6 @@
   display: grid;
 }
 
-/* Radios drawn as one row of equal segments; fits 320 px. */
-@utility segmented {
-  display: flex;
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  & > label {
-    position: relative;
-    flex: 1 1 0;
-    min-inline-size: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-block-size: var(--target-min);
-    padding-inline: var(--space-1);
-    text-align: center;
-    background: var(--color-surface);
-    color: var(--color-text);
-    cursor: pointer;
-  }
-  & > label + label { border-inline-start: var(--border-w) solid var(--color-border); }
-  & > label:has(:checked) {
-    background: var(--color-primary-600);
-    color: var(--color-text-on-fill);
-  }
-  & > label:has(:focus-visible) {
-    outline: var(--focus-ring);
-    outline-offset: calc(-1 * var(--focus-ring-w));
-  }
-}
-
 @utility error-summary {
   display: grid;
   gap: var(--space-2);

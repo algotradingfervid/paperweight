@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/a-h/templ"
 
@@ -15,13 +16,19 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
-// maxRadios is the most options shown as radios; more is a Select.
-const maxRadios = 6
+// minSelect is the fewest options shown as a Select; fewer are Segmented,
+// or Tiles when a label is longer than maxSegment characters (UI v2 §5.5
+// item 8).
+const (
+	minSelect  = 5
+	maxSegment = 12
+)
 
 // FieldInput is the form control for f with the element id id, the value in
 // input form and an error message (CD-42): Text is a TextInput, or a
 // Textarea with a counter past 200 characters; Int a numeric TextInput;
-// Check one checkbox; Select radios up to 6 options, else a Select; Link a
+// Check a Switch (on when stored false for an Invert field); Select under 5
+// options Segmented (Tiles with a label over 12 characters), else a Select; Link a
 // Picker searching /pick/{Link} that shows the chosen master as "{Code}
 // {Name}" (CD-68); numbers (Money, Qty, Rate, Percent, Factor) a NumberInput
 // checked by the server (CD-48); Date a DateInput with d.Today; Timestamp
@@ -41,20 +48,24 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 		p.Attrs = templ.Attributes{"inputmode": "numeric"}
 		return components.TextInput(p)
 	case doctype.Check:
-		var checked []string
-		if value == "1" || value == "true" {
-			checked = []string{"1"}
+		if f.Invert != "" {
+			p.Label = f.Invert
 		}
-		return components.Checkboxes(p, []components.Option{{Value: "1", Label: "Yes"}}, checked)
+		return components.Switch(p, f.Invert != "")
 	case doctype.Select:
 		opts := make([]components.Option, len(f.Options))
 		for i, o := range f.Options {
 			opts[i] = components.Option{Value: o, Label: optionLabel(f, o)}
 		}
-		if len(opts) <= maxRadios {
-			return components.Radios(p, opts)
+		if len(opts) >= minSelect {
+			return components.Select(p, opts)
 		}
-		return components.Select(p, opts)
+		for _, o := range opts {
+			if utf8.RuneCountInString(o.Label) > maxSegment {
+				return components.Tiles(p, opts)
+			}
+		}
+		return components.Segmented(p, opts)
 	case doctype.Link:
 		return linkInput(f, p, d)
 	case doctype.Money:
