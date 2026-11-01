@@ -21,6 +21,7 @@ import (
 // hidden fields; read them only behind a check with Hide, or not at all.
 type Module struct {
 	StepLabels  map[string]string                           // step slug → label
+	StepIntros  map[string]string                           // step slug → the line under the stepper (UI v2 §5.6)
 	Steps       map[string]Step                             // step slug → custom step
 	Line        *Line                                       // custom line page
 	LineCard    func(c Ctx, l LineView) components.LineCard // a line's summary when its first Link isn't the item

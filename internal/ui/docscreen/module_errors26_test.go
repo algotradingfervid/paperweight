@@ -255,7 +255,7 @@ func TestModule_BodyLineErrorLinks(t *testing.T) {
 			if rec.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("%s = %d, want 422; body %.500s", what, rec.Code, rec.Body)
 			}
-			if got := norm(uitest.Doc(t, rec).Find("h1#step-title").Text()); got != "Items" {
+			if got := norm(uitest.Doc(t, rec).Find("h2#step-title").Text()); got != "Items" {
 				t.Fatalf("%s: heading = %q, want the submit to land on Items", what, got)
 			}
 			m26WantLinks(t, rec, map[string]string{m26EngineMsg: "#f-lines-2-qty"}, what)

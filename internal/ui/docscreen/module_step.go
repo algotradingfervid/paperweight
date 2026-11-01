@@ -22,13 +22,16 @@ func (d Deps) stepHook(dt *doctype.DocType, steps []FormStep, i int) (Step, erro
 }
 
 // labelled is steps with the module's StepLabels shown instead of their
-// labels; slugs and order are unchanged.
+// labels, and its StepIntros as their intros; slugs and order are unchanged.
 func (d Deps) labelled(dt *doctype.DocType, steps []FormStep) []FormStep {
-	labels := d.modOf(dt).StepLabels
+	mod := d.modOf(dt)
 	out := slices.Clone(steps)
 	for i, s := range out {
-		if l, ok := labels[s.Slug]; ok {
+		if l, ok := mod.StepLabels[s.Slug]; ok {
 			out[i].Label = l
+		}
+		if in, ok := mod.StepIntros[s.Slug]; ok {
+			out[i].Intro = in
 		}
 	}
 	return out

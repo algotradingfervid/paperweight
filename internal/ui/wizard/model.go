@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"unicode/utf8"
 
 	"github.com/a-h/templ"
 
@@ -24,11 +25,17 @@ const (
 	Attention StepStatus = "attention"
 )
 
-// Step is one wizard step: its URL slug, label and status.
+// Step is one wizard step: its URL slug, label, status and Intro, the one
+// muted line under the stepper saying what the step is for (UI v2 §5.6).
 type Step struct {
 	Slug, Label string
 	Status      StepStatus
+	Intro       string
 }
+
+// MaxLabel is the longest step label, in characters, so four or five steps
+// fit at 320 px (UI v2 §5.6, A-14).
+const MaxLabel = 12
 
 // Mode says where step values live (CD-50).
 type Mode int
@@ -102,6 +109,17 @@ func (m Model) Validate() error {
 		return fmt.Errorf("wizard: need 0 ≤ Current (%d) ≤ Furthest (%d) < %d", m.Current, m.Furthest, n)
 	}
 	return nil
+}
+
+// LongLabels lists the step labels longer than MaxLabel characters (A-14).
+func (m Model) LongLabels() []string {
+	var out []string
+	for _, s := range m.Steps {
+		if utf8.RuneCountInString(s.Label) > MaxLabel {
+			out = append(out, s.Label)
+		}
+	}
+	return out
 }
 
 // StepURL is step i's URL.

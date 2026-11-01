@@ -186,7 +186,7 @@ func TestModuleBrowser_EnterPressesPrimary(t *testing.T) {
 				); err != nil {
 					t.Fatal(err)
 				}
-				heading, err := m26Step(ctx, "read the heading", chromedp.Text(chromedp.CSS("h1#step-title")))
+				heading, err := m26Step(ctx, "read the heading", chromedp.Text(chromedp.CSS("h2#step-title")))
 				if err != nil {
 					t.Fatal(err)
 				}

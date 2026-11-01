@@ -40,7 +40,7 @@ func (p s1Page) label(id string) string {
 func TestGRNWeb_DeliveryStep(t *testing.T) {
 	w := newS1World(t)
 	r := w.get(w.Suresh, stepPath(w.draft(w.po("SHREE", "10")), "delivery"))
-	if got := strings.TrimSpace(r.doc.Find("h1").Text()); got != "Delivery details" {
+	if got := strings.TrimSpace(r.doc.Find("h2#step-title").Text()); got != "Delivery details" {
 		t.Errorf("h1 = %q, want Delivery details", got)
 	}
 	want := []s1Radio{{"Delivery challan", "Delivery challan", false}, {"Tax invoice", "Tax invoice", false}}

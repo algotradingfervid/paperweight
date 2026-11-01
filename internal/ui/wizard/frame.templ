@@ -77,8 +77,9 @@ func titleLine(m Model) string {
 	return m.Title + " · " + m.DocLabel
 }
 
-// Frame is one wizard step, swapped whole as #wizard: title line, stepper,
-// conflict banner, error summary, warnings, the step heading, the step
+// Frame is one wizard step, swapped whole as #wizard: the title line as the
+// page's h1, the stepper with the step heading (h2#step-title), the step's
+// intro, conflict banner, error summary, warnings, the step
 // form around children and the action bar, or, with m.After, the form,
 // m.After and then the bar posting the form from outside; then m.Below. In Document mode the
 // form holds the page's one #doc-version (CD-95). Focus goes to the heading unless errors or a
@@ -86,8 +87,11 @@ func titleLine(m Model) string {
 // takes focus.
 templ Frame(m Model, bar Bar) {
 	<div id="wizard">
-		<p class="wizard-title">{ titleLine(m) }</p>
+		<h1 class="wizard-title">{ titleLine(m) }</h1>
 		@Stepper(m)
+		if in := m.Steps[m.Current].Intro; in != "" {
+			<p class="step-intro">{ in }</p>
+		}
 		if m.Conflict != "" && len(m.Errors) == 0 {
 			<div id="wizard-conflict" tabindex="-1" autofocus>
 				@conflictBanner(m)
@@ -98,11 +102,6 @@ templ Frame(m Model, bar Bar) {
 		@components.ErrorSummary(m.Errors)
 		@components.Warnings(m.Warnings)
 		@components.Warnings(m.Stored)
-		if len(m.Errors) == 0 && m.Conflict == "" {
-			<h1 id="step-title" tabindex="-1" autofocus>{ m.Heading() }</h1>
-		} else {
-			<h1 id="step-title" tabindex="-1">{ m.Heading() }</h1>
-		}
 		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: m.formTarget(), DisabledElt: disabledElt}) {
 			if p := bar.props(m).Primary; bar.EnterPrimary && p != nil {
 				@components.EnterSubmit(*p)

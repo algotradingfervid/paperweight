@@ -196,8 +196,8 @@ func TestGRNWeb_ItemsReasonOnSubmit(t *testing.T) {
 	r := w.post(w.Suresh, "/doc/"+goodsreceipt.DocType+"/"+strconv.FormatInt(id, 10)+"/submit",
 		url.Values{"version": {strconv.Itoa(w.s2Version(id))}})
 	msg := "Line 1: Reason for rejecting is required."
-	if r.status != http.StatusUnprocessableEntity || s2Norm(r.doc.Find("h1").Text()) != "Received quantities" || r.errorSummary() != msg {
-		t.Fatalf("submit = %d on %q with %q, want 422 on Received quantities with %q", r.status, s2Norm(r.doc.Find("h1").Text()), r.errorSummary(), msg)
+	if r.status != http.StatusUnprocessableEntity || s2Norm(r.doc.Find("h2#step-title").Text()) != "Received quantities" || r.errorSummary() != msg {
+		t.Fatalf("submit = %d on %q with %q, want 422 on Received quantities with %q", r.status, s2Norm(r.doc.Find("h2#step-title").Text()), r.errorSummary(), msg)
 	}
 	if got := s2WantLinkIn(t, r, msg, "reason", "reject_reason", 1); got != docscreen.LineFieldID(1, "reject_reason") {
 		t.Errorf("link id %q, want %q", got, docscreen.LineFieldID(1, "reject_reason"))

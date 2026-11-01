@@ -532,7 +532,7 @@ func TestWizardForm_NewCreatesDraftAndAdvances(t *testing.T) {
 		t.Errorf("htmx response roots = %q, want only #wizard", ids)
 	}
 	next := uitest.Doc(t, rec)
-	if got := norm(next.Find("h1#step-title").Text()); got != "Items" {
+	if got := norm(next.Find("h2#step-title").Text()); got != "Items" {
 		t.Errorf("next step heading = %q, want Items", got)
 	}
 	if got := bannerTexts(next.Selection, "warning"); !slices.Equal(got, []string{warn}) {
@@ -580,7 +580,7 @@ func TestWizardForm_GetIsFullPageWithoutHXRequest(t *testing.T) {
 	if got := stepCount(page.Selection); got != "Step 2 of 3" {
 		t.Errorf("stepper = %q, want Step 2 of 3", got)
 	}
-	if got := norm(page.Find("h1#step-title").Text()); got != "Items" {
+	if got := norm(page.Find("h2#step-title").Text()); got != "Items" {
 		t.Errorf("heading = %q, want Items", got)
 	}
 
@@ -696,7 +696,7 @@ func TestWizardForm_BackSavesWithoutValidating(t *testing.T) {
 			t.Errorf("htmx back: HX-Push-Url = %q, want %s/edit/details", got, ship)
 		}
 		page := uitest.Doc(t, rec)
-		if got := norm(page.Find("h1#step-title").Text()); got != "Details" {
+		if got := norm(page.Find("h2#step-title").Text()); got != "Details" {
 			t.Errorf("htmx back: heading = %q, want Details", got)
 		}
 		if page.Find(".error-summary").Length() != 0 {
@@ -780,7 +780,7 @@ func TestSubmit_FailureGoesToFirstFailingStep(t *testing.T) {
 			if got := stepCount(page.Selection); got != c.count {
 				t.Errorf("stepper = %q, want %q", got, c.count)
 			}
-			if got := norm(page.Find("h1#step-title").Text()); got != c.head {
+			if got := norm(page.Find("h2#step-title").Text()); got != c.head {
 				t.Errorf("heading = %q, want %q", got, c.head)
 			}
 			items := page.Find(".error-summary li").Map(func(_ int, s *goquery.Selection) string { return norm(s.Text()) })
@@ -796,7 +796,7 @@ func TestSubmit_FailureGoesToFirstFailingStep(t *testing.T) {
 			if full.Code != http.StatusUnprocessableEntity || !strings.Contains(full.Body.String(), "<html") {
 				t.Fatalf("plain submit: status %d, full page %v; want a 422 full page", full.Code, strings.Contains(full.Body.String(), "<html"))
 			}
-			if got := norm(uitest.Doc(t, full).Find("h1#step-title").Text()); got != c.head {
+			if got := norm(uitest.Doc(t, full).Find("h2#step-title").Text()); got != c.head {
 				t.Errorf("plain submit heading = %q, want %q", got, c.head)
 			}
 		})
