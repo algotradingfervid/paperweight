@@ -242,8 +242,8 @@ func TestDocPage_SidePanelInsideMain(t *testing.T) {
 				if side.Length() != 1 {
 					t.Fatalf("htmx=%v: found %d .doc-side inside main#main, want 1", hx, side.Length())
 				}
-				if side.Find(".badge").Length() == 0 {
-					t.Errorf("htmx=%v: .doc-side has no state badge", hx)
+				if main.Find(".doc-head__top .badge").Length() == 0 {
+					t.Errorf("htmx=%v: the header card has no state badge", hx)
 				}
 				summaries := side.Find("details > summary").Map(func(_ int, s *goquery.Selection) string { return norm(s.Text()) })
 				if !slices.Contains(summaries, "Approval history") {

@@ -1,0 +1,69 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// LifeMark is where a document's lifecycle step stands.
+type LifeMark int
+
+const (
+	LifeTodo     LifeMark = iota // a later step: a grey outlined dot
+	LifeDone                     // passed: a filled dot with a check
+	LifeCurrent                  // the state now: an outlined dot with a halo
+	LifeRejected                 // sent back at this step: a danger dot with a cross
+	LifeEnded                    // closed or cancelled: a final grey dot
+)
+
+// LifeStep is one step of StatusTimeline: its word and its mark.
+type LifeStep struct {
+	Label string
+	Mark  LifeMark
+}
+
+// lifeClass is a step's classes, written out whole for the CSS build.
+func lifeClass(m LifeMark) string {
+	switch m {
+	case LifeDone:
+		return "lifecycle__step is-done"
+	case LifeCurrent:
+		return "lifecycle__step is-current"
+	case LifeRejected:
+		return "lifecycle__step is-rejected"
+	case LifeEnded:
+		return "lifecycle__step is-ended"
+	}
+	return "lifecycle__step"
+}
+
+// lifeAttrs marks the step the document is at with aria-current="step".
+func lifeAttrs(m LifeMark) templ.Attributes {
+	if m == LifeCurrent || m == LifeRejected || m == LifeEnded {
+		return templ.Attributes{"aria-current": "step"}
+	}
+	return nil
+}
+
+// StatusTimeline is a document's lifecycle as an ordered row of dots (UI v2
+// §5.13 item 4, N14, A-26). Every dot has its word, so no step is shown by
+// colour alone; a passed step is read out with "(done)".
+templ StatusTimeline(steps []LifeStep) {
+	<ol class="lifecycle" aria-label="Progress">
+		for _, s := range steps {
+			<li class={ lifeClass(s.Mark) } { lifeAttrs(s.Mark)... }>
+				<span class="lifecycle__dot" aria-hidden="true">
+					switch s.Mark {
+						case LifeDone:
+							@icons.Icon("check")
+						case LifeRejected:
+							@icons.Icon("x")
+					}
+				</span>
+				<span class="lifecycle__label">
+					{ s.Label }
+					if s.Mark == LifeDone {
+						<span class="visually-hidden">(done)</span>
+					}
+				</span>
+			</li>
+		}
+	</ol>
+}
