@@ -911,10 +911,20 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 	return nil
 }
 
-// input is fd's control at path, its name or a row's "lines[N].field":
+// input is fd's control at path, its name or a row's "lines[N].field"; a
+// More field's goes in the form's MoreDetails (grouped).
+func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Component {
+	in := h.control(fd, path, f)
+	if !fd.More {
+		return in
+	}
+	return asMore(fd, f.Values[path], f.errFor(path), in)
+}
+
+// control is fd's control at path:
 // EmailInput for a Lookups field, CodeInput for a Codes field, NumberInput for a Numbers field, Radios for an
 // OptionLabels field, Select for a Selects field, else docscreen's.
-func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Component {
+func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.Component {
 	lookup, looked := h.Lookups[fd.Name]
 	code, coded := h.Codes[fd.Name]
 	number, numbered := h.Numbers[fd.Name]

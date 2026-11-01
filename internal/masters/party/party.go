@@ -61,8 +61,8 @@ func init() {
 			{Name: "is_customer", Label: "Customer", Column: "is_customer", Type: doctype.Check, Importable: true, Filterable: true},
 			{Name: "pan", Label: "PAN", Column: "pan", Type: doctype.Text, Importable: true, MaxLen: 10},
 			{Name: "gst_category", Label: "GST category", Column: "gst_category", Type: doctype.Select, Importable: true, ListPriority: 5, Options: categories},
-			{Name: "default_payment_terms_id", Label: "Payment Terms", Column: "default_payment_terms_id", Type: doctype.Link, Importable: true, Link: paymentterms.DocType},
-			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, Filterable: true, ListPriority: 3},
+			{Name: "default_payment_terms_id", Label: "Payment terms", Column: "default_payment_terms_id", Type: doctype.Link, Importable: true, Link: paymentterms.DocType, More: true},
+			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, Filterable: true, ListPriority: 3, More: true},
 		},
 		SearchFields: []string{"code", "name"},
 		DefaultSort:  []doctype.SortKey{{Field: "name"}}, // list adds id as the tie-breaker
