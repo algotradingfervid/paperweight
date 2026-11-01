@@ -124,3 +124,19 @@ func (h *Harness) grnScreens(ids docscreen.SampleIDs) []screens.Screen {
 	}
 	return out
 }
+
+// grnReportScreens are MOD-GRN S4's reports entry, Bills to enter and
+// Received items with their filter pages, as Priya (Purchase User: read
+// and export on the GRN), and each report with its chip filter on.
+func grnReportScreens() []screens.Screen {
+	out := []screens.Screen{{Name: "grn reports", Route: "/reports/grn", URL: "/reports/grn", As: priya}}
+	for _, r := range []string{"bills", "items"} {
+		base := "/reports/grn/" + r
+		out = append(out,
+			screens.Screen{Name: "grn report " + r, Route: base, URL: base, As: priya},
+			screens.Screen{Name: "grn report " + r + " filter", Route: base + "/filter", URL: base + "/filter", As: priya})
+	}
+	return append(out,
+		screens.Screen{Name: "grn report bills no bill", Route: "/reports/grn/bills", URL: "/reports/grn/bills?nobill=1", As: priya},
+		screens.Screen{Name: "grn report items rejected", Route: "/reports/grn/items", URL: "/reports/grn/items?rejected=1", As: priya})
+}

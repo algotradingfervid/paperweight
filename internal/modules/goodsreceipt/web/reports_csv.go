@@ -80,10 +80,9 @@ func (h *handlers) writeCSV(w http.ResponseWriter, r *http.Request, report strin
 // billsRecords is Bills to enter's header and rows, filtered by q's nobill=1,
 // vendor and month.
 func (h *handlers) billsRecords(ctx context.Context, p auth.Principal, q url.Values) ([]string, [][]string, error) {
-	f := filters{q: q}
-	bf := goodsreceipt.BillsFilter{NoBill: q.Get("nobill") == "1", VendorID: f.id("vendor", "Vendor"), Month: f.month()}
-	if f.err != nil {
-		return nil, nil, f.err
+	bf, err := billsFilter(q)
+	if err != nil {
+		return nil, nil, err
 	}
 	rows, err := h.d.Service.BillsReport(ctx, p, bf)
 	var recs [][]string
@@ -104,10 +103,9 @@ func (h *handlers) billsRecords(ctx context.Context, p auth.Principal, q url.Val
 // itemsRecords is Received items' header and rows, filtered by q's
 // rejected=1, vendor, item and month.
 func (h *handlers) itemsRecords(ctx context.Context, p auth.Principal, q url.Values) ([]string, [][]string, error) {
-	f := filters{q: q}
-	itf := goodsreceipt.ItemsFilter{VendorID: f.id("vendor", "Vendor"), ItemID: f.id("item", "Item"), Month: f.month(), RejectedOnly: q.Get("rejected") == "1"}
-	if f.err != nil {
-		return nil, nil, f.err
+	itf, err := itemsFilter(q)
+	if err != nil {
+		return nil, nil, err
 	}
 	rows, err := h.d.Service.ItemsReport(ctx, p, itf)
 	var recs [][]string
@@ -120,6 +118,22 @@ func (h *handlers) itemsRecords(ctx context.Context, p auth.Principal, q url.Val
 		})
 	}
 	return itemsHeader, recs, err
+}
+
+// billsFilter is Bills to enter's filter in q: nobill=1, vendor and month.
+// The page and the CSV both read it here, so they parse alike.
+func billsFilter(q url.Values) (goodsreceipt.BillsFilter, error) {
+	f := filters{q: q}
+	bf := goodsreceipt.BillsFilter{NoBill: q.Get("nobill") == "1", VendorID: f.id("vendor", "Vendor"), Month: f.month()}
+	return bf, f.err
+}
+
+// itemsFilter is Received items' filter in q: rejected=1, vendor, item and
+// month, read alike by the page and the CSV.
+func itemsFilter(q url.Values) (goodsreceipt.ItemsFilter, error) {
+	f := filters{q: q}
+	itf := goodsreceipt.ItemsFilter{VendorID: f.id("vendor", "Vendor"), ItemID: f.id("item", "Item"), Month: f.month(), RejectedOnly: q.Get("rejected") == "1"}
+	return itf, f.err
 }
 
 // filters reads the report filters in q, as the kernel list reads its

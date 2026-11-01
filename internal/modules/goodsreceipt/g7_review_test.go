@@ -24,15 +24,14 @@ func TestGRNBill_ReviewDuplicateList(t *testing.T) {
 		d := env.GRN(t, env.Suresh, po.ID, g4Line1(po, "100"), doctype.StateApproved)
 		g[i], num[i] = d.ID, d.Number
 	}
-	in := g7In(g7Invoice, "24-10-2026", "")
-	accepted := g7Accepted("6,250.00")
+	in := g7In(g7Invoice, "24-10-2026", "") // no total: no accepted value line (S3b)
 
 	g7MustSave(t, "GRN 3", env, env.Suresh, g[2], 0, in)
 	g7MustSave(t, "GRN 1", env, env.Suresh, g[0], 0, in)
 	w := g7MustSave(t, "GRN 2", env, env.Suresh, g[1], 0, in)
-	g7WantWarnings(t, "two readable duplicates", w, g7Dup(g7Invoice, num[0]+" and "+num[2]), accepted)
+	g7WantWarnings(t, "two readable duplicates", w, g7Dup(g7Invoice, num[0]+" and "+num[2]))
 	w = g7MustSave(t, "GRN 4", env, env.Suresh, g[3], 0, in)
-	g7WantWarnings(t, "three readable duplicates", w, g7Dup(g7Invoice, num[0]+", "+num[1]+" and "+num[2]), accepted)
+	g7WantWarnings(t, "three readable duplicates", w, g7Dup(g7Invoice, num[0]+", "+num[1]+" and "+num[2]))
 
 	// A fresh number on one readable GRN (GRN 1) and one hidden: the
 	// TECH-SITE GRN is the Administrator's, which Suresh can't read.
@@ -42,7 +41,7 @@ func TestGRNBill_ReviewDuplicateList(t *testing.T) {
 	g7MustSave(t, "readable GRN 1 with the mixed number", env, env.Suresh, g[0], 1, g7In(mixed, "24-10-2026", ""))
 	g7MustSave(t, "hidden GRN with the mixed number", env, env.Admin, hidden.ID, 0, g7In(mixed, "24-10-2026", ""))
 	w = g7MustSave(t, "GRN 5, one readable and one hidden", env, env.Suresh, g[4], 0, g7In(mixed, "24-10-2026", ""))
-	g7WantWarnings(t, "one readable and one hidden duplicate", w, g7DupHidden(mixed), accepted)
+	g7WantWarnings(t, "one readable and one hidden duplicate", w, g7DupHidden(mixed))
 }
 
 // G7 review 2 (AD ruling: trimmed, as DOC's Required and G2): an invoice
@@ -65,7 +64,7 @@ func TestGRNBill_ReviewTrim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("padded invoice no.: %v %+v, want saved trimmed", err, g1FieldErrors(err))
 	}
-	g7WantWarnings(t, "padded invoice no.", w, g7Dup(g7Invoice, first.Number), g7Accepted("6,250.00"))
+	g7WantWarnings(t, "padded invoice no.", w, g7Dup(g7Invoice, first.Number)) // no total: no accepted value line (S3b)
 	g7WantView(t, "padded invoice no.", g7Bill(t, env, second.ID), 1, g7Invoice, g7Oct(24), nil, "")
 
 	forty := strings.Repeat("B", 40)

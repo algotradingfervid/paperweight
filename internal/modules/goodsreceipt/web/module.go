@@ -9,6 +9,7 @@ import (
 type module struct {
 	d     Deps
 	facts factsCache // S1: one Facts read per request
+	lines lineCache  // S3c: one Lines read per request
 }
 
 // Modules is what the GRN adds to the generic document screens, for
@@ -30,6 +31,7 @@ func Modules(d Deps) map[string]docscreen.Module {
 			Check:       m.check,         // S3
 			Page:        m.page,          // S3
 			Reason:      m.reason,        // S3
+			LineCard:    m.lineCard,      // S3c
 		},
 	}
 }

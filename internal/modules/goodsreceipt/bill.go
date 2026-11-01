@@ -92,12 +92,11 @@ func billRow(ctx context.Context, q *dbq.Queries, grnID int64) (BillView, bool, 
 // then the posted values, parsed only now (CD-259), every field error
 // together. The invoice no. is checked, stored and compared trimmed. It
 // inserts at version 1 or bumps the version, and audits the changed
-// columns on the GRN (bill_saved). The warnings, read in the same transaction,
-// are the duplicate invoice (naming the other GRN only when p can read it,
-// CD-240, CD-248) and the accepted value line.
-func (s *Service) SaveBill(ctx context.Context, p auth.Principal, grnID int64, version int, in BillInput) ([]string, error) {
-	var warnings []string
-	err := s.d.DB.Write(ctx, func(tx *db.Tx) error {
+// columns on the GRN (bill_saved). The card's warnings (the duplicate
+// invoice, the accepted value line) are read afterwards through BillCard,
+// so a save and every later render show the same ones.
+func (s *Service) SaveBill(ctx context.Context, p auth.Principal, grnID int64, version int, in BillInput) error {
+	return s.d.DB.Write(ctx, func(tx *db.Tx) error {
 		q := dbq.New(tx.SQL())
 		g, err := q.G7Receipt(ctx, grnID)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -135,26 +134,11 @@ func (s *Service) SaveBill(ctx context.Context, p auth.Principal, grnID int64, v
 		if err != nil {
 			return err
 		}
-		if err := s.d.Audit.Append(ctx, tx, audit.Entry{
+		return s.d.Audit.Append(ctx, tx, audit.Entry{
 			DocType: DocType, DocID: grnID, Action: auditBillSaved, By: p.ID, At: now,
 			Changes: billChanges(cur, in.InvoiceNo, on, amount),
-		}); err != nil {
-			return err
-		}
-		dup, err := s.duplicate(ctx, tx, q, p, grnID, g.VendorID, in.InvoiceNo)
-		if err != nil {
-			return err
-		}
-		if dup != "" {
-			warnings = append(warnings, dup)
-		}
-		warnings = append(warnings, fmt.Sprintf(msgBillAccepted, types.FormatMoney(types.Money(g.AcceptedValue))))
-		return nil
+		})
 	})
-	if err != nil {
-		return nil, err
-	}
-	return warnings, nil
 }
 
 // parseBill parses and checks the posted values (spec §3.3; CD-279 (4)):
@@ -164,7 +148,7 @@ func (s *Service) parseBill(in BillInput) (types.Date, sql.NullInt64, []doc.Fiel
 	switch {
 	case in.InvoiceNo == "":
 		fields = append(fields, doc.FieldError{Field: "invoice_no", Message: msgBillNoRequired})
-	case utf8.RuneCountInString(in.InvoiceNo) > billNoMaxLen:
+	case utf8.RuneCountInString(in.InvoiceNo) > BillNoMaxLen:
 		fields = append(fields, doc.FieldError{Field: "invoice_no", Message: msgBillNoMaxLen})
 	}
 	var on types.Date

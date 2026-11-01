@@ -93,7 +93,7 @@ func TestNav_AdminGroups(t *testing.T) {
 	want := map[string][]string{
 		"Work":          {"/approvals", "/approvals/mine"},
 		"Purchase":      {"/modules/purchase", "/doc/purchase.Order", "/doc/purchase.Request"},
-		"Goods receipt": {"/doc/goodsreceipt.Receipt"},
+		"Goods receipt": {"/doc/goodsreceipt.Receipt", "/reports/grn"},
 		"Expenses":      {"/doc/expense.Claim", "/doc/expense.Advance"},
 		"Masters": {"/m/party", "/m/item", "/m/project", "/m/site", "/m/employee",
 			"/m/branch", "/m/company", "/m/expense-type", "/m/payment-terms", "/m/tax-code", "/m/uom"},
