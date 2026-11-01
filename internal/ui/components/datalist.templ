@@ -76,7 +76,7 @@ templ listCard(l listLayout, r Row) {
 		<div class="datalist-r1">
 			if l.title != nil {
 				@listCell(cardCell{Column: *l.title, title: true}) {
-					{ r.Values[l.title.Key] }
+					{ l.titleText(r) }
 				}
 			} else {
 				<p class="datalist-cell datalist-title">{ r.Title }</p>
