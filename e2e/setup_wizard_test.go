@@ -62,3 +62,30 @@ func TestE2E_SetupWizardPhone(t *testing.T) {
 	s.Until("the inbox", `location.pathname === "/approvals"`)
 	s.WaitText("Your company is set up. Next, add your users.")
 }
+
+// TestE2E_FillAfterStepSwap: Fill waits for htmx to settle a swapped step.
+// Settling focuses the step heading ([autofocus]), so keys typed across it
+// went to the heading and the field kept only the first ones. The settle
+// delay is stretched so the race always shows: Fill ends before it, and the
+// key typed after it is lost unless Fill waited.
+func TestE2E_FillAfterStepSwap(t *testing.T) {
+	h := StartEmpty(t)
+	h.createAdmin()
+	s := h.Browser(freshAdmin, phone320)
+	s.Open("/signin")
+	s.Fill("email", freshAdmin)
+	s.Fill("password", password)
+	s.Press("Sign in")
+	s.Until("the setup wizard", `location.pathname === "/setup/company" && document.querySelector("input[name=legal_name]") !== null`)
+	s.Fill("legal_name", "Vardhan Infra Projects Pvt Ltd")
+	s.Fill("gstin", "27AAFCV2449G1Z7")
+	Eval[bool](s, `(htmx.config.defaultSettleDelay = 300, true)`)
+	s.Press("Continue")
+	s.Until("the Head office step", `location.pathname === "/setup/company/office" && document.getElementById("f-branch_code") !== null`)
+	s.Fill("branch_code", "PUN")
+	s.Until("the step to settle", `!document.querySelector(".htmx-settling")`)
+	s.Keys("E")
+	if got := Eval[string](s, `document.getElementById("f-branch_code").value`); got != "PUNE" {
+		t.Errorf("head office code = %q, want PUNE", got)
+	}
+}

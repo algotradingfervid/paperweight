@@ -323,6 +323,16 @@ func TestWizard_BadShapePanicsAtMount(t *testing.T) {
 		"section field": func(s *screen) { s.Sections = bad },
 		"wizard field":  func(s *screen) { s.Wizard = mstweb.CreateWizard[stubDraft]{Steps: bad} },
 		"one step":      func(s *screen) { s.Wizard = mstweb.CreateWizard[stubDraft]{Steps: bad[1:]} },
+		// CD-369: a Choice is form-only, shown by a step, and the only target of Renames.
+		"choice named after a field": func(s *screen) {
+			s.Choices = map[string]mstweb.Choice{"code": {Label: "Code"}}
+			s.Sections = []docscreen.FormStep{{Slug: "details", Label: "Details", Fields: []string{"code"}}}
+		},
+		"choices without steps": func(s *screen) { s.Choices = map[string]mstweb.Choice{"size": {Label: "Size"}} },
+		"rename to no choice": func(s *screen) {
+			s.Sections = []docscreen.FormStep{{Slug: "details", Label: "Details", Fields: []string{"code"}}}
+			s.Renames = map[string]string{"item_type": "name"}
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

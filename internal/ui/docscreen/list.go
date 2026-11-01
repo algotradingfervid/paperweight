@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -174,12 +175,14 @@ func (d Deps) PartyListed(ctx context.Context, p auth.Principal, name string) bo
 
 // listRows is rs as DataList rows over cols; href is each row's link. The
 // party is left out when the module hides its field (CD-319 (7)); Hide is
-// asked with no View and Listing set (CD-327 (1)).
+// asked with no View and Listing set (CD-327 (1)). PartyKey names the party
+// field's column, which cards skip (CD-371).
 func (d Deps) listRows(r *http.Request, dt *doctype.DocType, cols []components.Column, rs []ListRow, href func(string, int64) string) ([]components.Row, error) {
 	ctx := r.Context()
 	c := d.ctxOf(r, dt, nil)
 	c.Listing = true
 	noParty := partyHidden(c)
+	partyField, _ := doc.PartyField(dt)
 	rows := make([]components.Row, len(rs))
 	err := d.DB.Read(ctx, func(tx *db.Tx) error {
 		for i, lr := range rs {
@@ -208,6 +211,7 @@ func (d Deps) listRows(r *http.Request, dt *doctype.DocType, cols []components.C
 			}
 			if !noParty {
 				rows[i].Party = lr.Info.Party
+				rows[i].PartyKey = partyField.Name
 			}
 		}
 		return nil

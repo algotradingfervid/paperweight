@@ -145,7 +145,7 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 		}
 		v.code = &components.FieldProps{
 			ID: components.FieldID("employee_id"), Name: "employee_id", Label: labelCode, Hint: hintCode,
-			Error: errOf("employee_id"), Value: code, Clearable: true,
+			Error: errOf("employee_id"), Value: code, Clearable: true, Placeholder: "e.g. EMP-007",
 			Attrs: templ.Attributes{"autocapitalize": "characters", "spellcheck": "false"},
 		}
 	}

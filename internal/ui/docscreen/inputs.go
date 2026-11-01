@@ -80,6 +80,9 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 	case doctype.Link:
 		return linkInput(f, p, d)
 	case doctype.Money:
+		if p.Placeholder == "" {
+			p.Placeholder = "0.00" // UI v2 §5.5 item 5
+		}
 		return components.NumberInput(p, components.Money, false)
 	case doctype.Qty:
 		return components.NumberInput(p, components.Qty, false)

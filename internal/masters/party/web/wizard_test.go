@@ -32,7 +32,7 @@ func TestScreens_PartyWizardKeepsDraft(t *testing.T) {
 	b := w.kavya()
 
 	d := details("MEHTA")
-	d.Set("is_customer", "1")
+	d.Set("role", "both")
 	d.Set("default_payment_terms_id", strconv.FormatInt(terms, 10))
 	a := rows(mumbaiRow, blrRow)
 	c := rows(sunilRow, kiranRow)
@@ -48,7 +48,7 @@ func TestScreens_PartyWizardKeepsDraft(t *testing.T) {
 	if got := chosen(first, "gst_category"); got != "Registered Regular" {
 		t.Errorf("gst_category = %q", got)
 	}
-	if !checked(first, "is_vendor") || !checked(first, "is_customer") {
+	if chosen(first, "role") != "both" {
 		t.Errorf("roles lost on Back")
 	}
 	value(t, first, "default_payment_terms_id", strconv.FormatInt(terms, 10))
@@ -221,7 +221,7 @@ func TestScreens_PartyWizardFirstPage(t *testing.T) {
 			t.Errorf("the stepper links %s, not reached yet", step)
 		}
 	}
-	for _, name := range []string{"code", "name", "is_vendor", "is_customer", "pan", "gst_category", "default_payment_terms_id"} {
+	for _, name := range []string{"code", "name", "role", "pan", "gst_category", "default_payment_terms_id"} {
 		if !page.HasControl(name) {
 			t.Errorf("first step lacks %s", name)
 		}
@@ -602,7 +602,7 @@ func TestScreens_PartyWizardStepErrors(t *testing.T) {
 	for _, c := range []struct {
 		name, field, value, id, msg string
 	}{
-		{"no role", "is_vendor", "", "is_vendor", msgRole},
+		{"no role", "role", "", "role", msgRole},
 		{"PAN", "pan", "AABCS1429", "pan", msgPAN},
 		{"code", "code", strings.Repeat("C", 21), "code", msgCodeForm},
 		{"category", "gst_category", "Registered", "gst_category", msgCategory},

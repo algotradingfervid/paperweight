@@ -33,10 +33,12 @@ type Column struct {
 }
 
 // Row is one list entry. Values are keyed by Column.Key; the PState column
-// shows State. Title is used when no column is PTitle (Info.Display);
-// Party is Info.Party (CD-55).
+// shows State. Title is used when no column is PTitle or the PTitle value
+// is blank (Info.Display, CD-371); Party is Info.Party (CD-55) and PartyKey
+// the Key of the column it comes from, which cards skip (CD-371).
 type Row struct {
 	Href, Title, Party string
+	PartyKey           string
 	Values             map[string]string
 	State              doctype.State
 	StateLabel         string // the DocType's word for State; "" keeps the component's
@@ -173,12 +175,22 @@ func (l listLayout) listThird(r Row) []Column {
 	return l.meta
 }
 
+// titleText is card row 1's title: the PTitle value, or Title when that
+// value is blank (CD-371).
+func (l listLayout) titleText(r Row) string {
+	if v := r.Values[l.title.Key]; strings.TrimSpace(v) != "" {
+		return v
+	}
+	return r.Title
+}
+
 // listSep ends a card value that has a drawn value after it. The no-break
 // space keeps the dot on the value's line.
 const listSep = "\u00a0\u00b7 "
 
 // cardCell is one value on a card: title marks the first-row title, state the
-// state badge, blank a value with no text. sep and sepLow are listCell's.
+// state badge, blank a value cards don't draw: one with no text, or the
+// row's party column, which row 2 already shows (CD-371). sep and sepLow are listCell's.
 type cardCell struct {
 	Column
 	title, state, blank, sep, sepLow bool
@@ -190,7 +202,8 @@ type cardCell struct {
 func (l listLayout) thirdCells(r Row) []cardCell {
 	var cells []cardCell
 	for _, c := range l.listThird(r) {
-		cells = append(cells, cardCell{Column: c, blank: strings.TrimSpace(r.Values[c.Key]) == ""})
+		blank := strings.TrimSpace(r.Values[c.Key]) == "" || c.Key == r.PartyKey
+		cells = append(cells, cardCell{Column: c, blank: blank})
 	}
 	if l.state != nil {
 		cells = append(cells, cardCell{Column: *l.state, state: true})

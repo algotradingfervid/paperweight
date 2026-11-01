@@ -368,7 +368,7 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 func (h *handlers[R, In]) overLimit(s docscreen.FormStep, typed, vals map[string]string) []doctype.FieldError {
 	var errs []doctype.FieldError
 	for _, name := range s.Fields {
-		fd, _ := h.dt.Field(name) // handlers checked every step's fields
+		fd, _ := h.field(name) // handlers checked every step's fields
 		limit := max(fd.MaxLen, defaultMaxLen)
 		if utf8.RuneCountInString(typed[name]) > limit {
 			errs = append(errs, doctype.FieldError{Field: name, Message: fd.Label + " can be at most " + types.FormatCount(int64(limit)) + " characters."})
@@ -426,6 +426,9 @@ func (h *handlers[R, In]) postedStep(r *http.Request, s docscreen.FormStep) map[
 	typed := make(map[string]string, len(s.Fields))
 	for _, name := range s.Fields {
 		typed[name] = r.PostFormValue(name)
+		if _, ok := h.Choices[name]; ok && h.choiceLabel(name, typed[name]) == "" {
+			typed[name] = ""
+		}
 	}
 	if rs, ok := h.wiz.rows[s.Slug]; ok {
 		rows := map[string]string{}
@@ -446,7 +449,7 @@ func (h *handlers[R, In]) wizardRead(ctx context.Context, vals map[string]string
 		return nil, nil, nil, err
 	}
 	save, parsed, rules := h.wiz.read(resolved)
-	return save, append(errs, parsed...), rules, nil
+	return save, h.renamed(append(errs, parsed...)), h.renamed(rules), nil
 }
 
 func (h *handlers[R, In]) wizardFields() []string {
@@ -519,7 +522,7 @@ func (h *handlers[R, In]) wizardSave(w http.ResponseWriter, r *http.Request, p a
 		if !errors.As(err, &he) || he.Status() != http.StatusUnprocessableEntity {
 			return err
 		}
-		errs := he.FieldErrors()
+		errs := h.renamed(he.FieldErrors())
 		if len(errs) == 0 {
 			errs = []doctype.FieldError{{Message: he.Error()}}
 		}
@@ -616,7 +619,7 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 		return v, nil
 	}
 	for _, name := range h.wiz.steps[i].Fields {
-		fd, _ := h.dt.Field(name) // handlers checked every step's fields
+		fd, _ := h.field(name) // handlers checked every step's fields
 		v.Inputs = append(v.Inputs, h.input(fd, name, f))
 		v.Required = v.Required || fd.Required
 	}
@@ -682,6 +685,9 @@ func (h *handlers[R, In]) typedRows(ctx context.Context, tx *db.Tx, s docscreen.
 // label, else as typed. A Lookups field's value is what the person typed.
 func (h *handlers[R, In]) typedDisplay(ctx context.Context, tx *db.Tx, fd doctype.Field, value string) (string, error) {
 	if label := h.OptionLabels[fd.Name][value]; label != "" {
+		return label, nil
+	}
+	if label := h.choiceLabel(fd.Name, value); label != "" {
 		return label, nil
 	}
 	if i := slices.IndexFunc(h.Selects[fd.Name], func(o components.Option) bool { return o.Value == value }); i >= 0 {
