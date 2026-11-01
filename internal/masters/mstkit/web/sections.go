@@ -63,7 +63,7 @@ func (h *handlers[R, In]) stepPairs(ctx context.Context, tx *db.Tx, s docscreen.
 		if vals[name] == "" {
 			continue
 		}
-		fd, _ := h.dt.Field(name) // handlers checked every step's fields
+		fd, _ := h.field(name) // handlers checked every step's fields
 		text, err := show(ctx, tx, fd, vals[name])
 		if err != nil {
 			return nil, err
@@ -161,14 +161,14 @@ func (h *handlers[R, In]) sectionSave(w http.ResponseWriter, r *http.Request, p 
 		return err
 	}
 	in, parsed := h.ToInput(resolved)
-	errs = append(errs, parsed...)
+	errs = h.renamed(append(errs, parsed...))
 	if len(errs) > 0 {
 		f.Errs = withRules(errs, stepErrors(s, h.rules(in)))
 		return h.renderSection(w, r, http.StatusUnprocessableEntity, id, s, rec, f)
 	}
 	saved, err := h.Svc.Update(ctx, p, id, version, in)
 	if err != nil {
-		return h.sectionRefused(w, r, id, s, rec, f, err)
+		return h.sectionRefused(w, r, id, s, rec, f, h.renamedErr(err))
 	}
 	return Done(w, r, h.Copy.Saved, h.recordPath(id), saved.Warnings...)
 }
@@ -178,7 +178,7 @@ func (h *handlers[R, In]) rules(in In) []doctype.FieldError {
 	if h.Validate == nil {
 		return nil
 	}
-	return validationErrors(h.Validate(in))
+	return h.renamed(validationErrors(h.Validate(in)))
 }
 
 // sectionRefused shows a refusal on the section: field errors of its own by
@@ -204,7 +204,7 @@ func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, 
 		Back: components.Link{Label: strings.TrimSpace(head.Code + " " + head.Name), Href: h.recordPath(id)},
 	}
 	for _, name := range s.Fields {
-		fd, _ := h.dt.Field(name) // handlers checked every step's fields
+		fd, _ := h.field(name) // handlers checked every step's fields
 		v.Inputs = append(v.Inputs, h.input(fd, name, f))
 		v.Required = v.Required || fd.Required
 	}

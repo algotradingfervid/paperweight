@@ -171,6 +171,26 @@ type Screen[R, In any] struct {
 	// the stored value (Employee's user, by email). Only the wizard and
 	// sections read them.
 	Lookups map[string]Lookup
+	// Choices is optional and names form-only fields, which the DocType
+	// doesn't declare, shown with components.Segmented: Party's role
+	// (CD-369). A Sections or Wizard step names one as it names a field;
+	// ToInput reads its value and Values gives it from the record. A posted
+	// value that isn't one of its options reaches ToInput blank, so the
+	// master's own rule refuses it.
+	Choices map[string]Choice
+	// Renames is optional and moves the header errors on a DocType field to
+	// a form-only one, on sections and the wizard: Party's is_vendor and
+	// is_customer to role.
+	Renames map[string]string
+}
+
+// Choice is a form-only field: its label and its options. Required only
+// marks it (the asterisk and aria-required); a step's Next still hears its
+// refusal, which ToInput or Validate gives.
+type Choice struct {
+	Label    string
+	Required bool
+	Options  []components.Option
 }
 
 // Lookup is a field whose form shows a person's key for a stored value
@@ -253,9 +273,22 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 	}
 	for _, st := range slices.Concat(s.Sections, h.wiz.steps) {
 		for _, name := range st.Fields {
-			if _, ok := dt.Field(name); !ok {
+			if _, ok := h.field(name); !ok {
 				panic("mstweb: " + s.DocType + ": step " + st.Slug + " names no field " + name)
 			}
+		}
+	}
+	for name := range s.Choices {
+		if _, ok := dt.Field(name); ok {
+			panic("mstweb: " + s.DocType + ": choice " + name + " is a field of the DocType")
+		}
+	}
+	if len(s.Choices) > 0 && s.Sections == nil && s.Wizard == nil {
+		panic("mstweb: " + s.DocType + ": Choices are shown only by Sections or a Wizard")
+	}
+	for from, to := range s.Renames {
+		if _, ok := s.Choices[to]; !ok {
+			panic("mstweb: " + s.DocType + ": Renames moves " + from + " to " + to + ", which is no choice")
 		}
 	}
 	return h
@@ -446,7 +479,51 @@ func (h *handlers[R, In]) display(ctx context.Context, tx *db.Tx, fd doctype.Fie
 	if label := h.OptionLabels[fd.Name][value]; label != "" {
 		return label, nil
 	}
+	if label := h.choiceLabel(fd.Name, value); label != "" {
+		return label, nil
+	}
 	return docscreen.Display(ctx, tx, h.Env.Engine, fd, value)
+}
+
+// field is the step field name: the DocType's, or a Choices field as a
+// Field. Only display reads a Choice's Required: answered asks the DocType,
+// so a blank choice isn't held back to Check and save.
+func (h *handlers[R, In]) field(name string) (doctype.Field, bool) {
+	if c, ok := h.Choices[name]; ok {
+		return doctype.Field{Name: name, Label: c.Label, Required: c.Required}, true
+	}
+	return h.dt.Field(name)
+}
+
+// choiceLabel is the label of the Choices field name's option value, "" when
+// it has none.
+func (h *handlers[R, In]) choiceLabel(name, value string) string {
+	opts := h.Choices[name].Options
+	if i := slices.IndexFunc(opts, func(o components.Option) bool { return o.Value == value }); i >= 0 {
+		return opts[i].Label
+	}
+	return ""
+}
+
+// renamed is errs with Renames applied.
+func (h *handlers[R, In]) renamed(errs []doctype.FieldError) []doctype.FieldError {
+	out := slices.Clone(errs)
+	for i, e := range out {
+		if to, ok := h.Renames[e.Field]; ok {
+			out[i].Field = to
+		}
+	}
+	return out
+}
+
+// renamedErr is err with Renames applied to its field errors when it is a 422
+// that has some; any other err is as it is.
+func (h *handlers[R, In]) renamedErr(err error) error {
+	var he doctype.HTTPError
+	if !errors.As(err, &he) || he.Status() != http.StatusUnprocessableEntity || len(he.FieldErrors()) == 0 {
+		return err
+	}
+	return &mstkit.ValidationError{Fields: h.renamed(he.FieldErrors())}
 }
 
 // plain is a list.Row value (typed by its field, nil for NULL) in the form
@@ -921,16 +998,17 @@ func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Com
 
 // control is fd's control at path:
 // EmailInput for a Lookups field, CodeInput for a Codes field, NumberInput for a Numbers field, Radios for an
-// OptionLabels field, Select for a Selects field, else docscreen's.
+// OptionLabels field, Select for a Selects field, Segmented for a Choices field, else docscreen's.
 func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.Component {
 	lookup, looked := h.Lookups[fd.Name]
 	code, coded := h.Codes[fd.Name]
 	number, numbered := h.Numbers[fd.Name]
 	labels, labelled := h.OptionLabels[fd.Name]
 	opts, selected := h.Selects[fd.Name]
+	choice, chosen := h.Choices[fd.Name]
 	fd.Name = path
 	id, value, msg := components.FieldID(path), f.Values[path], f.errFor(path)
-	if !looked && !coded && !numbered && !labelled && !selected {
+	if !looked && !coded && !numbered && !labelled && !selected && !chosen {
 		return docscreen.FieldInput(fd, id, value, msg, h.deps.WithStored(f.Stored))
 	}
 	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Tip: fd.Tip, Error: msg, Value: value, Required: fd.Required}
@@ -940,6 +1018,9 @@ func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.C
 	}
 	if selected {
 		return components.Select(p, opts)
+	}
+	if chosen {
+		return components.Segmented(p, choice.Options)
 	}
 	if labelled {
 		opts := make([]components.Option, len(fd.Options))

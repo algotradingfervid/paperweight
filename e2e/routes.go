@@ -508,9 +508,8 @@ func (h *Harness) masterScreens(s sweepState) []screens.Screen {
 		section("party", name)
 	}
 	out = append(out,
-		screens.Screen{Name: "party wizard refused", Route: "/m/party/new/{step}", URL: "/m/party/new/details", As: admin, Setup: refuse(`input[name=is_vendor]`, `
-  f.elements.is_vendor.checked = false;
-  f.elements.is_customer.checked = false;`)},
+		screens.Screen{Name: "party wizard refused", Route: "/m/party/new/{step}", URL: "/m/party/new/details", As: admin, Setup: refuse(`input[name=role]`, `
+  f.elements.role.forEach((r) => { r.checked = false; });`)},
 		screens.Screen{Name: "party canonical", Route: "/m/party" + idRoute, URL: "/m/party/" + strconv.FormatInt(h.Fx.Parties[0].ID, 10), As: admin},
 		screens.Screen{Name: "party edit refused", Route: "/m/party" + idRoute + "/edit/{section}", URL: "/m/party/" + strconv.FormatInt(s.long.Party, 10) + "/edit/details", As: admin,
 			Setup: refuse(`input[name=name]`, `f.elements.name.value = "";`)},
@@ -562,7 +561,7 @@ type wizardStep struct {
 // What the wizards are given, through the real forms.
 var (
 	fillEmployee = `set("code", "` + uitest.LongCode60[:20] + `"); set("name", "` + uitest.LongName100 + `"); set("joining_date", "` + plainDate + `");`
-	fillParty    = `set("code", "` + uitest.LongCode60[:19] + `"); set("name", "` + uitest.LongName100 + `"); check("is_vendor"); check("is_customer");`
+	fillParty    = `set("code", "` + uitest.LongCode60[:19] + `"); set("name", "` + uitest.LongName100 + `"); check("role");`
 	fillAddress  = `set(".title", "` + uitest.LongName100 + `"); set(".line1", "` + uitest.LongName100 + `"); set(".line2", "` + uitest.LongDevanagari + `");
   set(".city", "` + uitest.LongName100 + `"); set(".state_code", "27"); set(".pincode", "400093"); check(".is_billing");`
 	fillContact = `set(".first_name", "` + uitest.LongName100 + `"); set(".last_name", "` + uitest.LongDevanagari + `");

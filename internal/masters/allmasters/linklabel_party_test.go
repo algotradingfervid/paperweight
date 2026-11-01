@@ -136,7 +136,7 @@ func TestCD233_PartySectionHidesTheLabel(t *testing.T) {
 // lpDetailsForm is the wizard's first step with terms chosen.
 func lpDetailsForm(id int64) url.Values {
 	return url.Values{
-		"code": {"SRC-9"}, "name": {"Row"}, "is_vendor": {"1"}, "gst_category": {"Unregistered"},
+		"code": {"SRC-9"}, "name": {"Row"}, "role": {"vendor"}, "gst_category": {"Unregistered"},
 		lpTermsField: {strconv.FormatInt(id, 10)},
 	}
 }

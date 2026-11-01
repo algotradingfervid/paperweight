@@ -61,14 +61,14 @@ func TestScreens_AddressWarningInAlerts(t *testing.T) {
 	}
 }
 
-// Check and save reads as words: a tick is Yes and a state its name, on a row
-// and on the party.
+// Check and save reads as words: a tick is Yes, a state its name and the
+// role its label, on a row and on the party.
 func TestScreens_PartyWizardCheckWords(t *testing.T) {
 	w := newWorld(t)
 	b := w.kavya()
 	toCheck(t, b, details("MEHTA"), rows(mumbaiRow), rows(sunilRow))
 	check := b.Get(t, stepCheck)
-	webtest.WantText(t, check, "VendorYes")
+	webtest.WantText(t, check, "This party is aVendor")
 	webtest.WantText(t, check, "BillingYes")
 	webtest.WantText(t, check, "Maharashtra (27)")
 	webtest.WantText(t, check, "PrimaryYes")

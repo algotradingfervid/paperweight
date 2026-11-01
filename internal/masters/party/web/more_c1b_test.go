@@ -35,7 +35,7 @@ func TestScreens_PartyMoreDetails(t *testing.T) {
 
 	terms := w.terms(t, "N30", "Net 30")
 	webtest.WantStatus(t, b.Post(t, stepDetails, url.Values{
-		"code": {"MEHTA"}, "name": {"Mehta Traders"}, "is_vendor": {"1"}, "is_customer": {"0"},
+		"code": {"MEHTA"}, "name": {"Mehta Traders"}, "role": {"vendor"},
 		"gst_category": {"Unregistered"}, "default_payment_terms_id": {strconv.FormatInt(terms, 10)},
 	}), http.StatusSeeOther)
 	if _, open := b.Get(t, stepDetails).Doc.Find("form details.disclosure").Attr("open"); !open {
