@@ -36,7 +36,7 @@ const (
 // neither NonNegative nor Positive (CD-336 (2)); Date a DateInput with
 // d.Today; Timestamp read-only text. MST's master forms reuse it.
 func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Component {
-	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Error: errMsg, Value: value, Required: f.Required, Clearable: !f.Required}
+	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Placeholder: f.Placeholder, Error: errMsg, Value: value, Required: f.Required, Clearable: !f.Required}
 	if (f.Type == doctype.Money || f.Type == doctype.Qty || f.Type == doctype.Rate) && !f.NonNegative && !f.Positive {
 		p = components.Signed(p)
 	}
@@ -53,6 +53,7 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 		p.Attrs = templ.Attributes{"inputmode": "numeric"}
 		return components.TextInput(p)
 	case doctype.Check:
+		p.Placeholder = ""
 		if f.Invert != "" {
 			p.Label = f.Invert
 		}
@@ -62,6 +63,7 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 		}
 		return components.Switch(p, f.Invert != "", v)
 	case doctype.Select:
+		p.Placeholder = ""
 		opts := make([]components.Option, len(f.Options))
 		for i, o := range f.Options {
 			opts[i] = components.Option{Value: o, Label: optionLabel(f, o)}
@@ -88,6 +90,7 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 	case doctype.Factor:
 		return components.NumberInput(p, components.Factor, false)
 	case doctype.Date:
+		p.Placeholder = "" // a Date always shows dd-mm-yyyy (UI v2 §5.5 item 5)
 		dp := components.DateProps{FieldProps: p}
 		if d.Today != nil {
 			dp.Today, dp.Yesterday = d.Today()
