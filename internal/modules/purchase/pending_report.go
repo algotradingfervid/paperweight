@@ -56,7 +56,7 @@ func (s *Service) PendingReport(ctx context.Context, p auth.Principal, f Pending
 	today := types.Today(s.d.Clock)
 	var v PendingView
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		in, err := scopeIDs(ctx, tx, pred)
+		in, err := scopeIn(ctx, tx, "purchase_order", pred)
 		if err != nil {
 			return err
 		}
@@ -136,30 +136,4 @@ func pendingRowOf(r dbq.PendingLinesRow, today types.Date) (PendingRow, error) {
 		NetRate: rate, PendingValue: value,
 		Overdue: due != (types.Date{}) && due.Compare(today) < 0,
 	}, nil
-}
-
-// scopeIDs reports whether a purchase_order id is in pred, read in tx; an
-// empty pred is every PO. Scope is asked before the tx opens (it takes its
-// own connection).
-func scopeIDs(ctx context.Context, tx *db.Tx, pred auth.Predicate) (func(int64) bool, error) {
-	if pred.SQL == "" {
-		return func(int64) bool { return true }, nil
-	}
-	rows, err := tx.SQL().QueryContext(ctx, `SELECT "purchase_order".id FROM "purchase_order" WHERE `+pred.SQL, pred.Args...) //nolint:gosec // G202: AUTH's predicate, with its args
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	ids := map[int64]bool{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids[id] = true
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return func(id int64) bool { return ids[id] }, nil
 }
