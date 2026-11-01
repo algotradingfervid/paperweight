@@ -448,9 +448,13 @@ func (s *Session) Fill(field, value string) {
 	s.FillID(components.FieldID(field), value)
 }
 
-// FillID replaces the text of the input with this id, as a user does.
+// FillID replaces the text of the input with this id, as a user does. Like a
+// user it waits for a swap to settle first: htmx pushes the URL and swaps
+// before it settles, and settling focuses the swapped content's [autofocus]
+// (a step heading), which would take the keys typed before it.
 func (s *Session) FillID(id, value string) {
 	s.t.Helper()
+	s.Until("the page to settle before filling "+id, `!document.querySelector(".htmx-swapping, .htmx-settling")`)
 	s.Do("fill "+id, chromedp.Evaluate[chromedp.Void](`(() => { const e = document.getElementById("`+id+`"); e.focus(); e.select(); })()`), chromedp.KeyEvent(value))
 }
 
