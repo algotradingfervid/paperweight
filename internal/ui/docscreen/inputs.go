@@ -27,7 +27,8 @@ const (
 // FieldInput is the form control for f with the element id id, the value in
 // input form and an error message (CD-42): Text is a TextInput, or a
 // Textarea with a counter past 200 characters; Int a numeric TextInput;
-// Check a Switch (on when stored false for an Invert field); Select under 5
+// Check a Switch (on when stored false for an Invert field) posting DOC's
+// "true"/"false", or "1"/"0" with d.MasterChecks (CD-322); Select under 5
 // options Segmented (Tiles with a label over 12 characters), else a Select; Link a
 // Picker searching /pick/{Link} that shows the chosen master as "{Code}
 // {Name}" (CD-68); numbers (Money, Qty, Rate, Percent, Factor) a NumberInput
@@ -51,7 +52,11 @@ func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Compone
 		if f.Invert != "" {
 			p.Label = f.Invert
 		}
-		return components.Switch(p, f.Invert != "")
+		v := components.SwitchValues{Yes: "true", No: "false"}
+		if d.MasterChecks {
+			v = components.SwitchValues{Yes: "1", No: "0"}
+		}
+		return components.Switch(p, f.Invert != "", v)
 	case doctype.Select:
 		opts := make([]components.Option, len(f.Options))
 		for i, o := range f.Options {

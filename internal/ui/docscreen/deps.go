@@ -165,6 +165,10 @@ type Deps struct {
 	// screens (hooks spec §3).
 	Modules map[string]Module
 
+	// MasterChecks makes FieldInput's Check post a master form's "1"/"0"
+	// (mstkit) instead of DOC's "true"/"false" (CD-322).
+	MasterChecks bool
+
 	stored map[string]string // the record's values, see WithStored
 }
 
