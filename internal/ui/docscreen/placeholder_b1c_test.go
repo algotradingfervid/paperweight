@@ -80,11 +80,12 @@ func TestFieldInput_PlaceholderChosenLink(t *testing.T) {
 
 // Without a Placeholder each control keeps what it showed before: none on
 // the text and number controls (no empty attribute), dd-mm-yyyy on a Date, and
-// "Type to search" on a Link.
+// "Type to search" on a Link; a Money shows 0.00 (UI v2 §5.5 item 5, B1d).
 func TestFieldInput_NoPlaceholder(t *testing.T) {
 	want := map[doctype.FieldType][]string{
-		doctype.Date: {"dd-mm-yyyy"},
-		doctype.Link: {"Type to search"},
+		doctype.Money: {"0.00"},
+		doctype.Date:  {"dd-mm-yyyy"},
+		doctype.Link:  {"Type to search"},
 	}
 	for _, f := range b1cFields {
 		got := b1cPlaceholders(t, f)
@@ -106,6 +107,18 @@ func TestFieldInput_PlaceholderIgnoredOnChoices(t *testing.T) {
 		f.Placeholder = "e.g. X"
 		if got := b1cPlaceholders(t, f); len(got) != 0 {
 			t.Errorf("%s %v: placeholder attributes %q, want none", f.Name, f.OptionLabels, got)
+		}
+	}
+}
+
+// A Money that isn't Signed (NonNegative, Positive) shows 0.00 too (B1d).
+func TestFieldInput_MoneyZeroPlaceholderUnsigned(t *testing.T) {
+	for _, f := range []doctype.Field{
+		{Name: "paid", Label: "Paid", Type: doctype.Money, NonNegative: true},
+		{Name: "price", Label: "Price", Type: doctype.Money, Positive: true},
+	} {
+		if got := b1cPlaceholders(t, f); len(got) != 1 || got[0] != "0.00" {
+			t.Errorf("%s: placeholder attributes %q, want only 0.00", f.Name, got)
 		}
 	}
 }
