@@ -238,7 +238,7 @@ func (h *handlers) filterPage(w http.ResponseWriter, r *http.Request) {
 		v.toggle = spec.toggle
 	}
 	for _, k := range spec.keys {
-		field := components.FieldProps{ID: "f-" + k.key, Label: k.label, Hint: fmt.Sprintf(k.hint, spec.many), Placeholder: k.example, Optional: true}
+		field := components.FieldProps{ID: "f-" + k.key, Label: k.label, Hint: fmt.Sprintf(k.hint, spec.many), Placeholder: k.example, Clearable: true}
 		if k.docType == "" {
 			field.Name, field.Value = k.key, q.Get(k.key)
 			v.fields = append(v.fields, components.Select(field, monthOptions(all.months, q.Get(k.key))))

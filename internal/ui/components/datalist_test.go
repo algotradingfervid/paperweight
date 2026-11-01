@@ -226,3 +226,32 @@ func TestDataList_ValidateNoWrapLimit(t *testing.T) {
 		t.Error("4 NoWrap columns: Validate() = nil, want an error")
 	}
 }
+
+// UI v2 §5.12: every row ends with a chevron the screen reader skips, in
+// lists with a state column and in lists without one; the state badge is
+// still the last value of row 3 when there is a state column.
+func TestDataList_RowChevron(t *testing.T) {
+	for name, cols := range map[string][]components.Column{"state column": blankCellColumns(), "no state column": noStateColumns()} {
+		t.Run(name, func(t *testing.T) {
+			rows := []components.Row{
+				{Href: "/doc/exp/1", Values: map[string]string{"no": "EXP/0001", "date": "24-10-2026"}, State: doctype.StateApproved},
+				{Href: "/doc/exp/2", Values: map[string]string{"no": "EXP/0002"}, State: doctype.StateDraft},
+			}
+			doc := uitest.Render(t, components.DataList(components.DataListProps{Label: "Expense reports", Columns: cols, Rows: rows}))
+			links := doc.Find("a.datalist-link")
+			if links.Length() != 2 {
+				t.Fatalf("%d row links, want 2", links.Length())
+			}
+			links.Each(func(i int, a *goquery.Selection) {
+				last := a.Children().Last()
+				if !last.HasClass("datalist-go") || last.AttrOr("aria-hidden", "") != "true" || last.Find("svg").Length() != 1 {
+					t.Errorf("row %d: last child %q, want an aria-hidden .datalist-go with an icon", i, last.AttrOr("class", ""))
+				}
+				badge := a.Find(".datalist-r3 > dl").Last().Find(".badge")
+				if wantBadge := name == "state column"; (badge.Length() == 1) != wantBadge {
+					t.Errorf("row %d: state badge last in row 3 = %v, want %v", i, badge.Length() == 1, wantBadge)
+				}
+			})
+		})
+	}
+}

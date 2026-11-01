@@ -48,10 +48,6 @@ const pageSize = 25
 // rowsButton is the name of the rows editor's Add and Remove buttons.
 const rowsButton = "_rows"
 
-// noMatch is the empty list while a search is on: Copy.Empty's "yet" would be
-// untrue.
-const noMatch = "No results. Try a different search."
-
 // idPattern is a record's URL segment. Ids start at 1, so /0 and /007 match
 // no route.
 const idPattern = "/{id:[1-9][0-9]*}"
@@ -363,11 +359,9 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 	}
 	// Past the end there are records: Pagination says there are no more.
 	if res.Total == 0 {
-		text, err := h.emptyText(ctx, p, q.Get("q"))
-		if err != nil {
+		if v.List.Empty, err = h.empty(ctx, p, q); err != nil {
 			return err
 		}
-		v.List.Empty = components.EmptyState(text, newLink)
 	}
 	if h.can(ctx, p, auth.RightExport) {
 		v.Bar.Export = &components.Link{Label: "Export", Href: h.exportURL(q)}
@@ -467,20 +461,24 @@ func plain(v any) string {
 	return fmt.Sprint(v)
 }
 
-// emptyText is the list with no record to show. A search that found nothing
-// and a list whose records are all disabled are not "yet".
-func (h *handlers[R, In]) emptyText(ctx context.Context, p auth.Principal, search string) (string, error) {
-	if search != "" {
-		return noMatch, nil
+// empty is the list with no record to show (CD-366). A search that found
+// nothing offers Clear filters, which keeps the sort; a list whose records
+// are all disabled says so; otherwise "yet" and the plain line. None offers
+// New: it is in the page head and the bottom nav.
+func (h *handlers[R, In]) empty(ctx context.Context, p auth.Principal, q url.Values) (templ.Component, error) {
+	if search := q.Get("q"); search != "" {
+		clearURL := withQuery(h.Base, url.Values{"sort": {q.Get("sort")}}, false)
+		return components.NoMatch("No "+h.Copy.Noun+" match \""+search+"\"", "Try fewer words, or clear the filters.", clearURL), nil
 	}
 	n, err := h.list.Count(ctx, p, h.dt, list.Query{})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if n > 0 {
-		return "All " + h.Copy.Noun + " are disabled.", nil
+		return components.EmptyState("All "+h.Copy.Noun+" are disabled.", nil), nil
 	}
-	return h.Copy.Empty, nil
+	line := strings.ToUpper(h.Copy.Noun[:1]) + h.Copy.Noun[1:] + " you add show up here."
+	return components.EmptyList(strings.TrimSuffix(h.Copy.Empty, "."), line), nil
 }
 
 // count is the bar's result count; an empty list says so itself.

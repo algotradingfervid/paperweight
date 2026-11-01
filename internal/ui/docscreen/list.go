@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -92,7 +93,7 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		Pages: pageInfo(dt.Name, q, res.Total, plural),
 	}
 	if res.Total == 0 {
-		v.List.Empty = components.EmptyState("No "+plural+" yet.", newLink)
+		v.List.Empty = emptyState(dt, q, plural)
 	}
 	if d.can(r, p, dt.Name, "export") {
 		v.Bar.Export = &components.Link{Label: "Export", Href: "/doc/" + dt.Name + "/export.csv"}
@@ -101,6 +102,22 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		v.Opts.BannerSlot = actionBanners(success, warnings)
 	}
 	ui.Render(w, r, http.StatusOK, listPage(v), listMain(v))
+}
+
+// emptyState is the list's empty state (CD-366): "yet" and the plain line
+// with no search or filter, else what didn't match and Clear filters, which
+// keeps the sort and size. q is the listed query, so a filter on a hidden
+// field is already gone; filter values are never repeated.
+func emptyState(dt *doctype.DocType, q ListQuery, plural string) templ.Component {
+	clearURL := listURL(dt.Name, ListQuery{Sort: q.Sort, Size: q.Size})
+	switch {
+	case q.Search != "":
+		return components.NoMatch("No "+plural+" match \""+q.Search+"\"", "Try fewer words, or clear the filters.", clearURL)
+	case len(q.Filters) > 0:
+		return components.NoMatch("No "+plural+" match these filters", "Try fewer filters, or clear them.", clearURL)
+	}
+	first := min(1, len(plural)) // a DocType may leave PluralLabel blank
+	return components.EmptyList("No "+plural+" yet", strings.ToUpper(plural[:first])+plural[first:]+" you add show up here.")
 }
 
 // ListHidden is the Hide question of the list, search and CSV export:

@@ -61,6 +61,7 @@ var pages = []galleryPage{
 	{"lines", titled("Lines"), static(linesBody())},
 	{"rows", titled("Row editor"), static(rowsBody())},
 	{"picker", formWidth("Picker"), static(pickerBody())},
+	{"picker-recent", formWidth("Picker with recent picks"), static(pickerRecentBody())},
 	{"upload", formWidth("File upload"), static(uploadBody())},
 	{"attachments", formWidth("Attachments"), static(attachmentsBody())},
 	{"wizard-1", wizardOpts(1), wizardBody(0)},

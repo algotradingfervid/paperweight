@@ -1,13 +1,19 @@
 package components
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
 
 // Picker is a master picker (design-system §7): a Select for fewer than 50
 // options, else an ARIA 1.2 combobox that htmx fills from SearchURL and
 // combobox.js drives. A chosen row shows as a summary with "Change", and with
-// "Clear" when the field is optional (CD-217); Clear stays in the hidden
-// summary while nothing is chosen, for a row chosen in the browser. Below
-// 48rem the open search fills the screen like a sheet.
+// "Clear" when the field is Clearable (CD-217, CD-359 (1)); Clear stays in
+// the hidden summary while nothing is chosen, for a row chosen in the
+// browser. The search shows a search icon and a chevron (UI v2 §5.8), and
+// the user's recent picks wait in a template for combobox.js. Below 48rem
+// the open search fills the screen like a sheet.
 templ Picker(p PickerProps) {
 	if len(p.Options) > 0 && len(p.Options) < 50 {
 		@Select(pickerSelectField(p), p.Options)
@@ -18,31 +24,44 @@ templ Picker(p PickerProps) {
 				<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
 					<p class="picker__summary" data-picker-summary>{ text }</p>
 					@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-picker-change": true}})
-					if p.Field.Optional {
+					if p.Field.Clearable {
 						@Button(ButtonProps{Label: "Clear", AriaLabel: "Clear " + p.Field.Label, Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-clear": true}})
 					}
 				</div>
 				<div class="picker__search" data-picker-search hidden?={ p.Chosen != nil }>
 					<div class="picker__bar">
-						<input
-							type="text"
-							role="combobox"
-							aria-expanded="false"
-							aria-controls={ p.ListboxID }
-							aria-autocomplete="list"
-							autocomplete="off"
-							spellcheck="false"
-							hx-get={ p.SearchURL }
-							hx-trigger="input changed delay:250ms, focus once"
-							hx-target={ "#" + p.ListboxID }
-							hx-swap="innerHTML"
-							hx-sync="this:replace"
-							hx-indicator="this"
-							{ pickerInputAttrs(p)... }
-						/>
+						<div class="picker__box">
+							<span class="picker__icon" aria-hidden="true">
+								@icons.Icon("search")
+							</span>
+							<input
+								type="text"
+								role="combobox"
+								aria-expanded="false"
+								aria-controls={ p.ListboxID }
+								aria-autocomplete="list"
+								autocomplete="off"
+								spellcheck="false"
+								hx-get={ p.SearchURL }
+								hx-trigger="input changed delay:250ms, focus once"
+								hx-target={ "#" + p.ListboxID }
+								hx-swap="innerHTML"
+								hx-sync="this:replace"
+								hx-indicator="this"
+								{ pickerInputAttrs(p)... }
+							/>
+							<span class="picker__chevron" aria-hidden="true">
+								@icons.Icon("chevron-down")
+							</span>
+						</div>
 						@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})
 					</div>
 					<ul role="listbox" id={ p.ListboxID } class="list picker__list" aria-label={ p.Field.Label }></ul>
+					if len(p.Recent) > 0 {
+						<template data-picker-recent>
+							@pickerGroup(p.ListboxID+"-recent", "Recent", p.Recent[:min(len(p.Recent), MaxRecent)], "")
+						</template>
+					}
 				</div>
 				<input type="hidden" name={ p.HiddenName } value={ id } data-picker-value/>
 			</div>
@@ -50,26 +69,61 @@ templ Picker(p PickerProps) {
 	}
 }
 
-// PickerResults is the listbox body a picker search returns: at most 20
-// rows, or one disabled "No matches" option.
+// PickerResults is the listbox body a picker search returns: a group of at
+// most 20 rows headed "All" or "Matches", the typed text marked in each part
+// (a GSTIN in the line matches too), or one disabled "No matches" option.
+// The rows keep the ids {listboxID}-{n}.
 templ PickerResults(listboxID string, rows []PickRow, q string) {
 	if len(rows) == 0 {
 		<li role="option" aria-disabled="true" class="picker__option">{ "No matches for “" + q + "”." }</li>
+	} else {
+		@pickerGroup(listboxID, resultsHeading(q), rows[:min(len(rows), maxPickRows)], q)
 	}
-	for i, r := range rows[:min(len(rows), maxPickRows)] {
-		<li
-			role="option"
-			id={ listboxID + "-" + strconv.Itoa(i) }
-			aria-selected="false"
-			data-value={ strconv.FormatInt(r.ID, 10) }
-			data-label={ r.Display() }
-			class="picker__option"
-		>
-			<span class="picker__code">{ r.Code }</span>
-			<span class="picker__name">{ r.Name }</span>
-			if r.Line != "" {
-				<span class="picker__line">{ r.Line }</span>
+}
+
+// pickerGroup is one labelled section of the listbox; its options' ids are
+// {id}-{n}. The Recent heading carries the history icon.
+templ pickerGroup(id, heading string, rows []PickRow, q string) {
+	<li role="group" class="picker__group" aria-labelledby={ id + "-h" }>
+		<span class="picker__heading" id={ id + "-h" }>
+			if heading == "Recent" {
+				@icons.Icon("history")
 			}
-		</li>
+			{ heading }
+		</span>
+		<ul role="none" class="picker__options">
+			for i, r := range rows {
+				<li
+					role="option"
+					id={ id + "-" + strconv.Itoa(i) }
+					aria-selected="false"
+					data-value={ strconv.FormatInt(r.ID, 10) }
+					data-label={ r.Display() }
+					class="picker__option"
+				>
+					<span class="picker__code">
+						@pickerMarked(r.Code, q)
+					</span>
+					<span class="picker__name">
+						@pickerMarked(r.Name, q)
+					</span>
+					if r.Line != "" {
+						<span class="picker__line">
+							@pickerMarked(r.Line, q)
+						</span>
+					}
+				</li>
+			}
+		</ul>
+	</li>
+}
+
+// pickerMarked is s with its first match of q marked.
+templ pickerMarked(s, q string) {
+	{{ before, hit, after := splitMatch(s, q) }}
+	if hit == "" {
+		{ s }
+	} else {
+		{ before }<mark>{ hit }</mark>{ after }
 	}
 }

@@ -1,0 +1,26 @@
+/* empty.css: empty and filtered-empty states (UI v2 §5.14): a 72 px icon
+   circle with a 40 px glyph, the message, an optional plain line and at
+   most one action, centred. */
+@utility empty-state {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  overflow-wrap: anywhere;
+  & p { margin: 0; max-inline-size: 28rem; min-inline-size: 0; }
+  & .btn { margin-block-start: var(--space-2); max-inline-size: 100%; }
+}
+@utility empty-state-icon {
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--space-16) + var(--space-2));
+  block-size: calc(var(--space-16) + var(--space-2));
+  margin-block-end: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-sunken);
+  color: var(--color-text-muted);
+  & .icon { inline-size: calc(var(--space-8) + var(--space-2)); block-size: calc(var(--space-8) + var(--space-2)); }
+}
+@utility empty-state-text { color: var(--color-text); font-weight: var(--weight-semibold); }
+@utility empty-state-line { color: var(--color-text-secondary); }

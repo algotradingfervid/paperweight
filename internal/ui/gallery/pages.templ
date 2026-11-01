@@ -78,7 +78,7 @@ templ fieldSet(pre, errText string) {
 		@components.TextInput(components.FieldProps{ID: pre + "-code", Name: pre + "_code", Label: "Code", Placeholder: "e.g. SHREE01", Tip: codeTip, Error: errText, Required: true})
 		@components.EmailInput(components.FieldProps{ID: pre + "-email", Name: pre + "_email", Label: "Email", Value: uitest.LongEmail, Error: errText}, "email")
 		@components.PasswordInput(components.FieldProps{ID: pre + "-password", Name: pre + "_password", Label: "Password", Error: errText}, "current-password")
-		@components.Textarea(components.FieldProps{ID: pre + "-remarks", Name: pre + "_remarks", Label: "Remarks", Hint: "Shown on the printed order.", Value: uitest.LongDevanagari, Optional: true, Error: errText}, 1000)
+		@components.Textarea(components.FieldProps{ID: pre + "-remarks", Name: pre + "_remarks", Label: "Remarks", Hint: "Shown on the printed order.", Value: uitest.LongDevanagari, Clearable: true, Error: errText}, 1000)
 		@components.MoneyInput(components.FieldProps{ID: pre + "-amount", Name: pre + "_amount", Label: "Amount", Value: "99,99,99,999.99", Error: errText})
 		@components.QtyInput(components.FieldProps{ID: pre + "-qty", Name: pre + "_qty", Label: "Quantity", Value: "1,00,000", Error: errText}, false, "kg")
 		@components.RateInput(components.FieldProps{ID: pre + "-rate", Name: pre + "_rate", Label: "Rate", Value: "9,99,999.9999", Error: errText})
@@ -120,7 +120,7 @@ templ badgesBody() {
 	@components.Disclosure("More details", false) {
 		<p>{ uitest.LongError }</p>
 	}
-	@components.EmptyState("No sample orders yet.", &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"})
+	@components.EmptyList("No sample orders yet", "Sample orders you add show up here.")
 }
 
 templ dialogsBody() {
@@ -146,8 +146,16 @@ templ dialogsBody() {
 
 templ datalistBody() {
 	@components.DataList(sampleList(false))
+	<h2>Without a state column</h2>
+	@components.DataList(noStateList())
+	<h2>Inside a card</h2>
+	@components.Card("Waiting for you", nil) {
+		@components.DataList(sampleList(false))
+	}
 	<h2>An empty list</h2>
 	@components.DataList(sampleList(true))
+	<h2>Nothing matches</h2>
+	@components.NoMatch(`No sample orders match "`+uitest.LongName100+`"`, "Try fewer words, or clear the filters.", "/_gallery/datalist")
 }
 
 templ linesBody() {
@@ -200,17 +208,28 @@ templ pickerBody() {
 	@components.Picker(components.PickerProps{
 		Field:     components.FieldProps{ID: "f-supplier", Label: "Supplier"},
 		SearchURL: searchURL("f-supplier-list"), HiddenName: "supplier_id", ListboxID: "f-supplier-list",
-		Chosen:    &pickRows[2],
+		Chosen: &pickRows[2],
 	})
 	@components.Picker(components.PickerProps{
-		Field:     components.FieldProps{ID: "f-project", Label: "Project", Optional: true},
+		Field:     components.FieldProps{ID: "f-project", Label: "Project", Clearable: true},
 		SearchURL: searchURL("f-project-list"), HiddenName: "project_id", ListboxID: "f-project-list",
-		Chosen:    &pickRows[2],
+		Chosen: &pickRows[2],
 	})
 	@components.Picker(components.PickerProps{
 		Field:      components.FieldProps{ID: "f-uom", Label: "Unit"},
 		HiddenName: "uom_id",
 		Options:    []components.Option{{Value: "1", Label: "kg"}, {Value: "2", Label: "Number"}, {Value: "3", Label: "Metre"}},
+	})
+}
+
+// pickerRecentBody is a Picker with recent picks (UI v2 §5.8): they show
+// above the search's rows, Bolt first, then a name whose lower case is
+// longer and a hostile name that must show as text.
+templ pickerRecentBody() {
+	@components.Picker(components.PickerProps{
+		Field:     components.FieldProps{ID: "f-vendor", Label: "Vendor", Hint: "Search by code or name."},
+		SearchURL: searchURL("f-vendor-list"), HiddenName: "vendor_id", ListboxID: "f-vendor-list",
+		Recent: []components.PickRow{pickRows[3], pickRows[0], {ID: 98, Code: "TR-9", Name: "İstanbul Pipes"}, {ID: 99, Code: "XSS-1", Name: hostileName}},
 	})
 }
 
@@ -235,21 +254,21 @@ templ wizardStep(m wizard.Model, v stepValues) {
 			@components.TextInput(components.FieldProps{ID: "f-reference", Name: "reference", Label: "Reference", Value: v.reference, Error: v.errFor("f-reference")})
 			@components.DateInput(components.DateProps{FieldProps: components.FieldProps{ID: "f-order_date", Name: "order_date", Label: "Order date", Value: v.date, Error: v.errFor("f-order_date")}, Today: "24-10-2026", Yesterday: "23-10-2026"})
 			@components.Picker(components.PickerProps{
-				Field:     components.FieldProps{ID: "f-supplier_id", Label: "Supplier", Optional: true},
+				Field:     components.FieldProps{ID: "f-supplier_id", Label: "Supplier", Clearable: true},
 				SearchURL: searchURL("f-supplier_id-list"), HiddenName: "supplier_id", ListboxID: "f-supplier_id-list",
-				Chosen:    v.supplier,
+				Chosen: v.supplier,
 			})
 		case 1:
 			@components.Picker(components.PickerProps{
 				Field:     components.FieldProps{ID: "f-item_id", Label: "Item"},
 				SearchURL: searchURL("f-item_id-list"), HiddenName: "item_id", ListboxID: "f-item_id-list",
-				Chosen:    &pickRows[2],
+				Chosen: &pickRows[2],
 			})
 			@components.QtyInput(components.FieldProps{ID: "f-qty", Name: "qty", Label: "Quantity", Value: "1,00,000"}, false, "kg")
 			@components.RateInput(components.FieldProps{ID: "f-rate", Name: "rate", Label: "Rate", Value: "9,99,999.9999"})
 		case 2:
 			@components.Radios(components.FieldProps{ID: "f-delivery", Name: "delivery", Label: "Delivery", Value: "site"}, deliveryOptions)
-			@components.Textarea(components.FieldProps{ID: "f-remarks", Name: "remarks", Label: "Remarks", Value: uitest.LongError, Optional: true}, 1000)
+			@components.Textarea(components.FieldProps{ID: "f-remarks", Name: "remarks", Label: "Remarks", Value: uitest.LongError, Clearable: true}, 1000)
 		default:
 			@wizard.CheckSection("Supplier and date", wizard.Complete, "/_gallery/wizard-1") {
 				@components.SummaryList([]components.Pair{
@@ -268,7 +287,7 @@ templ wizardStep(m wizard.Model, v stepValues) {
 
 templ actionbarBody() {
 	@components.Form(components.FormProps{ID: "actionbar-form", Action: "/_gallery/actionbar"}) {
-		@components.TextInput(components.FieldProps{ID: "f-note", Name: "note", Label: "Note", Optional: true})
+		@components.TextInput(components.FieldProps{ID: "f-note", Name: "note", Label: "Note", Clearable: true})
 	}
 	@components.ActionBar(components.ActionBarProps{Note: "You raised Draft 42, so someone else must approve it."})
 	@components.MoreActions([]components.MoreAction{

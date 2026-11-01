@@ -60,10 +60,11 @@ templ FilterBar(p FilterBarProps) {
 			</div>
 		}
 		if len(p.Chips) > 0 {
-			<ul class="filterbar-chips">
+			<ul class="filterbar-chips" aria-label="Active filters">
 				for _, c := range p.Chips {
 					<li>
 						<a class="badge chip" href={ templ.SafeURL(c.RemoveURL) }>
+							@icons.Icon("list-filter")
 							{ c.Label }
 							@icons.Icon("x")
 							<span class="visually-hidden">Remove filter</span>

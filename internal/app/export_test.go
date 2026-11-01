@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
 // MsgMethodNotAllowed is the 405's text.
@@ -38,3 +40,8 @@ var ListURL = listURL
 
 // HasScreen reports whether the master list at href has screens.
 func (a *App) HasScreen(href string) bool { return a.screens[href] }
+
+// LinkRole is docscreen's Deps.LinkRole as routes wired it.
+func (a *App) LinkRole() func(ctx context.Context, tx *db.Tx, target *doctype.DocType, id int64, role string) (bool, error) {
+	return a.linkRole
+}

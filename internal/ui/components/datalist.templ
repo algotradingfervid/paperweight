@@ -1,6 +1,10 @@
 package components
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
 
 // DataList is one markup for every list (design-system §8.1): cards on
 // phones, aligned rows with a header from 48rem (container query). Each
@@ -105,6 +109,9 @@ templ listCard(l listLayout, r Row) {
 				}
 			}
 		</div>
+		<span class="datalist-go" aria-hidden="true">
+			@icons.Icon("chevron-right")
+		</span>
 	</a>
 }
 

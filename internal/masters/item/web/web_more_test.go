@@ -462,7 +462,7 @@ func TestScreens_ItemCopy(t *testing.T) {
 
 	empty := w.h.Get(t, kavya, "/m/item")
 	webtest.WantStatus(t, empty, http.StatusOK)
-	webtest.WantText(t, empty, "No items yet.")
+	webtest.WantText(t, empty, "No items yet")
 	if got := webtest.Squash(empty.Doc.Find("h1").First().Text()); got != "Items" {
 		t.Errorf("list title = %q; want Items", got)
 	}
