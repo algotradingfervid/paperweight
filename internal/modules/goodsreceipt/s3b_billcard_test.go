@@ -23,6 +23,9 @@ func TestGRNBill_CardRead(t *testing.T) {
 	if _, err := env.Service.BillCard(t.Context(), env.Suresh, hidden.ID); !errors.Is(err, auth.ErrNotFound) {
 		t.Errorf("Suresh, the TECH-SITE GRN: %v, want auth.ErrNotFound", err)
 	}
+	if _, err := env.Service.BillCard(t.Context(), env.Admin, 999999); !errors.Is(err, auth.ErrNotFound) {
+		t.Errorf("an unknown id: %v, want auth.ErrNotFound", err)
+	}
 	c, err := env.Service.BillCard(t.Context(), env.Suresh, mine.ID)
 	if err != nil || c.State != doctype.StateApproved || !c.CanWrite || c.Bill.Version != 0 {
 		t.Errorf("Suresh, his GRN: %+v %v, want approved, writable, no bill", c, err)
