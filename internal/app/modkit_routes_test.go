@@ -66,8 +66,8 @@ func TestApp_ModkitRoutesMounted(t *testing.T) {
 	}
 
 	deepak := w.signedIn(deepakEmail)
-	if r := deepak.get(settingsPath); r.status != http.StatusForbidden || r.alert() != msgAdminOnly {
-		t.Errorf("GET %s as Deepak = %d %q, want 403 %q", settingsPath, r.status, r.alert(), msgAdminOnly)
+	if r := deepak.get(settingsPath); r.status != http.StatusForbidden || r.problem() != msgAdminOnly {
+		t.Errorf("GET %s as Deepak = %d %q, want 403 %q", settingsPath, r.status, r.problem(), msgAdminOnly)
 	}
 	if r := deepak.post(settingsPath, url.Values{"version": {"2"}, "locked_up_to": {""}, "default_po_terms": {""}}); r.status != http.StatusForbidden || r.alert() != msgAdminOnly {
 		t.Errorf("POST %s as Deepak = %d %q, want 403 %q", settingsPath, r.status, r.alert(), msgAdminOnly)
