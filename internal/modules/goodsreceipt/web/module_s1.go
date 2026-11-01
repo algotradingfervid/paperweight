@@ -233,8 +233,8 @@ func (m *module) pick(c docscreen.Ctx, s docscreen.StepState) (poPick, error) {
 		return poPick{}, err
 	}
 	p := poPick{
-		Field: components.FieldProps{ID: components.FieldID("purchase_order_id"), Name: "purchase_order_id", Label: labelPO,
-			Hint: hint, Error: errorOf(s.Errors, "purchase_order_id"), Value: chosen},
+		Field: declared(c.DT, "purchase_order_id", components.FieldProps{ID: components.FieldID("purchase_order_id"), Name: "purchase_order_id", Label: labelPO,
+			Hint: hint, Error: errorOf(s.Errors, "purchase_order_id"), Value: chosen}),
 		All: all,
 	}
 	if len(list) >= minPOSearch {
@@ -407,29 +407,37 @@ type deliveryForm struct {
 }
 
 // deliveryBody draws step 2 from the post on a redraw, else from the draft
-// (UX doc §5.3).
+// (UX doc §5.3). A field submit requires of this draft is marked required
+// as a declared one is (goodsreceipt.SubmitRequired).
 func (m *module) deliveryBody(c docscreen.Ctx, s docscreen.StepState) (templ.Component, error) {
 	only, err := m.serviceOnly(c)
 	if err != nil {
 		return nil, err
 	}
-	field := func(name, label, hint string, optional bool, attrs templ.Attributes) components.FieldProps {
-		return components.FieldProps{ID: components.FieldID(name), Name: name, Label: label, Hint: hint, Optional: optional,
-			Error: errorOf(s.Errors, name), Value: value(c, s, name), Attrs: attrs}
+	facts, err := m.receiptFacts(c)
+	if err != nil {
+		return nil, err
+	}
+	need := goodsreceipt.SubmitRequired(facts.HasGoods)
+	field := func(name, label, hint string, attrs templ.Attributes) components.FieldProps {
+		p := declared(c.DT, name, components.FieldProps{ID: components.FieldID(name), Name: name, Label: label, Hint: hint,
+			Error: errorOf(s.Errors, name), Value: value(c, s, name), Attrs: attrs})
+		p.Required = p.Required || slices.Contains(need, name) // submit requires it of this draft
+		return p
 	}
 	upper := func(max string) templ.Attributes {
 		return templ.Attributes{"maxlength": max, "autocapitalize": "characters", "spellcheck": "false"}
 	}
 	d := deliveryForm{
 		ServiceOnly: only,
-		Kind:        field("challan_kind", "Document with the goods", "", false, nil),
-		Number:      field("challan_no", "Challan or invoice no.", hintNumber, false, upper("40")),
-		Date:        dateProps(c, s, components.FieldProps{Name: "challan_date", Label: "Challan date", Hint: hintDate, Optional: true}),
-		Vehicle:     field("vehicle_no", "Vehicle no.", "", true, upper("20")),
-		Transporter: field("transporter", "Transporter", "", true, templ.Attributes{"maxlength": "140"}),
-		EWay:        field("eway_bill_no", "E-way bill no.", "", true, templ.Attributes{"maxlength": "20", "inputmode": "numeric"}),
-		Remarks:     field("remarks", "Remarks", hintRemarks, true, nil),
-		Rest:        field("rest_not_coming", "", "", false, nil),
+		Kind:        field("challan_kind", "Document with the goods", "", nil),
+		Number:      field("challan_no", "Challan or invoice no.", hintNumber, upper("40")),
+		Date:        dateProps(c, s, components.FieldProps{Name: "challan_date", Label: "Challan date", Hint: hintDate}),
+		Vehicle:     field("vehicle_no", "Vehicle no.", "", upper("20")),
+		Transporter: field("transporter", "Transporter", "", templ.Attributes{"maxlength": "140"}),
+		EWay:        field("eway_bill_no", "E-way bill no.", "", templ.Attributes{"maxlength": "20", "inputmode": "numeric"}),
+		Remarks:     field("remarks", "Remarks", hintRemarks, nil),
+		Rest:        field("rest_not_coming", "", "", nil),
 	}
 	if ticked(d.Rest.Value) {
 		d.RestChecked = []string{"1"}
@@ -492,15 +500,23 @@ func value(c docscreen.Ctx, s docscreen.StepState, name string) string {
 	return ""
 }
 
-// dateProps is a date field p with its value and error, and docscreen's
-// Today and Yesterday.
+// dateProps is a date field p with its value, error and declared marks,
+// and docscreen's Today and Yesterday.
 func dateProps(c docscreen.Ctx, s docscreen.StepState, p components.FieldProps) components.DateProps {
 	p.ID, p.Value, p.Error = components.FieldID(p.Name), value(c, s, p.Name), errorOf(s.Errors, p.Name)
-	d := components.DateProps{FieldProps: p}
+	d := components.DateProps{FieldProps: declared(c.DT, p.Name, p)}
 	if c.Deps.Today != nil {
 		d.Today, d.Yesterday = c.Deps.Today()
 	}
 	return d
+}
+
+// declared is p with Required and Tip from the declaration of field name,
+// as docscreen's FieldInput sets them (CD-341 (2), CD-350).
+func declared(dt *doctype.DocType, name string, p components.FieldProps) components.FieldProps {
+	f, _ := dt.Field(name)
+	p.Required, p.Tip = f.Required, f.Tip
+	return p
 }
 
 // errorOf is the message of the header error on field name, if any.

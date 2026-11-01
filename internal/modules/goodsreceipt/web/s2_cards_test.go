@@ -67,8 +67,8 @@ func TestGRNWeb_ItemsCards(t *testing.T) {
 		if got := in.AttrOr("value", ""); got != c.prefill {
 			t.Errorf("card %d Received now = %q, want the pending %q", c.n, got, c.prefill)
 		}
-		if got := s2Norm(card.Find(`label[for="` + inID + `"]`).Text()); got != s2Received {
-			t.Errorf("card %d label = %q, want %s", c.n, got, s2Received)
+		if got := s2Norm(card.Find(`label[for="` + inID + `"]`).Text()); got != s2Received+" * (required)" {
+			t.Errorf("card %d label = %q, want %s * (required) (CD-341 (2))", c.n, got, s2Received)
 		}
 		if got := s2Norm(card.Find(`[id="` + inID + `-hint"]`).Text()); got != c.hint {
 			t.Errorf("card %d hint = %q, want %q", c.n, got, c.hint)

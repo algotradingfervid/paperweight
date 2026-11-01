@@ -33,8 +33,8 @@ func (p s1Page) label(id string) string {
 }
 
 // GUX-008 (GRN-007, GRN-045): on a goods PO step 2 has the kind radios
-// with neither checked, no label marked "(optional)" (CD-341 (2)), the optional
-// transport fields with their input hints, Remarks, the tick as
+// with neither checked, no label marked "(optional)" (CD-341 (2)), the kind
+// and the number marked required (S1e ruling), the optional transport fields with their input hints, Remarks, the tick as
 // one unticked row, and the photo line; on a PO whose only line is
 // SVC-CRANE only Remarks, the tick and the photo line.
 func TestGRNWeb_DeliveryStep(t *testing.T) {
@@ -44,14 +44,14 @@ func TestGRNWeb_DeliveryStep(t *testing.T) {
 		t.Errorf("h1 = %q, want Delivery details", got)
 	}
 	want := []s1Radio{{"Delivery challan", "Delivery challan", false}, {"Tax invoice", "Tax invoice", false}}
-	if got := r.radios("challan_kind"); !slices.Equal(got, want) || r.label("f-challan_kind") != "Document with the goods" {
-		t.Errorf("kind radios %+v legend %q, want %+v under Document with the goods", got, r.label("f-challan_kind"), want)
+	if got := r.radios("challan_kind"); !slices.Equal(got, want) || r.label("f-challan_kind") != "Document with the goods * (required)" {
+		t.Errorf("kind radios %+v legend %q, want %+v under Document with the goods * (required) (S1e ruling)", got, r.label("f-challan_kind"), want)
 	}
 	for _, c := range []struct {
 		id, label string
 		attrs     map[string]string
 	}{
-		{"f-challan_no", "Challan or invoice no.", map[string]string{"maxlength": "40", "autocapitalize": "characters", "spellcheck": "false"}},
+		{"f-challan_no", "Challan or invoice no. * (required)", map[string]string{"maxlength": "40", "autocapitalize": "characters", "spellcheck": "false"}},
 		{"f-challan_date", "Challan date", nil},
 		{"f-vehicle_no", "Vehicle no.", map[string]string{"maxlength": "20", "autocapitalize": "characters", "spellcheck": "false"}},
 		{"f-transporter", "Transporter", map[string]string{"maxlength": "140"}},
