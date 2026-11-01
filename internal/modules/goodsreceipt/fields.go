@@ -16,7 +16,8 @@ const stepDelivery = "delivery"
 // create, CD-247 (1)); Validate resets them from the PO. vendor_id and
 // uom_id are System and ReadOnly, copied from the PO by Validate.
 // accepted_value and accepted_qty are computed by Validate. The snapshot
-// columns are not Fields.
+// columns are not Fields. The More fields are the rarely used delivery
+// ones (CD-359 (7)); none is one submit may require (SubmitRequired).
 func fields() []doctype.Field {
 	return []doctype.Field{
 		{Name: "number", Label: "GRN number", Type: doctype.Text, ReadOnly: true, ListPriority: 1},
@@ -29,10 +30,10 @@ func fields() []doctype.Field {
 			Options: []string{"Delivery challan", "Tax invoice"}},
 		{Name: "challan_no", Label: "Challan or invoice no.", Type: doctype.Text, MaxLen: 40, Step: stepDelivery},
 		{Name: "challan_date", Label: "Challan date", Type: doctype.Date, Step: stepDelivery},
-		{Name: "vehicle_no", Label: "Vehicle no.", Type: doctype.Text, MaxLen: 20, Step: stepDelivery},
-		{Name: "transporter", Label: "Transporter", Type: doctype.Text, MaxLen: 140, Step: stepDelivery},
-		{Name: "eway_bill_no", Label: "E-way bill no.", Type: doctype.Text, MaxLen: 20, Step: stepDelivery},
-		{Name: "remarks", Label: "Remarks", Type: doctype.Text, MaxLen: 500, Step: stepDelivery},
+		{Name: "vehicle_no", Label: "Vehicle no.", Type: doctype.Text, MaxLen: 20, Step: stepDelivery, More: true},
+		{Name: "transporter", Label: "Transporter", Type: doctype.Text, MaxLen: 140, Step: stepDelivery, More: true},
+		{Name: "eway_bill_no", Label: "E-way bill no.", Type: doctype.Text, MaxLen: 20, Step: stepDelivery, More: true},
+		{Name: "remarks", Label: "Remarks", Type: doctype.Text, MaxLen: 500, Step: stepDelivery, More: true},
 		{Name: "rest_not_coming", Label: "Vendor says the rest won't come", Type: doctype.Check, Step: stepDelivery},
 		{Name: "accepted_value", Label: "Accepted value", Type: doctype.Money, ReadOnly: true, ListPriority: 2},
 		{Name: "state", Label: "State", Type: doctype.Select, ReadOnly: true, Filterable: true, ListPriority: 3,
