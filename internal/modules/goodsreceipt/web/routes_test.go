@@ -3,7 +3,6 @@ package grnweb_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -32,18 +31,22 @@ var g1Routes = []struct {
 
 // builtRoutes are the module routes built since G1, mounted and guarded like
 // g1Routes but no longer stubs: S1b's PO search, guarded by read on the GRN
-// (CD-323 (2)); its rows are read-scoped on the PO by the service.
+// (CD-323 (2)); its rows are read-scoped on the PO by the service. S4's
+// reports entry and filter pages, guarded by read (UX doc §5.10 to §5.12).
 var builtRoutes = []struct {
 	method, pattern, path string
 	right                 auth.Right
 }{
 	{http.MethodGet, "/modules/goodsreceipt/po-search", "/modules/goodsreceipt/po-search", auth.RightRead},
+	{http.MethodGet, "/reports/grn", "/reports/grn", auth.RightRead},
+	{http.MethodGet, "/reports/grn/bills/filter", "/reports/grn/bills/filter", auth.RightRead},
+	{http.MethodGet, "/reports/grn/items/filter", "/reports/grn/items/filter", auth.RightRead},
 }
 
 // MOD-GRN G1 Do 4 (CD-46, CD-256; review focus "a stub never answers
-// success"): Routes registers exactly the plan's routes with no middleware,
-// and every G1 route answers 501 until its owner builds it (builtRoutes are
-// only mounted here; their own tests check what they answer).
+// success"): Routes registers exactly the plan's routes with no middleware.
+// Every G1 route is built now (G7, G9, S4), so none answers 501; each
+// route's own tests check what it answers (AD-13).
 func TestGRNWeb_RoutesAnswer501(t *testing.T) {
 	r := chi.NewRouter()
 	grnweb.Routes(grnweb.Deps{})(r)
@@ -65,20 +68,6 @@ func TestGRNWeb_RoutesAnswer501(t *testing.T) {
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
 		t.Errorf("routes =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
-	}
-
-	for _, rt := range g1Routes {
-		if rt.pattern == "/modules/goodsreceipt/receipts/{id}/bill" {
-			continue // built by G7 (TestGRNBillWeb_Save); a built route is asserted mounted, never 501 (AD-13)
-		}
-		if strings.HasSuffix(rt.pattern, "/export.csv") {
-			continue // built by G9 (TestGRNWeb_BillsCSV, TestGRNWeb_ItemsCSV); asserted mounted above, never 501 (AD-13)
-		}
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, httptest.NewRequest(rt.method, rt.path, nil))
-		if w.Code != http.StatusNotImplemented || !strings.Contains(w.Body.String(), "This page isn't built yet.") {
-			t.Errorf("%s %s = %d %q, want 501 This page isn't built yet.", rt.method, rt.path, w.Code, w.Body.String())
-		}
 	}
 }
 

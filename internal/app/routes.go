@@ -115,7 +115,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		}
 		r.Method(http.MethodPost, "/ui/validate/{kind}", a.srv.Self(components.ValidateHandler(parsers())))
 
-		gw := grnweb.Deps{Service: a.grn, Sessions: sm}
+		gw := grnweb.Deps{Service: a.grn, Sessions: sm, Auth: a.auth}
 		pw := purchaseweb.Deps{
 			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
 			CSRF:        func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
@@ -462,6 +462,10 @@ const (
 // purchase.Order or purchase.Request (MOD-PO P1 Do 4).
 const purchaseHomePath = "/modules/purchase"
 
+// grnReportsPath is the GRN reports entry, the nav entry for anyone who may
+// read goodsreceipt.Receipt (UX doc §5.10).
+const grnReportsPath = "/reports/grn"
+
 // navPlace is a DocType's group, icon and nav-only label in the sidebar
 // (CD-349 (2)); more puts it under the group's More disclosure. newLabel,
 // when set, lists it in the "Create new" sheet and /new (UI v2 §5.2, N2).
@@ -497,9 +501,10 @@ func docNavIndex(name string) int {
 }
 
 // nav is p's navigation: the two approval pages, the Purchase home, one item
-// per DocType p may read in docNav's order (any other DocType after them, in
-// Documents or Masters), then the administrator's pages. The rights are read
-// in one transaction, through CanTx.
+// per DocType p may read in docNav's order (the GRN reports after Goods
+// Receipts; any other DocType after them, in Documents or Masters), then the
+// administrator's pages. The rights are read in one transaction, through
+// CanTx.
 func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 	ctx := r.Context()
 	items := []ui.NavItem{
@@ -544,6 +549,10 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 	for i, it := range placed {
 		if it != nil && docNav[i].group != groupMasters {
 			items = append(items, *it)
+			if docNav[i].name == goodsreceipt.DocType {
+				// One entry for the GRN reports, on read alone (CD-282 Q8).
+				items = append(items, ui.NavItem{Label: "Goods receipt reports", Href: grnReportsPath, Icon: "chart-column", Group: groupGRN})
+			}
 		}
 	}
 	items = append(items, docs...)

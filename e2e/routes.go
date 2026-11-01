@@ -390,6 +390,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		Role: s.role, Admin: s.admin, User: s.long.User, NotShown: fixture.Item, Team: fixture.Claim,
 	}, submit)...)
 	out = append(out, expenseReportScreens()...)
+	out = append(out, grnReportScreens()...)
 	out = append(out, purchasePageScreens(s.purchase)...)
 	out = append(out, expensePaidScreens(s)...)
 	out = append(out, expenseFormScreens(s)...)
@@ -686,22 +687,8 @@ type notPage struct {
 	route, url, why string
 }
 
-// grnStubs are MOD-GRN's GET routes that still answer G1's 501 stub, each
-// with the task that builds it (AD-12). S4 gives the report pages screens
-// and removes its routes here.
-var grnStubs = []struct{ route, owner string }{
-	{"/reports/grn/bills", "S4"},
-	{"/reports/grn/items", "S4"},
-}
-
 // notPageStatus is the status a sample answers with when it isn't 200.
-var notPageStatus = func() map[string]int {
-	m := map[string]int{"/files/*": http.StatusNotFound}
-	for _, g := range grnStubs {
-		m[g.route] = http.StatusNotImplemented
-	}
-	return m
-}()
+var notPageStatus = map[string]int{"/files/*": http.StatusNotFound}
 
 // notPageAfter names the screen whose state a sample needs, opened first.
 var notPageAfter = map[string]string{"/m/import/errors.csv": "import check"}
@@ -721,9 +708,6 @@ func notPages(s sweepState) []notPage {
 	}
 	for slug := range s.master {
 		out = append(out, notPage{"/m/" + slug + "/export.csv", "/m/" + slug + "/export.csv", "a CSV"})
-	}
-	for _, g := range grnStubs {
-		out = append(out, notPage{g.route, g.route, "a MOD-GRN stub until " + g.owner + " builds it"})
 	}
 	for _, r := range []string{"open", "lines", "advances"} {
 		out = append(out, notPage{"/reports/expense/" + r + "/export.csv", "/reports/expense/" + r + "/export.csv", "a CSV"})

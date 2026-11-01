@@ -2,7 +2,10 @@ package app_test
 
 import (
 	"context"
+	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/doc"
@@ -56,5 +59,42 @@ func TestApp_ReceiveLinkWired(t *testing.T) {
 	}
 	if href, ok := link(ctx, w.principal(deepakID), res.ID); ok || href != "" {
 		t.Errorf("ReceiveLink(deepak) = %q %v, want false", href, ok)
+	}
+}
+
+// MOD-GRN S4, GUX-035 (UX doc §5.10, CD-282 Q8): a user with read on the
+// GRN (Suresh, Stores) has the nav entry Goods receipt reports right after
+// Goods Receipts, opening /reports/grn with both reports, and the reports
+// open on the real router; one without (Deepak) has no entry, and every
+// report URL answers AUTH's 403.
+func TestApp_GRNReportsNav(t *testing.T) {
+	w := newWorld(t)
+	w.canonical()
+	suresh := w.signedIn(sureshEmail)
+	_, links := navGroups(suresh)
+	if want := []string{"/doc/" + goodsreceipt.DocType, "/reports/grn"}; !slices.Equal(links["Goods receipt"], want) {
+		t.Errorf("Suresh's Goods receipt group = %q, want %q", links["Goods receipt"], want)
+	}
+	if got := strings.TrimSpace(suresh.get("/approvals").doc.Find(`nav.app-sidebar a[href="/reports/grn"]`).Text()); got != "Goods receipt reports" {
+		t.Errorf("nav entry = %q, want Goods receipt reports", got)
+	}
+	r := suresh.get("/reports/grn")
+	if r.status != http.StatusOK || r.doc.Find(`main a[href="/reports/grn/bills"]`).Length() != 1 || r.doc.Find(`main a[href="/reports/grn/items"]`).Length() != 1 {
+		t.Errorf("GET /reports/grn as Suresh = %d, want 200 with links to both reports", r.status)
+	}
+	for _, path := range []string{"/reports/grn/bills", "/reports/grn/items", "/reports/grn/bills/filter", "/reports/grn/items/filter"} {
+		if got := suresh.get(path).status; got != http.StatusOK {
+			t.Errorf("GET %s as Suresh = %d, want 200", path, got)
+		}
+	}
+
+	deepak := w.signedIn(deepakEmail)
+	if _, links := navGroups(deepak); slices.Contains(links["Goods receipt"], "/reports/grn") {
+		t.Errorf("Deepak (no GRN read) has the reports entry: %q", links["Goods receipt"])
+	}
+	for _, path := range []string{"/reports/grn", "/reports/grn/bills", "/reports/grn/items", "/reports/grn/bills/filter", "/reports/grn/items/filter"} {
+		if got := deepak.get(path).status; got != http.StatusForbidden {
+			t.Errorf("GET %s as Deepak = %d, want 403", path, got)
+		}
 	}
 }
