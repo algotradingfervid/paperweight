@@ -611,3 +611,38 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** each expense report (open claims, expense lines, open advances) **When** it has no rows, then no rows under a filter **Then** the plain state is components.EmptyList with the report's own heading and line and no action, and the filtered state reads `No {plural} match these filters` / `Try fewer filters, or clear them.` with a Clear filters link that keeps the sort.
 - **Go test:** `TestS4_ReportEmptyStates`
 - **Sources:** CD-366
+
+### EXP-085 · Claim details fields show their example placeholders
+- **Priority:** P2
+- **Level:** unit
+- **Given** the claim details step **When** it renders **Then** Purpose shows `e.g. Pune Metro site visit` and the Project and Site pickers show `e.g. Pune Metro or PRJ-METRO` and `e.g. Metro site or METRO-SITE` (CD-370, UI v2 §5.5 item 5, §5.8).
+- **Go test:** `TestPH_ClaimDetails`
+- **Sources:** CD-370
+
+### EXP-086 · Claim line fields show their example placeholders
+- **Priority:** P2
+- **Level:** unit
+- **Given** a claim line page **When** it renders **Then** Note, Supplier GSTIN, Invoice no. and HSN/SAC show their `e.g.` placeholders, including inside the GST disclosure (CD-370, UI v2 §5.5 item 5, §5.8).
+- **Go test:** `TestPH_ClaimLine`
+- **Sources:** CD-370
+
+### EXP-087 · Advance details fields show their example placeholders
+- **Priority:** P2
+- **Level:** unit
+- **Given** the advance details step **When** it renders **Then** Purpose shows `e.g. Nagpur site visit, 3 days` and the pickers show their `e.g.` placeholders (CD-370, UI v2 §5.5 item 5, §5.8).
+- **Go test:** `TestPH_AdvanceDetails`
+- **Sources:** CD-370
+
+### EXP-088 · Advance line fields show their example placeholders
+- **Priority:** P2
+- **Level:** unit
+- **Given** an advance line page **When** it renders **Then** Type and Note show their `e.g.` placeholders (CD-370, UI v2 §5.5 item 5, §5.8).
+- **Go test:** `TestPH_AdvanceLine`
+- **Sources:** CD-370
+
+### EXP-089 · Claim line choice fields carry no placeholder attribute
+- **Priority:** P2
+- **Level:** unit
+- **Given** the claim line's Type tiles and Billed to radios **When** it renders **Then** the declarations keep their texts but no radio or tile renders a placeholder attribute (CD-370, UI v2 §5.5 item 5, §5.8).
+- **Go test:** `TestPH_ClaimRadiosDeclared`
+- **Sources:** CD-370
