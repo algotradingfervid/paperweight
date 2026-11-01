@@ -604,3 +604,10 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** a field **When** the helper draws it **Then** a hidden field draws nothing, a field without More draws the bare input, and a More field is wrapped in components.MoreDetails, open on a value or an error.
 - **Go test:** `TestMoreExp_Helper`
 - **Sources:** CD-359 (7)
+
+### EXP-084 · Report empty states follow CD-366
+- **Priority:** P2
+- **Level:** unit
+- **Given** each expense report (open claims, expense lines, open advances) **When** it has no rows, then no rows under a filter **Then** the plain state is components.EmptyList with the report's own heading and line and no action, and the filtered state reads `No {plural} match these filters` / `Try fewer filters, or clear them.` with a Clear filters link that keeps the sort.
+- **Go test:** `TestS4_ReportEmptyStates`
+- **Sources:** CD-366
