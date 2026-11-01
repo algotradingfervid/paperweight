@@ -55,7 +55,7 @@ func stepPage(v view, failed bool) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout.Page(layout.PageOpts{Title: v.M.Heading(), Error: failed, Width: layout.Form, NoHeading: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Page(layout.PageOpts{Title: v.M.Heading(), Error: failed, Width: layout.Form, NoHeading: true, Focus: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -34,9 +34,12 @@ const (
 	deleteDraf = "Delete draft"
 
 	remarksTyped = "Typed in the second tab"
-	badAmount    = "1.234,56"
-	amountError  = `"` + badAmount + `" is not a valid amount. Write it like 1,234.50 or 1234.50.`
-	rateError    = `"` + badAmount + `" is not a valid number. Write it like 1234.50.`
+	// Live grouping (CD-336 (2)) admits only digits and a point as typed, so
+	// the refused value is one too large; it stays as grouped while typed.
+	badAmount   = "10000000000000"
+	badGrouped  = "1,00,00,00,00,00,000"
+	amountError = "Amount is too large. The maximum is ₹10,00,00,00,000.00."
+	rateError   = "Rate is too large. The maximum is ₹10,00,00,000.0000."
 
 	photoWide, photoTall = 64, 32 // wider than tall, so a rotation shows
 	maxThumb             = 160.0
@@ -510,7 +513,7 @@ func TestE2E_AmountInputFormatting(t *testing.T) {
 	p.Fill("rate", badAmount)
 	p.Tab()
 	p.WaitText(rateError)
-	if got := Eval[string](p, rate); got != badAmount {
+	if got := Eval[string](p, rate); got != badGrouped {
 		t.Errorf("rate after the error = %q, want what was typed", got)
 	}
 
@@ -518,7 +521,7 @@ func TestE2E_AmountInputFormatting(t *testing.T) {
 	p.Fill("amount", badAmount)
 	p.Tab()
 	p.WaitText(amountError)
-	if got := Eval[string](p, `document.getElementById("f-amount").value`); got != badAmount {
+	if got := Eval[string](p, `document.getElementById("f-amount").value`); got != badGrouped {
 		t.Errorf("amount after the error = %q, want what was typed", got)
 	}
 

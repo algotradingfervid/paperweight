@@ -2,11 +2,12 @@
 // button (CD-336 (1)). The button opens the platform picker of a hidden
 // date input on the box's date; a picked date is written back as
 // dd-mm-yyyy. The change event sends the value to /ui/validate/date.
-// toISO is a typed d-m-yyyy, d/m/yyyy or d.m.yyyy date as yyyy-mm-dd, or ""
-// (the picker then opens on today) for anything else (CD-351 (1)).
+// toISO is a typed d-m-yyyy, d/m/yyyy or d.m.yyyy date (one separator, as
+// the server reads it) as yyyy-mm-dd, or "" (the picker then opens on today)
+// for anything else (CD-351 (1)).
 const toISO = (v) => {
-  const m = /^(\d\d?)[-/.](\d\d?)[-/.](\d{4})$/.exec(v.trim());
-  return m ? m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0") : "";
+  const m = /^(\d\d?)([-/.])(\d\d?)\2(\d{4})$/.exec(v.trim());
+  return m ? m[4] + "-" + m[3].padStart(2, "0") + "-" + m[1].padStart(2, "0") : "";
 };
 
 function setDate(id, v) {

@@ -63,8 +63,10 @@ func weekday(s string) string {
 // ValidateHandler serves POST /ui/validate/{kind}. It parses the value of the
 // field named by _name and answers with the field's message region for _id,
 // plus an HX-Trigger "ui:field" event that field.js uses to write the
-// formatted value back. An empty value is not checked here (required fields
-// are checked on save). An unknown kind is 404.
+// formatted value back. The event echoes the raw value it checked, so
+// field.js writes back only while the input still holds it (CD-355 (1)). An
+// empty value is not checked here (required fields are checked on save). An
+// unknown kind is 404.
 func ValidateHandler(parsers map[string]ParseFunc) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /ui/validate/{kind}", func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +86,7 @@ func ValidateHandler(parsers map[string]ParseFunc) http.Handler {
 				value, echo = f, e
 			}
 		}
-		w.Header().Set("HX-Trigger", fieldTrigger(id, value, msg != ""))
+		w.Header().Set("HX-Trigger", fieldTrigger(id, value, in, msg != ""))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := fieldMsg(id, msg, echo).Render(r.Context(), w); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -95,13 +97,14 @@ func ValidateHandler(parsers map[string]ParseFunc) http.Handler {
 
 // fieldTrigger is the HX-Trigger JSON, ASCII only: browsers read header
 // values as Latin-1, so other characters travel as \u escapes.
-func fieldTrigger(id, value string, invalid bool) string {
+func fieldTrigger(id, value, sent string, invalid bool) string {
 	type field struct {
 		ID      string `json:"id"`
 		Value   string `json:"value"`
+		Sent    string `json:"sent"`
 		Invalid bool   `json:"invalid"`
 	}
-	b, _ := json.Marshal(map[string]field{"ui:field": {id, value, invalid}}) //nolint:errchkjson // plain strings always marshal
+	b, _ := json.Marshal(map[string]field{"ui:field": {id, value, sent, invalid}}) //nolint:errchkjson // plain strings always marshal
 	var s strings.Builder
 	for _, c := range string(b) {
 		switch {

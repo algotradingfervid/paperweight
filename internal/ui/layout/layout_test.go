@@ -148,9 +148,10 @@ func TestLayout_FlashShownOnce(t *testing.T) {
 
 func TestShell_SignOutPosts(t *testing.T) {
 	doc := render(t, shell(), layout.PageOpts{Title: "PO"})
-	f := doc.Find(`form[method="post"][action="/signout"]`)
+	// The account sheet has its own (TestMeSheet_Contents).
+	f := doc.Find(`.user-menu form[method="post"][action="/signout"]`)
 	if f.Length() != 1 {
-		t.Fatalf("%d sign-out forms", f.Length())
+		t.Fatalf("%d sign-out forms in the account chip", f.Length())
 	}
 	if got, _ := f.Find(`input[type="hidden"][name="csrf_token"]`).Attr("value"); got != `tok"x` {
 		t.Errorf("csrf_token = %q", got)

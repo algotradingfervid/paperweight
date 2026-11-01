@@ -305,6 +305,17 @@ func submit(ctx context.Context, js, wait string) error {
 	return chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](js), chromedp.WaitVisible(chromedp.CSS(wait)))
 }
 
+// openSheet is a Setup that opens the dialog with this id and waits for its
+// fade-in to end (axe reads colours).
+func openSheet(id string) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		if err := submit(ctx, `document.getElementById("`+id+`").showModal()`, "#"+id); err != nil {
+			return err
+		}
+		return chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](`Promise.all(document.getElementById("`+id+`").getAnimations({subtree: true}).map((a) => a.finished))`, chromedp.EvalAwaitPromise))
+	}
+}
+
 // appScreens lists every page state of the seeded app (plan Task 5).
 func (h *Harness) appScreens(s sweepState) []screens.Screen {
 	out := []screens.Screen{
@@ -327,6 +338,10 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 			// axe reads colours, so the sheet's fade-in must have ended (it failed axe once under load).
 			return chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](`Promise.all(document.getElementById("nav-sheet").getAnimations({subtree: true}).map((a) => a.finished))`, chromedp.EvalAwaitPromise))
 		}},
+		{Name: "new", Route: "/new", URL: "/new", As: suresh},
+		{Name: "new for admin", Route: "/new", URL: "/new", As: admin},
+		{Name: "new sheet", Route: "/approvals", URL: "/approvals", As: admin, Setup: openSheet("new-sheet")},
+		{Name: "me sheet", Route: "/approvals", URL: "/approvals", As: priya, Setup: openSheet("me-sheet")},
 		{Name: "not found", Route: "/doc/{doctype}/{id}", URL: DocPath(fixture.Order, missingDoc), As: priya},
 		// No route matches, so Route is the "" chi's Find gives (CD-250).
 		{Name: "unknown path", Route: "", URL: "/no/such/page", As: priya},

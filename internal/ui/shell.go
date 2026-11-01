@@ -7,10 +7,11 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/brand"
 )
 
-// Shell is what the app shell shows around every page.
+// Shell is what the app shell shows around every page. New lists what the
+// user may create, for the "Create new" sheet and /new (UI v2 §5.2, N2).
 type Shell struct {
 	AppName, User, CSRF, Path string
-	Nav                       []NavItem
+	Nav, New                  []NavItem
 	InboxCount                int
 	SignedIn                  bool
 }

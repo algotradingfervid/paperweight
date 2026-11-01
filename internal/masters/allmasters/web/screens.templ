@@ -10,7 +10,7 @@ import (
 // its own (CD-98: daisyUI and our utilities live only in internal/ui).
 
 templ stepPage(v view, failed bool) {
-	@layout.Page(layout.PageOpts{Title: v.M.Heading(), Error: failed, Width: layout.Form, NoHeading: true}) {
+	@layout.Page(layout.PageOpts{Title: v.M.Heading(), Error: failed, Width: layout.Form, NoHeading: true, Focus: true}) {
 		@stepFrame(v)
 	}
 }

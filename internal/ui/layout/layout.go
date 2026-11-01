@@ -28,11 +28,14 @@ const (
 )
 
 // PageOpts describes one page. BannerSlot renders above the h1, BarSlot after
-// the main content and Side in the side panel shown from 80rem.
+// the main content and Side in the side panel shown from 80rem. Focus is for
+// wizard, line and document pages, which have their own action footer: they
+// get no bottom nav (UI v2 §5.6, N12).
 type PageOpts struct {
 	Title                     string
 	Error                     bool
 	Bare                      bool
+	Focus                     bool
 	Width                     Width
 	Back                      *components.Link
 	BannerSlot, BarSlot, Side templ.Component
@@ -154,6 +157,70 @@ func initials(name string) string {
 		out += first(w[len(w)-1])
 	}
 	return strings.ToUpper(out)
+}
+
+// Bottom nav paths (UI v2 §5.2, N1). Me goes to the sessions page without
+// JavaScript; with it, Me opens the account sheet.
+const (
+	newPath     = "/new"
+	searchPath  = "/search"
+	accountPath = "/account/sessions"
+	newSheetID  = "new-sheet"
+	meSheetID   = "me-sheet"
+)
+
+// bottomNavShown reports whether the page has the bottom nav: signed-in app
+// pages that aren't in focus mode.
+func bottomNavShown(o PageOpts, s ui.Shell) bool {
+	return s.SignedIn && !o.Bare && !o.Focus
+}
+
+// bodyAttrs gives <body> room for the bottom nav when the page has it.
+func bodyAttrs(o PageOpts, s ui.Shell) templ.Attributes {
+	if bottomNavShown(o, s) {
+		return templ.Attributes{"class": "with-bottomnav"}
+	}
+	return templ.Attributes{}
+}
+
+// under reports whether path is p or below it.
+func under(path, p string) bool {
+	return path == p || strings.HasPrefix(path, p+"/")
+}
+
+// bottomCurrent is the bottom nav item path is on: "home", "approvals",
+// "new", "search", "me" or "".
+func bottomCurrent(path string) string {
+	switch {
+	case path == "/":
+		return "home"
+	case under(path, inboxPath):
+		return "approvals"
+	case under(path, newPath):
+		return "new"
+	case under(path, searchPath):
+		return "search"
+	case under(path, "/account"):
+		return "me"
+	}
+	return ""
+}
+
+// current is aria-current for the bottom nav item named item.
+func current(path, item string) templ.Attributes {
+	if bottomCurrent(path) == item {
+		return templ.Attributes{"aria-current": "page"}
+	}
+	return templ.Attributes{}
+}
+
+// approvalsCount ends the bottom nav's Approvals name: ", 3 waiting", or
+// nothing with no count.
+func approvalsCount(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return ", " + strconv.Itoa(n) + " waiting"
 }
 
 func inboxLabel(n int) string {
