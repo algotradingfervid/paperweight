@@ -43,7 +43,7 @@ var (
 	g12Kept  = []string{"challan_kind", "challan_no", "challan_date", "rest_not_coming"}
 )
 
-// A goods draft's step 2: the four fields inside a closed group named for
+// GUX-044, GUX-008: a goods draft's step 2: the four fields inside a closed group named for
 // them, the others outside it (none of the required ones inside).
 func TestGRNWeb_DeliveryMoreDetails(t *testing.T) {
 	w := newS1World(t)
@@ -70,7 +70,7 @@ func TestGRNWeb_DeliveryMoreDetails(t *testing.T) {
 	}
 }
 
-// The group opens on a draft where one of its fields holds a value (each
+// GUX-044: the group opens on a draft where one of its fields holds a value (each
 // in turn, the others blank), and on a 422 whose error is inside it, with
 // the typed value kept.
 func TestGRNWeb_DeliveryMoreDetailsOpen(t *testing.T) {
