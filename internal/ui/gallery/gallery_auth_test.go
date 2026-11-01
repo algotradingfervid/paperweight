@@ -50,11 +50,14 @@ func TestGallery_AuthSignInShape(t *testing.T) {
 	if v, _ := form.Find(`input[type="email"]`).Attr("value"); v != uitest.LongEmail {
 		t.Error("sign-in email is not uitest.LongEmail")
 	}
-	if !strings.Contains(d.Find(".error-summary li").Text(), uitest.LongError) {
-		t.Error("no uitest.LongError in .error-summary")
+	if !strings.Contains(d.Find(`.solo__card .banner--danger[role="alert"]`).Text(), uitest.LongError) {
+		t.Error("no uitest.LongError in the card's danger banner")
 	}
 	if d.Find("nav").Length() != 0 {
-		t.Error("sign-in has a nav; want the Bare shell")
+		t.Error("sign-in has a nav; want the Solo layout")
+	}
+	if d.Find(".solo .solo__card .solo__help").Length() != 1 {
+		t.Error("sign-in is not in the Solo layout with its help line")
 	}
 }
 

@@ -1,0 +1,42 @@
+package layout
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/platform/brand"
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
+
+// soloFoot is the line under the card (UI v2 §5.3, PROPOSED v2).
+const soloFoot = "Purchase orders, goods receipts and expenses in one place."
+
+// Solo is a pre-login page such as sign-in (UI v2 §5.3, N3): Page's document
+// with one card centred on the canvas, holding the brand block (the brand's
+// logo and app name), the h1 (o.Title), o.BannerSlot and the children. It uses
+// o.Title, o.Error and o.BannerSlot; it is always Bare, and CSS hides the app
+// header, which would repeat the brand.
+templ Solo(o PageOpts) {
+	{{ banner := o.BannerSlot }}
+	{{ o = PageOpts{Title: o.Title, Error: o.Error, Bare: true, NoHeading: true} }}
+	@Page(o) {
+		<div class="solo">
+			<div class="solo__col">
+				<div class="solo__card">
+					@components.Card("", nil) {
+						<div class="solo__brand">
+							<img class="brand-logo brand-logo-signin" src={ brand.AppLogoURL } width={ strconv.Itoa(brand.AppLogoWidth) } height={ strconv.Itoa(brand.AppLogoHeight) } alt=""/>
+							<p class="solo__name">{ ui.ShellFrom(ctx).AppName }</p>
+						</div>
+						<h1 id={ headingID(o) } tabindex="-1">{ o.Title }</h1>
+						if banner != nil {
+							@banner
+						}
+						{ children... }
+					}
+				</div>
+				<p class="solo__foot">{ soloFoot }</p>
+			</div>
+		</div>
+	}
+}

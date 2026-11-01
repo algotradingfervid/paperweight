@@ -1,8 +1,10 @@
 package views
 
 import (
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
 )
 
@@ -10,19 +12,65 @@ func (Default) Login(p authweb.LoginPage) templ.Component {
 	return login(p)
 }
 
-// login is the sign-in form. The email is never re-filled after a failed
-// attempt, so a wrong password and an unknown email answer alike (AUTH-004).
+// signInErrorID is the id around the refusal banner.
+const signInErrorID = "signin-error"
+
+// focus is autofocus for the email (a fresh page) or the password (after a
+// failed sign-in, which clears it but keeps the email; UI v2 §5.3, A-7).
+func focus(p authweb.LoginPage, password bool) templ.Attributes {
+	a := templ.Attributes{"required": true}
+	if (p.Error != "") == password {
+		a["autofocus"] = true
+	}
+	return a
+}
+
+// passwordAttrs adds to focus, after a failed sign-in, the banner to the
+// password's description beside its own message, so the refusal is read with
+// the focused field (CD-361 (1)). Attrs replace the field's own value, so
+// both ids are written.
+func passwordAttrs(p authweb.LoginPage) templ.Attributes {
+	a := focus(p, true)
+	if p.Error != "" {
+		a["aria-describedby"] = components.FieldID("password") + "-msg " + signInErrorID
+	}
+	return a
+}
+
+// login is the sign-in form in the Solo layout (UI v2 §5.3). A refused
+// sign-in keeps the email the user typed (CD-361 (2)).
 templ login(p authweb.LoginPage) {
-	@page(uilayout.PageOpts{Title: "Sign in", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, components.FieldID("email"), p.Warnings) {
+	@uilayout.Solo(uilayout.PageOpts{Title: "Sign in", Error: p.Error != "", BannerSlot: signInError(p.Error)}) {
+		@components.Warnings(p.Warnings)
+		@components.Hidden("csrf_token", p.CSRF)
 		@components.Form(components.FormProps{Action: "/signin", CSRF: p.CSRF}) {
 			if p.Next != "" {
 				@components.Hidden("next", p.Next)
 			}
 			<div class="stack">
-				@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Attrs: required}, "username")
-				@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: required}, "current-password")
+				@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Placeholder: "e.g. name@company.in", Value: p.Email, Attrs: focus(p, false)}, "username")
+				@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: passwordAttrs(p)}, "current-password")
 				@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
 			</div>
 		}
+		<div class="solo__help">
+			@icons.Icon("circle-help")
+			<p><strong>Forgot your password?</strong> Ask your administrator to reset it. They can do it from Users in a minute.</p>
+		</div>
+	}
+}
+
+// signInError is the refusal in a danger Banner (an alert): the kernel
+// text as given, and after the invalid-login text a hint. No field is marked
+// invalid, because the server can't say which one is wrong (UI v2 §5.3).
+templ signInError(msg string) {
+	if msg != "" {
+		<div id={ signInErrorID }>
+			@components.Banner(components.BannerProps{Kind: components.Danger, Icon: "circle-alert", Title: msg}) {
+				if msg == auth.ErrLoginInvalid.Msg {
+					<p>Check both and try again. Passwords are case-sensitive.</p>
+				}
+			}
+		</div>
 	}
 }

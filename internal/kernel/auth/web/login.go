@@ -56,8 +56,8 @@ func (s *Server) postSignIn(w http.ResponseWriter, r *http.Request) {
 			s.WriteError(w, r, err)
 			return
 		}
-		// The email is not re-filled (AUTH-004).
-		render(w, r, status, s.v.Login(LoginPage{CSRF: CSRFToken(ctx), Error: msg, Next: next}))
+		// The email box keeps what the user typed (CD-361 (2)).
+		render(w, r, status, s.v.Login(LoginPage{CSRF: CSRFToken(ctx), Error: msg, Email: r.PostFormValue("email"), Next: next}))
 		return
 	}
 	if err := s.sm.RenewToken(ctx); err != nil {
