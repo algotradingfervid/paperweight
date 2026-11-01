@@ -113,6 +113,9 @@ func pickerInputAttrs(p PickerProps) templ.Attributes {
 	a := controlAttrs(pickerSearchField(p), "input field__input")
 	a["id"] = pickerInputID(p)
 	a["placeholder"] = "Type to search"
+	if p.Field.Placeholder != "" {
+		a["placeholder"] = p.Field.Placeholder
+	}
 	a["form"] = "" // no form owner: the text goes only with the htmx search, not the form (no q= on GET filter URLs)
 	return a
 }
