@@ -288,7 +288,7 @@ func (w *world) wantTally(t *testing.T, want tally) {
 // details is step 1 of a registered vendor.
 func details(code string) url.Values {
 	return url.Values{
-		"code": {code}, "name": {"Mehta Fabricators"}, "is_vendor": {"1"}, "pan": {panMehta},
+		"code": {code}, "name": {"Mehta Fabricators"}, "role": {"vendor"}, "pan": {panMehta},
 		"gst_category": {"Registered Regular"}, "default_payment_terms_id": {""},
 	}
 }
