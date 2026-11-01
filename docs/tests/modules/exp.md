@@ -555,3 +555,10 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** an htmx POST to mark paid or undo paid **When** it succeeds **Then** the answer is 200 with HX-Redirect and the flash; a plain POST gets 303.
 - **Go test:** `TestAdv_PaidHTMXRedirects`
 - **Sources:** CD-357
+
+### EXP-077 · GST on the bill can't be negative
+- **Priority:** P1
+- **Level:** unit
+- **Given** a claim line **When** its GST amount is -1.00 or -0.01, on create or edit **Then** it is refused with "Line 2: GST on the bill can't be negative." and nothing is written; 0.00 and positive amounts save (the money-input lesson, E10).
+- **Go test:** `TestExp_GSTNegative`
+- **Sources:** UI v2 B3 review; CLAUDE.md money inputs
