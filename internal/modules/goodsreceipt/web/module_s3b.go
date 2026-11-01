@@ -136,7 +136,10 @@ func billViewOf(id int64, b goodsreceipt.BillCard, kept *billPost, edit, saved b
 		if kept.Msg != "" {
 			v.Msg = &components.BannerProps{Kind: components.Danger, Message: kept.Msg}
 			if kept.Stale {
-				v.Msg.Link = &components.Link{Label: labelReload, Href: docPath(id) + "#bill"}
+				// UI v2 E6 (A-29): a stale page is a warning, and Reload names
+				// what it reloads.
+				v.Msg.Kind = components.Warning
+				v.Msg.Link = &components.Link{Label: labelReload + " " + billTitle, Href: docPath(id) + "#bill"}
 			}
 		}
 	}

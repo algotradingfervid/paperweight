@@ -36,6 +36,7 @@ const (
 	s3bNoReq     = "Vendor invoice no. is required."
 	s3bNotAppr   = "Add bill details after the receipt is approved."
 	s3bInvoice   = "INV-889"
+	s3bReload    = "Reload Bill details"
 )
 
 // s3bPO is an approved PO of 1,200 KGS at ₹62.50.
@@ -351,12 +352,17 @@ func TestGRNBill_Refusals(t *testing.T) {
 		t.Helper()
 		noStatus(what, r)
 		s3bWantForm(t, what, r, g.ID, "0", "INV-NEW", "23-10-2026", "")
-		got := r.s3bBanners("danger")
+		// UI v2 E6 (A-29): the 409 banner is a warning whose link names
+		// what to reload.
+		got := r.s3bBanners("warning")
 		if len(got) != 1 || !strings.HasPrefix(got[0], s3bStale) {
-			t.Errorf("%s: error banners %q, want [%q …]", what, got, s3bStale)
+			t.Errorf("%s: warning banners %q, want [%q …]", what, got, s3bStale)
 		}
-		if a := r.s3bCard().Find(".banner--danger a"); s2Norm(a.Text()) != "Reload" || a.AttrOr("href", "") != s3Doc(g.ID)+"#bill" {
-			t.Errorf("%s: link %q to %q, want Reload to the page at #bill", what, s2Norm(a.Text()), a.AttrOr("href", ""))
+		if got := r.s3bBanners("danger"); len(got) != 0 {
+			t.Errorf("%s: error banners %q, want none", what, got)
+		}
+		if a := r.s3bCard().Find(".banner--warning a"); a.Length() != 1 || s2Norm(a.Text()) != s3bReload || a.AttrOr("href", "") != s3Doc(g.ID)+"#bill" {
+			t.Errorf("%s: %d links %q to %q, want %s to the page at #bill", what, a.Length(), s2Norm(a.Text()), a.AttrOr("href", ""), s3bReload)
 		}
 	}
 	w.keep = false
