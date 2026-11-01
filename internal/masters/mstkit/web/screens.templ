@@ -76,6 +76,7 @@ templ recordPageCancelTo(v recordView, cancel string) {
 				if v.ID != 0 {
 					<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
 				}
+				@components.RequiredNote(v.Required)
 				for _, in := range v.Inputs {
 					@in
 				}

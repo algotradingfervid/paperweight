@@ -398,8 +398,8 @@ func TestScreens_CodesUseCodeInput(t *testing.T) {
 	if label := webtest.Squash(page.Doc.Find(`label[for="f-hsn_sac"]`).Text()); label != "HSN/SAC" {
 		t.Errorf("hsn_sac label = %q; want HSN/SAC (CD-341 (2): no optional marker)", label)
 	}
-	if label := webtest.Squash(page.Doc.Find(`label[for="f-code"]`).Text()); label != "Code" {
-		t.Errorf("required code label = %q; want Code", label)
+	if label := webtest.Squash(page.Doc.Find(`label[for="f-code"]`).Text()); label != "Code * (required)" {
+		t.Errorf("required code label = %q; want Code * (required) (UI v2 §5.5 item 2)", label)
 	}
 	if page.Doc.Find(`input[name="name"][hx-post]`).Length() != 0 {
 		t.Error("name, not a Codes field, became a CodeInput")

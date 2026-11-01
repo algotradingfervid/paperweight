@@ -618,6 +618,7 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 	for _, name := range h.wiz.steps[i].Fields {
 		fd, _ := h.dt.Field(name) // handlers checked every step's fields
 		v.Inputs = append(v.Inputs, h.input(fd, name, f))
+		v.Required = v.Required || fd.Required
 	}
 	return v, nil
 }
@@ -737,4 +738,7 @@ type wizardView struct {
 	Bar    wizard.Bar
 	Inputs []templ.Component
 	Back   components.Link
+	// Required reports whether a step input is required; the step then starts
+	// with components.RequiredNote.
+	Required bool
 }

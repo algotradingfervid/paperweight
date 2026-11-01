@@ -74,12 +74,15 @@ type SubForm struct {
 	Form          Form
 	Inputs        []templ.Component
 	Confirm       bool
+	// Required reports whether an input is required; the form then starts
+	// with components.RequiredNote.
+	Required bool
 }
 
 // RenderSubForm renders s with status.
 func RenderSubForm(w http.ResponseWriter, r *http.Request, status int, s SubForm) {
 	ui.Render(w, r, status, recordPageCancelTo(recordView{
 		ID: s.ID, Title: s.Title, Action: s.Action, Back: s.Back, CanWrite: true, Width: layout.Form,
-		Form: s.Form, Inputs: s.Inputs, Confirm: s.Confirm,
+		Form: s.Form, Inputs: s.Inputs, Confirm: s.Confirm, Required: s.Required,
 	}, s.Back.Href), nil)
 }

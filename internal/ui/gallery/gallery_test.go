@@ -41,6 +41,9 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		if d.Find(`input.num[hx-post="/ui/validate/factor"][value="9,99,999.999999999"]`).Length() == 0 {
 			t.Error("fields: no Factor input holding the worst-case value 9,99,999.999999999")
 		}
+		if !strings.Contains(d.Text(), "are required.") {
+			t.Error("fields: no required note (Fields marked * are required.)")
+		}
 	},
 	"rows": func(t *testing.T, d *goquery.Document) {
 		if !strings.Contains(d.Text(), uitest.LongError) {
