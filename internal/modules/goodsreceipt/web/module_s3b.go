@@ -29,7 +29,6 @@ const (
 	labelInvoiceTotal = "Invoice total"
 	labelSaveBill     = "Save bill details"
 	labelChange       = "Change"
-	labelReload       = "Reload"
 	billEmpty         = "No bill details yet."
 	billHint          = "Add the invoice photo under Attachments first: adding a file reloads the page."
 	billSaved         = "Bill details saved."
@@ -96,6 +95,8 @@ func (m *module) billPanel(c docscreen.Ctx) (templ.Component, error) {
 type billView struct {
 	Change   *components.Link
 	Msg      *components.BannerProps
+	Conflict string // a stale post's message (DOC's text), drawn as the ConflictBanner
+	Reload   string // where the ConflictBanner's button goes
 	Errs     []components.FieldErr
 	Saved    bool // the polite status after an htmx save
 	Empty    bool
@@ -133,14 +134,11 @@ func billViewOf(id int64, b goodsreceipt.BillCard, kept *billPost, edit, saved b
 				v.Errs = append(v.Errs, components.FieldErr{ID: components.FieldID(f), Message: msg})
 			}
 		}
-		if kept.Msg != "" {
+		switch {
+		case kept.Stale: // CD-362, CD-365: the ConflictBanner
+			v.Conflict, v.Reload = kept.Msg, docPath(id)+"#bill"
+		case kept.Msg != "":
 			v.Msg = &components.BannerProps{Kind: components.Danger, Message: kept.Msg}
-			if kept.Stale {
-				// UI v2 E6 (A-29): a stale page is a warning, and Reload names
-				// what it reloads.
-				v.Msg.Kind = components.Warning
-				v.Msg.Link = &components.Link{Label: labelReload + " " + billTitle, Href: docPath(id) + "#bill"}
-			}
 		}
 	}
 	if approved && b.CanWrite && (!stored || edit || kept != nil) {
