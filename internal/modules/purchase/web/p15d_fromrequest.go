@@ -95,7 +95,7 @@ func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, statu
 		parts = append(parts, "Needed by "+types.FormatDate(req.NeededBy))
 	}
 	v := fromRequestView{
-		opts:    layout.PageOpts{Title: fromRequestTitle, Width: layout.Form, Back: &back},
+		opts:    layout.PageOpts{Title: fromRequestTitle, Width: layout.Form, Back: &back, Focus: true},
 		summary: strings.Join(parts, " · "), back: back, action: fromRequestPath(id), version: st.Version,
 	}
 	if posted, err := strconv.Atoi(r.PostFormValue("version")); err == nil {

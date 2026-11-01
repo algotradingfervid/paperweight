@@ -10,7 +10,7 @@ import (
 // and the redraw's refusal banner.
 func orderOpts(title, display string, id int64, e pageErrs) layout.PageOpts {
 	return layout.PageOpts{
-		Title: title, Width: layout.Form, Back: &components.Link{Label: display, Href: poHref(id)}, BannerSlot: e.banner(),
+		Title: title, Width: layout.Form, Back: &components.Link{Label: display, Href: poHref(id)}, BannerSlot: e.banner(), Focus: true,
 	}
 }
 

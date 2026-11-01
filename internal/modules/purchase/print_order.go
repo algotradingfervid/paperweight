@@ -11,6 +11,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/print"
+	"github.com/vardhan/internaltools/internal/masters/site"
 	"github.com/vardhan/internaltools/internal/modules/purchase/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -18,6 +19,8 @@ import (
 
 // The PO print (PO spec §9): filled from the stored snapshots, on the
 // delivery site's branch letterhead, read only through the print page's tx.
+// Deliver to adds the site's current delivery address and contact, which
+// the PO doesn't snapshot (CD-337 (1)).
 // Remarks, comments, the sent record, Expected on and the rest rows are
 // never printed.
 
@@ -48,7 +51,14 @@ func printOrder(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 			return nil, err
 		}
 	}
-	d.DeliverTo = []string{h.SnapSiteName}
+	addr, contact, err := siteDelivery(ctx, tx, h.SiteID)
+	if err != nil {
+		return nil, err
+	}
+	d.DeliverTo = append([]string{h.SnapSiteName}, addr...)
+	if contact != "" {
+		d.DeliverTo = append(d.DeliverTo, "Contact: "+contact)
+	}
 	if d.Refs, err = orderRefs(h); err != nil {
 		return nil, err
 	}
@@ -95,6 +105,39 @@ func ReverseChargeNote(ctx context.Context, tx *db.Tx, poID int64) (string, erro
 	}
 	tax := types.Money(h.CgstTotal + h.SgstTotal + h.IgstTotal)
 	return "Reverse charge applies. GST of " + types.FormatINR(tax) + " is payable by us, not to the vendor.", nil
+}
+
+// SiteDelivery is the delivery address lines and the contact ("name,
+// mobile") of the site stored on order poID, for its page's Deliver to
+// (CD-337 (1)); none when the site has none. The PO keeps no snapshot of
+// them, so they are the site's current ones. It reads inside the caller's
+// tx and makes no right check: the caller checks read on the PO first, and
+// the site id is the stored one, never a posted id (CD-356 (2)). An unknown
+// poID returns the query's sql.ErrNoRows.
+func SiteDelivery(ctx context.Context, tx *db.Tx, poID int64) ([]string, string, error) {
+	h, err := dbq.New(tx.SQL()).OrderPrint(ctx, poID)
+	if err != nil {
+		return nil, "", err
+	}
+	return siteDelivery(ctx, tx, h.SiteID)
+}
+
+// siteDelivery is SiteDelivery for the stored site id siteID; a draft
+// with no site finds none.
+func siteDelivery(ctx context.Context, tx *db.Tx, siteID sql.NullInt64) ([]string, string, error) {
+	d, ok, err := site.DeliveryAddress(ctx, tx, siteID.Int64)
+	if err != nil || !ok {
+		return nil, "", err
+	}
+	var addr []string
+	if d.HasAddress() {
+		addr = strings.Split(d.Text(), "\n")
+	}
+	contact := d.ContactName
+	if d.ContactMobile != "" {
+		contact += ", " + d.ContactMobile
+	}
+	return addr, contact, nil
 }
 
 // addressLines are the vendor address snapshot's lines without its last

@@ -26,6 +26,10 @@ const (
 	pairPlace      = "Place of supply"
 	pairReverse    = "Reverse charge"
 	pairCopiedFrom = "Copied from"
+	// pairDelivery and pairContact are the delivery site's address and
+	// contact under docscreen's Deliver to row (CD-337 (1)).
+	pairDelivery = "Delivery address"
+	pairContact  = "Delivery contact"
 	// noticeOwned is "Owned by {name}. Only {name} can change this draft.
 	// Add a comment below, or ask {name} to hand it over." (spec §21.1).
 	noticeOwned  = "Owned by %[1]s. Only %[1]s can change this draft. Add a comment below, or ask %[1]s to hand it over."
@@ -130,14 +134,16 @@ func qtyUnit(q types.Qty, unit string) string {
 }
 
 // orderRecords is what the page reads about a PO besides its view: the Sent
-// and Expected on records, its place of supply and reverse-charge texts, and
-// the documents linking it.
+// and Expected on records, its place of supply and reverse-charge texts, the
+// delivery site's address lines and contact, and the documents linking it.
 type orderRecords struct {
 	sent           purchase.Sent
 	isSent         bool
 	expected       purchase.Expected
 	isExpected     bool
 	place, reverse string
+	address        []string
+	contact        string
 	blockers       []doc.Blocker
 }
 
@@ -156,6 +162,11 @@ func readOrderRecords(c docscreen.Ctx) (orderRecords, error) {
 			return err
 		}
 		if r.reverse, err = purchase.ReverseChargeNote(ctx, tx, id); err != nil {
+			return err
+		}
+		// The PO's stored site, after docscreen's read check on the PO
+		// (CD-356 (2)).
+		if r.address, r.contact, err = purchase.SiteDelivery(ctx, tx, id); err != nil {
 			return err
 		}
 		r.blockers, err = doc.LinkedBlockers(ctx, tx, purchase.DocType, id)
@@ -291,11 +302,20 @@ func fullyReceived(lines []orderLine) bool {
 	return true
 }
 
-// orderPairs are Details' additions (UX §5.9): Raised by, Place of supply,
-// Reverse charge when ticked, and Copied from when the viewer may read the
-// source (CD-248 family, CD-312).
+// orderPairs are Details' additions (UX §5.9): Raised by, the delivery
+// site's address and contact unless the screen hides Deliver to (CD-337
+// (1)), Place of supply, Reverse charge when ticked, and Copied from when
+// the viewer may read the source (CD-248 family, CD-312).
 func orderPairs(c docscreen.Ctx, owner string, rec orderRecords) ([]components.Pair, error) {
 	pairs := []components.Pair{{Label: pairRaisedBy, Value: owner}}
+	if !hides(c, "site_id") {
+		if len(rec.address) > 0 {
+			pairs = append(pairs, components.Pair{Label: pairDelivery, Value: strings.Join(rec.address, ", ")})
+		}
+		if rec.contact != "" {
+			pairs = append(pairs, components.Pair{Label: pairContact, Value: rec.contact})
+		}
+	}
 	if rec.place != "" {
 		pairs = append(pairs, components.Pair{Label: pairPlace, Value: rec.place})
 	}

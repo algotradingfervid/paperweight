@@ -4,10 +4,12 @@
 
 -- name: OrderPrint :one
 -- amends_number is the number of the PO this one amends (amended_from_id).
+-- site_id reads the site's current delivery address (CD-337 (1)); the PO
+-- keeps no snapshot of it.
 SELECT o.order_date, o.required_by, o.branch_id, o.vendor_quote_ref, o.terms, o.reverse_charge, o.earlier_po_no,
        o.net_total, o.cgst_total, o.sgst_total, o.igst_total, o.grand_total, o.rounded_total,
        o.snap_vendor_name, o.snap_vendor_gstin, o.snap_vendor_category, o.snap_vendor_state, o.snap_vendor_address,
-       o.snap_place_state, o.snap_site_name, o.snap_terms_name, a.number AS amends_number
+       o.snap_place_state, o.site_id, o.snap_site_name, o.snap_terms_name, a.number AS amends_number
 FROM purchase_order o
 LEFT JOIN purchase_order a ON a.id = o.amended_from_id
 WHERE o.id = ?;
