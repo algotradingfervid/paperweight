@@ -167,7 +167,7 @@ func TestScreens_EditSavesPerSection(t *testing.T) {
 	if target == "" || found["name"] == target {
 		t.Fatalf("pan is on %q and name on %q; want separate sections", target, found["name"])
 	}
-	for _, field := range []string{"code", "name", "is_vendor", "is_customer", "pan", "gst_category", "default_payment_terms_id"} {
+	for _, field := range []string{"code", "name", "role", "pan", "gst_category", "default_payment_terms_id"} {
 		if found[field] == "" {
 			t.Errorf("no section shows %s", field)
 		}
@@ -272,7 +272,7 @@ func TestScreens_EditRefusals(t *testing.T) {
 	}{
 		{name: "PAN format", code: "SHREE", kv: []string{"pan", "AABCS1429"}, field: "pan", msg: msgPAN},
 		{name: "PAN of the GSTINs", code: "SHREE", kv: []string{"pan", panMehta}, field: "pan", msg: otherPANShree},
-		{name: "no role", code: "SHREE", kv: []string{"is_vendor", "", "is_customer", ""}, field: "is_vendor", msg: msgRole},
+		{name: "no role", code: "SHREE", kv: []string{"role", ""}, field: "role", msg: msgRole},
 		{name: "code taken", code: "SHREE", kv: []string{"code", "BHARAT"}, field: "code", msg: "Code BHARAT is already used by Party Bharat Tools. Choose another code."},
 		{name: "name", code: "SHREE", kv: []string{"name", ""}, field: "name", msg: msgNameReq},
 		{name: "category of the GSTINs", code: "SHREE", kv: []string{"gst_category", "Overseas"}, field: "gst_category", msg: overseasShree},
@@ -297,7 +297,7 @@ func TestScreens_EditRefusals(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			kv: []string{"is_customer", "", "is_vendor", "1"}, field: "is_customer", msg: inUse,
+			kv: []string{"role", "vendor"}, field: "role", msg: inUse,
 		},
 		{
 			name: "a registered party needs its billing address", code: "UNR",

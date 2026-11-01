@@ -32,6 +32,17 @@ const (
 	stepContacts  = "contacts"
 
 	termsField = "default_payment_terms_id"
+
+	// roleField is the form's one choice for the two role columns (UI v2
+	// §5.5 item 9, CD-369); import and the API keep the columns.
+	roleField = "role"
+)
+
+// The role choices and the columns each sets.
+const (
+	roleVendor   = "vendor"
+	roleCustomer = "customer"
+	roleBoth     = "both"
 )
 
 // Routes mounts the party screens under /m/party and the picker at /pick/Party.
@@ -59,6 +70,10 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		Extra:    rec.lists,
 		Mount:    rec.routes,
 		PickRole: pickRole(svc),
+		Choices: map[string]mstweb.Choice{roleField: {Label: "This party is a", Required: true, Options: []components.Option{
+			{Value: roleVendor, Label: "Vendor"}, {Value: roleCustomer, Label: "Customer"}, {Value: roleBoth, Label: "Both"},
+		}}},
+		Renames: map[string]string{"is_vendor": roleField, "is_customer": roleField},
 		// A party's wizard also creates its addresses and contacts: say no at
 		// the door, not at the last step.
 		CanCreate: func(ctx context.Context, tx *db.Tx, p auth.Principal) error {
@@ -68,14 +83,14 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 			return env.Auth.CanTx(ctx, tx, p, address.ContactDocType, auth.RightCreate, nil)
 		},
 		Sections: []docscreen.FormStep{
-			{Slug: "details", Label: "Party details", Fields: []string{"code", "name", "is_vendor", "is_customer"}},
+			{Slug: "details", Label: "Party details", Fields: []string{"code", "name", roleField}},
 			{Slug: "gst", Label: "GST", Fields: []string{"pan", "gst_category"}},
 			{Slug: "terms", Label: "Payment Terms", Fields: []string{termsField}},
 		},
 		Wizard: mstweb.CreateWizard[draft]{
 			Sessions: sm,
 			Steps: []docscreen.FormStep{ // Party's fields declare no Step: its other steps are other DocTypes
-				{Slug: "details", Label: "Party details", Fields: []string{"code", "name", "is_vendor", "is_customer", "pan", "gst_category", termsField},
+				{Slug: "details", Label: "Party details", Fields: []string{"code", "name", roleField, "pan", "gst_category", termsField},
 					Intro: "A party is a company you buy from or sell to. Nothing is saved until the last step."},
 				{Slug: stepAddresses, Label: "Addresses", Intro: "Add the addresses that go on orders and invoices."},
 				{Slug: stepContacts, Label: "Contacts", Intro: "Add the people you deal with there, if any."},
@@ -127,7 +142,8 @@ func pickRole(svc *party.Service) func(context.Context, auth.Principal, string, 
 
 // toInput is the form's values (keyed by Field.Name) as the service input. A
 // blank link is none; one that can't be parsed gets the service's refusal of one
-// that doesn't exist.
+// that doesn't exist. A blank role sets neither column, which the service
+// refuses with its own text.
 func toInput(v map[string]string) (party.Input, []doctype.FieldError) {
 	var errs []doctype.FieldError
 	var terms int64
@@ -139,15 +155,16 @@ func toInput(v map[string]string) (party.Input, []doctype.FieldError) {
 		terms = id
 	}
 	return party.Input{
-		Code: v["code"], Name: v["name"], IsVendor: v["is_vendor"] == "1", IsCustomer: v["is_customer"] == "1",
-		PAN: v["pan"], GSTCategory: gstin.Category(v["gst_category"]), DefaultPaymentTermsID: terms,
+		Code: v["code"], Name: v["name"], IsVendor: v[roleField] == roleVendor || v[roleField] == roleBoth,
+		IsCustomer: v[roleField] == roleCustomer || v[roleField] == roleBoth,
+		PAN:        v["pan"], GSTCategory: gstin.Category(v["gst_category"]), DefaultPaymentTermsID: terms,
 	}, errs
 }
 
 // values is a stored party as the form's values.
 func values(p party.Party) map[string]string {
 	return map[string]string{
-		"code": p.Code, "name": p.Name, "is_vendor": flag(p.IsVendor), "is_customer": flag(p.IsCustomer),
+		"code": p.Code, "name": p.Name, roleField: role(p),
 		"pan": p.PAN, "gst_category": string(p.GSTCategory), termsField: strconv.FormatInt(p.DefaultPaymentTermsID, 10),
 	}
 }
@@ -157,6 +174,19 @@ func flag(b bool) string {
 		return "1"
 	}
 	return "0"
+}
+
+// role is p's role choice, none when neither column is set.
+func role(p party.Party) string {
+	switch {
+	case p.IsVendor && p.IsCustomer:
+		return roleBoth
+	case p.IsVendor:
+		return roleVendor
+	case p.IsCustomer:
+		return roleCustomer
+	}
+	return ""
 }
 
 func head(p party.Party) mstweb.Head {
