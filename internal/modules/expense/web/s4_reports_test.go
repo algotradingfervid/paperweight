@@ -126,9 +126,14 @@ func (p s4Page) wantNoCount() {
 	}
 }
 
-// empty is the empty state's text, "" when there is none.
+// empty is the empty state's heading, "" when there is none.
 func (p s4Page) empty() string {
-	return strings.TrimSpace(p.doc.Find(".empty-state p").Text())
+	return strings.TrimSpace(p.doc.Find(".empty-state .empty-state-text").Text())
+}
+
+// emptyLine is the empty state's line under the heading (CD-366).
+func (p s4Page) emptyLine() string {
+	return strings.TrimSpace(p.doc.Find(".empty-state .empty-state-line").Text())
 }
 
 // s4Refused checks rec is status with text in its body.
@@ -206,7 +211,7 @@ func TestS4_OpenClaimsPage(t *testing.T) {
 func TestS4_OpenClaimsEmpty(t *testing.T) {
 	e := expensetest.New(t)
 	p := s4Open(t, e, "meena@vardhan.test", "/reports/expense/open")
-	if got := p.empty(); got != "No approved claims are waiting to be closed." {
+	if got := p.empty(); got != "No claims to close" {
 		t.Errorf("empty state = %q", got)
 	}
 	p.wantNoCount()
@@ -268,7 +273,7 @@ func TestS4_LinesPage(t *testing.T) {
 	if want := []string{"Month: October 2026", "Type: Food", "Project: PRJ-METRO", "Employee: Kavya Rao"}; !slices.Equal(p.chips(), want) {
 		t.Errorf("chips = %q, want %q", p.chips(), want)
 	}
-	if got := p.empty(); got != "No expense lines match these filters." {
+	if got := p.empty(); got != "No lines match these filters" {
 		t.Errorf("filtered empty state = %q", got)
 	}
 	if href, _ := p.doc.Find(".empty-state a").Attr("href"); href != "/reports/expense/lines" {
@@ -304,7 +309,7 @@ func TestS4_LinesPage(t *testing.T) {
 func TestS4_LinesEmpty(t *testing.T) {
 	e := expensetest.New(t)
 	p := s4Open(t, e, "meena@vardhan.test", "/reports/expense/lines")
-	if got := p.empty(); got != "No expense lines yet." {
+	if got := p.empty(); got != "No expense lines yet" {
 		t.Errorf("empty state = %q", got)
 	}
 	p.wantNoCount()
@@ -349,10 +354,46 @@ func TestS4_AdvancesPage(t *testing.T) {
 func TestS4_AdvancesEmpty(t *testing.T) {
 	e := expensetest.New(t)
 	p := s4Open(t, e, "meena@vardhan.test", "/reports/expense/advances")
-	if got := p.empty(); got != "No open advances." {
+	if got := p.empty(); got != "No open advances" {
 		t.Errorf("empty state = %q", got)
 	}
 	p.wantNoCount()
+}
+
+// CD-366: each report's plain empty state has a heading and a line with no
+// link; with a filter that matches nothing it has its own heading, the shared
+// line and a Clear filters link back to the plain report.
+func TestS4_ReportEmptyStates(t *testing.T) {
+	e := expensetest.New(t)
+	meena := s4ID(e.E8Employee(t, "EMP-002")) // no claims or advances in the base fixture
+	for _, tc := range []struct{ path, heading, line, noMatch string }{
+		{"/reports/expense/open", "No claims to close", "Approved claims show up here until they are closed.", "No claims match these filters"},
+		{"/reports/expense/lines", "No expense lines yet", "Lines of approved claims show up here.", "No lines match these filters"},
+		{"/reports/expense/advances", "No open advances", "Approved advances show up here until they are closed.", "No advances match these filters"},
+	} {
+		p := s4Open(t, e, "meena@vardhan.test", tc.path)
+		if got := p.empty(); got != tc.heading {
+			t.Errorf("%s: empty heading = %q, want %q", tc.path, got, tc.heading)
+		}
+		if got := p.emptyLine(); got != tc.line {
+			t.Errorf("%s: empty line = %q, want %q", tc.path, got, tc.line)
+		}
+		if n := p.doc.Find(".empty-state a").Length(); n != 0 {
+			t.Errorf("%s: plain empty state has %d links, want none", tc.path, n)
+		}
+
+		p = s4Open(t, e, "meena@vardhan.test", tc.path+"?employee="+meena)
+		if got := p.empty(); got != tc.noMatch {
+			t.Errorf("%s filtered: empty heading = %q, want %q", tc.path, got, tc.noMatch)
+		}
+		if got := p.emptyLine(); got != "Try fewer filters, or clear them." {
+			t.Errorf("%s filtered: empty line = %q, want the shared line", tc.path, got)
+		}
+		link := p.doc.Find(".empty-state a")
+		if href, _ := link.Attr("href"); href != tc.path || strings.TrimSpace(link.Text()) != "Clear filters" {
+			t.Errorf("%s filtered: link = %q %q, want Clear filters to %s", tc.path, strings.TrimSpace(link.Text()), href, tc.path)
+		}
+	}
 }
 
 // UX §5.14: the Filter link opens each report's filter page, a GET form back
