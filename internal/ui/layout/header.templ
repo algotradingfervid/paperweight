@@ -37,7 +37,7 @@ templ header(o PageOpts, s ui.Shell) {
 			</form>
 		}
 		<div class="header-end">
-			if s.SignedIn && !o.Bare {
+			if s.SignedIn && !o.Bare && len(s.New) > 0 {
 				<span class="header-new">
 					@components.Button(components.ButtonProps{Label: "New", Icon: "plus", Href: newPath, Variant: components.Primary, Attrs: templ.Attributes{"aria-haspopup": "dialog", "data-open-dialog": newSheetID}})
 				</span>

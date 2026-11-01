@@ -62,6 +62,13 @@ func TestBottomNav_FiveItems(t *testing.T) {
 		t.Errorf("%d icons, want one per item", links.Find("svg.icon").Length())
 	}
 
+	// Nothing to create: no New, the other four stay.
+	none := newShell("/x")
+	none.New = nil
+	if got, want := hrefs(render(t, none, layout.PageOpts{Title: "T"}).Find("nav.bottomnav")), []string{"/", "/approvals", "/search", "/account/sessions"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("nothing to create: hrefs = %q, want %q", got, want)
+	}
+
 	// No inbox count: no badge and no hidden text.
 	s := newShell("/")
 	s.InboxCount = 0
@@ -169,6 +176,11 @@ func TestHeader_NewButton(t *testing.T) {
 	}
 	if render(t, newShell("/x"), layout.PageOpts{Title: "T", Bare: true}).Find("header .header-new a").Length() != 0 {
 		t.Error("a bare page has the New button")
+	}
+	none := newShell("/x")
+	none.New = nil
+	if render(t, none, layout.PageOpts{Title: "T"}).Find("header .header-new").Length() != 0 {
+		t.Error("a user who may create nothing has the New button")
 	}
 }
 

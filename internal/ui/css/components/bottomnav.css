@@ -1,7 +1,7 @@
-/* bottomnav.css: the phone's five-item bottom nav (UI v2 §5.2, N1), our own
-   utility (CD-341 (1)), shown below 64rem (phones and tablets,
-   CD-352 (1)), where the sidebar isn't; the header's New button from
-   64rem; and the account sheet's links. */
+/* bottomnav.css: the bottom nav (UI v2 §5.2, N1; five items, four for a
+   user with nothing to create), our own utility (CD-341 (1)), shown below
+   64rem (phones and tablets, CD-352 (1)), where the sidebar isn't; the
+   header's New button from 64rem; and the account sheet's links. */
 
 @utility bottomnav {
   position: fixed;
@@ -9,7 +9,8 @@
   inset-block-end: 0;
   z-index: var(--z-header);
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   min-block-size: calc(var(--space-16) + var(--safe-bottom));
   padding-block-end: var(--safe-bottom);
   padding-inline: var(--safe-left) var(--safe-right);
@@ -80,7 +81,7 @@
 /* The page keeps room for the nav, so the end of the content and a sticky
    footer or toast sit above it, never under it. */
 @utility with-bottomnav {
-  @media (max-width: 63.99rem) {
+  @media (width < 64rem) {
     padding-block-end: calc(var(--space-16) + var(--safe-bottom));
     & .actionbar { inset-block-end: calc(var(--space-16) + var(--safe-bottom)); }
     & .toasts { bottom: calc(var(--space-16) + var(--space-4) + var(--safe-bottom)); }

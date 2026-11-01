@@ -151,7 +151,7 @@ func header(o PageOpts, s ui.Shell) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if s.SignedIn && !o.Bare {
+		if s.SignedIn && !o.Bare && len(s.New) > 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<span class=\"header-new\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

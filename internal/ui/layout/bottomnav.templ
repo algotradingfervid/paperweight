@@ -9,9 +9,9 @@ import (
 )
 
 // bottomNav is the bottom nav of phones and tablets (UI v2 §5.2, N1): five
-// fixed links, shown below 64rem, where the sidebar isn't (CD-352 (1)). New
-// and Me open their sheets; without JavaScript they go to /new and the
-// sessions page.
+// fixed links, New only for a user who may create something, shown below
+// 64rem, where the sidebar isn't (CD-352 (1)). New and Me open their
+// sheets; without JavaScript they go to /new and the sessions page.
 templ bottomNav(s ui.Shell) {
 	<nav class="bottomnav" aria-label="Quick">
 		<a href="/" { current(s.Path, "home")... }>
@@ -25,12 +25,14 @@ templ bottomNav(s ui.Shell) {
 			}
 			Approvals<span class="visually-hidden">{ approvalsCount(s.InboxCount) }</span>
 		</a>
-		<a href={ templ.SafeURL(newPath) } class="bottomnav-new" aria-haspopup="dialog" data-open-dialog={ newSheetID } { current(s.Path, "new")... }>
-			<span class="bottomnav-plus">
-				@icons.Icon("plus")
-			</span>
-			New
-		</a>
+		if len(s.New) > 0 {
+			<a href={ templ.SafeURL(newPath) } class="bottomnav-new" aria-haspopup="dialog" data-open-dialog={ newSheetID } { current(s.Path, "new")... }>
+				<span class="bottomnav-plus">
+					@icons.Icon("plus")
+				</span>
+				New
+			</a>
+		}
 		<a href={ templ.SafeURL(searchPath) } { current(s.Path, "search")... }>
 			@icons.Icon("search")
 			Search

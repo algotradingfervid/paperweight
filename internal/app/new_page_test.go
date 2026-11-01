@@ -11,6 +11,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/masters/party"
+	"github.com/vardhan/internaltools/internal/masters/uom"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 )
 
@@ -97,6 +98,17 @@ func TestNewPage_CreateRightOnly(t *testing.T) {
 	if labels, _ := newTiles(r.doc.Find("main")); r.status != http.StatusOK || len(labels) != 0 {
 		t.Errorf("no-role user's /new = %d %q, want 200 and no tile", r.status, labels)
 	}
+	// New shows in the bottom nav and the header only for a user who may
+	// create something.
+	for email, want := range map[string]int{"req@vardhan.test": 1, nobodyEmail: 0} {
+		doc := w.signedIn(email).get("/approvals").doc
+		if n := doc.Find(`nav.bottomnav a[href="/new"]`).Length(); n != want {
+			t.Errorf("%s: %d bottom nav New items, want %d", email, n, want)
+		}
+		if n := doc.Find(`header .header-new a[href="/new"]`).Length(); n != want {
+			t.Errorf("%s: %d header New buttons, want %d", email, n, want)
+		}
+	}
 	if r := w.browser().get("/new"); r.status != http.StatusSeeOther || !strings.HasPrefix(r.header.Get("Location"), "/signin") {
 		t.Errorf("guest GET /new = %d %q, want a redirect to sign in", r.status, r.header.Get("Location"))
 	}
@@ -104,12 +116,26 @@ func TestNewPage_CreateRightOnly(t *testing.T) {
 
 // A-3, N12: the bottom nav is on list and home pages, never on the pages with
 // their own action footer: wizard steps, line and reason pages, the document
-// page and a master's form.
+// page, a master's form and delete confirm, and the import wizard; a
+// read-only master page has no footer, so it keeps the nav.
 func TestBottomNav_FocusPages(t *testing.T) {
 	w := newWorld(t)
-	_, _, m := w.canonical()
+	admin0, _, m := w.canonical()
+	ctx := context.Background()
+	a := w.app.Auth()
+	if err := a.CreateRole(ctx, admin0, "Unit reader"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SetRights(ctx, admin0, "Unit reader", uom.DocType, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := a.CreateUser(ctx, admin0, auth.NewUser{Email: "units@vardhan.test", Name: "Usha Iyer", Password: testPassword, Roles: []string{"Unit reader"}}); err != nil {
+		t.Fatal(err)
+	}
+	reader := w.signedIn("units@vardhan.test")
 	priya := w.signedIn(priyaEmail)
 	id := priya.newOrder(m, "PRJ-METRO", "1000.00")
+	priya.addLine(m, id)
 	step := priya.get(orderURL(id)).location()
 	sent := priya.newOrder(m, "PRJ-METRO", "1000.00")
 	priya.addLine(m, sent)
@@ -127,13 +153,19 @@ func TestBottomNav_FocusPages(t *testing.T) {
 		{priya, "/new", true},
 		{admin, "/m/party", true},
 		{admin, "/m/party/1", true},
+		{reader, "/m/uom/1", true}, // read-only: no form, no action bar
 		{priya, orderPath + "/new", false},
 		{priya, step, false},
 		{priya, orderURL(sent), false},
 		{priya, orderURL(id) + "/lines/new", false},
+		{priya, orderURL(id) + "/lines/1/remove", false},
 		{priya, orderURL(id) + "/delete", false},
 		{admin, "/m/party/new", false},
 		{admin, "/m/item/new", false},
+		{admin, "/m/uom/1", false},          // a writer's form: no cards
+		{admin, "/m/uom/1?delete", false},   // the delete confirm of a form master
+		{admin, "/m/party/1?delete", false}, // and of one with summary cards
+		{admin, "/m/import/choose", false},
 	} {
 		r := c.b.get(c.path)
 		if r.status != http.StatusOK {
