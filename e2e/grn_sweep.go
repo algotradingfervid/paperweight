@@ -472,11 +472,14 @@ func billText(text string) string {
 	return `//*[@id="bill"]` + withText(text)
 }
 
-// grnSearch types into step 1's combobox and waits for its rows.
+// grnSearch types into step 1's combobox and waits for its rows and for the
+// listbox's fade-in to end: axe reads colours, and the half-faded section
+// heading failed color-contrast once D1's Picker v2 landed.
 func grnSearch(ctx context.Context) error {
 	return chromedp.Do(ctx,
 		chromedp.SendKeys(chromedp.CSS(`input[role=combobox]`), "PO"),
-		chromedp.WaitVisible(chromedp.CSS(`[role=listbox] [role=option]`)))
+		chromedp.WaitVisible(chromedp.CSS(`[role=listbox] [role=option]`)),
+		chromedp.Evaluate[chromedp.Void](`Promise.all(document.getAnimations().map((a) => a.finished))`, chromedp.EvalAwaitPromise))
 }
 
 // grnReportScreens are MOD-GRN S4's reports entry, Bills to enter and
