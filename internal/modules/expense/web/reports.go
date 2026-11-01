@@ -27,28 +27,35 @@ import (
 type reportFilter struct{ key, label string }
 
 // reportSpec is one report page's words, DocType and filters (UX §5.13 to
-// §5.15). none is the empty state with no filter, noMatch with one.
+// §5.15). none and line are the empty state with no filter (CD-366), noMatch
+// the empty state with one.
 type reportSpec struct {
-	title, one, many, none, noMatch, docType string
-	filters                                  []reportFilter
+	title, one, many, none, line, noMatch, docType string
+	filters                                        []reportFilter
 }
+
+// reportNoMatchLine is the line of every report's filtered empty state (CD-366).
+const reportNoMatchLine = "Try fewer filters, or clear them."
 
 var byEmployee = reportFilter{"employee", "Employee"}
 
 var reportSpecs = map[string]reportSpec{
 	"open": {
 		title: "Open claims", one: "claim", many: "claims", docType: expense.ClaimDocType,
-		none: "No approved claims are waiting to be closed.", noMatch: "No approved claims are waiting to be closed.",
+		none: "No claims to close", line: "Approved claims show up here until they are closed.",
+		noMatch: "No claims match these filters",
 		filters: []reportFilter{byEmployee},
 	},
 	"lines": {
 		title: "Expense lines", one: "line", many: "lines", docType: expense.ClaimDocType,
-		none: "No expense lines yet.", noMatch: "No expense lines match these filters.",
+		none: "No expense lines yet", line: "Lines of approved claims show up here.",
+		noMatch: "No lines match these filters",
 		filters: []reportFilter{{"month", "Month"}, {"type", "Type"}, {"project", "Project"}, byEmployee},
 	},
 	"advances": {
 		title: "Open advances", one: "advance", many: "advances", docType: expense.AdvanceDocType,
-		none: "No open advances.", noMatch: "No open advances.",
+		none: "No open advances", line: "Approved advances show up here until they are closed.",
+		noMatch: "No advances match these filters",
 		filters: []reportFilter{byEmployee},
 	},
 }
@@ -144,9 +151,9 @@ func (h *handlers) report(w http.ResponseWriter, r *http.Request) {
 		list: components.DataListProps{Label: spec.title, Columns: data.columns, Rows: data.rows},
 	}
 	if len(q) == 0 {
-		v.list.Empty = components.EmptyState(spec.none, nil)
+		v.list.Empty = components.EmptyList(spec.none, spec.line)
 	} else {
-		v.list.Empty = components.NoMatch(spec.noMatch, "", base)
+		v.list.Empty = components.NoMatch(spec.noMatch, reportNoMatchLine, base)
 	}
 	if h.d.Auth.Can(ctx, p, spec.docType, auth.RightExport, nil) == nil {
 		v.bar.Export = &components.Link{Label: "Export", Href: withQuery(base+"/export.csv", q)}
