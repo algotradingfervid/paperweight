@@ -102,7 +102,7 @@ func TestWizardForm_BackOnParseErrorStaysOnStep(t *testing.T) {
 					t.Error("plain back 422 is not a full page")
 				}
 				page := uitest.Doc(t, rec)
-				if got := norm(page.Find("h1#step-title").Text()); got != c.head {
+				if got := norm(page.Find("h2#step-title").Text()); got != c.head {
 					t.Errorf("heading = %q, want %s (the step stays)", got, c.head)
 				}
 				if got := stepCount(page.Selection); got != c.count {
@@ -258,7 +258,7 @@ func testLinesErrorLink(t *testing.T, msg string, lines bool, wantHref string, h
 		t.Fatalf("status = %d, want 422; body %.300s", res.Code, res.Body)
 	}
 	page := uitest.Doc(t, res)
-	if got := norm(page.Find("h1#step-title").Text()); got != "Items" {
+	if got := norm(page.Find("h2#step-title").Text()); got != "Items" {
 		t.Errorf("heading = %q, want Items", got)
 	}
 	link := page.Find(".error-summary a").FilterFunction(func(_ int, s *goquery.Selection) bool {

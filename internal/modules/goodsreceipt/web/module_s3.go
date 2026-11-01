@@ -34,18 +34,18 @@ func (m *module) receiptPage(c docscreen.Ctx) (goodsreceipt.ReceiptPage, error) 
 	return m.d.Service.Page(c.Req.Context(), c.Principal, c.View.Info.ID)
 }
 
-// check adds G5's notes and warnings to the check page (UX doc §5.5). The
-// big figure is docscreen's grand figure, accepted_value.
+// check adds G5's notes and warnings, then G11's, to the check page (UX doc
+// §5.5). The big figure is docscreen's grand figure, accepted_value.
 func (m *module) check(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 	rp, err := m.receiptPage(c)
 	if err != nil {
 		return docscreen.CheckExtra{}, err
 	}
-	return docscreen.CheckExtra{Notes: rp.Notes, Warnings: rp.Warnings}, nil
+	return docscreen.CheckExtra{Notes: rp.Notes, Warnings: withChallan(c, rp)}, nil
 }
 
 // page adds to the document page (UX doc §5.6): Site and Project from the
-// GRN's snapshot, G5's warnings and the e-way hint while it isn't
+// GRN's snapshot, G5's and G11's warnings and the e-way hint while it isn't
 // cancelled, then the Bill details card (S3b) and the Purchase order card.
 // docscreen shows no Close action (CloseNone, CD-277 (1)).
 func (m *module) page(c docscreen.Ctx) (docscreen.PageExtra, error) {
@@ -55,7 +55,7 @@ func (m *module) page(c docscreen.Ctx) (docscreen.PageExtra, error) {
 	}
 	x := docscreen.PageExtra{Pairs: []components.Pair{{Label: labelSite, Value: rp.Site}, {Label: labelProject, Value: rp.Project}}}
 	if c.View.Info.State != doctype.StateCancelled {
-		x.Warnings = rp.Warnings
+		x.Warnings = withChallan(c, rp)
 		if rp.EWay != "" {
 			x.Notice = &components.BannerProps{Kind: components.Info, Message: rp.EWay}
 		}
@@ -71,6 +71,15 @@ func (m *module) page(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		x.Cards = append(x.Cards, poCard(poRows(rp.PO)))
 	}
 	return x, nil
+}
+
+// withChallan is G5's warnings, then G11's duplicate challan, if any,
+// unless Hide hides challan_no: the text shows its value (CD-319).
+func withChallan(c docscreen.Ctx, rp goodsreceipt.ReceiptPage) []string {
+	if rp.Challan == "" || !shown(c, "challan_no") {
+		return rp.Warnings
+	}
+	return append(rp.Warnings, rp.Challan)
 }
 
 // poRows are the Purchase order card's link and lines.

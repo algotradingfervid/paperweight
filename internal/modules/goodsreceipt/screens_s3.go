@@ -27,6 +27,7 @@ type ReceiptPage struct {
 	Site     string     // the GRN's snapshot of its site's name
 	Project  string     // the GRN's snapshot of its project's code
 	Invoice  string     // the stored bill details' invoice no., "" with none
+	Challan  string     // G11's DuplicateChallan for the viewer, or ""
 	PO       *ReceiptPO // nil when the viewer can't read the PO
 }
 
@@ -72,6 +73,9 @@ func (s *Service) Page(ctx context.Context, p auth.Principal, id int64) (Receipt
 			if n != noteAsOrdered {
 				out.EWay = n
 			}
+		}
+		if out.Challan, err = DuplicateChallan(ctx, tx, p, id); err != nil { // read on id checked above
+			return err
 		}
 		bill, _, err := billRow(ctx, q, id) // a zero BillView when there's no bill
 		out.Invoice = bill.InvoiceNo

@@ -140,7 +140,11 @@ func TestGRNBill_StateRules(t *testing.T) {
 	}
 	for i, s := range steps {
 		w := g7MustSave(t, s.what, env, env.Suresh, approved.ID, i+1, s.in)
-		g7WantWarnings(t, s.what, w, g7Accepted("50,000.00"))
+		if s.amount != nil { // the line shows only when a total is set and differs (S3b)
+			g7WantWarnings(t, s.what, w, g7Accepted("50,000.00"))
+		} else {
+			g7WantWarnings(t, s.what, w)
+		}
 		g7WantView(t, s.what, g7Bill(t, env, approved.ID), i+2, s.no, g7Oct(24), s.amount, "")
 		entries := g7BillEntries(t, env, approved.ID)
 		if len(entries) != i+2 {

@@ -168,7 +168,7 @@ func TestTooling_VisibilitySweep(t *testing.T) {
 // on its control and sample URLs (Control) or only 404 on a hidden record's
 // URL (Hidden), the exact set it answers. nil means the default.
 var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
-	const ok, see, forbidden, missing, stub = http.StatusOK, http.StatusSeeOther, http.StatusForbidden, http.StatusNotFound, http.StatusNotImplemented
+	const ok, see, forbidden, missing = http.StatusOK, http.StatusSeeOther, http.StatusForbidden, http.StatusNotFound
 	type st = struct{ Control, Hidden []int }
 	out := map[string]st{
 		"/": {Control: []int{see}}, // to the inbox
@@ -217,10 +217,6 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	// an advance it reads, AUTH-108's 404 on a hidden one (UX §5.18).
 	for _, r := range []string{"/modules/expense/advances/{id}/paid", "/modules/expense/advances/{id}/unpaid"} {
 		out[r] = st{Control: []int{forbidden}}
-	}
-	// The GRN report pages are S4's stubs; their CSVs are built (G9).
-	for _, r := range []string{"/reports/grn/bills", "/reports/grn/items"} {
-		out[r] = st{Control: []int{stub}}
 	}
 	return out
 }()
@@ -294,6 +290,7 @@ var noControl = map[string]string{
 	"/reports/expense/lines/filter":    "a filter form: no rows",
 	"/reports/expense/advances/filter": "a filter form: no rows",
 	"/reports/purchase/pending/filter": "a filter form: no rows",
+	"/reports/grn":                     "the GRN reports entry: two links, no rows",
 }
 
 var noControlPrefixes = []string{"/m/", "/pick/"}
@@ -555,6 +552,10 @@ func (s *sweepSeed) fill(route string) ([]sweepPage, string) {
 		"/m/import/template":              {"?doctype=Party"},
 		"/reports/expense/lines":          {"", "?month=2026-10"},
 		"/reports/expense/lines/filter":   {"", "?month=2026-10"},
+		"/reports/grn/bills":              {"", "?nobill=1"},
+		"/reports/grn/items":              {"", "?month=2026-10"},
+		"/reports/grn/bills/filter":       {"", "?vendor=" + idText(s.id("party", controlVendor))},
+		"/reports/grn/items/filter":       {"", "?vendor=" + idText(s.id("party", controlVendor))},
 		"/modules/goodsreceipt/po-search": {"", "?all=1", "?all=1&q=" + hiddenQuery},
 	}
 	plain := func(us ...string) []sweepPage {
@@ -750,7 +751,7 @@ var controlReports = map[string][]string{
 	purchase.DocType:       {"/reports/purchase/pending"},
 	expense.ClaimDocType:   {"/reports/expense/open", "/reports/expense/lines"},
 	expense.AdvanceDocType: {"/reports/expense/advances"},
-	goodsreceipt.DocType:   {"/reports/grn/bills/export.csv", "/reports/grn/items/export.csv"},
+	goodsreceipt.DocType:   {"/reports/grn/bills", "/reports/grn/items"},
 }
 
 // controlExpectation is a page that must show a control record.
@@ -833,6 +834,11 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 		case r.state == stMine:
 			add("/approvals/mine", types.FormatMoney(r.amount))
 		}
+	}
+	// The GRN filter pages name a chosen vendor from the viewer's rows: the
+	// control receipts' vendor, so a page reading hidden rows is swept too.
+	for _, r := range []string{"bills", "items"} {
+		add("/reports/grn/"+r+"/filter?vendor="+idText(s.id("party", controlVendor)), "Shree Steel Traders")
 	}
 	add("/m/project", projectA)
 	add("/pick/Project?q=PRJ", projectA)

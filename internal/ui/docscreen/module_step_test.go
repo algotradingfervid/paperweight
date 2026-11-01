@@ -300,7 +300,7 @@ func TestModule_StepBody(t *testing.T) {
 		if got := stepCount(page.Selection); got != "Step 2 of 4" {
 			t.Errorf("%s: stepper = %q, want Step 2 of 4", what, got)
 		}
-		if got := norm(page.Find("h1#step-title").Text()); got != "Terms" {
+		if got := norm(page.Find("h2#step-title").Text()); got != "Terms" {
 			t.Errorf("%s: heading = %q, want Terms", what, got)
 		}
 		if got := m02Attr(form.Find("#doc-version"), "value"); got != version {

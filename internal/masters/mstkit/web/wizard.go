@@ -206,7 +206,7 @@ func (c wizardCore) stepErrors(s docscreen.FormStep, errs []doctype.FieldError) 
 func (c wizardCore) model() wizard.Model {
 	m := wizard.Model{Mode: wizard.Master}
 	for _, s := range c.steps {
-		m.Steps = append(m.Steps, wizard.Step{Slug: s.Slug, Label: s.Label})
+		m.Steps = append(m.Steps, wizard.Step{Slug: s.Slug, Label: s.Label, Intro: s.Intro})
 	}
 	return m
 }

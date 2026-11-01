@@ -200,6 +200,7 @@ type itemCard struct {
 // itemsForm is step 3's Body.
 type itemsForm struct {
 	Summary        string
+	Warnings       []string // G11's duplicate challan, if any
 	FillAll, Clear components.ButtonProps
 	Cards, Full    []itemCard // Full: fully received, when some lines are pending
 	FullLabel      string
@@ -207,13 +208,15 @@ type itemsForm struct {
 }
 
 // itemsBody draws step 3 from the post on a redraw, else from the stored
-// lines, with LineWarnings on the accepted quantities shown (UX doc §5.4).
+// lines, with LineWarnings on the accepted quantities shown (UX doc §5.4)
+// and G11's duplicate challan.
 func (m *module) itemsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Component, error) {
 	ctx := c.Req.Context()
 	var (
-		lines []goodsreceipt.POLine
-		es    map[int64]entry
-		warn  map[int64]string
+		lines   []goodsreceipt.POLine
+		es      map[int64]entry
+		warn    map[int64]string
+		challan string
 	)
 	err := c.Deps.DB.Read(ctx, func(tx *db.Tx) (err error) {
 		if lines, err = goodsreceipt.POLines(ctx, tx, c.View.Info.ID); err != nil {
@@ -227,7 +230,11 @@ func (m *module) itemsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compon
 			}
 		}
 		poID, _ := strconv.ParseInt(c.View.Inputs["purchase_order_id"], 10, 64) // a saved draft's PO: an id
-		warn, err = goodsreceipt.LineWarnings(ctx, tx, poID, c.View.Info.ID, accepted)
+		if warn, err = goodsreceipt.LineWarnings(ctx, tx, poID, c.View.Info.ID, accepted); err != nil {
+			return err
+		}
+		// docscreen loaded c.View with p's read check (Deps.View).
+		challan, err = goodsreceipt.DuplicateChallan(ctx, tx, c.Principal, c.View.Info.ID)
 		return err
 	})
 	if err != nil {
@@ -261,6 +268,9 @@ func (m *module) itemsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compon
 		f.Full = append(f.Full, card)
 		e := es[l.ID]
 		f.FullOpen = f.FullOpen || strings.TrimSpace(e.received+e.rejected+e.reason) != "" // a value in any input; errors come with one
+	}
+	if challan != "" && shown(c, "challan_no") { // the text shows challan_no's value (CD-319)
+		f.Warnings = []string{challan}
 	}
 	f.FullLabel = fmt.Sprintf("Fully received lines (%d)", len(f.Full))
 	return itemsView(f), nil

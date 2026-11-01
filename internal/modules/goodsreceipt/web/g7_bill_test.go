@@ -144,7 +144,7 @@ func TestGRNBillWeb_Save(t *testing.T) {
 		t.Errorf("after the no-JS save: bill version %d, want 1", v)
 	}
 
-	rec = g7wPost(t, r, env.Suresh, second.ID, g7wForm("0", g7wInvoice, "24-10-2026", ""), true)
+	rec = g7wPost(t, r, env.Suresh, second.ID, g7wForm("0", g7wInvoice, "24-10-2026", "7,375.00"), true) // the line shows only when the total differs (S3b)
 	g7wWant(t, "htmx save", rec, http.StatusOK, "#bill", "Invoice "+g7wInvoice+" is also on "+first.Number+".", g7wAccepted)
 	if v := g7wVersion(t, env, second.ID); v != 1 {
 		t.Errorf("after the htmx save: bill version %d, want 1", v)

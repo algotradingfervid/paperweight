@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -125,46 +126,161 @@ func TestModel_Helpers(t *testing.T) {
 	}
 }
 
+// TestStepper_Markup: Stepper v2 (UI v2 §5.6, A-13): dots joined by lines,
+// done steps a check and "Completed: ", the current step's label the
+// h2#step-title, no <progress> and no "Step n of N" in view.
 func TestStepper_Markup(t *testing.T) {
 	doc := uitest.Render(t, wizard.Stepper(docModel()))
 	nav := doc.Find("nav.stepper")
 	if got := nav.AttrOr("aria-label", ""); got != "Purchase order steps" {
 		t.Errorf("aria-label = %q", got)
 	}
-	if got := strings.TrimSpace(doc.Find("p.stepper__count#step-count").Text()); got != "Step 2 of 4" {
-		t.Errorf("count = %q", got)
+	if doc.Find("progress").Length() != 0 {
+		t.Error("no <progress> bar (A-13)")
+	}
+	count := doc.Find("#step-count")
+	if got := strings.TrimSpace(count.Text()); got != "Step 2 of 4" || !count.HasClass("visually-hidden") || !count.HasClass("stepper__count") {
+		t.Errorf("count = %q (class %q), want visually hidden Step 2 of 4", got, count.AttrOr("class", ""))
 	}
 	li := doc.Find("ol.stepper__list > li.stepper__step")
 	if li.Length() != 4 {
 		t.Fatalf("want 4 steps, got %d", li.Length())
 	}
+	li.Each(func(i int, s *goquery.Selection) {
+		if dot := s.Find(".stepper__dot"); dot.Length() != 1 || dot.AttrOr("aria-hidden", "") != "true" {
+			t.Errorf("step %d: want one dot hidden from assistive tech", i+1)
+		}
+	})
 	s1 := li.Eq(0)
+	if !s1.HasClass("is-done") {
+		t.Error("step 1 must be done")
+	}
 	if a := s1.Find("a"); a.AttrOr("href", "") != "/doc/po/42/edit/party" || !strings.Contains(a.Text(), "Completed: ") {
 		t.Errorf("step 1 must be a link with Completed: , got %q", s1.Text())
 	}
 	if s1.Find("span.visually-hidden").Text() != "Completed: " {
 		t.Error("step 1 Completed text must be visually hidden")
 	}
+	if s1.Find(".stepper__dot svg").Length() != 1 || strings.TrimSpace(s1.Find(".stepper__dot").Text()) != "" {
+		t.Error("a done step's dot holds the check icon, not its number")
+	}
 	s2 := li.Eq(1)
-	if s2.AttrOr("aria-current", "") != "step" || s2.Find("a").Length() != 0 {
+	if !s2.HasClass("is-current") || s2.AttrOr("aria-current", "") != "step" || s2.Find("a").Length() != 0 {
 		t.Errorf("step 2 must be current and not a link: %q", s2.Text())
 	}
-	if li.Eq(2).Find("a").AttrOr("href", "") != "/doc/po/42/edit/terms" {
+	h := s2.Find("h2#step-title")
+	if h.Length() != 1 || strings.TrimSpace(h.Text()) != "Lines" || h.AttrOr("tabindex", "") != "-1" || h.AttrOr("aria-describedby", "") != "step-count" {
+		t.Errorf("current step heading = %q (tabindex %q, describedby %q)", h.Text(), h.AttrOr("tabindex", ""), h.AttrOr("aria-describedby", ""))
+	}
+	if _, ok := h.Attr("autofocus"); !ok {
+		t.Error("with no errors the step heading takes autofocus")
+	}
+	s3 := li.Eq(2)
+	if !s3.HasClass("is-visited") || s3.Find("a").AttrOr("href", "") != "/doc/po/42/edit/terms" {
 		t.Error("step 3 (visited) must be a link")
 	}
-	s4 := li.Eq(3)
-	if s4.Find("a").Length() != 0 || s4.Find("span").Length() != 1 {
-		t.Error("step 4 must be a plain span")
+	// Numbers come from a CSS counter: each item's text is its label alone.
+	for i, want := range []string{"Completed: Party", "Lines", "Terms", "Check and submit"} {
+		if got := strings.Join(strings.Fields(li.Eq(i).Text()), " "); got != want {
+			t.Errorf("step %d text = %q, want %q", i+1, got, want)
+		}
 	}
-	p := doc.Find("progress.stepper__bar")
-	if p.AttrOr("max", "") != "4" || p.AttrOr("value", "") != "2" || p.AttrOr("aria-labelledby", "") != "step-count" {
-		t.Errorf("progress attrs: max=%q value=%q", p.AttrOr("max", ""), p.AttrOr("value", ""))
+	s4 := li.Eq(3)
+	if s4.Find("a").Length() != 0 || strings.TrimSpace(s4.Find(".stepper__label").Text()) != "Check and submit" || s4.HasClass("is-done") || s4.HasClass("is-visited") {
+		t.Error("step 4 must be plain upcoming text")
+	}
+	if doc.Find("h1, h2").Length() != 1 || doc.Find("svg").Length() != 1 {
+		t.Errorf("one heading and one check icon: %d headings, %d icons", doc.Find("h1, h2").Length(), doc.Find("svg").Length())
 	}
 	if doc.Find("[style]").Length() != 0 {
 		t.Error("no style attributes")
 	}
 	if strings.Contains(doc.Text(), "%") {
 		t.Error("never a percentage")
+	}
+}
+
+// On the first step nothing is done or visited; on the last every earlier
+// step is done.
+func TestStepper_FirstAndLast(t *testing.T) {
+	first := docModel()
+	first.Current, first.Furthest = 0, 0
+	d := uitest.Render(t, wizard.Stepper(first))
+	if d.Find("li.is-done, li.is-visited, a").Length() != 0 || d.Find("li.is-current").Index() != 0 {
+		t.Error("step 1 of a new wizard: only the current step, no links")
+	}
+	last := docModel()
+	last.Current, last.Furthest = 3, 3
+	d = uitest.Render(t, wizard.Stepper(last))
+	if d.Find("li.is-done").Length() != 3 || d.Find("li.is-done svg").Length() != 3 {
+		t.Error("check step: three done steps with checks")
+	}
+	if got := strings.TrimSpace(d.Find("h2#step-title").Text()); got != "Check and submit" {
+		t.Errorf("heading = %q", got)
+	}
+}
+
+// With errors or a conflict the summary or banner takes focus, not the
+// heading.
+func TestStepper_NoAutofocusOnErrorsOrConflict(t *testing.T) {
+	e := docModel()
+	e.Errors = []components.FieldErr{{ID: "party", Message: "Choose a party."}}
+	c := docModel()
+	c.Conflict = "Someone else changed this."
+	for name, m := range map[string]wizard.Model{"errors": e, "conflict": c} {
+		if _, ok := uitest.Render(t, wizard.Stepper(m)).Find("h2#step-title").Attr("autofocus"); ok {
+			t.Errorf("%s: the heading must not take autofocus", name)
+		}
+	}
+}
+
+// TestFrame_OneHeadingEach (A-13): the frame has one h1 (the document) and
+// one h2#step-title, no <progress>, and the step label appears once.
+func TestFrame_OneHeadingEach(t *testing.T) {
+	d := renderFrame(t, docModel(), wizard.Bar{})
+	if h := d.Find("h1"); h.Length() != 1 || strings.TrimSpace(h.Text()) != "Purchase order · Draft 42" {
+		t.Errorf("want one h1 with the document, got %d: %q", h.Length(), h.Text())
+	}
+	if d.Find("h2#step-title").Length() != 1 || d.Find("#step-title").Length() != 1 {
+		t.Error("want one h2#step-title")
+	}
+	if d.Find("progress").Length() != 0 {
+		t.Error("no <progress> (A-13)")
+	}
+	if n := strings.Count(d.Find("#wizard").Text(), "Lines"); n != 1 {
+		t.Errorf("the step label appears %d times, want once", n)
+	}
+}
+
+// TestFrame_StepIntro: the current step's Intro is one line under the
+// stepper; a step without one has none.
+func TestFrame_StepIntro(t *testing.T) {
+	m := docModel()
+	m.Steps[0].Intro = "Who you're buying from."
+	m.Steps[1].Intro = "Add what you're buying."
+	d := renderFrame(t, m, wizard.Bar{})
+	p := d.Find("#wizard > p.step-intro")
+	if p.Length() != 1 || strings.TrimSpace(p.Text()) != "Add what you're buying." {
+		t.Fatalf("intro = %d %q, want the current step's", p.Length(), p.Text())
+	}
+	if p.PrevFiltered("nav.stepper").Length() != 1 {
+		t.Error("the intro sits right under the stepper")
+	}
+	if renderFrame(t, docModel(), wizard.Bar{}).Find(".step-intro").Length() != 0 {
+		t.Error("no Intro, no line")
+	}
+}
+
+// TestModel_LongLabels (A-14): labels over 12 characters, counted in
+// characters, not bytes.
+func TestModel_LongLabels(t *testing.T) {
+	m := docModel()
+	m.Steps = steps("Twelve chars", "Thirteen char", "Größenangabe", "Check and submit")
+	if got := m.LongLabels(); !slices.Equal(got, []string{"Thirteen char", "Check and submit"}) {
+		t.Errorf("LongLabels = %q", got)
+	}
+	if wizard.MaxLabel != 12 {
+		t.Errorf("MaxLabel = %d, want 12", wizard.MaxLabel)
 	}
 }
 
@@ -237,8 +353,8 @@ func TestFrame_WarningsBanner(t *testing.T) {
 	if b.Length() != 1 || !strings.Contains(b.Text(), m.Warnings[0]) {
 		t.Fatalf("want one warning banner with the text, got %d", b.Length())
 	}
-	if b.NextAllFiltered("h1#step-title").Length() != 1 {
-		t.Error("warning banner must sit above the h1")
+	if b.NextAllFiltered("form#wizard-form").Length() != 1 || b.PrevAllFiltered("nav.stepper").Length() != 1 {
+		t.Error("warning banner must sit after the stepper and above the step form")
 	}
 	if docNo := renderFrame(t, docModel(), wizard.Bar{}); docNo.Find(".banner--warning").Length() != 0 {
 		t.Error("no warnings → no banner")
@@ -247,9 +363,9 @@ func TestFrame_WarningsBanner(t *testing.T) {
 
 func TestFrame_FocusTarget(t *testing.T) {
 	d := renderFrame(t, docModel(), wizard.Bar{})
-	h := d.Find("h1#step-title")
+	h := d.Find("h2#step-title")
 	if _, ok := h.Attr("autofocus"); !ok || h.AttrOr("tabindex", "") != "-1" || strings.TrimSpace(h.Text()) != "Lines" {
-		t.Errorf("h1 must be the focus target with the step label: %q", h.Text())
+		t.Errorf("h2 must be the focus target with the step label: %q", h.Text())
 	}
 
 	m := docModel()
@@ -258,8 +374,8 @@ func TestFrame_FocusTarget(t *testing.T) {
 	if _, ok := e.Find(".error-summary").Attr("autofocus"); !ok {
 		t.Error("error summary must take autofocus")
 	}
-	if _, ok := e.Find("h1#step-title").Attr("autofocus"); ok {
-		t.Error("h1 must not have autofocus when errors exist")
+	if _, ok := e.Find("h2#step-title").Attr("autofocus"); ok {
+		t.Error("h2 must not have autofocus when errors exist")
 	}
 	if e.Find("[autofocus]").Length() != 1 {
 		t.Error("exactly one autofocus")
@@ -268,8 +384,8 @@ func TestFrame_FocusTarget(t *testing.T) {
 	c := docModel()
 	c.Conflict = "Someone else changed this."
 	cd := renderFrame(t, c, wizard.Bar{})
-	if _, ok := cd.Find("h1#step-title").Attr("autofocus"); ok {
-		t.Error("h1 must not have autofocus on a conflict")
+	if _, ok := cd.Find("h2#step-title").Attr("autofocus"); ok {
+		t.Error("h2 must not have autofocus on a conflict")
 	}
 	w := cd.Find("#wizard-conflict")
 	if _, ok := w.Attr("autofocus"); !ok || w.AttrOr("tabindex", "") != "-1" || w.Find(".banner--warning").Length() != 1 {

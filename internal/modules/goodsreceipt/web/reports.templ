@@ -1,0 +1,53 @@
+package grnweb
+
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/layout"
+)
+
+// reportsPage is the reports entry (UX doc §5.10): a Card per report with
+// its Open link and one line.
+templ reportsPage(links []reportLink) {
+	@layout.Page(layout.PageOpts{Title: reportsTitle}) {
+		for _, l := range links {
+			@components.Card(l.title, &components.Link{Label: labelOpen, Href: l.href}) {
+				<p>{ l.line }</p>
+			}
+		}
+	}
+}
+
+templ reportPage(v reportView) {
+	@layout.Page(v.opts) {
+		@reportBody(v)
+	}
+}
+
+templ reportMain(v reportView) {
+	@layout.Main(v.opts) {
+		@reportBody(v)
+	}
+}
+
+// reportBody is the FilterBar over the DataList and the pager
+// (design-system §8.1).
+templ reportBody(v reportView) {
+	@components.FilterBar(v.bar)
+	@components.DataList(v.list)
+	@components.Pagination(v.pages)
+}
+
+// filterScreen is a report's filter page; the chip link's filter is kept.
+templ filterScreen(v filterView) {
+	@layout.Page(v.opts) {
+		@components.Form(components.FormProps{Method: "get", Action: v.action}) {
+			if v.toggle != "" {
+				@components.Hidden(v.toggle, "1")
+			}
+			for _, f := range v.fields {
+				@f
+			}
+			@components.Button(components.ButtonProps{Label: "Show results", Busy: "Finding…", Variant: components.Primary})
+		}
+	}
+}

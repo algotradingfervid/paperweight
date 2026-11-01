@@ -66,7 +66,7 @@ func TestCheckPage_SectionsStatusAndPreview(t *testing.T) {
 			if got := stepCount(page.Selection); got != "Step 3 of 3" {
 				t.Errorf("stepper = %q, want Step 3 of 3", got)
 			}
-			if got := norm(page.Find("h1#step-title").Text()); got != "Check and submit" {
+			if got := norm(page.Find("h2#step-title").Text()); got != "Check and submit" {
 				t.Errorf("heading = %q", got)
 			}
 			for _, s := range []struct{ title, slug, status, not string }{
@@ -222,7 +222,7 @@ func TestDirectAction_HTMXLeavingPageRendersTarget(t *testing.T) {
 			}
 			page := uitest.Doc(t, rec)
 			if c.check {
-				if got := norm(page.Find("h1#step-title").Text()); got != "Check and submit" {
+				if got := norm(page.Find("h2#step-title").Text()); got != "Check and submit" {
 					t.Errorf("heading = %q, want the check page", got)
 				}
 			} else if got := norm(page.Find("h1").First().Text()); got != "Sample Orders" {

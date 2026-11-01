@@ -73,7 +73,7 @@ func TestStaleBrowser56_HandOverNotice(t *testing.T) {
 	if banner != "found:" {
 		t.Errorf("#network = %q after the 403, want it present and empty", banner)
 	}
-	heading, err := m26Step(ctx, "read the heading", chromedp.Text(chromedp.CSS("h1#step-title")))
+	heading, err := m26Step(ctx, "read the heading", chromedp.Text(chromedp.CSS("h2#step-title")))
 	if err != nil {
 		t.Fatal(err)
 	}

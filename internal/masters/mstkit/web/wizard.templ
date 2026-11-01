@@ -24,7 +24,7 @@ templ wizardPage(v wizardView) {
 templ wizardFrame(v wizardView) {
 	@wizard.Frame(v.M, v.Bar) {
 		@components.RequiredNote(v.Required)
-		for _, in := range v.Inputs {
+		for _, in := range grouped(v.Inputs) {
 			@in
 		}
 	}

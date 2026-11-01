@@ -25,11 +25,13 @@ import (
 )
 
 // FormStep is one step of a DocType's wizard: its header fields, or the
-// line pages when Lines is set (design-system §8.3).
+// line pages when Lines is set (design-system §8.3), and its Intro, the line
+// under the stepper (UI v2 §5.6).
 type FormStep struct {
 	Slug, Label string
 	Fields      []string
 	Lines       bool
+	Intro       string
 }
 
 // Fixed step slugs.
@@ -689,7 +691,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	s := steps[i]
 	m := wizard.Model{Mode: wizard.Document, Title: dt.Label, Current: i, Errors: fieldErrs(errs)}
 	for _, st := range steps {
-		m.Steps = append(m.Steps, wizard.Step{Slug: st.Slug, Label: st.Label})
+		m.Steps = append(m.Steps, wizard.Step{Slug: st.Slug, Label: st.Label, Intro: st.Intro})
 	}
 	if v == nil {
 		m.BaseURL = "/doc/" + dt.Name + "/new"
@@ -962,7 +964,7 @@ func (d Deps) load(ctx context.Context, name string, id int64) (doc.Record, erro
 func stepOpts(sv stepView) layout.PageOpts {
 	o := layout.PageOpts{
 		Title:      sv.M.Heading(),
-		NoHeading:  true, // the frame's h1#step-title is the heading
+		NoHeading:  true, // the frame's h2#step-title is the heading
 		Focus:      true,
 		Width:      layout.Form,
 		BannerSlot: stepBanner(sv.Banner),

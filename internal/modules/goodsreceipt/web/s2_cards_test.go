@@ -36,7 +36,7 @@ func TestGRNWeb_ItemsCards(t *testing.T) {
 	id := w.draft(po)
 	r := w.s2Items(id)
 
-	if got := s2Norm(r.doc.Find("h1").Text()); got != "Received quantities" {
+	if got := s2Norm(r.doc.Find("h2#step-title").Text()); got != "Received quantities" {
 		t.Errorf("h1 = %q, want Received quantities", got)
 	}
 	if got, want := r.s2Titles(), []string{"1 · " + s2Angle, "2 · " + s2Wire}; !slices.Equal(got, want) {
