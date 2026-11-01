@@ -17,6 +17,7 @@
     background: var(--color-surface);
     border: var(--border-w) solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
     &:hover { border-color: var(--color-primary-600); }
   }
   /* A row that needs attention, such as an overdue line (CD-326 (8)). */

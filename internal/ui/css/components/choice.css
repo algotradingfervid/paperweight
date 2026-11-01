@@ -31,7 +31,7 @@
     background: var(--color-surface);
     color: var(--color-primary-800);
     font-weight: var(--weight-semibold);
-    box-shadow: var(--shadow-1), 0 0 0 1px var(--color-primary-600);
+    box-shadow: var(--shadow-card), 0 0 0 1px var(--color-primary-600);
   }
   & > label:has(:focus-visible) {
     outline: var(--focus-ring);
@@ -105,7 +105,7 @@
     aspect-ratio: 1;
     border-radius: 50%;
     background: var(--color-surface);
-    box-shadow: var(--shadow-1);
+    box-shadow: var(--shadow-card);
     transition: translate var(--dur-fast) var(--ease-out);
   }
   &:checked { background: var(--color-primary-600); }

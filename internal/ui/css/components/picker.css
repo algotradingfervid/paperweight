@@ -83,7 +83,7 @@
     align-content: start;
     padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right)) calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
     background: var(--color-surface);
-    box-shadow: var(--shadow-sheet);
+    box-shadow: var(--shadow-pop);
   }
   & .picker__search[data-open] [data-picker-close] { display: inline-flex; }
   @media (min-width: 48rem) {
@@ -104,7 +104,7 @@
       inset-block-start: 100%;
       z-index: var(--z-dropdown);
       max-block-size: calc(var(--target-min) * 8);
-      box-shadow: var(--shadow-2);
+      box-shadow: var(--shadow-pop);
     }
   }
 }

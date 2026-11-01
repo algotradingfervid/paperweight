@@ -24,6 +24,7 @@
     background: var(--color-surface);
     border: var(--border-w) solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
     & > * { min-inline-size: 0; }
   }
   & .rows-no { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
@@ -40,7 +41,7 @@
       font-size: var(--text-sm);
       border-block-end: var(--border-w) solid var(--color-border-subtle);
     }
-    & .rows-row { padding: 0; background: none; border: 0; border-radius: 0; }
+    & .rows-row { padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
     & .rows-row .field__label { @apply visually-hidden; }
     /* Tight tracks and control padding: with four cells at exactly 48rem a
        worst-case amount still shows whole (CD-169), and "Removing…" fits. */
