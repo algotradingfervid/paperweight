@@ -366,6 +366,67 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	}
 }
 
+// TestE2E_PUX008_HandOverMidEdit (PUX-008, PO-059): Arjun and Ravi hold
+// Priya's draft open and Priya its Terms. Ravi hands it to Arjun with a
+// note; Priya's save is then refused with her typed value kept, nothing is
+// written, and her reload is the read-only page naming Arjun.
+func TestE2E_PUX008_HandOverMidEdit(t *testing.T) {
+	h := startPurchase(t)
+	h.addArjun()
+	po := h.metroDraft(priya)
+	page := DocPath(purchase.DocType, po)
+
+	p := h.SignIn(priya, phone360)
+	p.Open(page + "/edit/terms")
+	p.WaitText("Vendor quote ref")
+	p.Fill("vendor_quote_ref", "QT-2026-118")
+	a := h.SignIn(arjun, phone360)
+	a.Open(page)
+	a.WaitText("Owned by Priya Shah.")
+	r := h.SignIn(ravi, phone360)
+	r.Open(page)
+	r.WaitText("Owned by Priya Shah.")
+
+	r.Press("Hand over")
+	r.WaitText("Hand over to")
+	clickOn(r, `input[name=to][value="`+strconv.FormatInt(int64(h.Principal(arjun).ID), 10)+`"]`)
+	r.Fill("note", "Priya is on leave")
+	r.Press("Hand over")
+	r.WaitText(draft(po) + " is now Arjun Mehta's.")
+	if got := Eval[string](r, `[...document.querySelectorAll("main li, main article")].filter((e) => e.textContent.includes("Priya is on leave")).at(-1)?.textContent ?? ""`); !strings.Contains(got, "Ravi Kulkarni") {
+		t.Errorf("the last comment = %q, want Ravi's note", got)
+	}
+	r.Do("open History", chromedp.Click(chromedp.CSS(".doc-audit summary")))
+	r.WaitText("Handed over from Priya Shah to Arjun Mehta")
+
+	// CD-259 checks rights before the version, so the old owner's save is
+	// AUTH's 403, not DOC-069's 409 as PUX-008 has it (CD-260). htmx
+	// swaps no 403, so it must reach her as a notice in #alerts.
+	p.Front()
+	p.Press(saveContinue)
+	p.Until("the refusal in the alerts region", `document.getElementById("alerts").innerText.includes(`+strconv.Quote(notOwner)+`)`)
+	if got := Eval[string](p, `document.getElementById("f-vendor_quote_ref").value`); got != "QT-2026-118" {
+		t.Errorf("Priya's typed quote ref after the refusal = %q, want it kept", got)
+	}
+	p.Open(page + "/edit/terms")
+	p.Until("the document page", `location.pathname === `+strconv.Quote(page))
+	p.WaitText("Owned by Arjun Mehta.")
+	if p.Shows("Submit") {
+		t.Error("Priya, no longer the owner, is offered Submit")
+	}
+
+	// Stored state (CD-271).
+	if got := Scalar[int64](h, `SELECT created_by FROM purchase_order WHERE id = ?`, po); got != int64(h.Principal(arjun).ID) {
+		t.Errorf("owner = %d, want Arjun", got)
+	}
+	if got := Scalar[string](h, `SELECT vendor_quote_ref FROM purchase_order WHERE id = ?`, po); got != "" {
+		t.Errorf("vendor_quote_ref = %q, want Priya's stale save unwritten", got)
+	}
+	if got := Scalar[string](h, `SELECT body || ' ' || created_by FROM module_comment WHERE doctype = ? AND record_id = ? ORDER BY id DESC LIMIT 1`, purchase.DocType, po); got != "Priya is on leave "+strconv.FormatInt(int64(h.Principal(ravi).ID), 10) {
+		t.Errorf("last comment = %q, want Ravi's note", got)
+	}
+}
+
 // TestE2E_PUX013_TwoBuyersSameRequestRow (PUX-013, PO-054, review focus
 // #1): Priya and Arjun tick the same request row on Add from requests; the
 // first returns to Items with the line, the second gets the 422 naming the
