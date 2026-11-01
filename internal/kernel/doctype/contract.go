@@ -92,6 +92,12 @@ type Field struct {
 	// "i" beside the label; "" shows no "i". Hint stays visible (CD-350).
 	Tip string
 
+	// Invert, on a Check field phrased negatively ("Disabled"), is the
+	// positive label its switch shows instead ("Active"): the switch is on
+	// when the stored value is false. Display only; the column, import and
+	// posted value keep the stored meaning (UI v2 §5.5 item 7).
+	Invert string
+
 	// DOC's additions (§5 last paragraph).
 	NonNegative, Positive               bool
 	Min, Max                            *int64
