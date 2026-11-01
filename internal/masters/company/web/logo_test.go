@@ -762,7 +762,7 @@ func TestScreens_BranchCopyAndCodes(t *testing.T) {
 	}
 	for _, tc := range []struct{ path, want string }{
 		{"/m/branch", "New branch"},
-		{"/m/branch?q=zzz", "No results"},
+		{"/m/branch?q=zzz", `No branches match "zzz"`},
 	} {
 		webtest.WantText(t, w.h.Get(t, kavya, tc.path), tc.want)
 	}

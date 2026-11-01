@@ -5,7 +5,7 @@
   background-color: var(--color-sunken);
   color: var(--color-text-secondary);
   gap: var(--space-1);
-  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .icon { inline-size: var(--icon-xs); block-size: var(--icon-xs); }
 }
 @utility badge--pending_approval {
   border-radius: var(--radius-pill);
@@ -13,7 +13,7 @@
   background-color: var(--color-warning-50);
   color: var(--color-warning-800);
   gap: var(--space-1);
-  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .icon { inline-size: var(--icon-xs); block-size: var(--icon-xs); }
 }
 @utility badge--approved {
   border-radius: var(--radius-pill);
@@ -21,7 +21,7 @@
   background-color: var(--color-success-50);
   color: var(--color-success-800);
   gap: var(--space-1);
-  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .icon { inline-size: var(--icon-xs); block-size: var(--icon-xs); }
 }
 @utility badge--rejected {
   border-radius: var(--radius-pill);
@@ -29,7 +29,7 @@
   background-color: var(--color-danger-50);
   color: var(--color-danger-800);
   gap: var(--space-1);
-  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .icon { inline-size: var(--icon-xs); block-size: var(--icon-xs); }
 }
 @utility badge--cancelled {
   border-radius: var(--radius-pill);
@@ -37,7 +37,7 @@
   background-color: var(--color-sunken);
   color: var(--color-text-secondary);
   gap: var(--space-1);
-  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .icon { inline-size: var(--icon-xs); block-size: var(--icon-xs); }
 }
 @utility badge--closed {
   border-radius: var(--radius-pill);
@@ -45,7 +45,7 @@
   background-color: var(--color-primary-50);
   color: var(--color-primary-800);
   gap: var(--space-1);
-  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .icon { inline-size: var(--icon-xs); block-size: var(--icon-xs); }
 }
 @utility badge--neutral {
   border-radius: var(--radius-pill);

@@ -473,6 +473,7 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
   --target-primary: 3rem;   /* 48px primary actions in the mobile action bar */
   --control-h: 3rem;        /* 48px input/select height */
   --control-h-lg: 3.5rem; /* 56px gloved quantity entry (CD-282 Q4) */
+  --icon-xs: 0.875rem; /* 14px: state badge icons (CD-359 (4)) */
   --icon-sm: 1rem;
   --icon-md: 1.25rem;
   --icon-lg: 1.5rem;

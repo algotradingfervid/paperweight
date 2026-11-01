@@ -35,7 +35,7 @@ templ handoverPage(v handoverView) {
 					ID: components.FieldID("to"), Name: "to", Label: handOverTo, Required: true, Value: v.to, Error: v.e.fields["to"],
 				}, v.choices())
 				@components.Textarea(components.FieldProps{
-					ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: noteHintHandOver, Optional: true,
+					ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: noteHintHandOver, Clearable: true,
 					Value: v.note, Error: v.e.fields["note"],
 				}, modkit.MaxCommentRunes)
 				@components.ActionBar(components.ActionBarProps{
@@ -73,7 +73,7 @@ templ sendPage(v sendView) {
 					ID: components.FieldID("sent_via"), Name: "sent_via", Label: "How", Required: true, Value: v.via, Error: v.e.fields["sent_via"],
 				}, sentVia)
 				@components.Textarea(components.FieldProps{
-					ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: sendNoteHint, Optional: true,
+					ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: sendNoteHint, Clearable: true,
 					Value: v.note, Error: v.e.fields["note"],
 				}, noteMax)
 				@components.ActionBar(components.ActionBarProps{
@@ -109,7 +109,7 @@ templ expectedPage(v expectedView) {
 					Today: today, Yesterday: yesterday,
 				})
 				@components.Textarea(components.FieldProps{
-					ID: components.FieldID("note"), Name: "note", Label: "Note", Optional: true, Value: v.note, Error: v.e.fields["note"],
+					ID: components.FieldID("note"), Name: "note", Label: "Note", Clearable: true, Value: v.note, Error: v.e.fields["note"],
 				}, noteMax)
 				@components.ActionBar(components.ActionBarProps{
 					Primary: &components.ButtonProps{Label: "Save date", Busy: "Saving…", Variant: components.Primary},

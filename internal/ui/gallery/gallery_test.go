@@ -108,6 +108,18 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 				t.Errorf("datalist: uitest.%s not shown", name)
 			}
 		}
+		if n := d.Find(".datalist").Length(); n != 3 {
+			t.Errorf("datalist: %d lists, want 3 (with state, without state, inside a card)", n)
+		}
+		if d.Find(`.datalist ul[aria-label="Sample suppliers"] .badge`).Length() != 0 || d.Find(`ul[aria-label="Sample suppliers"]`).Length() != 1 {
+			t.Error("datalist: want one list without a state column")
+		}
+		if d.Find(".card-body .datalist").Length() != 1 {
+			t.Error("datalist: want one list inside a card")
+		}
+		if d.Find(".empty-state").Length() != 2 || !strings.Contains(d.Find(".empty-state-text").Text(), uitest.LongName100) {
+			t.Error("datalist: want the empty state and a no-match state echoing uitest.LongName100")
+		}
 	},
 	"lines": func(t *testing.T, d *goquery.Document) {
 		if n := d.Find("ol.lines > li").Length(); n < 500 {

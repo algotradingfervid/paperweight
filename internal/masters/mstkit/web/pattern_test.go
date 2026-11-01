@@ -514,15 +514,52 @@ func TestScreens_RowCopyIsOptionalWithoutRows(t *testing.T) {
 	screen{DocType: noSortDocType, Copy: mstweb.Copy{Noun: "stubs", One: "stub"}}.Routes()
 }
 
-// With nothing at all, every view says "yet"; include_disabled changes nothing
-// and there is no search to try again.
+// With nothing at all, every view says "yet" (CD-366): the heading and the
+// plain line, with no action inside the empty state (no Clear filters, no
+// New); include_disabled changes nothing and there is no search to try again.
 func TestScreens_EmptyWithoutSearch(t *testing.T) {
 	h := harness(t, stubService{})
 	for _, target := range []string{base, base + "?include_disabled=true"} {
 		resp := h.Get(t, h.Env.Kavya, target)
 		webtest.WantStatus(t, resp, http.StatusOK)
-		webtest.WantText(t, resp, "No stubs yet.")
-		webtest.WantNoText(t, resp, "Try a different search")
+		empty := resp.Doc.Find(".empty-state")
+		if got := webtest.Squash(empty.Find("p.empty-state-text").Text()); got != "No stubs yet" {
+			t.Errorf("GET %s: heading = %q; want No stubs yet", target, got)
+		}
+		if got := webtest.Squash(empty.Find("p.empty-state-line").Text()); got != "Stubs you add show up here." {
+			t.Errorf("GET %s: line = %q; want Stubs you add show up here.", target, got)
+		}
+		if n := empty.Find("a").Length(); n != 0 {
+			t.Errorf("GET %s: %d links in the empty state; want none", target, n)
+		}
+		webtest.WantNoText(t, resp, "Clear filters")
+	}
+}
+
+// CD-366: a search that finds nothing says so with the search icon's copy
+// and offers Clear filters back to the list, keeping the sort but dropping
+// the search and the disabled ones.
+func TestScreens_NoMatchOffersClearFilters(t *testing.T) {
+	h := harness(t, stubService{})
+	seedItem(t, h, "M12")
+	for target, href := range map[string]string{
+		base + "?q=zzzz":                                     base,
+		base + "?include_disabled=true&q=zzzz":               base,
+		base + "?include_disabled=true&q=zzzz&sort=name.asc": base + "?sort=name.asc",
+	} {
+		resp := h.Get(t, h.Env.Kavya, target)
+		webtest.WantStatus(t, resp, http.StatusOK)
+		empty := resp.Doc.Find(".empty-state")
+		if got := webtest.Squash(empty.Find("p.empty-state-text").Text()); got != `No stubs match "zzzz"` {
+			t.Errorf("GET %s: heading = %q", target, got)
+		}
+		if got := webtest.Squash(empty.Find("p.empty-state-line").Text()); got != "Try fewer words, or clear the filters." {
+			t.Errorf("GET %s: line = %q", target, got)
+		}
+		a := empty.Find("a")
+		if a.Length() != 1 || webtest.Squash(a.Text()) != "Clear filters" || a.AttrOr("href", "") != href {
+			t.Errorf("GET %s: empty action = %d %q %q; want Clear filters to %s", target, a.Length(), webtest.Squash(a.Text()), a.AttrOr("href", ""), href)
+		}
 	}
 }
 
@@ -537,7 +574,7 @@ func TestScreens_EmptyWhenAllDisabled(t *testing.T) {
 	resp := h.Get(t, h.Env.Kavya, base)
 	webtest.WantStatus(t, resp, http.StatusOK)
 	webtest.WantText(t, resp, "All stubs are disabled.")
-	webtest.WantNoText(t, resp, "No stubs yet.")
+	webtest.WantNoText(t, resp, "No stubs yet")
 	webtest.WantNoText(t, resp, "Try a different search")
 	if _, ok := resp.RowLink(base + "?include_disabled=true"); !ok {
 		t.Error("no Show disabled link on a list of disabled records")
@@ -552,7 +589,7 @@ func TestScreens_EmptyPastTheEnd(t *testing.T) {
 	resp := h.Get(t, h.Env.Kavya, base+"?page=9")
 	webtest.WantStatus(t, resp, http.StatusOK)
 	webtest.WantText(t, resp, "No more results.")
-	webtest.WantNoText(t, resp, "No stubs yet.")
+	webtest.WantNoText(t, resp, "No stubs yet")
 	webtest.WantNoText(t, resp, "No results.")
 	webtest.WantNoText(t, resp, "are disabled.")
 }

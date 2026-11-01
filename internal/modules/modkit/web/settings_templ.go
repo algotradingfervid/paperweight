@@ -85,7 +85,7 @@ func settingsPage(v settingsView) templ.Component {
 				templ_7745c5c3_Err = components.DateInput(components.DateProps{
 					FieldProps: components.FieldProps{
 						ID: lockID, Name: "locked_up_to", Label: "Locked up to", Hint: lockHint,
-						Value: v.LockedUpTo, Error: v.LockErr, Optional: true,
+						Value: v.LockedUpTo, Error: v.LockErr, Clearable: true,
 					},
 					Today: v.Today, Yesterday: v.Yesterday,
 				}).Render(ctx, templ_7745c5c3_Buffer)
@@ -94,7 +94,7 @@ func settingsPage(v settingsView) templ.Component {
 				}
 				templ_7745c5c3_Err = components.Textarea(components.FieldProps{
 					ID: components.FieldID("default_po_terms"), Name: "default_po_terms", Label: "Default PO terms",
-					Hint: termsHint, Value: v.Terms, Optional: true,
+					Hint: termsHint, Value: v.Terms, Clearable: true,
 				}, termsMaxLen).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

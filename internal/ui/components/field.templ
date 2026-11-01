@@ -10,12 +10,12 @@ import (
 // Error and Echo fill the message region, Error first. Required marks the
 // label with an asterisk and the control with aria-required (CD-341 (2));
 // Placeholder is an example value ("e.g. …"); Tip is longer help behind an
-// info "i" beside the label (UI v2 §5.5). Optional only lets a chosen Picker
-// be cleared (CD-217); it no longer marks the label.
+// info "i" beside the label (UI v2 §5.5). Clearable lets a chosen Picker be
+// cleared (CD-217, CD-359 (1)); it marks nothing on the label.
 type FieldProps struct {
 	ID, Name, Label, Hint, Error, Value, Suffix, Echo string
 	Placeholder, Tip                                  string
-	Required, Optional                                bool
+	Required, Clearable                               bool
 	Attrs                                             templ.Attributes
 
 	labelFor string // the label's control, when it isn't ID (a chosen Picker)

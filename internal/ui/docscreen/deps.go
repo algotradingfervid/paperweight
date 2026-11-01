@@ -155,6 +155,10 @@ type Deps struct {
 	// doctype.ErrNotFound or auth.ErrForbidden means not. nil reads nothing, so
 	// a posted link shows its raw id (CD-233).
 	LinkRead func(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) error
+	// LinkRole reports whether master id of target holds role, a Link's
+	// LinkRole, inside tx (the app wires party's vendor and customer flags;
+	// CD-218). nil offers no recent picks on a field with a LinkRole.
+	LinkRole func(ctx context.Context, tx *db.Tx, target *doctype.DocType, id int64, role string) (bool, error)
 	// DocLinkRead reports whether p may read document id of DocType target,
 	// inside tx (the app wires auth.CheckLinkTx). doctype.ErrNotFound,
 	// auth.ErrForbidden or a *auth.LinkError means not, and a link to it shows
@@ -170,6 +174,7 @@ type Deps struct {
 	MasterChecks bool
 
 	stored map[string]string // the record's values, see WithStored
+	recent recentFor         // the document form, see withRecent
 }
 
 // WithStored is d for a form on a record the user can see, with the record's

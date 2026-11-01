@@ -111,7 +111,7 @@ func TestPicker_ChosenSummaryWithChange(t *testing.T) {
 
 func TestPicker_ClearOptionalChosen(t *testing.T) {
 	p := pickerProps()
-	p.Field.Optional = true
+	p.Field.Clearable = true
 	p.Chosen = &components.PickRow{ID: 7, Code: "CEMENT-OPC", Name: "OPC Cement 53 Grade"}
 	doc := uitest.Render(t, components.Picker(p))
 	clear := doc.Find(`[data-picker-chosen]:not([hidden]) button[type="button"][data-picker-clear]`)
@@ -149,7 +149,7 @@ func TestPicker_NoClearOnRequired(t *testing.T) {
 // shows once a row is chosen in the browser.
 func TestPicker_NoVisibleClearWithoutChoice(t *testing.T) {
 	p := pickerProps()
-	p.Field.Optional = true
+	p.Field.Clearable = true
 	doc := uitest.Render(t, components.Picker(p))
 	if doc.Find("[data-picker-chosen]:not([hidden]) [data-picker-clear]").Length() != 0 {
 		t.Error("none chosen: Clear is visible")

@@ -1091,7 +1091,7 @@ func TestScreens_EmployeeList(t *testing.T) {
 	if row, _ := all.RowLink(w.recordURL(w.get(t, "EMP-008"))); !strings.Contains(row, "Left") || !strings.Contains(row, "Disabled") {
 		t.Errorf("leaver row = %q", row)
 	}
-	webtest.WantText(t, b.Get(t, base+"?q=nosuchperson"), "No results.")
+	webtest.WantText(t, b.Get(t, base+"?q=nosuchperson"), `No employees match "nosuchperson"`)
 
 	csv := b.Get(t, base+"/export.csv")
 	webtest.WantStatus(t, csv, http.StatusOK)

@@ -1,11 +1,45 @@
 package components
 
-// EmptyState is a message plus the one useful action.
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// EmptyState is an icon, a message and the one useful action (UI v2 §5.14).
 templ EmptyState(message string, action *Link) {
 	<div class="empty-state">
-		<p>{ message }</p>
+		<span class="empty-state-icon" aria-hidden="true">
+			@icons.Icon("inbox")
+		</span>
+		<p class="empty-state-text">{ message }</p>
 		if action != nil {
-			<a class="btn btn-primary" href={ templ.SafeURL(action.Href) }>{ action.Label }</a>
+			@Button(ButtonProps{Label: action.Label, Href: action.Href, Variant: Primary})
 		}
+	</div>
+}
+
+// EmptyList is a list with no record and no search or filter (CD-366): the
+// icon, the heading and the plain line, with no action inside; New is in the
+// page head and the bottom nav.
+templ EmptyList(heading, line string) {
+	<div class="empty-state">
+		<span class="empty-state-icon" aria-hidden="true">
+			@icons.Icon("inbox")
+		</span>
+		<p class="empty-state-text">{ heading }</p>
+		<p class="empty-state-line">{ line }</p>
+	</div>
+}
+
+// NoMatch is the empty state when a search or filters hide every row: the
+// search icon, the message, an optional plain line ("" draws none) and
+// Clear filters to clearURL.
+templ NoMatch(message, line, clearURL string) {
+	<div class="empty-state">
+		<span class="empty-state-icon" aria-hidden="true">
+			@icons.Icon("search")
+		</span>
+		<p class="empty-state-text">{ message }</p>
+		if line != "" {
+			<p class="empty-state-line">{ line }</p>
+		}
+		@Button(ButtonProps{Label: "Clear filters", Href: clearURL})
 	</div>
 }

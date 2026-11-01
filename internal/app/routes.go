@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"maps"
 	"net/http"
@@ -112,6 +113,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 			fn     http.HandlerFunc
 		}{{http.MethodGet, a.companyGet}, {http.MethodPost, a.companyPost}} {
 			r.Method(m.method, companyPath, a.srv.Admin(msgCompanyAdminOnly, m.fn))
+			r.Method(m.method, companyPath+"/{step}", a.srv.Admin(msgCompanyAdminOnly, m.fn))
 		}
 		r.Method(http.MethodPost, "/ui/validate/{kind}", a.srv.Self(components.ValidateHandler(parsers())))
 
@@ -269,7 +271,9 @@ func (a *App) docDeps() docscreen.Deps {
 		LinkRead: mstkit.Env{Auth: a.auth}.CanLinkTargetTx,
 		// A document link shows its number only to a reader (CD-321).
 		DocLinkRead: a.auth.CheckLinkTx,
-		Modules:     a.docModules,
+		// Recent picks on a LinkRole field keep its role (CD-218).
+		LinkRole: a.linkRole,
+		Modules:  a.docModules,
 	}
 }
 
@@ -607,4 +611,24 @@ func (a *App) newItems(r *http.Request, p auth.Principal) ([]ui.NavItem, error) 
 		return nil
 	})
 	return items, err
+}
+
+// linkRole reports whether party id holds role, the vendor or customer flag
+// the /pick/Party search filters by (CD-218). Any other target or role is
+// false: only parties have roles.
+func (a *App) linkRole(ctx context.Context, tx *db.Tx, target *doctype.DocType, id int64, role string) (bool, error) {
+	if target.Name != party.DocType {
+		return false, nil
+	}
+	pt, err := a.masters.Party.Get(ctx, tx, id)
+	if err != nil {
+		return false, err
+	}
+	switch role {
+	case "vendor":
+		return pt.IsVendor, nil
+	case "customer":
+		return pt.IsCustomer, nil
+	}
+	return false, nil
 }
