@@ -1,12 +1,22 @@
 package components
 
-// ErrorSummary is the "There is a problem" box at the top of a failed step,
-// focused on render, with a link to each field. It renders nothing when errs
-// is empty.
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// ErrorSummary is the box at the top of a failed step (UI v2 §5.14): a heading
+// counting the errors, a line saying the other entries are kept, and a link to
+// each field. It takes focus on render and renders nothing when errs is empty.
 templ ErrorSummary(errs []FieldErr) {
 	if len(errs) > 0 {
 		<div class="alert error-summary" tabindex="-1" autofocus aria-labelledby="error-summary-title">
-			<h2 id="error-summary-title">There is a problem</h2>
+			<h2 id="error-summary-title">
+				@icons.Icon("alert-circle")
+				{ errorSummaryTitle(len(errs)) }
+			</h2>
+			<p>Your other entries are kept.</p>
 			<ul>
 				for _, e := range errs {
 					<li><a href={ templ.SafeURL("#" + e.ID) }>{ e.Message }</a></li>
@@ -14,4 +24,12 @@ templ ErrorSummary(errs []FieldErr) {
 			</ul>
 		</div>
 	}
+}
+
+// errorSummaryTitle is the heading for n errors.
+func errorSummaryTitle(n int) string {
+	if n == 1 {
+		return "1 thing to fix before you continue"
+	}
+	return strconv.Itoa(n) + " things to fix before you continue"
 }

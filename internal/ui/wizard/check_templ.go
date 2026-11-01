@@ -14,7 +14,8 @@ import (
 )
 
 // CheckSection is one step's summary card on the check page: its title, its
-// status as a word and icon, and a "Change" link to the step. Children are
+// status as a badge (UI v2 §5.6: Complete in success, Needs attention in
+// warning, each with its icon), and a "Change" link to the step. Children are
 // the summary.
 func CheckSection(title string, status StepStatus, changeURL string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -51,7 +52,7 @@ func CheckSection(title string, status StepStatus, changeURL string) templ.Compo
 			ctx = templ.InitializeContext(ctx)
 			switch status {
 			case Complete:
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<p class=\"check-status is-complete\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<p class=\"badge check-status is-complete\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -64,7 +65,7 @@ func CheckSection(title string, status StepStatus, changeURL string) templ.Compo
 					return templ_7745c5c3_Err
 				}
 			case Attention:
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p class=\"check-status is-attention\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p class=\"badge check-status is-attention\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
