@@ -256,7 +256,7 @@ func (s *Service) OpenRequestLines(ctx context.Context, p auth.Principal, siteID
 	}
 	var out []OpenRequest
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		readable, err := scopedRequests(ctx, tx, pred)
+		readable, err := scopeIn(ctx, tx, "purchase_request", pred)
 		if err != nil {
 			return err
 		}
@@ -323,29 +323,4 @@ func (s *Service) openRequest(ctx context.Context, tx *db.Tx, q *dbq.Queries, r 
 		o.Rows = append(o.Rows, row)
 	}
 	return o, nil
-}
-
-// scopedRequests reports whether a request id is in pred, the viewer's read
-// scope ("" is every request).
-func scopedRequests(ctx context.Context, tx *db.Tx, pred auth.Predicate) (func(int64) bool, error) {
-	if pred.SQL == "" {
-		return func(int64) bool { return true }, nil
-	}
-	rows, err := tx.SQL().QueryContext(ctx, `SELECT "purchase_request".id FROM "purchase_request" WHERE `+pred.SQL, pred.Args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	ids := map[int64]bool{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids[id] = true
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return func(id int64) bool { return ids[id] }, nil
 }

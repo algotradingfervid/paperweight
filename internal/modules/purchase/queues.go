@@ -484,7 +484,8 @@ func (s *Service) userName(ctx context.Context, tx *db.Tx, names map[int64]strin
 }
 
 // scopeIn reports whether an id of table is in pred, read in tx; an empty
-// pred is every row.
+// pred is every row. table is always a constant in code, never user input.
+// Scope is asked before the tx opens (it takes its own connection).
 func scopeIn(ctx context.Context, tx *db.Tx, table string, pred auth.Predicate) (func(int64) bool, error) {
 	if pred.SQL == "" {
 		return func(int64) bool { return true }, nil
