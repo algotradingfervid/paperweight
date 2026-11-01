@@ -168,13 +168,12 @@ func editable(f doctype.Field) bool { return !f.ReadOnly }
 // with NUM's text and leaves the field out of plain (CD-48). A field the
 // module hides is left out, so DOC keeps its stored value (hooks spec §4.3).
 func postedStep(c Ctx, s FormStep) (typed, plain map[string]string, errs []doctype.FieldError) {
-	typed, plain = map[string]string{}, map[string]string{}
+	typed, plain = typedStep(c, s), map[string]string{}
 	for _, name := range s.Fields {
-		f, ok := c.DT.Field(name)
-		if !ok || !editable(f) || hidden(c, f) {
+		f, _ := c.DT.Field(name)
+		if _, ok := typed[name]; !ok {
 			continue
 		}
-		typed[name] = c.Req.PostFormValue(name)
 		v, fe := ToPlain(f, typed[name])
 		if fe != nil {
 			errs = append(errs, *fe)
@@ -183,6 +182,21 @@ func postedStep(c Ctx, s FormStep) (typed, plain map[string]string, errs []docty
 		plain[name] = v
 	}
 	return typed, plain, errs
+}
+
+// typedStep is the text the POST holds for step s's editable fields, but
+// those the module hides; nothing is parsed, so a refusal made before the
+// parse still redraws what the user typed (CD-335).
+func typedStep(c Ctx, s FormStep) map[string]string {
+	typed := map[string]string{}
+	for _, name := range s.Fields {
+		f, ok := c.DT.Field(name)
+		if !ok || !editable(f) || hidden(c, f) {
+			continue
+		}
+		typed[name] = c.Req.PostFormValue(name)
+	}
+	return typed
 }
 
 // postedVersion is the page's version; a missing or non-numeric one is
@@ -194,6 +208,29 @@ func postedVersion(w http.ResponseWriter, r *http.Request) (int, bool) {
 		return 0, false
 	}
 	return v, true
+}
+
+// moved is DOC's refusal of a write on rec from a page posting version,
+// when rec is past draft or its version isn't the posted one; nil
+// otherwise. Callers check the user's right first and call it before any
+// hook or parse, so a stale page gets DOC's 409, never a 422 (CD-335, CD-259).
+// The refusal is the engine's own: it is asked to save rec's stored lines
+// and nothing else at a version the record can't hold, so it refuses before
+// writing: past draft with its state text, else with its stale text. That
+// is the posted version only when it is behind the stored one (versions only
+// grow, CD-94); any other is never sent, since a concurrent save could reach
+// it and the stale lines would be saved: it is asked at version 0, which no
+// record holds (versions start at 1), with the same stale text.
+func (d Deps) moved(r *http.Request, dt *doctype.DocType, rec doc.Record, version int) error {
+	if rec.Version == version && rec.Info.State == doctype.StateDraft {
+		return nil
+	}
+	behind := 0
+	if version < rec.Version {
+		behind = version
+	}
+	_, err := d.Engine.Do(r.Context(), d.principal(r), dt.Name, rec.Info.ID, doctype.ActionSave, doc.ActionInput{Version: behind, Lines: rec.Lines, Only: []string{}})
+	return err
 }
 
 // newGet serves GET /doc/{doctype}/new: step 1 with no draft yet.
@@ -402,8 +439,14 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
+	rec, err := d.load(ctx, dt.Name, id)
+	if err != nil {
+		problem(w, r, err)
+		return
+	}
 	c := d.ctxOf(r, dt, &loaded)
-	typed, plain, errs := postedStep(c, steps[i])
+	var typed, plain map[string]string
+	var errs []doctype.FieldError
 	rerender := func(pr Problem) {
 		v, err := d.View(ctx, d.principal(r), dt.Name, id)
 		if err != nil {
@@ -431,6 +474,14 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 			return stepFull(sv)
 		})
 	}
+	// A stale page or a document past draft gets DOC's refusal before the
+	// module's save or any parse (CD-335).
+	if err := d.moved(r, dt, rec, version); err != nil {
+		typed = typedStep(c, steps[i])
+		stepRefused(w, r, err, rerender)
+		return
+	}
+	typed, plain, errs = postedStep(c, steps[i])
 	var saved Save
 	if hook.Save != nil {
 		// The module's save replaces the posted fields (hooks spec §4.1).
@@ -450,11 +501,6 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		rerender(Problem{Status: http.StatusUnprocessableEntity, Fields: errs})
 		return
 	}
-	rec, err := d.load(ctx, dt.Name, id)
-	if err != nil {
-		problem(w, r, err)
-		return
-	}
 	// On a stale page an unknown line id may be one removed since: the
 	// stored lines go with the posted version, and the engine answers the
 	// conflict (CD-94).
@@ -472,18 +518,8 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Values: plain, Lines: lines, Only: only})
 	if err != nil {
-		pr, ok := Classify(err)
-		switch {
-		case !ok:
-			web.ErrorFrom(w, r, err)
-			return
-		case pr.Status == http.StatusUnprocessableEntity || pr.Status == http.StatusConflict:
-			rerender(pr)
-			return
-		default:
-			problem(w, r, err)
-			return
-		}
+		stepRefused(w, r, err, rerender)
+		return
 	}
 	next := min(i+1, len(steps)-1)
 	switch {
@@ -502,6 +538,20 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		next = len(steps) - 1
 	}
 	d.advance(w, r, dt, steps, next, id, res.Warnings)
+}
+
+// stepRefused answers a step save the engine refused: a 422 or 409 redraws
+// the step, any other refusal is its own page.
+func stepRefused(w http.ResponseWriter, r *http.Request, err error, rerender func(Problem)) {
+	pr, ok := Classify(err)
+	switch {
+	case !ok:
+		web.ErrorFrom(w, r, err)
+	case pr.Status == http.StatusUnprocessableEntity || pr.Status == http.StatusConflict:
+		rerender(pr)
+	default:
+		problem(w, r, err)
+	}
 }
 
 // stay is advance to step i of draft id after a nav=stay save, drawn as a

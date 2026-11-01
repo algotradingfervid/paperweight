@@ -463,11 +463,11 @@ func fieldSet(pre, errText string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = components.Switch(components.FieldProps{ID: pre + "-stock", Name: pre + "_stock", Label: "Stock item", Hint: "Counted in stock; services aren't.", Value: "1", Error: errText}, false).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Switch(components.FieldProps{ID: pre + "-stock", Name: pre + "_stock", Label: "Stock item", Hint: "Counted in stock; services aren't.", Value: "1", Error: errText}, false, components.SwitchValues{Yes: "1", No: "0"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = components.Switch(components.FieldProps{ID: pre + "-active", Name: pre + "_disabled", Label: uitest.LongName100, Hint: "Turn off to hide this party from pickers. Old orders keep it.", Value: "0", Error: errText}, true).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Switch(components.FieldProps{ID: pre + "-active", Name: pre + "_disabled", Label: uitest.LongName100, Hint: "Turn off to hide this party from pickers. Old orders keep it.", Value: "0", Error: errText}, true, components.SwitchValues{Yes: "1", No: "0"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

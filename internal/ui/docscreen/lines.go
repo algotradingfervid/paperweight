@@ -161,12 +161,11 @@ func lineError(errs []doctype.FieldError, name string) string {
 // values (ToPlain). A parse error is a FieldError with NUM's text. A field
 // the module hides is left out, so the loaded line keeps its value.
 func postedLine(c Ctx) (typed, plain map[string]string, errs []doctype.FieldError) {
-	typed, plain = map[string]string{}, map[string]string{}
+	typed, plain = typedLine(c), map[string]string{}
 	for _, f := range c.DT.Fields {
-		if !f.OnLine || !editable(f) || hidden(c, f) {
+		if _, ok := typed[f.Name]; !ok {
 			continue
 		}
-		typed[f.Name] = c.Req.PostFormValue(f.Name)
 		v, fe := ToPlain(f, typed[f.Name])
 		if fe != nil {
 			errs = append(errs, *fe)
@@ -175,6 +174,18 @@ func postedLine(c Ctx) (typed, plain map[string]string, errs []doctype.FieldErro
 		plain[f.Name] = v
 	}
 	return typed, plain, errs
+}
+
+// typedLine is the text the POST holds for the line fields, but those the
+// module hides; nothing is parsed (CD-335).
+func typedLine(c Ctx) map[string]string {
+	typed := map[string]string{}
+	for _, f := range c.DT.Fields {
+		if f.OnLine && editable(f) && !hidden(c, f) {
+			typed[f.Name] = c.Req.PostFormValue(f.Name)
+		}
+	}
+	return typed
 }
 
 // lineNo reads {no}: a line of rec, 1-based.
@@ -332,14 +343,6 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 	grid := ui.IsHTMX(r) && no > 0 && d.gridShown(r, dt, loaded)
 	var typed, plain map[string]string
 	var errs []doctype.FieldError
-	if line != nil {
-		if plain, errs, err = d.lineSaved(d.lineCtx(r, dt, &loaded, no), no); err != nil {
-			problem(w, r, err)
-			return
-		}
-	} else {
-		typed, plain, errs = postedLine(d.lineCtx(r, dt, &loaded, no))
-	}
 	refused := func(pr Problem) {
 		if grid {
 			d.gridRefused(w, r, dt, id, no, version, typed, pr)
@@ -369,20 +372,9 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		lp := d.linePage(r, dt, v, no, version, typed, pr.Fields, danger)
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 	}
-	if len(errs) > 0 {
-		refused(Problem{Status: http.StatusUnprocessableEntity, Fields: errs})
-		return
-	}
-	lines := rec.Lines
-	if no == 0 {
-		lines = append(lines, plain)
-	} else {
-		l := maps.Clone(lines[no-1])
-		maps.Copy(l, plain)
-		lines[no-1] = l
-	}
-	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
-	if err != nil {
+	// engineRefused answers the engine's refusal of lines, line pos's errors
+	// redrawing the page.
+	engineRefused := func(err error, lines []map[string]string) {
 		pr, ok := Classify(err)
 		switch {
 		case !ok:
@@ -397,6 +389,37 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		default:
 			problem(w, r, err)
 		}
+	}
+	// A stale page or a document past draft gets DOC's refusal before the
+	// module's save or any parse (CD-335).
+	if err := d.moved(r, dt, rec, version); err != nil {
+		typed = typedLine(d.lineCtx(r, dt, &loaded, no))
+		engineRefused(err, rec.Lines)
+		return
+	}
+	if line != nil {
+		if plain, errs, err = d.lineSaved(d.lineCtx(r, dt, &loaded, no), no); err != nil {
+			problem(w, r, err)
+			return
+		}
+	} else {
+		typed, plain, errs = postedLine(d.lineCtx(r, dt, &loaded, no))
+	}
+	if len(errs) > 0 {
+		refused(Problem{Status: http.StatusUnprocessableEntity, Fields: errs})
+		return
+	}
+	lines := rec.Lines
+	if no == 0 {
+		lines = append(lines, plain)
+	} else {
+		l := maps.Clone(lines[no-1])
+		maps.Copy(l, plain)
+		lines[no-1] = l
+	}
+	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
+	if err != nil {
+		engineRefused(err, lines)
 		return
 	}
 	if grid {
@@ -618,6 +641,7 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 			danger = formText(pr)
 		}
 		lp := d.removePage(r, dt, v, no, version, danger)
+		notice(w, r, pr)
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 		return
 	}
@@ -636,6 +660,7 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 	if len(fields) == 0 {
 		sv.M.Conflict, sv.M.ReloadURL = pr.Message, itemsURL(dt.Name, id)
 	}
+	notice(w, r, pr)
 	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))
 }
 

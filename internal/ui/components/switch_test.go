@@ -25,21 +25,31 @@ func posted(doc *goquery.Document, name string) []string {
 	return out
 }
 
+// masterValues and docValues are what a master form and DOC read (CD-322).
+var (
+	masterValues = components.SwitchValues{Yes: "1", No: "0"}
+	docValues    = components.SwitchValues{Yes: "true", No: "false"}
+)
+
 // A switch row is one real checkbox with role="switch" inside the row's
-// label, so the whole row is the target and it posts as a Check does: "1"
-// when on, nothing when off (UI v2 §5.5 item 7, N6).
+// label, so the whole row is the target and it posts as a Check does: Yes
+// when on, nothing when off (UI v2 §5.5 item 7, N6). The hint is in the
+// label, so only the message region describes the switch (CD-353 (3)).
 func TestSwitch_RowAndPostedValue(t *testing.T) {
 	for _, c := range []struct {
 		value string
+		vals  components.SwitchValues
 		on    bool
 		post  []string
 	}{
-		{"1", true, []string{"1"}},
-		{"true", true, []string{"1"}},
-		{"0", false, nil},
-		{"", false, nil},
+		{"1", masterValues, true, []string{"1"}},
+		{"true", masterValues, true, []string{"1"}},
+		{"0", masterValues, false, nil},
+		{"", masterValues, false, nil},
+		{"true", docValues, true, []string{"true"}},
+		{"false", docValues, false, nil},
 	} {
-		doc := uitest.Render(t, components.Switch(components.FieldProps{ID: "f-stock", Name: "is_stock", Label: "Stock item", Hint: "Counted in stock.", Value: c.value}, false))
+		doc := uitest.Render(t, components.Switch(components.FieldProps{ID: "f-stock", Name: "is_stock", Label: "Stock item", Hint: "Counted in stock.", Value: c.value}, false, c.vals))
 		in := doc.Find(`label.switch-row input[type="checkbox"][role="switch"]#f-stock`)
 		if in.Length() != 1 {
 			t.Fatalf("value %q: want one checkbox with role=switch inside label.switch-row", c.value)
@@ -53,8 +63,8 @@ func TestSwitch_RowAndPostedValue(t *testing.T) {
 		if got := strings.TrimSpace(doc.Find("label.switch-row .switch-row__label").Text()); got != "Stock item" {
 			t.Errorf("row label = %q", got)
 		}
-		if got, _ := in.Attr("aria-describedby"); got != "f-stock-hint f-stock-msg" {
-			t.Errorf("aria-describedby = %q, want f-stock-hint f-stock-msg", got)
+		if got, _ := in.Attr("aria-describedby"); got != "f-stock-msg" {
+			t.Errorf("aria-describedby = %q, want f-stock-msg (the hint is read with the label)", got)
 		}
 		if doc.Find("#f-stock-hint").Length() != 1 || doc.Find("#f-stock-msg").Length() != 1 {
 			t.Error("hint or message region missing")
@@ -63,20 +73,23 @@ func TestSwitch_RowAndPostedValue(t *testing.T) {
 }
 
 // An inverted switch shows "on" when the stored value is false and posts the
-// stored meaning: on posts "0" first (the value the form reads), off posts
-// "1" (UI v2 §5.5 item 7, Field.Invert).
+// stored meaning: on posts No first (the value the form reads), off posts
+// Yes (UI v2 §5.5 item 7, Field.Invert; CD-353 (4)).
 func TestSwitch_InvertBothWays(t *testing.T) {
 	for _, c := range []struct {
 		value string
+		vals  components.SwitchValues
 		on    bool
 		first string
 	}{
-		{"0", true, "0"},
-		{"", true, "0"},
-		{"1", false, "1"},
-		{"true", false, "1"},
+		{"0", masterValues, true, "0"},
+		{"", masterValues, true, "0"},
+		{"1", masterValues, false, "1"},
+		{"true", masterValues, false, "1"},
+		{"false", docValues, true, "false"},
+		{"true", docValues, false, "true"},
 	} {
-		doc := uitest.Render(t, components.Switch(components.FieldProps{ID: "f-disabled", Name: "disabled", Label: "Active", Value: c.value}, true))
+		doc := uitest.Render(t, components.Switch(components.FieldProps{ID: "f-disabled", Name: "disabled", Label: "Active", Value: c.value}, true, c.vals))
 		in := doc.Find(`input[type="checkbox"][role="switch"]#f-disabled`)
 		if _, on := in.Attr("checked"); on != c.on {
 			t.Errorf("stored %q: checked = %v, want %v", c.value, on, c.on)
@@ -89,7 +102,7 @@ func TestSwitch_InvertBothWays(t *testing.T) {
 }
 
 func TestSwitch_ErrorAndRequired(t *testing.T) {
-	doc := uitest.Render(t, components.Switch(components.FieldProps{ID: "f-s", Name: "s", Label: "Stock item", Error: "Pick one.", Required: true}, false))
+	doc := uitest.Render(t, components.Switch(components.FieldProps{ID: "f-s", Name: "s", Label: "Stock item", Error: "Pick one.", Required: true}, false, masterValues))
 	in := doc.Find("input#f-s")
 	if got, _ := in.Attr("aria-invalid"); got != "true" {
 		t.Errorf("aria-invalid = %q", got)

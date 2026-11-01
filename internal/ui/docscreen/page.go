@@ -197,14 +197,7 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 	if confirm {
 		a = rp.action
 		if rp.label != "" {
-			in.Reason = trimReason(r.PostFormValue("reason"))
-			if in.Reason == "" {
-				d.reasonPost(w, r, dt, id, name, rp, version, Problem{
-					Status: http.StatusUnprocessableEntity,
-					Fields: []doctype.FieldError{{Field: "reason", Message: "Enter a reason."}},
-				})
-				return
-			}
+			in.Reason = trimReason(r.PostFormValue("reason")) // an empty one is the engine's to refuse (CD-354)
 		}
 	}
 	var display string
@@ -224,6 +217,9 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if confirm {
+			if in.Reason == "" {
+				pr = reasonMissing(pr)
+			}
 			d.reasonPost(w, r, dt, id, name, rp, version, pr)
 			return
 		}
@@ -244,6 +240,7 @@ func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 	p := d.principal(r)
 	v, err := d.View(r.Context(), p, dt.Name, id)
 	if err != nil {
+		notice(w, r, pr)
 		ui.Render(w, r, pr.Status, problemPage(pr), problemMain(pr))
 		return
 	}
@@ -254,6 +251,7 @@ func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 	}
 	pv.Danger = pr.Message
 	pv.Errors = pageErrs(unhiddenAll(d.ctxOf(r, dt, &v), pr.Fields))
+	notice(w, r, pr)
 	ui.Render(w, r, pr.Status, docPage(pv), docMain(pv))
 }
 

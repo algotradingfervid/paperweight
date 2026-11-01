@@ -175,3 +175,51 @@ func TestExp_LessAdvanceNegativeStep(t *testing.T) {
 		t.Errorf("total %d, net %d (less %d); want %d, NULL", e2Int(got.total), e2Int(got.net), e2Int(got.less), int64(types.MaxMoney))
 	}
 }
+
+// TestExp_GSTNegative: GST on the bill is a money input the claim's GST
+// figures are built from, so it is NonNegative like less advance: a negative
+// value, down to the boundary -0.01, is refused on save with the kernel's
+// text on gst_amount and its line, and nothing is written. 0.00 and a
+// positive amount save; above the line amount is still refused.
+func TestExp_GSTNegative(t *testing.T) {
+	const msgGSTNegative = "Line 2: GST on the bill can't be negative."
+	e := expensetest.New(t)
+	deepak := e.P(t, e2Deepak)
+	type V = expensetest.Values
+
+	for _, gst := range []string{"-1.00", "-0.01"} {
+		var err error
+		e.WantRefused(t, msgGSTNegative, func() error {
+			_, err = e.Create(deepak, expense.ClaimDocType, e.ClaimInput(t, deepak, nil,
+				V{"amount": "1500.00"}, V{"amount": "1500.00", "gst_amount": gst}))
+			return err
+		})
+		e3WantField(t, err, 2, "gst_amount", msgGSTNegative)
+		c := e.DraftClaim(t, deepak, nil, V{"amount": "1500.00"}, V{"amount": "1500.00"})
+		e.WantRefused(t, msgGSTNegative, func() error {
+			_, err = e.Edit(t, deepak, expense.ClaimDocType, c.ID, nil, nil, V{"gst_amount": gst})
+			return err
+		})
+		e3WantField(t, err, 2, "gst_amount", msgGSTNegative)
+	}
+
+	for _, gst := range []struct {
+		value string
+		paise int64
+	}{{"0.00", 0}, {"160.71", 16071}} {
+		res := e2Must(t, "GST "+gst.value)(e.Create(deepak, expense.ClaimDocType,
+			e.ClaimInput(t, deepak, nil, V{"amount": "1500.00"}, V{"amount": "1500.00", "gst_amount": gst.value})))
+		if l := e2ReadLine(t, e, res.ID, 2); l.gstAmount == nil || *l.gstAmount != gst.paise {
+			t.Errorf("GST %s: stored gst_amount = %v, want %d", gst.value, l.gstAmount, gst.paise)
+		}
+	}
+
+	const msgAbove = "Line 2: GST can't be more than the amount."
+	var err error
+	e.WantRefused(t, msgAbove, func() error {
+		_, err = e.Create(deepak, expense.ClaimDocType, e.ClaimInput(t, deepak, nil,
+			V{"amount": "1500.00"}, V{"amount": "1500.00", "gst_amount": "1500.01"}))
+		return err
+	})
+	e3WantField(t, err, 2, "gst_amount", msgAbove)
+}

@@ -83,8 +83,8 @@ templ fieldSet(pre, errText string) {
 		@components.Checkboxes(components.FieldProps{ID: pre + "-docs", Name: pre + "_docs", Label: "Documents to send", Error: errText}, docOptions, []string{"invoice"})
 		@components.Segmented(components.FieldProps{ID: pre + "-priority", Name: pre + "_priority", Label: "Priority", Value: "Normal", Error: errText}, priorityOptions)
 		@components.Tiles(components.FieldProps{ID: pre + "-type", Name: pre + "_type", Label: "Expense type", Value: "travel", Error: errText}, expenseOptions)
-		@components.Switch(components.FieldProps{ID: pre + "-stock", Name: pre + "_stock", Label: "Stock item", Hint: "Counted in stock; services aren't.", Value: "1", Error: errText}, false)
-		@components.Switch(components.FieldProps{ID: pre + "-active", Name: pre + "_disabled", Label: uitest.LongName100, Hint: "Turn off to hide this party from pickers. Old orders keep it.", Value: "0", Error: errText}, true)
+		@components.Switch(components.FieldProps{ID: pre + "-stock", Name: pre + "_stock", Label: "Stock item", Hint: "Counted in stock; services aren't.", Value: "1", Error: errText}, false, components.SwitchValues{Yes: "1", No: "0"})
+		@components.Switch(components.FieldProps{ID: pre + "-active", Name: pre + "_disabled", Label: uitest.LongName100, Hint: "Turn off to hide this party from pickers. Old orders keep it.", Value: "0", Error: errText}, true, components.SwitchValues{Yes: "1", No: "0"})
 		@components.Select(components.FieldProps{ID: pre + "-terms", Name: pre + "_terms", Label: "Payment terms", Value: "30", Error: errText}, termOptions)
 	</div>
 }

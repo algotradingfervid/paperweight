@@ -219,8 +219,9 @@ func unhiddenAll(c Ctx, errs []doctype.FieldError) []doctype.FieldError {
 // applyLineCards gives each of v's lines the default card without the fields
 // the module hides (CD-319; Hide sees the line's stored inputs in Deps), and
 // the module's LineCard of that line, so it is handed the filtered card
-// (CD-319 (9)); then it clears Received on a document that is
-// neither approved nor closed (CD-242), after the override (CD-256 (11)).
+// (CD-319 (9)) and the line's Ctx (CD-339); then it clears Received on a
+// document that is neither approved nor closed (CD-242), after the override
+// (CD-256 (11)).
 // v.Lines is replaced, never changed in place.
 func applyLineCards(c Ctx, v *DocView) {
 	card := c.Deps.modOf(c.DT).LineCard
@@ -230,7 +231,7 @@ func applyLineCards(c Ctx, v *DocView) {
 		lc.Deps = c.Deps.WithStored(lines[i].Inputs)
 		lines[i].Card = defaultCard(c.DT, lines[i], func(f doctype.Field) bool { return !hidden(lc, f) })
 		if card != nil {
-			lines[i].Card = card(c, lines[i])
+			lines[i].Card = card(lc, lines[i])
 		}
 		if v.Info.State != doctype.StateApproved && v.Info.State != doctype.StateClosed {
 			lines[i].Card.Received = "" // only approved and closed documents show receipts (CD-242)

@@ -57,6 +57,13 @@ func seedShip(e *docEnv) {
 
 func seedState(s doctype.State) func(e *docEnv) { return func(e *docEnv) { e.seed(s) } }
 
+// emptyReject is a pending sample whose engine refuses a reject's empty
+// reason on the reason field, as APR does (CD-354).
+func emptyReject(e *docEnv) {
+	e.seed(doctype.StatePending)
+	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionReject, doc.Result{}, doc.Invalid([]doctype.FieldError{{Field: "reason", Message: "Enter a reason for rejecting."}}))
+}
+
 // goldenPages lists the pages: the list, the new page, every wizard step of
 // the sample (details, items, check) and of the stepped Shipment (details,
 // delivery, check), each as a full page and as an htmx frame, a step's 422
@@ -94,7 +101,7 @@ func goldenPages() []goldenPage {
 		{name: "page-closed", setup: seedState(doctype.StateClosed), url: doc42},
 		{name: "ship-page-redirect", setup: seedShip, url: ship60},
 		{name: "reason-reject", setup: seedState(doctype.StatePending), url: doc42 + "/reject"},
-		{name: "reason-reject-422", setup: seedState(doctype.StatePending), method: http.MethodPost, url: doc42 + "/reject", form: url.Values{"reason": {""}}},
+		{name: "reason-reject-422", setup: emptyReject, method: http.MethodPost, url: doc42 + "/reject", form: url.Values{"reason": {""}}},
 		{name: "reason-cancel", setup: seedState(doctype.StateApproved), url: doc42 + "/cancel"},
 		{name: "reason-close", setup: seedState(doctype.StateApproved), url: doc42 + "/close"},
 		{name: "reason-delete", setup: draft, url: doc42 + "/delete"},

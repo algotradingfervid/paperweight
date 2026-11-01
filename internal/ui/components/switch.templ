@@ -3,14 +3,20 @@ package components
 // switchOn reports whether a Check value is stored true.
 func switchOn(value string) bool { return value == "1" || value == "true" }
 
-// switchAttrs are the checkbox's attributes: it posts "1" when on, as a
-// Check does; an inverted switch posts "0" when on, ahead of the hidden "1"
-// that stands for off, so the form's first value keeps the stored meaning.
-func switchAttrs(p FieldProps, invert bool) templ.Attributes {
+// SwitchValues are what a Switch posts for yes and no: a master form's "1"
+// and "0", or DOC's "true" and "false" (CD-322).
+type SwitchValues struct{ Yes, No string }
+
+// switchAttrs are the checkbox's attributes: it posts v.Yes when on; an
+// inverted switch posts v.No when on, ahead of the hidden v.Yes that stands
+// for off, so the form's first value keeps the stored meaning. The hint sits
+// in the label, so only the message region describes it (CD-353 (3)).
+func switchAttrs(p FieldProps, invert bool, v SwitchValues) templ.Attributes {
 	a := controlAttrs(p, "switch")
-	a["value"] = "1"
+	a["aria-describedby"] = p.ID + "-msg"
+	a["value"] = v.Yes
 	if invert {
-		a["value"] = "0"
+		a["value"] = v.No
 	}
 	return a
 }
@@ -18,8 +24,8 @@ func switchAttrs(p FieldProps, invert bool) templ.Attributes {
 // Switch is a yes/no field as a switch row: the label and hint on the left,
 // the switch at the end, the whole row the target (UI v2 §5.5 item 7, N6).
 // p.Value is the stored value; invert shows it the other way round (on when
-// stored false) for a field phrased negatively.
-templ Switch(p FieldProps, invert bool) {
+// stored false) for a field phrased negatively; v is what it posts.
+templ Switch(p FieldProps, invert bool, v SwitchValues) {
 	<div class="field">
 		<label class="switch-row">
 			<span class="switch-row__text">
@@ -34,10 +40,10 @@ templ Switch(p FieldProps, invert bool) {
 					<span id={ p.ID + "-hint" } class="field__hint">{ p.Hint }</span>
 				}
 			</span>
-			<input type="checkbox" role="switch" checked?={ switchOn(p.Value) != invert } { switchAttrs(p, invert)... }/>
+			<input type="checkbox" role="switch" checked?={ switchOn(p.Value) != invert } { switchAttrs(p, invert, v)... }/>
 		</label>
 		if invert {
-			<input type="hidden" name={ p.Name } value="1"/>
+			<input type="hidden" name={ p.Name } value={ v.Yes }/>
 		}
 		@choiceTip(p)
 		@fieldMsg(p.ID, p.Error, p.Echo)
