@@ -53,7 +53,7 @@ func claimFields() []doctype.Field {
 		{Name: "billed_to_id", Label: "Billed to", Type: doctype.Link, Link: company.DocType, OnLine: true},
 		{Name: "tax_code_id", Label: "Tax code", Type: doctype.Link, Link: taxcode.DocType, OnLine: true},
 		{Name: "hsn_sac", Label: "HSN/SAC", Type: doctype.Text, OnLine: true},
-		{Name: "gst_amount", Label: "GST on the bill", Type: doctype.Money, OnLine: true},
+		{Name: "gst_amount", Label: "GST on the bill", Type: doctype.Money, NonNegative: true, OnLine: true},
 	}
 }
 
