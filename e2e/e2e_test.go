@@ -308,9 +308,9 @@ func TestE2E_ApprovalWithdraw(t *testing.T) {
 
 	p.Open(path)
 	p.Press(sendApproval)
-	p.Until("the state badge", `document.querySelector(".doc-state .badge") !== null`)
+	p.Until("the state badge", `document.querySelector(".doc-head__top .badge") !== null`)
 	p.WaitText("Withdraw")
-	if got := stateBadge(p, ".doc-state .badge"); got != "Pending approval" {
+	if got := stateBadge(p, ".doc-head__top .badge"); got != "Pending approval" {
 		t.Errorf("state badge while pending = %q", got)
 	}
 

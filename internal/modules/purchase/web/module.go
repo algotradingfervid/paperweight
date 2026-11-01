@@ -10,6 +10,10 @@ type module struct {
 	d Deps
 }
 
+// orderKeyFacts are the PO header fields the document header shows (UI v2
+// §5.13 item 3).
+var orderKeyFacts = []string{"vendor_id", "site_id", "order_date", "required_by"}
+
 // Modules is what purchase adds to the generic document screens, by DocType,
 // for internal/app's docscreen.Deps.Modules. Each field calls a function in
 // its screen task's module_<task>.go (CD-256), which keeps docscreen's own
@@ -34,6 +38,7 @@ func Modules(d Deps) map[string]docscreen.Module {
 			LineGrid: m.orderLineGrid, // P15a
 			Page:     m.orderPageHook, // P15b
 			Reason:   m.orderReason,   // P15b
+			KeyFacts: orderKeyFacts,   // UI v2 E5
 		},
 		purchase.RequestDocType: {
 			CardsOnly: requestCardsOnly,  // P15d

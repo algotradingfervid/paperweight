@@ -24,7 +24,7 @@ var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
 	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments", "cards",
-	"problem", "stepper", "statcard", "quickaction", "module-home",
+	"problem", "stepper", "statcard", "quickaction", "module-home", "docheader",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
@@ -36,6 +36,14 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		}
 		if !strings.Contains(d.Find(".statcard-count").Text(), "9,999") || !strings.Contains(d.Find(".statcard-label").Text(), uitest.LongName100) {
 			t.Error("statcard: no worst-case figure (9,999) and label (LongName100)")
+		}
+	},
+	"docheader": func(t *testing.T, d *goquery.Document) {
+		if d.Find("main h1#page-title").Text() != uitest.LongCode60 || d.Find(".doc-head__amount").Text() != uitest.MaxMoney {
+			t.Error("docheader: no worst-case number (LongCode60) and amount (MaxMoney)")
+		}
+		if d.Find(".doc-head__facts dd").Length() != 4 || d.Find("ol.lifecycle").Length() != 3 || d.Find(`ol.lifecycle li[aria-current="step"]`).Length() != 3 {
+			t.Error("docheader: want four facts and three rows of steps, one current step in each")
 		}
 	},
 	"quickaction": func(t *testing.T, d *goquery.Document) {

@@ -105,9 +105,9 @@ func m18Draft(t *testing.T, e *hookedEnv, dt string) (int64, int) {
 // m18Badge is the text of the document page's one state badge.
 func m18Badge(t *testing.T, page *goquery.Document, what string) string {
 	t.Helper()
-	b := page.Find(".doc-state span.badge")
+	b := page.Find(".doc-head__top span.badge")
 	if b.Length() != 1 {
-		t.Fatalf("%s: want one state badge in .doc-state, got %d", what, b.Length())
+		t.Fatalf("%s: want one state badge in .doc-head__top, got %d", what, b.Length())
 	}
 	return norm(b.Text())
 }

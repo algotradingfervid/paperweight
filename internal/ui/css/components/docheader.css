@@ -1,0 +1,79 @@
+/* docheader.css: the document page's header card and its lifecycle dots
+   (UI v2 §5.13 items 3 and 4). */
+@utility doc-head {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  & .doc-head__top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+  & .doc-head__top h1 { margin: 0; min-inline-size: 0; overflow-wrap: anywhere; }
+  & .doc-head__amount {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: var(--weight-bold);
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+  & .doc-head__facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3) var(--space-4);
+    margin: 0;
+    @media (min-width: 48rem) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  & .doc-head__facts > div { min-inline-size: 0; }
+  & .doc-head__facts dt { color: var(--color-text-secondary); font-size: var(--text-sm); }
+  & .doc-head__facts dd { margin: 0; font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+}
+
+/* Dots joined by a line; done and current steps join in green. */
+@utility lifecycle {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  & .lifecycle__step {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: var(--space-1);
+    min-inline-size: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+  & .lifecycle__step + .lifecycle__step::before {
+    content: "";
+    position: absolute;
+    inset-block-start: calc(var(--icon-lg) / 2 - 1px);
+    inset-inline: calc(-50% + var(--icon-lg) / 2 + var(--space-1)) calc(50% + var(--icon-lg) / 2 + var(--space-1));
+    block-size: var(--border-w-strong);
+    background-color: var(--color-progress-track);
+  }
+  & .lifecycle__step.is-done + .lifecycle__step::before { background-color: var(--color-success-600); }
+  & .lifecycle__dot {
+    display: grid;
+    place-items: center;
+    inline-size: var(--icon-lg);
+    block-size: var(--icon-lg);
+    border: var(--border-w-strong) solid var(--color-progress-track);
+    border-radius: var(--radius-pill);
+    background-color: var(--color-surface);
+  }
+  & .lifecycle__dot .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); stroke-width: 2.5; }
+  & .is-done .lifecycle__dot { border-color: var(--color-success-600); background-color: var(--color-success-600); color: var(--color-text-on-fill); }
+  & .is-current .lifecycle__dot { border-color: var(--color-success-600); box-shadow: 0 0 0 var(--space-1) var(--color-success-50); }
+  & .is-current .lifecycle__dot::after {
+    content: "";
+    inline-size: var(--space-2);
+    block-size: var(--space-2);
+    border-radius: var(--radius-pill);
+    background-color: var(--color-success-600);
+  }
+  & .is-rejected .lifecycle__dot { border-color: var(--color-danger-600); background-color: var(--color-danger-600); color: var(--color-text-on-fill); }
+  & .is-ended .lifecycle__dot { border-color: var(--color-text-secondary); background-color: var(--color-text-secondary); }
+  & .lifecycle__label { color: var(--color-text); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+  & .is-current .lifecycle__label, & .is-rejected .lifecycle__label, & .is-ended .lifecycle__label { font-weight: var(--weight-bold); }
+  & .is-rejected .lifecycle__label { color: var(--color-danger-700); }
+}

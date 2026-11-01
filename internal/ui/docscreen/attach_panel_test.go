@@ -415,8 +415,8 @@ func TestDocPage_AttachmentsInSidePanel(t *testing.T) {
 		t.Error("an Attachments panel is also in the main column")
 	}
 	wantAdd(t, "side panel", panel)
-	if !inOrder(page, side.Find(".doc-state"), panel) {
-		t.Error("the panel is not under the state badge")
+	if first := side.Children().First(); first.Length() != 1 || first.Get(0) != panel.Get(0) {
+		t.Error("the panel is not the first child of .doc-side (CD-372)")
 	}
 	hist := side.Find("details > summary").FilterFunction(func(_ int, s *goquery.Selection) bool { return norm(s.Text()) == "Approval history" })
 	if hist.Length() != 1 {

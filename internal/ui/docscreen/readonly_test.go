@@ -110,7 +110,7 @@ func m15ReadOnly(t *testing.T, rec *httptest.ResponseRecorder, docURL string, wa
 	for sel, why := range map[string]string{
 		"h1#page-title":                       "the document page's title",
 		".doc-layout":                         "the document layout",
-		".doc-state .badge--draft":            "the Draft state badge",
+		".doc-head__top .badge--draft":        "the Draft state badge",
 		".doc-layout .lines .lines-card":      "the line cards",
 		`.doc-layout .card-title`:             "the Details card",
 		`.doc-layout dl.summary .summary-row`: "the Details pairs",
@@ -122,7 +122,7 @@ func m15ReadOnly(t *testing.T, rec *httptest.ResponseRecorder, docURL string, wa
 	if got := page.Find(".doc-layout .lines .lines-card").Length(); got != wantLines {
 		t.Errorf("%s shows %d line cards, want %d", what, got, wantLines)
 	}
-	if got := norm(page.Find(".doc-state .badge--draft").Text()); got != "Draft" {
+	if got := norm(page.Find(".doc-head__top .badge--draft").Text()); got != "Draft" {
 		t.Errorf("%s state badge reads %q, want Draft", what, got)
 	}
 	for sel, why := range map[string]string{

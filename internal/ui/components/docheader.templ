@@ -1,0 +1,51 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/kernel/doctype"
+
+// DocHeaderProps is a document page's header card (UI v2 §5.13 item 3,
+// N14): the number (or "Draft 57") as the h1 with its state badge, the
+// amount and its words, the key facts and the lifecycle steps. The caller
+// passes only values the viewer may read: Facts and Amount are already
+// filtered by the module's Hide.
+type DocHeaderProps struct {
+	Title           string
+	State           doctype.State
+	StateLabel      string // "" keeps the state's word
+	Amount, InWords string
+	Facts           []Pair
+	Steps           []LifeStep
+}
+
+// DocHeader is the header card. It draws the page's h1 (#page-title, as the
+// layout would), so the page sets NoHeading.
+templ DocHeader(p DocHeaderProps) {
+	@CardWith(CardProps{}) {
+		<div class="doc-head">
+			<div class="doc-head__top">
+				<h1 id="page-title" tabindex="-1">{ p.Title }</h1>
+				@StateBadgeLabel(p.State, p.StateLabel)
+			</div>
+			if p.Amount != "" {
+				<div>
+					<p class="doc-head__amount num">{ p.Amount }</p>
+					if p.InWords != "" {
+						@AmountInWords(p.InWords)
+					}
+				</div>
+			}
+			if len(p.Facts) > 0 {
+				<dl class="doc-head__facts">
+					for _, f := range p.Facts {
+						<div>
+							<dt>{ f.Label }</dt>
+							<dd class={ templ.KV("num", f.Num), templ.KV("code", f.Code) }>{ f.Value }</dd>
+						</div>
+					}
+				</dl>
+			}
+			if len(p.Steps) > 0 {
+				@StatusTimeline(p.Steps)
+			}
+		</div>
+	}
+}

@@ -362,7 +362,7 @@ func grnFormScreens(s grnSamples) []screens.Screen {
 	overPending := `//*[text()[contains(., "Line 1: Accepted ") and contains(., " pending on PO/")]]`
 	// approved is the page's own state badge: a draft's check page and its
 	// reader page show the same texts, and a cancelled receipt the same bill.
-	const approved = `.doc-state .badge--approved`
+	const approved = `.doc-head__top .badge--approved`
 	bothNotes := visibleAll(withText(grnCancelClosed), withText(fmt.Sprintf(grnCancelBill, grnInvoice(1))))
 	draft := at(s.ids.Draft)
 	return []screens.Screen{

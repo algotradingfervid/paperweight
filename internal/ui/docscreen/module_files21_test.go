@@ -167,7 +167,7 @@ func m21SideCard(t *testing.T, page *goquery.Document, title, what string) *goqu
 	if side.Length() != 1 || !side.Contains(all.Get(0)) {
 		t.Errorf("%s: the %q card is not in the side panel (.doc-side)", what, title)
 	}
-	if st := side.Find(".doc-state"); st.Length() != 1 || !inOrder(page, st, all) {
+	if st := main.Find(".doc-head__top .badge"); st.Length() != 1 || !inOrder(page, st, all) {
 		t.Errorf("%s: the %q card is not after the state badge", what, title)
 	}
 	return all

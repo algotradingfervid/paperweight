@@ -51,6 +51,7 @@
 @import "./components/upload.css";
 @import "./components/stepper.css";
 @import "./components/history.css";
+@import "./components/docheader.css";
 @import "./components/loadbar.css";
 @import "./motion.css";
 @import "./components/nav.css";
