@@ -194,7 +194,7 @@ func lineBody(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Com
 		l.part("expense_type_id", typeInput(l, choices.Types)),
 		l.input("amount", msgAmountHint),
 		l.part("expense_date", docscreen.FieldInput(l.field("expense_date", ""), components.FieldID("expense_date"), date, l.errorOf("expense_date"), c.Deps)),
-		l.input("description", msgNoteHint),
+		more(c, "description", l.value("description"), l.errorOf("description"), l.input("description", msgNoteHint)),
 	}
 	if same := sameReceipt(l, choices.Types); same != nil {
 		parts = append(parts, same)
