@@ -37,11 +37,11 @@ func claimFields() []doctype.Field {
 		{Name: "period_from", Label: "Period from", Type: doctype.Date, ReadOnly: true},
 		{Name: "period_to", Label: "Period to", Type: doctype.Date, ReadOnly: true},
 		{Name: "state", Label: "State", Type: doctype.Select, ReadOnly: true, Filterable: true, ListPriority: 3, Options: states},
-		{Name: "remarks", Label: "Remarks", Type: doctype.Text, MaxLen: 500},
+		{Name: "remarks", Label: "Remarks", Type: doctype.Text, MaxLen: 500, More: true},
 
 		{Name: "expense_date", Label: "Date", Type: doctype.Date, Required: true, OnLine: true},
 		{Name: "expense_type_id", Label: "Type", Type: doctype.Link, Link: expensetype.DocType, Required: true, OnLine: true},
-		{Name: "description", Label: "Note", Type: doctype.Text, MaxLen: 200, OnLine: true},
+		{Name: "description", Label: "Note", Type: doctype.Text, MaxLen: 200, OnLine: true, More: true},
 		{Name: "amount", Label: "Amount", Type: doctype.Money, Required: true, Positive: true, OnLine: true},
 		{Name: "project_id", Label: "Project", Type: doctype.Link, Link: project.DocType, OnLine: true},
 		{Name: "site_id", Label: "Site", Type: doctype.Link, Link: site.DocType, OnLine: true},
@@ -73,9 +73,9 @@ func advanceFields() []doctype.Field {
 		{Name: "state", Label: "State", Type: doctype.Select, ReadOnly: true, Filterable: true, ListPriority: 3, Options: states},
 
 		{Name: "expense_type_id", Label: "Type", Type: doctype.Link, Link: expensetype.DocType, Required: true, OnLine: true},
-		{Name: "description", Label: "Note", Type: doctype.Text, MaxLen: 200, OnLine: true},
+		{Name: "description", Label: "Note", Type: doctype.Text, MaxLen: 200, OnLine: true, More: true},
 		{Name: "line_amount", Label: "Amount", Column: "amount", Type: doctype.Money, Required: true, Positive: true, OnLine: true},
-		{Name: "project_id", Label: "Project", Type: doctype.Link, Link: project.DocType, OnLine: true},
-		{Name: "site_id", Label: "Site", Type: doctype.Link, Link: site.DocType, OnLine: true},
+		{Name: "project_id", Label: "Project", Type: doctype.Link, Link: project.DocType, OnLine: true, More: true},
+		{Name: "site_id", Label: "Site", Type: doctype.Link, Link: site.DocType, OnLine: true, More: true},
 	}
 }

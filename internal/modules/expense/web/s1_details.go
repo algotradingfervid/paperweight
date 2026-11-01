@@ -71,6 +71,20 @@ func hides(c docscreen.Ctx, name string) bool {
 	return h != nil && h(c, f)
 }
 
+// more is field name's input in, put in a MoreDetails of its own when the
+// field is Field.More, open when it has a value or an error, as docscreen's
+// generic step does (UI v2 §5.5 item 3); nothing when the module hides it.
+func more(c docscreen.Ctx, name, value, errMsg string, in templ.Component) templ.Component {
+	f, _ := c.DT.Field(name)
+	switch {
+	case hides(c, name):
+		return templ.NopComponent
+	case !f.More:
+		return in
+	}
+	return moreDetails(f.Label, value != "" || errMsg != "", in)
+}
+
 // pairKey marks a Ctx that asks Hide about a field the page draws itself,
 // as a pair: the module hides such fields only so that docscreen doesn't
 // draw them too.
@@ -122,7 +136,7 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 	v := detailsView{
 		purpose: input("purpose", hintPurpose, val("purpose")),
 		date:    input("claim_date", "", date),
-		remarks: input("remarks", hintRemarks, val("remarks")),
+		remarks: more(c, "remarks", val("remarks"), errOf("remarks"), input("remarks", hintRemarks, val("remarks"))),
 	}
 	if isAdmin(c.Principal) && !hides(c, "employee_id") {
 		code, err := d.codeOf(c, s)

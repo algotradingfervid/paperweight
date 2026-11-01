@@ -252,6 +252,7 @@ func newAdvance(s *Session, amount string) int64 {
 	s.WaitText(saveLine)
 	noOverflow(s, "the advance line page")
 	s.Pick("expense_type_id", "TRAVEL")
+	openDisclosure(s, "More details · note, project, site") // Note is Field.More (MORE, AD-11)
 	s.Fill("description", "Bus and local travel")
 	s.Fill("line_amount", amount)
 	s.Press(saveLine)
