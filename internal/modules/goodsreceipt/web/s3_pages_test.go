@@ -361,7 +361,7 @@ func TestGRNWeb_S3CancelReason(t *testing.T) {
 		t.Errorf("neither: banners %q %q, want none", r.s3Banners("warning"), r.s3Banners("info"))
 	}
 
-	if _, err := w.Service.SaveBill(t.Context(), w.Suresh, g.ID, 0, goodsreceipt.BillInput{InvoiceNo: s3Invoice, InvoiceDate: "24-10-2026"}); err != nil {
+	if err := w.Service.SaveBill(t.Context(), w.Suresh, g.ID, 0, goodsreceipt.BillInput{InvoiceNo: s3Invoice, InvoiceDate: "24-10-2026"}); err != nil {
 		t.Fatalf("save bill details: %v", err)
 	}
 	if got := page(w.Ravi, "bill").s3Banners("warning"); len(got) != 1 || got[0] != bill {

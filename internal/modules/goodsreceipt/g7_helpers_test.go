@@ -54,10 +54,19 @@ func g7In(no, date, amount string) goodsreceipt.BillInput {
 	return goodsreceipt.BillInput{InvoiceNo: no, InvoiceDate: date, InvoiceAmount: amount}
 }
 
-// g7Save saves GRN id's bill details as p at version.
+// g7Save saves GRN id's bill details as p at version and returns the
+// card's warnings and information lines as p then reads them (BillCard):
+// SaveBill returns none, so a save and later renders agree (S3b review).
 func g7Save(t *testing.T, env *grntest.Env, p auth.Principal, id int64, version int, in goodsreceipt.BillInput) ([]string, error) {
 	t.Helper()
-	return env.Service.SaveBill(t.Context(), p, id, version, in)
+	if err := env.Service.SaveBill(t.Context(), p, id, version, in); err != nil {
+		return nil, err
+	}
+	c, err := env.Service.BillCard(t.Context(), p, id)
+	if err != nil {
+		t.Fatalf("BillCard(GRN %d) as %s after a save: %v", id, p.Name, err)
+	}
+	return append(c.Warnings, c.Info...), nil
 }
 
 // g7MustSave is g7Save that stops the test on any error.

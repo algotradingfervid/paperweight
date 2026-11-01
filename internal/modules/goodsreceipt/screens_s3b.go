@@ -2,6 +2,7 @@ package goodsreceipt
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -28,17 +29,20 @@ type BillCard struct {
 	Today      types.Date
 }
 
-// BillCard is GRN id's BillCard for p, who must be able to read the GRN
-// (CheckLinkTx's refusal otherwise), in one read.
+// BillCard is GRN id's BillCard for p, in one read: a hidden or missing GRN
+// is AUTH's 404 (CanTx read with the GRN's record, as SaveBill; CD-245).
 func (s *Service) BillCard(ctx context.Context, p auth.Principal, id int64) (BillCard, error) {
 	out := BillCard{Today: types.Today(s.d.Clock)}
 	err := s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		if err := s.d.Auth.CheckLinkTx(ctx, tx, p, DocType, id); err != nil {
-			return err
-		}
 		q := dbq.New(tx.SQL())
 		g, err := q.G7Receipt(ctx, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return auth.ErrNotFound
+		}
 		if err != nil {
+			return err
+		}
+		if err := s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightRead, grnRef(id, g.CreatedBy, g.ProjectID, g.SiteID)); err != nil {
 			return err
 		}
 		out.State, out.Hint = doctype.State(g.State), acceptedLine(g.AcceptedValue)

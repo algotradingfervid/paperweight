@@ -18,8 +18,11 @@ const (
 	// The audit actions on the GRN; internal/app words them for History.
 	auditBillSaved  = "bill_saved"
 	auditBillCopied = "bill_copied"
-	billNoMaxLen    = 40 // characters of the invoice no. (spec §3.3)
 )
+
+// BillNoMaxLen is the invoice no.'s longest length in characters (spec
+// §3.3); the card's input carries it as maxlength.
+const BillNoMaxLen = 40
 
 // G11's texts (CD-337 (6)), G7's duplicate invoice shape.
 const (

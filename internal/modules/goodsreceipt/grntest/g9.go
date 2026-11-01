@@ -160,7 +160,7 @@ func (e *Env) NewReportWorld(t testing.TB) ReportWorld {
 	approved := doctype.StateApproved
 
 	w.G1 = e.GRN(t, e.Suresh, w.RefPO.ID, []Line{{POLineID: l1, Received: "400", Rejected: "10", Reason: "Bent pieces"}, {POLineID: l2, Received: "50"}}, approved)
-	if _, err := e.Service.SaveBill(context.Background(), e.Suresh, w.G1.ID, 0,
+	if err := e.Service.SaveBill(context.Background(), e.Suresh, w.G1.ID, 0,
 		goodsreceipt.BillInput{InvoiceNo: ReportInvoice, InvoiceDate: "2026-10-24", InvoiceAmount: "34426.50"}); err != nil {
 		t.Fatalf("grntest: G1's bill details: %v %+v", err, fieldErrors(err))
 	}

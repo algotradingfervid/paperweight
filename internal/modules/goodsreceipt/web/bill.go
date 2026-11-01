@@ -24,7 +24,8 @@ const billTitle = "Bill details"
 // view with the polite status (200, never a toast), after a 422 or 409 the
 // form with the typed values and the errors. Without htmx it redirects to
 // the GRN page at #bill, a 422 or 409 first put in the session for that
-// page's card (before the response starts: scs saves at the first write).
+// page's card (before the response starts: scs saves at the first write),
+// except on a draft, whose page has no card.
 // Anything else (AUTH's 403 and 404 among them) is the platform's error
 // answer.
 func (h *handlers) saveBill(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +37,7 @@ func (h *handlers) saveBill(w http.ResponseWriter, r *http.Request) {
 	}
 	p, _ := auth.PrincipalFrom(r.Context())
 	in := goodsreceipt.BillInput{InvoiceNo: r.PostFormValue("invoice_no"), InvoiceDate: r.PostFormValue("invoice_date"), InvoiceAmount: r.PostFormValue("invoice_amount")}
-	_, err = h.d.Service.SaveBill(r.Context(), p, id, version, in)
+	err = h.d.Service.SaveBill(r.Context(), p, id, version, in)
 	var (
 		he     doctype.HTTPError
 		kept   *billPost
@@ -51,16 +52,20 @@ func (h *handlers) saveBill(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
+	var b goodsreceipt.BillCard
+	if kept != nil || ui.IsHTMX(r) {
+		if b, err = h.d.Service.BillCard(r.Context(), p, id); err != nil {
+			web.ErrorFrom(w, r, err)
+			return
+		}
+	}
 	if !ui.IsHTMX(r) {
-		if kept != nil {
+		// A writer's draft redirects to its check page, which draws no card:
+		// a kept post would wait there and show after approval.
+		if kept != nil && b.State != doctype.StateDraft {
 			h.d.Sessions.Put(r.Context(), billKey(id), *kept)
 		}
 		http.Redirect(w, r, docPath(id)+"#bill", http.StatusSeeOther)
-		return
-	}
-	b, err := h.d.Service.BillCard(r.Context(), p, id)
-	if err != nil {
-		web.ErrorFrom(w, r, err)
 		return
 	}
 	v, _ := billViewOf(id, b, kept, false, kept == nil) // always a card: after a save or with kept

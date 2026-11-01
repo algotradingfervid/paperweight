@@ -180,11 +180,13 @@ func billFormOf(id int64, b goodsreceipt.BillCard, kept *billPost) *billForm {
 	field := func(name, label, value string, required bool) components.FieldProps {
 		return components.FieldProps{ID: components.FieldID(name), Name: name, Label: label, Value: value, Error: errs[name], Required: required}
 	}
+	no := field("invoice_no", labelInvoiceNo, in.InvoiceNo, true)
+	no.Attrs = templ.Attributes{"maxlength": strconv.Itoa(goodsreceipt.BillNoMaxLen)}
 	amount := field("invoice_amount", labelInvoiceTotal, in.InvoiceAmount, false)
 	amount.Hint = b.Hint
 	return &billForm{
 		Action: billPath(id), Version: strconv.Itoa(version),
-		No: field("invoice_no", labelInvoiceNo, in.InvoiceNo, true), Amount: amount,
+		No: no, Amount: amount,
 		Date: components.DateProps{FieldProps: field("invoice_date", labelInvoiceDate, in.InvoiceDate, true),
 			Today: types.FormatDate(b.Today), Yesterday: types.FormatDate(types.AddDays(b.Today, -1))},
 		Save: components.ButtonProps{Label: labelSaveBill, Variant: components.Secondary},

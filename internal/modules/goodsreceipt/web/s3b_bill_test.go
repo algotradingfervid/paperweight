@@ -72,7 +72,7 @@ func (w *s1World) s3bSave(p auth.Principal, id int64, form url.Values, htmx bool
 // s3bMustSave stores bill details on GRN id as p through the Service.
 func (w *s1World) s3bMustSave(p auth.Principal, id int64, version int, no, amount string) {
 	w.t.Helper()
-	if _, err := w.Service.SaveBill(w.t.Context(), p, id, version, goodsreceipt.BillInput{InvoiceNo: no, InvoiceDate: "23-10-2026", InvoiceAmount: amount}); err != nil {
+	if err := w.Service.SaveBill(w.t.Context(), p, id, version, goodsreceipt.BillInput{InvoiceNo: no, InvoiceDate: "23-10-2026", InvoiceAmount: amount}); err != nil {
 		w.t.Fatalf("save bill details on GRN %d as %s: %v", id, p.Name, err)
 	}
 }
@@ -186,6 +186,15 @@ func TestGRNBill_CardWriterAndReader(t *testing.T) {
 			t.Errorf("%s: aria-required %v, asterisk %v; want both %v (CD-279 (4))", name, aria, star, want)
 		}
 	}
+	if got := card.Find("#f-invoice_no").AttrOr("maxlength", ""); got != "40" {
+		t.Errorf("Vendor invoice no. maxlength %q, want 40 (spec §3.3)", got)
+	}
+	for chip, want := range map[string]string{"Today": s1Today, "Yesterday": "23-10-2026"} {
+		b := card.Find(`button[data-set-date][aria-controls="f-invoice_date"]`).FilterFunction(func(_ int, s *goquery.Selection) bool { return s2Norm(s.Text()) == chip })
+		if got := b.AttrOr("data-set-date", ""); b.Length() != 1 || got != want {
+			t.Errorf("Invoice date %s chip: %d, date %q; want one at %q", chip, b.Length(), got, want)
+		}
+	}
 	if got := s2Norm(card.Find("#f-invoice_amount-hint").Text()); got != s3bAccepted {
 		t.Errorf("Invoice total hint %q, want %q", got, s3bAccepted)
 	}
@@ -280,10 +289,26 @@ func TestGRNBill_TaxInvoiceOffer(t *testing.T) {
 func TestGRNBill_Refusals(t *testing.T) {
 	w := newS1World(t)
 	po := w.s3bPO()
+	// GRN ids from 1001, so an id in another base or a cut id is a
+	// different key and URL from the decimal one.
+	if _, err := w.DB.SQL().ExecContext(t.Context(), `INSERT INTO sqlite_sequence (name, seq) VALUES ('goods_receipt', 1000)`); err != nil {
+		t.Fatal(err)
+	}
 	g := w.s3bGRN(w.Suresh, po, doctype.StateApproved)
+	other := w.s3bGRN(w.Suresh, po, doctype.StateApproved)
+	if g.ID <= 1000 {
+		t.Fatalf("GRN id %d, want above 1000", g.ID)
+	}
 
+	noStatus := func(what string, r s1Page) {
+		t.Helper()
+		if n := r.s3bCard().Find(`[role="status"]`).Length(); n != 0 {
+			t.Errorf("%s: %d saved statuses on a refusal, want none", what, n)
+		}
+	}
 	wantInvalid := func(what string, r s1Page) {
 		t.Helper()
+		noStatus(what, r)
 		s3bWantForm(t, what, r, g.ID, "0", "", "23-10-2026", "7,375.00")
 		sum := r.s3bCard().Find(".error-summary li a")
 		if sum.Length() != 1 || sum.AttrOr("href", "") != "#f-invoice_no" || s2Norm(sum.Text()) != s3bNoReq {
@@ -307,6 +332,13 @@ func TestGRNBill_Refusals(t *testing.T) {
 	if r.status != http.StatusSeeOther || r.location != s3Doc(g.ID)+"#bill" {
 		t.Fatalf("no-JS blank no. = %d %q, want 303 to the page at #bill", r.status, r.location)
 	}
+	// The kept post is GRN g's: another GRN's page in the same session
+	// draws its own empty form and leaves it for g's.
+	r = s3OK(t, w.get(w.Suresh, s3Doc(other.ID)), "another GRN")
+	s3bWantForm(t, "another GRN", r, other.ID, "0", "", "", "")
+	if r.s3bCard().Find(".error-summary").Length() != 0 || len(r.s3bBanners("danger")) != 0 {
+		t.Errorf("another GRN: shows g's refusal: %q", r.s3bText())
+	}
 	wantInvalid("no-JS blank no., next load", s3OK(t, w.get(w.Suresh, s3Doc(g.ID)), "next load"))
 	r = s3OK(t, w.get(w.Suresh, s3Doc(g.ID)), "load after")
 	s3bWantForm(t, "load after", r, g.ID, "0", "", "", "")
@@ -317,6 +349,7 @@ func TestGRNBill_Refusals(t *testing.T) {
 	w.s3bMustSave(w.Suresh, g.ID, 0, s3bInvoice, "")
 	wantStale := func(what string, r s1Page) {
 		t.Helper()
+		noStatus(what, r)
 		s3bWantForm(t, what, r, g.ID, "0", "INV-NEW", "23-10-2026", "")
 		got := r.s3bBanners("danger")
 		if len(got) != 1 || !strings.HasPrefix(got[0], s3bStale) {
@@ -356,6 +389,19 @@ func TestGRNBill_Refusals(t *testing.T) {
 	}
 	if r := s3OK(t, w.get(w.Suresh, s3Doc(c.ID)), "cancelled, load after"); r.s3bCard().Length() != 0 {
 		t.Errorf("cancelled, load after: a Bill details card %q, want none", r.s3bText())
+	}
+
+	// A draft: its writer's page is the check page, which has no card, so
+	// nothing is kept to show after approval.
+	d := w.s3bGRN(w.Suresh, po, doctype.StateDraft)
+	if r := w.s3bSave(w.Suresh, d.ID, s3bForm(0, s3bInvoice, "23-10-2026", ""), false); r.status != http.StatusSeeOther {
+		t.Fatalf("no-JS on a draft = %d, want 303", r.status)
+	}
+	w.s3Submit(d.ID)
+	r = s3OK(t, w.get(w.Suresh, s3Doc(d.ID)), "draft, approved after")
+	s3bWantForm(t, "draft, approved after", r, d.ID, "0", "", "", "")
+	if got := r.s3bBanners("danger"); len(got) != 0 {
+		t.Errorf("draft, approved after: error banners %q, want none", got)
 	}
 }
 
