@@ -1,0 +1,33 @@
+package components
+
+import (
+	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// StatCardProps is one count card on a module home (UI v2 §5.12 item 2,
+// N13): the figure, its label, an optional detail line, the queue's icon
+// and the queue's link. Hot marks the most urgent personal work (To approve
+// above 0), drawn accent-filled.
+type StatCardProps struct {
+	Count               int
+	Label, Detail, Icon string
+	Href                string
+	Hot                 bool
+}
+
+// StatCard is the whole card as one link; the icon is decoration, so the
+// link's name is the label, the figure and the detail ("To approve 2 …").
+// CSS draws the figure first.
+templ StatCard(p StatCardProps) {
+	<a class={ "statcard", templ.KV("statcard--hot", p.Hot) } href={ templ.SafeURL(p.Href) }>
+		<span class="statcard-icon" aria-hidden="true">
+			@icons.Icon(p.Icon)
+		</span>
+		<p class="statcard-label">{ p.Label }</p>
+		<p class="statcard-count">{ types.FormatCount(int64(p.Count)) }</p>
+		if p.Detail != "" {
+			<p class="statcard-detail">{ p.Detail }</p>
+		}
+	</a>
+}

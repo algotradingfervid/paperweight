@@ -22,6 +22,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/modkit"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
+	"github.com/vardhan/internaltools/internal/ui/layout"
 )
 
 // p15eFix1Unreadable is DOC's unreadable-value text for Expected on (P18).
@@ -196,8 +197,9 @@ func TestPurchaseWeb_RequestQueuesNoTotal(t *testing.T) {
 }
 
 // MOD-PO P15e fix round 1, AD-13 ruling pinned: with no card count but some
-// recent comments the home shows the comments and not "Nothing waiting for
-// you." (the empty text only when there are neither).
+// recent comments the home shows the comments. UI v2 §5.12 (UIV2-E3): the
+// empty text is now Waiting for you's own state, so it shows beside them
+// (comments are not work waiting).
 func TestPurchaseWeb_HomeCommentsOnly(t *testing.T) {
 	v := homeView{comments: []modkit.Comment{{
 		DocType: purchase.DocType, RecordID: 7, Body: "Use Bharat Tools for the bolts", CreatedByName: "Ravi Kulkarni",
@@ -212,8 +214,8 @@ func TestPurchaseWeb_HomeCommentsOnly(t *testing.T) {
 	if !strings.Contains(text, "Recent comments") || !strings.Contains(text, "Use Bharat Tools for the bolts") {
 		t.Errorf("home = %q, want the recent comment", text)
 	}
-	if strings.Contains(text, msgNothingHome) {
-		t.Errorf("home with comments shows %q: %q", msgNothingHome, text)
+	if !strings.Contains(text, layout.HomeCaughtUp) {
+		t.Errorf("home with only comments lacks %q: %q", layout.HomeCaughtUp, text)
 	}
 }
 

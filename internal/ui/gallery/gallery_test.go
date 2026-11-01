@@ -24,12 +24,33 @@ var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
 	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments", "cards",
-	"problem", "stepper",
+	"problem", "stepper", "statcard", "quickaction", "module-home",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
 // Focus 1): the overflow sweep only proves something if the values are there.
 var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
+	"statcard": func(t *testing.T, d *goquery.Document) {
+		if d.Find("a.statcard.statcard--hot").Length() != 1 || d.Find("a.statcard").Length() < 4 {
+			t.Error("statcard: want one hot card among at least four")
+		}
+		if !strings.Contains(d.Find(".statcard-count").Text(), "9,999") || !strings.Contains(d.Find(".statcard-label").Text(), uitest.LongName100) {
+			t.Error("statcard: no worst-case figure (9,999) and label (LongName100)")
+		}
+	},
+	"quickaction": func(t *testing.T, d *goquery.Document) {
+		if !strings.Contains(d.Find("main .newtiles a.newtile .newtile-label").Text(), uitest.LongName100) {
+			t.Error("quickaction: no worst-case label (LongName100)")
+		}
+	},
+	"module-home": func(t *testing.T, d *goquery.Document) {
+		if d.Find("main a.statcard").Length() < 4 || d.Find("main .homesect .datalist-link").Length() != 8 || d.Find("main a.newtile").Length() < 4 {
+			t.Error("module-home: want the count cards, 3 waiting and 5 recent rows, and the quick actions")
+		}
+		if !strings.Contains(d.Find("main .homesect").Text(), uitest.LongCode60) {
+			t.Error("module-home: no worst-case number (LongCode60)")
+		}
+	},
 	"cards": func(t *testing.T, d *goquery.Document) {
 		if d.Find(".card-icon svg").Length() < 3 || d.Find(".card-desc").Length() < 3 {
 			t.Error("cards: want every card with an icon tile and a description")

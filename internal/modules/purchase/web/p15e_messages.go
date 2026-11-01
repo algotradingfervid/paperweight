@@ -11,12 +11,17 @@ const (
 	msgExpectedCleared = "Expected on for %s cleared."
 
 	// Purchase home.
-	homeTitle      = "Purchase"
-	msgNothingHome = "Nothing waiting for you."
-	recentTitle    = "Recent comments"
-	newOrderLabel  = "New purchase order"
-	newReqLabel    = "New purchase request"
-	openLabel      = "Open"
+	homeTitle       = "Purchase"
+	recentTitle     = "Recent comments"
+	newOrderLabel   = "New purchase order"
+	newReqLabel     = "New purchase request"
+	waitingLabel    = "Waiting for you"
+	waitingWhy      = "Needs your approval"
+	metaChanges     = "Needs changes"
+	metaNotSent     = "Not sent to the vendor yet"
+	seeAllLabel     = "See all %d"
+	recentDocsLabel = "Your recent documents"
+	allOrdersLabel  = "All purchase orders"
 
 	// Hand over.
 	msgNobodyEligible = "Nobody else can take over this order. Ask an Administrator to give someone the Purchase User role for its project and site."

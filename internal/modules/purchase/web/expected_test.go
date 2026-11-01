@@ -21,6 +21,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // The texts the Expected on handlers answer with (PO spec §27.1, DOC's
@@ -56,10 +57,12 @@ func newP18Web(t *testing.T) *p18Web {
 	t.Helper()
 	env := purchasetest.New(t)
 	r := chi.NewRouter()
-	Routes(Deps{
+	pd := Deps{
 		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: scs.New(),
 		CSRF: func(*http.Request) string { return "p18-token" },
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(pd)}.ListHidden
+	Routes(pd)(r)
 	w := &p18Web{env: env, router: r}
 	saved := renderExpected
 	renderExpected = func(rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {

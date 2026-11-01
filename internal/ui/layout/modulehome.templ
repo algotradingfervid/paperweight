@@ -1,0 +1,72 @@
+package layout
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// ModuleHome is the page: the counts, then work (waiting, recent) beside the
+// quick actions and Side from 64rem. With nothing waiting, Waiting for you
+// shows HomeCaughtUp and the quick actions stay.
+templ ModuleHome(p HomeProps) {
+	@Page(PageOpts{Title: p.Title}) {
+		@HomeBody(p)
+	}
+}
+
+// HomeBody is ModuleHome's content without the page around it (the gallery
+// draws it in its own page).
+templ HomeBody(p HomeProps) {
+	if len(p.Counts) > 0 {
+		<ul class="statcards" role="list" aria-label={ homeCountsLabel }>
+			for _, c := range p.Counts {
+				<li>
+					@components.StatCard(c)
+				</li>
+			}
+		</ul>
+	}
+	<div class="homegrid">
+		<div class="homegrid-col">
+			if p.caughtUp() {
+				@homeSection(homeWaitingTitle, nil) {
+					@components.EmptyState(HomeCaughtUp, nil)
+				}
+			} else if len(p.Waiting.Rows) > 0 {
+				@homeSection(homeWaitingTitle, p.WaitingAll) {
+					@components.DataList(p.Waiting)
+				}
+			}
+			if len(p.Recent.Rows) > 0 {
+				@homeSection(homeRecentTitle, p.RecentAll) {
+					@components.DataList(p.Recent)
+				}
+			}
+		</div>
+		<div class="homegrid-col">
+			if len(p.Quick) > 0 {
+				@homeSection(homeQuickTitle, nil) {
+					<div class="newtiles">
+						for _, q := range p.Quick {
+							@components.QuickAction(q)
+						}
+					</div>
+				}
+			}
+			if p.Side != nil {
+				@p.Side
+			}
+		</div>
+	</div>
+}
+
+// homeSection is one titled part of the home, with an optional link at the
+// end of its heading row.
+templ homeSection(title string, all *components.Link) {
+	<section class="homesect">
+		<div class="homesect-head">
+			<h2>{ title }</h2>
+			if all != nil {
+				<a href={ templ.SafeURL(all.Href) }>{ all.Label }</a>
+			}
+		</div>
+		{ children... }
+	</section>
+}

@@ -22,6 +22,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // Texts the POST passes on unchanged (PO spec §21.2, §22; DOC-069; CD-142).
@@ -61,11 +62,13 @@ func hwRecordRender(t *testing.T) *[]hwRender {
 func hwHandler(env *purchasetest.Env) http.Handler {
 	sessions := scs.New()
 	r := chi.NewRouter()
-	Routes(Deps{
+	pd := Deps{
 		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: sessions,
 		CSRF:        func(*http.Request) string { return "token" },
 		ReceiveLink: func(context.Context, auth.Principal, int64) (string, bool) { return "", false },
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(pd)}.ListHidden
+	Routes(pd)(r)
 	return sessions.LoadAndSave(r)
 }
 

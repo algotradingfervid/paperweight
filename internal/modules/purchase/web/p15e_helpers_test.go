@@ -19,6 +19,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	"github.com/vardhan/internaltools/internal/platform/web"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // p15eWeb mounts the module routes on a bare router inside a session, as
@@ -33,10 +34,12 @@ func newP15eWeb(t *testing.T, env *purchasetest.Env) *p15eWeb {
 	t.Helper()
 	sm := scs.New()
 	r := chi.NewRouter()
-	Routes(Deps{
+	pd := Deps{
 		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: sm,
 		CSRF: func(*http.Request) string { return "p15e-token" },
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(pd)}.ListHidden
+	Routes(pd)(r)
 	r.Get("/p15e-flash", func(w http.ResponseWriter, req *http.Request) {
 		_ = json.NewEncoder(w).Encode(web.TakeFlash(req.Context()))
 	})

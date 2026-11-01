@@ -120,6 +120,9 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
 			CSRF:        func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
 			ReceiveLink: gw.ReceiveLink, // CD-283: purchase never imports goodsreceipt
+			// The home asks the registered modules' Hide (CD-368 (3)); docDeps
+			// is read per call, since the Modules are set below.
+			ListHidden: func(r *http.Request, dt *doctype.DocType) func(string) bool { return a.docDeps().ListHidden(r, dt) },
 		}
 		a.receiveLink = pw.ReceiveLink
 		a.docModules = purchaseweb.Modules(pw)

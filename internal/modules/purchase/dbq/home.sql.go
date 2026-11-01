@@ -166,6 +166,69 @@ func (q *Queries) HomeMyRequests(ctx context.Context, createdBy int64) ([]HomeMy
 	return items, nil
 }
 
+const homeReason = `-- name: HomeReason :one
+SELECT state_reason FROM purchase_order WHERE id = ?
+`
+
+// A rejected PO's reason for Waiting for you (UI v2 5.12, CD-368).
+func (q *Queries) HomeReason(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, homeReason, id)
+	var state_reason string
+	err := row.Scan(&state_reason)
+	return state_reason, err
+}
+
+const homeRecent = `-- name: HomeRecent :many
+SELECT CAST('purchase.Order' AS TEXT) AS doctype, o.id, o.state, o.rounded_total AS total, o.updated_at
+FROM purchase_order o
+WHERE o.created_by = ?1
+UNION ALL
+SELECT CAST('purchase.Request' AS TEXT) AS doctype, r.id, r.state, CAST(0 AS INTEGER) AS total, r.updated_at
+FROM purchase_request r
+WHERE r.created_by = ?1
+ORDER BY updated_at DESC, id DESC
+`
+
+type HomeRecentRow struct {
+	Doctype   string
+	ID        int64
+	State     string
+	Total     int64
+	UpdatedAt string
+}
+
+// Recent (UI v2 5.12): the owner's purchase orders and requests, latest
+// change first. The caller keeps the rows Auth.Scope allows and the first 5.
+// No LIMIT: the scope filter runs in Go, so the limit is applied after it.
+func (q *Queries) HomeRecent(ctx context.Context, owner int64) ([]HomeRecentRow, error) {
+	rows, err := q.db.QueryContext(ctx, homeRecent, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HomeRecentRow
+	for rows.Next() {
+		var i HomeRecentRow
+		if err := rows.Scan(
+			&i.Doctype,
+			&i.ID,
+			&i.State,
+			&i.Total,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const homeRequestLines = `-- name: HomeRequestLines :many
 SELECT l.id, l.parent_id
 FROM purchase_request_line l

@@ -86,3 +86,20 @@ FROM purchase_request r
 LEFT JOIN site s ON s.id = r.site_id
 WHERE r.created_by = ? AND r.state IN ('draft', 'approved')
 ORDER BY r.created_at DESC, r.id DESC;
+
+-- name: HomeRecent :many
+-- Recent (UI v2 5.12): the owner's purchase orders and requests, latest
+-- change first. The caller keeps the rows Auth.Scope allows and the first 5.
+-- No LIMIT: the scope filter runs in Go, so the limit is applied after it.
+SELECT CAST('purchase.Order' AS TEXT) AS doctype, o.id, o.state, o.rounded_total AS total, o.updated_at
+FROM purchase_order o
+WHERE o.created_by = sqlc.arg(owner)
+UNION ALL
+SELECT CAST('purchase.Request' AS TEXT) AS doctype, r.id, r.state, CAST(0 AS INTEGER) AS total, r.updated_at
+FROM purchase_request r
+WHERE r.created_by = sqlc.arg(owner)
+ORDER BY updated_at DESC, id DESC;
+
+-- name: HomeReason :one
+-- A rejected PO's reason for Waiting for you (UI v2 5.12, CD-368).
+SELECT state_reason FROM purchase_order WHERE id = ?;
