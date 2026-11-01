@@ -68,3 +68,8 @@ SELECT id FROM branch WHERE disabled = 0 AND gstin <> '' ORDER BY is_head_office
 
 -- name: E2BranchGSTIN :one
 SELECT gstin FROM branch WHERE id = ?;
+
+-- name: S6ClearReceiptReasons :exec
+-- A line with a receipt has no no-receipt reason (AD ruling on S6, CD-302).
+UPDATE expense_claim_line SET no_receipt_reason = ''
+WHERE parent_id = ? AND receipt_sha256 <> '' AND no_receipt_reason <> '';

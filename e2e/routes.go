@@ -156,7 +156,8 @@ const (
 	exp500Amount  = "19999999.99"
 )
 
-// expenseSamples seeds Priya's claims and advances in every state, approved
+// expenseSamples seeds Priya's claims and advances (under the longest
+// employee name, longExpenseEmployee) in every state, approved
 // by her reporting manager Ravi under a reporting-manager rule (expensetest's
 // rules; the fixture rule names "Expense Claim"). The approved advance is
 // paid, and the draft claim is set against it; one line of each claim is a
@@ -164,6 +165,7 @@ const (
 // marked as paid.
 func (h *Harness) expenseSamples(long testkit.LongRows) (_ map[string]docscreen.SampleIDs, unpaid int64) {
 	h.t.Helper()
+	h.longExpenseEmployee()
 	p := h.Principal(admin)
 	ctx := auth.WithPrincipal(context.Background(), p) // the app's role directory reads it, as in approvalRules
 	for _, dt := range []string{expense.ClaimDocType, expense.AdvanceDocType} {
@@ -359,6 +361,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 	out = append(out, expenseReportScreens()...)
 	out = append(out, purchasePageScreens(s.purchase)...)
 	out = append(out, expensePaidScreens(s)...)
+	out = append(out, expenseFormScreens(s)...)
 	out = append(out, h.purchaseScreens(s.po, s.pr)...)
 	return append(append(out, h.masterScreens(s)...), importScreens()...)
 }
