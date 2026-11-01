@@ -374,20 +374,24 @@ func TestSiteDelivery_BranchStateChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	saved := w.create(t, w.siteInput("NAG-S", nag.ID, &site.Delivery{Line1: "Wardha Road", City: "Nagpur", StateCode: "27"}))
+	// A save that keeps the state isn't blocked by the site's address.
+	renamed, err := co.Update(ctx, w.env.Kavya, nag.ID, nag.Version, company.BranchInput{Code: "NAG", Name: "Nagpur Works", StateCode: "27"})
+	if err != nil {
+		t.Fatalf("rename keeping the state = %v; want saved", err)
+	}
+	nag.Version = renamed.Version
 	_, err = co.Update(ctx, w.env.Kavya, nag.ID, nag.Version, company.BranchInput{Code: "NAG", Name: "Nagpur", StateCode: "07"})
 	wantFieldError(t, err, "state_code", msgSiteAddrState)
 
-	// Without the address the state may change.
+	// Without the address the state may change, even beside another branch's
+	// site address in the state NAG leaves (HINJ at PUNE, 27): only NAG's own
+	// sites count.
+	w.create(t, w.siteInput("HINJ", w.branchID, puneDelivery()))
 	if _, err := w.svc.Update(ctx, w.env.Kavya, saved.ID, saved.Version, w.siteInput("NAG-S", nag.ID, &site.Delivery{})); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := co.Update(ctx, w.env.Kavya, nag.ID, nag.Version, company.BranchInput{Code: "NAG", Name: "Nagpur", StateCode: "07"}); err != nil {
-		t.Errorf("state change with no site address = %v; want saved", err)
-	}
-	// A site address on another branch doesn't block it.
-	w.create(t, w.siteInput("HINJ", w.branchID, puneDelivery()))
-	if _, err := co.Update(ctx, w.env.Kavya, nag.ID, nag.Version+1, company.BranchInput{Code: "NAG", Name: "Nagpur", StateCode: "27"}); err != nil {
-		t.Errorf("state change beside another branch's site address = %v; want saved", err)
+		t.Errorf("state change of NAG beside PUNE's site address in 27 = %v; want saved", err)
 	}
 }
 
@@ -497,5 +501,60 @@ func TestSiteDelivery_EachFieldSaves(t *testing.T) {
 	d.StateCode, d.Pincode = "07", ""
 	if _, err := w.svc.Update(ctx, w.env.Kavya, saved.ID, version, w.siteInput("HINJ", delhi, &d)); err != nil || w.get(t, saved.ID).Delivery.StateCode != "07" {
 		t.Errorf("state change = %v; want the state stored", err)
+	}
+}
+
+// CD-356 (3): the Address and Contact masters' Delete, SetPrimary and
+// SetDisabled refuse a site's own address and contact; only the site's form
+// changes them.
+func TestSiteDelivery_AddressContactMastersRefuseSiteRows(t *testing.T) {
+	const (
+		msgSiteAddress = "This address is a site's delivery address. Change it on the site."
+		msgSiteContact = "This contact is a site's delivery contact. Change it on the site."
+	)
+	w := newWorld(t)
+	ctx := context.Background()
+	saved := w.create(t, w.siteInput("HINJ", w.branchID, puneDelivery()))
+	var addrID, contactID int64
+	var addrVersion, contactVersion int
+	if err := w.env.DB.Read(ctx, func(tx *db.Tx) error {
+		if err := tx.SQL().QueryRowContext(ctx, `SELECT id, version FROM address WHERE site_id = ?`, saved.ID).Scan(&addrID, &addrVersion); err != nil {
+			return err
+		}
+		return tx.SQL().QueryRowContext(ctx, `SELECT id, version FROM contact WHERE site_id = ?`, saved.ID).Scan(&contactID, &contactVersion)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a := address.New(w.env.Kit)
+	kavya := w.env.Kavya
+	inTx := func(fn func(tx *db.Tx) error) error { return w.env.DB.Write(ctx, fn) }
+	cases := []struct {
+		name, msg string
+		call      func() error
+	}{
+		{"address delete", msgSiteAddress, func() error { return a.Delete(ctx, kavya, addrID, addrVersion) }},
+		{"address disable", msgSiteAddress, func() error { return a.SetDisabled(ctx, kavya, addrID, addrVersion, true) }},
+		{"address set primary shipping", msgSiteAddress, func() error {
+			return inTx(func(tx *db.Tx) error { return a.SetPrimaryTx(ctx, tx, kavya, addrID, false, addrVersion) })
+		}},
+		{"contact delete", msgSiteContact, func() error { return a.DeleteContact(ctx, kavya, contactID, contactVersion) }},
+		{"contact disable", msgSiteContact, func() error { return a.SetContactDisabled(ctx, kavya, contactID, contactVersion, true) }},
+		{"contact set primary", msgSiteContact, func() error {
+			return inTx(func(tx *db.Tx) error { return a.SetPrimaryContactTx(ctx, tx, kavya, 0, contactID) })
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			wantFieldError(t, c.call(), "site_id", c.msg)
+			if n := w.count(t, `SELECT count(*) FROM address WHERE id = ? AND version = ? AND disabled = 0 AND is_primary_shipping = 0`, addrID, addrVersion); n != 1 {
+				t.Error("the site's address changed")
+			}
+			if n := w.count(t, `SELECT count(*) FROM contact WHERE id = ? AND version = ? AND disabled = 0 AND is_primary = 0`, contactID, contactVersion); n != 1 {
+				t.Error("the site's contact changed")
+			}
+		})
+	}
+	if got := w.get(t, saved.ID).Delivery; got != puneStored {
+		t.Errorf("delivery after the refused calls = %+v; want %+v", got, puneStored)
 	}
 }

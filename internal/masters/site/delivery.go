@@ -53,8 +53,9 @@ func (d Delivery) Text() string {
 
 // DeliveryAddress is the site's delivery address and contact for a module's
 // page or print ("Deliver to", CD-337 (1)), read in the caller's tx; ok is
-// false when the site has neither. It checks no right: the caller has already
-// read the site through its own document.
+// false when the site has neither. It checks no right, so call it only with a
+// site id stored on a document the caller has already read-checked, never with
+// a posted id (CD-356 (2), CD-217/228).
 func DeliveryAddress(ctx context.Context, tx *db.Tx, siteID int64) (Delivery, bool, error) {
 	d, err := readDelivery(ctx, dbq.New(tx.SQL()), siteID)
 	return d, d != Delivery{}, err

@@ -7,7 +7,8 @@
 -- keys that point at the tables (purchase_order.vendor_address_id,
 -- contact_email, contact_phone) keep naming "address" and "contact", so they
 -- resolve to the new tables, and with foreign keys off the drop deletes no
--- child row. Ids and the AUTOINCREMENT counters are kept. PRAGMA foreign_keys
+-- child row. Ids and the AUTOINCREMENT counters are kept, and the foreign
+-- key check runs before COMMIT. PRAGMA foreign_keys
 -- is a no-op inside a transaction, so goose runs this one without its own.
 -- +goose NO TRANSACTION
 -- +goose Up
@@ -91,6 +92,11 @@ CREATE UNIQUE INDEX contact_branch_primary ON contact (branch_id) WHERE is_prima
 -- At most one contact per site.
 CREATE UNIQUE INDEX contact_site ON contact (site_id) WHERE site_id IS NOT NULL;
 
+-- A dangling row anywhere fails the CHECK, so the whole rebuild rolls back
+-- (a bare PRAGMA foreign_key_check only returns rows).
+CREATE TEMP TABLE m058_fk_check (dangling INTEGER CHECK (dangling = 0));
+INSERT INTO m058_fk_check SELECT count(*) FROM pragma_foreign_key_check;
+DROP TABLE m058_fk_check;
 COMMIT;
 PRAGMA foreign_keys = ON;
 

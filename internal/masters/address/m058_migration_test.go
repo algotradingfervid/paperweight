@@ -194,3 +194,42 @@ func TestMigration_SiteOwnerKeepsData(t *testing.T) {
 		}
 	}
 }
+
+// TestMigration_SiteOwnerDanglingRowFails: a row whose foreign key points
+// nowhere fails the rebuild's foreign key check, so nothing is committed.
+func TestMigration_SiteOwnerDanglingRowFails(t *testing.T) {
+	ctx := context.Background()
+	d, err := db.Open(filepath.Join(t.TempDir(), "m058-dangling.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.Close() })
+	d.SQL().SetMaxOpenConns(1)
+	p, err := goose.NewProvider(goose.DialectSQLite3, d.SQL(), appmigrations.FS, goose.WithTableName("goose_db_version"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.UpTo(ctx, m058Version-1); err != nil {
+		t.Fatalf("migrate to %d: %v", m058Version-1, err)
+	}
+	for _, q := range []string{
+		`PRAGMA foreign_keys = OFF`,
+		`INSERT INTO contact_phone (contact_id, number, kind, is_primary) VALUES (404, '+919800000001', 'mobile', 1)`,
+		`PRAGMA foreign_keys = ON`,
+	} {
+		if _, err := d.SQL().ExecContext(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if _, err := p.UpTo(ctx, m058Version); err == nil {
+		t.Fatal("migration over a dangling contact_phone row succeeded; want the foreign key check to fail it")
+	}
+	_, _ = d.SQL().ExecContext(ctx, `ROLLBACK`)
+	var n int
+	if err := d.SQL().QueryRowContext(ctx, `SELECT count(*) FROM pragma_table_info('address') WHERE name = 'site_id'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Error("address has site_id after the failed migration; want the rebuild rolled back")
+	}
+}
