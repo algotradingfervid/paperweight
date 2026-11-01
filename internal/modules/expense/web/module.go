@@ -21,6 +21,12 @@ func ClaimModule(d Deps) docscreen.Module {
 		Reason:     claimReason(d),     // S3
 		// Cards at every width (EUX-025), until M0-40 and S2's Line.
 		CardsOnly: true,
+		// The line under the stepper on each step (UI v2 C2).
+		StepIntros: map[string]string{
+			"details": "What the spending was for, the claim date and any advance to settle.",
+			"items":   "Add one expense for each bill, with a photo of the receipt if you have one.",
+			"check":   "Check the claim, then submit it for approval.",
+		},
 	}
 }
 

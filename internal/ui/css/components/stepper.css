@@ -1,48 +1,128 @@
-/* stepper.css: wizard progress (research §7.6, design-system §8.3). Phones show
-   only the current step's label, other steps are segments; all labels from 30rem. */
+/* stepper.css: wizard progress (UI v2 §5.6, A-13). Numbered dots joined by
+   lines; done steps an accent dot with a check, the current step an accent
+   ring with a halo and its label the h2, later steps a grey ring. Phones
+   (under 30rem of stepper width) are compact: one row of dots with only the
+   current label shown beside its dot; the other labels stay for screen
+   readers. From 30rem every label sits under its dot. */
 @utility stepper {
   container-type: inline-size;
-  display: grid;
-  gap: var(--space-2);
   min-inline-size: 0;
-  & .stepper__count { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
-  & .stepper__list { display: flex; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-  & .stepper__step {
-    flex: 1 1 0;
-    min-inline-size: 0;
-    border-block-start: var(--border-w-strong) solid var(--color-progress-track);
-    font-size: 0;
-    overflow-wrap: anywhere;
-  }
-  & .stepper__step > a, & .stepper__step > span {
+  & .stepper__list {
+    counter-reset: step;
     display: flex;
     align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  & .stepper__step {
+    counter-increment: step;
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  /* Only the current step's label may wrap; the others keep their dot. */
+  & .stepper__step.is-current { min-inline-size: 0; }
+  /* The line joining a step to the one before it. */
+  & .stepper__step + .stepper__step::before {
+    content: "";
+    flex: 1 1 var(--space-4);
+    block-size: var(--border-w-strong);
+    border-radius: var(--radius-pill);
+    background-color: var(--color-progress-track);
+  }
+  & .stepper__step:first-child { flex-grow: 0; }
+  & .stepper__step.is-done + .stepper__step::before { background-color: var(--color-primary-600); }
+  & .stepper__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-inline-size: var(--target-min);
     min-block-size: var(--target-min);
     color: var(--color-text-secondary);
+    text-decoration: none;
   }
-  & .stepper__step.is-done, & .stepper__step.is-current { border-block-start-color: var(--color-primary-600); }
-  & .stepper__step > a { color: var(--color-primary-600); }
-  & .stepper__step.is-current { flex-grow: 2; font-size: var(--text-sm); }
-  & .stepper__step.is-current > span { color: var(--color-text); font-weight: var(--weight-bold); }
-  & .stepper__bar {
-    appearance: none;
-    inline-size: 100%;
-    block-size: var(--space-2);
-    border: 0;
+  & .stepper__dot {
+    display: grid;
+    flex: none;
+    place-items: center;
+    inline-size: var(--icon-lg);
+    block-size: var(--icon-lg);
+    border: var(--border-w-strong) solid var(--color-progress-track);
     border-radius: var(--radius-pill);
-    overflow: hidden;
-    background-color: var(--color-progress-track);
-    color: var(--color-primary-600);
+    background-color: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    line-height: 1;
+    transition: background-color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
   }
-  & .stepper__bar::-webkit-progress-bar { background-color: var(--color-progress-track); }
-  & .stepper__bar::-webkit-progress-value { background-color: var(--color-primary-600); }
-  & .stepper__bar::-moz-progress-bar { background-color: var(--color-primary-600); }
+  & .stepper__step:not(.is-done) .stepper__dot::before { content: counter(step); }
+  & .stepper__dot .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .is-done .stepper__dot {
+    border-color: var(--color-primary-600);
+    background-color: var(--color-primary-600);
+    color: var(--color-text-on-fill);
+  }
+  & .is-current .stepper__dot {
+    border-color: var(--color-primary-600);
+    color: var(--color-primary-700);
+    box-shadow: 0 0 0 var(--space-1) var(--color-primary-100);
+  }
+  & .is-visited .stepper__dot { border-color: var(--color-primary-600); color: var(--color-primary-700); }
+  & .stepper__label {
+    margin: 0;
+    min-inline-size: 0;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    line-height: var(--leading-snug);
+    overflow-wrap: anywhere;
+  }
+  & .stepper__label:focus { outline: none; }
+  & .is-current .stepper__label { color: var(--color-text); font-weight: var(--weight-bold); }
+  & .is-done .stepper__label, & .is-visited .stepper__label { color: var(--color-primary-700); }
+  & a.stepper__item:hover .stepper__label { text-decoration: underline; }
+  & a.stepper__item:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+  /* Compact: only the current label shows; the rest are read out. */
+  & .stepper__step:not(.is-current) .stepper__label {
+    position: absolute;
+    max-inline-size: 1px;
+    max-block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    text-overflow: ellipsis; /* its text is clipped on purpose, as in visually-hidden */
+  }
   @container (min-width: 30rem) {
-    & .stepper__step, & .stepper__step.is-current { flex-grow: 1; font-size: var(--text-sm); }
+    & .stepper__list { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: start; gap: 0; }
+    & .stepper__step { position: relative; display: block; }
+    & .stepper__step + .stepper__step::before {
+      position: absolute;
+      inset-block-start: calc(var(--target-min) / 2 - var(--border-w-strong) / 2);
+      inset-inline: calc(-50% + var(--icon-lg) / 2 + var(--space-1)) calc(50% + var(--icon-lg) / 2 + var(--space-1));
+    }
+    & .stepper__item { flex-direction: column; gap: var(--space-1); padding-block-start: calc((var(--target-min) - var(--icon-lg)) / 2); text-align: center; }
+    & .stepper__step:not(.is-current) .stepper__label {
+      position: static;
+      max-inline-size: none;
+      max-block-size: none;
+      overflow: visible;
+      clip-path: none;
+      text-overflow: clip;
+    }
   }
 }
+/* The document's title line: the page's one h1 in a wizard (A-13). */
 @utility wizard-title {
   margin: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+/* One muted line under the stepper saying what the step is for. */
+@utility step-intro {
+  margin: var(--space-2) 0 0;
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
   overflow-wrap: anywhere;

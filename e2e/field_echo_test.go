@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"testing"
 
@@ -49,12 +50,16 @@ func TestE2E_Field_EchoKeepsSaveInPlace(t *testing.T) {
 	echoMouse(s, chromedp.MousePressed, at[0], at[1])
 	s.Until("the date's echo", msg+`?.textContent === `+strconv.Quote(fixtureEcho))
 	moved := Eval[[]float64](s, save)
-	if moved[2] != at[2] || moved[3] != at[3] {
+	if !samePx(moved[2], at[2]) || !samePx(moved[3], at[3]) {
 		t.Errorf("Save moved while pressed: top %.1f bottom %.1f, then top %.1f bottom %.1f", at[2], at[3], moved[2], moved[3])
 	}
 	echoMouse(s, chromedp.MouseReleased, at[0], at[1])
 	s.WaitText("Step 2 of 3")
 }
+
+// samePx reports whether two box edges are within 0.01 px: the pressed
+// button's 0.98 scale leaves about 1.5e-5 px of float noise.
+func samePx(a, b float64) bool { return math.Abs(a-b) < 0.01 }
 
 // echoMouse sends one left-button mouse event at x, y.
 func echoMouse(s *Session, typ input.DispatchMouseEventType, x, y float64) {

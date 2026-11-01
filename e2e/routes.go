@@ -594,7 +594,7 @@ func walkWizard(steps []wizardStep) func(context.Context) error {
 					return fmt.Errorf("add a row on %s: %w", st.slug, err)
 				}
 			}
-			at := `progress.stepper__bar[value="` + strconv.Itoa(i+2) + `"]`
+			at := `.stepper__step.is-current:nth-child(` + strconv.Itoa(i+2) + `)`
 			if err := chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](fillJS(st.fill)), chromedp.WaitReady(chromedp.CSS(at))); err != nil {
 				return fmt.Errorf("leave %s: %w", st.slug, err)
 			}
@@ -634,14 +634,14 @@ func importScreens() []screens.Screen {
 			if err := toUpload(ctx); err != nil {
 				return err
 			}
-			return submit(ctx, upload(csv), `progress.stepper__bar[value="3"]`)
+			return submit(ctx, upload(csv), `.stepper__step.is-current:nth-child(3)`)
 		}
 	}
 	toImport := func(ctx context.Context) error {
 		if err := toCheck(importReady)(ctx); err != nil {
 			return err
 		}
-		if err := submit(ctx, `document.getElementById("wizard-form").requestSubmit()`, `progress.stepper__bar[value="4"]`); err != nil {
+		if err := submit(ctx, `document.getElementById("wizard-form").requestSubmit()`, `.stepper__step.is-current:nth-child(4)`); err != nil {
 			return err
 		}
 		warned, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`document.body.innerText.includes("Column 'colour'")`))

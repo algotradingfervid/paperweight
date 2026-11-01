@@ -264,7 +264,7 @@ func summaryLinks(page *goquery.Document) []string {
 // wantHeading fails unless the page shows step head.
 func wantHeading(t *testing.T, rec *httptest.ResponseRecorder, head string) {
 	t.Helper()
-	if got := norm(uitest.Doc(t, rec).Find("h1#step-title").Text()); got != head {
+	if got := norm(uitest.Doc(t, rec).Find("h2#step-title").Text()); got != head {
 		t.Errorf("heading = %q, want %q", got, head)
 	}
 }
@@ -1233,7 +1233,7 @@ func TestStepScope_StoredProblemsAreNoFailure(t *testing.T) {
 			t.Errorf("title = %q, want no Error prefix", title)
 		}
 		focus := page.Find("[autofocus]")
-		if focus.Length() != 1 || !focus.Is("h1#step-title") {
+		if focus.Length() != 1 || !focus.Is("h2#step-title") {
 			html, _ := goquery.OuterHtml(focus)
 			t.Errorf("autofocus on %d elements (%.200s), want only the step heading", focus.Length(), html)
 		}

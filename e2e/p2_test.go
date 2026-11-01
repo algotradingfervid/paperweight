@@ -208,7 +208,7 @@ func TestE2E_Doc_ButtonsPerState(t *testing.T) {
 	view := func(s *Session, id int64) {
 		t.Helper()
 		s.Open(DocPath(fixture.Order, id))
-		s.Until("the document page", `document.querySelector(".doc-state, .stepper__bar") !== null`)
+		s.Until("the document page", `document.querySelector(".doc-state, .stepper") !== null`)
 	}
 
 	drafted := refPO(h).ID

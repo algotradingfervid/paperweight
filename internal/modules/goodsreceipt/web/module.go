@@ -21,6 +21,12 @@ func Modules(d Deps) map[string]docscreen.Module {
 	return map[string]docscreen.Module{
 		goodsreceipt.DocType: {
 			StepLabels: m.stepLabels(), // S1
+			StepIntros: map[string]string{ // UI v2 C2
+				"details":  "Pick the purchase order these goods came against.",
+				"delivery": "The challan or invoice that came with the goods, and how they came.",
+				"items":    "Enter how much of each line arrived and how much you're rejecting.",
+				"check":    "Check the receipt, then submit it.",
+			},
 			Steps: map[string]docscreen.Step{
 				"details":  m.detailsStep(),  // S1
 				"delivery": m.deliveryStep(), // S1
