@@ -125,6 +125,32 @@
   display: flex;
   gap: var(--space-2);
   & > .input { flex: 1 1 0; }
+  /* A number box (UI v2 §5.7): the suffix joins the input's end and "₹" sits
+     inside its start. The input stays the first child, and with "₹" after it
+     keeps its end corners round too. */
+  &.join { position: relative; gap: 0; }
+  &:has(> .field__pre) > .input {
+    padding-inline-start: calc(var(--space-3) + var(--space-2) + 0.7em);
+    --join-se: var(--radius-field);
+    --join-ee: var(--radius-field);
+  }
+  /* A line grid or rows cell leaves "₹" out: its column head names the field
+     and the widest amount or rate needs the room (CD-169). */
+  :where(.linegrid-row, .rows-row) &:has(> .field__pre) > .input { padding-inline-start: var(--space-3); }
+}
+
+@utility field__pre {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 3; /* over the focused input, which daisyUI's join raises to 2 */
+  display: grid;
+  place-items: center;
+  padding-inline-start: var(--space-3);
+  color: var(--color-text-secondary);
+  font-weight: 550; /* as the design asks (UI v2 §5.7) */
+  pointer-events: none;
+  :where(.linegrid-row, .rows-row) & { display: none; }
 }
 
 /* LargeQtyInput: a 56 px box with 20 px figures (CD-282 Q4, CD-286). */
@@ -190,13 +216,15 @@
   font-weight: var(--weight-medium);
 }
 
+/* The unit at the box's end, on a canvas tint behind a divider (UI v2 §5.7). */
 @utility field__suffix {
   display: flex;
   align-items: center;
   padding-inline: var(--space-3);
-  background: var(--color-sunken);
+  background: var(--color-canvas);
   border: var(--border-w) solid var(--color-border);
   font-size: var(--text-base);
+  font-weight: 550;
   color: var(--color-text-secondary);
 }
 

@@ -381,15 +381,17 @@ func TestGalleryBrowser_MoneyBlur(t *testing.T) {
 		t.Error(`a valid amount left aria-invalid on the input`)
 	}
 
-	_, perr := types.ParseMoney("1.234,56")
+	// Live grouping (CD-336 (2)) keeps only digits and a point, so the refused
+	// value is one too large: grouped as typed, refused by NUM, and kept.
+	_, perr := types.ParseMoney("1,00,00,00,00,000")
 	if perr == nil {
-		t.Fatal(`types.ParseMoney("1.234,56") accepted the value`)
+		t.Fatal(`types.ParseMoney("1,00,00,00,00,000") accepted the value`)
 	}
 	want := perr.Error()
-	do(t, ctx, "type 1.234,56 and Tab", clearTarget, chromedp.SendKeys(target, "1.234,56"), chromedp.KeyEvent(kb.Tab))
+	do(t, ctx, "type 100000000000 and Tab", clearTarget, chromedp.SendKeys(target, "100000000000"), chromedp.KeyEvent(kb.Tab))
 	waitFor(t, ctx, "NUM's error under the field", msg+` !== null && `+msg+`.textContent.trim() === `+jsString(want))
-	if v := eval[string](t, ctx, el+`.value`); v != "1.234,56" {
-		t.Errorf("input value = %q, want the typed 1.234,56 kept", v)
+	if v := eval[string](t, ctx, el+`.value`); v != "1,00,00,00,00,000" {
+		t.Errorf("input value = %q, want the typed 1,00,00,00,00,000 kept", v)
 	}
 	if a := eval[string](t, ctx, el+`.getAttribute("aria-invalid") || ""`); a != "true" {
 		t.Errorf(`aria-invalid = %q, want "true"`, a)
@@ -738,7 +740,8 @@ func TestGalleryBrowser_LineGridCtrlEnterKeepsRefusedEdit(t *testing.T) {
 	do(t, ctx, "mark the page", chromedp.Evaluate[chromedp.Void](`window.__samePage = true`))
 	m := g.mark()
 
-	do(t, ctx, `type qty "bad"`, clearTarget, chromedp.SendKeys(target, "bad"))
+	// A quantity over NUM's maximum: live grouping (CD-336 (2)) drops letters.
+	do(t, ctx, `type qty 200000000`, clearTarget, chromedp.SendKeys(target, "200000000"))
 	do(t, ctx, "Ctrl+Enter", chromedp.KeyEvent(kb.Enter, chromedp.KeyModifiers(kb.ModifierCtrl)))
 	form := `document.getElementById(` + jsString(formID) + `)`
 	waitFor(t, ctx, "focus on the refused input", `(() => {

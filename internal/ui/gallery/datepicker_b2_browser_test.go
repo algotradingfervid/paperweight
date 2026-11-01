@@ -57,6 +57,9 @@ func TestDateInputBrowser_Picker(t *testing.T) {
 			{"31-02-2026", ""},
 			{"05-03", ""},
 			{"5-3-26", ""},
+			{"05-03-20261", ""},
+			{"5-3/2026", ""},
+			{"5.3-2026", ""},
 			{"", ""},
 		} {
 			got := value[[]string](t, ctx, `(() => { `+datePick+` let seen = "not called", errs = []; const onErr = function (e) { errs.push(String(e.message)); }; window.addEventListener("error", onErr); d.value = "2020-01-01"; d.showPicker = function () { seen = this.value; }; t.value = `+jsString(c.typed)+`; b.click(); window.removeEventListener("error", onErr); return [seen, errs.join("; ")]; })()`)

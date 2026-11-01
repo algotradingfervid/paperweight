@@ -24,10 +24,14 @@ const maxRadios = 6
 // Check one checkbox; Select radios up to 6 options, else a Select; Link a
 // Picker searching /pick/{Link} that shows the chosen master as "{Code}
 // {Name}" (CD-68); numbers (Money, Qty, Rate, Percent, Factor) a NumberInput
-// checked by the server (CD-48); Date a DateInput with d.Today; Timestamp
-// read-only text. MST's master forms reuse it.
+// checked by the server (CD-48), Signed for a Money, Qty or Rate field that is
+// neither NonNegative nor Positive (CD-336 (2)); Date a DateInput with
+// d.Today; Timestamp read-only text. MST's master forms reuse it.
 func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Component {
 	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Error: errMsg, Value: value, Required: f.Required, Optional: !f.Required}
+	if (f.Type == doctype.Money || f.Type == doctype.Qty || f.Type == doctype.Rate) && !f.NonNegative && !f.Positive {
+		p = components.Signed(p)
+	}
 	switch f.Type {
 	case doctype.Text:
 		if f.MaxLen > 200 {
