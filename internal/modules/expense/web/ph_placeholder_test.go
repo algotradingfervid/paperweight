@@ -49,8 +49,9 @@ func TestPH_ClaimDetails(t *testing.T) {
 	})
 }
 
-// The claim line page: Note, Project and Site through FieldInput; Supplier
-// GSTIN, Invoice no. and HSN/SAC built by the page. Type is tiles and
+// The claim line page: Note, Project, Site and Tax code through FieldInput
+// (Tax code's picker sits in Bill in company GSTIN); Supplier GSTIN, Invoice
+// no. and HSN/SAC built by the page. Type is tiles and
 // Billed to radios: neither takes a placeholder.
 func TestPH_ClaimLine(t *testing.T) {
 	t.Parallel()
@@ -61,6 +62,7 @@ func TestPH_ClaimLine(t *testing.T) {
 		"description":    "e.g. Auto from Pune station to site",
 		"project_id":     "e.g. Pune Metro or PRJ-METRO",
 		"site_id":        "e.g. Metro site or METRO-SITE",
+		"tax_code_id":    "e.g. GST 18% or GST18",
 		"supplier_gstin": "e.g. 27AABCS1429B1ZU",
 		"invoice_no":     "e.g. INV-901",
 		"hsn_sac":        "e.g. 996411",
