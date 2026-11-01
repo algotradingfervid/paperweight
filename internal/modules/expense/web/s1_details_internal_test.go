@@ -120,7 +120,14 @@ func TestDetails_HideAdvance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, sel := range []string{"details", `[name="` + advanceDrawn + `"]`, `[name="advance_id"]`, `[name="less_advance"]`} {
+		// Remarks' More details group isn't the advance's (MORE).
+		adv := page.Find("details").FilterFunction(func(_ int, d *goquery.Selection) bool {
+			return strings.TrimSpace(d.ChildrenFiltered("summary").Text()) == summaryAdv
+		})
+		if adv.Length() > 0 {
+			t.Errorf("%s: the %q disclosure drawn, want nothing of the advance", tc.name, summaryAdv)
+		}
+		for _, sel := range []string{`[name="` + advanceDrawn + `"]`, `[name="advance_id"]`, `[name="less_advance"]`} {
 			if page.Find(sel).Length() > 0 {
 				t.Errorf("%s: %s drawn, want nothing of the advance", tc.name, sel)
 			}
