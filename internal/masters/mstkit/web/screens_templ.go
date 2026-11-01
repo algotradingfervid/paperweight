@@ -272,7 +272,7 @@ func recordPageCancelTo(v recordView, cancel string) templ.Component {
 						var templ_7745c5c3_Var11 string
 						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(v.Form.Version))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/masters/mstkit/web/screens.templ`, Line: 60, Col: 77}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/masters/mstkit/web/screens.templ`, Line: 61, Col: 77}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 						if templ_7745c5c3_Err != nil {
@@ -347,7 +347,7 @@ func recordPageCancelTo(v recordView, cancel string) templ.Component {
 						var templ_7745c5c3_Var14 string
 						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(v.Form.Version))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/masters/mstkit/web/screens.templ`, Line: 76, Col: 77}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/masters/mstkit/web/screens.templ`, Line: 77, Col: 77}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 						if templ_7745c5c3_Err != nil {
@@ -420,6 +420,7 @@ func recordPageCancelTo(v recordView, cancel string) templ.Component {
 			Title:      v.Title,
 			Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
 			Width:      v.Width,
+			Focus:      v.Confirm || (len(v.Cards) == 0 && v.CanWrite), // its action bar is the bottom bar
 			Back:       &v.Back,
 			BannerSlot: problemBanner(v),
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)

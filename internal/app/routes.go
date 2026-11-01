@@ -65,6 +65,7 @@ const (
 	setupPath    = "/setup"
 	inboxPath    = "/approvals"
 	searchPath   = "/search"
+	newPath      = "/new"
 	healthPath   = "/healthz"
 	staticPrefix = "/static/"
 	masterPrefix = "/m/"
@@ -105,6 +106,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 
 		self := func(_ string, h http.Handler) http.Handler { return a.srv.Self(h) }
 		r.Method(http.MethodGet, homePath, a.srv.Self(http.HandlerFunc(a.home)))
+		r.Method(http.MethodGet, newPath, a.srv.Self(http.HandlerFunc(newPage)))
 		for _, m := range []struct {
 			method string
 			fn     http.HandlerFunc
@@ -429,6 +431,10 @@ func (a *App) shell(r *http.Request) ui.Shell {
 		a.logger.ErrorContext(ctx, "shell: navigation", "user", p.ID, "err", err)
 	}
 	s.Nav = nav
+	s.New, err = a.newItems(r, p)
+	if err != nil {
+		a.logger.ErrorContext(ctx, "shell: new items", "user", p.ID, "err", err)
+	}
 	inbox, err := a.approvals.Inbox(ctx, p, types.Page{Number: 1, Size: approvalPageSize})
 	if err != nil {
 		a.logger.ErrorContext(ctx, "shell: inbox count", "user", p.ID, "err", err)
@@ -456,32 +462,33 @@ const (
 // purchase.Order or purchase.Request (MOD-PO P1 Do 4).
 const purchaseHomePath = "/modules/purchase"
 
-// navPlace is a DocType's group and icon in the sidebar; more puts it under
-// the group's More disclosure.
+// navPlace is a DocType's group, icon and nav-only label in the sidebar
+// (CD-349 (2)); more puts it under the group's More disclosure. newLabel,
+// when set, lists it in the "Create new" sheet and /new (UI v2 §5.2, N2).
 type navPlace struct {
-	name, group, icon string
-	more              bool
+	name, group, icon, label, newLabel string
+	more                               bool
 }
 
 // docNav places every DocType the sidebar lists, in sidebar order (UI v2
 // §5.2; DL §4.6). TestNav_EveryDocTypeHasIcon fails on a missing one.
 var docNav = []navPlace{
-	{purchase.DocType, groupPurchase, "shopping-cart", false},
-	{purchase.RequestDocType, groupPurchase, "clipboard-list", false},
-	{goodsreceipt.DocType, groupGRN, "truck", false},
-	{expense.ClaimDocType, groupExpenses, "receipt-indian-rupee", false},
-	{expense.AdvanceDocType, groupExpenses, "hand-coins", false},
-	{party.DocType, groupMasters, "handshake", false},
-	{item.DocType, groupMasters, "package", false},
-	{project.DocType, groupMasters, "folder-kanban", false},
-	{site.DocType, groupMasters, "map-pin", false},
-	{employee.DocType, groupMasters, "id-card", false},
-	{company.DocType, groupMasters, "store", true},
-	{company.CompanyDocType, groupMasters, "building-2", true},
-	{expensetype.DocType, groupMasters, "tags", true},
-	{paymentterms.DocType, groupMasters, "calendar-clock", true},
-	{taxcode.DocType, groupMasters, "percent", true},
-	{uom.DocType, groupMasters, "ruler", true},
+	{purchase.DocType, groupPurchase, "shopping-cart", "Purchase orders", "Purchase order", false},
+	{purchase.RequestDocType, groupPurchase, "clipboard-list", "Purchase requests", "Purchase request", false},
+	{goodsreceipt.DocType, groupGRN, "truck", "Goods receipts", "Goods receipt", false},
+	{expense.ClaimDocType, groupExpenses, "receipt-indian-rupee", "Expense claims", "Expense claim", false},
+	{expense.AdvanceDocType, groupExpenses, "hand-coins", "Advances", "Advance request", false},
+	{party.DocType, groupMasters, "handshake", "Parties", "Party", false},
+	{item.DocType, groupMasters, "package", "Items", "", false},
+	{project.DocType, groupMasters, "folder-kanban", "Projects", "", false},
+	{site.DocType, groupMasters, "map-pin", "Sites", "", false},
+	{employee.DocType, groupMasters, "id-card", "Employees", "", false},
+	{company.DocType, groupMasters, "store", "Branches", "", true},
+	{company.CompanyDocType, groupMasters, "building-2", "Companies", "", true},
+	{expensetype.DocType, groupMasters, "tags", "Expense types", "", true},
+	{paymentterms.DocType, groupMasters, "calendar-clock", "Payment terms", "", true},
+	{taxcode.DocType, groupMasters, "percent", "Tax codes", "", true},
+	{uom.DocType, groupMasters, "ruler", "Units", "", true},
 }
 
 // docNavIndex is name's index in docNav, or -1.
@@ -519,7 +526,7 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 			it := ui.NavItem{Label: dt.PluralLabel, Href: href}
 			switch i := docNavIndex(dt.Name); {
 			case i >= 0:
-				it.Group, it.Icon, it.More = docNav[i].group, docNav[i].icon, docNav[i].more
+				it.Label, it.Group, it.Icon, it.More = docNav[i].label, docNav[i].group, docNav[i].icon, docNav[i].more
 				placed[i] = &it
 			case dt.IsMaster():
 				it.Group, it.Icon = groupMasters, "file"
@@ -555,5 +562,30 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 			ui.NavItem{Label: "Business settings", Href: "/settings/business", Icon: "settings", Group: groupAdmin},
 		)
 	}
+	return items, err
+}
+
+// newItems is what p may create, for the "Create new" sheet and /new: each
+// docNav place with a newLabel whose DocType p holds create on, in docNav's
+// order.
+func (a *App) newItems(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
+	ctx := r.Context()
+	var items []ui.NavItem
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
+		for _, place := range docNav {
+			if place.newLabel == "" {
+				continue
+			}
+			err := a.auth.CanTx(ctx, tx, p, place.name, auth.RightCreate, nil)
+			if errors.Is(err, auth.ErrForbidden) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			items = append(items, ui.NavItem{Label: place.newLabel, Href: listURL(place.name) + "/new", Icon: place.icon})
+		}
+		return nil
+	})
 	return items, err
 }

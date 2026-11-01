@@ -47,7 +47,7 @@ func formWidth(t string) layout.PageOpts { return layout.PageOpts{Title: t, Widt
 
 // wizardOpts is wizard step n's page: the frame has the heading.
 func wizardOpts(n int) layout.PageOpts {
-	return layout.PageOpts{Title: "Wizard step " + strconv.Itoa(n), NoHeading: true}
+	return layout.PageOpts{Title: "Wizard step " + strconv.Itoa(n), NoHeading: true, Focus: true}
 }
 
 var pages = []galleryPage{

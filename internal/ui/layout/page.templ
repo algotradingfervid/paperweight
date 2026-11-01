@@ -9,7 +9,8 @@ import (
 )
 
 // Page is the full document: head, header, navigation, the notice regions,
-// <main id="main"> holding the children, and the side panel.
+// <main id="main"> holding the children, the side panel, and for signed-in
+// users the bottom nav (not in focus mode) and the New and Me sheets.
 templ Page(o PageOpts) {
 	{{ s := ui.ShellFrom(ctx) }}
 	{{ banners, alerts := split(web.TakeFlash(ctx)) }}
@@ -28,7 +29,7 @@ templ Page(o PageOpts) {
 			<script src={ ui.JSURL } defer></script>
 			<script src={ web.AlpineURL } defer></script>
 		</head>
-		<body hx-headers={ csrfHeaders(s.CSRF) } hx-indicator="#loadbar">
+		<body hx-headers={ csrfHeaders(s.CSRF) } hx-indicator="#loadbar" { bodyAttrs(o, s)... }>
 			<div id="loadbar" class="loadbar" aria-hidden="true"></div>
 			<a class="skip-link" href="#main">Skip to content</a>
 			@header(o, s)
@@ -62,6 +63,13 @@ templ Page(o PageOpts) {
 			</div>
 			if !o.Bare {
 				@navSheet(s)
+			}
+			if bottomNavShown(o, s) {
+				@bottomNav(s)
+			}
+			if s.SignedIn && !o.Bare {
+				@components.NewSheet(newSheetID, s.New)
+				@meSheet(s)
 			}
 		</body>
 	</html>

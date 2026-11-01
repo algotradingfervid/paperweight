@@ -1,0 +1,33 @@
+package components
+
+import (
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// NewSheetLine is the line under the tiles (UI v2 §5.2).
+const NewSheetLine = "Only what your role can create is listed."
+
+// NewSheet is the "Create new" sheet (UI v2 N2): the Sheet with id, one
+// tile per item the user may create. The first tile takes focus on open.
+templ NewSheet(id string, items []ui.NavItem) {
+	@Sheet(id, "Create new") {
+		@NewTiles(items, true)
+	}
+}
+
+// NewTiles is the tile grid and its line, in the sheet and on /new.
+// focusFirst puts autofocus on the first tile, for the sheet.
+templ NewTiles(items []ui.NavItem, focusFirst bool) {
+	<div class="newtiles">
+		for i, it := range items {
+			<a class="newtile" href={ templ.SafeURL(it.Href) } autofocus?={ focusFirst && i == 0 }>
+				<span class="newtile-icon" aria-hidden="true">
+					@icons.Icon(it.Icon)
+				</span>
+				<span class="newtile-label">{ it.Label }</span>
+			</a>
+		}
+	</div>
+	<p class="newtiles-line">{ NewSheetLine }</p>
+}

@@ -77,9 +77,13 @@ func TestNav_AdminGroups(t *testing.T) {
 	w.canonical()
 	admin := w.signedIn(adminEmail)
 	heads, links := navGroups(admin)
-	heads = slices.DeleteFunc(heads, func(h string) bool { return h == "Documents" })
-	if want := []string{"Work", "Purchase", "Goods receipt", "Expenses", "Masters", "Admin"}; !reflect.DeepEqual(heads, want) {
-		t.Fatalf("headings = %q, want %q (plus Documents for test-only DocTypes)", heads, want)
+	// CD-349 (4): the order includes the Documents fallback, which holds the
+	// test-only DocTypes here.
+	if want := []string{"Work", "Purchase", "Goods receipt", "Expenses", "Documents", "Masters", "Admin"}; !reflect.DeepEqual(heads, want) {
+		t.Fatalf("headings = %q, want %q", heads, want)
+	}
+	if len(links["Documents"]) == 0 {
+		t.Error("Documents has no test-only DocType: the fallback group is untested")
 	}
 	for _, href := range links["Documents"] {
 		if !testOnlyHref(href) {
@@ -96,7 +100,7 @@ func TestNav_AdminGroups(t *testing.T) {
 		"Admin": {"/users", "/roles", "/admin/approval-rules", "/settings/numbering", "/settings/business"},
 	}
 	for _, g := range heads {
-		if !reflect.DeepEqual(links[g], want[g]) {
+		if g != "Documents" && !reflect.DeepEqual(links[g], want[g]) {
 			t.Errorf("group %q = %q, want %q", g, links[g], want[g])
 		}
 	}
@@ -165,4 +169,63 @@ func hrefs(sel *goquery.Selection) []string {
 	var out []string
 	sel.Find("a").Each(func(_ int, a *goquery.Selection) { out = append(out, a.AttrOr("href", "")) })
 	return out
+}
+
+// CD-349 (2): the nav shows short sentence-case labels, nav-only (the
+// DocTypes' PluralLabel is unchanged).
+func TestNav_ShortLabels(t *testing.T) {
+	w := newWorld(t)
+	w.canonical()
+	side := w.signedIn(adminEmail).get("/approvals").doc.Find("nav.app-sidebar")
+	label := map[string]string{}
+	side.Find("a").Each(func(_ int, a *goquery.Selection) {
+		label[a.AttrOr("href", "")] = strings.TrimSpace(a.Find(".nav-label").Text())
+	})
+	for href, want := range map[string]string{
+		"/doc/purchase.Order": "Purchase orders", "/doc/purchase.Request": "Purchase requests",
+		"/doc/goodsreceipt.Receipt": "Goods receipts", "/doc/expense.Claim": "Expense claims",
+		"/doc/expense.Advance": "Advances", "/m/party": "Parties", "/m/item": "Items", "/m/uom": "Units",
+		"/m/branch": "Branches", "/m/company": "Companies", "/m/tax-code": "Tax codes",
+		"/m/payment-terms": "Payment terms", "/m/project": "Projects", "/m/site": "Sites",
+		"/m/employee": "Employees", "/m/expense-type": "Expense types",
+	} {
+		if label[href] != want {
+			t.Errorf("%s: nav label = %q, want %q", href, label[href], want)
+		}
+	}
+	if dt, _ := doctype.Lookup(purchase.DocType); dt.PluralLabel != "Purchase Orders" {
+		t.Errorf("PluralLabel changed to %q; the short label is nav-only", dt.PluralLabel)
+	}
+}
+
+// CD-349 (4): a user who may read only some masters sees only those, and
+// More masters holds only the rare ones among them.
+func TestNav_PartialMasters(t *testing.T) {
+	w := newWorld(t)
+	admin := w.seedUsers()
+	ctx := context.Background()
+	a := w.app.Auth()
+	if err := a.CreateRole(ctx, admin, "Some masters"); err != nil {
+		t.Fatal(err)
+	}
+	for _, dt := range []string{"Party", "UoM", "Tax Code"} {
+		if err := a.SetRights(ctx, admin, "Some masters", dt, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := a.CreateUser(ctx, admin, auth.NewUser{Email: "some@vardhan.test", Name: "Sunil Mehta", Password: testPassword, Roles: []string{"Some masters"}}); err != nil {
+		t.Fatal(err)
+	}
+	b := w.signedIn("some@vardhan.test")
+	heads, links := navGroups(b)
+	if want := []string{"Work", "Masters"}; !reflect.DeepEqual(heads, want) {
+		t.Errorf("headings = %q, want %q", heads, want)
+	}
+	if want := []string{"/m/party", "/m/tax-code", "/m/uom"}; !reflect.DeepEqual(links["Masters"], want) {
+		t.Errorf("Masters = %q, want %q", links["Masters"], want)
+	}
+	more := b.get("/approvals").doc.Find("nav.app-sidebar details.nav-more")
+	if want := []string{"/m/tax-code", "/m/uom"}; !reflect.DeepEqual(hrefs(more), want) {
+		t.Errorf("More masters = %q, want %q", hrefs(more), want)
+	}
 }

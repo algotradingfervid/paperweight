@@ -46,6 +46,7 @@ templ recordPageCancelTo(v recordView, cancel string) {
 		Title:      v.Title,
 		Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
 		Width:      v.Width,
+		Focus:      v.Confirm || (len(v.Cards) == 0 && v.CanWrite), // its action bar is the bottom bar
 		Back:       &v.Back,
 		BannerSlot: problemBanner(v),
 	}) {

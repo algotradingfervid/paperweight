@@ -230,7 +230,7 @@ func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, ver
 	errs = unhiddenAll(d.lineCtx(r, dt, &v, no), errs)
 	noun := d.modOf(dt).LineNoun
 	lv := linePageView{
-		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
+		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Focus: true, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:  docURL(dt.Name, v.Info.ID) + "/lines/new",
 		Version: version,
 		Button:  components.ButtonProps{Label: "Save line", Variant: components.Primary},
@@ -550,7 +550,7 @@ func (d Deps) removePage(r *http.Request, dt *doctype.DocType, v DocView, no, ve
 		q = "Remove line " + n + " (" + item + ")?"
 	}
 	return linePageView{
-		Opts:     layout.PageOpts{Title: "Remove line " + n, Width: layout.Form, Error: danger != "", Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
+		Opts:     layout.PageOpts{Title: "Remove line " + n, Width: layout.Form, Focus: true, Error: danger != "", Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:   lineURL(dt.Name, v.Info.ID, no) + "/remove",
 		Version:  version,
 		Question: q,

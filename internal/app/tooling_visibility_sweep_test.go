@@ -287,6 +287,7 @@ var noControl = map[string]string{
 	"/print/{doctype}/{id}/page.css":   "the print page's size rules, no data",
 	"/approvals/count":                 "checked by checkInboxCount",
 	"/users/{id}":                      "the viewer's own user page",
+	"/new":                             "tiles of what the viewer may create, no record (TestNewPage_*)",
 	"/doc/{doctype}/new":               "a blank new-document form",
 	"/doc/{doctype}/{id}/lines/new":    "a blank line form",
 	"/reports/expense/open/filter":     "a filter form: no rows",
