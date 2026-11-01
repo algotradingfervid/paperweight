@@ -92,6 +92,12 @@ type Field struct {
 	// "i" beside the label; "" shows no "i". Hint stays visible (CD-350).
 	Tip string
 
+	// Placeholder is an example value shown in an empty input, written
+	// "e.g. …"; "" shows none (a Link's Picker keeps "Type to search").
+	// Display only, like Hint and Tip (CD-370, UI v2 §5.5 item 5);
+	// ignored for Date (dd-mm-yyyy), Check, Select and Timestamp.
+	Placeholder string
+
 	// Invert, on a Check field phrased negatively ("Disabled"), is the
 	// positive label its switch shows instead ("Active"): the switch is on
 	// when the stored value is false. Display only; the column, import and
