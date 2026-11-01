@@ -562,3 +562,17 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** a claim line **When** its GST amount is -1.00 or -0.01, on create or edit **Then** it is refused with "Line 2: GST on the bill can't be negative." and nothing is written; 0.00 and positive amounts save (the money-input lesson, E10).
 - **Go test:** `TestExp_GSTNegative`
 - **Sources:** UI v2 B3 review; CLAUDE.md money inputs
+
+### EXP-078 · Paid pages hide the phone bottom nav
+- **Priority:** P1
+- **Level:** integration
+- **Given** an approved claim **When** a user opens Mark as paid or Undo paid **Then** the page has no bottom nav (Focus mode), while the advances report and its filter still show it.
+- **Go test:** `TestExpFocus_PaidPagesHaveNoBottomNav`
+- **Sources:** CD-352 (4)
+
+### EXP-079 · Line amounts are unsigned number inputs
+- **Priority:** P1
+- **Level:** unit
+- **Given** a claim line page **When** it renders **Then** the gst_amount and amount inputs carry no data-signed, so a minus can't be typed (B3 live input rules).
+- **Go test:** `TestExpLine_NumberInputsUnsigned`
+- **Sources:** CD-355; EXP-077
