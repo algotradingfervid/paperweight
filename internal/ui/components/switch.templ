@@ -1,0 +1,45 @@
+package components
+
+// switchOn reports whether a Check value is stored true.
+func switchOn(value string) bool { return value == "1" || value == "true" }
+
+// switchAttrs are the checkbox's attributes: it posts "1" when on, as a
+// Check does; an inverted switch posts "0" when on, ahead of the hidden "1"
+// that stands for off, so the form's first value keeps the stored meaning.
+func switchAttrs(p FieldProps, invert bool) templ.Attributes {
+	a := controlAttrs(p, "switch")
+	a["value"] = "1"
+	if invert {
+		a["value"] = "0"
+	}
+	return a
+}
+
+// Switch is a yes/no field as a switch row: the label and hint on the left,
+// the switch at the end, the whole row the target (UI v2 §5.5 item 7, N6).
+// p.Value is the stored value; invert shows it the other way round (on when
+// stored false) for a field phrased negatively.
+templ Switch(p FieldProps, invert bool) {
+	<div class="field">
+		<label class="switch-row">
+			<span class="switch-row__text">
+				<span class="switch-row__label">
+					{ p.Label }
+					if p.Required {
+						<span class="field__req" aria-hidden="true">*</span>
+						<span class="visually-hidden">{ " (required)" }</span>
+					}
+				</span>
+				if p.Hint != "" {
+					<span id={ p.ID + "-hint" } class="field__hint">{ p.Hint }</span>
+				}
+			</span>
+			<input type="checkbox" role="switch" checked?={ switchOn(p.Value) != invert } { switchAttrs(p, invert)... }/>
+		</label>
+		if invert {
+			<input type="hidden" name={ p.Name } value="1"/>
+		}
+		@choiceTip(p)
+		@fieldMsg(p.ID, p.Error, p.Echo)
+	</div>
+}

@@ -1,0 +1,114 @@
+/* choice.css: Segmented, its tiles layout and the switch row (UI v2 §5.5 items 7–8, N6, N7). */
+
+/* Radios as one row of equal segments on a sunken track; the chosen one is a
+   raised white thumb with an accent ring and a check icon. Fits 320 px. */
+@utility segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-w) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-sunken);
+  & > label {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-inline-size: 0;
+    min-block-size: var(--target-min);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    overflow-wrap: anywhere;
+    font-size: var(--text-base); /* daisyUI's fieldset sets 12 px */
+    font-weight: var(--weight-medium);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  & > label:has(:checked) {
+    background: var(--color-surface);
+    color: var(--color-primary-800);
+    font-weight: var(--weight-semibold);
+    box-shadow: var(--shadow-1), 0 0 0 1px var(--color-primary-600);
+  }
+  & > label:has(:focus-visible) {
+    outline: var(--focus-ring);
+    outline-offset: 1px;
+  }
+}
+
+/* Five or six options with longer words: the same look in two columns. */
+@utility segmented--tiles {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@utility segmented__text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+/* Shown only on the chosen option, so the choice isn't colour alone. */
+@utility segmented__check {
+  display: none;
+  flex: none;
+  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  label:has(:checked) & { display: inline-flex; }
+}
+
+/* A yes/no field: label and hint on the left, the switch at the end, the
+   whole row (≥ 56 px) the target. */
+@utility switch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 3.5rem;
+  padding-block: var(--space-2);
+  cursor: pointer;
+}
+
+@utility switch-row__text {
+  display: grid;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+@utility switch-row__label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+/* The 48 × 28 switch, drawn on the real checkbox. */
+@utility switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  inline-size: var(--space-12);
+  block-size: 1.75rem;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 3px;
+    inset-inline-start: 3px;
+    block-size: 1.375rem;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-1);
+    transition: translate var(--dur-fast) var(--ease-out);
+  }
+  &:checked { background: var(--color-primary-600); }
+  &:checked::before { translate: 1.25rem 0; }
+  &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+}

@@ -118,7 +118,7 @@ func TestScreens_TaxCodeFormShowsStored(t *testing.T) {
 				t.Errorf("%s form %s = %q; want %q", c.code, name, got, want)
 			}
 		}
-		if got := page.Doc.Find(`input[name="treatment"][checked]`).AttrOr("value", ""); got != c.treatment {
+		if got := page.Doc.Find(`select[name="treatment"] option[selected]`).AttrOr("value", ""); got != c.treatment {
 			t.Errorf("%s form treatment = %q; want %q", c.code, got, c.treatment)
 		}
 		resp := w.h.Post(t, kavya, path(tc.ID, ""), url.Values{"version": {ver(tc.Version)}, "code": {c.code}, "name": {c.name}, "treatment": {c.treatment}, "rate": {c.rate}})
