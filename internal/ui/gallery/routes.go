@@ -53,6 +53,7 @@ func wizardOpts(n int) layout.PageOpts {
 var pages = []galleryPage{
 	{"buttons", titled("Buttons"), static(buttonsBody())},
 	{"fields", formWidth("Fields"), static(fieldsBody())},
+	{"cards", formWidth("Cards"), static(cardsBody())},
 	{"badges-banners", titled("Badges and banners"), static(badgesBody())},
 	{"dialogs", titled("Dialogs and sheets"), static(dialogsBody())},
 	{"datalist", titled("Data list"), static(datalistBody())},
@@ -153,7 +154,7 @@ func show(w http.ResponseWriter, r *http.Request) {
 }
 
 // post serves the buttons page's slow form, the row editor (which only draws
-// the page again) and wizard step 1.
+// the page again), the cards page's bill card and wizard step 1.
 func post(w http.ResponseWriter, r *http.Request) {
 	switch chi.URLParam(r, "page") {
 	case "buttons":
@@ -162,6 +163,8 @@ func post(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	case "rows":
 		render(w, r, http.StatusOK, titled("Row editor"), rowsBody())
+	case "cards":
+		ui.Render(w, r, http.StatusOK, billCard(true, r.PostFormValue("bill")), nil)
 	case "wizard-1":
 		v := stepValues{reference: r.PostFormValue("reference"), date: r.PostFormValue("order_date"), supplier: pickByID(r.PostFormValue("supplier_id"))}
 		if strings.TrimSpace(v.reference) == "" {
