@@ -16,8 +16,8 @@ type Party struct {
 	GSTIN       string
 }
 
-// PartyAddress are the vendor address snapshot's lines without its last
-// line when that is the vendor's GSTIN line (address.DisplayText ends with
+// PartyAddress are the party address snapshot's lines without its last
+// line when that is the party's GSTIN line (address.DisplayText ends with
 // it), which the party block prints on its own.
 func PartyAddress(text, gstin string) []string {
 	if text == "" {

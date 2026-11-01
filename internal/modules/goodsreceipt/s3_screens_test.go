@@ -50,3 +50,36 @@ func TestGRN_PageReadsLikeBillCard(t *testing.T) {
 		}
 	}
 }
+
+// Facts reads the GRN with CanTx, as Page and BillCard do (CD-245; CD-312's
+// CheckLinkTx is for link targets): a hidden or missing GRN is AUTH's 404.
+// Priya, restricted to project PRJ-METRO on the real auth.Service, gets the
+// facts of Suresh's METRO-SITE GRN (project scope, not her own) and the 404
+// for the Administrator's TECH-SITE GRN. An unknown id is the 404 for the
+// unrestricted Administrator too, not the raw no-rows error.
+func TestGRN_FactsReadsLikeBillCard(t *testing.T) {
+	env := grntest.New(t)
+	po := g2RefPO(t, env)
+	g := env.GRN(t, env.Suresh, po.ID, g4Line1(po, "100"), doctype.StateApproved)
+	tech := g6TechPO(t, env)
+	hidden := env.GRN(t, env.Admin, tech.ID, g4Line1(tech, "100"), doctype.StateApproved)
+
+	if f, err := env.Service.Facts(t.Context(), env.Priya, g.ID); err != nil || f.SiteName != "METRO-SITE" {
+		t.Errorf("Priya, Suresh's METRO-SITE GRN: %+v %v, want its facts", f, err)
+	}
+	for _, c := range []struct {
+		name string
+		p    auth.Principal
+		id   int64
+	}{
+		{"Priya, the TECH-SITE GRN", env.Priya, hidden.ID},
+		{"Priya, an unknown id", env.Priya, 999999},
+		{"the Administrator, an unknown id", env.Admin, 999999},
+	} {
+		_, factsErr := env.Service.Facts(t.Context(), c.p, c.id)
+		_, cardErr := env.Service.BillCard(t.Context(), c.p, c.id)
+		if !errors.Is(factsErr, auth.ErrNotFound) || !errors.Is(cardErr, auth.ErrNotFound) {
+			t.Errorf("%s: Facts %v, BillCard %v; want auth.ErrNotFound from both", c.name, factsErr, cardErr)
+		}
+	}
+}
