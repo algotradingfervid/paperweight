@@ -633,3 +633,17 @@ PO spec §27. Each case cites its research scenario (`docs/research/2026-10-31-p
 - **Given** an approved cutover PO (Earlier PO no. `P-17`) with a line for 40 Bag and `already_received` 45 (PO-032's path: it warns and saves), and a second line for 40 Bag with `received_qty` 45 set through `purchasetest.SetReceived` **Then** the document page's line notes include "Over by 5 Bag" (`types.FormatQtyUoM`), pending reads 0, and the receipt status is `fully_received`. At 40 or below there is no Over by note. Both lines show the note. MOD-GRN's GRN-014 covers the real GRN path.
 - **Go test:** `TestPO_OverByLineNote`
 - **Sources:** PO spec §27.5; GRN spec §4; CD-234 (over-receipt warns only), CD-277
+
+### PO-086 · The PO Terms step folds rarely used fields into More details
+- **Priority:** P2
+- **Level:** integration
+- **Given** a PO's Terms step **When** Vendor quote ref, Earlier PO no. and Earlier PO date are empty **Then** they sit in one closed More details group named by its summary; a stored value, a typed value redrawn on 422 or an error on any of them opens it (CD-359 (7), P40).
+- **Go test:** `TestPO_TermsMoreDetails`
+- **Sources:** CD-359 (7); UI v2 §5.5 item 3
+
+### PO-087 · A purchase request line's note sits in More details
+- **Priority:** P2
+- **Level:** integration
+- **Given** a purchase request line **When** Note is empty **Then** it sits in a closed More details that opens on a value or an error.
+- **Go test:** `TestPR_LineNoteMoreDetails`
+- **Sources:** CD-359 (7)
