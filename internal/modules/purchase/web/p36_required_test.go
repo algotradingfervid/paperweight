@@ -164,7 +164,7 @@ func TestP36_DeclaredProps(t *testing.T) {
 	f := doctype.Field{Name: "vendor_address_id", Label: "Vendor address", Hint: "h", Tip: "Longer help.", Required: true}
 	want := components.FieldProps{ID: "f-x", Name: f.Name, Label: f.Label, Hint: "h", Tip: "Longer help.", Required: true}
 	if got := declaredProps(f, "f-x"); got.ID != want.ID || got.Name != want.Name || got.Label != want.Label ||
-		got.Hint != want.Hint || got.Tip != want.Tip || got.Required != want.Required || got.Optional {
+		got.Hint != want.Hint || got.Tip != want.Tip || got.Required != want.Required || got.Clearable {
 		t.Errorf("declaredProps = %+v, want %+v", got, want)
 	}
 

@@ -190,13 +190,13 @@ func (h *handlers) filterPage(w http.ResponseWriter, r *http.Request) {
 		for _, m := range c.Months {
 			months = append(months, components.Option{Value: m, Label: monthLabel(m)})
 		}
-		v.fields = append(v.fields, components.Select(components.FieldProps{ID: "f-month", Name: "month", Label: "Month", Value: q.Get("month"), Optional: true}, months))
+		v.fields = append(v.fields, components.Select(components.FieldProps{ID: "f-month", Name: "month", Label: "Month", Value: q.Get("month"), Clearable: true}, months))
 		if c.Types != nil {
 			kinds := []components.Option{{Value: "", Label: "Any type"}}
 			for _, t := range c.Types {
 				kinds = append(kinds, components.Option{Value: strconv.FormatInt(t.ID, 10), Label: t.Name})
 			}
-			v.fields = append(v.fields, components.Select(components.FieldProps{ID: "f-type", Name: "type", Label: "Type", Value: q.Get("type"), Optional: true}, kinds))
+			v.fields = append(v.fields, components.Select(components.FieldProps{ID: "f-type", Name: "type", Label: "Type", Value: q.Get("type"), Clearable: true}, kinds))
 		}
 		if h.canRead(ctx, p, project.DocType) {
 			v.fields = append(v.fields, picker("project", "Project", project.DocType, q, data.labels))
@@ -251,7 +251,7 @@ func (h *handlers) name(ctx context.Context, p auth.Principal, q url.Values, d *
 // chip is.
 func picker(key, label, docType string, q url.Values, labels map[string]string) templ.Component {
 	pp := components.PickerProps{
-		Field:     components.FieldProps{ID: "f-" + key, Label: label, Optional: true},
+		Field:     components.FieldProps{ID: "f-" + key, Label: label, Clearable: true},
 		SearchURL: "/pick/" + docType, HiddenName: key, ListboxID: "f-" + key + "-list",
 	}
 	if id, err := strconv.ParseInt(q.Get(key), 10, 64); err == nil {

@@ -36,7 +36,7 @@ const (
 // neither NonNegative nor Positive (CD-336 (2)); Date a DateInput with
 // d.Today; Timestamp read-only text. MST's master forms reuse it.
 func FieldInput(f doctype.Field, id, value, errMsg string, d Deps) templ.Component {
-	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Error: errMsg, Value: value, Required: f.Required, Optional: !f.Required}
+	p := components.FieldProps{ID: id, Name: f.Name, Label: f.Label, Hint: f.Hint, Tip: f.Tip, Error: errMsg, Value: value, Required: f.Required, Clearable: !f.Required}
 	if (f.Type == doctype.Money || f.Type == doctype.Qty || f.Type == doctype.Rate) && !f.NonNegative && !f.Positive {
 		p = components.Signed(p)
 	}
@@ -110,10 +110,14 @@ func searchURL(f doctype.Field) string {
 // linkInput is f's Picker. The chosen id is looked up when it renders, so
 // the summary shows the master's "{Code} {Name}" (CD-68). A posted id shows that
 // only if d.LinkRead lets the user read it; otherwise the raw id, as for an id
-// with no record (CD-233).
+// with no record (CD-233). On a document's header it offers recent picks.
 func linkInput(f doctype.Field, p components.FieldProps, d Deps) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		pp := components.PickerProps{Field: p, SearchURL: searchURL(f), HiddenName: f.Name, ListboxID: p.ID + "-list"}
+		recent, err := d.recentPicks(ctx, f)
+		if err != nil {
+			return err
+		}
+		pp := components.PickerProps{Field: p, SearchURL: searchURL(f), HiddenName: f.Name, ListboxID: p.ID + "-list", Recent: recent}
 		if id, err := strconv.ParseInt(p.Value, 10, 64); err == nil {
 			row := components.PickRow{ID: id, Code: p.Value}
 			if dt, ok := doctype.Lookup(f.Link); ok && dt.Master != nil && d.DB != nil {

@@ -174,6 +174,9 @@ var pickRows = []components.PickRow{
 	{ID: 4, Code: "BL-010", Name: "Bolt M8 × 40 mm", Line: "Fasteners · box of 100"},
 }
 
+// hostileName is markup as a name: every picker shows it as text.
+const hostileName = "<img src=x onerror=alert(1)>"
+
 // search returns the rows whose code or name contains q, ignoring case.
 func search(q string) []components.PickRow {
 	q = strings.ToLower(strings.TrimSpace(q))

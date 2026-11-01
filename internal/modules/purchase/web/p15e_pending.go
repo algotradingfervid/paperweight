@@ -232,7 +232,7 @@ func (h *handlers) pendingFilter(w http.ResponseWriter, r *http.Request) {
 			search += "?role=" + pf.role
 		}
 		pp := components.PickerProps{
-			Field:     components.FieldProps{ID: "f-" + pf.key, Label: pf.label, Optional: true},
+			Field:     components.FieldProps{ID: "f-" + pf.key, Label: pf.label, Clearable: true},
 			SearchURL: search, HiddenName: pf.key, ListboxID: "f-" + pf.key + "-list",
 		}
 		if id, err := strconv.ParseInt(q.Get(pf.key), 10, 64); err == nil {

@@ -92,9 +92,9 @@ templ rulePage(f ruleForm, docTypes []components.Option) {
 		@components.Select(components.FieldProps{ID: components.FieldID("doctype"), Name: "doctype", Label: "Document type", Value: f.DocType, Error: f.errFor("doctype")}, docTypes)
 		@components.MoneyInput(components.FieldProps{ID: components.FieldID("from_amount"), Name: "from_amount", Label: "From amount", Hint: "Documents of this amount or more need approval.", Value: f.FromAmount, Error: f.errFor("from_amount")})
 		@components.Radios(components.FieldProps{ID: components.FieldID("approver_type"), Name: "approver_type", Label: "Who approves", Value: f.ApproverType, Error: f.errFor("approver_type")}, approverOptions)
-		@components.TextInput(components.FieldProps{ID: components.FieldID("role"), Name: "role", Label: "Approver role", Hint: "For a user with a role.", Value: f.Role, Error: f.errFor("role"), Optional: true})
-		@components.TextInput(components.FieldProps{ID: components.FieldID("fallback_role"), Name: "fallback_role", Label: "Fallback role", Hint: "For the reporting manager: approves when the employee has no reporting manager.", Value: f.FallbackRole, Error: f.errFor("fallback_role"), Optional: true})
-		@components.Checkboxes(components.FieldProps{ID: components.FieldID("allow_self_approval"), Name: "allow_self_approval", Label: "Approving own documents", Optional: true}, selfOption, selfChecked(f))
+		@components.TextInput(components.FieldProps{ID: components.FieldID("role"), Name: "role", Label: "Approver role", Hint: "For a user with a role.", Value: f.Role, Error: f.errFor("role"), Clearable: true})
+		@components.TextInput(components.FieldProps{ID: components.FieldID("fallback_role"), Name: "fallback_role", Label: "Fallback role", Hint: "For the reporting manager: approves when the employee has no reporting manager.", Value: f.FallbackRole, Error: f.errFor("fallback_role"), Clearable: true})
+		@components.Checkboxes(components.FieldProps{ID: components.FieldID("allow_self_approval"), Name: "allow_self_approval", Label: "Approving own documents", Clearable: true}, selfOption, selfChecked(f))
 		@components.ActionBar(components.ActionBarProps{
 			Primary:   &components.ButtonProps{Label: "Save rule", Variant: components.Primary},
 			Secondary: &components.ButtonProps{Label: "Cancel", Href: rulesPath},
