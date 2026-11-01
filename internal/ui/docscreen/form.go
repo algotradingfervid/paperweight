@@ -215,12 +215,21 @@ func postedVersion(w http.ResponseWriter, r *http.Request) (int, bool) {
 // otherwise. Callers check the user's right first and call it before any
 // hook or parse, so a stale page gets DOC's 409, never a 422 (CD-335, CD-259).
 // The refusal is the engine's own: it is asked to save rec's stored lines
-// and nothing else, which it refuses before writing.
+// and nothing else at a version the record can't hold, so it refuses before
+// writing: past draft with its state text, else with its stale text. That
+// is the posted version only when it is behind the stored one (versions only
+// grow, CD-94); any other is never sent, since a concurrent save could reach
+// it and the stale lines would be saved: it is asked at version 0, which no
+// record holds (versions start at 1), with the same stale text.
 func (d Deps) moved(r *http.Request, dt *doctype.DocType, rec doc.Record, version int) error {
 	if rec.Version == version && rec.Info.State == doctype.StateDraft {
 		return nil
 	}
-	_, err := d.Engine.Do(r.Context(), d.principal(r), dt.Name, rec.Info.ID, doctype.ActionSave, doc.ActionInput{Version: version, Lines: rec.Lines, Only: []string{}})
+	behind := 0
+	if version < rec.Version {
+		behind = version
+	}
+	_, err := d.Engine.Do(r.Context(), d.principal(r), dt.Name, rec.Info.ID, doctype.ActionSave, doc.ActionInput{Version: behind, Lines: rec.Lines, Only: []string{}})
 	return err
 }
 

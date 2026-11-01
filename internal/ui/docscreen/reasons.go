@@ -32,12 +32,13 @@ type reasonPage struct {
 	button    string // "{button}" or, with withLabel, "{button} {label, lower}"
 	withLabel bool
 	danger    bool
+	state     doctype.State // where the action is offered; with a reason only
 }
 
 var reasonPages = map[string]reasonPage{
-	"reject": {action: doctype.ActionReject, right: "approve", verb: "Reject", label: "Reason for rejecting", maxLen: 1000, button: "Reject and send back"},
-	"cancel": {action: doctype.ActionCancel, right: "cancel", verb: "Cancel", label: "Reason for cancelling", maxLen: 500, button: "Cancel", withLabel: true, danger: true},
-	"close":  {action: doctype.ActionClose, verb: "Close", label: "Reason for closing", maxLen: 500, button: "Close", withLabel: true},
+	"reject": {action: doctype.ActionReject, right: "approve", verb: "Reject", label: "Reason for rejecting", maxLen: 1000, button: "Reject and send back", state: doctype.StatePending},
+	"cancel": {action: doctype.ActionCancel, right: "cancel", verb: "Cancel", label: "Reason for cancelling", maxLen: 500, button: "Cancel", withLabel: true, danger: true, state: doctype.StateApproved},
+	"close":  {action: doctype.ActionClose, verb: "Close", label: "Reason for closing", maxLen: 500, button: "Close", withLabel: true, state: doctype.StateApproved},
 	"delete": {action: doctype.ActionDelete, right: "delete", button: "Delete draft", danger: true},
 }
 
@@ -89,6 +90,50 @@ func (d Deps) reasonGet(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		return
 	}
 	ui.Render(w, r, http.StatusOK, reasonPageFull(rv), reasonPageMain(rv))
+}
+
+// emptyReason answers a reason page posted with no reason. The load, the
+// page's right, the version and the state come first (CD-335, CD-259): a
+// user who can't see the record gets its 404, one without the right AUTH's
+// 403, and a stale page or a document past the page's state DOC's 409, asked
+// of the engine with the empty reason, which it refuses before writing
+// whatever it finds. Only then is the missing reason the problem.
+func (d Deps) emptyReason(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, name string, rp reasonPage, version int) {
+	ctx, p := r.Context(), d.principal(r)
+	refuse := func(err error) {
+		pr, ok := Classify(err)
+		if !ok {
+			web.ErrorFrom(w, r, err)
+			return
+		}
+		d.reasonPost(w, r, dt, id, name, rp, version, pr)
+	}
+	right := rp.right
+	if rp.action == doctype.ActionClose {
+		right, _ = closeRight(dt.Name) // actionPost answered CloseNone
+	}
+	v, err := d.View(ctx, p, dt.Name, id)
+	if err != nil {
+		problem(w, r, err)
+		return
+	}
+	if err := d.Auth.Can(ctx, p, dt.Name, right, &v.Record); err != nil {
+		refuse(err)
+		return
+	}
+	if v.Version != version || v.Info.State != rp.state {
+		res, err := d.Engine.Do(ctx, p, dt.Name, id, rp.action, doc.ActionInput{Version: version})
+		if err != nil {
+			refuse(err)
+			return
+		}
+		d.succeeded(w, r, dt, id, rp.action, res, "")
+		return
+	}
+	d.reasonPost(w, r, dt, id, name, rp, version, Problem{
+		Status: http.StatusUnprocessableEntity,
+		Fields: []doctype.FieldError{{Field: "reason", Message: "Enter a reason."}},
+	})
 }
 
 // reasonPost re-renders the page after a refused POST, keeping the typed

@@ -3,6 +3,7 @@ package docscreen_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html"
 	"io"
 	"net/http"
@@ -16,14 +17,17 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/vardhan/internaltools/internal/fixture"
+	"github.com/vardhan/internaltools/internal/fixture/fixturetest"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
+	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
 // M0-56: docscreen checks the load, the right, the posted version and the
@@ -177,7 +181,7 @@ func TestStale56_ConflictBeforeParseAndHooks(t *testing.T) {
 func TestStale56_StateBeforeParseAndHooks(t *testing.T) {
 	for _, p := range m56Posts {
 		t.Run(p.name, func(t *testing.T) {
-			e, _, id := m02Env(t)
+			e, spy, id := m02Env(t)
 			h := &m56Hooks{}
 			if p.hooked {
 				m02Mount(e, m56Module(h))
@@ -202,6 +206,13 @@ func TestStale56_StateBeforeParseAndHooks(t *testing.T) {
 			}
 			if s, l := h.calls(); s+l != 0 {
 				t.Errorf("POST %s on a submitted document ran the module's save %d times, want none", p.path, s+l)
+			}
+			// The check never asks the engine at the stored version, which a
+			// save could pass (CD-335).
+			for _, c := range spy.take() {
+				if c.ID == id && c.In.Version == res.Version {
+					t.Errorf("POST %s asked the engine at the stored version %d: %+v", p.path, res.Version, c)
+				}
 			}
 			m02WantUnchanged(t, e, id, before, audits, "POST "+p.path+" on a submitted document")
 			// A line page's refusal on a document past draft goes to its
@@ -421,4 +432,198 @@ func TestStale56_StepPostGoneOnLoad(t *testing.T) {
 	if got := m02Count(t, e); got != count {
 		t.Errorf("Hooked documents = %d, want %d: nothing created", got, count)
 	}
+}
+
+// m56ReasonDoc is a fixture.Order by Priya in state s (pending or
+// approved). It returns its id.
+func m56ReasonDoc(t *testing.T, e *m15OrderEnv, s doctype.State) int64 {
+	t.Helper()
+	e.fx.Approvals.Needed = func(string, types.Money) bool { return s == doctype.StatePending }
+	priya := m15Load(t, e.a, e.fx.Priya.ID)
+	res := e.fx.NewOrder(t, priya, fixturetest.OL{Item: "CEMENT-OPC", Qty: "10.000", Rate: "350.0000"})
+	sub, err := e.fx.Engine.Do(t.Context(), priya, fixture.Order, res.ID, doc.ActionSubmit, doc.ActionInput{Version: res.Version})
+	if err != nil || sub.State != s {
+		t.Fatalf("submitting order %d: state %s, err %v; want %s", res.ID, sub.State, err, s)
+	}
+	return res.ID
+}
+
+// HOOK-056j (CD-335, CD-259): a reason page posted with no reason checks
+// the load, the page's right, the version and the state before the missing
+// reason, on the real auth.Service and engine (fixture.Order, default
+// rights), for reject, cancel and close: a user with read only gets AUTH's
+// 403, a stale page DOC's 409, a document in the other state DOC's 409, and
+// only then is "Enter a reason." the 422. Nothing is written.
+func TestStale56_EmptyReasonOrder(t *testing.T) {
+	for _, c := range []struct {
+		action       string
+		act          doctype.Action
+		state, else_ doctype.State
+	}{
+		{"reject", doctype.ActionReject, doctype.StatePending, doctype.StateApproved},
+		{"cancel", doctype.ActionCancel, doctype.StateApproved, doctype.StatePending},
+		{"close", doctype.ActionClose, doctype.StateApproved, doctype.StatePending},
+	} {
+		t.Run(c.action, func(t *testing.T) {
+			e := m15NewOrderEnv(t)
+			ctx := t.Context()
+			if err := e.a.CreateRole(ctx, e.fx.Admin, "M56 Reader"); err != nil {
+				t.Fatalf("CreateRole: %v", err)
+			}
+			if err := e.a.SetRights(ctx, e.fx.Admin, "M56 Reader", fixture.Order, map[auth.Right]auth.Scope{"read": auth.ScopeAll}); err != nil {
+				t.Fatalf("SetRights: %v", err)
+			}
+			reader := m15User(t, e.a, e.fx.Admin, "m56-reader@vardhan.test", "M56 Reader")
+			admin := m15Load(t, e.a, e.fx.Admin.ID)
+			id := m56ReasonDoc(t, e, c.state)
+			other := m56ReasonDoc(t, e, c.else_)
+			u := m15DocURL(fixture.Order, id) + "/" + c.action
+			before := e.fx.Record(t, fixture.Order, id)
+			empty := func(path string, version int) *httptest.ResponseRecorder {
+				return e.post(t, path, url.Values{"version": {strconv.Itoa(version)}, "reason": {"  "}})
+			}
+			// DOC's own refusal of the action with a reason at version.
+			refusal := func(docID int64, version int) string {
+				_, err := e.fx.Engine.Do(ctx, admin, fixture.Order, docID, c.act, doc.ActionInput{Version: version, Reason: "m56 reason"})
+				if err == nil {
+					t.Fatalf("the engine took %s on order %d at version %d, want its refusal", c.action, docID, version)
+				}
+				return err.Error()
+			}
+			want := func(rec *httptest.ResponseRecorder, code int, text, what string) {
+				t.Helper()
+				if rec.Code != code {
+					t.Errorf("%s = %d, want %d; body %.400s", what, rec.Code, code, rec.Body)
+					return
+				}
+				if got := norm(html.UnescapeString(rec.Body.String())); !strings.Contains(got, text) {
+					t.Errorf("%s lacks %q; body %.600s", what, text, got)
+				}
+			}
+
+			e.who = reader
+			if rec := empty(u, before.Version); rec.Code != http.StatusForbidden {
+				t.Errorf("reader's empty %s = %d, want AUTH's 403; body %.400s", c.action, rec.Code, rec.Body)
+			}
+			e.who = admin
+			if c.act != doctype.ActionClose {
+				// Purchase User holds submit (the close right) but not approve
+				// or cancel: the page's own right decides.
+				e.who = m15Load(t, e.a, e.fx.Priya.ID)
+				if rec := empty(u, before.Version); rec.Code != http.StatusForbidden {
+					t.Errorf("Purchase User's empty %s = %d, want AUTH's 403; body %.400s", c.action, rec.Code, rec.Body)
+				}
+			}
+			e.who = admin
+			stale := empty(u, before.Version-1)
+			want(stale, http.StatusConflict, refusal(id, before.Version-1), "stale empty "+c.action)
+			if stale.Code == http.StatusConflict && uitest.Doc(t, stale).Find(`textarea[name="reason"]`).Length() != 1 {
+				t.Errorf("stale empty %s: the 409 doesn't redraw the reason page", c.action)
+			}
+			otherVersion := e.fx.Record(t, fixture.Order, other).Version
+			want(empty(m15DocURL(fixture.Order, other)+"/"+c.action, otherVersion), http.StatusConflict, refusal(other, otherVersion), "empty "+c.action+" on a document "+string(c.else_))
+			want(empty(u, before.Version), http.StatusUnprocessableEntity, "Enter a reason.", "empty "+c.action)
+			if got := e.fx.Record(t, fixture.Order, id); got.Version != before.Version || got.Info.State != before.Info.State {
+				t.Errorf("the empty %s posts wrote: version %d state %s, want %d %s", c.action, got.Version, got.Info.State, before.Version, before.Info.State)
+			}
+		})
+	}
+}
+
+// HOOK-056k (CD-335): a user who can't see the document posting an empty
+// reason gets the missing record's 404 first, before the page's right: this
+// one (read only, restricted to TECH-SITE; the draft is on METRO-SITE) holds
+// none of the actions' rights. Real auth.Service.
+func TestStale56_EmptyReasonHidden(t *testing.T) {
+	e, _, id := m02Env(t)
+	a, ok := e.d.Auth.(*auth.Auth)
+	if !ok {
+		t.Fatalf("Auth is %T, want the real *auth.Auth", e.d.Auth)
+	}
+	ctx := t.Context()
+	if err := a.CreateRole(ctx, e.fx.Admin, "M56 Viewer"); err != nil {
+		t.Fatalf("CreateRole: %v", err)
+	}
+	if err := a.SetRights(ctx, e.fx.Admin, "M56 Viewer", docscreentest.Hooked, map[auth.Right]auth.Scope{"read": auth.ScopeAll}); err != nil {
+		t.Fatalf("SetRights: %v", err)
+	}
+	viewer := m15User(t, a, e.fx.Admin, "m56-viewer@vardhan.test", "M56 Viewer")
+	if err := a.ChangeRestrictions(ctx, e.fx.Admin, viewer.ID, auth.DimSite, []int64{e.site["TECH-SITE"]}, nil, nil); err != nil {
+		t.Fatalf("ChangeRestrictions: %v", err)
+	}
+	e.who = m15Load(t, a, viewer.ID)
+	version := strconv.Itoa(m02Rec(t, e, id).Version)
+	for _, action := range []string{"close", "cancel", "reject"} {
+		rec := e.post(t, m02URL(id)+"/"+action, url.Values{"version": {version}, "reason": {""}})
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("hidden empty %s = %d, want 404; body %.300s", action, rec.Code, rec.Body)
+		}
+	}
+}
+
+// CD-335: an engine error with no status, met by the empty-reason checks,
+// is a plain 500.
+func TestStale56_EmptyReasonPlainError(t *testing.T) {
+	e := newDocEnv(t, allRights...)
+	e.seed(doctype.StatePending)
+	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionReject, doc.Result{}, errors.New("m56 disk on fire"))
+	rec := e.post(t, doc42+"/reject", url.Values{"version": {"2"}, "reason": {""}})
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("empty reject meeting a plain engine error = %d, want 500; body %.300s", rec.Code, rec.Body)
+	}
+}
+
+// CD-335: when the engine takes the action the stale check asked about (a
+// fake that accepts any version), the page answers as for any done action.
+func TestStale56_EmptyReasonEngineTakes(t *testing.T) {
+	e := newDocEnv(t, allRights...)
+	e.seed(doctype.StatePending)
+	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionReject, doc.Result{ID: 42, State: doctype.StateRejected, Version: 4}, nil)
+	rec := e.post(t, doc42+"/reject", url.Values{"version": {"2"}, "reason": {""}})
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("empty reject the fake engine takes = %d, want the done action's 303; body %.300s", rec.Code, rec.Body)
+	}
+}
+
+// CD-348, CD-346: a 5xx refusal (DOC's busy 503) sends no notice; the
+// network banner answers it.
+func TestStale56_BusyNoNotice(t *testing.T) {
+	for _, status := range []int{http.StatusInternalServerError, http.StatusServiceUnavailable} {
+		e := newDocEnv(t, allRights...)
+		e.seed(doctype.StateDraft)
+		e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSubmit, doc.Result{}, statusErr{status: status, msg: "m56 server"})
+		rec := e.post(t, doc42+"/submit", url.Values{}, "HX-Request", "true")
+		if rec.Code != status {
+			t.Fatalf("htmx submit refused with %d = %d", status, rec.Code)
+		}
+		if got := rec.Header().Get("HX-Trigger"); got != "" {
+			t.Errorf("htmx submit refused with %d sent HX-Trigger %q, want none", status, got)
+		}
+	}
+}
+
+// CD-335: a posted version above the stored one (forged) is DOC's stale 409,
+// and the engine is never asked at that version, so a save racing up to it
+// can't save stale lines.
+func TestStale56_ForgedVersion(t *testing.T) {
+	e, spy, id := m02Env(t)
+	stored := m02Rec(t, e, id)
+	forged := stored.Version + 1
+	want := m56Refusal(t, e, id, stored.Version-1)
+	audits := len(e.fx.Audit(t, docscreentest.Hooked, id))
+	spy.take()
+	for _, path := range []string{"/edit/details", "/lines/1"} {
+		rec := e.post(t, m02URL(id)+path, url.Values{"version": {strconv.Itoa(forged)}, "qty": {"m56-x"}, "supplier_id": {"m56-x"}})
+		if rec.Code != http.StatusConflict {
+			t.Errorf("forged POST %s = %d, want DOC's 409", path, rec.Code)
+		} else if got := norm(html.UnescapeString(rec.Body.String())); !strings.Contains(got, want) {
+			t.Errorf("forged POST %s lacks DOC's %q", path, want)
+		}
+	}
+	for _, c := range spy.take() {
+		if c.In.Version >= forged {
+			t.Errorf("engine asked at version %d, want below the forged %d: %+v", c.In.Version, forged, c)
+		}
+	}
+	m02WantUnchanged(t, e, id, stored, audits, "forged POSTs")
 }

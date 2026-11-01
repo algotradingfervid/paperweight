@@ -199,10 +199,7 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 		if rp.label != "" {
 			in.Reason = trimReason(r.PostFormValue("reason"))
 			if in.Reason == "" {
-				d.reasonPost(w, r, dt, id, name, rp, version, Problem{
-					Status: http.StatusUnprocessableEntity,
-					Fields: []doctype.FieldError{{Field: "reason", Message: "Enter a reason."}},
-				})
+				d.emptyReason(w, r, dt, id, name, rp, version)
 				return
 			}
 		}

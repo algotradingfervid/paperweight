@@ -270,8 +270,9 @@ func TestWizardForm_EnterSubmitsPrimary(t *testing.T) {
 
 // Finding 6 (CD-94): a header-step save sends the version the page posted,
 // never the one loaded from the record. The fake engine takes any version,
-// so docscreen's stale check (CD-335), which asks the engine, passes here:
-// every call it makes carries the posted version.
+// so docscreen's stale check (CD-335), which asks the engine at the posted
+// version, behind the stored one, passes here: every call carries the
+// posted version.
 func TestWizardForm_HeaderSaveUsesPostedVersion(t *testing.T) {
 	e := newFormEnv(t, allRights...)
 	rec := sampleRecord()

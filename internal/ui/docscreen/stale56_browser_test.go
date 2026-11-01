@@ -33,8 +33,8 @@ func m56Server(t *testing.T, h func() http.Handler) string {
 // HOOK-056g (CD-348, PUX-008, CD-346): Priya opens her draft's Details
 // step; it is handed over to another buyer; her Save and continue is
 // refused with AUTH's 403, which htmx doesn't swap, and the page shows
-// AUTH's text as the one alert in #alerts. The step stays on screen and no
-// other banner appears.
+// AUTH's text as the one alert in #alerts. The step stays on screen, no
+// other alert appears and #network (the network banner) stays empty.
 func TestStaleBrowser56_HandOverNotice(t *testing.T) {
 	ctx := uibrowser.New(t)
 	csp := uibrowser.CSPProblems(ctx)
@@ -64,6 +64,14 @@ func TestStaleBrowser56_HandOverNotice(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("#alerts holds %d banners, want only the refusal's notice", n)
+	}
+	// The network banner draws in #network; a 4xx never shows it (CD-346).
+	banner, err := m26Step(ctx, "read the network region", chromedp.Evaluate[string](`(() => { const n = document.getElementById("network"); return n ? "found:" + n.innerHTML.trim() : "missing"; })()`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if banner != "found:" {
+		t.Errorf("#network = %q after the 403, want it present and empty", banner)
 	}
 	heading, err := m26Step(ctx, "read the heading", chromedp.Text(chromedp.CSS("h1#step-title")))
 	if err != nil {

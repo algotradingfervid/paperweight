@@ -219,12 +219,13 @@ func problem(w http.ResponseWriter, r *http.Request, err error) {
 	ui.Render(w, r, pr.Status, problemPage(pr), problemMain(pr))
 }
 
-// notice sends an htmx write's refusal whose status htmx doesn't swap
+// notice sends an htmx write's 4xx refusal whose status htmx doesn't swap
 // (anything but 409 and 422, layout's htmxConfig) also as an alert notice
-// with its own message, so the user sees why (CD-348). It sets a header, so
-// it goes before the response starts.
+// with its own message, so the user sees why (CD-348). A 5xx gets none: the
+// network banner answers it (CD-346). It sets a header, so it goes before
+// the response starts.
 func notice(w http.ResponseWriter, r *http.Request, pr Problem) {
-	if ui.IsHTMX(r) && r.Method == http.MethodPost && pr.Status != http.StatusConflict && pr.Status != http.StatusUnprocessableEntity {
+	if ui.IsHTMX(r) && r.Method == http.MethodPost && pr.Status < http.StatusInternalServerError && pr.Status != http.StatusConflict && pr.Status != http.StatusUnprocessableEntity {
 		web.SetNotice(w.Header(), "error", pr.Message)
 	}
 }
