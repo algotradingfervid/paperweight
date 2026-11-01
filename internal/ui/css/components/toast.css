@@ -5,5 +5,5 @@
   inset-inline-end: calc(var(--space-4) + var(--safe-right));
   bottom: calc(var(--space-4) + var(--safe-bottom));
   max-inline-size: calc(100% - var(--space-8));
-  & > .alert { box-shadow: var(--shadow-2); }
+  & > .alert { box-shadow: var(--shadow-pop); }
 }

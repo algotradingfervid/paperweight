@@ -8,3 +8,9 @@
   & > * { min-inline-size: 0; }
   & > a { display: inline-flex; align-items: center; justify-content: center; min-block-size: var(--target-min); min-inline-size: var(--target-min); }
 }
+/* Cards are flat: white on the canvas, the subtle border and --shadow-card (UI v2 §5.1). */
+@utility card {
+  background-color: var(--color-surface);
+  border: var(--border-w) solid var(--color-border-subtle);
+  box-shadow: var(--shadow-card);
+}
