@@ -72,7 +72,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-004 · Unknown email gets exactly the same response as a wrong password
 - **Priority:** P1
 - **Level:** integration
-- **Given** no user `nobody@vardhan.test` **When** someone signs in with it **Then** the status (401), the body text "Invalid email or password." and the response headers equal those for AUTH-003, apart from the CSRF token.
+- **Given** no user `nobody@vardhan.test` **When** someone signs in with it **Then** the status (401), the body text "Invalid email or password." and the response headers equal those for AUTH-003, apart from the CSRF token and the email box, which keeps the email the user typed (CD-361).
 - **Go test:** `TestLogin_UnknownEmailSameResponse`
 - **Sources:** `frappe/frappe/auth.py:297`, `frappe/frappe/tests/test_auth.py:104` (`test_locked_account_response_matches_unknown_account`), `frappe/frappe/tests/test_auth.py:141` (`test_unknown_account_login_without_lock_interval`)
 
