@@ -20,8 +20,8 @@
   "max_parallel_agents": 25,
   "assistant_directors": {
     "head": {
-      "workers": 2,
-      "does": "merges, decision log, PROGRESS.md, escalations, D0, U1/U2, owner"
+      "workers": 7,
+      "does": "merges, decision log, PROGRESS.md, escalations, D0, U1/U2, owner, UI v2 build (CD-341), head-lane M0 tasks"
     },
     "AD-9": {
       "wps": [
@@ -31,9 +31,9 @@
     },
     "AD-10": {
       "wps": [
-        "mod0-hooks (M0-1..M0-5)"
+        "mod0-hooks (done)"
       ],
-      "workers": 5
+      "workers": 0
     },
     "AD-11": {
       "wps": [
