@@ -62,7 +62,7 @@ type sweepState struct {
 	master   map[string]int64               // record id by /m/ slug
 	purchase int64                          // a purchase.Order draft of Priya's (P15e)
 	exp      map[string]docscreen.SampleIDs // expense.Claim and expense.Advance (CD-298)
-	grn      docscreen.SampleIDs            // goodsreceipt.Receipt (CD-298)
+	grn      grnSamples                     // goodsreceipt.Receipt (CD-298, MOD-GRN S5)
 	unpaid   int64                          // an approved advance not marked as paid (MOD-EXP S3)
 	po       purchaseSamples                // purchase.Order and purchase.Request (P16)
 }
@@ -146,7 +146,7 @@ func (h *Harness) prepareSweep() sweepState {
 	s.pr = h.purchaseRequest()
 	s.purchase = h.purchaseDraft()
 	s.exp, s.unpaid = h.expenseSamples(s.long)
-	s.grn = h.grnSamples()
+	s.grn = h.grnSamples(s.long)
 	s.po = h.purchaseSamples(s.long)
 	return s
 }

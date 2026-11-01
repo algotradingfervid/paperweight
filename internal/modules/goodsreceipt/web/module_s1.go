@@ -395,25 +395,33 @@ func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 	return docscreen.Save{Values: values, Lines: lines}, nil
 }
 
-// deliveryForm is step 2's inputs; Show holds the fields Hide shows (the
-// tick is always drawn, UX doc §5.6).
+// deliveryForm is step 2's inputs: the shown ones in field order, the
+// Field.More ones left out to More.
 type deliveryForm struct {
-	ServiceOnly                        bool
-	Show                               map[string]bool
-	Kind, Number, Vehicle, Transporter components.FieldProps
-	EWay, Remarks, Rest                components.FieldProps
-	Date                               components.DateProps
-	RestChecked                        []string
+	Inputs []templ.Component
+	More   moreFields
+}
+
+// moreFields gathers step 2's Field.More inputs for one MoreDetails after
+// the others, as docscreen's moreBox does (UI v2 §5.5 item 3).
+type moreFields struct {
+	labels []string
+	inputs []templ.Component
+	open   bool
+}
+
+// add puts f's input in, as shown with value and errMsg; either opens the
+// group.
+func (m *moreFields) add(f doctype.Field, value, errMsg string, in templ.Component) {
+	m.labels = append(m.labels, f.Label)
+	m.inputs = append(m.inputs, in)
+	m.open = m.open || value != "" || errMsg != ""
 }
 
 // deliveryBody draws step 2 from the post on a redraw, else from the draft
 // (UX doc §5.3). A field submit requires of this draft is marked required
 // as a declared one is (goodsreceipt.SubmitRequired).
 func (m *module) deliveryBody(c docscreen.Ctx, s docscreen.StepState) (templ.Component, error) {
-	only, err := m.serviceOnly(c)
-	if err != nil {
-		return nil, err
-	}
 	facts, err := m.receiptFacts(c)
 	if err != nil {
 		return nil, err
@@ -428,24 +436,37 @@ func (m *module) deliveryBody(c docscreen.Ctx, s docscreen.StepState) (templ.Com
 	upper := func(max string) templ.Attributes {
 		return templ.Attributes{"maxlength": max, "autocapitalize": "characters", "spellcheck": "false"}
 	}
-	d := deliveryForm{
-		ServiceOnly: only,
-		Kind:        field("challan_kind", "Document with the goods", "", nil),
-		Number:      field("challan_no", "Challan or invoice no.", hintNumber, upper("40")),
-		Date:        dateProps(c, s, components.FieldProps{Name: "challan_date", Label: "Challan date", Hint: hintDate}),
-		Vehicle:     field("vehicle_no", "Vehicle no.", "", upper("20")),
-		Transporter: field("transporter", "Transporter", "", templ.Attributes{"maxlength": "140"}),
-		EWay:        field("eway_bill_no", "E-way bill no.", "", templ.Attributes{"maxlength": "20", "inputmode": "numeric"}),
-		Remarks:     field("remarks", "Remarks", hintRemarks, nil),
-		Rest:        field("rest_not_coming", "", "", nil),
+	var d deliveryForm
+	add := func(p components.FieldProps, in templ.Component) {
+		f, _ := c.DT.Field(p.Name)
+		switch {
+		case !shown(c, f.Name):
+		case f.More:
+			d.More.add(f, p.Value, p.Error, in)
+		default:
+			d.Inputs = append(d.Inputs, in)
+		}
 	}
-	if ticked(d.Rest.Value) {
-		d.RestChecked = []string{"1"}
+	kind := field("challan_kind", "Document with the goods", "", nil)
+	add(kind, components.Radios(kind, kindOptions))
+	number := field("challan_no", "Challan or invoice no.", hintNumber, upper("40"))
+	add(number, components.TextInput(number))
+	date := dateProps(c, s, components.FieldProps{Name: "challan_date", Label: "Challan date", Hint: hintDate})
+	add(date.FieldProps, components.DateInput(date))
+	vehicle := field("vehicle_no", "Vehicle no.", "", upper("20"))
+	add(vehicle, components.TextInput(vehicle))
+	transporter := field("transporter", "Transporter", "", templ.Attributes{"maxlength": "140"})
+	add(transporter, components.TextInput(transporter))
+	eway := field("eway_bill_no", "E-way bill no.", "", templ.Attributes{"maxlength": "20", "inputmode": "numeric"})
+	add(eway, components.TextInput(eway))
+	remarks := field("remarks", "Remarks", hintRemarks, nil)
+	add(remarks, components.Textarea(remarks, remarksMax))
+	rest := field("rest_not_coming", "", "", nil)
+	var checked []string
+	if ticked(rest.Value) {
+		checked = []string{"1"}
 	}
-	d.Show = map[string]bool{}
-	for _, name := range append(slices.Clone(documentFields), "remarks") {
-		d.Show[name] = shown(c, name)
-	}
+	d.Inputs = append(d.Inputs, components.Checkboxes(rest, restOptions, checked)) // drawn whatever Hide says (UX doc §5.6)
 	return deliveryView(d), nil
 }
 

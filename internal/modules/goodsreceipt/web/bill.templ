@@ -11,6 +11,9 @@ import "github.com/vardhan/internaltools/internal/ui/components"
 templ billCard(v billView) {
 	<div id="bill">
 		@components.CardWith(components.CardProps{Title: billTitle, Change: v.Change, FocusHeading: v.Saved}) {
+			if v.Conflict != "" {
+				@components.ConflictBanner(v.Conflict, billTitle, v.Reload)
+			}
 			if v.Msg != nil {
 				@components.Banner(*v.Msg)
 			}
