@@ -1,0 +1,15 @@
+package siteweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// deliveryCard is the record page's delivery address and contact (CD-337
+// (1)); change is nil for a user who can't write the site.
+templ deliveryCard(pairs []components.Pair, change *components.Link) {
+	@components.Card("Delivery address", change) {
+		if len(pairs) == 0 {
+			<p>No delivery address yet.</p>
+		} else {
+			@components.SummaryList(pairs)
+		}
+	}
+}

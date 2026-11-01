@@ -39,6 +39,7 @@ const (
 	msgContactMoved    = "The owner of a contact can't be changed."
 	msgContactOwner    = "A contact must belong to one party or one branch."
 	msgContactNotFound = "Contact not found. Pick one from the list."
+	msgSiteContact     = "This contact is a site's delivery contact. Change it on the site." // CD-356 (3)
 
 	phoneKindMobile   = "mobile"
 	phoneKindLandline = "phone"
@@ -73,7 +74,8 @@ func init() {
 // Contact is one Contact record with its emails and phones.
 type Contact struct {
 	ID                              int64
-	PartyID, BranchID               int64 // exactly one is set
+	PartyID, BranchID               int64 // exactly one is set, or neither for a site's contact
+	SiteID                          int64 // a site's delivery contact (CD-337 (1)); only the site changes it
 	FirstName, MiddleName, LastName string
 	Emails                          []EmailInput
 	Phones                          []PhoneInput
@@ -363,6 +365,9 @@ func (s *Service) SetContactDisabledTx(ctx context.Context, tx *db.Tx, p auth.Pr
 	if err != nil {
 		return err
 	}
+	if err := siteOwned(c.SiteID, msgSiteContact); err != nil {
+		return err
+	}
 	if err := s.env.SetDisabledTx(ctx, tx, p, ContactKind, id, version, disabled); err != nil {
 		return err
 	}
@@ -391,6 +396,9 @@ func (s *Service) DeleteContactTx(ctx context.Context, tx *db.Tx, p auth.Princip
 	if err != nil {
 		return err
 	}
+	if err := siteOwned(c.SiteID, msgSiteContact); err != nil {
+		return err
+	}
 	if err := s.env.DeleteTx(ctx, tx, p, ContactKind, id, version); err != nil {
 		return err
 	}
@@ -412,6 +420,8 @@ func (s *Service) SetPrimaryContactTx(ctx context.Context, tx *db.Tx, p auth.Pri
 		return es.Err()
 	case err != nil:
 		return err
+	case c.SiteID != 0:
+		return siteOwned(c.SiteID, msgSiteContact)
 	case c.PartyID != partyID:
 		es.Add("contact_id", msgContactBelong)
 		return es.Err()
@@ -448,7 +458,7 @@ func (s *Service) GetContact(ctx context.Context, tx *db.Tx, id int64) (Contact,
 		return Contact{}, err
 	}
 	c := Contact{
-		ID: r.ID, PartyID: r.PartyID.Int64, BranchID: r.BranchID.Int64,
+		ID: r.ID, PartyID: r.PartyID.Int64, BranchID: r.BranchID.Int64, SiteID: r.SiteID.Int64,
 		FirstName: r.FirstName, MiddleName: r.MiddleName, LastName: r.LastName,
 		Primary: r.IsPrimary != 0, Disabled: r.Disabled != 0, Version: int(r.Version),
 	}

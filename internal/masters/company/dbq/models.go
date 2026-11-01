@@ -12,6 +12,7 @@ type Address struct {
 	ID                int64
 	PartyID           sql.NullInt64
 	BranchID          sql.NullInt64
+	SiteID            sql.NullInt64
 	Name              string
 	Title             string
 	Line1             string
@@ -64,6 +65,7 @@ type Contact struct {
 	ID         int64
 	PartyID    sql.NullInt64
 	BranchID   sql.NullInt64
+	SiteID     sql.NullInt64
 	Name       string
 	FirstName  string
 	MiddleName string
