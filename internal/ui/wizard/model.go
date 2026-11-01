@@ -57,7 +57,8 @@ const (
 // (forms can't nest). Below renders after the action bar, last in #wizard and
 // outside the step form, so Enter in a field can't press it. LastLabel replaces the mode's required last step label
 // for a wizard that ends in something else (the master import ends in
-// "Import", design-system §8.7).
+// "Import", design-system §8.7). Close is where the wizard head's × goes
+// (where the wizard was opened from); "" shows no ×.
 type Model struct {
 	Mode                               Mode
 	Title, DocLabel, BaseURL, ReturnTo string
@@ -70,6 +71,7 @@ type Model struct {
 	Stored                             []string // a draft's stored problems: shown, but no failed step
 	Conflict, ReloadURL                string
 	Action, Target                     string
+	Close                              string
 	After, Below                       templ.Component
 }
 

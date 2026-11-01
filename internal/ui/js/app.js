@@ -57,3 +57,18 @@ document.addEventListener("keydown", function (evt) {
 document.addEventListener("htmx:afterSettle", function (evt) {
   evt.target.querySelector?.("[data-focus-heading]")?.focus();
 });
+
+// A step save's HX-Trigger saved (wizard.Respond) writes "Saved {HH:MM}"
+// into the save cue's live region; hx-preserve keeps it across the swap.
+addEventListener("saved", function (evt) {
+  document.getElementById("saved-at")?.replaceChildren(evt.detail.value);
+});
+
+
+// A focused wizard field the sticky footer or wizard head covers scrolls
+// clear of them: "nearest" honours html's scroll-padding-block, which
+// focus() alone ignores when the field is inside the viewport (A-12,
+// CD-374: measured in TestE2E_FooterNeverCoversFields).
+addEventListener("focusin", function (evt) {
+  evt.target.closest("#wizard .field")?.scrollIntoView({ block: "nearest" });
+});

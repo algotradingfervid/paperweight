@@ -55,6 +55,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
 const (
@@ -94,7 +95,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Use(ui.ShellMiddleware(a.shell), web.ProblemPages(problemPage))
+		r.Use(ui.ShellMiddleware(a.shell), web.ProblemPages(problemPage), a.wizardClock)
 		a.srv.Mount(r)
 		// A path or method no route takes gets the app's own page (CD-250).
 		// No route means no guard, so a guest gets it too: CD-17 is for
@@ -634,4 +635,12 @@ func (a *App) linkRole(ctx context.Context, tx *db.Tx, target *doctype.DocType, 
 		return pt.IsCustomer, nil
 	}
 	return false, nil
+}
+
+// wizardClock gives wizard.Respond the app's clock, so the save cue's
+// "Saved {HH:MM}" is on the same business clock as documents.
+func (a *App) wizardClock(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(wizard.WithNow(r.Context(), a.cfg.Clock.Now)))
+	})
 }
