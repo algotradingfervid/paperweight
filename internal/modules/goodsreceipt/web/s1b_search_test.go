@@ -162,8 +162,8 @@ func TestGRNWeb_ChoosePOCombobox(t *testing.T) {
 		t.Errorf("combobox listbox = %q, want f-purchase_order_id-list (the one the search fills)", got)
 	}
 	id := input.AttrOr("id", "")
-	if got := strings.TrimSpace(r.doc.Find(`label[for="` + id + `"]`).Text()); got != "Purchase order" {
-		t.Errorf("label = %q, want Purchase order", got)
+	if got := strings.Join(strings.Fields(r.doc.Find(`label[for="`+id+`"]`).Text()), " "); got != "Purchase order * (required)" {
+		t.Errorf("label = %q, want Purchase order * (required) (CD-341 (2))", got)
 	}
 	if got := r.doc.Find("#f-purchase_order_id-hint").Text(); got != "Search by PO number or vendor." {
 		t.Errorf("hint = %q, want Search by PO number or vendor.", got)
