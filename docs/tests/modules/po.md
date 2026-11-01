@@ -654,3 +654,10 @@ PO spec §27. Each case cites its research scenario (`docs/research/2026-10-31-p
 - **Given** the pending-report filter page and the Create PO from request page **Then** the filter's vendor picker input has placeholder `Name, code or GSTIN` and its project, site and item pickers have `Name or code`; the Create PO vendor picker has `Name, code or GSTIN` (P42).
 - **Go test:** `TestP42_PickerPlaceholders`
 - **Sources:** UI v2 §5.8; CD-370
+
+### PO-089 · PO and request fields show UI v2 placeholders
+- **Priority:** P2
+- **Level:** integration
+- **Given** the new PO page, its Terms step and line page, the new purchase request page and its line page **Then** each picker shows its §5.8 search hint (vendor `Name, code or GSTIN`; site, project and item `Name or code`) and Vendor quote ref, Remarks, Earlier PO no., What is it for? and the request line Note show their `e.g. …` example, exactly (P43).
+- **Go test:** `TestP43_OrderPlaceholders`, `TestP43_RequestPlaceholders`
+- **Sources:** CD-370; UI v2 §5.5 item 5, §5.8
