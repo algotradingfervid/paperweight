@@ -47,6 +47,9 @@ func titled(t string) layout.PageOpts { return layout.PageOpts{Title: t} }
 func formWidth(t string) layout.PageOpts { return layout.PageOpts{Title: t, Width: layout.Form} }
 
 // wizardOpts is wizard step n's page: the frame has the heading.
+// galleryNow is the save cue's clock in the gallery: 10:42 IST.
+var galleryNow = time.Date(2026, 10, 24, 5, 12, 0, 0, time.UTC)
+
 func wizardOpts(n int) layout.PageOpts {
 	return layout.PageOpts{Title: "Wizard step " + strconv.Itoa(n), NoHeading: true, Focus: true}
 }
@@ -227,6 +230,7 @@ func post(w http.ResponseWriter, r *http.Request) {
 		if len(v.errs) > 0 {
 			outcome, step = wizard.Invalid, 0
 		}
+		r = r.WithContext(wizard.WithNow(r.Context(), func() time.Time { return galleryNow }))
 		wizard.Respond(w, r, outcome, "/_gallery/wizard-2", func(fragment bool) templ.Component {
 			m := wizardModel(step, v.errs, "")
 			if fragment {
@@ -287,7 +291,7 @@ const conflictText = "Someone else changed Draft 42 after you opened it. Reload 
 
 func wizardModel(step int, errs []components.FieldErr, conflict string) wizard.Model {
 	m := wizard.Model{
-		Mode: wizard.Document, Title: "New sample order", DocLabel: "Draft 42", BaseURL: "/_gallery",
+		Mode: wizard.Document, Title: "Sample order", DocLabel: "Draft 42", BaseURL: "/_gallery", Close: "/_gallery",
 		Steps: []wizard.Step{
 			{Slug: "wizard-1", Label: "Supplier and date", Intro: "Who you're buying from and when you need it."},
 			{Slug: "wizard-2", Label: "Items", Intro: "Add what you're buying. Rates fill in from the last price paid; change them if the quote differs."},

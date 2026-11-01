@@ -114,11 +114,37 @@
     }
   }
 }
-/* The document's title line: the page's one h1 in a wizard (A-13). */
+/* The wizard head (UI v2 §5.6): the close ×, the meta line over the page's
+   one h1 (A-13), and the save cue at the end. In focus mode below 64rem it
+   is the sticky top bar in place of the app header (layout.css focus-mode). */
+@utility wizard-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  & .wizard-head__text { flex: 1 1 auto; min-inline-size: 0; }
+  & .wizard-head__meta { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); overflow-wrap: anywhere; }
+}
 @utility wizard-title {
   margin: 0;
   color: var(--color-text);
   overflow-wrap: anywhere;
+}
+/* The save cue: "Not saved yet" (dashed circle, muted) on a new document,
+   "Saving…" while the step form's request has its bar buttons disabled, and
+   "Saved {HH:MM}" (cloud-check, success) once app.js has filled #saved-at. */
+@utility save-cue {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  & > span { display: inline-flex; align-items: center; gap: var(--space-1); }
+  & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  & .save-cue__saved { color: var(--color-success-700); }
+  & .save-cue__saved .icon { color: var(--color-success-600); }
+  & .save-cue__saving, &:has(#saved-at:empty) .save-cue__saved, &:has(#saved-at:not(:empty)) .save-cue__new { display: none; }
+  #wizard:has(.actionbar button:disabled) & > span { display: none; }
+  #wizard:has(.actionbar button:disabled) & > .save-cue__saving { display: inline-flex; }
 }
 /* One muted line under the stepper saying what the step is for. */
 @utility step-intro {

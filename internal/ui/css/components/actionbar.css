@@ -1,26 +1,41 @@
-/* actionbar.css: sticky bottom bar on phones, inline footer from 48rem (design-system §6). */
+/* actionbar.css: the sticky in-flow footer (UI v2 §5.6, N12). It is the
+   last child of the step, so it never sits over the end of the form, and
+   html's scroll-padding-block-end (base.css, --actionbar-h) keeps a focused
+   field above it (A-12). Phones: full-bleed, white, an upper shadow edge,
+   safe-area padding; Back (secondary, after the primary in tree order so
+   Enter presses the primary) shows first and the primary fills the rest.
+   From 64rem: a sticky card at the end of the form column, primary at the
+   end, at least 14rem wide. */
 @utility actionbar {
   position: sticky;
   inset-block-end: 0;
   z-index: var(--z-sticky);
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   align-items: center;
   gap: var(--space-2);
   min-block-size: var(--actionbar-h);
-  padding: var(--space-3) calc(var(--gutter) + var(--safe-right)) calc(var(--space-3) + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
-  background-color: var(--color-surface);
-  border-block-start: var(--border-w) solid var(--color-border-subtle);
-  & > .btn { flex: 1 1 0; min-block-size: var(--target-primary); }
+  padding-block: var(--space-3) calc(var(--space-3) + var(--safe-bottom));
+  /* Full-bleed without widening the page: the border image paints the
+     white, its top edge and a soft shade out to the screen edges as ink
+     overflow, which never scrolls sideways. */
+  border-image: linear-gradient(transparent, color-mix(in srgb, var(--color-text) 6%, transparent) var(--space-2), var(--color-border-subtle) var(--space-2) calc(var(--space-2) + var(--border-w)), var(--color-surface) 0) fill 0 / 0 / var(--space-2) calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+  & > .btn { flex: 0 0 auto; min-block-size: var(--target-primary); }
+  & > .btn--primary { flex: 1 1 auto; }
+  & > .btn:not(.btn--primary) { order: -1; }
   & .actionbar-note { margin: 0; flex: 1 1 100%; color: var(--color-text-secondary); }
   /* Static while uibrowser.Axe runs (data-axe on html, CD-344 (3)). */
   :root[data-axe] & { position: static; }
-  @media (min-width: 48rem) {
-    position: static;
-    padding: var(--space-4) 0;
-    background-color: transparent;
-    & > .btn { flex: 0 0 auto; min-block-size: var(--target-min); }
+  @media (min-width: 64rem) {
+    inset-block-end: var(--space-4);
+    justify-content: flex-end;
+    padding: var(--space-3) var(--space-4);
+    border-image: none;
+    background-color: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card), var(--shadow-raised);
+    & > .btn--primary { flex: 0 0 auto; min-inline-size: min(100%, 14rem); }
+    & > .btn:not(.btn--primary) { margin-inline-end: auto; }
   }
 }
 @utility actionbar-later {

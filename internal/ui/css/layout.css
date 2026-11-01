@@ -33,6 +33,29 @@
   border-block-end: var(--border-w) solid var(--color-border-subtle);
 }
 
+/* Focus mode (wizard, line and reason pages; UI v2 §5.6, N12): below 64rem
+   a page whose wizard head has a way out (the close ×) drops the app header,
+   and the wizard head is the sticky top bar instead. Without the × the
+   header stays, so no page is a dead end. */
+@utility focus-mode {
+  @media (width < 64rem) {
+    &:has(.wizard-close) .app-header { display: none; }
+    &:has(.wizard-close) .wizard-head {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: var(--z-header);
+      min-block-size: calc(var(--header-h) + var(--safe-top));
+      padding-block-start: var(--safe-top);
+      /* Full-bleed white with its bottom edge, as ink overflow (actionbar.css). */
+      border-image: linear-gradient(to top, var(--color-border-subtle) 0 var(--border-w), var(--color-surface) 0) fill 0 / 0 / 0 calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+    }
+    /* One line each, so the bar stays within html's scroll-padding-block-start. */
+    &:has(.wizard-close) .wizard-head :is(.wizard-title, .wizard-head__meta) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; }
+    &:has(.wizard-close) .wizard-head .wizard-title { font-size: var(--text-lg); }
+    :root[data-axe] &:has(.wizard-close) .wizard-head { position: static; }
+  }
+}
+
 @utility menu-button {
   @media (min-width: 64rem) { display: none; }
 }

@@ -238,7 +238,7 @@ func TestStepper_NoAutofocusOnErrorsOrConflict(t *testing.T) {
 // one h2#step-title, no <progress>, and the step label appears once.
 func TestFrame_OneHeadingEach(t *testing.T) {
 	d := renderFrame(t, docModel(), wizard.Bar{})
-	if h := d.Find("h1"); h.Length() != 1 || strings.TrimSpace(h.Text()) != "Purchase order · Draft 42" {
+	if h := d.Find("h1"); h.Length() != 1 || strings.TrimSpace(h.Text()) != "Draft 42" {
 		t.Errorf("want one h1 with the document, got %d: %q", h.Length(), h.Text())
 	}
 	if d.Find("h2#step-title").Length() != 1 || d.Find("#step-title").Length() != 1 {
@@ -481,7 +481,7 @@ func TestFrame_BackAndFinishButtons(t *testing.T) {
 	if primary != "Save and continue" {
 		t.Errorf("primary = %q", primary)
 	}
-	if strings.Contains(d.Find("#wizard").Text(), "Purchase order · Draft 42") == false {
+	if strings.TrimSpace(d.Find("#wizard h1").Text()) != "Draft 42" {
 		t.Error("title line missing")
 	}
 

@@ -13,12 +13,14 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
 // HOOK-001's golden pages: every docscreen page of a DocType with no Module,
@@ -200,6 +202,10 @@ func renderGolden(t *testing.T, p goldenPage, change func(d *docscreen.Deps)) []
 		change(&e.d)
 	}
 	e.remount()
+	h := e.h
+	e.h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r.WithContext(wizard.WithNow(r.Context(), func() time.Time { return goldenNow })))
+	})
 	method := p.method
 	if method == "" {
 		method = http.MethodGet
@@ -221,6 +227,10 @@ func renderGolden(t *testing.T, p goldenPage, change func(d *docscreen.Deps)) []
 	out.Write(assetName.ReplaceAll(rec.Body.Bytes(), []byte("$1.HASH.$2")))
 	return out.Bytes()
 }
+
+// goldenNow is the save cue's clock, so HX-Trigger saved is stable:
+// 10:42 IST.
+var goldenNow = time.Date(2026, 10, 24, 5, 12, 0, 0, time.UTC)
 
 func goldenPath(name string) string { return filepath.Join(moduleGoldenDir, name+".golden") }
 

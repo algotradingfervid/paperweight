@@ -30,7 +30,8 @@ const (
 // PageOpts describes one page. BannerSlot renders above the h1, BarSlot after
 // the main content and Side in the side panel shown from 80rem. Focus is for
 // wizard, line and document pages, which have their own action footer: they
-// get no bottom nav (UI v2 §5.6, N12).
+// get no bottom nav, and below 64rem, when the wizard head has its close ×,
+// no app header, so the wizard head is the top bar (UI v2 §5.6, N12).
 type PageOpts struct {
 	Title                     string
 	Error                     bool
@@ -175,10 +176,15 @@ func bottomNavShown(o PageOpts, s ui.Shell) bool {
 	return s.SignedIn && !o.Bare && !o.Focus
 }
 
-// bodyAttrs gives <body> room for the bottom nav when the page has it.
+// bodyAttrs gives <body> room for the bottom nav when the page has it, and
+// marks focus mode, whose CSS hides the app header below 64rem on a page
+// with a wizard close ×.
 func bodyAttrs(o PageOpts, s ui.Shell) templ.Attributes {
-	if bottomNavShown(o, s) {
+	switch {
+	case bottomNavShown(o, s):
 		return templ.Attributes{"class": "with-bottomnav"}
+	case o.Focus:
+		return templ.Attributes{"class": "focus-mode"}
 	}
 	return templ.Attributes{}
 }
