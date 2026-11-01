@@ -30,6 +30,10 @@ const (
 	deepakEmail  = "deepak@vardhan.test"
 	testPassword = "Correct-Horse-42"
 	newPassword  = "Temporary-Horse-77"
+
+	// serveStartWait is a startup deadline under heavy machine load (migrations
+	// run under -race), not a performance check.
+	serveStartWait = 30 * time.Second
 )
 
 func TestApp_MigrateCreatesDatabase(t *testing.T) {
@@ -67,8 +71,8 @@ func TestApp_HealthzOK(t *testing.T) {
 	case addr = <-bound:
 	case err := <-done:
 		t.Fatalf("serve stopped before listening: %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("serve did not start listening within 5 s")
+	case <-time.After(serveStartWait):
+		t.Fatalf("serve did not start listening within %v", serveStartWait)
 	}
 
 	client := &http.Client{Timeout: time.Second}
@@ -444,9 +448,9 @@ func startServe(t *testing.T, args ...string) (addr string, stop func()) {
 	case err := <-done:
 		cancel()
 		t.Fatalf("serve stopped before listening: %v", err)
-	case <-time.After(5 * time.Second):
+	case <-time.After(serveStartWait):
 		cancel()
-		t.Fatal("serve did not start listening within 5 s")
+		t.Fatalf("serve did not start listening within %v", serveStartWait)
 	}
 	stopped := false
 	stop = func() {
