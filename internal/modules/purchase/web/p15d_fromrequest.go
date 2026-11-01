@@ -112,7 +112,7 @@ func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, statu
 	dt, _ := doctype.Lookup(purchase.DocType)
 	f, _ := dt.Field(vendorField)
 	fp := declaredProps(f, components.FieldID(vendorField))
-	fp.Hint = vendorHint
+	fp.Hint, fp.Placeholder = vendorHint, "Name, code or GSTIN" // UI v2 §5.8
 	for _, e := range errs {
 		switch {
 		case e.Field == vendorField:

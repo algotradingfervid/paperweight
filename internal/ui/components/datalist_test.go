@@ -255,3 +255,42 @@ func TestDataList_RowChevron(t *testing.T) {
 		})
 	}
 }
+
+// TestDataList_CardPartyColumnAndTitle (CD-371): a card skips the column
+// PartyKey names, as a blank one, and keeps the others; with the PTitle
+// value blank, row 1's title is Row.Title.
+func TestDataList_CardPartyColumnAndTitle(t *testing.T) {
+	cases := []struct {
+		name, partyKey, no, title string
+		wide, narrow              string
+	}{
+		{"party column skipped", "project", "", "Draft 42", "24-10-2026 · Anita Rao · Approved", "24-10-2026 · Approved"},
+		{"no party column", "", "EXP/0042", "EXP/0042", "24-10-2026 · Meena Iyer · Anita Rao · Approved", "24-10-2026 · Meena Iyer · Approved"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := components.Row{
+				Href: "/doc/exp/42", Title: "Draft 42", Party: "Meena Iyer", PartyKey: c.partyKey, State: doctype.StateApproved,
+				Values: map[string]string{"no": c.no, "amount": "₹1,200.00", "date": "24-10-2026", "project": "Meena Iyer", "by": "Anita Rao"},
+			}
+			doc := uitest.Render(t, components.DataList(components.DataListProps{Label: "Expense reports", Columns: blankCellColumns(), Rows: []components.Row{r}}))
+			title := doc.Find(".datalist-r1 .datalist-title dd").Clone()
+			title.Find("dt").Remove()
+			if got := text(title); got != c.title {
+				t.Errorf("title = %q, want %q", got, c.title)
+			}
+			r3 := doc.Find(".datalist-r3")
+			if got := cardText(r3, false); got != c.wide {
+				t.Errorf("card row 3 = %q, want %q", got, c.wide)
+			}
+			if got := cardText(r3, true); got != c.narrow {
+				t.Errorf("card row 3 below 64rem = %q, want %q", got, c.narrow)
+			}
+			project := doc.Find(`.datalist-r3 dl:has(dt:contains("Project")) dd`).Clone()
+			project.Find(".datalist-sep").Remove()
+			if got := text(project); got != "Meena Iyer" {
+				t.Errorf("Project value = %q, want it kept for aligned rows", got)
+			}
+		})
+	}
+}
