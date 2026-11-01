@@ -419,7 +419,7 @@ func fieldSet(pre, errText string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = components.Textarea(components.FieldProps{ID: pre + "-remarks", Name: pre + "_remarks", Label: "Remarks", Hint: "Shown on the printed order.", Value: uitest.LongDevanagari, Optional: true, Error: errText}, 1000).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Textarea(components.FieldProps{ID: pre + "-remarks", Name: pre + "_remarks", Label: "Remarks", Hint: "Shown on the printed order.", Value: uitest.LongDevanagari, Clearable: true, Error: errText}, 1000).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1031,7 +1031,7 @@ func pickerBody() templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = components.Picker(components.PickerProps{
-			Field:     components.FieldProps{ID: "f-project", Label: "Project", Optional: true},
+			Field:     components.FieldProps{ID: "f-project", Label: "Project", Clearable: true},
 			SearchURL: searchURL("f-project-list"), HiddenName: "project_id", ListboxID: "f-project-list",
 			Chosen: &pickRows[2],
 		}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1042,6 +1042,42 @@ func pickerBody() templ.Component {
 			Field:      components.FieldProps{ID: "f-uom", Label: "Unit"},
 			HiddenName: "uom_id",
 			Options:    []components.Option{{Value: "1", Label: "kg"}, {Value: "2", Label: "Number"}, {Value: "3", Label: "Metre"}},
+		}).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// pickerRecentBody is a Picker with recent picks (UI v2 §5.8): they show
+// above the search's rows, Bolt first, then a name whose lower case is
+// longer and a hostile name that must show as text.
+func pickerRecentBody() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var33 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var33 == nil {
+			templ_7745c5c3_Var33 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = components.Picker(components.PickerProps{
+			Field:     components.FieldProps{ID: "f-vendor", Label: "Vendor", Hint: "Search by code or name."},
+			SearchURL: searchURL("f-vendor-list"), HiddenName: "vendor_id", ListboxID: "f-vendor-list",
+			Recent: []components.PickRow{pickRows[3], pickRows[0], {ID: 98, Code: "TR-9", Name: "İstanbul Pipes"}, {ID: 99, Code: "XSS-1", Name: hostileName}},
 		}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -1066,9 +1102,9 @@ func pickerResults(listboxID, q string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var33 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var33 == nil {
-			templ_7745c5c3_Var33 = templ.NopComponent
+		templ_7745c5c3_Var34 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var34 == nil {
+			templ_7745c5c3_Var34 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.PickerResults(listboxID, search(q), q).Render(ctx, templ_7745c5c3_Buffer)
@@ -1095,9 +1131,9 @@ func uploadBody() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var34 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var34 == nil {
-			templ_7745c5c3_Var34 = templ.NopComponent
+		templ_7745c5c3_Var35 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var35 == nil {
+			templ_7745c5c3_Var35 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.FileUpload(components.UploadProps{ID: "upload", Label: "Attachments", Action: "/_gallery/upload", Files: attachments}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1128,12 +1164,12 @@ func wizardFrame(m wizard.Model, v stepValues) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var35 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var35 == nil {
-			templ_7745c5c3_Var35 = templ.NopComponent
+		templ_7745c5c3_Var36 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var36 == nil {
+			templ_7745c5c3_Var36 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var36 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var37 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1151,7 +1187,7 @@ func wizardFrame(m wizard.Model, v stepValues) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = wizard.Frame(m, wizard.Bar{Back: m.Current > 0, Primary: barLabel(m)}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = wizard.Frame(m, wizard.Bar{Back: m.Current > 0, Primary: barLabel(m)}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var37), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1175,9 +1211,9 @@ func wizardStep(m wizard.Model, v stepValues) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var37 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var37 == nil {
-			templ_7745c5c3_Var37 = templ.NopComponent
+		templ_7745c5c3_Var38 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var38 == nil {
+			templ_7745c5c3_Var38 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		switch m.Current {
@@ -1191,7 +1227,7 @@ func wizardStep(m wizard.Model, v stepValues) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = components.Picker(components.PickerProps{
-				Field:     components.FieldProps{ID: "f-supplier_id", Label: "Supplier", Optional: true},
+				Field:     components.FieldProps{ID: "f-supplier_id", Label: "Supplier", Clearable: true},
 				SearchURL: searchURL("f-supplier_id-list"), HiddenName: "supplier_id", ListboxID: "f-supplier_id-list",
 				Chosen: v.supplier,
 			}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1220,12 +1256,12 @@ func wizardStep(m wizard.Model, v stepValues) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.Textarea(components.FieldProps{ID: "f-remarks", Name: "remarks", Label: "Remarks", Value: uitest.LongError, Optional: true}, 1000).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Textarea(components.FieldProps{ID: "f-remarks", Name: "remarks", Label: "Remarks", Value: uitest.LongError, Clearable: true}, 1000).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		default:
-			templ_7745c5c3_Var38 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_Var39 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 				if !templ_7745c5c3_IsBuffer {
@@ -1246,11 +1282,11 @@ func wizardStep(m wizard.Model, v stepValues) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = wizard.CheckSection("Supplier and date", wizard.Complete, "/_gallery/wizard-1").Render(templ.WithChildren(ctx, templ_7745c5c3_Var38), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = wizard.CheckSection("Supplier and date", wizard.Complete, "/_gallery/wizard-1").Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Var39 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_Var40 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 				if !templ_7745c5c3_IsBuffer {
@@ -1268,11 +1304,11 @@ func wizardStep(m wizard.Model, v stepValues) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = wizard.CheckSection("Items", wizard.Attention, "/_gallery/wizard-2").Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = wizard.CheckSection("Items", wizard.Attention, "/_gallery/wizard-2").Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Var40 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_Var41 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 				if !templ_7745c5c3_IsBuffer {
@@ -1290,7 +1326,7 @@ func wizardStep(m wizard.Model, v stepValues) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = wizard.CheckSection("Terms", "", "/_gallery/wizard-3").Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = wizard.CheckSection("Terms", "", "/_gallery/wizard-3").Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1315,12 +1351,12 @@ func actionbarBody() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var41 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var41 == nil {
-			templ_7745c5c3_Var41 = templ.NopComponent
+		templ_7745c5c3_Var42 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var42 == nil {
+			templ_7745c5c3_Var42 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var42 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var43 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1332,13 +1368,13 @@ func actionbarBody() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: "f-note", Name: "note", Label: "Note", Optional: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: "f-note", Name: "note", Label: "Note", Clearable: true}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = components.Form(components.FormProps{ID: "actionbar-form", Action: "/_gallery/actionbar"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Form(components.FormProps{ID: "actionbar-form", Action: "/_gallery/actionbar"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var43), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1374,9 +1410,9 @@ func actionbarBar() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var43 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var43 == nil {
-			templ_7745c5c3_Var43 = templ.NopComponent
+		templ_7745c5c3_Var44 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var44 == nil {
+			templ_7745c5c3_Var44 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.ActionBar(components.ActionBarProps{
@@ -1407,9 +1443,9 @@ func warningsBody() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var44 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var44 == nil {
-			templ_7745c5c3_Var44 = templ.NopComponent
+		templ_7745c5c3_Var45 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var45 == nil {
+			templ_7745c5c3_Var45 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.Warnings([]string{uitest.LongError, uitest.LongError, uitest.LongError}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1436,9 +1472,9 @@ func filterbarBody() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var45 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var45 == nil {
-			templ_7745c5c3_Var45 = templ.NopComponent
+		templ_7745c5c3_Var46 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var46 == nil {
+			templ_7745c5c3_Var46 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.FilterBar(components.FilterBarProps{
@@ -1479,9 +1515,9 @@ func paginationBody() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var46 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var46 == nil {
-			templ_7745c5c3_Var46 = templ.NopComponent
+		templ_7745c5c3_Var47 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var47 == nil {
+			templ_7745c5c3_Var47 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.Pagination(components.PageInfo{Page: 1, From: 1, To: 25, Total: 1234567, Noun: "sample orders", NextURL: "/_gallery/pagination"}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1520,16 +1556,16 @@ func bareBody() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var47 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var47 == nil {
-			templ_7745c5c3_Var47 = templ.NopComponent
+		templ_7745c5c3_Var48 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var48 == nil {
+			templ_7745c5c3_Var48 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Info, Message: "Your session ended. Sign in again as " + uitest.LongEmail + "."}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var48 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var49 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1563,7 +1599,7 @@ func bareBody() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = components.Form(components.FormProps{Action: "/_gallery/bare"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var48), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Form(components.FormProps{Action: "/_gallery/bare"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var49), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

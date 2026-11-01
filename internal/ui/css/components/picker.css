@@ -1,6 +1,8 @@
 /* picker.css: our parts of Picker over daisyUI input and list (design-system §7, §7.1).
    Below 48rem the open search fills the screen like a sheet, so the keyboard
-   never covers the rows; from 48rem the rows drop down under the input. */
+   never covers the rows; from 48rem the rows drop down under the input.
+   UI v2 §5.8: a search icon and a chevron inside the field, Recent and All
+   or Matches sections, the typed text marked in each row. */
 @utility picker {
   display: grid;
   gap: var(--space-2);
@@ -34,8 +36,30 @@
   & .picker__bar {
     display: flex;
     gap: var(--space-2);
-    & > .input { flex: 1 1 0; min-inline-size: 0; }
+    & > .picker__box { flex: 1 1 0; min-inline-size: 0; }
   }
+  & .picker__box {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    & > .input {
+      inline-size: 100%;
+      padding-inline: calc(var(--space-3) + var(--icon-md) + var(--space-2));
+    }
+  }
+  & .picker__icon,
+  & .picker__chevron {
+    position: absolute;
+    z-index: 1; /* above the input's background */
+    inset-block: 0;
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+    pointer-events: none;
+    & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+  }
+  & .picker__icon { inset-inline-start: var(--space-3); }
+  & .picker__chevron { inset-inline-end: var(--space-3); }
   & [data-picker-close] { display: none; }
   & .picker__list {
     margin: 0;
@@ -45,6 +69,10 @@
     background: var(--color-surface);
     border: var(--border-w) solid var(--color-border);
     border-radius: var(--radius-md);
+  }
+  & .picker__search[data-open] .picker__list {
+    transition: opacity var(--dur-base) var(--ease-out);
+    @starting-style { opacity: 0; }
   }
   & .picker__list:empty,
   & .picker__search:not([data-open]) .picker__list { display: none; }
@@ -58,6 +86,35 @@
     cursor: pointer;
   }
   & .picker__option + .picker__option { border-block-start: var(--border-w) solid var(--color-border-subtle); }
+  & .picker__options {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* "No matches" under recent picks that match. */
+  & .picker__list:has(> .picker__group) > [aria-disabled="true"] { display: none; }
+  /* A group whose rows all show under Recent. */
+  & .picker__group:not(:has([role="option"])) { display: none; }
+  & .picker__group + .picker__group { border-block-start: var(--border-w) solid var(--color-border); }
+  /* Section headings: 12 px uppercase, muted (UI v2 §5.1 type). */
+  & .picker__heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3) var(--space-1);
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.06em;
+    line-height: var(--leading-tight);
+    text-transform: uppercase;
+    & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); }
+  }
+  & mark {
+    background: var(--color-warning-50);
+    color: inherit;
+    font-weight: var(--weight-bold);
+  }
   & .picker__option:hover,
   & .picker__option[aria-selected="true"] { background: var(--color-primary-50); }
   & .picker__option[aria-disabled="true"] {

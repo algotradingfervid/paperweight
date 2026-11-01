@@ -258,15 +258,15 @@ func rulePage(f ruleForm, docTypes []components.Option) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("role"), Name: "role", Label: "Approver role", Hint: "For a user with a role.", Value: f.Role, Error: f.errFor("role"), Optional: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("role"), Name: "role", Label: "Approver role", Hint: "For a user with a role.", Value: f.Role, Error: f.errFor("role"), Clearable: true}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("fallback_role"), Name: "fallback_role", Label: "Fallback role", Hint: "For the reporting manager: approves when the employee has no reporting manager.", Value: f.FallbackRole, Error: f.errFor("fallback_role"), Optional: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("fallback_role"), Name: "fallback_role", Label: "Fallback role", Hint: "For the reporting manager: approves when the employee has no reporting manager.", Value: f.FallbackRole, Error: f.errFor("fallback_role"), Clearable: true}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.Checkboxes(components.FieldProps{ID: components.FieldID("allow_self_approval"), Name: "allow_self_approval", Label: "Approving own documents", Optional: true}, selfOption, selfChecked(f)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Checkboxes(components.FieldProps{ID: components.FieldID("allow_self_approval"), Name: "allow_self_approval", Label: "Approving own documents", Clearable: true}, selfOption, selfChecked(f)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

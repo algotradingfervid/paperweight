@@ -115,7 +115,7 @@ func TestForm_CSRFAndHTMX(t *testing.T) {
 }
 
 func TestField_LabelHintErrorWiring(t *testing.T) {
-	p := components.FieldProps{ID: "f-x", Name: "x", Label: "Reference", Hint: "As printed on the bill", Optional: true}
+	p := components.FieldProps{ID: "f-x", Name: "x", Label: "Reference", Hint: "As printed on the bill", Clearable: true}
 	doc := uitest.Render(t, components.TextInput(p))
 	if got, _ := doc.Find("label").Attr("for"); got != "f-x" {
 		t.Errorf("label for = %q", got)

@@ -114,7 +114,7 @@ func (l lineState) props(name, hint string) components.FieldProps {
 	f := l.field(name, hint)
 	return components.FieldProps{
 		ID: components.FieldID(name), Name: name, Label: f.Label, Hint: hint,
-		Error: l.errorOf(name), Value: l.value(name), Optional: !f.Required,
+		Error: l.errorOf(name), Value: l.value(name), Clearable: !f.Required,
 	}
 }
 
@@ -122,7 +122,7 @@ func (l lineState) props(name, hint string) components.FieldProps {
 // at submit (AD ruling, S2 review).
 func (l lineState) submitProps(name, hint string) components.FieldProps {
 	p := l.props(name, hint)
-	p.Optional = false
+	p.Clearable = false
 	return p
 }
 

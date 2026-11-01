@@ -141,7 +141,7 @@ func handoverPage(v handoverView) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					templ_7745c5c3_Err = components.Textarea(components.FieldProps{
-						ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: noteHintHandOver, Optional: true,
+						ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: noteHintHandOver, Clearable: true,
 						Value: v.note, Error: v.e.fields["note"],
 					}, modkit.MaxCommentRunes).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
@@ -320,7 +320,7 @@ func sendPage(v sendView) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					templ_7745c5c3_Err = components.Textarea(components.FieldProps{
-						ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: sendNoteHint, Optional: true,
+						ID: components.FieldID("note"), Name: "note", Label: "Note", Hint: sendNoteHint, Clearable: true,
 						Value: v.note, Error: v.e.fields["note"],
 					}, noteMax).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
@@ -466,7 +466,7 @@ func expectedPage(v expectedView) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					templ_7745c5c3_Err = components.Textarea(components.FieldProps{
-						ID: components.FieldID("note"), Name: "note", Label: "Note", Optional: true, Value: v.note, Error: v.e.fields["note"],
+						ID: components.FieldID("note"), Name: "note", Label: "Note", Clearable: true, Value: v.note, Error: v.e.fields["note"],
 					}, noteMax).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err

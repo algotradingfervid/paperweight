@@ -149,11 +149,13 @@ func (d Deps) modOf(dt *doctype.DocType) Module { return d.Modules[dt.Name] }
 
 // ctxOf is the hooks' Ctx for a request on dt. v is nil on a new document;
 // otherwise Deps carries v's stored inputs, so a stored link keeps its label
-// (CD-256 (10), CD-217, CD-228).
+// (CD-256 (10), CD-217, CD-228). Deps also offers header Links recent picks
+// (UI v2 §5.8).
 func (d Deps) ctxOf(r *http.Request, dt *doctype.DocType, v *DocView) Ctx {
-	c := Ctx{Req: r, Principal: d.principal(r), DT: dt, View: v, Deps: d}
+	p := d.principal(r)
+	c := Ctx{Req: r, Principal: p, DT: dt, View: v, Deps: d.withRecent(dt, p)}
 	if v != nil {
-		c.Deps = d.WithStored(v.Inputs)
+		c.Deps = c.Deps.WithStored(v.Inputs)
 	}
 	return c
 }

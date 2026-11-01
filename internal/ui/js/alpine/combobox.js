@@ -1,6 +1,9 @@
 // combobox.js: the Picker's ARIA 1.2 combobox (x-data="combobox"). htmx
 // fills the listbox; this moves aria-activedescendant with the arrow keys,
 // writes the chosen id and summary on Enter or click, and closes on Esc.
+// After each search it puts the Recent group (the template's) above the
+// rows, keeping recent picks whose label holds the typed text, marked, and
+// dropping the same rows from the search's; arrows move across both groups.
 // Closing after "Change" without a new choice shows the old summary again.
 // "Clear" empties the value and shows the closed search; focus goes to the
 // picker itself, so the phone panel doesn't open over the page.
@@ -17,7 +20,32 @@ function combobox() {
       const summary = root.querySelector("[data-picker-summary]");
       const value = root.querySelector("[data-picker-value]");
       const change = root.querySelector("[data-picker-change]");
+      const recent = root.querySelector("template[data-picker-recent]");
       let active = -1;
+
+      // addRecent puts the recent picks whose label holds the typed text
+      // above the rows, the text marked, and drops them from the search's
+      // (picker.css hides a "No matches" row under them).
+      function addRecent() {
+        const q = input.value.trim().toLowerCase(), g = recent.content.firstElementChild.cloneNode(true);
+        for (const o of g.querySelectorAll("[role=option]")) {
+          if (o.dataset.label.toLowerCase().includes(q)) {
+            for (const el of o.querySelectorAll("span")) {
+              // The match is found in the lower-cased text; it is marked only
+              // if the same span of the original text matches, so a letter
+              // whose lower case is longer never shifts the mark.
+              const t = el.textContent, i = t.toLowerCase().indexOf(q);
+              if (q && i >= 0 && t.slice(i, i + q.length).toLowerCase() === q) {
+                const m = document.createElement("mark");
+                m.append(t.slice(i, i + q.length));
+                el.replaceChildren(t.slice(0, i), m, t.slice(i + q.length));
+              }
+            }
+            list.querySelector('[data-value="' + o.dataset.value + '"]')?.remove();
+          } else o.remove();
+        }
+        if (g.querySelector("[role=option]")) list.prepend(g);
+      }
 
       function options() {
         return Array.from(list.querySelectorAll("[role=option]:not([aria-disabled=true])"));
@@ -141,7 +169,7 @@ function combobox() {
       });
 
       // New results: nothing is active until an arrow key moves.
-      list.addEventListener("htmx:afterSwap", function () { setActive(-1); });
+      list.addEventListener("htmx:afterSwap", function () { if (recent) addRecent(); setActive(-1); });
 
       // Keep focus in the input while a row is clicked.
       list.addEventListener("mousedown", function (e) { e.preventDefault(); });

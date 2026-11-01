@@ -2,6 +2,8 @@ package components
 
 import (
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/a-h/templ"
 )
@@ -19,16 +21,48 @@ func (r PickRow) Display() string { return r.Code + " " + r.Name }
 // PickerProps describes a Picker. Field.ID is what an ErrorSummary links to:
 // the search input's id, or the picker's own when rendered with a row chosen,
 // because the search is hidden then (see pickerInputID). HiddenName is the
-// name of the field that carries the chosen ID.
+// name of the field that carries the chosen ID. Recent are the user's
+// recent picks for this field, newest first (UI v2 §5.8); combobox.js shows
+// the first MaxRecent that match the typed text above each search's rows.
 type PickerProps struct {
 	Field                            FieldProps
 	SearchURL, HiddenName, ListboxID string
 	Chosen                           *PickRow
 	Options                          []Option
+	Recent                           []PickRow
 }
 
 // maxPickRows is the most rows a search shows (design-system §7).
 const maxPickRows = 20
+
+// MaxRecent is the most recent picks a Picker shows (UI v2 §5.8).
+const MaxRecent = 5
+
+// resultsHeading names a search's group: "All" for the empty search.
+func resultsHeading(q string) string {
+	if strings.TrimSpace(q) == "" {
+		return "All"
+	}
+	return "Matches"
+}
+
+// splitMatch cuts s around the first match of the trimmed q, ignoring case;
+// hit is "" when q is blank or absent.
+func splitMatch(s, q string) (before, hit, after string) {
+	q = strings.TrimSpace(q)
+	n := utf8.RuneCountInString(q)
+	for i := range s {
+		end := i
+		for range n {
+			_, size := utf8.DecodeRuneInString(s[end:])
+			end += size
+		}
+		if strings.EqualFold(s[i:end], q) {
+			return s[:i], s[i:end], s[end:]
+		}
+	}
+	return s, "", ""
+}
 
 // pickerSelectField is the Select fallback's field: it posts the chosen ID.
 func pickerSelectField(p PickerProps) FieldProps {
@@ -78,6 +112,7 @@ func pickerSearchField(p PickerProps) FieldProps {
 func pickerInputAttrs(p PickerProps) templ.Attributes {
 	a := controlAttrs(pickerSearchField(p), "input field__input")
 	a["id"] = pickerInputID(p)
+	a["placeholder"] = "Type to search"
 	a["form"] = "" // no form owner: the text goes only with the htmx search, not the form (no q= on GET filter URLs)
 	return a
 }
