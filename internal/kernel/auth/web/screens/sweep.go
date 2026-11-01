@@ -73,7 +73,7 @@ func Screens(ids SweepIDs, submit func(ctx context.Context, js, wait string) err
 		{Name: "copy rights", Route: copyRights, URL: copyPath, As: sweepUser},
 		{Name: "copy rights 422", Route: copyRights, URL: copyPath, As: sweepUser, Setup: setup(copyNoSource, ".error-summary")},
 		{Name: "sign in", Route: "/signin", URL: "/signin"},
-		{Name: "sign in refused", Route: "/signin", URL: "/signin", Setup: setup(refusedSignIn, ".error-summary")},
+		{Name: "sign in refused", Route: "/signin", URL: "/signin", Setup: setup(refusedSignIn, ".solo__card .banner--danger")},
 		{Name: "password", Route: "/account/password", URL: "/account/password", As: sweepUser},
 		{Name: "sessions", Route: "/account/sessions", URL: "/account/sessions", As: sweepUser},
 		{Name: "users", Route: "/users", URL: "/users", As: sweepUser},

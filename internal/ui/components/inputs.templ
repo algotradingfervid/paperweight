@@ -81,12 +81,23 @@ templ EmailInput(p FieldProps, autocomplete string) {
 	}
 }
 
-// PasswordInput adds a "Show password" toggle handled by password.js.
+// PasswordInput adds a "Show password" toggle handled by password.js, inside
+// the box at its end (UI v2 §5.3). The button is named by its text, which
+// password.js flips to "Hide password"; CSS hides that text and shows the eye
+// glyph beside it, swapped while the password shows.
 templ PasswordInput(p FieldProps, autocomplete string) {
 	@field(p) {
-		<div class="field__control">
+		<div class="field__control password">
 			<input type="password" value={ p.Value } autocomplete={ autocomplete } spellcheck="false" { controlAttrs(p, "input field__input")... }/>
-			<button type="button" class="btn btn-ghost tap" data-toggle-password aria-controls={ p.ID }>Show password</button>
+			<button type="button" class="password__toggle" data-toggle-password aria-controls={ p.ID }>Show password</button>
+			<span class="password__eye" aria-hidden="true">
+				<span class="password__show">
+					@icons.Icon("eye")
+				</span>
+				<span class="password__hide">
+					@icons.Icon("eye-off")
+				</span>
+			</span>
 		</div>
 	}
 }
