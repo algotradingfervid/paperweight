@@ -455,8 +455,8 @@ func waitForBegin(t *testing.T, w *world) {
 func TestApp_CompanySetupDetails(t *testing.T) {
 	w := newWorld(t)
 	w.seedUsers()
-	if r := w.signedIn(priyaEmail).get("/setup/company"); r.alert() != "Only an administrator can set up the company." {
-		t.Errorf("refusal = %q, want the administrator text", r.alert())
+	if r := w.signedIn(priyaEmail).get("/setup/company"); r.problem() != "Only an administrator can set up the company." {
+		t.Errorf("refusal = %q, want the administrator text", r.problem())
 	}
 	form := goodSetup()
 	form.Set("branch_name", "")

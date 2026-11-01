@@ -365,7 +365,7 @@ func TestScreens_EditClearsPaymentTerms(t *testing.T) {
 	page := b.Get(t, target)
 	webtest.WantText(t, page, "Payment Terms")
 	webtest.WantText(t, page, "NET30 Net 30 days")
-	if n := page.Doc.Find(`[data-picker-clear][aria-label="Clear Payment Terms"]`).Length(); n != 1 {
+	if n := page.Doc.Find(`[data-picker-clear][aria-label="Clear Payment terms"]`).Length(); n != 1 {
 		t.Errorf("Clear controls on Payment Terms = %d; want 1", n)
 	}
 	webtest.WantRedirect(t, b.Post(t, target, form), recordURL(shree.ID))

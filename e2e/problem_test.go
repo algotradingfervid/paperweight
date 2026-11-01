@@ -69,3 +69,13 @@ func TestE2E_ProblemPage403(t *testing.T) {
 	s.Press("Go to Home")
 	s.Until("a page that isn't the problem page", `document.querySelector("section.problem") === null && location.pathname !== `+strconv.Quote("/doc/"+fixture.Order+"/new"))
 }
+
+// TestE2E_ProblemPageGuard403: a non-admin opening /users gets the admin
+// guard's refusal on the 403 problem page at 320 px, not the bare error page
+// (UI v2 §5.14, E6b).
+func TestE2E_ProblemPageGuard403(t *testing.T) {
+	h := Start(t)
+	s := h.SignIn(priya, phone320)
+	s.Open("/users")
+	wantProblemPage(t, s, 403, "You don't have access to this", auth.ErrAdminOnlyUsers.Msg)
+}

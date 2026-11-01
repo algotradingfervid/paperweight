@@ -280,8 +280,8 @@ func TestApp_ExportCSV(t *testing.T) {
 		{deepakEmail, "You don't have permission to read Purchase Order. Ask your administrator for a role that allows it."},
 	} {
 		r := w.signedIn(c.email).get(path)
-		if r.status != http.StatusForbidden || r.alert() != c.want {
-			t.Errorf("export as %s = %d %q, want 403 %q", c.email, r.status, r.alert(), c.want)
+		if r.status != http.StatusForbidden || r.problem() != c.want {
+			t.Errorf("export as %s = %d %q, want 403 %q", c.email, r.status, r.problem(), c.want)
 		}
 	}
 }
@@ -699,8 +699,8 @@ func TestApp_AreaScreensMounted(t *testing.T) {
 		}
 	}
 	deepak := w.signedIn(deepakEmail)
-	if r := deepak.get("/settings/numbering"); r.status != http.StatusForbidden || r.alert() != naming.MsgForbidden {
-		t.Errorf("GET /settings/numbering as Deepak = %d %q, want 403 %q", r.status, r.alert(), naming.MsgForbidden)
+	if r := deepak.get("/settings/numbering"); r.status != http.StatusForbidden || r.problem() != naming.MsgForbidden {
+		t.Errorf("GET /settings/numbering as Deepak = %d %q, want 403 %q", r.status, r.problem(), naming.MsgForbidden)
 	}
 	if r := deepak.get("/admin/approval-rules"); r.status != http.StatusForbidden {
 		t.Errorf("GET /admin/approval-rules as Deepak = %d, want 403", r.status)

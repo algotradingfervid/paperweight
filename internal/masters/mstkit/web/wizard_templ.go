@@ -107,7 +107,7 @@ func wizardFrame(v wizardView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, in := range v.Inputs {
+			for _, in := range grouped(v.Inputs) {
 				templ_7745c5c3_Err = in.Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
