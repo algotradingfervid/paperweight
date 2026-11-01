@@ -647,3 +647,10 @@ PO spec §27. Each case cites its research scenario (`docs/research/2026-10-31-p
 - **Given** a purchase request line **When** Note is empty **Then** it sits in a closed More details that opens on a value or an error.
 - **Go test:** `TestPR_LineNoteMoreDetails`
 - **Sources:** CD-359 (7)
+
+### PO-088 · Pickers purchase draws itself show the §5.8 search hints
+- **Priority:** P2
+- **Level:** integration
+- **Given** the pending-report filter page and the Create PO from request page **Then** the filter's vendor picker input has placeholder `Name, code or GSTIN` and its project, site and item pickers have `Name or code`; the Create PO vendor picker has `Name, code or GSTIN` (P42).
+- **Go test:** `TestP42_PickerPlaceholders`
+- **Sources:** UI v2 §5.8; CD-370
