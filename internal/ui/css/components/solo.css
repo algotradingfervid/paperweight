@@ -1,0 +1,85 @@
+/* solo.css: the Solo layout (UI v2 §5.3, N3), one card centred on the canvas
+   for sign-in and other pages before sign-in. The page is Page's document, so
+   while a .solo is on it the app header (which would repeat the brand) goes,
+   the shell's grid steps aside and the content column spans the width. */
+@utility solo {
+  :root:has(&) .app-header { display: none; }
+  :root:has(&) .app-body { display: block; }
+  :root:has(&) .app-main > .stack { max-inline-size: none; }
+  :root:has(&) body {
+    background: radial-gradient(ellipse 60rem 32rem at 50% 0%, var(--color-primary-50), transparent 70%) no-repeat, var(--color-canvas);
+  }
+  display: grid;
+  place-items: center;
+  /* The main's own block padding is space-6 on each side. */
+  min-block-size: calc(100dvh - var(--space-6) * 2 - var(--safe-top) - var(--safe-bottom));
+  padding-block: var(--safe-top) var(--safe-bottom);
+}
+
+@utility solo__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  inline-size: 100%;
+  max-inline-size: 26rem;
+}
+
+@utility solo__card {
+  & > .card {
+    border-color: var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-1);
+  }
+  & > .card > .card-body {
+    gap: var(--space-5);
+    padding: var(--space-6) var(--space-4);
+    @media (min-width: 48rem) { padding: var(--space-8); }
+  }
+  & h1 {
+    font-size: var(--h2);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
+    text-align: center;
+  }
+}
+
+/* Logo above the app name; the logo keeps the sign-in slot's bounds (CD-99). */
+@utility solo__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  text-align: center;
+  & .brand-logo { block-size: 3.5rem; max-inline-size: min(100%, var(--logo-signin-w)); }
+}
+
+@utility solo__name {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+/* The help line: a sunken box with the question icon. */
+@utility solo__help {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-sunken);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  & .icon { flex: none; inline-size: var(--icon-md); block-size: var(--icon-md); }
+  & strong { color: var(--color-text); }
+}
+
+@utility solo__foot {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  text-align: center;
+}

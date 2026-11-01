@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/a-h/templ"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -34,8 +35,7 @@ func errorInSummary(msg string) *regexp.Regexp {
 }
 
 func TestViews_SignInFields(t *testing.T) {
-	const msg = "Invalid email or password."
-	body := render(t, views.Default{}.Login(authweb.LoginPage{CSRF: "tok", Error: msg}))
+	body := render(t, views.Default{}.Login(authweb.LoginPage{CSRF: "tok"}))
 	for _, want := range []string{
 		`autocomplete="username"`,
 		`autocomplete="current-password"`,
@@ -44,22 +44,112 @@ func TestViews_SignInFields(t *testing.T) {
 		`<input type="hidden" name="csrf_token" value="tok">`,
 		`action="/signin"`,
 		`Sign in`,
+		`class="solo"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sign-in page lacks %q: %q", want, body)
 		}
-	}
-	if !errorInSummary(msg).MatchString(body) {
-		t.Errorf("sign-in page does not show %q inside a focused .error-summary: %q", msg, body)
-	}
-	if regexp.MustCompile(`role="alert"[^>]*>\s*<div class="alert error-summary"`).MatchString(body) {
-		t.Errorf("sign-in page wraps the error summary in role=\"alert\", so it is announced twice (CD-159): %q", body)
 	}
 	for _, bad := range []string{"<nav", "onpaste", "style=", "<table"} {
 		if strings.Contains(body, bad) {
 			t.Errorf("sign-in page contains %q: %q", bad, body)
 		}
 	}
+	doc := parse(t, body)
+	if _, ok := doc.Find(`input[name="email"]`).Attr("autofocus"); !ok {
+		t.Error("email has no autofocus on a fresh sign-in page")
+	}
+	if n := doc.Find("[autofocus]").Length(); n != 1 {
+		t.Errorf("%d autofocus elements, want 1", n)
+	}
+	if got := doc.Find(`input[name="password"]`).AttrOr("aria-describedby", ""); got != "f-password-msg" {
+		t.Errorf("password aria-describedby %q with no error, want f-password-msg", got)
+	}
+	if n := doc.Find("#signin-error").Length(); n != 0 {
+		t.Errorf("%d #signin-error with no error, want 0", n)
+	}
+	if n := doc.Find(".solo__card .banner--danger").Length(); n != 0 {
+		t.Errorf("%d error banners with no error, want 0", n)
+	}
+	help := doc.Find(".solo .solo__help")
+	if got := strings.Join(strings.Fields(help.Text()), " "); got != "Forgot your password? Ask your administrator to reset it. They can do it from Users in a minute." {
+		t.Errorf("help line = %q", got)
+	}
+}
+
+// A-7: a failed sign-in shows the kernel text in a role="alert" banner, marks
+// no field invalid, keeps the typed email and focuses the empty password,
+// which the banner describes. The hint follows only the invalid-login text
+// (UI v2 §5.3, CD-361).
+func TestViews_SignInRefused(t *testing.T) {
+	for _, tc := range []struct {
+		msg  string
+		hint bool
+	}{
+		{auth.ErrLoginInvalid.Msg, true},
+		{auth.ErrAccountLocked.Msg, false},
+		{auth.ErrAccountDisabled.Msg, false},
+	} {
+		const typed = `ravi<b>@vardhan.test`
+		body := render(t, views.Default{}.Login(authweb.LoginPage{CSRF: "tok", Error: tc.msg, Email: typed}))
+		if strings.Contains(body, typed) {
+			t.Errorf("%s: the typed email is not escaped", tc.msg)
+		}
+		doc := parse(t, body)
+		if got := doc.Find("title").Text(); !strings.HasPrefix(got, "Error: Sign in") {
+			t.Errorf("%s: title %q", tc.msg, got)
+		}
+		banner := doc.Find(`.solo__card .banner--danger[role="alert"]`)
+		if banner.Length() != 1 {
+			t.Fatalf("%s: %d danger banners with role=alert in the card, want 1", tc.msg, banner.Length())
+		}
+		text := strings.Join(strings.Fields(banner.Text()), " ")
+		if !strings.Contains(text, tc.msg) {
+			t.Errorf("banner %q lacks %q", text, tc.msg)
+		}
+		if got := strings.Contains(text, signInHint); got != tc.hint {
+			t.Errorf("%s: hint shown = %v, want %v", tc.msg, got, tc.hint)
+		}
+		if n := doc.Find("[aria-invalid]").Length(); n != 0 {
+			t.Errorf("%s: %d fields with aria-invalid, want 0", tc.msg, n)
+		}
+		if n := doc.Find(".error-summary").Length(); n != 0 {
+			t.Errorf("%s: %d error summaries, want the banner only", tc.msg, n)
+		}
+		pw := doc.Find(`input[name="password"]`)
+		if v := pw.AttrOr("value", ""); v != "" {
+			t.Errorf("%s: password value %q, want empty", tc.msg, v)
+		}
+		if _, ok := pw.Attr("autofocus"); !ok {
+			t.Errorf("%s: password has no autofocus", tc.msg)
+		}
+		if n := doc.Find("[autofocus]").Length(); n != 1 {
+			t.Errorf("%s: %d autofocus elements, want 1", tc.msg, n)
+		}
+		// CD-361 (2): the email the user typed is kept, as text.
+		if v := doc.Find(`input[name="email"]`).AttrOr("value", ""); v != typed {
+			t.Errorf("%s: email value %q, want %q", tc.msg, v, typed)
+		}
+		// CD-361 (1): the focused password is described by its own message
+		// and the banner, so the refusal is read with the field.
+		if got := pw.AttrOr("aria-describedby", ""); got != "f-password-msg signin-error" {
+			t.Errorf("%s: password aria-describedby %q, want %q", tc.msg, got, "f-password-msg signin-error")
+		}
+		if doc.Find(`#signin-error .banner--danger[role="alert"]`).Length() != 1 {
+			t.Errorf("%s: the banner is not inside #signin-error", tc.msg)
+		}
+	}
+}
+
+const signInHint = "Check both and try again. Passwords are case-sensitive."
+
+func parse(t *testing.T, body string) *goquery.Document {
+	t.Helper()
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return doc
 }
 
 func TestViews_PasswordRulesBeforeFields(t *testing.T) {

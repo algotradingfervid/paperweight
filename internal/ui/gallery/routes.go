@@ -70,7 +70,7 @@ var pages = []galleryPage{
 	{"filterbar", titled("Filter bar"), static(filterbarBody())},
 	{"pagination", titled("Pagination"), static(paginationBody())},
 	{"bare", layout.PageOpts{Title: "Sign in", Bare: true, Width: layout.Form}, static(bareBody())},
-	{"auth-signin", layout.PageOpts{Title: "Sign in", Bare: true, Width: layout.Form}, static(authSignInBody())},
+	{"auth-signin", layout.PageOpts{Title: "Sign in", Error: true, BannerSlot: authSignInError()}, static(authSignInBody())},
 	{"auth-setup", layout.PageOpts{Title: "Set up the first account", Bare: true, Width: layout.Form}, static(authSetupBody())},
 	{"auth-password", formWidth("Change password"), static(authPasswordBody())},
 	{"auth-sessions", titled("Your sessions"), static(authSessionsBody())},
@@ -149,8 +149,15 @@ func show(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if soloPages[slug] {
+		ui.Render(w, r, http.StatusOK, soloFull(pages[i].opts, pages[i].body(r)), nil)
+		return
+	}
 	render(w, r, http.StatusOK, pages[i].opts, pages[i].body(r))
 }
+
+// soloPages are drawn in layout.Solo, not layout.Page.
+var soloPages = map[string]bool{"auth-signin": true}
 
 // post serves the buttons page's slow form, the row editor (which only draws
 // the page again) and wizard step 1.

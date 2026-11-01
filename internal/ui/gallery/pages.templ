@@ -15,6 +15,12 @@ templ full(o layout.PageOpts, body templ.Component) {
 	}
 }
 
+templ soloFull(o layout.PageOpts, body templ.Component) {
+	@layout.Solo(o) {
+		@body
+	}
+}
+
 templ frag(o layout.PageOpts, body templ.Component) {
 	@layout.Main(o) {
 		@body

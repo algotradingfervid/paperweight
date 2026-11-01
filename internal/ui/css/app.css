@@ -55,5 +55,6 @@
 @import "./components/nav.css";
 @import "./components/bottomnav.css";
 @import "./components/newsheet.css";
+@import "./components/solo.css";
 
 /* cmd/buildassets appends brand.CSS(brand.Load()) after the build (CD-99): unlayered and last, so brand values win. */

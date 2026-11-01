@@ -2,17 +2,31 @@ package gallery
 
 import (
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
+// authSignInBody is the sign-in page in the Solo layout after a refusal, with
+// the worst-case texts (UI v2 §5.3).
 templ authSignInBody() {
-	@components.ErrorSummary([]components.FieldErr{{ID: "f-signin-email", Message: uitest.LongError}})
 	@components.Form(components.FormProps{Action: "/signin"}) {
 		<div class="stack">
-			@components.EmailInput(components.FieldProps{ID: "f-signin-email", Name: "email", Label: "Email", Value: uitest.LongEmail, Error: uitest.LongError}, "username")
+			@components.EmailInput(components.FieldProps{ID: "f-signin-email", Name: "email", Label: "Email", Value: uitest.LongEmail}, "username")
 			@components.PasswordInput(components.FieldProps{ID: "f-signin-password", Name: "password", Label: "Password"}, "current-password")
 			@components.Button(components.ButtonProps{Label: "Sign in", Busy: "Signing in…", Variant: components.Primary})
 		</div>
+	}
+	<div class="solo__help">
+		@icons.Icon("circle-help")
+		<p><strong>Forgot your password?</strong> Ask your administrator to reset it. They can do it from Users in a minute.</p>
+	</div>
+}
+
+// authSignInError is the refusal banner the sign-in page shows in Solo's
+// banner slot.
+templ authSignInError() {
+	@components.Banner(components.BannerProps{Kind: components.Danger, Icon: "circle-alert", Title: uitest.LongError}) {
+		<p>Check both and try again. Passwords are case-sensitive.</p>
 	}
 }
 
