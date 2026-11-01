@@ -227,6 +227,6 @@ func stale(field string) func(context.Context) error {
   f.elements.version.value = String(Number(f.elements.version.value) - 1);
   f.noValidate = true;
   f.requestSubmit();
-})()`, ".banner--danger a[href]")
+})()`, ".banner--warning a[href]")
 	}
 }

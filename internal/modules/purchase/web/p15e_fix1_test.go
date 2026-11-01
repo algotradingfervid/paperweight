@@ -265,9 +265,11 @@ func TestPurchaseWeb_ReloadOnlyOnStale(t *testing.T) {
 		t.Errorf("422 redraw has %d links in its danger banner, want no Reload", n)
 	}
 	got = redraw(http.StatusConflict)
-	wantOneDanger(t, "409", got, problem)
-	if href, _ := got.attr(".banner--danger a", "href"); href != path {
-		t.Errorf("409 Reload = %q, want %q", href, path)
+	if d := dangerBanners(got); len(d) != 0 || !hasBanner(got, "warning", problem) {
+		t.Errorf("409: danger banners %q, banners %q; want only the warning holding %q", d, banners(got), problem)
+	}
+	if href, _ := got.attr(".banner--warning a", "href"); href != path || !slices.Contains(got.texts(".banner--warning a"), "Reload "+po.Number) {
+		t.Errorf("409 Reload = %q %q, want Reload %s -> %q", got.texts(".banner--warning a"), href, po.Number, path)
 	}
 }
 
@@ -283,8 +285,8 @@ func TestPurchaseWeb_ExpectedDateAfterChecks(t *testing.T) {
 
 	t.Run("stale and a bad date: 409", func(t *testing.T) {
 		got := w.post(t, env.Priya, path, bad)
-		if got.status != http.StatusConflict || !hasBanner(got, "danger", strings.Replace(p15eStaleText, "%s", po.Number, 1)) {
-			t.Errorf("stale + 31-02-2026 = %d, danger banners %q; want 409 with the stale text", got.status, dangerBanners(got))
+		if got.status != http.StatusConflict || !hasBanner(got, "warning", strings.Replace(p15eStaleText, "%s", po.Number, 1)) {
+			t.Errorf("stale + 31-02-2026 = %d, banners %q; want 409 with the stale text", got.status, banners(got))
 		}
 		if msg, _ := fieldError(got, "expected_on"); msg != "" || strings.Contains(got.text, p15eFix1Unreadable) {
 			t.Errorf("stale + 31-02-2026 shows the date message: %q", got.text)

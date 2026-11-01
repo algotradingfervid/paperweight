@@ -57,7 +57,9 @@ templ gridResponse(g gridView) {
 	}
 	if g.Alert != "" || len(g.Warnings) > 0 {
 		<div id="grid-alerts" hx-swap-oob="true">
-			if g.Alert != "" {
+			if g.Conflict != "" {
+				@components.ConflictBanner(g.Alert, g.Conflict, g.ReloadURL)
+			} else if g.Alert != "" {
 				@components.Banner(components.BannerProps{Kind: components.Danger, Message: g.Alert, Link: &components.Link{Label: "Reload", Href: g.ReloadURL}})
 			}
 			@components.Warnings(g.Warnings)

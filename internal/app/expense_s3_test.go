@@ -510,10 +510,10 @@ func TestExpS3_PaidPages(t *testing.T) {
 		t.Errorf("409: Paid on = %q, want the typed 21-10-2026", got)
 	}
 	wantText(t, "409", r, "Someone else changed "+s3Advance+" after you opened it.")
-	if href := r.doc.Find(`a:contains("Reload")`).AttrOr("href", ""); href != paidPath(adv.ID, "paid") {
+	if href := r.doc.Find(`a:contains("Reload `+s3Advance+`")`).AttrOr("href", ""); href != paidPath(adv.ID, "paid") {
 		t.Errorf("409: Reload links to %q", href)
 	}
-	if f := autofocused(r); f.Length() != 1 || f.Find(".banner--danger").Length() != 1 {
+	if f := autofocused(r); f.Length() != 1 || f.Find(".banner--warning").Length() != 1 {
 		t.Errorf("409: %d autofocused, want the conflict banner only", f.Length())
 	}
 
