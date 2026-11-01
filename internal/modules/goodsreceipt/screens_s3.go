@@ -2,6 +2,7 @@ package goodsreceipt
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"slices"
 
@@ -41,16 +42,23 @@ type ReceiptPO struct {
 	Pending, Lines int    // lines with anything pending, of all lines
 }
 
-// Page is GRN id's ReceiptPage for p, who must be able to read it, in one
-// read; the PO goes through auth.CheckLinkTx, never a master link check
-// (CD-312).
+// Page is GRN id's ReceiptPage for p, in one read: a hidden or missing GRN
+// is AUTH's 404 (CanTx read with the GRN's record, as BillCard; CD-245); the
+// PO goes through auth.CheckLinkTx, never a master link check (CD-312).
 func (s *Service) Page(ctx context.Context, p auth.Principal, id int64) (ReceiptPage, error) {
 	var out ReceiptPage
 	err := s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		if err := s.d.Auth.CheckLinkTx(ctx, tx, p, DocType, id); err != nil {
+		q := dbq.New(tx.SQL())
+		g, err := q.G7Receipt(ctx, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return auth.ErrNotFound
+		}
+		if err != nil {
 			return err
 		}
-		q := dbq.New(tx.SQL())
+		if err := s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightRead, grnRef(id, g.CreatedBy, g.ProjectID, g.SiteID)); err != nil {
+			return err
+		}
 		r, err := q.S3Receipt(ctx, id)
 		if err != nil {
 			return err

@@ -1,6 +1,7 @@
 package print
 
 import (
+	"strings"
 	"time"
 
 	"github.com/vardhan/internaltools/internal/types"
@@ -13,6 +14,20 @@ type Party struct {
 	Label, Name string
 	Address     []string
 	GSTIN       string
+}
+
+// PartyAddress are the vendor address snapshot's lines without its last
+// line when that is the vendor's GSTIN line (address.DisplayText ends with
+// it), which the party block prints on its own.
+func PartyAddress(text, gstin string) []string {
+	if text == "" {
+		return nil // no address snapshot, so no address lines
+	}
+	out := strings.Split(text, "\n")
+	if n := len(out); out[n-1] == "GSTIN: "+gstin {
+		out = out[:n-1]
+	}
+	return out
 }
 
 // TradeLine is one row of the lines table.

@@ -40,7 +40,7 @@ func (s *Service) AllPOChoices(ctx context.Context, p auth.Principal) ([]POChoic
 	}
 	var out []POChoice
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		readable, err := scopedOrders(ctx, tx, pred)
+		readable, err := purchase.ReadableOrders(ctx, tx, pred)
 		if err != nil {
 			return err
 		}
