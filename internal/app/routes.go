@@ -93,7 +93,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Use(ui.ShellMiddleware(a.shell))
+		r.Use(ui.ShellMiddleware(a.shell), web.ProblemPages(problemPage))
 		a.srv.Mount(r)
 		// A path or method no route takes gets the app's own page (CD-250).
 		// No route means no guard, so a guest gets it too: CD-17 is for
@@ -207,14 +207,19 @@ func mount(r chi.Router, sub chi.Routes, guard func(route string, h http.Handler
 // errorPage answers status with msg: a full-page GET gets the error page in
 // the shell, as a missing document does; htmx and other methods get web.Error.
 func errorPage(status int, msg string) http.HandlerFunc {
-	page := layout.Page(layout.PageOpts{Title: msg, Error: true})
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || ui.IsHTMX(r) {
 			web.Error(w, r, status, msg)
 			return
 		}
-		ui.Render(w, r, status, page, nil)
+		problemPage(w, r, status, msg)
 	}
+}
+
+// problemPage is web.Error's full-page GET 403 or 404: the error page in the
+// shell, where ui.Render shows the problem page (UI v2 §5.14, E6b).
+func problemPage(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	ui.Render(w, r, status, layout.Page(layout.PageOpts{Title: msg, Error: true}), nil)
 }
 
 // allow sets the 405's Allow header, which chi sets only in its own handler.
@@ -309,12 +314,17 @@ func (a *App) hsts(next http.Handler) http.Handler {
 // claim an install; elsewhere every request but /setup, the static files and
 // /healthz goes to /setup until a user exists (CD-228, CD-231).
 func (a *App) firstRun(next http.Handler) http.Handler {
+	// The closed /setup runs ahead of the routes, so it takes the shell and
+	// the problem page itself (E6b); the static files never pay for the shell.
+	closed := ui.ShellMiddleware(a.shell)(web.ProblemPages(problemPage)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a.srv.WriteError(w, r, auth.ErrNotFound)
+	})))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		switch {
 		case a.cfg.Secure:
 			if path == setupPath {
-				a.srv.WriteError(w, r, auth.ErrNotFound)
+				closed.ServeHTTP(w, r)
 				return
 			}
 		case path == setupPath, path == healthPath, strings.HasPrefix(path, staticPrefix):

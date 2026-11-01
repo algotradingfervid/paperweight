@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -50,8 +51,25 @@ var errorPage = template.Must(template.New("error").Parse(`<!doctype html>
 </html>
 `))
 
+// ProblemFunc writes a full-page 403 or 404 answer with status and message.
+type ProblemFunc func(w http.ResponseWriter, r *http.Request, status int, message string)
+
+type problemKey struct{}
+
+// ProblemPages makes Error hand a full-page GET answered 403 or 404 to fn, so
+// the app can show its problem page in the shell without platform/web
+// importing the UI (UI v2 §5.14).
+func ProblemPages(fn ProblemFunc) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), problemKey{}, fn)))
+		})
+	}
+}
+
 // Error writes an error response; errors are never toasts (CD-47).
-//   - Full-page request: a plain HTML page with the message in a role="alert" div.
+//   - Full-page GET answered 403 or 404 under ProblemPages: its ProblemFunc.
+//   - Other full-page request: a plain HTML page with the message in a role="alert" div.
 //   - htmx request with 409 or 422: an escaped role="alert" fragment, which the
 //     UI's htmx config swaps.
 //   - Any other htmx request: an empty body and an HX-Trigger "notice" event,
@@ -59,6 +77,10 @@ var errorPage = template.Must(template.New("error").Parse(`<!doctype html>
 func Error(w http.ResponseWriter, r *http.Request, status int, message string) {
 	h := w.Header()
 	if r.Header.Get("HX-Request") != "true" {
+		if fn, ok := r.Context().Value(problemKey{}).(ProblemFunc); ok && r.Method == http.MethodGet && (status == http.StatusForbidden || status == http.StatusNotFound) {
+			fn(w, r, status, message)
+			return
+		}
 		h.Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(status)
 		_ = errorPage.Execute(w, message)
