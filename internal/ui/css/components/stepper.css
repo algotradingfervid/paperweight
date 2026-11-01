@@ -127,12 +127,16 @@
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
+/* Check page status badge (UI v2 §5.6): a pill, success for Complete and
+   warning for Needs attention, each with its icon. */
 @utility check-status {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   margin: 0;
+  border-radius: var(--radius-pill);
+  border-color: transparent;
   & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); flex: none; }
-  &.is-complete { color: var(--color-success-700); }
-  &.is-attention { color: var(--color-warning-700); }
+  &.is-complete { background-color: var(--color-success-50); color: var(--color-success-800); }
+  &.is-attention { background-color: var(--color-warning-50); color: var(--color-warning-800); }
 }
