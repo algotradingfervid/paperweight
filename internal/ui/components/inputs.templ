@@ -2,6 +2,7 @@ package components
 
 import (
 	"encoding/json"
+	"maps"
 	"strconv"
 	"unicode/utf16"
 
@@ -99,14 +100,34 @@ templ Textarea(p FieldProps, maxLen int) {
 	}
 }
 
-// NumberInput is a text input checked by the server on change (CD-48); the
-// suffix sits outside the input.
+// scale is the decimals live grouping keeps for a field of kind k: NUM's
+// scale, or 0 for a whole number (CD-336 (2)).
+func scale(k NumberKind, whole bool) string {
+	if whole {
+		return "0"
+	}
+	return map[NumberKind]string{Money: "2", Qty: "3", Rate: "4", Percent: "3", Factor: "9"}[k]
+}
+
+// Signed is p for a number field that may be negative: live grouping keeps a
+// typed minus only there (CD-336 (2)).
+func Signed(p FieldProps) FieldProps {
+	a := templ.Attributes{"data-signed": true}
+	maps.Copy(a, p.Attrs)
+	p.Attrs = a
+	return p
+}
+
+// NumberInput is a text input checked by the server on change (CD-48) that
+// groups its digits as typed (field.js, CD-336 (2)). Money and rate show "₹"
+// inside the box at the start (left out in a narrow box, field.css); the
+// suffix sits at its end.
 templ NumberInput(p FieldProps, k NumberKind, whole bool) {
 	@numberInput(p, k, whole, "join field__control")
 }
 
 // numberInput is NumberInput's body; control is the class of the box that
-// holds the input and its suffix.
+// holds the input, its prefix and its suffix.
 templ numberInput(p FieldProps, k NumberKind, whole bool, control string) {
 	@field(p) {
 		<div class={ control }>
@@ -119,9 +140,13 @@ templ numberInput(p FieldProps, k NumberKind, whole bool, control string) {
 				}
 				autocomplete="off"
 				value={ p.Value }
+				data-scale={ scale(k, whole) }
 				{ validateAttrs(p, string(k))... }
 				{ controlAttrs(p, "input join-item field__input num")... }
 			/>
+			if k == Money || k == Rate {
+				<span class="field__pre" aria-hidden="true">₹</span>
+			}
 			if p.Suffix != "" {
 				<span class="join-item field__suffix">{ p.Suffix }</span>
 			} else if k == Percent {
