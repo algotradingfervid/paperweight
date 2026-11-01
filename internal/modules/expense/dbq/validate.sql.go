@@ -305,3 +305,14 @@ func (q *Queries) E2SnapClaimLines(ctx context.Context, parentID int64) error {
 	_, err := q.db.ExecContext(ctx, e2SnapClaimLines, parentID)
 	return err
 }
+
+const s6ClearReceiptReasons = `-- name: S6ClearReceiptReasons :exec
+UPDATE expense_claim_line SET no_receipt_reason = ''
+WHERE parent_id = ? AND receipt_sha256 <> '' AND no_receipt_reason <> ''
+`
+
+// A line with a receipt has no no-receipt reason (AD ruling on S6, CD-302).
+func (q *Queries) S6ClearReceiptReasons(ctx context.Context, parentID int64) error {
+	_, err := q.db.ExecContext(ctx, s6ClearReceiptReasons, parentID)
+	return err
+}

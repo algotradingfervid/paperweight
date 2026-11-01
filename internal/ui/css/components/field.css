@@ -135,6 +135,61 @@
   }
 }
 
+/* DateInput (CD-336 (1)): the "Choose date" button sits inside the box at
+   its end, a 44 px target over the input's padding. */
+@utility field__date {
+  position: relative;
+  & > .input { padding-inline-end: var(--target-min); }
+}
+
+@utility field__cal {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: grid;
+  place-items: center;
+  inline-size: var(--target-min);
+  min-block-size: var(--target-min);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  &:hover { color: var(--color-primary-600); }
+  &:active { background: var(--color-primary-100); }
+  &:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: calc(-1 * var(--focus-ring-w));
+  }
+  & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+}
+
+/* The hidden date input whose picker the button opens: no box, so it takes
+   no room and is no target, but stays rendered for showPicker. */
+@utility field__picker {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+  inline-size: 0;
+  min-inline-size: 0;
+  block-size: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Today and Yesterday as pills under the box. */
+@utility field__chip {
+  border-radius: var(--radius-pill);
+  border-color: var(--color-border);
+  padding-inline: var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
 @utility field__suffix {
   display: flex;
   align-items: center;
