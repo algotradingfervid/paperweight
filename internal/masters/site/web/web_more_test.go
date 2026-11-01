@@ -264,7 +264,7 @@ func TestScreens_SiteCopy(t *testing.T) {
 	empty := w.h.Get(t, kavya, "/m/site")
 	webtest.WantStatus(t, empty, http.StatusOK)
 	webtest.WantText(t, empty, "Sites")
-	webtest.WantText(t, empty, "No sites yet.")
+	webtest.WantText(t, empty, "No sites yet")
 	webtest.WantText(t, empty, "New site")
 	if !strings.Contains(empty.Body, "Search sites") {
 		t.Error("list has no Search sites label")

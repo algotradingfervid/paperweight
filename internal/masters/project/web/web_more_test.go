@@ -375,7 +375,7 @@ func TestScreens_ProjectCopy(t *testing.T) {
 	empty := w.h.Get(t, kavya, "/m/project")
 	webtest.WantStatus(t, empty, http.StatusOK)
 	webtest.WantText(t, empty, "Projects")
-	webtest.WantText(t, empty, "No projects yet.")
+	webtest.WantText(t, empty, "No projects yet")
 	webtest.WantText(t, empty, "New project")
 	if !strings.Contains(empty.Body, "Search projects") {
 		t.Error("list has no Search projects label")

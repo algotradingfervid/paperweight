@@ -492,7 +492,7 @@ func TestScreens_PartyList(t *testing.T) {
 	search := b.Get(t, base+"?q=Bharat")
 	webtest.WantText(t, search, "BHARAT Bharat Tools")
 	webtest.WantNoText(t, search, "Shree Steel Traders")
-	webtest.WantText(t, b.Get(t, base+"?q=nosuchparty"), "No results.")
+	webtest.WantText(t, b.Get(t, base+"?q=nosuchparty"), `No parties match "nosuchparty"`)
 
 	csv := b.Get(t, base+"/export.csv")
 	webtest.WantStatus(t, csv, http.StatusOK)
