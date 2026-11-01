@@ -1,6 +1,7 @@
 package grnweb
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,14 +54,21 @@ func (m *module) receiptLines(c docscreen.Ctx) (map[int64]goodsreceipt.ReceiptLi
 // "Received {qty} · Accepted {qty}" in the line's snapshot unit, the accepted
 // value as its amount, and "Rejected {qty}: {reason}" when anything was
 // rejected. Each part is left out when Hide, asked with the line's Ctx c,
-// hides its field (CD-319); the accepted value goes with accepted. Module.
-// LineCard can't return an error, so a failed read keeps the default card.
+// hides its field (CD-319); the accepted value needs both accepted and the
+// header's accepted_value shown (CD-319 (8)), and a value over the money
+// maximum is left out. Module.LineCard can't return an error, so a failed
+// read is logged and keeps the default card without its item.
 func (m *module) lineCard(c docscreen.Ctx, l docscreen.LineView) components.LineCard {
 	lines, err := m.receiptLines(c)
 	id, _ := strconv.ParseInt(l.ID, 10, 64) // a stored line's id
 	rl, ok := lines[id]
+	if err != nil {
+		slog.ErrorContext(c.Req.Context(), "grnweb: line card lines not read, default card shown", "grn", c.View.Info.ID, "err", err)
+	}
 	if err != nil || !ok {
-		return l.Card
+		card := l.Card
+		card.Item, card.Code = "", "" // the default card's item is the line's first Link, the UoM
+		return card
 	}
 	unit := ""
 	if shown(c, "uom_id") {
@@ -83,7 +91,7 @@ func (m *module) lineCard(c docscreen.Ctx, l docscreen.LineView) components.Line
 	}
 	if q, ok := qty("accepted_qty"); ok {
 		parts = append(parts, cardAccepted+text(q))
-		if v, err := gstcalc.LineAmount(q, rl.Rate); err == nil {
+		if v, err := gstcalc.LineAmount(q, rl.Rate); err == nil && shown(c, "accepted_value") {
 			card.Amount = types.FormatINR(v)
 		}
 	}

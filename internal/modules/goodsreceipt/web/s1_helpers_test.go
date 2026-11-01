@@ -1,6 +1,7 @@
 package grnweb_test
 
 import (
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -52,13 +53,16 @@ type s1World struct {
 	keep   bool // send the last answer's session cookie
 	htmx   bool // send HX-Request
 	cookie *http.Cookie
+	mods   map[string]docscreen.Module // grnweb's Modules, one for every request, as the app has
 }
 
 func newS1World(t *testing.T) *s1World {
 	t.Helper()
 	sm := scs.New()
 	sm.IdleTimeout = 12 * time.Hour // production's setting (lessons §11)
-	return &s1World{Env: grntest.New(t), t: t, sm: sm}
+	w := &s1World{Env: grntest.New(t), t: t, sm: sm}
+	w.mods = grnweb.Modules(grnweb.Deps{Service: w.Service, Sessions: sm})
+	return w
 }
 
 // s1Page is one answer, its body parsed (CD-148).
@@ -80,7 +84,7 @@ func (w *s1World) do(p auth.Principal, method, path string, form url.Values) s1P
 		Lister: docscreentest.NewLister(), Extras: docscreentest.NewExtras(),
 		Principal: func(*http.Request) (auth.Principal, bool) { return p, true },
 		Today:     func() (string, string) { return s1Today, "23-10-2026" },
-		Modules:   grnweb.Modules(grnweb.Deps{Service: w.Service, Sessions: w.sm}),
+		Modules:   maps.Clone(w.mods),
 	}
 	if len(w.hidden) > 0 || w.hideIf != nil {
 		m := d.Modules[goodsreceipt.DocType]

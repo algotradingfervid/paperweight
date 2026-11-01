@@ -1,6 +1,7 @@
 package grnweb_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -106,7 +107,8 @@ func TestGRNWeb_LineCard(t *testing.T) {
 // what that field holds; the rest stays. Hidden received or accepted drops
 // its half of the quantities, and accepted also the accepted value; hidden
 // rejected drops the note; hidden reason leaves "Rejected 10 KGS"; hidden
-// UoM leaves the bare quantities.
+// UoM leaves the bare quantities; a hidden accepted_value, the grand figure,
+// drops the card's amount too (CD-319 (8)).
 func TestGRNWeb_LineCardHonoursHide(t *testing.T) {
 	cases := map[string]s3cCard{
 		"received_qty": {amount: "₹24,375.00", meta: []string{"Accepted 390 KGS", "Rejected 10 KGS: Bent pieces"}},
@@ -114,7 +116,8 @@ func TestGRNWeb_LineCardHonoursHide(t *testing.T) {
 		"rejected_qty": {amount: "₹24,375.00", meta: []string{"Received 400 KGS · Accepted 390 KGS"}},
 		"reject_reason": {amount: "₹24,375.00",
 			meta: []string{"Received 400 KGS · Accepted 390 KGS", "Rejected 10 KGS"}},
-		"uom_id": {amount: "₹24,375.00", meta: []string{"Received 400 · Accepted 390", "Rejected 10: Bent pieces"}},
+		"uom_id":         {amount: "₹24,375.00", meta: []string{"Received 400 · Accepted 390", "Rejected 10: Bent pieces"}},
+		"accepted_value": {meta: []string{"Received 400 KGS · Accepted 390 KGS", "Rejected 10 KGS: Bent pieces"}},
 	}
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -166,13 +169,65 @@ func TestGRNWeb_LineCardLineCtx(t *testing.T) {
 	})
 }
 
-// GUX-013: a draft may keep a reject without its reason until submit; its
-// card's note is then "Rejected 10 KGS", with no dangling colon.
-func TestGRNWeb_LineCardNoReason(t *testing.T) {
+// GUX-013 and the reject boundary: a draft may keep a reject without its
+// reason until submit, and its note is then "Rejected 10 KGS" with no
+// dangling colon; the smallest reject on a decimal unit (0.001 KGS) has the
+// note too.
+func TestGRNWeb_LineCardRejects(t *testing.T) {
+	cases := map[string]struct {
+		line grntest.Line
+		want s3cCard
+	}{
+		"no reason": {grntest.Line{Received: "410", Rejected: "10"}, s3cCard{amount: "₹25,000.00",
+			meta: []string{"Received 410 KGS · Accepted 400 KGS", "Rejected 10 KGS"}}},
+		"0.001 rejected": {grntest.Line{Received: "400", Rejected: "0.001", Reason: "Bent"}, s3cCard{amount: "₹24,999.94",
+			meta: []string{"Received 400 KGS · Accepted 399.999 KGS", "Rejected 0.001 KGS: Bent"}}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			w := newS1World(t)
+			po := w.s3cPO()
+			c.line.POLineID = po.Lines[2].ID
+			id := w.GRN(t, w.Suresh, po.ID, []grntest.Line{c.line}, doctype.StateDraft).ID
+			c.want.no, c.want.item, c.want.code = "3", s2Angle, "MS-ANGLE-50"
+			got := s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards()
+			s3cWant(t, "check page", got, []s3cCard{c.want})
+		})
+	}
+}
+
+// The card's lines are read once per request, never reused by the next
+// one: after the check page is drawn, Suresh adds PO line 1 on step 3, and
+// the next check page gives the new line its own card, not the default.
+func TestGRNWeb_LineCardEachRequest(t *testing.T) {
 	w := newS1World(t)
 	po := w.s3cPO()
-	id := w.GRN(t, w.Suresh, po.ID, []grntest.Line{{POLineID: po.Lines[2].ID, Received: "410", Rejected: "10"}}, doctype.StateDraft).ID
-	got := s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards()
-	s3cWant(t, "check page", got, []s3cCard{{no: "3", item: s2Angle, code: "MS-ANGLE-50", amount: "₹25,000.00",
-		meta: []string{"Received 410 KGS · Accepted 400 KGS", "Rejected 10 KGS"}}})
+	id := w.GRN(t, w.Suresh, po.ID, []grntest.Line{{POLineID: po.Lines[2].ID, Received: "400"}}, doctype.StateDraft).ID
+	angle := s3cCard{no: "3", item: s2Angle, code: "MS-ANGLE-50", amount: "₹25,000.00", meta: []string{"Received 400 KGS · Accepted 400 KGS"}}
+	s3cWant(t, "check page before", s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards(), []s3cCard{angle})
+	s2WantStep(t, w.s2Save(id, w.s2Items(id), s2Set{"received", 1, "50"}), "/edit/check", "add PO line 1")
+	s3cWant(t, "check page after", s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards(), []s3cCard{
+		{no: "1", item: s2Wire, code: "WIRE-18G", amount: "₹4,800.00", meta: []string{"Received 50 KGS · Accepted 50 KGS"}},
+		angle,
+	})
+}
+
+// A line whose accepted value is over the money maximum (exactly twice an
+// ordered 4,000 KGS at ₹20,00,000.00: ₹16,00,00,00,000.00) shows no amount.
+// Step 3's Save refuses it whole, so it is stored the way a step save of
+// another field keeps Validate's writes beside the total error (CD-302,
+// CD-308; g2 "total limit").
+func TestGRNWeb_LineCardOverMaximum(t *testing.T) {
+	w := newS1World(t)
+	po := purchasetest.NewOrder(t, w.Env.Env, purchasetest.StopAtApproved(), purchasetest.OrderLines(
+		map[string]string{"item_id": w.id("item", "MS-ANGLE-50"), "uom_id": w.id("uom", "KGS"), "qty": "4000", "price": "2000000"}))
+	g := w.GRN(t, w.Suresh, po.ID, []grntest.Line{{POLineID: po.Lines[0].ID, Received: "100"}}, doctype.StateDraft)
+	in := doc.ActionInput{Version: g.Version, Values: map[string]string{"remarks": "Twice"}, Only: []string{"remarks"},
+		Lines: []map[string]string{{"id": strconv.FormatInt(g.Lines[0].ID, 10), "received_qty": "8000"}}}
+	if _, err := w.Engine.Do(t.Context(), w.Suresh, goodsreceipt.DocType, g.ID, doctype.ActionSave, in); err != nil {
+		t.Fatalf("save 8,000 KGS: %v", err)
+	}
+	got := s3OK(t, w.get(w.Suresh, stepPath(g.ID, "check")), "check page").s3cCards()
+	s3cWant(t, "check page", got, []s3cCard{{no: "1", item: s2Angle, code: "MS-ANGLE-50",
+		meta: []string{"Received 8,000 KGS · Accepted 8,000 KGS"}}})
 }
