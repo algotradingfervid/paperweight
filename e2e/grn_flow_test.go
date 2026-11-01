@@ -25,14 +25,14 @@ import (
 // (CD-271). Each ends with a stored-state check through the services.
 
 const (
-	boltName     = "Hex Bolt M12x60"
-	grnChallan   = "CH-5521"
-	grnRejected  = "Bent pieces"
-	shortClose   = "Vendor can't supply the rest"
-	shreeGSTIN   = "27AABCS1429B1ZU"
-	cashInvoice  = "INV-901"
-	grnApproved  = "Approved. " + firstGRN + " has been numbered."
-	closedPOText = firstNumber + " is closed. Remove the line or pick another purchase order." // DOC-017
+	boltName        = "Hex Bolt M12x60"
+	grnChallan      = "CH-5521"
+	grnRejectReason = "Bent pieces"
+	shortClose      = "Vendor can't supply the rest"
+	shreeGSTIN      = "27AABCS1429B1ZU"
+	cashInvoice     = "INV-901"
+	grnApproved     = "Approved. " + firstGRN + " has been numbered."
+	closedPOText    = firstNumber + " is closed. Remove the line or pick another purchase order." // DOC-017
 )
 
 // pendingOf is the purchase service's pending report for PO id, the sum
@@ -194,7 +194,7 @@ func TestE2E_GRNFlow(t *testing.T) {
 			t.Errorf("%s's Received now = %q, want its pending %q", c.name, got, c.pending)
 		}
 	}
-	rejectOn(s, 1, "MS Angle 50x50x5", "10", grnRejected)
+	rejectOn(s, 1, "MS Angle 50x50x5", "10", grnRejectReason)
 	noOverflow(s, "Received quantities with a reject")
 	submitGRN(s, grnApproved)
 	t.Logf("five-line GRN with one reject, New goods receipt to the banner: %v (UX §1 goal under 1m, reported only)", time.Since(start))
@@ -212,8 +212,8 @@ func TestE2E_GRNFlow(t *testing.T) {
 	wantQty(t, "line 1 received", l["received_qty"], "1200")
 	wantQty(t, "line 1 rejected", l["rejected_qty"], "10")
 	wantQty(t, "line 1 accepted", l["accepted_qty"], "1190")
-	if l["reject_reason"] != grnRejected {
-		t.Errorf("line 1 reason = %q, want %q", l["reject_reason"], grnRejected)
+	if l["reject_reason"] != grnRejectReason {
+		t.Errorf("line 1 reason = %q, want %q", l["reject_reason"], grnRejectReason)
 	}
 	h.wantPO("after the GRN", po, doctype.StateApproved, "part_received", "10") // the rejected 10 kg stays pending (CD-234)
 }
