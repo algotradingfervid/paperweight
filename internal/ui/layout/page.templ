@@ -98,7 +98,9 @@ templ mainEl(o PageOpts, banners []web.Notice) {
 			for _, n := range banners {
 				@flash(n)
 			}
-			if !o.NoHeading {
+			if st := ui.ProblemFrom(ctx); st != 0 {
+				@components.ProblemPage(st, o.Title)
+			} else if !o.NoHeading {
 				<h1 id={ headingID(o) } tabindex="-1">{ o.Title }</h1>
 			}
 			{ children... }

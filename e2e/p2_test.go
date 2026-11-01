@@ -172,6 +172,7 @@ func TestE2E_Doc_StaleTabConflict(t *testing.T) {
 
 	second.Front()
 	second.Fill("remarks", remarksTyped)
+	Eval[bool](second, `window.e6SamePage = true`) // gone if the 409 loads a new page
 	second.Press(saveContinue)
 	second.WaitText(staleText(id))
 	remarks := `document.getElementById("f-remarks").value`
@@ -182,7 +183,19 @@ func TestE2E_Doc_StaleTabConflict(t *testing.T) {
 		t.Errorf("stored remarks = %q", got)
 	}
 
-	second.Press("Reload")
+	// A-29: the 409 is swapped in by htmx (layout's htmxConfig), as a
+	// warning banner with DOC's text, the keep-your-entries line and a
+	// Reload button naming the draft being edited (UI v2 §5.14).
+	if got := Eval[int](second, `document.querySelectorAll("#wizard .banner--warning").length`); got != 1 {
+		t.Errorf("%d warning banners in the wizard after the conflict, want 1", got)
+	}
+	if !second.Shows("Your entries stay on this page until you reload, so you can copy them.") {
+		t.Errorf("the conflict banner has no keep-your-entries line\n%s", second.page())
+	}
+	if !Eval[bool](second, `window.e6SamePage === true`) {
+		t.Error("the 409 loaded a new page; htmx must swap it in place")
+	}
+	second.Press("Reload " + draft(id))
 	second.WaitGone(staleText(id))
 	second.Until("the stored remarks", remarks+` === "Saved in the first tab"`)
 }
