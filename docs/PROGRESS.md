@@ -347,6 +347,21 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | MOD0-HOOKS (AD-10) complete | 81 workers, 1217.5 worker-min; medians reviewer 3.9, implementer 17.2, test-writer 17.1; slowest M0-47 implementer 82 min (load ~85) | — | AD-10 | — | — | — | — | 9b7a573 |
 | MOD-PO A | PO spec v0.6, po.md 071-085, plan, UX v0.6; 3 plan-check rounds (5/27, 1/13, 0/4 then APPROVE) | — | AD-13 | 11:30 | 13:20 | 3 | see CD-276, CD-280..284 | merge after e1d6f12 |
 | MOD-EXP UX | Expense UX; U2 round 2 APPROVE; ruled CD-270 | — | AD-11 | 10:00 | 11:00 | 2 | round 1: 0/3/14 | 9377780 |
+| UI v2 E6b, C1b | ProblemPage on bare error pages; More details on master forms (CD-359, CD-363) | Std | impl, rev opus (head) | — | 1 Nov | 1–2 | approved | 52f671e9; ci 0, e2e 0 |
+| UI v2 C2a | Stepper v2, step intros, one h1 per wizard page (CD-364) | Std | impl, rev opus (head) | — | 1 Nov | 2 | approved | 34788b80; ci 0, e2e 0 |
+| UI v2 E6c | ConflictBanner (CD-362, CD-365) | Std | impl, rev opus (head) | — | 1 Nov | 1 | 0/0/3 | 3b45acfd; ci 0, e2e 0 |
+| UI v2 E2 | Setup wizard, three steps, one atomic save (CD-165) | Std | impl, rev opus (head) | — | 1 Nov | 2 | 0/0/7 (mutation survivors fixed) | e3882ee1; ci 0, e2e 0 |
+| UI v2 E4, D1 | Lists (chips, rows, EmptyList, CD-366); picker v2 (recent picks with LinkRole) | Std | impl, rev opus (head) | — | 1 Nov | 2 / 3 | E4 2 majors; D1 1 major; head merge fixes (Clearable rename, Picker placeholder) | f9d7bae2; ci 0, e2e 0 (third trial; head merged a red trial once and reset main) |
+| MOD-GRN batch 7 | S5 screens sweep, S6 flows, G12 More details, Bill ConflictBanner (CD-367) | High/Std | tw, impl, rev opus (AD-12) | — | 1 Nov | 1–3 | see AD-12 rows; head fix: sweep waits for picker fade-in | d5de37f4; ci 0, e2e 0 |
+| UI v2 C4, E3; MOD-EXP EMPTY | ErrorSummary v2 and check badges; module home (CD-368); expense report empty states | Std/High | impl, rev opus (head, AD-11) | — | 1 Nov | 1 / 3 | E3 4 majors, then lenient-double fallback removed | 2e020495; ci 0, e2e 0 |
+| UI v2 B1c | Field.Placeholder (CD-370) | Std | impl, rev opus (head) | — | 1 Nov | 2 | 3 majors (stray placeholders on choices) | 9324fa5d; ci 0, e2e 0 |
+| UI v2 C5 | Party role segmented, mstkit Choices and Renames (CD-369) | Std | impl, rev opus (head) | — | 2 Nov | 1 + minors | 0/0/3 | cbe61f15; ci 0, e2e 0 |
+| UI v2 E4b; MOD-PO 13; MOD-EXP PH | DataList card title and party (CD-371); P42 picker hints; expense placeholders | Std | impl, rev opus (head, AD-13, AD-11) | — | 2 Nov | 1 | 0/0/2 | 5f7bb81c; ci 0, e2e 0 |
+| MOD-PO 14; UI v2 B1d; E2fix | P43 field placeholders; money 0.00; e2e Fill waits for the htmx settle | Std/Light | impl opus (AD-13, head) | — | 2 Nov | 1 | flake root cause: focus moves to step heading on settle | 853b6c2a; ci 0, e2e 0 |
+| MOD-EXP TAX | Tax code picker example | Light | impl opus (AD-11) | — | 2 Nov | 1 | — | 402041fa; ci 0, e2e 0 |
+| UI v2 E6d; MOD-GRN batch 8 | Remaining 409 banners and Reload gate; GRN final cleanup and placeholders | Std | impl, rev opus (head, AD-12) | — | 2 Nov | 1–2 | 0/0/1 | 2a873bb0; ci 0, e2e 0 |
+| MOD-GRN (AD-12) complete apart from moreFields (after C3) | 89 workers, 1640.2 worker-min; full rows in .worktrees/mod-grn/.work/ad-tasks.md | — | AD-12 | — | 2 Nov | — | — | 2a873bb0 |
+| MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
