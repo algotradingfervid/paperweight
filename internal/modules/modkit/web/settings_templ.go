@@ -14,7 +14,7 @@ import (
 )
 
 // settingsPage is the business settings form (PO spec §14.1), composed like
-// Company's single-record form: a refusal banner (stale, with Reload), the
+// Company's single-record form: the conflict banner (stale, with Reload), the
 // error summary, and the fields with the version the page was rendered at.
 func settingsPage(v settingsView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -126,8 +126,8 @@ func settingsPage(v settingsView) templ.Component {
 	})
 }
 
-// problemBanner is a refusal with no field: a stale version (409), with
-// Reload. It renders nothing without one.
+// problemBanner is a refusal with no field: a stale version (409), the
+// conflict banner with Reload. It renders nothing without one.
 func problemBanner(msg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -150,7 +150,7 @@ func problemBanner(msg string) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if msg != "" {
-			templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Danger, Message: msg, Link: &components.Link{Label: "Reload", Href: settingsPath}}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.ConflictBanner(msg, pageTitle, settingsPath).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

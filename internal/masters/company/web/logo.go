@@ -184,9 +184,7 @@ func (h *logoHandlers) show(w http.ResponseWriter, r *http.Request, p auth.Princ
 	var errs []components.FieldErr
 	switch {
 	case status == http.StatusConflict:
-		banner = components.Banner(components.BannerProps{
-			Kind: components.Danger, Message: msg, Link: &components.Link{Label: "Reload", Href: logoPath},
-		})
+		banner = components.ConflictBanner(msg, "Company logo", logoPath)
 	case msg != "":
 		props.Error = msg
 		errs = []components.FieldErr{{ID: components.UploadInputID(uploadID), Message: msg}}

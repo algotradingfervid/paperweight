@@ -968,6 +968,7 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 			f.Errs = nil
 		}
 		v.ID, v.Title, v.Action, v.Disabled = id, strings.TrimSpace(head.Code+" "+head.Name), h.recordPath(id), head.Disabled
+		v.Label = v.Title
 		v.More = h.more(id, head.Disabled, f.Version, v.CanWrite, canDelete)
 		v.Confirm = !h.NoDelete && r.URL.Query().Has("delete") && canDelete
 		if h.Extra != nil {
@@ -1316,6 +1317,7 @@ type listView struct {
 type recordView struct {
 	ID                          int64
 	Title, Action               string
+	Label                       string // the record's display name, for the 409's Reload; "" for a new record
 	Back                        components.Link
 	Disabled, CanWrite, Confirm bool
 	Form                        form

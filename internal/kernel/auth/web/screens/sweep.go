@@ -69,7 +69,7 @@ func Screens(ids SweepIDs, submit func(ctx context.Context, js, wait string) err
 		{Name: "rights not shown", Route: rights, URL: RightsPath(ids.Role, ids.NotShown), As: sweepUser},
 		{Name: "rights team", Route: rights, URL: RightsPath(ids.Role, ids.Team), As: sweepUser},
 		{Name: "rights read notice", Route: rights, URL: RightsPath(ids.Role, ids.Team), As: sweepUser, Setup: setup(saveWithoutRead, "main .banner--info")},
-		{Name: "rights 409", Route: rights, URL: RightsPath(ids.Role, ids.Team), As: sweepUser, Setup: setup(saveStale, "main .banner--danger")},
+		{Name: "rights 409", Route: rights, URL: RightsPath(ids.Role, ids.Team), As: sweepUser, Setup: setup(saveStale, "main .banner--warning a.btn")},
 		{Name: "copy rights", Route: copyRights, URL: copyPath, As: sweepUser},
 		{Name: "copy rights 422", Route: copyRights, URL: copyPath, As: sweepUser, Setup: setup(copyNoSource, ".error-summary")},
 		{Name: "sign in", Route: "/signin", URL: "/signin"},
