@@ -168,6 +168,9 @@ func TestGRNWeb_ChoosePOCombobox(t *testing.T) {
 	if got := r.doc.Find("#f-purchase_order_id-hint").Text(); got != "Search by PO number or vendor." {
 		t.Errorf("hint = %q, want Search by PO number or vendor.", got)
 	}
+	if got := input.AttrOr("placeholder", ""); got != "PO number or vendor" {
+		t.Errorf("placeholder = %q, want PO number or vendor (UI v2 §5.8, CD-370)", got)
+	}
 	hidden := r.doc.Find(`input[type="hidden"][name="purchase_order_id"]`)
 	if hidden.Length() != 1 || hidden.AttrOr("value", "x") != "" {
 		t.Errorf("hidden purchase_order_id: %d, value %q, want one, blank", hidden.Length(), hidden.AttrOr("value", "x"))
