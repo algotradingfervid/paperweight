@@ -452,12 +452,36 @@ func TestLines_GridSaveUsesPostedVersion(t *testing.T) {
 		if !found {
 			t.Errorf("no out-of-band element carries %q", msg)
 		}
+		// CD-362: the warning ConflictBanner naming the document, never danger.
+		alerts := resp.Find("#grid-alerts")
+		if alerts.Find(".banner--warning").Length() != 1 || alerts.Find(".banner--danger").Length() != 0 {
+			t.Errorf("#grid-alerts = %q, want one warning banner and no danger", alerts.AttrOr("class", "")+norm(alerts.Text()))
+		}
+		reload := buttonsNamed(alerts.Find(".banner--warning"), "Reload Draft 42")
+		if href := reload.AttrOr("href", ""); reload.Length() != 1 || href != doc42+"/edit/items" {
+			t.Errorf("Reload Draft 42 = %d buttons, href %q, want one to %s/edit/items", reload.Length(), href, doc42)
+		}
 		row := resp.Find("form#grid-row-2")
 		if row.Length() != 1 {
 			t.Fatal("the 409 does not return form#grid-row-2")
 		}
 		if v, _ := row.Find("#grid-2-qty").Attr("value"); v != "25" {
 			t.Errorf("row qty = %q, want the typed 25 kept", v)
+		}
+	})
+
+	// Only a 409 is the ConflictBanner (CD-362); any other refusal with no
+	// cell stays the danger banner.
+	t.Run("refusal stays danger", func(t *testing.T) {
+		const msg = "Something else went wrong."
+		e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSave, doc.Result{}, statusErr{status: http.StatusUnprocessableEntity, msg: msg})
+		rec := gridPost(t, e, page, 2, "6", map[string]string{"grid-2-qty": "25"})
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
+		}
+		alerts := uitest.Doc(t, rec).Find("#grid-alerts")
+		if alerts.Find(".banner--danger").Length() != 1 || alerts.Find(".banner--warning").Length() != 0 || !strings.Contains(norm(alerts.Text()), msg) {
+			t.Errorf("#grid-alerts = %q, want one danger banner holding %q and no warning", norm(alerts.Text()), msg)
 		}
 	})
 }

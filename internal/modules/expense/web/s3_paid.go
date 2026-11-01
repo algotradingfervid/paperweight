@@ -40,7 +40,7 @@ type paidScreen struct {
 	date     *components.DateProps // nil on Undo paid
 	button   components.ButtonProps
 	danger   string
-	reload   *components.Link // the GET page, on a 409
+	reload   *components.Link // the advance's label and the GET page, on a 409
 	errs     []components.FieldErr
 	// focusHeading focuses the Undo paid confirm's heading (UX §5.18). The
 	// danger banner always takes focus (as the wizard's conflict banner);
@@ -93,7 +93,7 @@ func (h *handlers) renderPaidPage(w http.ResponseWriter, r *http.Request, v paid
 
 // paidScreenOf is the page for the request's route (…/paid or …/unpaid),
 // with err's field messages at Paid on and its other message in the danger
-// banner (with a Reload link on a 409).
+// banner, or the ConflictBanner on a 409.
 func paidScreenOf(r *http.Request, pg expense.PaidPage, v paidView, err error) paidScreen {
 	id := strconv.FormatInt(v.AdvanceID, 10)
 	page := "/doc/" + expense.AdvanceDocType + "/" + id
@@ -137,7 +137,7 @@ func paidScreenOf(r *http.Request, pg expense.PaidPage, v paidView, err error) p
 		s.danger = err.Error()
 		var se interface{ Status() int }
 		if errors.As(err, &se) && se.Status() == http.StatusConflict {
-			s.reload = &components.Link{Label: "Reload", Href: s.action}
+			s.reload = &components.Link{Label: pg.Label, Href: s.action}
 		}
 	}
 	s.opts.Error = err != nil

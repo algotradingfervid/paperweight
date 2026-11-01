@@ -251,7 +251,12 @@ func gridResponse(g gridView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if g.Alert != "" {
+			if g.Conflict != "" {
+				templ_7745c5c3_Err = components.ConflictBanner(g.Alert, g.Conflict, g.ReloadURL).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else if g.Alert != "" {
 				templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Danger, Message: g.Alert, Link: &components.Link{Label: "Reload", Href: g.ReloadURL}}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -431,7 +436,7 @@ func linePageBody(lp linePageView) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(lp.Question)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 92, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 94, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -467,7 +472,7 @@ func linePageBody(lp linePageView) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(lp.Version))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 98, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/lines.templ`, Line: 100, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 			if templ_7745c5c3_Err != nil {

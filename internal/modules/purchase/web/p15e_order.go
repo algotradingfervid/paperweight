@@ -77,7 +77,7 @@ func summaryLine(parts ...string) string {
 
 // pageErrs is a redraw's refusals as the page shows them: each field's
 // message, the error summary linking to them, and a refusal with no field
-// as a danger banner, with Reload when it is the stale 409.
+// as a danger banner, or the ConflictBanner when it is the stale 409.
 type pageErrs struct {
 	fields  map[string]string
 	summary []components.FieldErr
@@ -107,15 +107,16 @@ func errsOf(status int, errs []doctype.FieldError, refusal, self string) pageErr
 	return e
 }
 
-func (e pageErrs) banner() templ.Component {
+// banner is the problem's banner: the ConflictBanner naming the PO (label)
+// on the stale 409, else the danger banner.
+func (e pageErrs) banner(label string) templ.Component {
 	if e.problem == "" {
 		return nil
 	}
-	b := components.BannerProps{Kind: components.Danger, Message: e.problem}
 	if e.reload != "" {
-		b.Link = &components.Link{Label: "Reload", Href: e.reload}
+		return components.ConflictBanner(e.problem, label, e.reload)
 	}
-	return components.Banner(b)
+	return components.Banner(components.BannerProps{Kind: components.Danger, Message: e.problem})
 }
 
 // handoverView is the hand-over page (UX §5.12).

@@ -138,11 +138,11 @@ func TestPUX025_CreatePORedraws(t *testing.T) {
 
 	a := w.do(t, env.Priya, http.MethodPost, path, url.Values{"version": {strconv.Itoa(v - 1)}, "vendor_id": {shree}})
 	stale := "Someone else changed " + pr.Number + " after you opened it. Reload it and make your changes again."
-	if a.status != http.StatusConflict || !slices.Equal(a.banners("danger"), []string{stale}) {
-		t.Errorf("POST stale = %d, danger %q; want 409 with %q", a.status, a.banners("danger"), stale)
+	if a.status != http.StatusConflict || !slices.Equal(a.banners("warning"), []string{stale}) {
+		t.Errorf("POST stale = %d, warning %q; want 409 with %q", a.status, a.banners("warning"), stale)
 	}
-	if a.doc.Find(`.banner--danger a[href="`+path+`"]`).Length() != 1 {
-		t.Errorf("409 banner has no Reload link to %s", path)
+	if r := a.doc.Find(`.banner--warning a[href="` + path + `"]`); r.Length() != 1 || p15dCollapse(r.Text()) != "Reload "+pr.Number {
+		t.Errorf("409 banner has no Reload %s link to %s", pr.Number, path)
 	}
 	if got := a.doc.Find(`input[name="vendor_id"]`).AttrOr("value", ""); got != shree {
 		t.Errorf("409 vendor_id = %q, want SHREE's %s kept", got, shree)

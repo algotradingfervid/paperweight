@@ -68,14 +68,14 @@ func (b Bar) props(m Model) components.ActionBarProps {
 	return p
 }
 
-// reloadLabel is the conflict banner's button: it names the document being
-// edited (UI v2 §5.14, A-29), and only that one. A new document has no label
-// yet, and a master wizard's DocLabel names a kind of record.
+// reloadLabel is the record the conflict banner's Reload names: the document
+// being edited (UI v2 §5.14, A-29), and only that one. A new document has no
+// label yet, and a master wizard's DocLabel names a kind of record.
 func reloadLabel(m Model) string {
-	if m.Mode != Document || m.DocLabel == "" {
-		return "Reload"
+	if m.Mode != Document {
+		return ""
 	}
-	return "Reload " + m.DocLabel
+	return m.DocLabel
 }
 
 func titleLine(m Model) string {
@@ -370,33 +370,7 @@ func conflictBanner(m Model) templ.Component {
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var10 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
-			}
-			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<p>Your entries stay on this page until you reload, so you can copy them.</p><div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: reloadLabel(m), Href: m.ReloadURL, Icon: "refresh-cw", Variant: components.Secondary}).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			return nil
-		})
-		templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Warning, Message: m.Conflict}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.ConflictBanner(m.Conflict, reloadLabel(m), m.ReloadURL).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
