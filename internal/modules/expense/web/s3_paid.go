@@ -99,7 +99,7 @@ func paidScreenOf(r *http.Request, pg expense.PaidPage, v paidView, err error) p
 	page := "/doc/" + expense.AdvanceDocType + "/" + id
 	route := path.Base(r.URL.Path)
 	s := paidScreen{
-		opts:    layout.PageOpts{Width: layout.Form, Back: &components.Link{Label: pg.Label, Href: page}, NoHeading: true},
+		opts:    layout.PageOpts{Width: layout.Form, Back: &components.Link{Label: pg.Label, Href: page}, NoHeading: true, Focus: true},
 		summary: pg.Label + " · " + pg.Employee + " · " + types.FormatINR(pg.Amount),
 		action:  "/modules/expense/advances/" + id + "/" + route,
 		version: v.Version,
