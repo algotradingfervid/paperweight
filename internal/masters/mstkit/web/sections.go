@@ -199,9 +199,10 @@ func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, 
 	if f.Stored, err = h.formValues(rec); err != nil {
 		return err
 	}
+	display := strings.TrimSpace(head.Code + " " + head.Name)
 	v := recordView{
-		ID: id, Title: s.Label, Action: h.sectionPath(id, s), CanWrite: true, Width: layout.Form, Form: f,
-		Back: components.Link{Label: strings.TrimSpace(head.Code + " " + head.Name), Href: h.recordPath(id)},
+		ID: id, Title: s.Label, Label: display, Action: h.sectionPath(id, s), CanWrite: true, Width: layout.Form, Form: f,
+		Back: components.Link{Label: display, Href: h.recordPath(id)},
 	}
 	for _, name := range s.Fields {
 		fd, _ := h.field(name) // handlers checked every step's fields

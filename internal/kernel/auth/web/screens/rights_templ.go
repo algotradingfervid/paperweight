@@ -20,8 +20,9 @@ import (
 )
 
 // RightsPage edits Role's Rights on DocType (design-system §8.6). DocTypes are
-// the role's DocTypes, shown beside the form from 64rem. Error, when set, shows
-// in a Banner, with Rights and Role.Version as the page posted them (CD-94).
+// the role's DocTypes, shown beside the form from 64rem. Error, the stale
+// save's text, shows in the conflict banner, with Rights and Role.Version as
+// the page posted them (CD-94, CD-365).
 type RightsPage struct {
 	Role     auth.RoleInfo
 	DocType  *doctype.DocType
@@ -109,7 +110,7 @@ func Rights(p RightsPage) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		o := uilayout.PageOpts{Title: p.DocType.Label + " rights for " + p.Role.Name, Error: p.Error != "", Back: &components.Link{Label: p.Role.Name, Href: rolePath(p.Role.ID)}}
 		if o.Error {
-			o.BannerSlot = components.Banner(components.BannerProps{Kind: components.Danger, Message: p.Error, Link: &components.Link{Label: "Reload", Href: RightsPath(p.Role.ID, p.DocType.Name)}})
+			o.BannerSlot = components.ConflictBanner(p.Error, p.DocType.Label+" rights", RightsPath(p.Role.ID, p.DocType.Name))
 		}
 		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -135,7 +136,7 @@ func Rights(p RightsPage) templ.Component {
 				var templ_7745c5c3_Var3 templ.SafeURL
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(RightsPath(p.Role.ID, dt.Name)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 93, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 94, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -158,7 +159,7 @@ func Rights(p RightsPage) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(dt.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 97, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 98, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -224,7 +225,7 @@ func Rights(p RightsPage) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(note)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 116, Col: 14}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/kernel/auth/web/screens/rights.templ`, Line: 117, Col: 14}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {

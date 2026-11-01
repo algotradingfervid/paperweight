@@ -6,7 +6,7 @@ import (
 )
 
 // settingsPage is the business settings form (PO spec §14.1), composed like
-// Company's single-record form: a refusal banner (stale, with Reload), the
+// Company's single-record form: the conflict banner (stale, with Reload), the
 // error summary, and the fields with the version the page was rendered at.
 templ settingsPage(v settingsView) {
 	@layout.Page(layout.PageOpts{
@@ -36,10 +36,10 @@ templ settingsPage(v settingsView) {
 	}
 }
 
-// problemBanner is a refusal with no field: a stale version (409), with
-// Reload. It renders nothing without one.
+// problemBanner is a refusal with no field: a stale version (409), the
+// conflict banner with Reload. It renders nothing without one.
 templ problemBanner(msg string) {
 	if msg != "" {
-		@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg, Link: &components.Link{Label: "Reload", Href: settingsPath}})
+		@components.ConflictBanner(msg, pageTitle, settingsPath)
 	}
 }

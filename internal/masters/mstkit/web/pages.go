@@ -79,10 +79,14 @@ type SubForm struct {
 	Required bool
 }
 
-// RenderSubForm renders s with status.
+// RenderSubForm renders s with status; a 409's Reload names s.Title, plain on a new row (ID 0).
 func RenderSubForm(w http.ResponseWriter, r *http.Request, status int, s SubForm) {
-	ui.Render(w, r, status, recordPageCancelTo(recordView{
+	v := recordView{
 		ID: s.ID, Title: s.Title, Action: s.Action, Back: s.Back, CanWrite: true, Width: layout.Form,
 		Form: s.Form, Inputs: s.Inputs, Confirm: s.Confirm, Required: s.Required,
-	}, s.Back.Href), nil)
+	}
+	if s.ID != 0 {
+		v.Label = s.Title
+	}
+	ui.Render(w, r, status, recordPageCancelTo(v, s.Back.Href), nil)
 }

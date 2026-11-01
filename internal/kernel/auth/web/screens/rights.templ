@@ -12,8 +12,9 @@ import (
 )
 
 // RightsPage edits Role's Rights on DocType (design-system §8.6). DocTypes are
-// the role's DocTypes, shown beside the form from 64rem. Error, when set, shows
-// in a Banner, with Rights and Role.Version as the page posted them (CD-94).
+// the role's DocTypes, shown beside the form from 64rem. Error, the stale
+// save's text, shows in the conflict banner, with Rights and Role.Version as
+// the page posted them (CD-94, CD-365).
 type RightsPage struct {
 	Role     auth.RoleInfo
 	DocType  *doctype.DocType
@@ -81,7 +82,7 @@ func notShownNote(dt *doctype.DocType) string {
 templ Rights(p RightsPage) {
 	{{ o := uilayout.PageOpts{Title: p.DocType.Label + " rights for " + p.Role.Name, Error: p.Error != "", Back: &components.Link{Label: p.Role.Name, Href: rolePath(p.Role.ID)}} }}
 	if o.Error {
-		{{ o.BannerSlot = components.Banner(components.BannerProps{Kind: components.Danger, Message: p.Error, Link: &components.Link{Label: "Reload", Href: RightsPath(p.Role.ID, p.DocType.Name)}}) }}
+		{{ o.BannerSlot = components.ConflictBanner(p.Error, p.DocType.Label+" rights", RightsPath(p.Role.ID, p.DocType.Name)) }}
 	}
 	@uilayout.Page(o) {
 		<div class="sidebar-layout">

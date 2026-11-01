@@ -116,12 +116,12 @@ templ readRows(v recordView) {
 	}
 }
 
-// problemBanner is a refusal with no field: a stale version (409, with
-// Reload) or mstkit's "Cannot delete …" (422).
+// problemBanner is a refusal with no field: a stale version (409, the
+// conflict banner naming the record) or mstkit's "Cannot delete …" (422).
 templ problemBanner(v recordView) {
 	if v.Form.Problem != "" {
 		if v.Form.Reload {
-			@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.Form.Problem, Link: &components.Link{Label: "Reload", Href: v.Action}})
+			@components.ConflictBanner(v.Form.Problem, v.Label, v.Action)
 		} else {
 			@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.Form.Problem})
 		}
