@@ -6,6 +6,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
 // NumberKind is a number field's kind; it names its /ui/validate endpoint.
@@ -31,10 +32,24 @@ const (
 	Pincode CodeKind = "pincode"
 )
 
-// DateProps describes a date field; Today and Yesterday are dd-mm-yyyy.
+// DateProps describes a date field; Today, Yesterday and the optional
+// bounds Min and Max are dd-mm-yyyy.
 type DateProps struct {
 	FieldProps
 	Today, Yesterday string
+	Min, Max         string
+}
+
+// pickerBounds are the calendar's min and max: the field's bounds as ISO
+// dates, when it has them (CD-336 (1)).
+func pickerBounds(p DateProps) templ.Attributes {
+	a := templ.Attributes{}
+	for k, v := range map[string]string{"min": p.Min, "max": p.Max} {
+		if d, err := types.ParseDate(v); err == nil {
+			a[k] = d.ISO()
+		}
+	}
+	return a
 }
 
 // validateAttrs make a control check itself on change at /ui/validate/{kind}.
@@ -156,22 +171,30 @@ func dateField(p FieldProps) FieldProps {
 	return p
 }
 
-// DateInput is a dd-mm-yyyy text input with "Today" and "Yesterday" buttons
-// (date.js) and the weekday echo in the message region, rendered here on
-// every draw and by /ui/validate/date on change.
+// DateInput is a dd-mm-yyyy text input with a "Choose date" button that
+// opens the platform picker through a hidden date input, "Today" and
+// "Yesterday" chips (date.js, CD-336 (1)) and the weekday echo in the message
+// region, rendered here on every draw and by /ui/validate/date on change.
 templ DateInput(p DateProps) {
 	@field(dateField(p.FieldProps)) {
-		<input
-			type="text"
-			inputmode="numeric"
-			autocomplete="off"
-			value={ p.Value }
-			{ validateAttrs(p.FieldProps, "date")... }
-			{ controlAttrs(dateField(p.FieldProps), "input field__input")... }
-		/>
+		<div class="field__date">
+			<input
+				type="text"
+				inputmode="numeric"
+				autocomplete="off"
+				placeholder="dd-mm-yyyy"
+				value={ p.Value }
+				{ validateAttrs(p.FieldProps, "date")... }
+				{ controlAttrs(dateField(p.FieldProps), "input field__input")... }
+			/>
+			<button type="button" class="field__cal" data-date-pick aria-controls={ p.ID } aria-label="Choose date">
+				@icons.Icon("calendar")
+			</button>
+			<input type="date" class="field__picker" data-date-picker={ p.ID } tabindex="-1" aria-hidden="true" { pickerBounds(p)... }/>
+		</div>
 		<div class="field__actions">
-			<button type="button" class="btn btn-outline tap" data-set-date={ p.Today } aria-controls={ p.ID }>Today</button>
-			<button type="button" class="btn btn-outline tap" data-set-date={ p.Yesterday } aria-controls={ p.ID }>Yesterday</button>
+			<button type="button" class="btn btn-outline tap field__chip" data-set-date={ p.Today } aria-controls={ p.ID }>Today</button>
+			<button type="button" class="btn btn-outline tap field__chip" data-set-date={ p.Yesterday } aria-controls={ p.ID }>Yesterday</button>
 		</div>
 	}
 }

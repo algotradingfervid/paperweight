@@ -492,3 +492,66 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** `priya` buys site materials for cash **When** she files a claim with a `SITE-MISC` line tagged PRJ-METRO and METRO-SITE, ticks `Bill in company GSTIN` with `27AABCS1429B1ZU`, `INV-901` and Billed to PUNE, and `ravi` approves (Priya has no Approve button on her own) **Then** the expense lines report lists the line under PRJ-METRO with the GSTIN and invoice no., and it appears in no PO pending figure or GRN. Built by MOD-EXP or MOD-GRN, whichever finishes last (CD-271).
 - **Go test:** `TestE2E_BuyerCashClaim`
 - **Sources:** research X5; GRN spec §1, §12
+
+### EXP-068 · A claim line's project comes from its site
+- **Priority:** P1
+- **Level:** unit
+- **Given** a draft claim line with site METRO-SITE (project PRJ-METRO) **When** the line is saved with no project, or with another project **Then** the project fills as PRJ-METRO, and another project is refused with "Line 1: Site METRO-SITE is on project PRJ-METRO. Pick that project or another site." (CD-337 (5)).
+- **Go test:** `TestExpE13_LineProjectFromSite`
+- **Sources:** CD-337 (5); form audit P2
+
+### EXP-069 · An advance line's project comes from its site
+- **Priority:** P1
+- **Level:** unit
+- **Given** a draft advance line with a site **When** it is saved with no project or another project **Then** the same default and refusal as EXP-068 apply.
+- **Go test:** `TestExpE13_AdvanceLineProjectFromSite`
+- **Sources:** CD-337 (5)
+
+### EXP-070 · The site-project rule runs only on drafts
+- **Priority:** P1
+- **Level:** unit
+- **Given** a submitted claim whose line's site later moves to another project **When** it is approved **Then** approval isn't blocked and the line keeps its project.
+- **Go test:** `TestExpE13_SiteProjectDraftOnly`
+- **Sources:** CD-337 (5); AD-11 ruling
+
+### EXP-071 · A claim line's HSN/SAC is checked
+- **Priority:** P1
+- **Level:** unit
+- **Given** a claim line **When** its HSN/SAC (after the expense type's default) fails the goods or SAC rule **Then** it is refused with "Line {n}: " plus the gstin text.
+- **Go test:** `TestExpE13_LineHSN`
+- **Sources:** CD-337 (5)
+
+### EXP-072 · A supplier GSTIN equal to our own branch's warns
+- **Priority:** P2
+- **Level:** unit
+- **Given** a company-bill line whose supplier GSTIN is an enabled branch's GSTIN **When** the claim is checked **Then** it warns "Line {n}: Supplier GSTIN {gstin} is our own branch's GSTIN."
+- **Go test:** `TestExpE13_OwnBranchGSTIN`
+- **Sources:** CD-337 (5)
+
+### EXP-073 · The employee is hidden only as an input
+- **Priority:** P1
+- **Level:** unit
+- **Given** a non-admin's claim **When** it is shown on the list, search and CSV, and in the wizard **Then** the employee is hidden as a wizard input only, carried on lists and the CSV, and a sort or filter on employee_id is refused for everyone (CD-327 (2)).
+- **Go test:** `TestExp_EmployeeHiddenOnlyAsInput`
+- **Sources:** CD-327 (2)
+
+### EXP-074 · A receipt clears the no-receipt reason
+- **Priority:** P1
+- **Level:** unit
+- **Given** a draft claim line with a no-receipt reason **When** a receipt is attached and the claim saved **Then** the reason is cleared (CD-357).
+- **Go test:** `TestExp_ReceiptClearsReason`
+- **Sources:** CD-357, CD-302
+
+### EXP-075 · Mark as paid shows its flash after an htmx post
+- **Priority:** P1
+- **Level:** e2e
+- **Given** an approved advance **When** the user marks it paid from the page **Then** the page moves to the advance and shows "Marked as paid." (EUX-040, CD-80, CD-357).
+- **Go test:** `TestE2E_PaidFlashAfterHTMXPost`
+- **Sources:** CD-357
+
+### EXP-076 · The paid route answers htmx with a redirect
+- **Priority:** P1
+- **Level:** unit
+- **Given** an htmx POST to mark paid or undo paid **When** it succeeds **Then** the answer is 200 with HX-Redirect and the flash; a plain POST gets 303.
+- **Go test:** `TestAdv_PaidHTMXRedirects`
+- **Sources:** CD-357

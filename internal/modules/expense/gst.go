@@ -3,6 +3,7 @@ package expense
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
@@ -21,7 +22,8 @@ func BranchGSTINs(ctx context.Context, tx *db.Tx) (int, error) {
 }
 
 // checkGST is the save-time GST rules of line l: GST not above the amount, a
-// valid supplier GSTIN, and a Billed to branch that has a GSTIN. Only a
+// valid supplier GSTIN, a valid HSN/SAC, and a Billed to branch that has a
+// GSTIN. Only a
 // company-bill line holds Billed to: a draft save clears it on the others
 // (setBilledTo) before this runs.
 func checkGST(ctx context.Context, q *dbq.Queries, l dbq.E2ClaimLinesRow) ([]doctype.FieldError, error) {
@@ -35,6 +37,9 @@ func checkGST(ctx context.Context, q *dbq.Queries, l dbq.E2ClaimLinesRow) ([]doc
 			errs = append(errs, doctype.FieldError{Field: "supplier_gstin", Line: n, Message: fmt.Sprintf(msgLinePrefix, n) + err.Error()})
 		}
 	}
+	if fe := checkLineHSN(n, l.HsnSac); fe != nil {
+		errs = append(errs, *fe)
+	}
 	if l.BilledToID.Valid {
 		g, err := q.E2BranchGSTIN(ctx, l.BilledToID.Int64)
 		if err != nil {
@@ -45,6 +50,24 @@ func checkGST(ctx context.Context, q *dbq.Queries, l dbq.E2ClaimLinesRow) ([]doc
 		}
 	}
 	return errs, nil
+}
+
+// checkLineHSN checks line n's HSN/SAC, when not blank, with the expense
+// type master's rule for its default (CD-337 (5)): a code starting 99 is a
+// SAC, else a goods HSN; gstin's text goes behind the line prefix.
+func checkLineHSN(n int, code string) *doctype.FieldError {
+	c := strings.TrimSpace(code)
+	if c == "" {
+		return nil
+	}
+	check := gstin.ValidateGoodsHSN
+	if strings.HasPrefix(c, "99") {
+		check = gstin.ValidateSAC
+	}
+	if _, err := check(c); err != nil {
+		return &doctype.FieldError{Field: "hsn_sac", Line: n, Message: fmt.Sprintf(msgLinePrefix, n) + err.Error()}
+	}
+	return nil
 }
 
 // submitClaimFields is the claim's submit-only field rules: a company bill

@@ -222,7 +222,9 @@ func (m *module) fromRowOf(c docscreen.Ctx, s docscreen.StepState, r purchase.Op
 	}
 	row.hint = fmt.Sprintf(fromPending, types.FormatQty(r.Pending), r.UoMCode)
 	row.box = components.FieldProps{ID: components.FieldID(fromIDs + id), Name: fromTick}
-	row.qty = components.FieldProps{ID: components.FieldID(fromIDs + id + "-qty"), Name: fromQty + id, Label: fromQtyLabel, Value: r.Pending.Plain()}
+	qtyField, _ := c.DT.Field("qty")
+	row.qty = declaredProps(qtyField, components.FieldID(fromIDs+id+"-qty"))
+	row.qty.Name, row.qty.Label, row.qty.Value = fromQty+id, fromQtyLabel, r.Pending.Plain()
 	if c.Req.PostForm.Has(fromQty + id) { // a redraw keeps the typed quantity
 		row.qty.Value = c.Req.PostForm.Get(fromQty + id)
 	}
