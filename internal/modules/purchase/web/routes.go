@@ -25,6 +25,9 @@ type Deps struct {
 	// ReceiveLink is MOD-GRN's Receive goods link for a PO, ok false when p
 	// may not receive against it; nil until MOD-GRN wires it (CD-283).
 	ReceiveLink func(ctx context.Context, p auth.Principal, poID int64) (href string, ok bool)
+	// ListHidden is docscreen's list Hide question over the app's registered
+	// modules (CD-368 (3)). Required: Routes panics without it.
+	ListHidden func(r *http.Request, dt *doctype.DocType) func(name string) bool
 }
 
 // handlers carries Deps to each task's handler file.
@@ -34,6 +37,9 @@ type handlers struct {
 
 // Routes registers every purchase module route.
 func Routes(d Deps) func(r chi.Router) {
+	if d.ListHidden == nil {
+		panic("purchaseweb.Routes: Deps.ListHidden is nil")
+	}
 	h := &handlers{d: d}
 	return func(r chi.Router) {
 		r.Get("/modules/purchase", h.home)

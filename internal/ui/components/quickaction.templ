@@ -1,0 +1,21 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// QuickActionProps is one quick action tile (UI v2 §5.12 item 5, N13), on
+// a module home and in the New sheet: an icon tile, the label and where it
+// goes. Autofocus focuses it when its dialog opens (the sheet's first tile).
+type QuickActionProps struct {
+	Icon, Label, Href string
+	Autofocus         bool
+}
+
+// QuickAction is the tile; put several inside a newtiles grid.
+templ QuickAction(p QuickActionProps) {
+	<a class="newtile" href={ templ.SafeURL(p.Href) } autofocus?={ p.Autofocus }>
+		<span class="newtile-icon" aria-hidden="true">
+			@icons.Icon(p.Icon)
+		</span>
+		<span class="newtile-label">{ p.Label }</span>
+	</a>
+}

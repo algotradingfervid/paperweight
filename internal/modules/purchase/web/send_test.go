@@ -25,6 +25,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // The texts the Send handlers answer with (PO spec §23, DOC's stale wording,
@@ -60,10 +61,12 @@ func newP11Web(t *testing.T) *p11Web {
 	t.Helper()
 	env := purchasetest.New(t)
 	r := chi.NewRouter()
-	Routes(Deps{
+	pd := Deps{
 		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: scs.New(),
 		CSRF: func(*http.Request) string { return "p11-token" },
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(pd)}.ListHidden
+	Routes(pd)(r)
 	w := &p11Web{env: env, router: r}
 	saved := renderSend
 	renderSend = func(rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {
