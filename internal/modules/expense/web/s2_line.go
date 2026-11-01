@@ -249,13 +249,20 @@ func gstDisclosure(l lineState, choices expense.LineForm) templ.Component {
 		}
 		parts = append(parts, l.part("billed_to_id", components.Radios(l.submitProps("billed_to_id", msgBilledToHint), opts)))
 	}
+	// The three text boxes show their field's example (CD-370); Billed to
+	// is radios, which take none.
 	invoice := l.submitProps("invoice_no", "")
 	invoice.Attrs = templ.Attributes{"maxlength": "40"}
+	invoice.Placeholder = l.field("invoice_no", "").Placeholder
+	gstin := l.submitProps("supplier_gstin", "")
+	gstin.Placeholder = l.field("supplier_gstin", "").Placeholder
+	hsn := l.props("hsn_sac", "")
+	hsn.Placeholder = l.field("hsn_sac", "").Placeholder
 	parts = append(parts,
-		l.part("supplier_gstin", components.CodeInput(l.submitProps("supplier_gstin", ""), components.GSTIN)),
+		l.part("supplier_gstin", components.CodeInput(gstin, components.GSTIN)),
 		l.part("invoice_no", components.TextInput(invoice)),
 		l.input("tax_code_id", ""),
-		l.part("hsn_sac", components.CodeInput(l.props("hsn_sac", ""), components.HSN)),
+		l.part("hsn_sac", components.CodeInput(hsn, components.HSN)),
 		l.input("gst_amount", msgGSTHint),
 	)
 	open := len(ticked) > 0 || l.filled("billed_to_id", "supplier_gstin", "invoice_no", "gst_amount")
