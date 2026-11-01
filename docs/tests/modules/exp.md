@@ -576,3 +576,31 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** a claim line page **When** it renders **Then** the gst_amount and amount inputs carry no data-signed, so a minus can't be typed (B3 live input rules).
 - **Go test:** `TestExpLine_NumberInputsUnsigned`
 - **Sources:** CD-355; EXP-077
+
+### EXP-080 · Claim remarks sit in More details
+- **Priority:** P2
+- **Level:** integration
+- **Given** a claim's details step **When** Remarks is empty **Then** it sits in a closed More details group at the end of the step, named in its summary; a stored value, a typed value redrawn on 422 or an error on Remarks opens it; when Remarks is hidden the group is not drawn (CD-359 (7)).
+- **Go test:** `TestMoreExp_ClaimRemarks`, `TestMoreExp_ClaimRemarksHidden`
+- **Sources:** CD-359 (7); UI v2 §5.5 item 3
+
+### EXP-081 · A claim line's note sits in More details after Date
+- **Priority:** P2
+- **Level:** integration
+- **Given** a claim line page **When** Note is empty **Then** it sits in a closed More details right after Date, and opens on a value or an error; a hidden Note is never inside it.
+- **Go test:** `TestMoreExp_ClaimLineNote`, `TestMoreExp_ClaimLineNoteHidden`
+- **Sources:** CD-359 (7); expense UX §5.5
+
+### EXP-082 · Advance line description, project and site sit in More details
+- **Priority:** P2
+- **Level:** integration
+- **Given** an advance line **When** description, project and site are empty **Then** they sit in docscreen's More details group, which opens on a value or an error and never holds a hidden field.
+- **Go test:** `TestMoreExp_AdvanceLine`, `TestMoreExp_AdvanceLineHidden`
+- **Sources:** CD-359 (7)
+
+### EXP-083 · The expense More helper composes MoreDetails
+- **Priority:** P2
+- **Level:** unit
+- **Given** a field **When** the helper draws it **Then** a hidden field draws nothing, a field without More draws the bare input, and a More field is wrapped in components.MoreDetails, open on a value or an error.
+- **Go test:** `TestMoreExp_Helper`
+- **Sources:** CD-359 (7)

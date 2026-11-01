@@ -43,6 +43,14 @@ templ disclosure(summary string, open bool, parts []templ.Component) {
 	}
 }
 
+// moreDetails is components.MoreDetails holding in, the input of the field
+// labelled label.
+templ moreDetails(label string, open bool, in templ.Component) {
+	@components.MoreDetails([]string{label}, open) {
+		@in
+	}
+}
+
 // billDate is the plain sentence under the GSTIN tick (CD-271 G9): no hint
 // and no aria-describedby target.
 templ billDate() {

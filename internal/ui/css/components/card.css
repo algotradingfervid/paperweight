@@ -37,3 +37,10 @@
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
 }
+
+/* Cards are flat: white on the canvas, the subtle border and --shadow-card (UI v2 §5.1). */
+@utility card {
+  background-color: var(--color-surface);
+  border: var(--border-w) solid var(--color-border-subtle);
+  box-shadow: var(--shadow-card);
+}

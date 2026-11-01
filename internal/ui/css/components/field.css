@@ -278,3 +278,50 @@
     text-decoration: underline;
   }
 }
+
+/* PasswordInput (UI v2 §5.3): the toggle sits inside the box at its end, a
+   44 × 44 target. password.js writes the button's name as its text, which is
+   drawn at size 0; the eye glyph beside it shows instead, and swaps to the
+   crossed-out eye while the password shows. */
+@utility password {
+  position: relative;
+  & > .input { padding-inline-end: calc(var(--target-min) + var(--space-1)); }
+  &:has(> input[type="text"]) .password__show,
+  &:not(:has(> input[type="text"])) .password__hide { display: none; }
+}
+
+@utility password__toggle {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 2px;
+  z-index: 3; /* over the focused input */
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  margin-block: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  /* The name stays in the accessibility tree but takes no room (an
+     off-screen indent would be clipped content, which the overflow gate
+     refuses). */
+  color: transparent;
+  font-size: 0;
+  cursor: pointer;
+  &:hover { background: var(--color-sunken); }
+  &:active { background: var(--color-primary-100); }
+  &:focus-visible { outline-offset: -2px; }
+}
+
+@utility password__eye {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 2px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  inline-size: var(--target-min);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+  & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+}

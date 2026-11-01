@@ -216,7 +216,7 @@ func TestExpLine_NewPage(t *testing.T) {
 
 	// The disclosures, all closed; no same-receipt choice without another
 	// line's receipt.
-	if got, want := s2Summaries(form), []string{s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
+	if got, want := s2Summaries(form), []string{s2MoreNote, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
 		t.Errorf("the line form's disclosures are %q, want %q", got, want)
 	}
 	form.Find("details").Each(func(_ int, d *goquery.Selection) {
@@ -559,7 +559,7 @@ func TestExpLine_SameReceipt(t *testing.T) {
 
 	page := e.page(t, s2Deepak, newLine)
 	form := s2LineForm(t, page)
-	if got, want := s2Summaries(form), []string{s2SameSummary, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
+	if got, want := s2Summaries(form), []string{s2MoreNote, s2SameSummary, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
 		t.Errorf("the line form's disclosures are %q, want %q", got, want)
 	}
 	same := s2Details(form, s2SameSummary)

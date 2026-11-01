@@ -213,7 +213,7 @@ The complete token file is in §9.
 - **Spacing.** 4 px base: `--space-1` 4 px … `--space-16` 64 px. Page gutter 16 px on mobile, 24 px at ≥ 48rem.
 - **Touch targets.** `--target-min: 2.75rem` (44 px) for every interactive element, and 48 px for primary actions in the mobile action bar. WCAG 2.2 SC 2.5.8 AA only asks for 24×24. 44 px follows Apple's HIG and approximates Material's 48 dp.
 - **Breakpoints.** Mobile-first `min-width` only: 30rem (480), 48rem (768), 64rem (1024), 80rem (1280). Custom properties cannot be used inside `@media`, so these are constants documented in `tokens.css`. Prefer **container queries** for components (a card list switches to rows when *its container* is ≥ 48rem, not the viewport).
-- **Elevation.** Three subtle shadows plus the bottom-sheet shadow. Borders do most of the separation, and shadows are never the only cue.
+- **Elevation.** Three subtle shadows: `--shadow-card` (cards, tiles), `--shadow-raised` (sticky footer) and `--shadow-pop` (anything that floats). Borders do most of the separation, and shadows are never the only cue.
 - **Z-index.** Named scale: base 0, raised 1, sticky 100, header 200, dropdown 300, overlay 400, toast 500. Native `<dialog>.showModal()` uses the browser top layer and needs no z-index.
 - **Motion.** 120/200/300 ms with standard easings. Under `prefers-reduced-motion: reduce`, durations drop to near zero and smooth scrolling is turned off.
 - **Safe areas.** `viewport-fit=cover` plus `env(safe-area-inset-*)` padding on the header, the action bar and sheets. The viewport meta is `width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content`. That last value lets the on-screen keyboard shrink the layout viewport in Chrome Android, so the sticky action bar stays above the keyboard. Safari ignores it and still works acceptably. **Never** set `maximum-scale` or `user-scalable=no`.
@@ -491,10 +491,9 @@ Sources: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ ; https://developer.
   --radius-pill: 999px;
 
   /* ---------- Elevation (light only, subtle) ---------- */
-  --shadow-1: 0 1px 2px rgb(20 26 35 / 0.06), 0 1px 1px rgb(20 26 35 / 0.04);   /* cards */
-  --shadow-2: 0 4px 12px rgb(20 26 35 / 0.08), 0 1px 3px rgb(20 26 35 / 0.06);  /* dropdowns, sticky bars */
-  --shadow-3: 0 12px 32px rgb(20 26 35 / 0.14), 0 2px 6px rgb(20 26 35 / 0.08); /* dialogs */
-  --shadow-sheet: 0 -8px 24px rgb(20 26 35 / 0.12);                              /* bottom sheet */
+  --shadow-card:   0 1px 2px rgb(20 26 35 / 0.06), 0 1px 1px rgb(20 26 35 / 0.03);                 /* cards, list cards, tiles, switch and segment thumbs */
+  --shadow-raised: 0 -1px 0 var(--color-border-subtle), 0 -6px 16px rgb(20 26 35 / 0.06);         /* sticky footer: an upper edge */
+  --shadow-pop:    0 10px 28px rgb(20 26 35 / 0.14), 0 2px 6px rgb(20 26 35 / 0.08);                /* picker dropdown, sheets, dialogs, menus, toasts */
 
   /* ---------- Focus ---------- */
   --focus-ring-w: 2px;
@@ -599,7 +598,7 @@ Text needs 4.5:1 (normal) and UI components, focus indicators and large text nee
 | info-600 border on info-50 | 4.23 | 3.0 | Pass |
 | Progress fill primary-600 on track #D5DAE1 | 4.83 | 3.0 | Pass |
 | Disabled text #8A93A1 on surface | 3.10 | exempt (inactive UI, 1.4.3) | n/a |
-| border-subtle #DCE0E6 / track #D5DAE1 / canvas #F5F6F8 / primary-50 vs surface | 1.33 / 1.41 / 1.08 / 1.11 | decorative only | Never the sole cue: selected rows also get a 3 px primary-600 leading bar plus `aria-selected`/`aria-current`; cards on canvas also get `--color-border-subtle` + `--shadow-1` |
+| border-subtle #DCE0E6 / track #D5DAE1 / canvas #F5F6F8 / primary-50 vs surface | 1.33 / 1.41 / 1.08 / 1.11 | decorative only | Never the sole cue: selected rows also get a 3 px primary-600 leading bar plus `aria-selected`/`aria-current`; cards on canvas also get `--color-border-subtle` + `--shadow-card` |
 
 Usage rules that follow from the table:
 - `--color-text-muted` is the lightest colour allowed for any readable text, including placeholders. Never put muted text on tinted (`*-50`) backgrounds; use the 800 shade there.

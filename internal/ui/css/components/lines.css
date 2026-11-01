@@ -15,6 +15,7 @@
     background: var(--color-surface);
     border: var(--border-w) solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
   }
   & .lines-top {
     display: flex;

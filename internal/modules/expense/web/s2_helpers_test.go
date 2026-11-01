@@ -65,6 +65,7 @@ const (
 	s2NoReceipt    = "No receipt"
 	s2GSTSummary   = "Bill in company GSTIN"
 	s2ProjSummary  = "Project or site"
+	s2MoreNote     = "More details · note" // Note is Field.More (MORE, AD-11)
 )
 
 // s2MsgStale is DOC-069's text for draft id.

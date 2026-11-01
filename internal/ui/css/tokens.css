@@ -96,10 +96,9 @@
   --radius-pill: 999px;
 
   /* ---------- Elevation (light only, subtle) ---------- */
-  --shadow-1: 0 1px 2px rgb(20 26 35 / 0.06), 0 1px 1px rgb(20 26 35 / 0.04);   /* cards */
-  --shadow-2: 0 4px 12px rgb(20 26 35 / 0.08), 0 1px 3px rgb(20 26 35 / 0.06);  /* dropdowns, sticky bars */
-  --shadow-3: 0 12px 32px rgb(20 26 35 / 0.14), 0 2px 6px rgb(20 26 35 / 0.08); /* dialogs */
-  --shadow-sheet: 0 -8px 24px rgb(20 26 35 / 0.12);                              /* bottom sheet */
+  --shadow-card:   0 1px 2px rgb(20 26 35 / 0.06), 0 1px 1px rgb(20 26 35 / 0.03);                 /* cards, list cards, tiles, switch and segment thumbs */
+  --shadow-raised: 0 -1px 0 var(--color-border-subtle), 0 -6px 16px rgb(20 26 35 / 0.06);         /* sticky footer: an upper edge */
+  --shadow-pop:    0 10px 28px rgb(20 26 35 / 0.14), 0 2px 6px rgb(20 26 35 / 0.08);                /* picker dropdown, sheets, dialogs, menus, toasts */
 
   /* ---------- Focus ---------- */
   --focus-ring-w: 2px;

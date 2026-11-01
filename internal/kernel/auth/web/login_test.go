@@ -254,6 +254,26 @@ func TestLogin_WrongPassword(t *testing.T) {
 	}
 }
 
+// CD-361 (2): a refused sign-in keeps the email as typed, after a wrong
+// password and after an unknown email, and focuses the password.
+func TestLogin_RefusedKeepsTypedEmail(t *testing.T) {
+	w := authtest.NewWorld(t)
+	h, _ := t10Harness(t, w)
+	w.SetPassword(t, t10Priya, t10Password)
+	for _, email := range []string{" Priya@Vardhan.test", t11Nobody} {
+		r := t11SignIn(t, h.Client(), email, t11Wrong, "")
+		wantStatus(t, "POST /signin "+email, r, http.StatusUnauthorized)
+		doc := p1Doc(t, email, r)
+		if got := doc.Find(`input[name="email"]`).AttrOr("value", "-"); got != email {
+			t.Errorf("%q: email box %q, want the typed value", email, got)
+		}
+		pw := doc.Find(`input[name="password"]`)
+		if _, ok := pw.Attr("autofocus"); !ok || pw.AttrOr("value", "") != "" {
+			t.Errorf("%q: want the empty password focused", email)
+		}
+	}
+}
+
 // AUTH-004
 func TestLogin_UnknownEmailSameResponse(t *testing.T) {
 	w := authtest.NewWorld(t)
@@ -271,11 +291,16 @@ func TestLogin_UnknownEmailSameResponse(t *testing.T) {
 		}
 	}
 
-	mask := func(what string, r webtest.Response) string {
-		return strings.ReplaceAll(r.Body, t11FormCSRF(t, what, r), "X")
+	// The page keeps the typed email (CD-361 (2)): mask it like the token.
+	mask := func(what, email string, r webtest.Response) string {
+		b := strings.ReplaceAll(r.Body, t11FormCSRF(t, what, r), "X")
+		if n := strings.Count(b, email); n != 1 || !strings.Contains(b, `value="`+email+`"`) {
+			t.Errorf("%s: the typed email is echoed %d times, want once, in the email box", what, n)
+		}
+		return strings.ReplaceAll(b, email, "E")
 	}
-	if a, b := mask("wrong password", wrong), mask("unknown email", unknown); a != b {
-		t.Errorf("bodies differ beyond the CSRF token:\nwrong password: %q\nunknown email:  %q", a, b)
+	if a, b := mask("wrong password", t10Priya, wrong), mask("unknown email", t11Nobody, unknown); a != b {
+		t.Errorf("bodies differ beyond the CSRF token and the typed email:\nwrong password: %q\nunknown email:  %q", a, b)
 	}
 
 	keys := func(hd http.Header) []string {
