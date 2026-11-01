@@ -56,8 +56,8 @@ const (
 )
 
 // reportKey is one id or month filter of a report: its query key, label,
-// help text (its %s is the report's rows: receipts or lines) and example, and the master its Picker searches ("" for the
-// month's Select).
+// help text (its %s is the report's rows: receipts or lines) and example,
+// and the master its Picker searches ("" for the month's Select).
 type reportKey struct{ key, label, hint, example, docType, search string }
 
 var (
