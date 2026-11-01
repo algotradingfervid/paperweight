@@ -23,7 +23,7 @@ templ fromRequestMain(v fromRequestView) {
 // line, then either the nothing-pending note or the rows and the vendor form.
 templ fromRequestBody(v fromRequestView) {
 	if v.conflict != "" {
-		@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.conflict, Link: &components.Link{Label: "Reload", Href: v.action}})
+		@components.ConflictBanner(v.conflict, v.back.Label, v.action)
 	}
 	for _, msg := range v.refusals {
 		@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg})

@@ -133,7 +133,7 @@ func fromRequestBody(v fromRequestView) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if v.conflict != "" {
-			templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Danger, Message: v.conflict, Link: &components.Link{Label: "Reload", Href: v.action}}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.ConflictBanner(v.conflict, v.back.Label, v.action).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

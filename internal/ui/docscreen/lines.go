@@ -502,6 +502,9 @@ func (d Deps) gridRefused(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 	pr.Fields = unhiddenAll(d.lineCtx(r, dt, &v, no), pr.Fields) // a hidden field has no cell: its error goes in the alert (CD-319)
 	g := gridView{Row: d.gridRowOf(r, dt, v, v.Lines[no-1], strconv.Itoa(version), typed, pr.Fields)}
 	g.Alert, g.ReloadURL = formText(pr), itemsURL(dt.Name, id)
+	if pr.Status == http.StatusConflict {
+		g.Conflict = v.Info.Display // the ConflictBanner's Reload names the document (CD-362)
+	}
 	ui.Render(w, r, pr.Status, gridResponse(g), nil)
 }
 
@@ -528,6 +531,7 @@ type gridView struct {
 	Totals           []components.Pair
 	Warnings         []string
 	Alert, ReloadURL string
+	Conflict         string // a 409's document label: Alert shows as the ConflictBanner
 }
 
 // removeGet serves GET …/lines/{no}/remove: "Remove line {no} ({item})?".

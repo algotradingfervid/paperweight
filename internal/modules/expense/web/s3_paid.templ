@@ -22,7 +22,11 @@ templ paidMain(s paidScreen) {
 templ paidBanners(s paidScreen) {
 	if s.danger != "" {
 		<div id="paid-alert" tabindex="-1" autofocus>
-			@components.Banner(components.BannerProps{Kind: components.Danger, Message: s.danger, Link: s.reload})
+			if s.reload != nil {
+				@components.ConflictBanner(s.danger, s.reload.Label, s.reload.Href)
+			} else {
+				@components.Banner(components.BannerProps{Kind: components.Danger, Message: s.danger})
+			}
 		</div>
 	}
 	@components.ErrorSummary(s.errs)

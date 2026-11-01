@@ -1,0 +1,22 @@
+package components
+
+// conflictReload is the conflict banner's button: it names the record being
+// edited, and is plain "Reload" when there is no saved record.
+func conflictReload(label string) string {
+	if label == "" {
+		return "Reload"
+	}
+	return "Reload " + label
+}
+
+// ConflictBanner is every stale-version (409) banner (UI v2 §5.14, CD-362):
+// a warning with msg (DOC's text), the keep-your-entries line and a Reload
+// button to href. label is the record the viewer is editing, "" on a new one.
+templ ConflictBanner(msg, label, href string) {
+	@Banner(BannerProps{Kind: Warning, Message: msg}) {
+		<p>Your entries stay on this page until you reload, so you can copy them.</p>
+		<div>
+			@Button(ButtonProps{Label: conflictReload(label), Href: href, Icon: "refresh-cw", Variant: Secondary})
+		</div>
+	}
+}

@@ -142,11 +142,11 @@ func TestPurchaseWeb_HandOverPage(t *testing.T) {
 	})
 	t.Run("stale", func(t *testing.T) {
 		got := post(int64(env.Arjun.ID), "Over to you", po.Version+3)
-		if got.status != http.StatusConflict || !hasBanner(got, "danger", strings.Replace(p15eStaleText, "%s", display, 1)) {
+		if got.status != http.StatusConflict || !hasBanner(got, "warning", strings.Replace(p15eStaleText, "%s", display, 1)) {
 			t.Errorf("stale = %d, banners %q", got.status, banners(got))
 		}
-		if href, _ := got.attr(".banner--danger a", "href"); href != path {
-			t.Errorf("Reload = %q, want %q", href, path)
+		if href, _ := got.attr(".banner--warning a", "href"); href != path || !slices.Contains(got.texts(".banner--warning a"), "Reload "+display) {
+			t.Errorf("Reload = %q %q, want Reload %s -> %q", got.texts(".banner--warning a"), href, display, path)
 		}
 		if checked, _ := got.attr(`input[name=to][checked]`, "value"); checked != strconv.FormatInt(int64(env.Arjun.ID), 10) {
 			t.Errorf("checked = %q, want Arjun kept", checked)
@@ -259,7 +259,7 @@ func TestPurchaseWeb_SendPage(t *testing.T) {
 		}
 		wantFieldError(t, "before order", send("23-10-2026", "email", "", 0), "sent_on", "Sent on can't be before the order date.")
 		got = send("25-10-2026", "email", "", 4)
-		if got.status != http.StatusConflict || !hasBanner(got, "danger", strings.Replace(p15eStaleText, "%s", po.Number, 1)) {
+		if got.status != http.StatusConflict || !hasBanner(got, "warning", strings.Replace(p15eStaleText, "%s", po.Number, 1)) {
 			t.Errorf("stale = %d, banners %q", got.status, banners(got))
 		}
 	})
@@ -337,7 +337,7 @@ func TestPurchaseWeb_ExpectedPage(t *testing.T) {
 		}
 		wantFieldError(t, "before order", set("20-10-2026", "", 0), "expected_on", "Expected on can't be before the order date.")
 		got = set("05-11-2026", "", 3)
-		if got.status != http.StatusConflict || !hasBanner(got, "danger", strings.Replace(p15eStaleText, "%s", po.Number, 1)) {
+		if got.status != http.StatusConflict || !hasBanner(got, "warning", strings.Replace(p15eStaleText, "%s", po.Number, 1)) {
 			t.Errorf("stale = %d, banners %q", got.status, banners(got))
 		}
 	})
