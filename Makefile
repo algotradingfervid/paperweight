@@ -7,6 +7,7 @@ GOLANGCI_LINT := bin/tools/golangci-lint
 # CD-45: go generate (CSS bundle and icons), then sqlc for every sqlc.yaml, then templ.
 # Generated files are committed.
 generate:
+	go tool templ generate # first: the CSS build in go generate scans the _templ.go files
 	go generate ./...
 	@for f in $$(find internal -name sqlc.yaml 2>/dev/null | sort); do \
 		echo "go tool sqlc generate -f $$f"; \
