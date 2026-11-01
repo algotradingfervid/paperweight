@@ -36,7 +36,7 @@ func (s *Service) POChoices(ctx context.Context, p auth.Principal, all bool, q s
 	}
 	var out []POChoice
 	err = s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		readable, err := scopedOrders(ctx, tx, pred)
+		readable, err := purchase.ReadableOrders(ctx, tx, pred)
 		if err != nil {
 			return err
 		}
@@ -75,29 +75,4 @@ func choices(rows []dbq.G6PickerLinesRow, readable func(int64) bool, all bool) [
 		}
 	}
 	return out
-}
-
-// scopedOrders reports whether a PO id is in pred, the viewer's read scope
-// ("" is every PO).
-func scopedOrders(ctx context.Context, tx *db.Tx, pred auth.Predicate) (func(int64) bool, error) {
-	if pred.SQL == "" {
-		return func(int64) bool { return true }, nil
-	}
-	rows, err := tx.SQL().QueryContext(ctx, `SELECT "purchase_order".id FROM "purchase_order" WHERE `+pred.SQL, pred.Args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	ids := map[int64]bool{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids[id] = true
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return func(id int64) bool { return ids[id] }, nil
 }

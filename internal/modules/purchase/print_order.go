@@ -40,7 +40,7 @@ func printOrder(ctx context.Context, tx *db.Tx, id int64) (templ.Component, erro
 		Title: "Purchase Order",
 		Party: print.Party{
 			Label: "Vendor", Name: h.SnapVendorName, GSTIN: h.SnapVendorGstin,
-			Address: addressLines(h.SnapVendorAddress, h.SnapVendorGstin),
+			Address: print.PartyAddress(h.SnapVendorAddress, h.SnapVendorGstin),
 		},
 		Taxable: types.Money(h.NetTotal), GrandTotal: types.Money(h.GrandTotal),
 		RoundedTotal: types.Money(h.RoundedTotal), HasRoundedTotal: true,
@@ -138,20 +138,6 @@ func siteDelivery(ctx context.Context, tx *db.Tx, siteID sql.NullInt64) ([]strin
 		contact += ", " + d.ContactMobile
 	}
 	return addr, contact, nil
-}
-
-// addressLines are the vendor address snapshot's lines without its last
-// line when that is the vendor's GSTIN line (address.DisplayText ends with
-// it), which the party block prints on its own.
-func addressLines(text, gstin string) []string {
-	if text == "" {
-		return nil // no address snapshot, so no address lines
-	}
-	out := strings.Split(text, "\n")
-	if n := len(out); out[n-1] == "GSTIN: "+gstin {
-		out = out[:n-1]
-	}
-	return out
 }
 
 // orderRefs are the refs in spec §9's order, each left out when blank.

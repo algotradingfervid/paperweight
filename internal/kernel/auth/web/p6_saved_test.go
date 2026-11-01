@@ -219,8 +219,8 @@ func TestRightsSave_StaleKeepsThePage(t *testing.T) {
 		t.Errorf("banner text %q lacks %q", text, t17xStoresChanged)
 	}
 	// A browser reload would post the stale version again.
-	if link := doc.Find(fmt.Sprintf(`main .banner a[href=%q]`, path)); link.Length() != 1 || p1Text(link) != "Reload" {
-		t.Errorf("banner links to %s: %d, text %q; want one Reload", path, link.Length(), p1Text(link))
+	if link := doc.Find(fmt.Sprintf(`main .banner a[href=%q]`, path)); link.Length() != 1 || p1Text(link) != "Reload Expense Claim rights" {
+		t.Errorf("banner links to %s: %d, text %q; want one Reload Expense Claim rights", path, link.Length(), p1Text(link))
 	}
 	form := p1Form(t, "stale page", doc, path)
 	if got := p1Hidden(t, "stale page", form, "version"); got != opened {

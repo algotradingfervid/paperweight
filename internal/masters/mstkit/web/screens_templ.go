@@ -523,8 +523,8 @@ func readRows(v recordView) templ.Component {
 	})
 }
 
-// problemBanner is a refusal with no field: a stale version (409, with
-// Reload) or mstkit's "Cannot delete …" (422).
+// problemBanner is a refusal with no field: a stale version (409, the
+// conflict banner naming the record) or mstkit's "Cannot delete …" (422).
 func problemBanner(v recordView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -548,7 +548,7 @@ func problemBanner(v recordView) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		if v.Form.Problem != "" {
 			if v.Form.Reload {
-				templ_7745c5c3_Err = components.Banner(components.BannerProps{Kind: components.Danger, Message: v.Form.Problem, Link: &components.Link{Label: "Reload", Href: v.Action}}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.ConflictBanner(v.Form.Problem, v.Label, v.Action).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

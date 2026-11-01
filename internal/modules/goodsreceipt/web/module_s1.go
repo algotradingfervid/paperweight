@@ -532,11 +532,12 @@ func dateProps(c docscreen.Ctx, s docscreen.StepState, p components.FieldProps) 
 	return d
 }
 
-// declared is p with Required and Tip from the declaration of field name,
-// as docscreen's FieldInput sets them (CD-341 (2), CD-350).
+// declared is p with Required, Tip and Placeholder from the declaration of
+// field name, as docscreen's FieldInput sets them (CD-341 (2), CD-350,
+// CD-370). A DateInput shows its own dd-mm-yyyy; no date declares one.
 func declared(dt *doctype.DocType, name string, p components.FieldProps) components.FieldProps {
 	f, _ := dt.Field(name)
-	p.Required, p.Tip = f.Required, f.Tip
+	p.Required, p.Tip, p.Placeholder = f.Required, f.Tip, f.Placeholder
 	return p
 }
 
