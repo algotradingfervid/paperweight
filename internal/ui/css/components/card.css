@@ -8,3 +8,32 @@
   & > * { min-inline-size: 0; }
   & > a { display: inline-flex; align-items: center; justify-content: center; min-block-size: var(--target-min); min-inline-size: var(--target-min); }
 }
+
+/* Card v2 (UI v2 §5.5 item 1): a 36 px icon tile beside the heading and a
+   one-line description under it. */
+@utility card-lead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+@utility card-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--space-8) + var(--space-1));
+  block-size: calc(var(--space-8) + var(--space-1));
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+}
+
+@utility card-titles { min-inline-size: 0; }
+
+@utility card-desc {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}

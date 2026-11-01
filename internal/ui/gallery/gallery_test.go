@@ -22,12 +22,26 @@ import (
 var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
-	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments",
+	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments", "cards",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
 // Focus 1): the overflow sweep only proves something if the values are there.
 var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
+	"cards": func(t *testing.T, d *goquery.Document) {
+		if d.Find(".card-icon svg").Length() < 3 || d.Find(".card-desc").Length() < 3 {
+			t.Error("cards: want every card with an icon tile and a description")
+		}
+		if !strings.Contains(d.Find(".card-title").Text(), uitest.LongName100) || !strings.Contains(d.Find(".card-desc").Text(), uitest.LongError) {
+			t.Error("cards: no worst-case heading (LongName100) and description (LongError)")
+		}
+		if d.Find("details.disclosure:not([open])").Length() == 0 || d.Find("details.disclosure[open] [aria-invalid=\"true\"]").Length() == 0 {
+			t.Error("cards: want a closed More details and an open one holding a field error")
+		}
+		if d.Find(`form#bill-form[hx-target="closest section"]`).Length() != 1 {
+			t.Error("cards: no bill form swapping its card")
+		}
+	},
 	"fields": func(t *testing.T, d *goquery.Document) {
 		if !strings.Contains(d.Text(), uitest.LongError) {
 			t.Error("fields: no field shows uitest.LongError (the 422 state)")

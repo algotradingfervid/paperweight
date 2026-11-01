@@ -1,0 +1,38 @@
+package components
+
+import (
+	"strings"
+	"unicode"
+	"unicode/utf8"
+)
+
+// MoreDetails is the closed group at the end of a card for fields most
+// people skip (UI v2 §5.5 item 3): a Disclosure whose summary names the
+// labels inside. open shows it open, for a field inside with a value or an
+// error.
+templ MoreDetails(inside []string, open bool) {
+	@Disclosure(MoreSummary(inside), open) {
+		<div class="stack">
+			{ children... }
+		</div>
+	}
+}
+
+// MoreSummary is "More details · project, required by" for the labels
+// inside: each in lower case unless it starts with an acronym.
+func MoreSummary(inside []string) string {
+	if len(inside) == 0 {
+		return "More details"
+	}
+	names := make([]string, len(inside))
+	for i, l := range inside {
+		r, n := utf8.DecodeRuneInString(l)
+		next, _ := utf8.DecodeRuneInString(l[n:])
+		if unicode.IsUpper(next) {
+			names[i] = l
+		} else {
+			names[i] = string(unicode.ToLower(r)) + l[n:]
+		}
+	}
+	return "More details · " + strings.Join(names, ", ")
+}
