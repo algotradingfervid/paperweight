@@ -63,7 +63,16 @@ func validateClaim(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctype.
 		if err := setBilledTo(ctx, tx, lines); err != nil {
 			return nil, err
 		}
+		fe, err := claimLineProjects(ctx, q, id)
+		if err != nil {
+			return nil, err
+		}
+		errs = append(errs, fe...)
 		if err := q.E2SnapClaimLines(ctx, id); err != nil {
+			return nil, err
+		}
+		// A receipt replaces the reason for having none (CD-302).
+		if err := q.S6ClearReceiptReasons(ctx, id); err != nil {
 			return nil, err
 		}
 	}

@@ -459,6 +459,18 @@ func fieldSet(pre, errText string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		templ_7745c5c3_Err = components.Tiles(components.FieldProps{ID: pre + "-type", Name: pre + "_type", Label: "Expense type", Value: "travel", Error: errText}, expenseOptions).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = components.Switch(components.FieldProps{ID: pre + "-stock", Name: pre + "_stock", Label: "Stock item", Hint: "Counted in stock; services aren't.", Value: "1", Error: errText}, false).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = components.Switch(components.FieldProps{ID: pre + "-active", Name: pre + "_disabled", Label: uitest.LongName100, Hint: "Turn off to hide this party from pickers. Old orders keep it.", Value: "0", Error: errText}, true).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		templ_7745c5c3_Err = components.Select(components.FieldProps{ID: pre + "-terms", Name: pre + "_terms", Label: "Payment terms", Value: "30", Error: errText}, termOptions).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -590,7 +602,7 @@ func badgesBody() templ.Component {
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(uitest.LongError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 111, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 114, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
@@ -670,7 +682,7 @@ func dialogsBody() templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(uitest.LongError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 122, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 125, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -964,7 +976,7 @@ func gridText(v string) templ.Component {
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(v)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 182, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 185, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {

@@ -49,12 +49,12 @@ func claimHide(_ Deps) func(docscreen.Ctx, doctype.Field) bool {
 	}
 }
 
-// asInput reports whether the employee would be an input: on a new claim
-// or a draft. Past draft, approvers and readers see the claimant (CD-327
-// (2)). A nil View is a new claim until Ctx.Listing (M0-47) reaches this
-// base; the list and search pages then pass Listing and see the claimant.
+// asInput reports whether the employee would be an input: on a new
+// document (no View) or a draft, never on a listing (the list, search,
+// sort, filter and CSV, where View is nil too). Past draft and on listings,
+// approvers and readers see the claimant (CD-327 (2)).
 func asInput(c docscreen.Ctx) bool {
-	return c.View == nil || c.View.Info.State == doctype.StateDraft
+	return !c.Listing && (c.View == nil || c.View.Info.State == doctype.StateDraft)
 }
 
 // isAdmin reports whether p holds the Administrator role.

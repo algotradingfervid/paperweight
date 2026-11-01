@@ -3,6 +3,8 @@ package components
 import (
 	"slices"
 	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
 // optionID gives the first option the field's own id, so error links reach it.
@@ -44,17 +46,37 @@ templ Checkboxes(p FieldProps, opts []Option, checked []string) {
 	}
 }
 
-// Segmented is a radio group shown as a segmented control.
+// Segmented is a radio group shown as a segmented control: a sunken track,
+// the chosen option a raised thumb with a check icon (UI v2 §5.5 item 8).
 templ Segmented(p FieldProps, opts []Option) {
 	@choiceGroup(p) {
 		<div class="segmented">
-			for i, o := range opts {
-				<label>
-					<input type="radio" value={ o.Value } checked?={ o.Value == p.Value } { choiceAttrs(p, i, "input-overlay")... }/>
-					{ o.Label }
-				</label>
-			}
+			@segments(p, opts)
 		</div>
+	}
+}
+
+// Tiles is Segmented in a two-column grid, for options with longer words
+// (UI v2 §5.5 item 8, N7).
+templ Tiles(p FieldProps, opts []Option) {
+	@choiceGroup(p) {
+		<div class="segmented segmented--tiles">
+			@segments(p, opts)
+		</div>
+	}
+}
+
+templ segments(p FieldProps, opts []Option) {
+	for i, o := range opts {
+		<label>
+			<input type="radio" value={ o.Value } checked?={ o.Value == p.Value } { choiceAttrs(p, i, "input-overlay")... }/>
+			<span class="segmented__text">
+				<span class="segmented__check">
+					@icons.Icon("check")
+				</span>
+				{ o.Label }
+			</span>
+		</label>
 	}
 }
 

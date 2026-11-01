@@ -13,6 +13,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/expense"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
 // msgPaidOnRequired is DOC's required text for a blank Paid on.
@@ -66,14 +67,16 @@ func paidForm(w http.ResponseWriter, r *http.Request) (paidView, bool) {
 // paidFlash is the flash after each post, by route (UX §5.18).
 var paidFlash = map[string]string{"paid": "Marked as paid.", "unpaid": "No longer marked as paid."}
 
-// paidDone flashes and redirects to the advance page on success, redraws a 422 or 409
-// and answers anything else with its own status.
+// paidDone flashes and sends the user to the advance page on success (a 303,
+// or for htmx HX-Redirect, so the full page shows the flash and the address
+// is the advance's), redraws a 422 or 409 and answers anything else with its
+// own status.
 func (h *handlers) paidDone(w http.ResponseWriter, r *http.Request, v paidView, err error) {
 	var se interface{ Status() int }
 	switch {
 	case err == nil:
 		web.Flash(r.Context(), "success", paidFlash[path.Base(r.URL.Path)])
-		http.Redirect(w, r, "/doc/"+expense.AdvanceDocType+"/"+strconv.FormatInt(v.AdvanceID, 10), http.StatusSeeOther)
+		wizard.Respond(w, r, wizard.Finish, "/doc/"+expense.AdvanceDocType+"/"+strconv.FormatInt(v.AdvanceID, 10), nil)
 	case errors.As(err, &se) && (se.Status() == http.StatusUnprocessableEntity || se.Status() == http.StatusConflict):
 		h.renderPaidPage(w, r, v, err)
 	default:

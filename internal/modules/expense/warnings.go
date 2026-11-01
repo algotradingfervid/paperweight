@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
+	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/modules/expense/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
@@ -45,6 +47,10 @@ func (s *Service) ClaimWarnings(ctx context.Context, p auth.Principal, claimID i
 			return err
 		}
 		name := func(ids []int64) (string, error) { return s.claimName(ctx, tx, p, ids) }
+		own, err := q.E13BranchGSTINs(ctx)
+		if err != nil {
+			return err
+		}
 		for i, l := range lines {
 			n := l.LineNo
 			if l.ReceiptSha256 != "" {
@@ -88,6 +94,10 @@ func (s *Service) ClaimWarnings(ctx context.Context, p auth.Principal, claimID i
 					}
 					out = append(out, fmt.Sprintf(msgSameInvoice, n, l.InvoiceNo, l.SupplierGstin, c))
 				}
+			}
+			// Branch GSTINs are stored normalised (company.BranchInput).
+			if g := gstin.Normalize(l.SupplierGstin); slices.Contains(own, g) {
+				out = append(out, fmt.Sprintf(msgOwnGSTIN, n, g))
 			}
 			if l.CompanyBill == 1 && l.ExpenseDate.Valid {
 				d, err := dateOf(l.ExpenseDate)

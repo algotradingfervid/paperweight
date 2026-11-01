@@ -135,7 +135,7 @@ func handoverPage(v handoverView) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					templ_7745c5c3_Err = components.Radios(components.FieldProps{
-						ID: components.FieldID("to"), Name: "to", Label: handOverTo, Value: v.to, Error: v.e.fields["to"],
+						ID: components.FieldID("to"), Name: "to", Label: handOverTo, Required: true, Value: v.to, Error: v.e.fields["to"],
 					}, v.choices()).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -307,14 +307,14 @@ func sendPage(v sendView) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					templ_7745c5c3_Err = components.DateInput(components.DateProps{
-						FieldProps: components.FieldProps{ID: components.FieldID("sent_on"), Name: "sent_on", Label: "Sent on", Value: v.on, Error: v.e.fields["sent_on"]},
+						FieldProps: components.FieldProps{ID: components.FieldID("sent_on"), Name: "sent_on", Label: "Sent on", Required: true, Value: v.on, Error: v.e.fields["sent_on"]},
 						Today:      today, Yesterday: yesterday,
 					}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					templ_7745c5c3_Err = components.Radios(components.FieldProps{
-						ID: components.FieldID("sent_via"), Name: "sent_via", Label: "How", Value: v.via, Error: v.e.fields["sent_via"],
+						ID: components.FieldID("sent_via"), Name: "sent_via", Label: "How", Required: true, Value: v.via, Error: v.e.fields["sent_via"],
 					}, sentVia).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -457,7 +457,7 @@ func expectedPage(v expectedView) templ.Component {
 					}
 					templ_7745c5c3_Err = components.DateInput(components.DateProps{
 						FieldProps: components.FieldProps{
-							ID: components.FieldID("expected_on"), Name: "expected_on", Label: "Expected on", Hint: expectedHint,
+							ID: components.FieldID("expected_on"), Name: "expected_on", Label: "Expected on", Hint: expectedHint, Required: true,
 							Value: v.on, Error: v.e.fields["expected_on"],
 						},
 						Today: today, Yesterday: yesterday,
