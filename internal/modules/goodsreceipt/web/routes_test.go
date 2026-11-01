@@ -47,7 +47,7 @@ var builtRoutes = []struct {
 // success"): Routes registers exactly the plan's routes with no middleware.
 // Every G1 route is built now (G7, G9, S4), so none answers 501; each
 // route's own tests check what it answers (AD-13).
-func TestGRNWeb_RoutesAnswer501(t *testing.T) {
+func TestGRNWeb_RoutesMounted(t *testing.T) {
 	r := chi.NewRouter()
 	grnweb.Routes(grnweb.Deps{})(r)
 

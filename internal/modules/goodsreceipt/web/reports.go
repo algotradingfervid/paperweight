@@ -2,6 +2,7 @@ package grnweb
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"path"
@@ -49,18 +50,20 @@ const (
 	itemsNoMatch  = "No lines match these filters."
 	clearAll      = "Clear all"
 	anyMonth      = "Any month"
+	noMoreResults = "No more results."
+	firstPage     = "Go to page 1"
 	metaSep       = " · "
 )
 
 // reportKey is one id or month filter of a report: its query key, label,
-// help text and example, and the master its Picker searches ("" for the
+// help text (its %s is the report's rows: receipts or lines) and example, and the master its Picker searches ("" for the
 // month's Select).
 type reportKey struct{ key, label, hint, example, docType, search string }
 
 var (
-	vendorKey = reportKey{"vendor", "Vendor", "Only receipts from this vendor are listed.", "e.g. Shree Steel Traders", party.DocType, "/pick/" + party.DocType + "?role=vendor"}
-	itemKey   = reportKey{"item", "Item", "Only lines of this item are listed.", "e.g. MS-ANGLE-50", item.DocType, "/pick/" + item.DocType}
-	monthKey  = reportKey{key: "month", label: "Month", hint: "Only receipts dated in this month are listed."}
+	vendorKey = reportKey{"vendor", "Vendor", "Only %s from this vendor are listed.", "e.g. Shree Steel Traders", party.DocType, "/pick/" + party.DocType + "?role=vendor"}
+	itemKey   = reportKey{"item", "Item", "Only %s of this item are listed.", "e.g. MS-ANGLE-50", item.DocType, "/pick/" + item.DocType}
+	monthKey  = reportKey{key: "month", label: "Month", hint: "Only %s dated in this month are listed."}
 )
 
 // reportSpec is one report page's words, filters and toggle (the chip link
@@ -196,7 +199,12 @@ func (h *handlers) report(w http.ResponseWriter, r *http.Request) {
 	if len(q) > 0 {
 		list = withQuery(base, q) + "&"
 	}
-	v.pages = pageInfo(list, spec.many, page, len(data.rows))
+	if from == len(data.rows) && page > 1 {
+		// Past the end: say so once, with the way back, not the empty text.
+		v.list.Empty = components.EmptyState(noMoreResults, &components.Link{Label: firstPage, Href: list + "page=1"})
+	} else {
+		v.pages = pageInfo(list, spec.many, page, len(data.rows))
+	}
 	ui.Render(w, r, http.StatusOK, reportPage(v), reportMain(v))
 }
 
@@ -216,7 +224,7 @@ func (h *handlers) filterPage(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	all, err := h.load(ctx, p, name, nil)
+	all, err := h.load(ctx, p, name, nil) // a second read, which can fail on its own (busy, cancelled)
 	if err != nil {
 		web.ErrorFrom(w, r, err)
 		return
@@ -230,7 +238,7 @@ func (h *handlers) filterPage(w http.ResponseWriter, r *http.Request) {
 		v.toggle = spec.toggle
 	}
 	for _, k := range spec.keys {
-		field := components.FieldProps{ID: "f-" + k.key, Label: k.label, Hint: k.hint, Placeholder: k.example, Optional: true}
+		field := components.FieldProps{ID: "f-" + k.key, Label: k.label, Hint: fmt.Sprintf(k.hint, spec.many), Placeholder: k.example, Optional: true}
 		if k.docType == "" {
 			field.Name, field.Value = k.key, q.Get(k.key)
 			v.fields = append(v.fields, components.Select(field, monthOptions(all.months, q.Get(k.key))))
@@ -289,11 +297,11 @@ func billRow(r goodsreceipt.BillRow) components.Row {
 		if r.InvoiceTotal.Valid {
 			total = types.FormatINR(r.InvoiceTotal.V)
 		}
-		bill = joinSet(r.InvoiceNo, shownDate(r.InvoiceDate), total)
+		bill = joinSet(r.InvoiceNo, types.FormatDate(r.InvoiceDate), total)
 	}
 	return components.Row{Href: grnURL(r.ID), Values: map[string]string{
 		"grn": r.Number, "value": types.FormatINR(r.AcceptedValue), "vendor": r.Vendor,
-		"receipt": joinSet(shownDate(r.ReceiptDate), r.PONumber, r.ChallanNo), "bill": bill,
+		"receipt": joinSet(types.FormatDate(r.ReceiptDate), r.PONumber, r.ChallanNo), "bill": bill,
 		"photos": photosText(r.Photos), "gstin": r.GSTIN,
 	}}
 }
@@ -312,7 +320,7 @@ func itemRow(r goodsreceipt.ItemRow) components.Row {
 		"grn": r.Number, "value": types.FormatINR(r.AcceptedValue), "item": joinSet(r.ItemName, r.ItemCode),
 		"qty": "Received " + types.FormatQty(r.Received) + metaSep + "Accepted " + types.FormatQty(r.Accepted) +
 			metaSep + "Rejected " + types.FormatQtyUoM(r.Rejected, r.UoM),
-		"reason": reason, "vendor": r.Vendor, "date_po": joinSet(shownDate(r.Date), r.PONumber),
+		"reason": reason, "vendor": r.Vendor, "date_po": joinSet(types.FormatDate(r.Date), r.PONumber),
 		"hsn_rate": joinSet(hsn, "₹"+types.FormatRate(r.Rate)),
 	}}
 }
@@ -327,14 +335,6 @@ func photosText(n int) string {
 		return "No photos"
 	}
 	return counted(n, "photo", "photos")
-}
-
-// shownDate is d as the app shows dates, blank for the zero Date.
-func shownDate(d types.Date) string {
-	if d == (types.Date{}) {
-		return ""
-	}
-	return types.FormatDate(d)
 }
 
 // monthOf is d's "YYYY-MM".

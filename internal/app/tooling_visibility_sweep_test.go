@@ -290,8 +290,6 @@ var noControl = map[string]string{
 	"/reports/expense/lines/filter":    "a filter form: no rows",
 	"/reports/expense/advances/filter": "a filter form: no rows",
 	"/reports/purchase/pending/filter": "a filter form: no rows",
-	"/reports/grn/bills/filter":        "a filter form: no rows",
-	"/reports/grn/items/filter":        "a filter form: no rows",
 	"/reports/grn":                     "the GRN reports entry: two links, no rows",
 }
 
@@ -556,6 +554,8 @@ func (s *sweepSeed) fill(route string) ([]sweepPage, string) {
 		"/reports/expense/lines/filter":   {"", "?month=2026-10"},
 		"/reports/grn/bills":              {"", "?nobill=1"},
 		"/reports/grn/items":              {"", "?month=2026-10"},
+		"/reports/grn/bills/filter":       {"", "?vendor=" + idText(s.id("party", controlVendor))},
+		"/reports/grn/items/filter":       {"", "?vendor=" + idText(s.id("party", controlVendor))},
 		"/modules/goodsreceipt/po-search": {"", "?all=1", "?all=1&q=" + hiddenQuery},
 	}
 	plain := func(us ...string) []sweepPage {
@@ -834,6 +834,11 @@ func (s *sweepSeed) controlExpectations() []controlExpectation {
 		case r.state == stMine:
 			add("/approvals/mine", types.FormatMoney(r.amount))
 		}
+	}
+	// The GRN filter pages name a chosen vendor from the viewer's rows: the
+	// control receipts' vendor, so a page reading hidden rows is swept too.
+	for _, r := range []string{"bills", "items"} {
+		add("/reports/grn/"+r+"/filter?vendor="+idText(s.id("party", controlVendor)), "Shree Steel Traders")
 	}
 	add("/m/project", projectA)
 	add("/pick/Project?q=PRJ", projectA)

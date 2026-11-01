@@ -15,6 +15,8 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/masters/item"
+	"github.com/vardhan/internaltools/internal/masters/party"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt/grntest"
 	grnweb "github.com/vardhan/internaltools/internal/modules/goodsreceipt/web"
@@ -397,6 +399,10 @@ func TestS4_EmptyStates(t *testing.T) {
 			t.Errorf("%s shows a zero count", tc.path)
 		}
 	}
+	// No row names item 1, so its chip reads the raw id (CD-233).
+	if got, want := s4Open(t, env, env.Admin, s4Items+"?item=1").chips(), []string{"Item: 1"}; !slices.Equal(got, want) {
+		t.Errorf("?item=1 chips = %q, want %q", got, want)
+	}
 }
 
 // The pages parse filters as the CSV does (shared billsFilter and
@@ -494,6 +500,42 @@ func TestS4_FilterPages(t *testing.T) {
 		t.Errorf("chosen month = %q, want 2025-01 kept", got)
 	}
 
+	// Without the toggle no toggle value is posted; with nothing chosen the
+	// Pickers have no chosen row and post no vendor or item.
+	for _, path := range []string{s4Bills + "/filter", s4Items + "/filter"} {
+		p = s4Open(t, env, env.Priya, path)
+		if n := p.doc.Find(`input[name="nobill"], input[name="rejected"]`).Length(); n != 0 {
+			t.Errorf("%s with no toggle posts a toggle (%d inputs)", path, n)
+		}
+		p.doc.Find(`input[name="vendor"], input[name="item"]`).Each(func(_ int, in *goquery.Selection) {
+			if v := in.AttrOr("value", ""); v != "" {
+				t.Errorf("%s with nothing chosen posts %s=%q", path, in.AttrOr("name", ""), v)
+			}
+		})
+		p.doc.Find(`.picker [data-picker-chosen]`).Each(func(_ int, c *goquery.Selection) {
+			if _, hidden := c.Attr("hidden"); !hidden || squash(c.Find("[data-picker-summary]").Text()) != "" {
+				t.Errorf("%s with nothing chosen shows a chosen row %q", path, squash(c.Text()))
+			}
+		})
+	}
+	// Each help text names the report's rows.
+	wantOn(t, "bills filter", s4Open(t, env, env.Priya, s4Bills+"/filter").text("main"), "Only receipts from this vendor are listed.")
+	items := s4Open(t, env, env.Priya, s4Items+"/filter").text("main")
+	wantOn(t, "items filter", items, "Only lines from this vendor are listed.", "Only lines dated in this month are listed.")
+	wantOff(t, "items filter", items, "receipts")
+
+	// Each Picker follows its own master's read right (real AUTH users
+	// holding GRN read and only that master's read).
+	for _, tc := range []struct{ role, master, shown, hidden string }{
+		{"Party Reader", party.DocType, "/pick/Party", "/pick/Item"},
+		{"Item Reader", item.DocType, "/pick/Item", "/pick/Party"},
+	} {
+		p = s4Open(t, env, s4MasterReader(t, env, tc.role, tc.master), s4Items+"/filter")
+		if h := p.html(); !strings.Contains(h, tc.shown) || strings.Contains(h, tc.hidden) {
+			t.Errorf("%s's filter page: want %s and not %s", tc.role, tc.shown, tc.hidden)
+		}
+	}
+
 	rr := env.ReceiptReader(t) // no read on Party or Item
 	p = s4Open(t, env, rr, s4Items+"/filter")
 	if strings.Contains(p.html(), "/pick/") {
@@ -502,6 +544,33 @@ func TestS4_FilterPages(t *testing.T) {
 	if p.doc.Find(`select[name="month"]`).Length() != 1 {
 		t.Errorf("Receipt Reader's filter page has no Month")
 	}
+}
+
+// s4MasterReader creates a user whose only role holds read on the GRN and
+// read on master, through the real AUTH.
+func s4MasterReader(t *testing.T, env *grntest.Env, role, master string) auth.Principal {
+	t.Helper()
+	ctx := context.Background()
+	if err := env.Auth.CreateRole(ctx, env.Admin, role); err != nil {
+		t.Fatal(err)
+	}
+	for _, dt := range []string{goodsreceipt.DocType, master} {
+		if err := env.Auth.SetRights(ctx, env.Admin, role, dt, map[auth.Right]auth.Scope{auth.RightRead: auth.ScopeAll}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	slug := strings.ToLower(strings.ReplaceAll(role, " ", ""))
+	id, _, err := env.Auth.CreateUser(ctx, env.Admin, auth.NewUser{ //nolint:gosec // G101: a test user's password
+		Email: slug + "@vardhan.test", Name: role, Password: "Reading one master 42", Roles: []string{role},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _, err := env.Auth.LoadPrincipal(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
 
 func (p s4Page) html() string {
@@ -554,10 +623,17 @@ func TestS4_PageSize(t *testing.T) {
 		if p.doc.Find(`nav.pagination a[rel="next"]`).Length() != 0 {
 			t.Errorf("%s page 2 has Next", tc.base)
 		}
-		p = s4Open(t, env, env.Admin, tc.base+"?page=99")
-		if n := len(p.titles()); n != 0 || !strings.Contains(p.text("nav.pagination"), "No more results.") {
-			t.Errorf("%s page 99: %d rows, pager %q, want none and No more results.", tc.base, n, p.text("nav.pagination"))
+		// Unfiltered: Next and Previous carry no query but the page.
+		p = s4Open(t, env, env.Admin, tc.base)
+		if got := p.href(`nav.pagination a[rel="next"]`); got != tc.base+"?page=2" {
+			t.Errorf("%s unfiltered Next = %q, want %s?page=2", tc.base, got, tc.base)
 		}
+		p = s4Open(t, env, env.Admin, tc.base+"?page=2")
+		if got := p.href(`nav.pagination a[rel="prev"]`); got != tc.base+"?page=1" {
+			t.Errorf("%s unfiltered page 2 Previous = %q, want %s?page=1", tc.base, got, tc.base)
+		}
+		s4PastEnd(t, s4Open(t, env, env.Admin, tc.base+"?page=99"), tc.base+"?page=99", tc.base+"?page=1")
+		s4PastEnd(t, s4Open(t, env, env.Admin, tc.base+q+"&page=3"), tc.base+q+"&page=3", tc.base+q+"&page=1")
 		for _, bad := range []string{"x", "0", "-3"} {
 			p = s4Open(t, env, env.Admin, tc.base+"?page="+bad)
 			if n := len(p.titles()); n != 25 || p.doc.Find(`nav.pagination a[rel="prev"]`).Length() != 0 {
@@ -565,9 +641,24 @@ func TestS4_PageSize(t *testing.T) {
 			}
 		}
 		// A page whose offset would overflow is past the end, never a panic.
-		p = s4Open(t, env, env.Admin, tc.base+"?page=368934881474191034")
-		if n := len(p.titles()); n != 0 || !strings.Contains(p.text("nav.pagination"), "No more results.") {
-			t.Errorf("%s huge page: %d rows, pager %q, want none and No more results.", tc.base, n, p.text("nav.pagination"))
-		}
+		s4PastEnd(t, s4Open(t, env, env.Admin, tc.base+"?page=368934881474191034"), tc.base+" huge page", tc.base+"?page=1")
+	}
+}
+
+// s4PastEnd checks a page past the last one: no rows, "No more results."
+// once with Go to page 1 (first, exactly), not the report's empty text, and
+// no pager repeating it.
+func s4PastEnd(t *testing.T, p s4Page, what, first string) {
+	t.Helper()
+	main := p.text("main")
+	if n := len(p.titles()); n != 0 || strings.Count(main, "No more results.") != 1 {
+		t.Errorf("%s: %d rows, %q, want none and No more results. once", what, n, main)
+	}
+	wantOff(t, what, main, "No approved goods receipts yet.", "No goods have been received yet.", "match these filters")
+	if got := p.href(`.empty-state a`); got != first || strings.TrimSpace(p.text(".empty-state a")) != "Go to page 1" {
+		t.Errorf("%s: empty-state link %q %q, want Go to page 1 to %s", what, p.text(".empty-state a"), got, first)
+	}
+	if p.doc.Find("nav.pagination").Length() != 0 {
+		t.Errorf("%s still draws the pager", what)
 	}
 }
