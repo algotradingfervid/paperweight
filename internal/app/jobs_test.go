@@ -411,12 +411,13 @@ func TestApp_CompanySetupCheckedInsideWrite(t *testing.T) {
 	ctx := context.Background()
 	in := company.SetupInput{LegalName: "Vardhan Infra Projects Pvt Ltd", StateCode: "27", GSTIN: "27AAFCV2449G1Z7", BranchCode: "PUNE"}
 
+	b.toCheck(goodSetup())
 	answer := make(chan *response, 1)
 	err := w.app.DB().Write(ctx, func(tx *db.Tx) error {
 		if err := w.app.Masters().Company.SetupTx(ctx, tx, admin, in); err != nil {
 			return err
 		}
-		go func() { answer <- b.post("/setup/company", goodSetup()) }()
+		go func() { answer <- b.post(setupCheck, url.Values{}) }()
 		waitForBegin(t, w)
 		return nil
 	})
@@ -460,7 +461,7 @@ func TestApp_CompanySetupDetails(t *testing.T) {
 	}
 	form := goodSetup()
 	form.Set("branch_name", "")
-	if r := w.signedIn(adminEmail).post("/setup/company", form); r.status != http.StatusSeeOther {
+	if r := w.signedIn(adminEmail).setupCompany(form); r.status != http.StatusSeeOther {
 		t.Fatalf("POST with a blank head office name = %d (%q), want 303", r.status, r.pageText())
 	}
 	if got := w.text(`SELECT name FROM branch`); got != "Head Office" {

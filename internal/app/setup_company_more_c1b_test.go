@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// No case ID: UI v2 C1b, §5.5 item 3 on the setup company form. PAN goes in a
-// closed More details at the end of the form, opened by a typed PAN or an
-// error on it. State code is required, so it stays outside.
+// No case ID: UI v2 C1b, §5.5 item 3 on the setup wizard's first step (E2,
+// §5.4). State code and PAN go in a closed More details at the end of the
+// step, opened by a typed value or an error on either.
 func TestApp_SetupCompanyMoreDetails(t *testing.T) {
 	w := newWorld(t)
 	w.seedUsers()
@@ -17,19 +17,16 @@ func TestApp_SetupCompanyMoreDetails(t *testing.T) {
 		t.Fatalf("GET /setup/company = %d, want 200", r.status)
 	}
 	d := r.doc.Find("form details.disclosure")
-	if d.Length() != 1 || d.Find(`[name="pan"]`).Length() != 1 {
-		t.Fatalf("%d More details groups; PAN inside = %d", d.Length(), d.Find(`[name="pan"]`).Length())
+	if d.Length() != 1 || d.Find(`[name="pan"]`).Length() != 1 || d.Find(`[name="state_code"]`).Length() != 1 {
+		t.Fatalf("%d More details groups; PAN inside = %d, State code inside = %d", d.Length(), d.Find(`[name="pan"]`).Length(), d.Find(`[name="state_code"]`).Length())
 	}
 	if _, open := d.Attr("open"); open {
 		t.Error("More details is open with nothing typed")
 	}
-	if d.Find(`[name="state_code"]`).Length() != 0 || r.doc.Find(`[name="state_code"]`).Length() != 1 {
-		t.Error("State code is inside More details")
-	}
 	if d.NextAll().Find("input").Length() != 0 {
 		t.Error("an input comes after More details")
 	}
-	// Each post is refused, so the form comes back: a blank legal name, a PAN
+	// Each post is refused, so the step comes back: a blank legal name, a PAN
 	// that isn't one, or no PAN and no GSTIN to take it from.
 	for name, c := range map[string]struct {
 		legal, gstin, pan string
@@ -41,11 +38,12 @@ func TestApp_SetupCompanyMoreDetails(t *testing.T) {
 		"error on blank pan":        {"Vardhan Infra Projects Pvt Ltd", "", "", true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			form := goodSetup()
+			form := stepForm(goodSetup(), 0)
 			form.Set("legal_name", c.legal)
 			form.Set("gstin", c.gstin)
 			form.Set("pan", c.pan)
-			r := b.post("/setup/company", form)
+			form.Set("state_code", "")
+			r := b.post(setupStep1, form)
 			if r.status != http.StatusUnprocessableEntity {
 				t.Fatalf("POST = %d, want 422", r.status)
 			}

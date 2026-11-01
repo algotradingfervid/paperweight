@@ -1,29 +1,87 @@
 package app
 
 import (
+	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
-// companyPage asks for CD-165's fields, built only from internal/ui components.
+// Field help on the setup wizard (UI v2 §5.4; CD-363 for PAN).
+const (
+	hintLegalName  = "Exactly as on your GST certificate. Vendors see it on orders."
+	tipGSTIN       = "Your GSTIN tells the app which state you're in. When a vendor is in the same state, orders show CGST and SGST; otherwise IGST. Leave it blank only if the company isn't registered for GST."
+	hintStateCode  = "Only needed without a GSTIN. The two-digit GST state code."
+	hintPAN        = "Needed when there is no GSTIN. With a GSTIN, it's taken from the GSTIN when you leave it blank."
+	tipBranchCode  = "A short code printed on documents and used in numbering, for example HO."
+	hintBranchName = "Head Office when you leave it blank."
+	hintLine1      = "Prints on the letterhead of every order."
+	hintPincode    = "Six digits, in the head office's state."
+)
+
+// companyPage is one setup step as a whole page.
 templ companyPage(v companyView) {
 	@layout.Page(layout.PageOpts{
-		Title: "Set up your company", Width: layout.Form, Error: len(v.Errors) > 0,
-		BannerSlot: components.ErrorSummary(v.Errors),
+		Title:     v.M.Heading(),
+		NoHeading: true, // the frame's heading is the page's
+		Focus:     true,
+		Error:     len(v.M.Errors) > 0,
+		Width:     layout.Form,
 	}) {
-		@components.Form(components.FormProps{Action: companyPath}) {
-			@components.RequiredNote(true)
-			@components.TextInput(v.field("legal_name", "Legal name", "", true))
-			@components.TextInput(v.field("state_code", "State code", "The two-digit GST state code, for example 27.", true))
-			@components.CodeInput(v.field("gstin", "GSTIN", "Leave blank for an unregistered company.", false), components.GSTIN)
-			@components.TextInput(v.field("branch_code", "Head office code", "", true))
-			@components.TextInput(v.field("branch_name", "Head office name", "Head Office when you leave it blank.", false))
-			// PAN is the one field most people skip (UI v2 §5.5 item 3). State
-			// code is required, so it never goes in a closed group.
-			@components.MoreDetails([]string{"PAN"}, v.Values["pan"] != "" || v.Fields["pan"] != "") {
-				@components.CodeInput(v.field("pan", "PAN", "Taken from the GSTIN when you leave it blank.", false), components.PAN)
-			}
-			@components.Button(components.ButtonProps{Label: "Save company", Variant: components.Primary})
+		@companyFrame(v)
+	}
+}
+
+// companyFrame is the #wizard fragment: CD-165's fields and the head office
+// address (CD-337 (7)), built only from internal/ui components.
+templ companyFrame(v companyView) {
+	@wizard.Frame(v.M, v.Bar) {
+		switch v.M.Current {
+			case 0:
+				if v.Welcome {
+					<p><strong>Welcome to { ui.ShellFrom(ctx).AppName }.</strong> Three short steps and your team can raise its first order. It takes about two minutes.</p>
+				}
+				@components.RequiredNote(true)
+				@components.TextInput(withPlaceholder(v.field("legal_name", "Legal name", hintLegalName, true), "e.g. Vardhan Infra Projects Pvt Ltd"))
+				@components.CodeInput(gstinProps(v), components.GSTIN)
+				@components.MoreDetails([]string{"State code", "PAN"}, v.more("state_code", "pan")) {
+					@components.TextInput(withPlaceholder(v.field("state_code", "State code", hintStateCode, false), "e.g. 27"))
+					@components.CodeInput(withPlaceholder(v.field("pan", "PAN", hintPAN, false), "e.g. AAFCV2449G"), components.PAN)
+				}
+			case 1:
+				@components.RequiredNote(true)
+				@components.TextInput(branchCodeProps(v))
+				@components.TextInput(withPlaceholder(v.field("branch_name", "Head office name", hintBranchName, false), "e.g. Head Office"))
+				@components.TextInput(withPlaceholder(v.field("address_line1", "Address line 1", hintLine1, true), "e.g. Plot 12, MIDC Bhosari"))
+				@components.TextInput(withPlaceholder(v.field("address_city", "City", "", true), "e.g. Pune"))
+				@components.CodeInput(withPlaceholder(v.field("address_pincode", "Pincode", hintPincode, false), "e.g. 411026"), components.Pincode)
 		}
 	}
+}
+
+// setupCheckCards is Check's summary, one card per step with Change.
+templ setupCheckCards(cards []setupCard) {
+	for _, c := range cards {
+		@wizard.CheckSection(c.Title, "", c.Change) {
+			@components.SummaryList(c.Pairs)
+		}
+	}
+}
+
+func withPlaceholder(p components.FieldProps, placeholder string) components.FieldProps {
+	p.Placeholder = placeholder
+	return p
+}
+
+// gstinProps is the GSTIN field with its tip and the echo of a stored GSTIN.
+func gstinProps(v companyView) components.FieldProps {
+	p := withPlaceholder(v.field("gstin", "GSTIN", "", false), "e.g. 27AABCS1429B1ZU")
+	p.Tip, p.Echo = tipGSTIN, v.Echo
+	return p
+}
+
+func branchCodeProps(v companyView) components.FieldProps {
+	p := withPlaceholder(v.field("branch_code", "Head office code", "", true), "e.g. HO")
+	p.Tip = tipBranchCode
+	return p
 }
