@@ -32,7 +32,6 @@ const (
 	// come back."
 	noAddressFormat = "%s has no addresses. Add one in Parties, then come back."
 	noGSTIN         = "No GSTIN"
-	earlierSummary  = "Earlier paper order"
 	// lastPriceFormat is "Last bought at ₹{rate} from {vendor} on {date}
 	// ({PO})" (spec §24.2).
 	lastPriceFormat = "Last bought at ₹%s from %s on %s (%s)"
@@ -71,8 +70,8 @@ func (m *module) orderTermsStep() docscreen.Step {
 }
 
 // termsBody renders the Terms fields: the address radios, the standard
-// FieldInput for the rest, and the earlier-PO fields in a disclosure, open
-// when either has a value or an error.
+// FieldInput for the rest, and the Field.More ones in a closed More details
+// group, open when one has a value or an error (UI v2 §5.5 item 3).
 func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Component, error) {
 	steps, err := docscreen.FormSteps(c.DT)
 	if err != nil {
@@ -90,7 +89,8 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 		}
 		return c.View.Inputs[name]
 	}
-	var shown, earlier []templ.Component
+	var shown, more []templ.Component
+	var labels []string
 	open := false
 	for _, name := range fields {
 		f, _ := c.DT.Field(name)
@@ -104,21 +104,22 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 				break
 			}
 		}
-		switch name {
-		case "vendor_address_id":
+		switch {
+		case name == "vendor_address_id":
 			in, err := addressInput(c, f, value(name), msg, steps[0].Slug)
 			if err != nil {
 				return nil, err
 			}
 			shown = append(shown, in)
-		case "earlier_po_no", "earlier_po_date":
+		case f.More:
 			open = open || value(name) != "" || msg != ""
-			earlier = append(earlier, docscreen.FieldInput(f, components.FieldID(name), value(name), msg, c.Deps))
+			labels = append(labels, f.Label)
+			more = append(more, docscreen.FieldInput(f, components.FieldID(name), value(name), msg, c.Deps))
 		default:
 			shown = append(shown, docscreen.FieldInput(f, components.FieldID(name), value(name), msg, c.Deps))
 		}
 	}
-	return termsView(shown, earlier, open), nil
+	return termsView(shown, more, labels, open), nil
 }
 
 // declaredProps is f's control props with the element id id: its name,
