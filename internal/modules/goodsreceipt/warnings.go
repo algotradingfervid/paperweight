@@ -2,8 +2,10 @@ package goodsreceipt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/naming"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt/dbq"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
@@ -111,4 +113,34 @@ func LineWarnings(ctx context.Context, tx *db.Tx, poID, grnID int64, accepted ma
 		}
 	}
 	return out, nil
+}
+
+// DuplicateChallan is GRN id's duplicate challan warning, or "" (CD-337
+// (6)): the other GRNs of its vendor, not cancelled, with its challan no.
+// (trimmed, any case), named in id order when p can read each of them, else
+// the "another receipt" sentence alone (CD-233, CD-324). It refuses nothing:
+// the caller must already have checked p's read on GRN id, because the text
+// shows that GRN's own challan no.
+func DuplicateChallan(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) (string, error) {
+	d, err := wiring.Get(tx)
+	if err != nil {
+		return "", err
+	}
+	rows, err := dbq.New(tx.SQL()).G11Duplicates(ctx, id)
+	if err != nil || len(rows) == 0 {
+		return "", err
+	}
+	no := rows[0].ChallanNo
+	var names []string
+	for _, r := range rows {
+		err := d.Auth.CanTx(ctx, tx, p, DocType, auth.RightRead, grnRef(r.ID, r.CreatedBy, r.ProjectID, r.SiteID))
+		if errors.Is(err, auth.ErrNotFound) || errors.Is(err, auth.ErrForbidden) {
+			return fmt.Sprintf(msgChallanDupHidden, no), nil
+		}
+		if err != nil {
+			return "", err
+		}
+		names = append(names, naming.Label(r.Number, r.ID))
+	}
+	return fmt.Sprintf(msgChallanDup, no, andList(names)), nil
 }

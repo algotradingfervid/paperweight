@@ -234,11 +234,16 @@ func (s *Service) duplicate(ctx context.Context, tx *db.Tx, q *dbq.Queries, p au
 		}
 		names = append(names, r.Number)
 	}
+	return fmt.Sprintf(msgBillDup, no, andList(names)), nil
+}
+
+// andList is names as "A, B and C" (one or more names).
+func andList(names []string) string {
 	list := names[len(names)-1]
 	if n := len(names); n > 1 {
 		list = strings.Join(names[:n-1], ", ") + " and " + list
 	}
-	return fmt.Sprintf(msgBillDup, no, list), nil
+	return list
 }
 
 // grnRef is GRN id as AUTH sees it (register.go's owner, project and site

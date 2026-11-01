@@ -29,11 +29,23 @@ func submitFields(ctx context.Context, tx *db.Tx, _ Deps, id int64) ([]doctype.F
 	if err != nil {
 		return nil, err
 	}
-	if h.HasGoods && strings.Trim(h.ChallanNo, " ") == "" {
-		errs = append(errs, doctype.FieldError{Field: "challan_no", Message: msgChallanRequired})
-	}
-	if h.HasGoods && h.ChallanKind == "" {
-		errs = append(errs, doctype.FieldError{Field: "challan_kind", Message: msgChallanKind})
+	for _, name := range SubmitRequired(h.HasGoods) {
+		switch {
+		case name == "challan_no" && strings.Trim(h.ChallanNo, " ") == "":
+			errs = append(errs, doctype.FieldError{Field: name, Message: msgChallanRequired})
+		case name == "challan_kind" && h.ChallanKind == "":
+			errs = append(errs, doctype.FieldError{Field: name, Message: msgChallanKind})
+		}
 	}
 	return errs, nil
+}
+
+// SubmitRequired is the header fields submit requires beyond the declared
+// Required ones: the challan or invoice no. and its kind when any line is
+// goods (CD-272 Gap 5), none otherwise. Step 2 marks them required.
+func SubmitRequired(hasGoods bool) []string {
+	if !hasGoods {
+		return nil
+	}
+	return []string{"challan_no", "challan_kind"}
 }

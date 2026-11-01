@@ -43,3 +43,8 @@ SELECT gstin FROM branch WHERE gstin <> '' GROUP BY gstin ORDER BY min(code);
 
 -- name: CountBranchAddressesOutOfState :one
 SELECT count(*) FROM address WHERE branch_id = ? AND coalesce(state_code, '') <> sqlc.arg(state_code);
+
+-- name: CountSiteAddressesOutOfState :one
+-- The delivery addresses of the branch's sites outside state_code (CD-337 (1), CD-234).
+SELECT count(*) FROM address a JOIN site s ON s.id = a.site_id
+WHERE s.branch_id = sqlc.arg(branch_id) AND coalesce(a.state_code, '') <> sqlc.arg(state_code);

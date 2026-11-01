@@ -252,7 +252,7 @@ func (m *module) itemsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compon
 		somePending = somePending || l.Pending > 0
 	}
 	for _, l := range lines {
-		card := cardOf(l, es[l.ID], s, warn[l.ID], reasonMax)
+		card := cardOf(c.DT, l, es[l.ID], s, warn[l.ID], reasonMax)
 		card.Show = show
 		if !somePending || l.Pending > 0 {
 			f.Cards = append(f.Cards, card)
@@ -281,9 +281,10 @@ func acceptedOf(e entry) (types.Qty, bool) {
 	return received - rejected, true
 }
 
-// cardOf is PO line l's card with its values e, the step's errors, its
-// over-delivery warning, if any, and the reason's longest length.
-func cardOf(l goodsreceipt.POLine, e entry, s docscreen.StepState, warning string, reasonMax int) itemCard {
+// cardOf is PO line l's card, its inputs marked as dt declares them, with
+// its values e, the step's errors, its over-delivery warning, if any, and
+// the reason's longest length.
+func cardOf(dt *doctype.DocType, l goodsreceipt.POLine, e entry, s docscreen.StepState, warning string, reasonMax int) itemCard {
 	n := strconv.Itoa(l.No)
 	field := func(key, name, label, value string, attrs templ.Attributes) components.FieldProps {
 		id := components.FieldID("po-line[" + n + "]." + name)
@@ -291,8 +292,8 @@ func cardOf(l goodsreceipt.POLine, e entry, s docscreen.StepState, warning strin
 			id = docscreen.LineFieldID(e.pos, name)
 		}
 		attrs["aria-label"] = label + ", line " + n + ", " + l.ItemName
-		return components.FieldProps{ID: id, Name: key + "-" + n, Label: label, Value: value,
-			Error: lineError(s.Errors, e.pos, name), Attrs: attrs}
+		return declared(dt, name, components.FieldProps{ID: id, Name: key + "-" + n, Label: label, Value: value,
+			Error: lineError(s.Errors, e.pos, name), Attrs: attrs})
 	}
 	c := itemCard{
 		Title: n + " · " + l.ItemName, Code: l.ItemCode, Whole: l.UoM.WholeNumber, UoM: l.UoM.Code,

@@ -1,6 +1,7 @@
 // Package siteweb is the Site master's screens (MST Task 22, CD-89): the list,
-// new and record pages, disable, enable and delete under /m/site, and the
-// picker search at /pick/Site. The screens themselves are mstweb's; this
+// new and record pages, disable, enable and delete under /m/site, the
+// delivery address form at /m/site/{id}/delivery (delivery.go, CD-337 (1)) and
+// the picker search at /pick/Site. The screens themselves are mstweb's; this
 // package gives them the site service, its copy and the functions below.
 package siteweb
 
@@ -14,10 +15,12 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/masters/site"
+	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
 // Routes mounts the site screens under /m/site and the picker at /pick/Site.
 func Routes(svc *site.Service, env mstkit.Env) func(chi.Router) {
+	d := delivery{svc: svc, env: env}
 	return mstweb.Screen[site.Site, site.Input]{
 		DocType: site.DocType,
 		Base:    "/m/site",
@@ -34,6 +37,9 @@ func Routes(svc *site.Service, env mstkit.Env) func(chi.Router) {
 		Ref:          ref,
 		CanCreate:    svc.CheckUnrestricted,
 		OptionLabels: map[string]map[string]string{"type": {string(site.Warehouse): "Warehouse", string(site.SiteKind): "Site"}},
+		Selects:      map[string][]components.Option{"delivery_state_code": stateOptions()},
+		Extra:        d.card,
+		Mount:        d.routes,
 	}.Routes()
 }
 

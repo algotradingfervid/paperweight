@@ -43,6 +43,8 @@ const (
 	msgBranchNotFound = "Branch not found. Pick one from the list."
 	// CD-177 (1).
 	msgKeepPrimaryBilling = "This is the party's primary billing address. Make another billing address primary first."
+	// CD-356 (3).
+	msgSiteAddress = "This address is a site's delivery address. Change it on the site."
 )
 
 func init() {
@@ -78,7 +80,8 @@ func init() {
 // Address is one Address record.
 type Address struct {
 	ID                                 int64
-	PartyID, BranchID                  int64 // exactly one is set
+	PartyID, BranchID                  int64 // exactly one is set, or neither for a site's address
+	SiteID                             int64 // a site's delivery address (CD-337 (1)); only the site changes it
 	Title, Line1, Line2, City          string
 	StateCode, Country, Pincode, GSTIN string // StateCode is "" outside India
 	IsBilling, IsShipping              bool
@@ -366,6 +369,9 @@ func (s *Service) SetDisabledTx(ctx context.Context, tx *db.Tx, p auth.Principal
 	if err != nil {
 		return err
 	}
+	if err := siteOwned(a.SiteID, msgSiteAddress); err != nil {
+		return err
+	}
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
 		return err // CD-180 D4: before M5
 	}
@@ -408,6 +414,9 @@ func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	}
 	a, err := s.Get(ctx, tx, id)
 	if err != nil {
+		return err
+	}
+	if err := siteOwned(a.SiteID, msgSiteAddress); err != nil {
 		return err
 	}
 	if err := mstkit.CheckVersion(ctx, tx, Kind, id, version); err != nil {
@@ -471,6 +480,9 @@ func (s *Service) SetPrimaryTx(ctx context.Context, tx *db.Tx, p auth.Principal,
 	}
 	a, err := s.Get(ctx, tx, addressID)
 	if err != nil {
+		return err
+	}
+	if err := siteOwned(a.SiteID, msgSiteAddress); err != nil {
 		return err
 	}
 	if err := mstkit.CheckVersion(ctx, tx, Kind, addressID, version); err != nil {
@@ -720,6 +732,17 @@ func (s *Service) checkOwner(ctx context.Context, tx *db.Tx, p auth.Principal, i
 	return s.parties.ApplyGSTINTx(ctx, tx, p, in.PartyID, in.GSTIN)
 }
 
+// siteOwned refuses a write through the Address or Contact master to a row a
+// site owns: only the site's own form changes it (CD-356 (3)).
+func siteOwned(siteID int64, msg string) error {
+	if siteID == 0 {
+		return nil
+	}
+	var es mstkit.Errors
+	es.Add("site_id", msg)
+	return es.Err()
+}
+
 // displayName is the stored name: the title, else the city.
 func displayName(title, city string) string {
 	if title != "" {
@@ -732,7 +755,7 @@ func stateCode(code string) sql.NullString { return sql.NullString{String: code,
 
 func fromRow(r dbq.Address) Address {
 	return Address{
-		ID: r.ID, PartyID: r.PartyID.Int64, BranchID: r.BranchID.Int64,
+		ID: r.ID, PartyID: r.PartyID.Int64, BranchID: r.BranchID.Int64, SiteID: r.SiteID.Int64,
 		Title: r.Title, Line1: r.Line1, Line2: r.Line2, City: r.City, StateCode: r.StateCode.String,
 		Country: r.Country, Pincode: r.Pincode, GSTIN: r.Gstin,
 		IsBilling: r.IsBilling != 0, IsShipping: r.IsShipping != 0,

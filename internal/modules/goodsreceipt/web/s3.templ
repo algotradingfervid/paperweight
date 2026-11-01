@@ -1,0 +1,12 @@
+package grnweb
+
+import "github.com/vardhan/internaltools/internal/ui/components"
+
+// poCard is the document page's Purchase order card (UX doc §5.6): Open
+// links to the PO, then its number and order date and its rows.
+templ poCard(open components.Link, title string, rows []components.Pair) {
+	@components.Card(labelPO, &open) {
+		<p>{ title }</p>
+		@components.SummaryList(rows)
+	}
+}
