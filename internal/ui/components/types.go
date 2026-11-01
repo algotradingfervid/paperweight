@@ -46,10 +46,11 @@ const (
 )
 
 // BannerProps describes a banner. NoRole drops its role, for a banner inside
-// a live region that already has one.
+// a live region that already has one; Icon replaces the kind's icon.
 type BannerProps struct {
 	Kind           BannerKind
 	Title, Message string
+	Icon           string
 	Link           *Link
 	NoRole         bool
 }

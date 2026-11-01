@@ -28,7 +28,8 @@ templ Page(o PageOpts) {
 			<script src={ ui.JSURL } defer></script>
 			<script src={ web.AlpineURL } defer></script>
 		</head>
-		<body hx-headers={ csrfHeaders(s.CSRF) }>
+		<body hx-headers={ csrfHeaders(s.CSRF) } hx-indicator="#loadbar">
+			<div id="loadbar" class="loadbar" aria-hidden="true"></div>
 			<a class="skip-link" href="#main">Skip to content</a>
 			@header(o, s)
 			<div class="app-body">
@@ -45,6 +46,8 @@ templ Page(o PageOpts) {
 						}
 					</div>
 					@components.NoticeTemplates()
+					<div id="network" class="alerts" aria-live="polite"></div>
+					@networkTemplates()
 					<div class="app-page">
 						@mainEl(o, banners) {
 							{ children... }
@@ -101,4 +104,25 @@ templ mainEl(o PageOpts, banners []web.Notice) {
 // flash renders a flash message as a Banner, as text (never markup).
 templ flash(n web.Notice) {
 	@components.Banner(components.BannerProps{Kind: flashKind(n.Level), Message: n.Text})
+}
+
+// networkTemplates are the banners app.js copies into #network when a request
+// gets no answer (offline) or a 5xx (server), each with Try again, and, for a
+// POST that can't be safely re-sent, one with Reload (UI v2 §5.14, CD-346).
+templ networkTemplates() {
+	<template id="network-offline">
+		@networkBanner("Couldn't reach the server.", "Check your connection. Nothing you typed is lost.", "Try again", "data-retry")
+	</template>
+	<template id="network-server">
+		@networkBanner("The server had a problem.", "Try again in a minute.", "Try again", "data-retry")
+	</template>
+	<template id="network-unsure">
+		@networkBanner("Your change may have been saved.", "Reload to check before trying again.", "Reload", "data-reload")
+	</template>
+}
+
+templ networkBanner(title, message, action, attr string) {
+	@components.Banner(components.BannerProps{Kind: components.Danger, Icon: "wifi-off", Title: title, Message: message, NoRole: true}) {
+		@components.Button(components.ButtonProps{Type: "button", Label: action, Icon: "refresh-cw", Variant: components.Secondary, Attrs: templ.Attributes{attr: true}})
+	}
 }
