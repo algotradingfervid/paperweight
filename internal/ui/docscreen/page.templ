@@ -46,22 +46,18 @@ templ docBanners(pv pageView) {
 	}
 }
 
-// docBody follows the phone order of design-system §8.4; from 80rem the
-// state, attachments and approval history sit in a side panel. Every value
-// is read-only.
+// docBody follows the phone order of design-system §8.4, with the header
+// card first (UI v2 §5.13); from 80rem the attachments and approval history
+// sit in a side panel. Every value is read-only.
 templ docBody(pv pageView) {
 	<div class="doc-layout">
 		<div class="doc-main">
-			if pv.V.Info.Party != "" {
-				<p>{ pv.V.Info.Party }</p>
-			}
-			if pv.V.GrandTotal != "" {
-				<div>
-					<p class="num text-2xl font-semibold">{ pv.V.GrandTotal }</p>
-					if pv.V.InWords != "" {
-						@components.AmountInWords(pv.V.InWords)
-					}
-				</div>
+			@components.DocHeader(components.DocHeaderProps{
+				Title: pv.V.Info.Display, State: pv.V.Info.State, StateLabel: pv.DT.StateLabels[pv.V.Info.State],
+				Amount: pv.V.GrandTotal, InWords: pv.V.InWords, Facts: pv.Facts, Steps: lifeSteps(pv.DT, pv.V.Info.State),
+			})
+			if pv.Party != "" {
+				<p>{ pv.Party }</p>
 			}
 			if s := waitingLine(pv); s != "" {
 				<p>{ s }</p>
@@ -92,9 +88,6 @@ templ docBody(pv pageView) {
 			}
 		</div>
 		<div class="doc-side">
-			<div class="doc-state">
-				@components.StateBadgeLabel(pv.V.Info.State, pv.DT.StateLabels[pv.V.Info.State])
-			</div>
 			if pv.Attach != nil {
 				@attachCard(*pv.Attach)
 			} else if !pv.DT.Attachable && pv.Extra.Files != nil {

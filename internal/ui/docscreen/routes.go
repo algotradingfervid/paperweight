@@ -8,6 +8,9 @@ import "github.com/go-chi/chi/v5"
 // /ui/validate/{kind} is not here: it takes the Self guard (CD-87), so WP3
 // and the gallery mount components.ValidateHandler.
 func Routes(d Deps) func(chi.Router) {
+	if err := CheckKeyFacts(d.Modules); err != nil {
+		panic(err)
+	}
 	return func(r chi.Router) {
 		r.Get("/search", d.search)
 		r.Get("/doc/{doctype}", d.list)

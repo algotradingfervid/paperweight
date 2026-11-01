@@ -272,7 +272,7 @@ func TestLineGrid_DisplayReaderDraft(t *testing.T) {
 	lines := e.m40bLines(t)
 	e.who = e.reader
 	page := m01bOK(t, e.get(t, m01bURL(e.id)), "reader GET the draft")
-	if norm(page.Find(".doc-state .badge--draft").Text()) != "Draft" {
+	if norm(page.Find(".doc-head__top .badge--draft").Text()) != "Draft" {
 		t.Fatal("the reader's page is not the draft's document page")
 	}
 	m40bWantDisplay(t, e, page, m40bWant{

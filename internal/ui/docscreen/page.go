@@ -1,8 +1,11 @@
 package docscreen
 
 import (
+	"cmp"
 	"context"
+	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -43,6 +46,8 @@ type pageView struct {
 	Attach  *attachView
 	Extra   PageExtra                 // the module's additions (hooks spec §4.4)
 	Lines   *components.LineListProps // the line cards and display grid (CD-313)
+	Facts   []components.Pair         // the module's KeyFacts the viewer may see (UI v2 §5.13)
+	Party   string                    // the party line; "" when KeyFacts names the party field
 }
 
 // actionForm is the hidden form a bar button posts through.
@@ -135,7 +140,11 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 		return pageView{}, err
 	}
 	noteLines(shown.Lines, extra.LineNotes)
-	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights), Lines: d.lineList(r, dt, shown)}
+	facts := d.modOf(dt).KeyFacts
+	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights), Lines: d.lineList(r, dt, shown), Facts: keyFacts(facts, shown), Party: shown.Info.Party}
+	if pf, ok := doc.PartyField(dt); ok && slices.Contains(facts, pf.Name) {
+		pv.Party = "" // the facts show it
+	}
 	pv.Bar, pv.More = Actions(v, dt.Printable, rights)
 	if err := applyPageExtra(&pv); err != nil {
 		return pageView{}, err
@@ -378,6 +387,7 @@ func docOpts(pv pageView) layout.PageOpts {
 	return layout.PageOpts{
 		Title:      pv.V.Info.Display,
 		Focus:      true, // the action bar is the page's bottom bar (UI v2 §5.2)
+		NoHeading:  true, // the header card has the h1 (UI v2 §5.13)
 		Error:      pv.Danger != "" || len(pv.Errors) > 0,
 		BannerSlot: docBanners(pv),
 		BarSlot:    docBar(pv),
@@ -416,4 +426,74 @@ func lineCards(lines []LineView) []components.LineCard {
 		out[i] = l.Card
 	}
 	return out
+}
+
+// keyFacts is the Details pair of each field names lists, in that order,
+// from v after the module's Hide (pageViewOf), so a hidden field has none.
+func keyFacts(names []string, v DocView) []components.Pair {
+	var out []components.Pair
+	for _, name := range names {
+		if i := slices.Index(v.HeaderNames, name); i >= 0 {
+			out = append(out, v.Header[i])
+		}
+	}
+	return out
+}
+
+// CheckKeyFacts reports the first Module.KeyFacts name that isn't a header
+// field its DocType declares (a line field, an unknown name, or any name on
+// an unregistered DocType), so a typo fails when the routes are built, not
+// by showing nothing (UI v2 §5.13).
+func CheckKeyFacts(mods map[string]Module) error {
+	for name, m := range mods {
+		dt, _ := doctype.Lookup(name) // unregistered: no fields, so every name fails
+		for _, f := range m.KeyFacts {
+			if fd, found := dt.Field(f); !found || fd.OnLine {
+				return fmt.Errorf("docscreen: %s KeyFacts names %q, which isn't one of its header fields", name, f)
+			}
+		}
+	}
+	return nil
+}
+
+// lifeSteps is a submittable DocType's lifecycle with the document's state s
+// marked (UI v2 §5.13 item 4, A-26): Draft, Pending approval when dt is
+// Approvable, then its approved word; Rejected marks the approval step with
+// its own word, and Closed or Cancelled adds a final step. Words follow the
+// state badge.
+func lifeSteps(dt *doctype.DocType, s doctype.State) []components.LifeStep {
+	if !dt.Submittable {
+		return nil
+	}
+	states := []doctype.State{doctype.StateDraft}
+	mark := components.LifeCurrent
+	switch {
+	case dt.Approvable && s == doctype.StateRejected:
+		states, mark = append(states, s), components.LifeRejected
+	case dt.Approvable:
+		states = append(states, doctype.StatePending)
+	}
+	states = append(states, doctype.StateApproved)
+	switch s {
+	case doctype.StateClosed, doctype.StateCancelled:
+		mark = components.LifeEnded
+		states = append(states, s)
+	}
+	at := slices.Index(states, s)
+	out := make([]components.LifeStep, len(states))
+	for i, st := range states {
+		out[i] = components.LifeStep{Label: stateWord(dt, st)}
+		switch {
+		case i < at:
+			out[i].Mark = components.LifeDone
+		case i == at:
+			out[i].Mark = mark
+		}
+	}
+	return out
+}
+
+// stateWord is the state badge's word for s on dt.
+func stateWord(dt *doctype.DocType, s doctype.State) string {
+	return cmp.Or(dt.StateLabels[s], components.StateLabel(s))
 }

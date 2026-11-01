@@ -450,7 +450,7 @@ func claimWithFiles(t *testing.T, h *Harness) int64 {
 }
 
 // TestE2E_AttachmentsSidePanel: ATT-021. At 1440 px the panel is in the
-// right column, under the state badge and above Approval history.
+// right column, the first block there and above Approval history (CD-372).
 func TestE2E_AttachmentsSidePanel(t *testing.T) {
 	h := Start(t)
 	id := claimWithFiles(t, h)
@@ -462,11 +462,11 @@ func TestE2E_AttachmentsSidePanel(t *testing.T) {
   if (!side || !side.contains(card)) return "the panel is not in .doc-side";
   const main = side.previousElementSibling.getBoundingClientRect(), s = side.getBoundingClientRect();
   if (s.left < main.right) return "the side column is not right of the content: " + s.left + " < " + main.right;
-  const badge = side.querySelector(".doc-state").getBoundingClientRect(), c = card.getBoundingClientRect();
+  const c = card.getBoundingClientRect();
   const hist = [...side.querySelectorAll("summary")].find((e) => e.textContent.trim().startsWith("Approval history"));
   if (!hist) return "no Approval history in the side column";
   const a = hist.getBoundingClientRect();
-  if (badge.bottom > c.top) return "the panel is above the state badge";
+  if (side.firstElementChild !== card) return "the panel is not the first block in .doc-side";
   if (c.bottom > a.top) return "the panel is below Approval history";
   return "";
 })()`)
@@ -490,7 +490,7 @@ func TestE2E_AttachmentAfterApproval(t *testing.T) {
 	if took := time.Since(start); took >= goal {
 		t.Errorf("opening to listed took %v, want under %v", took, goal)
 	}
-	if got := stateBadge(d, ".doc-state .badge"); got != "Approved" {
+	if got := stateBadge(d, ".doc-head__top .badge"); got != "Approved" {
 		t.Errorf("state badge = %q, want Approved", got)
 	}
 	if n := Eval[int](d, removeButtons); n != 0 {

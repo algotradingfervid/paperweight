@@ -12,7 +12,7 @@
 }
 
 /* Document page (design-system §8.4). On phones the two columns dissolve
-   into one list in phone order: state first, audit history last. From
+   into one column in phone order, audit history last. From
    80rem: the main column plus a side panel. */
 @utility doc-layout {
   display: flex;
@@ -20,7 +20,6 @@
   gap: var(--space-4);
   & > .doc-main, & > .doc-side { display: contents; }
   & > .doc-main > *, & > .doc-side > * { min-inline-size: 0; }
-  & .doc-state { order: -1; }
   & .doc-audit { order: 1; }
   @media (min-width: 80rem) {
     display: grid;
@@ -28,6 +27,6 @@
     align-items: start;
     gap: var(--space-6);
     & > .doc-main, & > .doc-side { display: flex; flex-direction: column; gap: var(--space-4); min-inline-size: 0; }
-    & .doc-state, & .doc-audit { order: 0; }
+    & .doc-audit { order: 0; }
   }
 }
