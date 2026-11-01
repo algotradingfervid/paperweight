@@ -115,7 +115,7 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 		}
 		r.Method(http.MethodPost, "/ui/validate/{kind}", a.srv.Self(components.ValidateHandler(parsers())))
 
-		gw := grnweb.Deps{Service: a.grn}
+		gw := grnweb.Deps{Service: a.grn, Sessions: sm}
 		pw := purchaseweb.Deps{
 			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
 			CSRF:        func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },

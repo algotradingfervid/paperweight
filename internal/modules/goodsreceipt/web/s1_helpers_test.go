@@ -7,8 +7,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -36,16 +38,26 @@ const (
 	s1MsgChoosePO     = "Choose a purchase order."
 )
 
-// s1World is grntest's world behind docscreen's routes.
+// s1World is grntest's world behind docscreen's routes and grnweb's module
+// routes, inside one scs session manager as AUTH's middleware runs them.
+// Requests carry no session cookie, so each starts a fresh session, unless
+// keep is set: then the session cookie of each answer goes with the next
+// request (S3b's no-JS redraw).
 type s1World struct {
 	*grntest.Env
 	t      *testing.T
 	hidden map[string]bool // fields the Module's Hide also hides, as another Hide would (CD-319)
+	sm     *scs.SessionManager
+	keep   bool // send the last answer's session cookie
+	htmx   bool // send HX-Request
+	cookie *http.Cookie
 }
 
 func newS1World(t *testing.T) *s1World {
 	t.Helper()
-	return &s1World{Env: grntest.New(t), t: t}
+	sm := scs.New()
+	sm.IdleTimeout = 12 * time.Hour // production's setting (lessons §11)
+	return &s1World{Env: grntest.New(t), t: t, sm: sm}
 }
 
 // s1Page is one answer, its body parsed (CD-148).
@@ -67,7 +79,7 @@ func (w *s1World) do(p auth.Principal, method, path string, form url.Values) s1P
 		Lister: docscreentest.NewLister(), Extras: docscreentest.NewExtras(),
 		Principal: func(*http.Request) (auth.Principal, bool) { return p, true },
 		Today:     func() (string, string) { return s1Today, "23-10-2026" },
-		Modules:   grnweb.Modules(grnweb.Deps{Service: w.Service}),
+		Modules:   grnweb.Modules(grnweb.Deps{Service: w.Service, Sessions: w.sm}),
 	}
 	if len(w.hidden) > 0 {
 		m := d.Modules[goodsreceipt.DocType]
@@ -77,15 +89,27 @@ func (w *s1World) do(p auth.Principal, method, path string, form url.Values) s1P
 	}
 	r := chi.NewRouter()
 	docscreen.Routes(d)(r)
+	grnweb.Routes(grnweb.Deps{Service: w.Service, Sessions: w.sm})(r)
 	var req *http.Request
 	if form != nil {
-		req = httptest.NewRequestWithContext(w.t.Context(), method, path, strings.NewReader(form.Encode()))
+		req = httptest.NewRequestWithContext(auth.WithPrincipal(w.t.Context(), p), method, path, strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	} else {
-		req = httptest.NewRequestWithContext(w.t.Context(), method, path, nil)
+		req = httptest.NewRequestWithContext(auth.WithPrincipal(w.t.Context(), p), method, path, nil)
+	}
+	if w.htmx {
+		req.Header.Set("HX-Request", "true")
+	}
+	if w.keep && w.cookie != nil {
+		req.AddCookie(w.cookie)
 	}
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
+	w.sm.LoadAndSave(r).ServeHTTP(rec, req)
+	for _, line := range rec.Header().Values("Set-Cookie") {
+		if c, err := http.ParseSetCookie(line); err == nil && c.Name == w.sm.Cookie.Name {
+			w.cookie = c
+		}
+	}
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rec.Body.String()))
 	if err != nil {
 		w.t.Fatalf("%s %s: parse: %v", method, path, err)

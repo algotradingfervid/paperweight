@@ -7,6 +7,7 @@ import "github.com/vardhan/internaltools/internal/ui/components"
 // lines are pending.
 templ itemsView(f itemsForm) {
 	<p>{ f.Summary }</p>
+	@components.Warnings(f.Warnings)
 	<div class="cluster">
 		@components.Button(f.FillAll)
 		@components.Button(f.Clear)

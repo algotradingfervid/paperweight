@@ -3,6 +3,7 @@ package grnweb
 import (
 	"net/http"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -10,8 +11,11 @@ import (
 )
 
 // Deps are what the module's screens need; internal/app fills them.
+// Sessions keep a bill details post refused without htmx for the document
+// page's next load (UX doc §5.7).
 type Deps struct {
-	Service *goodsreceipt.Service
+	Service  *goodsreceipt.Service
+	Sessions *scs.SessionManager
 }
 
 // handlers carries Deps to each task's handler file.
