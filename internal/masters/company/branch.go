@@ -28,6 +28,9 @@ const (
 	// MsgAddressState is MST-029's refusal, from either side: the address's
 	// save or the branch's.
 	MsgAddressState = "Branch address state must match the branch state."
+	// msgSiteAddressState refuses a state that leaves a site's delivery
+	// address behind (CD-337 (1)); the site's save checks the other side.
+	msgSiteAddressState = "A site of this branch has its delivery address in another state. Change that address first."
 )
 
 // owned are the branch's own rows, deleted with it. The kinds are literal
@@ -343,7 +346,8 @@ func (s *Service) checkNotLastEnabled(ctx context.Context, tx *db.Tx, id int64) 
 }
 
 // checkAddressStates refuses a state that leaves one of the branch's own
-// addresses behind (MST-029); the address's save checks the other side.
+// addresses (MST-029) or a delivery address of one of its sites (CD-337 (1))
+// behind; the address's and the site's saves check the other side.
 func (s *Service) checkAddressStates(ctx context.Context, tx *db.Tx, id int64, state string) error {
 	n, err := dbq.New(tx.SQL()).CountBranchAddressesOutOfState(ctx, dbq.CountBranchAddressesOutOfStateParams{
 		BranchID: sql.NullInt64{Int64: id, Valid: true}, StateCode: sql.NullString{String: state, Valid: true},
@@ -354,6 +358,16 @@ func (s *Service) checkAddressStates(ctx context.Context, tx *db.Tx, id int64, s
 	var es mstkit.Errors
 	if n != 0 {
 		es.Add("state_code", MsgAddressState)
+		return es.Err()
+	}
+	n, err = dbq.New(tx.SQL()).CountSiteAddressesOutOfState(ctx, dbq.CountSiteAddressesOutOfStateParams{
+		BranchID: id, StateCode: sql.NullString{String: state, Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+	if n != 0 {
+		es.Add("state_code", msgSiteAddressState)
 	}
 	return es.Err()
 }

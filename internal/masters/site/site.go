@@ -96,17 +96,22 @@ type Site struct {
 	Type       SiteType
 	Disabled   bool
 	Version    int
+	Delivery   Delivery // M0-58; zero = none
 }
 
-// Input is what Create and Update accept.
+// Input is what Create and Update accept. A nil Delivery is none on Create
+// and keeps the stored one on Update (the site's own form has no address); an
+// empty one removes it.
 type Input struct {
 	Code, Name string
 	BranchID   int64
 	ProjectID  int64
 	Type       SiteType
+	Delivery   *Delivery
 }
 
-// Validate normalises code and name and checks branch presence and type.
+// Validate normalises code and name and checks branch presence and type, and
+// the delivery address and contact when given.
 func Validate(in Input) (Input, error) {
 	var es mstkit.Errors
 	add := func(err error) {
@@ -126,6 +131,10 @@ func Validate(in Input) (Input, error) {
 	}
 	if !validType(in.Type) {
 		es.Add("type", msgType) // CD-166
+	}
+	if in.Delivery != nil {
+		d := validateDelivery(*in.Delivery, &es)
+		in.Delivery = &d
 	}
 	if err := es.Err(); err != nil {
 		return Input{}, err
@@ -209,9 +218,10 @@ func userID(p auth.Principal) sql.NullInt64 {
 
 func nullID(id int64) sql.NullInt64 { return sql.NullInt64{Int64: id, Valid: id != 0} }
 
-// checkLinks refuses an unknown or disabled branch or project and a project of
-// another branch, reading inside tx (CD-94, CD-170, MST-106). A target p can't
-// read is unknown (CD-227).
+// checkLinks refuses an unknown or disabled branch or project, a project of
+// another branch and a delivery address outside the branch's state, reading
+// inside tx (CD-94, CD-170, MST-106, CD-234). A target p can't read is unknown
+// (CD-227).
 func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, p auth.Principal, in Input) error {
 	var es mstkit.Errors
 	b, err := mstkit.LinkedTx(ctx, tx, s.env, p, company.Kind, in.BranchID, company.New(s.env).Get)
@@ -222,6 +232,9 @@ func (s *Service) checkLinks(ctx context.Context, tx *db.Tx, p auth.Principal, i
 		return err
 	case b.Disabled:
 		es.Add("branch_id", "Branch "+b.Code+" is disabled. Pick another branch.")
+	}
+	if err == nil && in.Delivery != nil && in.Delivery.HasAddress() && in.Delivery.StateCode != b.StateCode {
+		es.Add("delivery_state_code", MsgDeliveryInState)
 	}
 	if in.ProjectID != 0 {
 		pr, err := mstkit.LinkedTx(ctx, tx, s.env, p, project.Kind, in.ProjectID, project.New(s.env).Get)
@@ -298,6 +311,11 @@ func (s *Service) CreateTx(ctx context.Context, tx *db.Tx, p auth.Principal, in 
 	if err != nil {
 		return mstkit.Saved{}, err
 	}
+	if in.Delivery != nil {
+		if err := s.saveDelivery(ctx, tx, p, id, Delivery{}, *in.Delivery); err != nil {
+			return mstkit.Saved{}, err
+		}
+	}
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "create", nil, auditFields(fromInput(in))); err != nil {
 		return mstkit.Saved{}, err
 	}
@@ -330,6 +348,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	}
 	if err := s.checkNotReadOnly(ctx, tx, p, old, version); err != nil {
 		return mstkit.Saved{}, err
+	}
+	if in.Delivery == nil {
+		in.Delivery = &old.Delivery // checked against a new branch too
 	}
 	if err := s.checkProjectAllowed(ctx, tx, p, in.ProjectID); err != nil {
 		return mstkit.Saved{}, err
@@ -366,6 +387,9 @@ func (s *Service) UpdateTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 			return mstkit.Saved{}, err
 		}
 		return mstkit.Saved{}, doctype.ErrNotFound
+	}
+	if err := s.saveDelivery(ctx, tx, p, id, old.Delivery, *in.Delivery); err != nil {
+		return mstkit.Saved{}, err
 	}
 	if err := s.env.Audit(ctx, tx, p, Kind, id, "save", before, after); err != nil {
 		return mstkit.Saved{}, err
@@ -442,16 +466,20 @@ func (s *Service) DeleteTx(ctx context.Context, tx *db.Tx, p auth.Principal, id 
 	return s.env.DeleteTx(ctx, tx, p, Kind, id, version)
 }
 
-// Get reads the site; a missing one is doctype.ErrNotFound.
+// Get reads the site with its delivery address and contact; a missing one is
+// doctype.ErrNotFound.
 func (s *Service) Get(ctx context.Context, tx *db.Tx, id int64) (Site, error) {
-	r, err := dbq.New(tx.SQL()).GetSite(ctx, id)
+	q := dbq.New(tx.SQL())
+	r, err := q.GetSite(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Site{}, doctype.ErrNotFound
 	}
 	if err != nil {
 		return Site{}, err
 	}
-	return fromRow(r), nil
+	st := fromRow(r)
+	st.Delivery, err = readDelivery(ctx, q, id)
+	return st, err
 }
 
 // Codes maps each of ids to its site's code; ids with no site are left out
@@ -471,16 +499,22 @@ func (s *Service) Codes(ctx context.Context, tx *db.Tx, ids []int64) (map[int64]
 	return codes, nil
 }
 
-// ByCode reads the site with code (upper-cased and trimmed first).
+// ByCode reads the site with code (upper-cased and trimmed first), with its
+// delivery address and contact.
 func (s *Service) ByCode(ctx context.Context, tx *db.Tx, code string) (Site, bool, error) {
-	r, err := dbq.New(tx.SQL()).GetSiteByCode(ctx, strings.ToUpper(strings.TrimSpace(code)))
+	q := dbq.New(tx.SQL())
+	r, err := q.GetSiteByCode(ctx, strings.ToUpper(strings.TrimSpace(code)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Site{}, false, nil
 	}
 	if err != nil {
 		return Site{}, false, err
 	}
-	return fromRow(dbq.GetSiteRow(r)), true, nil
+	st := fromRow(dbq.GetSiteRow(r))
+	if st.Delivery, err = readDelivery(ctx, q, st.ID); err != nil {
+		return Site{}, false, err
+	}
+	return st, true, nil
 }
 
 func fromRow(r dbq.GetSiteRow) Site {
@@ -491,7 +525,11 @@ func fromRow(r dbq.GetSiteRow) Site {
 }
 
 func fromInput(in Input) Site {
-	return Site{Code: in.Code, Name: in.Name, BranchID: in.BranchID, ProjectID: in.ProjectID, Type: in.Type}
+	st := Site{Code: in.Code, Name: in.Name, BranchID: in.BranchID, ProjectID: in.ProjectID, Type: in.Type}
+	if in.Delivery != nil {
+		st.Delivery = *in.Delivery
+	}
+	return st
 }
 
 // auditFields is the site as audited.
@@ -502,7 +540,10 @@ func auditFields(st Site) map[string]string {
 		}
 		return strconv.FormatInt(v, 10)
 	}
+	d := st.Delivery
 	return map[string]string{
 		"code": st.Code, "name": st.Name, "branch_id": id(st.BranchID), "project_id": id(st.ProjectID), "type": string(st.Type),
+		"delivery_line1": d.Line1, "delivery_line2": d.Line2, "delivery_city": d.City, "delivery_state_code": d.StateCode,
+		"delivery_pincode": d.Pincode, "contact_name": d.ContactName, "contact_mobile": d.ContactMobile,
 	}
 }

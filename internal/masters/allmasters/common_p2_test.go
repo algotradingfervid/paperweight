@@ -170,6 +170,7 @@ func TestMaster_AllFKsRestrict(t *testing.T) {
 	env := msttest.New(t)
 	cascade := map[string]bool{
 		"address.party_id": true, "address.branch_id": true, "contact.party_id": true, "contact.branch_id": true,
+		"address.site_id": true, "contact.site_id": true, // a site's delivery address and contact go with it (M0-58)
 		"contact_email.contact_id": true, "contact_phone.contact_id": true, "item_uom.parent_id": true, "payment_terms_row.parent_id": true,
 	}
 	masters := map[string]bool{}

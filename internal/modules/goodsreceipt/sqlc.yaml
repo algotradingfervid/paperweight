@@ -16,6 +16,7 @@ sql:
       - ../../../migrations/10050_purchase_order.sql
       - ../../../migrations/10200_goods_receipt.sql
       - ../../../migrations/10210_grn_bill.sql
+      - ../../../migrations/10380_site_address.sql
     queries: queries/
     gen:
       go:

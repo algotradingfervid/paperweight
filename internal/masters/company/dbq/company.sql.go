@@ -91,6 +91,24 @@ func (q *Queries) CountOtherEnabledBranches(ctx context.Context, id int64) (int6
 	return count, err
 }
 
+const countSiteAddressesOutOfState = `-- name: CountSiteAddressesOutOfState :one
+SELECT count(*) FROM address a JOIN site s ON s.id = a.site_id
+WHERE s.branch_id = ?1 AND coalesce(a.state_code, '') <> ?2
+`
+
+type CountSiteAddressesOutOfStateParams struct {
+	BranchID  int64
+	StateCode sql.NullString
+}
+
+// The delivery addresses of the branch's sites outside state_code (CD-337 (1), CD-234).
+func (q *Queries) CountSiteAddressesOutOfState(ctx context.Context, arg CountSiteAddressesOutOfStateParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSiteAddressesOutOfState, arg.BranchID, arg.StateCode)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const enabledSiteCodes = `-- name: EnabledSiteCodes :many
 SELECT code FROM site WHERE branch_id = ? AND disabled = 0 ORDER BY code
 `

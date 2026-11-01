@@ -423,12 +423,21 @@ func lrFKGaps(fks []lrFK) []string {
 			continue
 		}
 		f, ok := dt.Field(fk.column)
+		if lrSiteOwned[fk.table+"."+fk.column] && !ok {
+			continue
+		}
 		if !ok || f.Type != doctype.Link || masters[fk.target].Name != f.Link {
 			gaps = append(gaps, fk.table+"."+fk.column+" -> "+fk.target)
 		}
 	}
 	return gaps
 }
+
+// lrSiteOwned are the owner columns of a site's delivery address and contact
+// (M0-58, CD-337 (1)). No user posts them: the Site service sets them to the
+// site it saves, under its own write check, and Address and Contact declare
+// no such field. A DocType that declares one is checked as a Link again.
+var lrSiteOwned = map[string]bool{"address.site_id": true, "contact.site_id": true}
 
 func TestCD227_FKGapsFindsAnUndeclaredKey(t *testing.T) {
 	got := lrFKGaps([]lrFK{
@@ -439,9 +448,11 @@ func TestCD227_FKGapsFindsAnUndeclaredKey(t *testing.T) {
 		{"mst_order", "vendor_id", "party"},                    // not a master's
 		{"party", "ghost_id", "uom"},
 		{"item_other", "ghost_id", "uom"},
-		{"site", "project_id", "uom"}, // a Link, to another master
+		{"site", "project_id", "uom"},  // a Link, to another master
+		{"address", "site_id", "site"}, // a site's own address (lrSiteOwned)
+		{"address", "branch_id", "site"},
 	})
-	want := []string{"party.ghost_id -> uom", "item_other.ghost_id -> uom", "site.project_id -> uom"}
+	want := []string{"party.ghost_id -> uom", "item_other.ghost_id -> uom", "site.project_id -> uom", "address.branch_id -> site"}
 	if !slices.Equal(got, want) {
 		t.Errorf("gaps = %q, want %q", got, want)
 	}

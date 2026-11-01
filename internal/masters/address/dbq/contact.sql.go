@@ -109,7 +109,7 @@ func (q *Queries) DeleteContactPhones(ctx context.Context, contactID int64) erro
 }
 
 const getContact = `-- name: GetContact :one
-SELECT id, party_id, branch_id, name, first_name, middle_name, last_name, is_primary, disabled, version, created_at, created_by, updated_at, updated_by FROM contact WHERE id = ?
+SELECT id, party_id, branch_id, site_id, name, first_name, middle_name, last_name, is_primary, disabled, version, created_at, created_by, updated_at, updated_by FROM contact WHERE id = ?
 `
 
 func (q *Queries) GetContact(ctx context.Context, id int64) (Contact, error) {
@@ -119,6 +119,7 @@ func (q *Queries) GetContact(ctx context.Context, id int64) (Contact, error) {
 		&i.ID,
 		&i.PartyID,
 		&i.BranchID,
+		&i.SiteID,
 		&i.Name,
 		&i.FirstName,
 		&i.MiddleName,

@@ -65,7 +65,7 @@ func (q *Queries) GSTINOnOtherParty(ctx context.Context, arg GSTINOnOtherPartyPa
 }
 
 const getAddress = `-- name: GetAddress :one
-SELECT id, party_id, branch_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE id = ?
+SELECT id, party_id, branch_id, site_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE id = ?
 `
 
 func (q *Queries) GetAddress(ctx context.Context, id int64) (Address, error) {
@@ -75,6 +75,7 @@ func (q *Queries) GetAddress(ctx context.Context, id int64) (Address, error) {
 		&i.ID,
 		&i.PartyID,
 		&i.BranchID,
+		&i.SiteID,
 		&i.Name,
 		&i.Title,
 		&i.Line1,
@@ -224,7 +225,7 @@ func (q *Queries) OtherPrimaryShipping(ctx context.Context, arg OtherPrimaryShip
 }
 
 const partyAddresses = `-- name: PartyAddresses :many
-SELECT id, party_id, branch_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE party_id = ? AND disabled <= CAST(?2 AS INTEGER) ORDER BY id
+SELECT id, party_id, branch_id, site_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE party_id = ? AND disabled <= CAST(?2 AS INTEGER) ORDER BY id
 `
 
 type PartyAddressesParams struct {
@@ -245,6 +246,7 @@ func (q *Queries) PartyAddresses(ctx context.Context, arg PartyAddressesParams) 
 			&i.ID,
 			&i.PartyID,
 			&i.BranchID,
+			&i.SiteID,
 			&i.Name,
 			&i.Title,
 			&i.Line1,
@@ -279,7 +281,7 @@ func (q *Queries) PartyAddresses(ctx context.Context, arg PartyAddressesParams) 
 }
 
 const primaryBillingOfBranch = `-- name: PrimaryBillingOfBranch :one
-SELECT id, party_id, branch_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE branch_id = ? AND is_primary_billing = 1
+SELECT id, party_id, branch_id, site_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE branch_id = ? AND is_primary_billing = 1
 `
 
 func (q *Queries) PrimaryBillingOfBranch(ctx context.Context, branchID sql.NullInt64) (Address, error) {
@@ -289,6 +291,7 @@ func (q *Queries) PrimaryBillingOfBranch(ctx context.Context, branchID sql.NullI
 		&i.ID,
 		&i.PartyID,
 		&i.BranchID,
+		&i.SiteID,
 		&i.Name,
 		&i.Title,
 		&i.Line1,
@@ -313,7 +316,7 @@ func (q *Queries) PrimaryBillingOfBranch(ctx context.Context, branchID sql.NullI
 }
 
 const primaryBillingOfParty = `-- name: PrimaryBillingOfParty :one
-SELECT id, party_id, branch_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE party_id = ? AND is_primary_billing = 1
+SELECT id, party_id, branch_id, site_id, name, title, line1, line2, city, state_code, country, pincode, gstin, is_billing, is_shipping, is_primary_billing, is_primary_shipping, disabled, version, created_at, created_by, updated_at, updated_by FROM address WHERE party_id = ? AND is_primary_billing = 1
 `
 
 func (q *Queries) PrimaryBillingOfParty(ctx context.Context, partyID sql.NullInt64) (Address, error) {
@@ -323,6 +326,7 @@ func (q *Queries) PrimaryBillingOfParty(ctx context.Context, partyID sql.NullInt
 		&i.ID,
 		&i.PartyID,
 		&i.BranchID,
+		&i.SiteID,
 		&i.Name,
 		&i.Title,
 		&i.Line1,

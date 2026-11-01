@@ -82,7 +82,23 @@ func (h *Harness) prepareSweep() sweepState {
 				return err
 			}
 		}
-		return nil
+		// The long site's delivery address and contact (M0-58), in its branch's state.
+		if _, err := tx.SQL().ExecContext(ctx, `INSERT INTO address (site_id, name, line1, line2, city, state_code, is_shipping, created_at, updated_at)
+			SELECT s.id, ?1, ?1, ?1, ?1, b.state_code, 1, s.created_at, s.created_at FROM site s JOIN branch b ON b.id = s.branch_id WHERE s.id = ?2`,
+			uitest.LongName100, s.long.Site); err != nil {
+			return err
+		}
+		res, err := tx.SQL().ExecContext(ctx, `INSERT INTO contact (site_id, name, first_name, created_at, updated_at)
+			SELECT id, ?1, ?1, created_at, created_at FROM site WHERE id = ?2`, uitest.LongName100, s.long.Site)
+		if err != nil {
+			return err
+		}
+		contact, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		_, err = tx.SQL().ExecContext(ctx, `INSERT INTO contact_phone (contact_id, number, kind, is_primary) VALUES (?, '+919876543210', 'mobile', 1)`, contact)
+		return err
 	})
 	if err != nil {
 		h.t.Fatalf("long stand-in masters: %v", err)
@@ -492,7 +508,11 @@ func (h *Harness) masterScreens(s sweepState) []screens.Screen {
 			screens.Screen{Name: "party " + kind.name + " row", Route: "/m/party" + idRoute + "/" + kind.name + rowRoute, URL: party + "/" + kind.name + "/" + strconv.FormatInt(kind.row, 10), As: admin})
 	}
 	addresses, contacts := party+"/addresses/", party+"/contacts/"
+	delivery := "/m/site/" + strconv.FormatInt(s.long.Site, 10) + "/delivery"
 	return append(out,
+		screens.Screen{Name: "site delivery", Route: "/m/site" + idRoute + "/delivery", URL: delivery, As: admin},
+		screens.Screen{Name: "site delivery refused", Route: "/m/site" + idRoute + "/delivery", URL: delivery, As: admin,
+			Setup: refuse(`input[name=delivery_line1]`, `f.elements.delivery_line1.value = "";`)},
 		screens.Screen{Name: "party address refused", Route: "/m/party" + idRoute + "/addresses" + rowRoute, URL: addresses + strconv.FormatInt(s.long.Address, 10), As: admin,
 			Setup: refuse(`input[name=line1]`, `f.elements.line1.value = "";`)},
 		screens.Screen{Name: "party contact refused", Route: "/m/party" + idRoute + "/contacts" + rowRoute, URL: contacts + strconv.FormatInt(s.long.Contact, 10), As: admin,
