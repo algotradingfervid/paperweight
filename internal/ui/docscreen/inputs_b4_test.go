@@ -11,55 +11,68 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
-// A Check field renders as a switch row on a real checkbox posting "1"
-// (UI v2 §5.5 item 7, N6); its label and hint are the field's.
+// A Check field renders as a switch row on a real checkbox posting DOC's
+// "true", or a master form's "1" with MasterChecks (UI v2 §5.5 item 7, N6;
+// CD-322); its label and hint are the field's.
 func TestFieldInput_CheckIsSwitch(t *testing.T) {
 	f := doctype.Field{Name: "is_stock", Label: "Stock item", Hint: "Counted in stock.", Type: doctype.Check}
-	for _, c := range []struct {
-		value string
-		on    bool
-	}{{"1", true}, {"true", true}, {"0", false}, {"", false}} {
-		doc := uitest.Render(t, docscreen.FieldInput(f, "f-is_stock", c.value, "", docscreen.Deps{}))
-		in := doc.Find(`label.switch-row input#f-is_stock[type="checkbox"][role="switch"][name="is_stock"]`)
-		if in.Length() != 1 {
-			t.Fatalf("value %q: no switch for the Check field", c.value)
-		}
-		if v, _ := in.Attr("value"); v != "1" {
-			t.Errorf("value %q: posts %q, want 1", c.value, v)
-		}
-		if _, on := in.Attr("checked"); on != c.on {
-			t.Errorf("value %q: on = %v, want %v", c.value, on, c.on)
-		}
-		if doc.Find(`input[type="hidden"][name="is_stock"]`).Length() != 0 {
-			t.Errorf("value %q: a plain switch posts a hidden value too", c.value)
-		}
-		if got := strings.TrimSpace(doc.Find(".switch-row__label").Text()); got != "Stock item" {
-			t.Errorf("label = %q", got)
+	for _, d := range []struct {
+		deps docscreen.Deps
+		yes  string
+	}{{docscreen.Deps{}, "true"}, {docscreen.Deps{MasterChecks: true}, "1"}} {
+		for _, c := range []struct {
+			value string
+			on    bool
+		}{{"1", true}, {"true", true}, {"0", false}, {"false", false}, {"", false}} {
+			doc := uitest.Render(t, docscreen.FieldInput(f, "f-is_stock", c.value, "", d.deps))
+			in := doc.Find(`label.switch-row input#f-is_stock[type="checkbox"][role="switch"][name="is_stock"]`)
+			if in.Length() != 1 {
+				t.Fatalf("value %q: no switch for the Check field", c.value)
+			}
+			if v, _ := in.Attr("value"); v != d.yes {
+				t.Errorf("MasterChecks %v, value %q: posts %q, want %s", d.deps.MasterChecks, c.value, v, d.yes)
+			}
+			if _, on := in.Attr("checked"); on != c.on {
+				t.Errorf("value %q: on = %v, want %v", c.value, on, c.on)
+			}
+			if doc.Find(`input[type="hidden"][name="is_stock"]`).Length() != 0 {
+				t.Errorf("value %q: a plain switch posts a hidden value too", c.value)
+			}
+			if got := strings.TrimSpace(doc.Find(".switch-row__label").Text()); got != "Stock item" {
+				t.Errorf("label = %q", got)
+			}
 		}
 	}
 }
 
 // Field.Invert shows a negatively stored field positively: the switch carries
-// Invert's words and is on when the stored value is false (§5.5 item 7).
+// Invert's words and is on when the stored value is false (§5.5 item 7). On
+// posts DOC's "false" first, off the hidden "true"; with MasterChecks "0"
+// and "1" (CD-353 (4)).
 func TestFieldInput_CheckInvertBothWays(t *testing.T) {
 	f := doctype.Field{Name: "disabled", Label: "Disabled", Type: doctype.Check, Invert: "Active"}
-	for _, c := range []struct {
-		value string
-		on    bool
-	}{{"0", true}, {"", true}, {"1", false}, {"true", false}} {
-		doc := uitest.Render(t, docscreen.FieldInput(f, "f-disabled", c.value, "", docscreen.Deps{}))
-		in := doc.Find(`input#f-disabled[role="switch"]`)
-		if _, on := in.Attr("checked"); on != c.on {
-			t.Errorf("stored %q: on = %v, want %v", c.value, on, c.on)
-		}
-		if v, _ := in.Attr("value"); v != "0" {
-			t.Errorf("stored %q: an inverted switch posts %q when on, want 0", c.value, v)
-		}
-		if v, _ := doc.Find(`input[type="hidden"][name="disabled"]`).Attr("value"); v != "1" {
-			t.Errorf("stored %q: the value posted when off = %q, want 1", c.value, v)
-		}
-		if got := strings.TrimSpace(doc.Find(".switch-row__label").Text()); got != "Active" {
-			t.Errorf("label = %q, want Active", got)
+	for _, d := range []struct {
+		deps    docscreen.Deps
+		yes, no string
+	}{{docscreen.Deps{}, "true", "false"}, {docscreen.Deps{MasterChecks: true}, "1", "0"}} {
+		for _, c := range []struct {
+			value string
+			on    bool
+		}{{"0", true}, {"false", true}, {"", true}, {"1", false}, {"true", false}} {
+			doc := uitest.Render(t, docscreen.FieldInput(f, "f-disabled", c.value, "", d.deps))
+			in := doc.Find(`input#f-disabled[role="switch"]`)
+			if _, on := in.Attr("checked"); on != c.on {
+				t.Errorf("stored %q: on = %v, want %v", c.value, on, c.on)
+			}
+			if v, _ := in.Attr("value"); v != d.no {
+				t.Errorf("MasterChecks %v, stored %q: an inverted switch posts %q when on, want %s", d.deps.MasterChecks, c.value, v, d.no)
+			}
+			if v, _ := doc.Find(`input[type="hidden"][name="disabled"]`).Attr("value"); v != d.yes {
+				t.Errorf("MasterChecks %v, stored %q: the value posted when off = %q, want %s", d.deps.MasterChecks, c.value, v, d.yes)
+			}
+			if got := strings.TrimSpace(doc.Find(".switch-row__label").Text()); got != "Active" {
+				t.Errorf("label = %q, want Active", got)
+			}
 		}
 	}
 }
@@ -87,6 +100,9 @@ func TestFieldInput_SelectOptionCountRule(t *testing.T) {
 	}{
 		{"4 short", []string{"One", "Two", "Three", "Twelve chars"}, "segmented"},
 		{"4 with a 13-character label", []string{"One", "Two", "Three", "Thirteen char"}, "tiles"},
+		{"13-character label first", []string{"Thirteen char", "One", "Two"}, "tiles"},
+		{"12 characters of ₹, more bytes", []string{"₹₹₹₹₹₹₹₹₹₹₹₹", "One"}, "segmented"},
+		{"12 Devanagari characters", []string{"कखगघङचछजझञटठ", "One"}, "segmented"},
 		{"5 short", []string{"A", "B", "C", "D", "E"}, "select"},
 		{"2 short", []string{"Yes", "No"}, "segmented"},
 	} {
