@@ -399,7 +399,7 @@ func TestModule_StepStay(t *testing.T) {
 				if got := rootIDs(t, rec); !slices.Equal(got, []string{"wizard"}) {
 					t.Errorf("%s: roots = %q, want only #wizard", what, got)
 				}
-				if got := norm(page.Find("h1#step-title").Text()); got != "Terms" {
+				if got := norm(page.Find("h2#step-title").Text()); got != "Terms" {
 					t.Errorf("%s: heading = %q, want the same step, Terms", what, got)
 				}
 				if got := stepCount(page.Selection); got != "Step 2 of 4" {
@@ -458,7 +458,7 @@ func TestModule_StepStay(t *testing.T) {
 				if got := rec.Header().Get("HX-Push-Url"); got != base+"/edit/items" {
 					t.Errorf("%s: HX-Push-Url = %q, want the bare items URL %s/edit/items", what, got, base)
 				}
-				if got := norm(page.Find("h1#step-title").Text()); got != "Items" {
+				if got := norm(page.Find("h2#step-title").Text()); got != "Items" {
 					t.Errorf("%s: heading = %q, want the same step, Items", what, got)
 				}
 				m17WantGenericItems(t, page, what+" redraw")

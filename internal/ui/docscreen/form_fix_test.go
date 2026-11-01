@@ -104,7 +104,7 @@ func TestCheckPage_SubmitResponseMatchesTarget(t *testing.T) {
 				if got := pathOf(t, res.Header.Get("HX-Push-Url")); got != doc42+"/edit/items" {
 					t.Errorf("HX-Push-Url = %q, want %s/edit/items", got, doc42)
 				}
-				if got := norm(page.Find("h1#step-title").Text()); got != "Items" {
+				if got := norm(page.Find("h2#step-title").Text()); got != "Items" {
 					t.Errorf("heading = %q, want the Items step", got)
 				}
 			}},
@@ -221,7 +221,7 @@ func TestWizardForm_BackOn422StaysOnStep(t *testing.T) {
 			t.Error("plain back 422 is not a full page")
 		}
 		page := uitest.Doc(t, rec)
-		if got := norm(page.Find("h1#step-title").Text()); got != "Delivery" {
+		if got := norm(page.Find("h2#step-title").Text()); got != "Delivery" {
 			t.Errorf("htmx=%v: heading = %q, want Delivery (the step stays)", hx, got)
 		}
 		if got := stepCount(page.Selection); got != "Step 2 of 3" {

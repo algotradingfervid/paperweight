@@ -398,7 +398,7 @@ func TestUpload_UnderHTMXSwapsTheWizard(t *testing.T) {
 
 	r := b.sendPartHX(t, p, "file", strings.Repeat("x", csvio.MaxFileBytes+1))
 	webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
-	if got := r.Doc.Find("#wizard h1").Text(); got != "Upload" {
+	if got := r.Doc.Find("#wizard h2#step-title").Text(); got != "Upload" {
 		t.Errorf("heading = %q", got)
 	}
 	webtest.WantFieldError(t, r, "file", "This file is larger than 5 MB. Split it into smaller files.")
@@ -412,7 +412,7 @@ func TestUpload_UnderHTMXSwapsTheWizard(t *testing.T) {
 	if got := r.Header.Get("HX-Push-Url"); got != "/m/import/check" {
 		t.Errorf("HX-Push-Url = %q", got)
 	}
-	if got := r.Doc.Find("#wizard h1").Text(); got != "Check results" {
+	if got := r.Doc.Find("#wizard h2#step-title").Text(); got != "Check results" {
 		t.Errorf("heading = %q", got)
 	}
 }
@@ -831,7 +831,7 @@ func TestHTMX_StepsSwapTheWizard(t *testing.T) {
 	if got := r.Header.Get("HX-Push-Url"); got != "/m/import/upload" {
 		t.Errorf("HX-Push-Url = %q", got)
 	}
-	if r.Doc.Find("#wizard h1").Text() != "Upload" || r.Doc.Find("html body header").Length() != 0 {
+	if r.Doc.Find("#wizard h2#step-title").Text() != "Upload" || r.Doc.Find("html body header").Length() != 0 {
 		t.Errorf("want the #wizard fragment of Upload\n%s", webtest.Squash(r.Body))
 	}
 
@@ -868,7 +868,7 @@ func TestHTMX_EveryStepMoveSwapsItsStep(t *testing.T) {
 		if got := r.Header.Get("HX-Push-Url"); got != tc.push {
 			t.Errorf("POST %s nav=%q: HX-Push-Url = %q; want %q", tc.target, tc.nav, got, tc.push)
 		}
-		if got := r.Doc.Find("#wizard h1").Text(); got != tc.heading {
+		if got := r.Doc.Find("#wizard h2#step-title").Text(); got != tc.heading {
 			t.Errorf("POST %s nav=%q: heading = %q; want %q", tc.target, tc.nav, got, tc.heading)
 		}
 	}

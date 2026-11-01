@@ -58,7 +58,7 @@ func TestLineGrid_FallbackOnEveryPath(t *testing.T) {
 			e.fx.Exec(t, `UPDATE docscreentest_hooked_line SET qty = 0 WHERE parent_id = ? AND line_no = 2`, id)
 			rec := e.post(t, m01bURL(id)+"/submit", url.Values{"version": {m02Version(t, e, id)}})
 			page := m02Page(t, rec, http.StatusUnprocessableEntity, "POST submit with line 2 quantity 0")
-			if got := norm(page.Find("h1#step-title").Text()); got != "Items" {
+			if got := norm(page.Find("h2#step-title").Text()); got != "Items" {
 				t.Fatalf("heading = %q, want the submit to land on Items", got)
 			}
 			var hrefs []string

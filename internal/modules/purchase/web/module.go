@@ -18,6 +18,12 @@ func Modules(d Deps) map[string]docscreen.Module {
 	m := &module{d: d}
 	return map[string]docscreen.Module{
 		purchase.DocType: {
+			StepIntros: map[string]string{ // UI v2 C2
+				"details": "Who you're buying from, where it goes and when you need it.",
+				"terms":   "Payment terms, the vendor's quote and anything else that prints on the order.",
+				"items":   "Add what you're buying, with the quantity and rate for each line.",
+				"check":   "Check the order, then submit it for approval.",
+			},
 			Steps: map[string]docscreen.Step{
 				"terms": m.orderTermsStep(), // P15a
 				"items": m.orderItemsStep(), // P15c

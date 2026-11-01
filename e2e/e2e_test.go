@@ -98,10 +98,10 @@ func addOrderLine(s *Session, item, qty, rate, uom string) {
 	s.WaitText("Step 2 of 3")
 }
 
-// progress is the wizard progress bar's value.
+// progress is the current step's number in the stepper.
 func progress(s *Session) int {
 	s.t.Helper()
-	return Eval[int](s, `Number(document.querySelector("progress.stepper__bar").value)`)
+	return Eval[int](s, `[...document.querySelectorAll(".stepper__step")].findIndex(e => e.matches(".is-current")) + 1`)
 }
 
 // wizardOrder creates the reference PO through the wizard and leaves s on the

@@ -79,6 +79,28 @@ var pages = []galleryPage{
 	{"auth-users", titled("Users"), static(authUsersBody())},
 	{"auth-rights", layout.PageOpts{Title: "Rights for Employee", BarSlot: authRightsBar()}, static(authRightsBody())},
 	{"problem", layout.PageOpts{Title: "Problem page", NoHeading: true}, problemBody},
+	{"stepper", formWidth("Stepper"), stepperBody},
+}
+
+// stepperBody is the stepper alone with five steps (UI v2 §5.6): by default
+// two done, the current one, one visited after it and one upcoming; ?at=<i>
+// makes step i current with nothing visited past it.
+func stepperBody(r *http.Request) templ.Component {
+	m := wizard.Model{
+		Mode: wizard.Document, Title: "Goods receipt", BaseURL: "/_gallery/stepper",
+		Steps: []wizard.Step{
+			{Slug: "order", Label: "Order"},
+			{Slug: "delivery", Label: "Delivery"},
+			{Slug: "quantities", Label: "Quantities"},
+			{Slug: "attachments", Label: "Attachments"},
+			{Slug: "check", Label: "Check"},
+		},
+		Current: 2, Furthest: 3,
+	}
+	if at, err := strconv.Atoi(r.URL.Query().Get("at")); err == nil && at >= 0 && at < len(m.Steps) {
+		m.Current, m.Furthest = at, at
+	}
+	return wizard.Stepper(m)
 }
 
 // problemBody is the 404 page's body with the kernel's text; ?status=403
@@ -250,10 +272,10 @@ func wizardModel(step int, errs []components.FieldErr, conflict string) wizard.M
 	m := wizard.Model{
 		Mode: wizard.Document, Title: "New sample order", DocLabel: "Draft 42", BaseURL: "/_gallery",
 		Steps: []wizard.Step{
-			{Slug: "wizard-1", Label: "Supplier and date"},
-			{Slug: "wizard-2", Label: "Items"},
-			{Slug: "wizard-3", Label: "Terms"},
-			{Slug: "wizard-4", Label: "Check and submit"},
+			{Slug: "wizard-1", Label: "Supplier and date", Intro: "Who you're buying from and when you need it."},
+			{Slug: "wizard-2", Label: "Items", Intro: "Add what you're buying. Rates fill in from the last price paid; change them if the quote differs."},
+			{Slug: "wizard-3", Label: "Terms", Intro: "How you'll pay and anything the vendor must know."},
+			{Slug: "wizard-4", Label: "Check and submit", Intro: "Check everything, then submit it for approval."},
 		},
 		Current: step, Furthest: 3, Version: 1, Errors: errs, Conflict: conflict,
 	}
@@ -315,6 +337,8 @@ func Screens(base string) []screens.Screen {
 		screens.Screen{Name: "gallery wizard-1, supplier chosen", Route: route, URL: base + "/_gallery/wizard-1?supplier=3"},
 		screens.Screen{Name: "gallery wizard-3, conflict", Route: route, URL: base + "/_gallery/wizard-3?conflict=1"},
 		screens.Screen{Name: "gallery problem, 403", Route: route, URL: base + "/_gallery/problem?status=403"},
+		screens.Screen{Name: "gallery stepper, first step", Route: route, URL: base + "/_gallery/stepper?at=0"},
+		screens.Screen{Name: "gallery stepper, last step", Route: route, URL: base + "/_gallery/stepper?at=4"},
 	)
 	hooked := append(docscreen.Screens(docscreentest.Hooked, hookedIDs), screens.Screen{
 		Name: docscreentest.Hooked + " read-only draft", Route: "/doc/{doctype}/{id}",

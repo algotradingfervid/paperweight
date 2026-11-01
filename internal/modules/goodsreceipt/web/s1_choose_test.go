@@ -39,7 +39,7 @@ func TestGRNWeb_ChoosePOOneVisible(t *testing.T) {
 	if got := r.doc.Find(`input[name="receipt_date"]`).AttrOr("value", ""); got != s1Today {
 		t.Errorf("receipt date = %q, want %s", got, s1Today)
 	}
-	if got := strings.TrimSpace(r.doc.Find("h1").Text()); got != "Choose purchase order" {
+	if got := strings.TrimSpace(r.doc.Find("h2#step-title").Text()); got != "Choose purchase order" {
 		t.Errorf("h1 = %q, want Choose purchase order", got)
 	}
 	for _, label := range []string{"Delivery details", "Received quantities"} {

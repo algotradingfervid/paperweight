@@ -342,12 +342,12 @@ func TestModule_StepLabels(t *testing.T) {
 	if want := []string{base + "/edit/terms", base + "/edit/items", base + "/edit/check"}; !slices.Equal(hrefs, want) {
 		t.Errorf("stepper links = %q, want %q (slugs unchanged)", hrefs, want)
 	}
-	if got := norm(page.Find("h1#step-title").Text()); got != "Choose supplier" {
+	if got := norm(page.Find("h2#step-title").Text()); got != "Choose supplier" {
 		t.Errorf("details heading = %q, want Choose supplier", got)
 	}
 
 	page = m02Page(t, e.get(t, base+"/edit/terms"), http.StatusOK, "GET terms")
-	if got := norm(page.Find("h1#step-title").Text()); got != "Delivery terms" {
+	if got := norm(page.Find("h2#step-title").Text()); got != "Delivery terms" {
 		t.Errorf("terms heading = %q, want Delivery terms", got)
 	}
 	if got := stepCount(page.Selection); got != "Step 2 of 4" {
@@ -361,7 +361,7 @@ func TestModule_StepLabels(t *testing.T) {
 	}
 
 	page = m02Page(t, e.get(t, m02NewURL), http.StatusOK, "GET /new")
-	if got := norm(page.Find("h1#step-title").Text()); got != "Choose supplier" {
+	if got := norm(page.Find("h2#step-title").Text()); got != "Choose supplier" {
 		t.Errorf("/new heading = %q, want Choose supplier", got)
 	}
 	if labels, _ := m02StepperLabels(page); !slices.Equal(labels, wantLabels) {
@@ -426,7 +426,7 @@ func TestModule_Navigation(t *testing.T) {
 				if rec.Code != http.StatusOK || pathOf(t, rec.Header().Get("HX-Push-Url")) != tc.want {
 					t.Errorf("htmx next = %d, HX-Push-Url %q; want 200 and %q", rec.Code, rec.Header().Get("HX-Push-Url"), tc.want)
 				}
-				if got := norm(uitest.Doc(t, rec).Find("h1#step-title").Text()); got != "Items" {
+				if got := norm(uitest.Doc(t, rec).Find("h2#step-title").Text()); got != "Items" {
 					t.Errorf("htmx next frame heading = %q, want Items", got)
 				}
 			}

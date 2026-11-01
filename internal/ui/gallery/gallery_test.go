@@ -24,7 +24,7 @@ var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
 	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments", "cards",
-	"problem",
+	"problem", "stepper",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
@@ -168,6 +168,45 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 			t.Error("dialogs: want an opener for the dialog and for the sheet")
 		}
 	},
+}
+
+// TestGallery_StepperStates (UI v2 §5.6): the stepper page shows five steps
+// with done, current, visited and upcoming at once; ?at= moves the current
+// step, and every wizard step page has its intro.
+func TestGallery_StepperStates(t *testing.T) {
+	h := Handler()
+	for _, c := range []struct {
+		url                     string
+		done, visited, upcoming int
+		current                 int
+	}{
+		{"/_gallery/stepper", 2, 1, 1, 2},
+		{"/_gallery/stepper?at=0", 0, 0, 4, 0},
+		{"/_gallery/stepper?at=4", 4, 0, 0, 4},
+	} {
+		d := get(t, h, c.url)
+		li := d.Find("nav.stepper li.stepper__step")
+		if li.Length() != 5 {
+			t.Fatalf("%s: %d steps, want 5", c.url, li.Length())
+		}
+		upcoming := li.Length() - li.Filter(".is-done, .is-current, .is-visited").Length()
+		if d.Find("li.is-done").Length() != c.done || d.Find("li.is-visited").Length() != c.visited || upcoming != c.upcoming || d.Find("li.is-current").Index() != c.current {
+			t.Errorf("%s: done %d visited %d upcoming %d current at %d", c.url, d.Find("li.is-done").Length(), d.Find("li.is-visited").Length(), upcoming, d.Find("li.is-current").Index())
+		}
+		li.Find(".stepper__label").Each(func(_ int, l *goquery.Selection) {
+			c := l.Clone()
+			c.Find(".visually-hidden").Remove()
+			if n := len([]rune(strings.TrimSpace(c.Text()))); n > 12 {
+				t.Errorf("label %q is over 12 characters", c.Text())
+			}
+		})
+	}
+	for i := 1; i <= 4; i++ {
+		d := get(t, h, "/_gallery/wizard-"+strconv.Itoa(i))
+		if strings.TrimSpace(d.Find("#wizard > p.step-intro").Text()) == "" {
+			t.Errorf("wizard-%d: no step intro", i)
+		}
+	}
 }
 
 func init() {
