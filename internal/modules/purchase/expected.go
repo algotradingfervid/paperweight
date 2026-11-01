@@ -9,7 +9,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -84,7 +83,7 @@ func ParseExpectedOn(s string) (types.Date, error) {
 func (s *Service) ExpectedState(ctx context.Context, p auth.Principal, poID int64) (ExpectedState, error) {
 	var st ExpectedState
 	err := s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		info, err := s.expectedPO(ctx, tx, p, poID)
+		info, err := s.orderFor(ctx, tx, p, poID, auth.RightAmend)
 		if err != nil {
 			return err
 		}
@@ -164,7 +163,7 @@ func (s *Service) setExpected(ctx context.Context, p auth.Principal, poID int64,
 		if err != nil {
 			return err
 		}
-		return s.expectedAudit(ctx, tx, p, poID, fmt.Sprintf(auditExpectedSet, types.FormatDate(on)), now)
+		return s.orderAudit(ctx, tx, p, poID, fmt.Sprintf(auditExpectedSet, types.FormatDate(on)), now)
 	})
 }
 
@@ -188,7 +187,7 @@ func (s *Service) ClearExpected(ctx context.Context, p auth.Principal, poID int6
 		if err := dbq.New(tx.SQL()).DeleteExpected(ctx, poID); err != nil {
 			return err
 		}
-		return s.expectedAudit(ctx, tx, p, poID, auditExpectedCleared, s.d.Clock.Now())
+		return s.orderAudit(ctx, tx, p, poID, auditExpectedCleared, s.d.Clock.Now())
 	})
 }
 
@@ -196,7 +195,7 @@ func (s *Service) ClearExpected(ctx context.Context, p auth.Principal, poID int6
 // version other than the row's (0 with no row) as stale. It returns the PO
 // and the row's version.
 func (s *Service) expectedWrite(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64, version int) (doctype.Info, int, error) {
-	info, err := s.expectedPO(ctx, tx, p, poID)
+	info, err := s.orderFor(ctx, tx, p, poID, auth.RightAmend)
 	if err != nil {
 		return doctype.Info{}, 0, err
 	}
@@ -208,38 +207,6 @@ func (s *Service) expectedWrite(ctx context.Context, tx *db.Tx, p auth.Principal
 		return doctype.Info{}, 0, expectedStale(info.Display)
 	}
 	return info, e.Version, nil
-}
-
-// expectedPO loads poID in tx and checks that p holds amend or approve on it
-// (spec §27.1). A missing PO is AUTH's 404, as a hidden one is (CD-245); with
-// neither right the error is AUTH's amend refusal.
-func (s *Service) expectedPO(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64) (doctype.Info, error) {
-	info, err := s.d.Engine.Info(ctx, tx, DocType, poID)
-	if errors.Is(err, doctype.ErrNotFound) {
-		return doctype.Info{}, auth.ErrNotFound
-	}
-	if err != nil {
-		return doctype.Info{}, err
-	}
-	ref := &auth.RecordRef{
-		DocType: info.DocType, ID: info.ID, CreatedBy: info.CreatedBy,
-		EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
-	}
-	err = s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightAmend, ref)
-	var denied *auth.DeniedError
-	if errors.As(err, &denied) && s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightApprove, ref) == nil {
-		err = nil
-	}
-	if err != nil {
-		return doctype.Info{}, err
-	}
-	return info, nil
-}
-
-// expectedAudit writes a change's audit entry on the PO, action in
-// History's words.
-func (s *Service) expectedAudit(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64, action string, at time.Time) error {
-	return s.d.Audit.Append(ctx, tx, audit.Entry{DocType: DocType, DocID: poID, Action: action, By: p.ID, At: at.UTC()})
 }
 
 // expectedStale is DOC's stale refusal (409) for display.

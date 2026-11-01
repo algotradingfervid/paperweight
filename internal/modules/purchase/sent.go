@@ -73,7 +73,7 @@ func SentInfo(ctx context.Context, tx *db.Tx, poID int64) (Sent, bool, error) {
 func (s *Service) SendState(ctx context.Context, p auth.Principal, poID int64) (SendState, error) {
 	var st SendState
 	err := s.d.DB.Read(ctx, func(tx *db.Tx) error {
-		info, err := s.sentPO(ctx, tx, p, poID)
+		info, err := s.orderFor(ctx, tx, p, poID, auth.RightWrite)
 		if err != nil {
 			return err
 		}
@@ -147,7 +147,7 @@ func (s *Service) MarkSent(ctx context.Context, p auth.Principal, poID int64, ve
 		if err != nil {
 			return err
 		}
-		return s.sentAudit(ctx, tx, p, poID, auditSentMarked, now)
+		return s.orderAudit(ctx, tx, p, poID, auditSentMarked, now)
 	})
 }
 
@@ -163,7 +163,7 @@ func (s *Service) UnmarkSent(ctx context.Context, p auth.Principal, poID int64, 
 		if err := dbq.New(tx.SQL()).DeleteSent(ctx, poID); err != nil {
 			return err
 		}
-		return s.sentAudit(ctx, tx, p, poID, auditSentUnmarked, s.d.Clock.Now())
+		return s.orderAudit(ctx, tx, p, poID, auditSentUnmarked, s.d.Clock.Now())
 	})
 }
 
@@ -171,7 +171,7 @@ func (s *Service) UnmarkSent(ctx context.Context, p auth.Principal, poID int64, 
 // version other than the row's (0 with no row) as stale. It returns the PO
 // and the row's version.
 func (s *Service) sentWrite(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64, version int) (doctype.Info, int, error) {
-	info, err := s.sentPO(ctx, tx, p, poID)
+	info, err := s.orderFor(ctx, tx, p, poID, auth.RightWrite)
 	if err != nil {
 		return doctype.Info{}, 0, err
 	}
@@ -205,10 +205,11 @@ func orderSummary(ctx context.Context, tx *db.Tx, poID int64) (vendor, total str
 	return row.SnapVendorName, types.FormatINR(amount), requiredBy, nil
 }
 
-// sentPO loads poID in tx and checks that p is its owner (write) or holds
-// approve on it (spec §23). A missing PO is AUTH's 404, as a hidden one is
-// (CD-245); with neither right the error is AUTH's write refusal.
-func (s *Service) sentPO(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64) (doctype.Info, error) {
+// orderFor loads poID in tx and checks that p holds right or approve on it
+// (Send: write, spec §23; Expected on: amend, spec §27.1). A missing PO is
+// AUTH's 404, as a hidden one is (CD-245); with neither right the error is
+// AUTH's refusal of right.
+func (s *Service) orderFor(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64, right auth.Right) (doctype.Info, error) {
 	info, err := s.d.Engine.Info(ctx, tx, DocType, poID)
 	if errors.Is(err, doctype.ErrNotFound) {
 		return doctype.Info{}, auth.ErrNotFound
@@ -220,7 +221,7 @@ func (s *Service) sentPO(ctx context.Context, tx *db.Tx, p auth.Principal, poID 
 		DocType: info.DocType, ID: info.ID, CreatedBy: info.CreatedBy,
 		EmployeeID: info.EmployeeID, ProjectIDs: info.ProjectIDs, SiteIDs: info.SiteIDs,
 	}
-	err = s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightWrite, ref)
+	err = s.d.Auth.CanTx(ctx, tx, p, DocType, right, ref)
 	var denied *auth.DeniedError
 	if errors.As(err, &denied) && s.d.Auth.CanTx(ctx, tx, p, DocType, auth.RightApprove, ref) == nil {
 		err = nil
@@ -231,8 +232,9 @@ func (s *Service) sentPO(ctx context.Context, tx *db.Tx, p auth.Principal, poID 
 	return info, nil
 }
 
-// sentAudit writes a change's audit entry on the PO.
-func (s *Service) sentAudit(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64, action string, at time.Time) error {
+// orderAudit writes a Send or Expected on change's audit entry on the PO,
+// action in History's words.
+func (s *Service) orderAudit(ctx context.Context, tx *db.Tx, p auth.Principal, poID int64, action string, at time.Time) error {
 	return s.d.Audit.Append(ctx, tx, audit.Entry{DocType: DocType, DocID: poID, Action: action, By: p.ID, At: at.UTC()})
 }
 
