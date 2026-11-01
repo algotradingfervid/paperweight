@@ -1432,9 +1432,9 @@ func TestStepScope_StaleMoveIs409(t *testing.T) {
 	}
 	page := uitest.Doc(t, rec)
 	if page.Find(`#wizard a[href="`+e.stepURL("items")+`"]`).FilterFunction(func(_ int, s *goquery.Selection) bool {
-		return norm(s.Text()) == "Reload"
+		return norm(s.Text()) == "Reload Draft "+itoa(e.id)
 	}).Length() != 1 {
-		t.Errorf("no Reload link to %s", e.stepURL("items"))
+		t.Errorf("no Reload Draft %d link to %s", e.id, e.stepURL("items"))
 	}
 	if got := e.record(t).Version; got != 2 {
 		t.Errorf("stored version = %d, want 2", got)

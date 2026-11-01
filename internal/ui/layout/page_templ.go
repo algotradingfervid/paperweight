@@ -462,7 +462,12 @@ func mainEl(o PageOpts, banners []web.Notice) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		if !o.NoHeading {
+		if st := ui.ProblemFrom(ctx); st != 0 {
+			templ_7745c5c3_Err = components.ProblemPage(st, o.Title).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if !o.NoHeading {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<h1 id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -470,7 +475,7 @@ func mainEl(o PageOpts, banners []web.Notice) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(headingID(o))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/page.templ`, Line: 102, Col: 25}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/page.templ`, Line: 104, Col: 25}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 			if templ_7745c5c3_Err != nil {
@@ -483,7 +488,7 @@ func mainEl(o PageOpts, banners []web.Notice) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(o.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/page.templ`, Line: 102, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/page.templ`, Line: 104, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {

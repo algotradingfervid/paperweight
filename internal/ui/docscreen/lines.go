@@ -255,11 +255,20 @@ func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, ver
 func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, version int, values map[string]string, errs []doctype.FieldError, danger string) linePageView {
 	lv := d.lineShell(r, dt, v, no, version, errs, danger)
 	c := d.lineCtx(r, dt, &v, no)
+	var more moreBox
 	for _, f := range dt.Fields {
-		if f.OnLine && editable(f) && !hidden(c, f) {
-			lv.Inputs = append(lv.Inputs, FieldInput(f, components.FieldID(f.Name), values[f.Name], lineError(errs, f.Name), c.Deps))
+		if !f.OnLine || !editable(f) || hidden(c, f) {
+			continue
 		}
+		msg := lineError(errs, f.Name)
+		in := FieldInput(f, components.FieldID(f.Name), values[f.Name], msg, c.Deps)
+		if f.More {
+			more.add(f, values[f.Name], msg, in)
+			continue
+		}
+		lv.Inputs = append(lv.Inputs, in)
 	}
+	lv.Inputs = more.appendTo(lv.Inputs)
 	return lv
 }
 

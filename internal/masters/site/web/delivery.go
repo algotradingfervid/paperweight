@@ -105,6 +105,7 @@ func (d delivery) show(w http.ResponseWriter, r *http.Request, pages mstweb.Page
 	}
 	for _, fd := range deliveryFields {
 		sub.Inputs = append(sub.Inputs, pages.Input(fd, fd.Name, f))
+		sub.Required = sub.Required || fd.Required
 	}
 	mstweb.RenderSubForm(w, r, status, sub)
 	return nil

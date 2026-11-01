@@ -98,6 +98,11 @@ type Field struct {
 	// posted value keep the stored meaning (UI v2 §5.5 item 7).
 	Invert string
 
+	// More puts the field, one most people skip, in its card's closed
+	// "More details" group, which opens when a field inside has a value or
+	// an error. Display only (UI v2 §5.5 item 3).
+	More bool
+
 	// DOC's additions (§5 last paragraph).
 	NonNegative, Positive               bool
 	Min, Max                            *int64

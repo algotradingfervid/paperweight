@@ -18,6 +18,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/types"
@@ -53,6 +54,7 @@ func wizardOpts(n int) layout.PageOpts {
 var pages = []galleryPage{
 	{"buttons", titled("Buttons"), static(buttonsBody())},
 	{"fields", formWidth("Fields"), static(fieldsBody())},
+	{"cards", formWidth("Cards"), static(cardsBody())},
 	{"badges-banners", titled("Badges and banners"), static(badgesBody())},
 	{"dialogs", titled("Dialogs and sheets"), static(dialogsBody())},
 	{"datalist", titled("Data list"), static(datalistBody())},
@@ -76,6 +78,16 @@ var pages = []galleryPage{
 	{"auth-sessions", titled("Your sessions"), static(authSessionsBody())},
 	{"auth-users", titled("Users"), static(authUsersBody())},
 	{"auth-rights", layout.PageOpts{Title: "Rights for Employee", BarSlot: authRightsBar()}, static(authRightsBody())},
+	{"problem", layout.PageOpts{Title: "Problem page", NoHeading: true}, problemBody},
+}
+
+// problemBody is the 404 page's body with the kernel's text; ?status=403
+// gives the 403 one with an AUTH refusal (UI v2 §5.14).
+func problemBody(r *http.Request) templ.Component {
+	if r.URL.Query().Get("status") == "403" {
+		return components.ProblemPage(http.StatusForbidden, "You can only change Purchase Orders you created.")
+	}
+	return components.ProblemPage(http.StatusNotFound, doctype.ErrNotFound.Error())
 }
 
 // strictPolicy is WP0's policy without 'unsafe-inline' for styles, reporting
@@ -153,7 +165,7 @@ func show(w http.ResponseWriter, r *http.Request) {
 }
 
 // post serves the buttons page's slow form, the row editor (which only draws
-// the page again) and wizard step 1.
+// the page again), the cards page's bill card and wizard step 1.
 func post(w http.ResponseWriter, r *http.Request) {
 	switch chi.URLParam(r, "page") {
 	case "buttons":
@@ -162,6 +174,8 @@ func post(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	case "rows":
 		render(w, r, http.StatusOK, titled("Row editor"), rowsBody())
+	case "cards":
+		ui.Render(w, r, http.StatusOK, billCard(true, r.PostFormValue("bill")), nil)
 	case "wizard-1":
 		v := stepValues{reference: r.PostFormValue("reference"), date: r.PostFormValue("order_date"), supplier: pickByID(r.PostFormValue("supplier_id"))}
 		if strings.TrimSpace(v.reference) == "" {
@@ -300,6 +314,7 @@ func Screens(base string) []screens.Screen {
 		screens.Screen{Name: "gallery wizard-1, refused", Route: route, URL: base + "/_gallery/wizard-1?errors=1"},
 		screens.Screen{Name: "gallery wizard-1, supplier chosen", Route: route, URL: base + "/_gallery/wizard-1?supplier=3"},
 		screens.Screen{Name: "gallery wizard-3, conflict", Route: route, URL: base + "/_gallery/wizard-3?conflict=1"},
+		screens.Screen{Name: "gallery problem, 403", Route: route, URL: base + "/_gallery/problem?status=403"},
 	)
 	hooked := append(docscreen.Screens(docscreentest.Hooked, hookedIDs), screens.Screen{
 		Name: docscreentest.Hooked + " read-only draft", Route: "/doc/{doctype}/{id}",

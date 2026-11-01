@@ -67,6 +67,7 @@ templ fieldsBody() {
 // field's message region.
 templ fieldSet(pre, errText string) {
 	<div class="stack">
+		@components.RequiredNote(true)
 		@components.TextInput(components.FieldProps{ID: pre + "-name", Name: pre + "_name", Label: "Supplier name", Value: uitest.LongName100, Error: errText, Required: true})
 		@components.TextInput(components.FieldProps{ID: pre + "-code", Name: pre + "_code", Label: "Code", Placeholder: "e.g. SHREE01", Tip: codeTip, Error: errText, Required: true})
 		@components.EmailInput(components.FieldProps{ID: pre + "-email", Name: pre + "_email", Label: "Email", Value: uitest.LongEmail, Error: errText}, "email")

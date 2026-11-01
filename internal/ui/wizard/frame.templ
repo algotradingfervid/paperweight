@@ -60,6 +60,16 @@ func (b Bar) props(m Model) components.ActionBarProps {
 	return p
 }
 
+// reloadLabel is the conflict banner's button: it names the document being
+// edited (UI v2 §5.14, A-29), and only that one. A new document has no label
+// yet, and a master wizard's DocLabel names a kind of record.
+func reloadLabel(m Model) string {
+	if m.Mode != Document || m.DocLabel == "" {
+		return "Reload"
+	}
+	return "Reload " + m.DocLabel
+}
+
 func titleLine(m Model) string {
 	if m.DocLabel == "" {
 		return m.Title
@@ -131,5 +141,10 @@ templ DocVersion(version int, oob bool) {
 }
 
 templ conflictBanner(m Model) {
-	@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Conflict, Link: &components.Link{Label: "Reload", Href: m.ReloadURL}})
+	@components.Banner(components.BannerProps{Kind: components.Warning, Message: m.Conflict}) {
+		<p>Your entries stay on this page until you reload, so you can copy them.</p>
+		<div>
+			@components.Button(components.ButtonProps{Label: reloadLabel(m), Href: m.ReloadURL, Icon: "refresh-cw", Variant: components.Secondary})
+		</div>
+	}
 }

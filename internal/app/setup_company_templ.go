@@ -59,27 +59,31 @@ func companyPage(v companyView) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = components.TextInput(v.field("legal_name", "Legal name", "", false)).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.RequiredNote(true).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.TextInput(v.field("state_code", "State code", "The two-digit GST state code, for example 27.", false)).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.TextInput(v.field("legal_name", "Legal name", "", true)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.CodeInput(v.field("gstin", "GSTIN", "Leave blank for an unregistered company.", true), components.GSTIN).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.TextInput(v.field("state_code", "State code", "The two-digit GST state code, for example 27.", true)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.CodeInput(v.field("pan", "PAN", "Taken from the GSTIN when you leave it blank.", true), components.PAN).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.CodeInput(v.field("gstin", "GSTIN", "Leave blank for an unregistered company.", false), components.GSTIN).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.TextInput(v.field("branch_code", "Head office code", "", false)).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.CodeInput(v.field("pan", "PAN", "Taken from the GSTIN when you leave it blank.", false), components.PAN).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.TextInput(v.field("branch_name", "Head office name", "Head Office when you leave it blank.", true)).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.TextInput(v.field("branch_code", "Head office code", "", true)).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.TextInput(v.field("branch_name", "Head office name", "Head Office when you leave it blank.", false)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

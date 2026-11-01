@@ -272,7 +272,7 @@ func TestFrame_FocusTarget(t *testing.T) {
 		t.Error("h1 must not have autofocus on a conflict")
 	}
 	w := cd.Find("#wizard-conflict")
-	if _, ok := w.Attr("autofocus"); !ok || w.AttrOr("tabindex", "") != "-1" || w.Find(".banner--danger").Length() != 1 {
+	if _, ok := w.Attr("autofocus"); !ok || w.AttrOr("tabindex", "") != "-1" || w.Find(".banner--warning").Length() != 1 {
 		t.Error("conflict banner wrapper must take autofocus with tabindex -1")
 	}
 	if cd.Find("[autofocus]").Length() != 1 {
@@ -282,22 +282,57 @@ func TestFrame_FocusTarget(t *testing.T) {
 
 func TestFrame_ConflictKeepsValues(t *testing.T) {
 	m := docModel()
-	m.Conflict = "This document was changed by someone else. Reload to see their changes."
+	m.Conflict = "Someone else changed Draft 42 after you opened it. Reload it and make your changes again."
 	m.ReloadURL = "/doc/po/42/edit/lines"
 	d := renderFrame(t, m, wizard.Bar{})
-	b := d.Find(".banner--danger")
+	b := d.Find(".banner--warning")
 	if b.Length() != 1 || !strings.Contains(b.Text(), m.Conflict) {
-		t.Fatalf("want one danger banner with the conflict text")
+		t.Fatalf("want one warning banner with the conflict text (UI v2 §5.14)")
+	}
+	if d.Find(".banner--danger").Length() != 0 {
+		t.Error("a conflict is a warning, not a danger banner")
+	}
+	const line = "Your entries stay on this page until you reload, so you can copy them."
+	if !strings.Contains(strings.Join(strings.Fields(b.Text()), " "), line) {
+		t.Errorf("banner text = %q, want the line %q", b.Text(), line)
 	}
 	a := b.Find("a")
-	if strings.TrimSpace(a.Text()) != "Reload" || a.AttrOr("href", "") != m.ReloadURL {
-		t.Errorf("Reload link = %q → %q", a.Text(), a.AttrOr("href", ""))
+	if a.Length() != 1 || strings.Join(strings.Fields(a.Text()), " ") != "Reload Draft 42" || a.AttrOr("href", "") != m.ReloadURL || !a.HasClass("btn") {
+		t.Errorf("Reload button = %q → %q (class %q), want the button Reload Draft 42 → %s", a.Text(), a.AttrOr("href", ""), a.AttrOr("class", ""), m.ReloadURL)
+	}
+	if a.Find("svg").Length() != 1 {
+		t.Error("the Reload button has no icon")
 	}
 	if d.Find("form input[name=party]").AttrOr("value", "") != "typed" {
 		t.Error("children (typed values) must still render")
 	}
-	if renderFrame(t, docModel(), wizard.Bar{}).Find(".banner--danger").Length() != 0 {
-		t.Error("no conflict → no danger banner")
+	if renderFrame(t, docModel(), wizard.Bar{}).Find(".banner").Length() != 0 {
+		t.Error("no conflict → no banner")
+	}
+}
+
+// The Reload button names only the record being edited (A-29): a new
+// document has none yet, and a master wizard's DocLabel names a kind of
+// record, never one record.
+func TestFrame_ConflictReloadNamesOnlyTheEditedRecord(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		mode  wizard.Mode
+		label string
+		want  string
+	}{
+		{"draft", wizard.Document, "Draft 57", "Reload Draft 57"},
+		{"numbered", wizard.Document, "PO/26-27/00001", "Reload PO/26-27/00001"},
+		{"new document", wizard.Document, "", "Reload"},
+		{"master wizard", wizard.Master, "Parties", "Reload"},
+	} {
+		m := docModel()
+		m.Mode, m.DocLabel = tc.mode, tc.label
+		m.Conflict, m.ReloadURL = "Someone else changed it.", "/x"
+		a := renderFrame(t, m, wizard.Bar{}).Find(".banner--warning a")
+		if got := strings.Join(strings.Fields(a.Text()), " "); got != tc.want {
+			t.Errorf("%s: Reload button = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }
 

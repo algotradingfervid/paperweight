@@ -1,0 +1,11 @@
+package components
+
+// RequiredNote is the line a form with at least one required field starts
+// with (UI v2 §5.5 item 2); show is false on a form with none, and then it
+// renders nothing. The asterisk is the labels' own; screen readers skip it and
+// hear each label's " (required)".
+templ RequiredNote(show bool) {
+	if show {
+		<p class="field__hint">Fields marked <span class="field__req" aria-hidden="true">*</span> are required.</p>
+	}
+}

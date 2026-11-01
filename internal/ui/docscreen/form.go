@@ -772,6 +772,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(r, dt, *v) && body == nil) // a Body's component replaces the line editor
 		}
 	}
+	var more moreBox
 	for _, name := range s.Fields {
 		f, ok := dt.Field(name)
 		if !ok || hidden(c, f) {
@@ -792,8 +793,15 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		} else if v != nil {
 			value = v.Inputs[name]
 		}
-		sv.Inputs = append(sv.Inputs, FieldInput(f, components.FieldID(name), value, headerError(errs, name), c.Deps))
+		msg := headerError(errs, name)
+		in := FieldInput(f, components.FieldID(name), value, msg, c.Deps)
+		if f.More {
+			more.add(f, value, msg, in)
+			continue
+		}
+		sv.Inputs = append(sv.Inputs, in)
 	}
+	sv.Inputs = more.appendTo(sv.Inputs)
 	switch {
 	case i == len(steps)-1:
 		sv.Wide = !d.modOf(dt).CardsOnly // cards sit in the form column (CD-326 (1))

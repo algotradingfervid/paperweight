@@ -23,6 +23,7 @@ templ wizardPage(v wizardView) {
 // wizardFrame is the #wizard fragment.
 templ wizardFrame(v wizardView) {
 	@wizard.Frame(v.M, v.Bar) {
+		@components.RequiredNote(v.Required)
 		for _, in := range v.Inputs {
 			@in
 		}

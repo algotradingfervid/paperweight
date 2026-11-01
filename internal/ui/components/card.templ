@@ -1,19 +1,53 @@
 package components
 
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// CardProps is a section card (UI v2 §5.5 item 1). Icon names the glyph in
+// the tile beside the heading and Description is the one line under it;
+// Change, when set, is its "Change" action. FocusHeading gives the heading
+// tabindex="-1" and data-focus-heading, which app.js focuses after the htmx
+// swap that brings the card (CD-358).
+type CardProps struct {
+	Title, Icon, Description string
+	Change                   *Link
+	FocusHeading             bool
+}
+
 // Card is a titled section; change, when set, is its "Change" action.
 templ Card(title string, change *Link) {
+	@CardWith(CardProps{Title: title, Change: change}) {
+		{ children... }
+	}
+}
+
+// CardWith is the card p describes around its children.
+templ CardWith(p CardProps) {
 	<section class="card card-border">
 		<div class="card-body">
-			if title != "" || change != nil {
+			if p.Title != "" || p.Change != nil {
 				<div class="card-head">
-					if title != "" {
-						<h2 class="card-title">{ title }</h2>
+					if p.Icon != "" || p.Description != "" {
+						<div class="card-lead">
+							if p.Icon != "" {
+								<span class="card-icon" aria-hidden="true">
+									@icons.Icon(p.Icon)
+								</span>
+							}
+							<div class="card-titles">
+								@cardTitle(p)
+								if p.Description != "" {
+									<p class="card-desc">{ p.Description }</p>
+								}
+							</div>
+						</div>
+					} else {
+						@cardTitle(p)
 					}
-					if change != nil {
-						<a href={ templ.SafeURL(change.Href) }>
-							{ change.Label }
-							if title != "" {
-								<span class="visually-hidden">{ title }</span>
+					if p.Change != nil {
+						<a href={ templ.SafeURL(p.Change.Href) }>
+							{ p.Change.Label }
+							if p.Title != "" {
+								<span class="visually-hidden">{ p.Title }</span>
 							}
 						</a>
 					}
@@ -22,4 +56,14 @@ templ Card(title string, change *Link) {
 			{ children... }
 		</div>
 	</section>
+}
+
+templ cardTitle(p CardProps) {
+	if p.Title != "" {
+		if p.FocusHeading {
+			<h2 class="card-title" tabindex="-1" data-focus-heading>{ p.Title }</h2>
+		} else {
+			<h2 class="card-title">{ p.Title }</h2>
+		}
+	}
 }

@@ -647,10 +647,10 @@ func TestWizard_ConflictKeepsTypedValues(t *testing.T) {
 		t.Fatalf("status = %d, want 409; body %.300s", rec.Code, rec.Body)
 	}
 	page := uitest.Doc(t, rec)
-	if got := bannerTexts(page.Selection, "danger"); !slices.Contains(got, msg+" Reload") && !slices.Contains(got, msg) {
-		t.Errorf("danger banners = %q, want DOC's text %q", got, msg)
+	if got := bannerTexts(page.Selection, "warning"); len(got) != 1 || !strings.HasPrefix(got[0], msg) {
+		t.Errorf("warning banners = %q, want DOC's text %q", got, msg)
 	}
-	reload := buttonsNamed(page.Find(".banner--danger"), "Reload")
+	reload := buttonsNamed(page.Find(".banner--warning"), "Reload Draft 42")
 	if href, _ := reload.Attr("href"); reload.Length() != 1 || pathOf(t, href) != doc42+"/edit/details" {
 		t.Errorf("Reload link href = %q, want the step URL %s/edit/details", href, doc42)
 	}

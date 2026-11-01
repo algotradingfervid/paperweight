@@ -11,6 +11,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
 	"github.com/vardhan/internaltools/internal/ui/screens"
@@ -22,12 +23,35 @@ import (
 var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
-	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments",
+	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments", "cards",
+	"problem",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
 // Focus 1): the overflow sweep only proves something if the values are there.
 var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
+	"cards": func(t *testing.T, d *goquery.Document) {
+		if d.Find(".card-icon svg").Length() < 3 || d.Find(".card-desc").Length() < 3 {
+			t.Error("cards: want every card with an icon tile and a description")
+		}
+		if !strings.Contains(d.Find(".card-title").Text(), uitest.LongName100) || !strings.Contains(d.Find(".card-desc").Text(), uitest.LongError) {
+			t.Error("cards: no worst-case heading (LongName100) and description (LongError)")
+		}
+		if d.Find("details.disclosure:not([open])").Length() == 0 || d.Find("details.disclosure[open] [aria-invalid=\"true\"]").Length() == 0 {
+			t.Error("cards: want a closed More details and an open one holding a field error")
+		}
+		if d.Find(`form#bill-form[hx-target="closest section"]`).Length() != 1 {
+			t.Error("cards: no bill form swapping its card")
+		}
+	},
+	"problem": func(t *testing.T, d *goquery.Document) {
+		if d.Find("main#main section.problem").Length() != 1 || d.Find("main#main h1").Length() != 1 {
+			t.Error("problem: want the 404 problem page as the only heading in main")
+		}
+		if got := d.Find(".problem-message").Text(); got != doctype.ErrNotFound.Error() {
+			t.Errorf("problem: message = %q, want the kernel 404 text", got)
+		}
+	},
 	"fields": func(t *testing.T, d *goquery.Document) {
 		if !strings.Contains(d.Text(), uitest.LongError) {
 			t.Error("fields: no field shows uitest.LongError (the 422 state)")
@@ -40,6 +64,9 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		}
 		if d.Find(`input.num[hx-post="/ui/validate/factor"][value="9,99,999.999999999"]`).Length() == 0 {
 			t.Error("fields: no Factor input holding the worst-case value 9,99,999.999999999")
+		}
+		if !strings.Contains(d.Text(), "are required.") {
+			t.Error("fields: no required note (Fields marked * are required.)")
 		}
 	},
 	"rows": func(t *testing.T, d *goquery.Document) {

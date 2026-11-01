@@ -902,6 +902,7 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 	v.Form = f
 	for _, fd := range h.fields {
 		v.Inputs = append(v.Inputs, h.input(fd, fd.Name, f))
+		v.Required = v.Required || fd.Required
 	}
 	if len(h.rowFields) > 0 {
 		v.Rows = h.rows(f)
@@ -924,7 +925,7 @@ func (h *handlers[R, In]) input(fd doctype.Field, path string, f form) templ.Com
 	if !looked && !coded && !numbered && !labelled && !selected {
 		return docscreen.FieldInput(fd, id, value, msg, h.deps.WithStored(f.Stored))
 	}
-	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Error: msg, Value: value, Optional: !fd.Required}
+	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Tip: fd.Tip, Error: msg, Value: value, Required: fd.Required}
 	if looked {
 		p.Hint = lookup.Hint
 		return components.EmailInput(p, "off")
@@ -1230,6 +1231,7 @@ type recordView struct {
 	Disabled, CanWrite, Confirm bool
 	Form                        form
 	Inputs                      []templ.Component
+	Required                    bool // whether an input is required; the form then starts with components.RequiredNote
 	Width                       layout.Width
 	Rows                        *components.RowsProps // nil for a master without rows
 	Cards                       []sectionCard         // the summary, with Sections

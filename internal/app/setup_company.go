@@ -34,9 +34,9 @@ type companyView struct {
 	Errors []components.FieldErr
 }
 
-func (v companyView) field(name, label, hint string, optional bool) components.FieldProps {
+func (v companyView) field(name, label, hint string, required bool) components.FieldProps {
 	return components.FieldProps{
-		ID: components.FieldID(name), Name: name, Label: label, Hint: hint, Optional: optional,
+		ID: components.FieldID(name), Name: name, Label: label, Hint: hint, Required: required,
 		Value: v.Values[name], Error: v.Fields[name],
 	}
 }

@@ -51,3 +51,9 @@ document.addEventListener("keydown", function (evt) {
   evt.preventDefault();
   search.focus();
 });
+
+// A swapped card asking for it (Card FocusHeading, CD-358) takes focus on
+// its heading once htmx has settled the swap.
+document.addEventListener("htmx:afterSettle", function (evt) {
+  evt.target.querySelector?.("[data-focus-heading]")?.focus();
+});
