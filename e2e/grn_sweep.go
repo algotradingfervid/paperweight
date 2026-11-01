@@ -177,7 +177,7 @@ func (h *Harness) grnSamples(long testkit.LongRows) grnSamples {
 	}
 	submit := func() doc.Result { return approve(grn(small, smallLines, grnLineQty, challan)) }
 	cancel := func(r doc.Result) doc.Result {
-		return h.Do(ravi, goodsreceipt.DocType, r.ID, doctype.ActionCancel, doc.ActionInput{Version: r.Version, Reason: uitest.LongError})
+		return h.Do(ravi, goodsreceipt.DocType, r.ID, doctype.ActionCancel, doc.ActionInput{Version: r.Version, Reason: grnRemarks})
 	}
 
 	s := grnSamples{po: big}
@@ -230,7 +230,7 @@ func (h *Harness) grnSamples(long testkit.LongRows) grnSamples {
 		approve(grn(full, fullLines, "1.000", challan))
 	}
 	v := Scalar[int64](h, `SELECT version FROM purchase_order WHERE id = ?`, closing)
-	h.Do(priya, purchase.DocType, closing, doctype.ActionClose, doc.ActionInput{Version: int(v), Reason: uitest.LongError})
+	h.Do(priya, purchase.DocType, closing, doctype.ActionClose, doc.ActionInput{Version: int(v), Reason: grnRemarks})
 
 	if _, err := h.App.Approvals().CreateRule(auth.WithPrincipal(ctx, p), p, approval.RuleInput{
 		DocType: goodsreceipt.DocType, ApproverType: approval.ApproverRole, Role: auth.RoleAdministrator,
@@ -360,6 +360,9 @@ func grnFormScreens(s grnSamples) []screens.Screen {
 	// The bill card's read view, with no form and no Change.
 	const billRead, noEdit = `#bill dl.summary`, `document.querySelector("#bill form, #bill a[href*='bill=edit']") === null`
 	overPending := `//*[text()[contains(., "Line 1: Accepted ") and contains(., " pending on PO/")]]`
+	// approved is the page's own state badge: a draft's check page and its
+	// reader page show the same texts, and a cancelled receipt the same bill.
+	const approved = `.doc-state .badge--approved`
 	bothNotes := visibleAll(withText(grnCancelClosed), withText(fmt.Sprintf(grnCancelBill, grnInvoice(1))))
 	draft := at(s.ids.Draft)
 	return []screens.Screen{
@@ -388,12 +391,14 @@ func grnFormScreens(s grnSamples) []screens.Screen {
 			Setup: expensePost(wizard, "", withText(grnChallanNeeded))},
 
 		{Name: "grn draft reader", Route: page, URL: draft, As: ravi},
-		{Name: "grn e-way hint", Route: page, URL: at(s.ewayPage), As: suresh, Setup: visibleAll(withText(grnUnreg), overPending, withText(grnBeforeOrder))},
+		{Name: "grn e-way hint", Route: page, URL: at(s.ewayPage), As: suresh, Setup: steps(
+			visibleAll(approved, `//*[contains(@class, "banner--info")]`+withText(grnUnreg), overPending, withText(grnBeforeOrder)),
+			visibleAnd(approved, `document.getElementById("wizard-form") === null`))},
 		{Name: "grn with bill", Route: page, URL: at(s.bill), As: suresh,
 			Setup: visibleAnd(`#bill a[href="?bill=edit#bill"]`, `!document.getElementById("bill").innerText.includes(" is also on ")`)},
 		{Name: "grn duplicate invoice", Route: page, URL: at(s.dup), As: suresh, Setup: visible(billText(fmt.Sprintf(grnDup, grnInvoice(0))))},
 		{Name: "grn duplicate hidden", Route: page, URL: at(s.dupHidden), As: suresh, Setup: visible(billText(fmt.Sprintf(grnDupHidden, grnInvoice(2))))},
-		{Name: "grn bill read only", Route: page, URL: at(s.bill), As: priya, Setup: visibleAnd(billRead, noEdit)},
+		{Name: "grn bill read only", Route: page, URL: at(s.bill), As: priya, Setup: steps(visible(approved), visibleAnd(billRead, noEdit))},
 		{Name: "grn tax invoice offer", Route: page, URL: at(s.taxInvoice), As: suresh, Setup: visible(billText(grnTaxOffer))},
 		{Name: "grn cancelled with bill", Route: page, URL: at(s.billGone), As: suresh, Setup: visibleAnd(billText(grnChanged), noEdit)},
 		{Name: "grn amendment", Route: page, URL: at(s.amendment), As: suresh, Setup: visible(`//*[@id="bill"]//p[starts-with(., "` + grnCopiedFrom + `")]`)},
