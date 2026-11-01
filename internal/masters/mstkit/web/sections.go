@@ -206,6 +206,7 @@ func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, 
 	for _, name := range s.Fields {
 		fd, _ := h.dt.Field(name) // handlers checked every step's fields
 		v.Inputs = append(v.Inputs, h.input(fd, name, f))
+		v.Required = v.Required || fd.Required
 	}
 	ui.Render(w, r, status, recordPage(v), nil)
 	return nil

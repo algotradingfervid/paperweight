@@ -336,6 +336,7 @@ func (s records) show(w http.ResponseWriter, r *http.Request, pages mstweb.Pages
 	}
 	for _, fd := range k.fields {
 		sub.Inputs = append(sub.Inputs, pages.Input(fd, fd.Name, f))
+		sub.Required = sub.Required || fd.Required
 	}
 	if k.extra != nil {
 		sub.Inputs = append(sub.Inputs, k.extra(pages, f)...)
