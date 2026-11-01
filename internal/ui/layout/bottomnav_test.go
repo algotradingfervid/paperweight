@@ -205,3 +205,24 @@ func TestMeSheet_Contents(t *testing.T) {
 		t.Error("no Sign out form with the CSRF token")
 	}
 }
+
+// N12 (C3): a focus page's body is marked focus-mode, which hides the app
+// header below 64rem; other pages aren't.
+func TestFocusMode_BodyClass(t *testing.T) {
+	guest := newShell("/x")
+	guest.SignedIn = false
+	for name, c := range map[string]struct {
+		s    ui.Shell
+		o    layout.PageOpts
+		want bool
+	}{
+		"focus":       {newShell("/x"), layout.PageOpts{Title: "Step", Focus: true}, true},
+		"focus guest": {guest, layout.PageOpts{Title: "Step", Focus: true}, true},
+		"list":        {newShell("/x"), layout.PageOpts{Title: "List"}, false},
+		"bare":        {newShell("/x"), layout.PageOpts{Title: "Sign in", Bare: true}, false},
+	} {
+		if got := render(t, c.s, c.o).Find("body").HasClass("focus-mode"); got != c.want {
+			t.Errorf("%s: body focus-mode = %v, want %v", name, got, c.want)
+		}
+	}
+}
