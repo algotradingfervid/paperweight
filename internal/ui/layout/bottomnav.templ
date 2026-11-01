@@ -1,0 +1,58 @@
+package layout
+
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+)
+
+// bottomNav is the bottom nav of phones and tablets (UI v2 §5.2, N1): five
+// fixed links, shown below 64rem, where the sidebar isn't (CD-352 (1)). New
+// and Me open their sheets; without JavaScript they go to /new and the
+// sessions page.
+templ bottomNav(s ui.Shell) {
+	<nav class="bottomnav" aria-label="Quick">
+		<a href="/" { current(s.Path, "home")... }>
+			@icons.Icon("house")
+			Home
+		</a>
+		<a href={ templ.SafeURL(inboxPath) } { current(s.Path, "approvals")... }>
+			@icons.Icon("inbox")
+			if s.InboxCount > 0 {
+				<span class="bottomnav-count" aria-hidden="true">{ strconv.Itoa(s.InboxCount) }</span>
+			}
+			Approvals<span class="visually-hidden">{ approvalsCount(s.InboxCount) }</span>
+		</a>
+		<a href={ templ.SafeURL(newPath) } class="bottomnav-new" aria-haspopup="dialog" data-open-dialog={ newSheetID } { current(s.Path, "new")... }>
+			<span class="bottomnav-plus">
+				@icons.Icon("plus")
+			</span>
+			New
+		</a>
+		<a href={ templ.SafeURL(searchPath) } { current(s.Path, "search")... }>
+			@icons.Icon("search")
+			Search
+		</a>
+		<a href={ templ.SafeURL(accountPath) } aria-haspopup="dialog" data-open-dialog={ meSheetID } { current(s.Path, "me")... }>
+			@icons.Icon("circle-user")
+			Me
+		</a>
+	</nav>
+}
+
+// meSheet is the account sheet Me opens: the user's pages and Sign out.
+templ meSheet(s ui.Shell) {
+	@components.Sheet(meSheetID, s.User) {
+		<ul class="me-links">
+			<li><a href={ templ.SafeURL(inboxPath + "/mine") }>My requests</a></li>
+			<li><a href={ templ.SafeURL(accountPath) }>My sessions</a></li>
+			<li><a href="/account/password">Change password</a></li>
+		</ul>
+		<form method="post" action="/signout">
+			<input type="hidden" name="csrf_token" value={ s.CSRF }/>
+			@components.Button(components.ButtonProps{Type: "submit", Label: "Sign out", Icon: "log-out", Variant: components.Secondary})
+		</form>
+	}
+}

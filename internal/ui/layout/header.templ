@@ -5,6 +5,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/platform/brand"
 	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
@@ -12,9 +13,10 @@ import (
 const SearchMaxLen = 100
 
 // header is the 56 px app header (UI v2 §5.2): menu button (phones), brand
-// (logo and the app name, once), search form (from 64rem, signed in), inbox
-// link and the account chip with its menu. Bare drops the menu button, the
-// search form and the inbox.
+// (logo and the app name, once), search form (from 48rem, signed in), the
+// New button (from 64rem), inbox link and the account chip with its menu
+// (from 48rem; the bottom nav has them on phones, CD-349). Bare drops the
+// menu button, the search form, New and the inbox.
 templ header(o PageOpts, s ui.Shell) {
 	<header class="app-header">
 		if !o.Bare {
@@ -35,6 +37,11 @@ templ header(o PageOpts, s ui.Shell) {
 			</form>
 		}
 		<div class="header-end">
+			if s.SignedIn && !o.Bare {
+				<span class="header-new">
+					@components.Button(components.ButtonProps{Label: "New", Icon: "plus", Href: newPath, Variant: components.Primary, Attrs: templ.Attributes{"aria-haspopup": "dialog", "data-open-dialog": newSheetID}})
+				</span>
+			}
 			if !o.Bare {
 				<a class="btn btn-ghost inbox-link" href={ templ.SafeURL(inboxPath) } aria-label={ inboxLabel(s.InboxCount) }>
 					@icons.Icon("inbox")

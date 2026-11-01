@@ -57,6 +57,7 @@ func wizardPage(v wizardView) templ.Component {
 		templ_7745c5c3_Err = layout.Page(layout.PageOpts{
 			Title:     v.M.Heading(),
 			NoHeading: true, // the frame's heading is the page's
+			Focus:     true,
 			Error:     len(v.M.Errors) > 0,
 			Width:     layout.Form,
 			Back:      &v.Back,

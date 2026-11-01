@@ -71,7 +71,7 @@
   max-block-size: var(--logo-signin-h);
 }
 
-/* The header's search form, from 64rem only (design-system §6): 44 px tall
+/* The header's search form, from 48rem (UI v2 §5.2, CD-349 (1)): 44 px tall
    inside the 56 px header (the mock's 40 px is below the 44 px target), a magnifier at the start and the "/" hint at the
    end (UI v2 §5.2). */
 @utility header-search {
@@ -115,7 +115,7 @@
     line-height: var(--space-5);
     pointer-events: none;
   }
-  @media (min-width: 64rem) { display: block; }
+  @media (min-width: 48rem) { display: block; }
 }
 
 @utility header-end {
@@ -126,13 +126,18 @@
   margin-inline-start: auto;
 }
 
+/* Phones have Approvals and Me in the bottom nav (CD-349 (3)). */
 @utility inbox-link {
+  display: none;
+  @media (min-width: 48rem) { display: inline-flex; }
   position: relative;
   min-inline-size: var(--target-min);
   min-block-size: var(--target-min);
 }
 
 @utility user-menu {
+  display: none;
+  @media (min-width: 48rem) { display: block; }
   position: relative;
   & > summary { list-style: none; min-block-size: var(--target-min); }
   & > summary::-webkit-details-marker { display: none; }

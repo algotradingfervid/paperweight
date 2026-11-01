@@ -29,15 +29,16 @@ const (
 })()`
 )
 
-func TestHeaderSearch_ShownOnlyFrom64rem(t *testing.T) {
+// CD-349 (1): tablets (48–64rem) show the search box too.
+func TestHeaderSearch_ShownOnlyFrom48rem(t *testing.T) {
 	g := startGallery(t)
 	ctx := New(t)
 	for _, c := range []struct {
 		width int64
 		want  string
 	}{
-		{320, "hidden"}, {360, "hidden"}, {390, "hidden"}, {768, "hidden"}, {1023, "hidden"},
-		{1024, "shown"}, {1440, "shown"},
+		{320, "hidden"}, {360, "hidden"}, {390, "hidden"}, {767, "hidden"},
+		{768, "shown"}, {1023, "shown"}, {1024, "shown"}, {1440, "shown"},
 	} {
 		if err := At(ctx, c.width, g.URL+"/_gallery/buttons"); err != nil {
 			t.Fatal(err)
@@ -87,7 +88,7 @@ func TestHeaderSearch_NoOverflowAtAnyWidth(t *testing.T) {
 			if got := eval[string](t, ctx, `(() => { const h = document.querySelector("main h1"); return h ? h.textContent.trim() : ""; })()`); got != want {
 				t.Errorf("%s: h1 = %q, want %q", name, got, want)
 			}
-			if w >= 1024 {
+			if w >= 768 {
 				if got := eval[string](t, ctx, searchFormState); got != "shown" {
 					t.Errorf("%s: header search is %s, want shown", name, got)
 				}
@@ -114,7 +115,7 @@ func TestHeaderSearch_GalleryShowsResultGroups(t *testing.T) {
 func TestHeaderSearch_KeepsTargetsAt44px(t *testing.T) {
 	g := startGallery(t)
 	ctx := New(t)
-	for _, w := range []int64{1024, 1440} {
+	for _, w := range []int64{768, 1024, 1440} {
 		if err := At(ctx, w, g.URL+"/_gallery/buttons"); err != nil {
 			t.Fatal(err)
 		}

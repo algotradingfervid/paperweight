@@ -379,6 +379,7 @@ func pageErrs(fs []doctype.FieldError) []components.FieldErr {
 func docOpts(pv pageView) layout.PageOpts {
 	return layout.PageOpts{
 		Title:      pv.V.Info.Display,
+		Focus:      true, // the action bar is the page's bottom bar (UI v2 §5.2)
 		Error:      pv.Danger != "" || len(pv.Errors) > 0,
 		BannerSlot: docBanners(pv),
 		BarSlot:    docBar(pv),

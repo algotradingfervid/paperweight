@@ -178,7 +178,7 @@ func reasonField(rv reasonView) templ.Component {
 func reasonViewOf(dt *doctype.DocType, v DocView, name string, rp reasonPage, version int, typed string, pr Problem) reasonView {
 	base := docURL(dt.Name, v.Info.ID)
 	rv := reasonView{
-		Opts:    layout.PageOpts{Title: rp.verb + " " + v.Info.Display, Width: layout.Form, Back: &components.Link{Label: v.Info.Display, Href: base}},
+		Opts:    layout.PageOpts{Title: rp.verb + " " + v.Info.Display, Width: layout.Form, Focus: true, Back: &components.Link{Label: v.Info.Display, Href: base}},
 		Action:  base + "/" + name,
 		Version: version,
 		MaxLen:  rp.maxLen,

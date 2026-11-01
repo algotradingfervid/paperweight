@@ -50,6 +50,11 @@ func shell(r *http.Request) ui.Shell {
 			{Label: "Wizard", Href: "/_gallery/wizard-1", Icon: "arrow-down"},
 			{Label: "Uploads", Href: "/_gallery/upload", Icon: "upload"},
 		},
+		New: []ui.NavItem{
+			{Label: "Sample order", Href: "/doc/" + docscreentest.Sample + "/new", Icon: "shopping-cart"},
+			{Label: "Expense claim", Href: "/_gallery/wizard-1", Icon: "receipt-indian-rupee"},
+			{Label: "Party", Href: "/_gallery/fields", Icon: "handshake"},
+		},
 	}
 }
 

@@ -1,0 +1,106 @@
+/* bottomnav.css: the phone's five-item bottom nav (UI v2 §5.2, N1), our own
+   utility (CD-341 (1)), shown below 64rem (phones and tablets,
+   CD-352 (1)), where the sidebar isn't; the header's New button from
+   64rem; and the account sheet's links. */
+
+@utility bottomnav {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: var(--z-header);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-block-size: calc(var(--space-16) + var(--safe-bottom));
+  padding-block-end: var(--safe-bottom);
+  padding-inline: var(--safe-left) var(--safe-right);
+  background: var(--color-surface);
+  border-block-start: var(--border-w) solid var(--color-border-subtle);
+  /* Static while uibrowser.Axe runs (data-axe on html, CD-344 (3)). */
+  :root[data-axe] & { position: static; }
+  @media (min-width: 64rem) { display: none; }
+
+  & > a {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: var(--border-w-strong);
+    min-inline-size: 0;
+    min-block-size: var(--space-16);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    transition: scale var(--dur-fast) var(--ease-out);
+  }
+  & > a .icon { inline-size: var(--icon-lg); block-size: var(--icon-lg); }
+  & > a:active { scale: 0.96; }
+  /* Current item: accent-700 text, a 3 px top bar, 2 px glyph stroke. */
+  & > a[aria-current="page"] { color: var(--color-primary-700); font-weight: var(--weight-bold); }
+  & > a[aria-current="page"] .icon { stroke-width: 2; }
+  & > a[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inline-size: var(--space-8);
+    border-block-start: calc(var(--border-w-strong) + var(--border-w)) solid var(--color-primary-600);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  }
+}
+
+/* The inbox count, at the glyph's top end. */
+@utility bottomnav-count {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-start: calc(50% + var(--space-2));
+  min-inline-size: var(--space-4);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-600);
+  color: var(--color-text-on-fill);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+  line-height: var(--space-4);
+  text-align: center;
+}
+
+/* New: the raised accent button. */
+@utility bottomnav-plus {
+  display: grid;
+  place-items: center;
+  inline-size: var(--target-min);
+  block-size: calc(var(--space-8) + var(--space-1));
+  border-radius: var(--radius-md);
+  background: var(--color-primary-600);
+  color: var(--color-text-on-fill);
+  & .icon { stroke-width: 2.25; }
+}
+
+/* The page keeps room for the nav, so the end of the content and a sticky
+   footer or toast sit above it, never under it. */
+@utility with-bottomnav {
+  @media (max-width: 63.99rem) {
+    padding-block-end: calc(var(--space-16) + var(--safe-bottom));
+    & .actionbar { inset-block-end: calc(var(--space-16) + var(--safe-bottom)); }
+    & .toasts { bottom: calc(var(--space-16) + var(--space-4) + var(--safe-bottom)); }
+  }
+}
+
+@utility header-new {
+  display: none;
+  @media (min-width: 64rem) { display: inline-flex; }
+}
+
+@utility me-links {
+  display: grid;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+  & a {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--target-min);
+    color: var(--color-primary-700);
+  }
+}

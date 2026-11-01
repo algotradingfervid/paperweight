@@ -1,0 +1,49 @@
+/* newsheet.css: the "Create new" tiles, in the sheet and on /new (UI v2
+   §5.2, N2): two columns on phones, more from 48rem. */
+
+@utility newtiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+  gap: var(--space-3);
+  @media (min-width: 48rem) { grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
+}
+
+@utility newtile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  min-block-size: var(--space-16);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-1);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: scale var(--dur-fast) var(--ease-out);
+  &:active { scale: 0.98; background: var(--color-primary-50); }
+}
+
+@utility newtile-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--space-10);
+  block-size: var(--space-10);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+  & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+}
+
+@utility newtile-label { min-inline-size: 0; }
+
+@utility newtiles-line {
+  margin-block: var(--space-3) 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}

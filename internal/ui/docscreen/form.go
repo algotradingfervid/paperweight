@@ -905,6 +905,7 @@ func stepOpts(sv stepView) layout.PageOpts {
 	o := layout.PageOpts{
 		Title:      sv.M.Heading(),
 		NoHeading:  true, // the frame's h1#step-title is the heading
+		Focus:      true,
 		Width:      layout.Form,
 		BannerSlot: stepBanner(sv.Banner),
 		Error:      len(sv.M.Errors) > 0 || sv.M.Conflict != "",
