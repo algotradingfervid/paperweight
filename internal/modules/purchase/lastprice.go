@@ -91,24 +91,5 @@ func (s *Service) LastPricesFor(ctx context.Context, p auth.Principal, keys []It
 // nothing as readable) and must not pass an empty Predicate then. The ids
 // are read inside the caller's tx.
 func ReadableOrders(ctx context.Context, tx *db.Tx, pred auth.Predicate) (func(poID int64) bool, error) {
-	if pred.SQL == "" {
-		return func(int64) bool { return true }, nil
-	}
-	rows, err := tx.SQL().QueryContext(ctx, `SELECT "purchase_order".id FROM "purchase_order" WHERE `+pred.SQL, pred.Args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	ids := map[int64]bool{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids[id] = true
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return func(id int64) bool { return ids[id] }, nil
+	return scopeIn(ctx, tx, "purchase_order", pred)
 }

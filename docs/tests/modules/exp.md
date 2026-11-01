@@ -534,3 +534,24 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** a non-admin's claim **When** it is shown on the list, search and CSV, and in the wizard **Then** the employee is hidden as a wizard input only, carried on lists and the CSV, and a sort or filter on employee_id is refused for everyone (CD-327 (2)).
 - **Go test:** `TestExp_EmployeeHiddenOnlyAsInput`
 - **Sources:** CD-327 (2)
+
+### EXP-074 · A receipt clears the no-receipt reason
+- **Priority:** P1
+- **Level:** unit
+- **Given** a draft claim line with a no-receipt reason **When** a receipt is attached and the claim saved **Then** the reason is cleared (CD-357).
+- **Go test:** `TestExp_ReceiptClearsReason`
+- **Sources:** CD-357, CD-302
+
+### EXP-075 · Mark as paid shows its flash after an htmx post
+- **Priority:** P1
+- **Level:** e2e
+- **Given** an approved advance **When** the user marks it paid from the page **Then** the page moves to the advance and shows "Marked as paid." (EUX-040, CD-80, CD-357).
+- **Go test:** `TestE2E_PaidFlashAfterHTMXPost`
+- **Sources:** CD-357
+
+### EXP-076 · The paid route answers htmx with a redirect
+- **Priority:** P1
+- **Level:** unit
+- **Given** an htmx POST to mark paid or undo paid **When** it succeeds **Then** the answer is 200 with HX-Redirect and the flash; a plain POST gets 303.
+- **Go test:** `TestAdv_PaidHTMXRedirects`
+- **Sources:** CD-357
