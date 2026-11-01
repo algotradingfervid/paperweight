@@ -23,6 +23,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 	purchaseweb "github.com/vardhan/internaltools/internal/modules/purchase/web"
 	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // p9ExportPath is the pending report's CSV (PO spec §13).
@@ -47,10 +48,12 @@ var p9BOM = string([]byte{0xEF, 0xBB, 0xBF})
 func p9Get(t *testing.T, env *purchasetest.Env, p auth.Principal, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	r := chi.NewRouter()
-	purchaseweb.Routes(purchaseweb.Deps{
+	pd := purchaseweb.Deps{
 		Service: env.Service, Approvals: env.Approvals, Comments: env.Comments, Sessions: scs.New(),
 		CSRF: func(*http.Request) string { return "p9-token" },
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: purchaseweb.Modules(pd)}.ListHidden
+	purchaseweb.Routes(pd)(r)
 	req := httptest.NewRequestWithContext(auth.WithPrincipal(context.Background(), p), http.MethodGet, path, nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

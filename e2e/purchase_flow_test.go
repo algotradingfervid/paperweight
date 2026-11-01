@@ -278,7 +278,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	p.Open("/modules/purchase")
 	p.WaitText("1 request with items to order")
 	noOverflow(p, "Priya's Purchase home")
-	p.Press("Open Requests to order")
+	openLink(p, "/modules/purchase/q/requests-to-order")
 	p.WaitText(firstPR)
 	noOverflow(p, "the Requests to order queue")
 	openLink(p, DocPath(purchase.RequestDocType, pr))
@@ -320,7 +320,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 
 	p.Open("/modules/purchase")
 	p.WaitText("2 approved orders not sent yet") // with lastBought's
-	p.Press("Open To send")
+	openLink(p, "/modules/purchase/q/to-send")
 	p.WaitText(number)
 	noOverflow(p, "the To send queue")
 	openLink(p, DocPath(purchase.DocType, po))
@@ -335,7 +335,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	noOverflow(p, "the sent PO")
 
 	s.Open("/modules/purchase")
-	s.Press("Open My purchase requests")
+	openLink(s, "/modules/purchase/q/my-requests")
 	s.WaitText(firstPR)
 	openLink(s, DocPath(purchase.RequestDocType, pr))
 	s.WaitText("Requested 40 BAG · Ordered 40 BAG · Pending to order 0 BAG")

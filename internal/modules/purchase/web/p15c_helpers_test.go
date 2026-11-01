@@ -78,6 +78,7 @@ func p15cHandler(env *purchasetest.Env, svc *purchase.Service) http.Handler {
 		},
 		Modules: Modules(d),
 	})(r)
+	d.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(d)}.ListHidden
 	Routes(d)(r)
 	return sm.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		r.ServeHTTP(w, req.WithContext(web.WithSessions(req.Context(), sm)))

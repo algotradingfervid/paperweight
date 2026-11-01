@@ -26,6 +26,7 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/types"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // p12AUTH099 is AUTH-099's text for a copier whose sites are PUNE-WH and
@@ -51,10 +52,12 @@ func newP12Web(t *testing.T, env *purchasetest.Env, svc *purchase.Service) *p12W
 	t.Helper()
 	sm := scs.New()
 	r := chi.NewRouter()
-	Routes(Deps{
+	pd := Deps{
 		Service: svc, Approvals: env.Approvals, Comments: env.Comments, Sessions: sm,
 		CSRF: func(*http.Request) string { return "p12-token" },
-	})(r)
+	}
+	pd.ListHidden = docscreen.Deps{DB: env.DB, Modules: Modules(pd)}.ListHidden
+	Routes(pd)(r)
 	r.Get("/p12-flash", func(w http.ResponseWriter, req *http.Request) {
 		_ = json.NewEncoder(w).Encode(web.TakeFlash(req.Context()))
 	})
