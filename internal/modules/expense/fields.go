@@ -51,7 +51,7 @@ func claimFields() []doctype.Field {
 		{Name: "supplier_gstin", Label: "Supplier GSTIN", Type: doctype.Text, OnLine: true, Placeholder: "e.g. 27AABCS1429B1ZU"},
 		{Name: "invoice_no", Label: "Invoice no.", Type: doctype.Text, MaxLen: 40, OnLine: true, Placeholder: "e.g. INV-901"},
 		{Name: "billed_to_id", Label: "Billed to", Type: doctype.Link, Link: company.DocType, OnLine: true, Placeholder: "e.g. Pune office or PUNE"},
-		{Name: "tax_code_id", Label: "Tax code", Type: doctype.Link, Link: taxcode.DocType, OnLine: true},
+		{Name: "tax_code_id", Label: "Tax code", Type: doctype.Link, Link: taxcode.DocType, OnLine: true, Placeholder: "e.g. GST 18% or GST18"},
 		{Name: "hsn_sac", Label: "HSN/SAC", Type: doctype.Text, OnLine: true, Placeholder: "e.g. 996411"},
 		{Name: "gst_amount", Label: "GST on the bill", Type: doctype.Money, NonNegative: true, OnLine: true},
 	}
