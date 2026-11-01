@@ -188,7 +188,7 @@ func TestPUX010_TermsErrorsOnOwnField(t *testing.T) {
 	env := w.env
 	disclosure := func(p p15dPage) (n int, open bool) {
 		d := p.doc.Find("details").FilterFunction(func(_ int, s *goquery.Selection) bool {
-			return p15dCollapse(s.Find("summary").Text()) == "Earlier paper order"
+			return strings.HasPrefix(p15dCollapse(s.Find("summary").Text()), "More details") // the earlier-PO fields are Field.More (P40)
 		})
 		_, open = d.Attr("open")
 		return d.Length(), open
@@ -199,7 +199,7 @@ func TestPUX010_TermsErrorsOnOwnField(t *testing.T) {
 			t.Fatalf("POST = %d, want 422: %s", a.status, a.text())
 		}
 		if n, open := disclosure(a); n != 1 || !open {
-			t.Errorf("422: %d Earlier paper order disclosures, open %v; want one, open", n, open)
+			t.Errorf("422: %d More details groups, open %v; want one, open", n, open)
 		}
 		if got := p15dCollapse(a.doc.Find("#f-earlier_po_no-msg").Text()); got != want {
 			t.Errorf("#f-earlier_po_no-msg = %q, want %q", got, want)
