@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -175,7 +176,8 @@ func TestForbid50_NewPost(t *testing.T) {
 }
 
 // stepPost: the terms step's Save refused with a 403 on a field; the page
-// keeps the posted version, never the stored one (CD-94).
+// keeps the posted version (CD-94). The page posts the stored version: a
+// stale one is DOC's 409 before Save runs (CD-335).
 func TestForbid50_StepPost(t *testing.T) {
 	cases := []struct {
 		name, field string
@@ -191,8 +193,9 @@ func TestForbid50_StepPost(t *testing.T) {
 				e, own, msg := m50Env(t, "terms", c.field, http.StatusForbidden, c.hide...)
 				action := m01bURL(own) + "/edit/terms"
 				before := m01bRecord(t, e, own)
-				rec := e.post(t, action, url.Values{"version": {"7"}, "ref": {m50Ref}, "remarks": {"m50 remarks"}}, h.hdr...)
-				posted := map[string]string{"ref": m50Ref, "version": "7"}
+				version := strconv.Itoa(before.Version)
+				rec := e.post(t, action, url.Values{"version": {version}, "ref": {m50Ref}, "remarks": {"m50 remarks"}}, h.hdr...)
+				posted := map[string]string{"ref": m50Ref, "version": version}
 				m50Redrawn(t, rec, action, c.field, c.linked, msg, posted)
 				if h.hdr != nil && strings.Contains(rec.Body.String(), "<html") {
 					t.Errorf("htmx 422 drew the whole page, want the wizard fragment")

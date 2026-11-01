@@ -269,7 +269,10 @@ func TestWizardForm_EnterSubmitsPrimary(t *testing.T) {
 }
 
 // Finding 6 (CD-94): a header-step save sends the version the page posted,
-// never the one loaded from the record.
+// never the one loaded from the record. The fake engine takes any version,
+// so docscreen's stale check (CD-335), which asks the engine at the posted
+// version, behind the stored one, passes here: every call carries the
+// posted version.
 func TestWizardForm_HeaderSaveUsesPostedVersion(t *testing.T) {
 	e := newFormEnv(t, allRights...)
 	rec := sampleRecord()
@@ -282,8 +285,13 @@ func TestWizardForm_HeaderSaveUsesPostedVersion(t *testing.T) {
 		t.Fatalf("status = %d, body %.300s", res.Code, res.Body)
 	}
 	calls := e.docs.Calls()
-	if len(calls) != 1 || calls[0].Action != doctype.ActionSave || calls[0].Input.Version != 5 {
-		t.Errorf("engine calls = %+v, want one save at the posted version 5 (record at 6)", calls)
+	for _, c := range calls {
+		if c.Action != doctype.ActionSave || c.Input.Version != 5 {
+			t.Errorf("engine call = %+v, want a save at the posted version 5 (record at 6)", c)
+		}
+	}
+	if len(calls) == 0 || calls[len(calls)-1].Input.Values["supplier_id"] != "7" {
+		t.Errorf("engine calls = %+v, want the step's save last", calls)
 	}
 }
 

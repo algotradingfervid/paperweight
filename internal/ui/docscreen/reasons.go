@@ -91,6 +91,18 @@ func (d Deps) reasonGet(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	ui.Render(w, r, http.StatusOK, reasonPageFull(rv), reasonPageMain(rv))
 }
 
+// reasonMissing is pr, the engine's refusal of a reason post sent with no
+// reason, with its error on the reason field (DOC's for close and cancel,
+// APR's for reject) shown as "Enter a reason." (422). The engine checks the
+// right, the approver, the state and the version first, so every other
+// refusal is pr unchanged (CD-354).
+func reasonMissing(pr Problem) Problem {
+	if slices.ContainsFunc(pr.Fields, func(e doctype.FieldError) bool { return e.Field == "reason" }) {
+		return Problem{Status: http.StatusUnprocessableEntity, Fields: []doctype.FieldError{{Field: "reason", Message: "Enter a reason."}}}
+	}
+	return pr
+}
+
 // reasonPost re-renders the page after a refused POST, keeping the typed
 // reason and the posted version (CD-94), with pr's status.
 func (d Deps) reasonPost(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, name string, rp reasonPage, version int, pr Problem) {
@@ -108,6 +120,7 @@ func (d Deps) reasonPost(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 	if pr.Blocked {
 		rv.Link = d.blockerLink(r.Context(), p, dt.Name, id)
 	}
+	notice(w, r, pr)
 	ui.Render(w, r, pr.Status, reasonPageFull(rv), reasonPageMain(rv))
 }
 

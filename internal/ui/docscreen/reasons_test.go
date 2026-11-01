@@ -26,11 +26,14 @@ var reasonPages = []struct {
 	{"close", doctype.StateApproved, "Reason for closing", 500, "Close sample order", false},
 }
 
+// An empty reason goes to the engine, which refuses it on the reason field
+// after its own checks; the page shows that as "Enter a reason." (CD-354).
 func TestReasonPage_EmptyReason422(t *testing.T) {
 	for _, p := range reasonPages {
 		t.Run(p.action, func(t *testing.T) {
 			e := newDocEnv(t, allRights...)
 			e.seed(p.state)
+			e.docs.SetResult(docscreentest.Sample, 42, doctype.Action(p.action), doc.Result{}, doc.Invalid([]doctype.FieldError{{Field: "reason", Message: "The engine's own reason text."}}))
 
 			get := e.get(t, doc42+"/"+p.action)
 			if get.Code != http.StatusOK {
@@ -41,8 +44,8 @@ func TestReasonPage_EmptyReason422(t *testing.T) {
 			if rec.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("status = %d, want 422", rec.Code)
 			}
-			if calls := e.docs.Calls(); len(calls) != 0 {
-				t.Errorf("engine called with an empty reason: %+v", calls)
+			if calls := e.docs.Calls(); len(calls) != 1 || calls[0].Input.Reason != "" || calls[0].Input.Version != 3 {
+				t.Errorf("engine calls = %+v, want one with the empty reason at the posted version 3", calls)
 			}
 			page := uitest.Doc(t, rec)
 			area := page.Find(`textarea[name="reason"]`)
