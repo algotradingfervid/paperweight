@@ -23,14 +23,15 @@ import (
 const pendingBase = "/reports/purchase/pending"
 
 // pendingKey is one id filter of the report: its query key, label, the
-// master its Picker searches and the role that narrows it.
-type pendingKey struct{ key, label, docType, role string }
+// master its Picker searches, the role that narrows it and the Picker's
+// placeholder (UI v2 §5.8).
+type pendingKey struct{ key, label, docType, role, placeholder string }
 
 var pendingKeys = []pendingKey{
-	{"vendor", "Vendor", party.DocType, "vendor"},
-	{"project", "Project", project.DocType, ""},
-	{"site", "Site", site.DocType, ""},
-	{"item", "Item", item.DocType, ""},
+	{"vendor", "Vendor", party.DocType, "vendor", "Name, code or GSTIN"},
+	{"project", "Project", project.DocType, "", "Name or code"},
+	{"site", "Site", site.DocType, "", "Name or code"},
+	{"item", "Item", item.DocType, "", "Name or code"},
 }
 
 // pendingColumns are the report's DataList columns (UX §5.19); the CSV has
@@ -232,7 +233,7 @@ func (h *handlers) pendingFilter(w http.ResponseWriter, r *http.Request) {
 			search += "?role=" + pf.role
 		}
 		pp := components.PickerProps{
-			Field:     components.FieldProps{ID: "f-" + pf.key, Label: pf.label, Clearable: true},
+			Field:     components.FieldProps{ID: "f-" + pf.key, Label: pf.label, Placeholder: pf.placeholder, Clearable: true},
 			SearchURL: search, HiddenName: pf.key, ListboxID: "f-" + pf.key + "-list",
 		}
 		if id, err := strconv.ParseInt(q.Get(pf.key), 10, 64); err == nil {
