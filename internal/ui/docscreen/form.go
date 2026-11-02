@@ -699,11 +699,18 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	} else {
 		m.DocLabel, m.Version = v.Info.Display, v.Version
 		m.BaseURL = docURL(dt.Name, v.Info.ID) + "/edit"
+		m.Close = docURL(dt.Name, v.Info.ID)
 		m.Furthest = 1
 		if len(v.Lines) > 0 || len(v.Inputs) > 0 {
 			m.Furthest = len(steps) - 1
 		}
 		m.Furthest = max(m.Furthest, i)
+	}
+	// The × goes back to the document page from a draft's step, and to the
+	// list from a new document and from a draft's check step, which is that
+	// page (UI v2 §5.6).
+	if v == nil || i == len(steps)-1 {
+		m.Close = listURL(dt.Name, ListQuery{})
 	}
 	if r.URL.Query().Get("return") == slugCheck || r.PostFormValue("return") == slugCheck {
 		m.ReturnTo = slugCheck
@@ -774,7 +781,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(r, dt, *v) && body == nil) // a Body's component replaces the line editor
 		}
 	}
-	var more moreBox
+	var shown []MoreInput
 	for _, name := range s.Fields {
 		f, ok := dt.Field(name)
 		if !ok || hidden(c, f) {
@@ -796,14 +803,9 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 			value = v.Inputs[name]
 		}
 		msg := headerError(errs, name)
-		in := FieldInput(f, components.FieldID(name), value, msg, c.Deps)
-		if f.More {
-			more.add(f, value, msg, in)
-			continue
-		}
-		sv.Inputs = append(sv.Inputs, in)
+		shown = append(shown, MoreInput{Field: f, Value: value, Error: msg, Input: FieldInput(f, components.FieldID(name), value, msg, c.Deps)})
 	}
-	sv.Inputs = more.appendTo(sv.Inputs)
+	sv.Inputs = append(sv.Inputs, GroupMore(shown).Inputs()...)
 	switch {
 	case i == len(steps)-1:
 		sv.Wide = !d.modOf(dt).CardsOnly // cards sit in the form column (CD-326 (1))
