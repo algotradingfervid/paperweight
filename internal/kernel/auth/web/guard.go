@@ -129,13 +129,28 @@ func guest(w http.ResponseWriter, r *http.Request) {
 	loc := "/signin?next=" + url.QueryEscape(r.URL.RequestURI())
 	switch {
 	case isHTMX(r):
-		w.Header().Set("HX-Redirect", loc)
+		w.Header().Set("HX-Redirect", htmxSignIn(r))
 		web.Error(w, r, http.StatusUnauthorized, msg)
 	case r.Method != http.MethodGet || strings.HasPrefix(r.URL.Path, "/api/"):
 		web.Error(w, r, http.StatusUnauthorized, msg)
 	default:
 		http.Redirect(w, r, loc, http.StatusSeeOther)
 	}
+}
+
+// htmxSignIn is the sign-in URL for an htmx request. Its own URL is a fragment
+// or a POST, not a page to land on, so next is the page it came from, when
+// HX-Current-URL names a local page of this host.
+func htmxSignIn(r *http.Request) string {
+	u, err := url.Parse(r.Header.Get("HX-Current-URL"))
+	if err != nil || u.Host != r.Host {
+		return "/signin"
+	}
+	next := u.RequestURI()
+	if SafeNext(next) != next {
+		return "/signin"
+	}
+	return "/signin?next=" + url.QueryEscape(next)
 }
 
 // redirect sends a 303 to loc, or HX-Redirect to an htmx request.

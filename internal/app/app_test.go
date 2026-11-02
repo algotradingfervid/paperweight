@@ -112,9 +112,11 @@ func TestApp_AllRoutesRequireSignIn(t *testing.T) {
 				t.Errorf("GET %s (%s) = %d to %q, want 303 to %q", route, c.name, r.status, r.location(), loc)
 			}
 			hdr["HX-Request"] = "true"
+			hdr["HX-Current-URL"] = w.srv.URL + "/approvals"
+			const page = "/signin?next=%2Fapprovals"
 			r = b.do(method, path, nil, "", hdr)
-			if r.status != http.StatusUnauthorized || r.header.Get("HX-Redirect") != loc {
-				t.Errorf("htmx GET %s (%s) = %d, HX-Redirect %q, want 401 and %q", route, c.name, r.status, r.header.Get("HX-Redirect"), loc)
+			if r.status != http.StatusUnauthorized || r.header.Get("HX-Redirect") != page {
+				t.Errorf("htmx GET %s (%s) = %d, HX-Redirect %q, want 401 and %q", route, c.name, r.status, r.header.Get("HX-Redirect"), page)
 			}
 			if got := noticeText(t, r.header.Get("HX-Trigger")); got != c.msg {
 				t.Errorf("htmx GET %s (%s) notice = %q, want %q", route, c.name, got, c.msg)

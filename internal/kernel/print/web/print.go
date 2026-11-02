@@ -135,9 +135,10 @@ func fail(w http.ResponseWriter, r *http.Request, info doctype.Info, err error) 
 	}
 }
 
-// signedOut answers a request with no principal like AUTH's middleware
-// (CD-17, CD-63): a browser GET is sent to sign in; htmx, /api/* and any other
-// method get 401 (htmx also gets HX-Redirect).
+// signedOut answers a request with no principal (CD-17, CD-63): a browser GET
+// is sent to sign in; htmx, /api/* and any other method get 401 (htmx also gets
+// HX-Redirect, with this request as next). It is a backstop: in the app AUTH's
+// guard answers first, and sends htmx back to the page it came from.
 func signedOut(w http.ResponseWriter, r *http.Request) {
 	signin := "/signin?next=" + url.QueryEscape(r.URL.RequestURI())
 	htmx := r.Header.Get("HX-Request") == "true"
