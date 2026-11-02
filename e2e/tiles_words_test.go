@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -141,11 +142,30 @@ func wantWholeWords(t *testing.T, s *Session, name, wantRows string, labels []st
 	}
 }
 
+// tileLinePage signs Deepak in at width and opens a new claim's line page.
+func tileLinePage(h *Harness, width int64) *Session {
+	h.t.Helper()
+	d := h.SignIn(deepak, width)
+	d.Open("/doc/" + expense.ClaimDocType)
+	d.Press("New expense claim")
+	onStep(d, "Step 1 of 3")
+	d.Fill("purpose", "Pune Metro site visit")
+	d.Press(saveContinue)
+	onStep(d, "Step 2 of 3")
+	d.Press("Add an expense")
+	d.WaitText("Take photo")
+	return d
+}
+
 // TestE2E_TilesWordsStayWhole (CD-353, UI v2 §5.5 item 8): every real option
 // drawn as a tile, on the real page at 320 and 360 px, keeps each word whole,
 // unselected and selected: the seeded expense types on the line page. GRN's
 // challan kinds are radios on Delivery details, which this also pins; if that
-// page moves to Tiles this fails, and its options join the loop.
+// page moves to Tiles this fails, and its options join the loop. Expense types
+// are editable, so the seeded names can't stand for every name: the types are
+// then renamed around the word and label limits. Workmen is the widest real
+// word measured at 7 characters, Workshop one over it and split when half,
+// Tea and snacks a label of short words over 12.
 func TestE2E_TilesWordsStayWhole(t *testing.T) {
 	h := startExpense(t)
 	r := h.Do(priya, purchase.DocType, 0, doctype.ActionSave, doc.ActionInput{Values: map[string]string{
@@ -155,15 +175,7 @@ func TestE2E_TilesWordsStayWhole(t *testing.T) {
 
 	for _, width := range []int64{320, 360} {
 		t.Run(strconv.FormatInt(width, 10), func(t *testing.T) {
-			d := h.SignIn(deepak, width)
-			d.Open("/doc/" + expense.ClaimDocType)
-			d.Press("New expense claim")
-			onStep(d, "Step 1 of 3")
-			d.Fill("purpose", "Pune Metro site visit")
-			d.Press(saveContinue)
-			onStep(d, "Step 2 of 3")
-			d.Press("Add an expense")
-			d.WaitText("Take photo")
+			d := tileLinePage(h, width)
 			wantWholeWords(t, d, "expense_type_id", "Food, Fuel / Lodging, Travel / Site miscellaneous",
 				[]string{"Food", "Fuel", "Lodging", "Travel", "Site miscellaneous"})
 
@@ -177,6 +189,19 @@ func TestE2E_TilesWordsStayWhole(t *testing.T) {
 			if Eval[bool](s, kinds+`.some((i) => i.closest(".segmented--tiles"))`) {
 				t.Error("Delivery details draws challan_kind as tiles: add its options to the word check")
 			}
+		})
+	}
+
+	names := map[string]string{"TRAVEL": "Workmen", "FOOD": "Tax invoice", "FUEL": "Workshop", "LODGING": "Refreshments", "SITE-MISC": "Tea and snacks"}
+	for code, name := range names {
+		if _, err := h.App.DB().SQL().ExecContext(context.Background(), `UPDATE expense_type SET name = ? WHERE code = ?`, name, code); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, width := range []int64{320, 360} {
+		t.Run("limits/"+strconv.FormatInt(width, 10), func(t *testing.T) {
+			wantWholeWords(t, tileLinePage(h, width), "expense_type_id", "Tax invoice, Workmen / Refreshments / Tea and snacks / Workshop",
+				[]string{"Tax invoice", "Workmen", "Refreshments", "Tea and snacks", "Workshop"})
 		})
 	}
 }

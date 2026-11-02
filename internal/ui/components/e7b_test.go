@@ -24,6 +24,10 @@ const (
 // count of bytes instead of characters gives the wrong side of the threshold.
 func e7bLabel(n int) string { return strings.Repeat("क", n) }
 
+// e7bWords is a Tiles label of n characters, 8 to 14, of two words short
+// enough that only the whole label's length can make it wide.
+func e7bWords(n int) string { return e7bLabel(6) + " " + e7bLabel(n-7) }
+
 // e7bWideLabels are the labels of opts' tiles with the full-row class.
 func e7bWideLabels(doc *goquery.Document) []string {
 	var out []string
@@ -41,13 +45,48 @@ func TestTiles_LongOptionTakesFullRow(t *testing.T) {
 		name, label string
 		wide        bool
 	}{
-		{"at the threshold", e7bLabel(12), false},
-		{"one past it", e7bLabel(13), true},
+		{"at the threshold", e7bWords(12), false},
+		{"one past it", e7bWords(13), true},
 		{"GRN's longest challan kind", "Delivery challan", true},
 		{"the seeded expense type", "Site miscellaneous", true},
 		{"a short word", "Fuel", false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			opts := []components.Option{{Value: "a", Label: "Fuel"}, {Value: "b", Label: c.label}}
+			doc := uitest.Render(t, components.Tiles(components.FieldProps{ID: "f-t", Name: "t", Label: "Type"}, opts))
+			got := e7bWideLabels(doc)
+			if c.wide && (len(got) != 1 || got[0] != c.label) {
+				t.Errorf("full-row labels = %q, want only %q", got, c.label)
+			}
+			if !c.wide && len(got) != 0 {
+				t.Errorf("full-row labels = %q, want none", got)
+			}
+		})
+	}
+}
+
+// A word over 7 characters takes the full row whatever the label's length:
+// tileMaxWord's words split in a chosen half tile at 320 px. Words end at
+// spaces only, so a hyphen doesn't shorten one.
+func TestTiles_LongWordTakesFullRow(t *testing.T) {
+	for _, c := range []struct {
+		name, label string
+		wide        bool
+	}{
+		{"one word at the limit", e7bLabel(7), false},
+		{"one word past it", e7bLabel(8), true},
+		{"the longest word first", e7bLabel(8) + " क", true},
+		{"the longest word last", "क " + e7bLabel(8), true},
+		{"short words under the threshold", "Tax invoice", false},
+		{"short words over the threshold", "Tea and snacks", true},
+		{"one word under the threshold", "Refreshments", true},
+		{"a hyphen inside the word", "Tea-Coffee", true},
+		{"seeded type", "Food", false},
+		{"seeded type", "Fuel", false},
+		{"seeded type", "Lodging", false},
+		{"seeded type", "Travel", false},
+	} {
+		t.Run(c.name+" "+c.label, func(t *testing.T) {
 			opts := []components.Option{{Value: "a", Label: "Fuel"}, {Value: "b", Label: c.label}}
 			doc := uitest.Render(t, components.Tiles(components.FieldProps{ID: "f-t", Name: "t", Label: "Type"}, opts))
 			got := e7bWideLabels(doc)
@@ -115,7 +154,7 @@ func e7bDrawn(doc *goquery.Document) []string {
 // in the order given, and leaves the caller's list as it was. Forty options,
 // more than the sort library's small-slice path, so an unstable sort shows.
 func TestTiles_WideOptionsDrawnLast(t *testing.T) {
-	short1, short2, short3 := "Food", "Fuel", e7bLabel(12)
+	short1, short2, short3 := "Food", "Fuel", e7bWords(12)
 	wide1, wide2 := e7bLabel(13), "Site miscellaneous"
 	var manyIn, manyShort, manyWide []string
 	for i := range 40 {
