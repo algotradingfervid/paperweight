@@ -21,7 +21,13 @@ templ reasonPageMain(rv reasonView) {
 
 templ reasonBanners(rv reasonView) {
 	if rv.Danger != "" {
-		@components.Banner(components.BannerProps{Kind: components.Danger, Message: rv.Danger, Link: rv.Link})
+		@alertFocus("reason-alert", len(rv.Errors) == 0) {
+			if rv.Reload != nil {
+				@components.ConflictBanner(rv.Danger, rv.Reload.Label, rv.Reload.Href)
+			} else {
+				@components.Banner(components.BannerProps{Kind: components.Danger, Message: rv.Danger, Link: rv.Link})
+			}
+		}
 	}
 	@components.ErrorSummary(rv.Errors)
 }

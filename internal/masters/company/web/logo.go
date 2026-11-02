@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	filesweb "github.com/vardhan/internaltools/internal/kernel/files/web"
@@ -149,6 +150,11 @@ func (h *logoHandlers) page(w http.ResponseWriter, r *http.Request, p auth.Princ
 // banner with the Reload link. The upload's forms swap uploadArea, not the
 // upload alone, so that banner reaches htmx too and the next swap replaces it.
 func (h *logoHandlers) show(w http.ResponseWriter, r *http.Request, p auth.Principal, status int, msg string) error {
+	return h.draw(w, r, p, status, msg, false)
+}
+
+// draw is show, with msg in the conflict banner when stale.
+func (h *logoHandlers) draw(w http.ResponseWriter, r *http.Request, p auth.Principal, status int, msg string, stale bool) error {
 	ctx := r.Context()
 	var c company.Company
 	var logo files.Meta
@@ -183,7 +189,7 @@ func (h *logoHandlers) show(w http.ResponseWriter, r *http.Request, p auth.Princ
 	var banner templ.Component = templ.NopComponent
 	var errs []components.FieldErr
 	switch {
-	case status == http.StatusConflict:
+	case stale:
 		banner = components.ConflictBanner(msg, "Company logo", logoPath)
 	case msg != "":
 		props.Error = msg
@@ -279,7 +285,7 @@ func (h *logoHandlers) remove(w http.ResponseWriter, r *http.Request, p auth.Pri
 			return err
 		}
 		if !ok || logo.ID != id {
-			return &auth.Problem{Code: http.StatusConflict, Msg: msgLogoChanged}
+			return &doc.Error{Kind: doc.KindStale, Message: msgLogoChanged}
 		}
 		return h.clear(ctx, tx, p)
 	})
@@ -313,7 +319,7 @@ func (h *logoHandlers) clear(ctx context.Context, tx *db.Tx, p auth.Principal) e
 func (h *logoHandlers) done(w http.ResponseWriter, r *http.Request, p auth.Principal, err error, msg string) error {
 	var he doctype.HTTPError
 	if errors.As(err, &he) && (he.Status() == http.StatusConflict || he.Status() == http.StatusUnprocessableEntity) {
-		return h.show(w, r, p, he.Status(), he.Error())
+		return h.draw(w, r, p, he.Status(), he.Error(), doc.IsStale(err))
 	}
 	if err != nil {
 		return err

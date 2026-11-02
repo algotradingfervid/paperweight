@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/masters/allmasters/webtest"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -55,15 +56,22 @@ func TestScreens_ConflictBanner(t *testing.T) {
 		{"section", record + "/edit/details", "Reload STUB Stub", record + "/edit/details", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, status := range []int{http.StatusConflict, http.StatusUnprocessableEntity} {
-				h := harness(t, stubService{rec: stubRecord{"code": "X"}, err: &refusal{text: e6dMsg, status: status}}, func(s *screen) {
+			for _, c := range []struct {
+				err    error
+				status int
+			}{
+				{&doc.Error{Kind: doc.KindStale, Message: e6dMsg}, http.StatusConflict},
+				{doc.Refused(e6dMsg), http.StatusConflict},
+				{&refusal{text: e6dMsg, status: http.StatusUnprocessableEntity}, http.StatusUnprocessableEntity},
+			} {
+				h := harness(t, stubService{rec: stubRecord{"code": "X"}, err: c.err}, func(s *screen) {
 					if tc.sections {
 						s.Sections = []docscreen.FormStep{{Slug: "details", Label: "Details", Fields: []string{"code"}}}
 					}
 				})
 				r := h.Post(t, h.Env.Kavya, tc.target, url.Values{"version": {"3"}, "code": {"Y"}})
-				webtest.WantStatus(t, r, status)
-				if status == http.StatusConflict {
+				webtest.WantStatus(t, r, c.status)
+				if doc.IsStale(c.err) {
 					e6dWantConflict(t, r, tc.button, tc.href)
 				} else {
 					e6dWantDanger(t, r)

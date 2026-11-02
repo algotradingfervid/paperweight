@@ -265,6 +265,11 @@ func (h *handlers) saveRule(w http.ResponseWriter, r *http.Request, id int64) {
 		h.renderForm(w, r, he.Status(), f)
 		return
 	}
+	if errors.Is(err, approval.ErrRuleConflict) {
+		f.Conflict = err.Error()
+		h.renderForm(w, r, http.StatusConflict, f)
+		return
+	}
 	if err != nil {
 		web.ErrorFrom(w, r, err)
 		return
@@ -369,6 +374,7 @@ type ruleForm struct {
 	DocType, FromAmount, ApproverType, Role, FallbackRole string
 	AllowSelf                                             bool
 	Errs                                                  []doctype.FieldError
+	Conflict                                              string // a stale save's message: the ConflictBanner, the typed values kept
 }
 
 func formOf(r approval.Rule) ruleForm {

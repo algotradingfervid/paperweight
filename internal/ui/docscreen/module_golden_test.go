@@ -150,7 +150,7 @@ func postedPages() []goldenPage {
 	draft, pending := seedState(doctype.StateDraft), seedState(doctype.StatePending)
 	valid := url.Values{"supplier_id": {"7"}, "order_date": {"24-10-2026"}, "priority": {"Normal"}, "remarks": {"typed"}}
 	saved := doc.Result{ID: 42, State: doctype.StateDraft, Version: 4, Warnings: []string{goldenWarning}}
-	stale := statusErr{status: http.StatusConflict, msg: goldenConflict}
+	stale := &doc.Error{Kind: doc.KindStale, Message: goldenConflict}
 	submit422 := statusErr{status: http.StatusUnprocessableEntity, msg: "Fix the highlighted fields and submit again.",
 		fields: []doctype.FieldError{{Field: "remarks", Message: "Remarks must say where to deliver."}}}
 	move422 := statusErr{status: http.StatusUnprocessableEntity, msg: "Check the lines.",

@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/platform/web"
@@ -40,7 +41,7 @@ func (h *handlers) fromRequestPost(w http.ResponseWriter, r *http.Request) {
 		if len(errs) == 0 {
 			errs = []doctype.FieldError{{Message: err.Error()}}
 		}
-		renderFromRequest(h, w, r, he.Status(), errs)
+		renderFromRequest(h, w, r, he.Status(), doc.IsStale(err), errs)
 	default:
 		web.ErrorFrom(w, r, err)
 	}

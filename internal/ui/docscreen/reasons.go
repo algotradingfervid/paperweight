@@ -52,6 +52,7 @@ type reasonView struct {
 	Question string // the delete page's question
 	Button   components.ButtonProps
 	Danger   string
+	Reload   *components.Link // a stale version's document and page: Danger shows as the ConflictBanner
 	Link     *components.Link // the document that refused a cancel
 	Errors   []components.FieldErr
 	Note     string // the module's note above the field (hooks spec §4.4)
@@ -222,7 +223,7 @@ func reasonViewOf(dt *doctype.DocType, v DocView, name string, rp reasonPage, ve
 		rv.Field.Error = pr.Fields[i].Message
 		rv.Errors = []components.FieldErr{{ID: rv.Field.ID, Message: rv.Field.Error}}
 	} else {
-		rv.Danger = pr.Message
+		rv.Danger, rv.Reload = pr.Message, conflictReload(pr, v.Info.Display, rv.Action)
 		rv.Errors = pageErrs(pr.Fields)
 	}
 	rv.Opts.Error = rv.Danger != "" || len(rv.Errors) > 0

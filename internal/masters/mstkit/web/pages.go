@@ -9,6 +9,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
@@ -59,7 +60,7 @@ func (f form) Refused(err error, names []string) (Form, int, bool) {
 	if len(f.Errs) == 0 && f.Problem == "" {
 		f.Problem = he.Error()
 	}
-	f.Reload = he.Status() == http.StatusConflict
+	f.Reload = doc.IsStale(err)
 	return f, he.Status(), true
 }
 

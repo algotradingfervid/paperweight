@@ -230,7 +230,7 @@ func (s *Server) setRights(w http.ResponseWriter, r *http.Request) {
 			web.Flash(ctx, "success", msgRightsSaved)
 		}
 		redirect(w, r, authscreens.RightsPath(id, dt))
-	case errors.As(err, &problem) && problem.Code == http.StatusConflict:
+	case errors.As(err, &problem) && auth.IsChanged(err):
 		page, err := s.rightsPage(ctx, id, dt)
 		if err != nil {
 			s.WriteError(w, r, err)

@@ -60,10 +60,16 @@ templ gridResponse(g gridView) {
 	}
 	if g.Alert != "" || len(g.Warnings) > 0 {
 		<div id="grid-alerts" hx-swap-oob="true">
-			if g.Conflict != "" {
-				@components.ConflictBanner(g.Alert, g.Conflict, g.ReloadURL)
-			} else if g.Alert != "" {
-				@components.Banner(components.BannerProps{Kind: components.Danger, Message: g.Alert, Link: &components.Link{Label: "Reload", Href: g.ReloadURL}})
+			if g.Alert != "" {
+				<div id="grid-alert" tabindex="-1" autofocus>
+					if g.Conflict != "" {
+						@components.ConflictBanner(g.Alert, g.Conflict, g.ReloadURL)
+					} else if g.ReloadURL != "" {
+						@components.Banner(components.BannerProps{Kind: components.Danger, Message: g.Alert, Link: &components.Link{Label: "Reload", Href: g.ReloadURL}})
+					} else {
+						@components.Banner(components.BannerProps{Kind: components.Danger, Message: g.Alert})
+					}
+				</div>
 			}
 			@components.Warnings(g.Warnings)
 		</div>
@@ -83,7 +89,8 @@ templ linePageMain(lp linePageView) {
 }
 
 // linePageBanners is a refusal with no field, holding focus as the wizard's
-// conflict does, and the error summary. A 409 is the ConflictBanner (CD-362).
+// conflict does, and the error summary. A stale version is the ConflictBanner
+// (CD-362, CD-381).
 templ linePageBanners(lp linePageView) {
 	if lp.Danger != "" {
 		<div id="line-alert" tabindex="-1" autofocus>

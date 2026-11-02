@@ -48,6 +48,7 @@ func TestE2E_LineGridConflictBanner(t *testing.T) {
 	second.Keys("22")
 	second.Tab()
 	second.WaitText(staleText(id))
+	second.Until("focus on the banner", `document.activeElement.id === "grid-alert"`)
 	if !Eval[bool](second, `window.e6cSamePage === true`) {
 		t.Error("the 409 loaded a new page; htmx must swap it in place")
 	}

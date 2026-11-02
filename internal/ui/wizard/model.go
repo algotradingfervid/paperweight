@@ -70,6 +70,7 @@ type Model struct {
 	Warnings                           []string
 	Stored                             []string // a draft's stored problems: shown, but no failed step
 	Conflict, ReloadURL                string
+	Danger                             string // a refusal reloading can't fix: a 409 that isn't stale (CD-381)
 	Action, Target                     string
 	Close                              string
 	After, Below                       templ.Component
