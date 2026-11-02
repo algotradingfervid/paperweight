@@ -646,3 +646,24 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Given** the claim line's Type tiles and Billed to radios **When** it renders **Then** the declarations keep their texts but no radio or tile renders a placeholder attribute (CD-370, UI v2 §5.5 item 5, §5.8).
 - **Go test:** `TestPH_ClaimRadiosDeclared`
 - **Sources:** CD-370
+
+### EXP-090 · Claim line marks only Type, Amount and Date required
+- **Priority:** P2
+- **Level:** unit
+- **Given** a claim line page, with Type as tiles and as a Select **When** it renders **Then** exactly Type, Amount and Date carry the required marker, and the "Fields marked * are required." note shows once (UI v2 §5.5 item 2, CD-379).
+- **Go test:** `TestExpLine_RequiredMarkers`
+- **Sources:** CD-379
+
+### EXP-091 · No-receipt reason keeps its length limit
+- **Priority:** P2
+- **Level:** unit
+- **Given** a claim line page **When** it renders **Then** the no-receipt reason textarea has maxlength 200.
+- **Go test:** `TestExpLine_ReasonMaxLength`
+- **Sources:** CD-380
+
+### EXP-092 · A picked same receipt opens More details
+- **Priority:** P2
+- **Level:** unit
+- **Given** a claim line with a same receipt stored or posted **When** it renders **Then** the disclosure and the outer More details are open; with none picked both stay closed (CD-380).
+- **Go test:** `TestExpLine_SameReceiptOpensMore`
+- **Sources:** CD-380
