@@ -74,6 +74,16 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 			{Value: roleVendor, Label: "Vendor"}, {Value: roleCustomer, Label: "Customer"}, {Value: roleBoth, Label: "Both"},
 		}}},
 		Renames: map[string]string{"is_vendor": roleField, "is_customer": roleField},
+		// A vendor or customer picker adds a party and its billing address
+		// (UI v2 §5.8, CD-375).
+		Quick: &mstweb.Quick{
+			Fields:  quickFields(),
+			Nouns:   map[string]string{roleVendor: "vendor", roleCustomer: "customer"},
+			Icon:    "user-plus",
+			Line:    "Just enough to raise this order. Add contacts and more addresses later in Parties.",
+			Creates: []string{address.DocType},
+			Save:    saver.quick,
+		},
 		// A party's wizard also creates its addresses and contacts: say no at
 		// the door, not at the last step.
 		CanCreate: func(ctx context.Context, tx *db.Tx, p auth.Principal) error {
@@ -208,6 +218,18 @@ func fieldsOf(docType string, names ...string) []doctype.Field {
 		out[i] = all[slices.IndexFunc(all, func(fd doctype.Field) bool { return fd.Name == name })]
 	}
 	return out
+}
+
+// quickFields is the quick-create form (CD-375): the party's code and name,
+// then its billing address's GSTIN, line 1, city and state. State is
+// required: without a GSTIN the address needs one, and with one it may stay
+// blank and comes from the GSTIN.
+func quickFields() []doctype.Field {
+	f := slices.Concat(fieldsOf(party.DocType, "code", "name"), fieldsOf(address.DocType, "gstin", "line1", "city", "state_code"))
+	f[0].Hint = "Suggested from the name. You can change it."
+	f[3].Label, f[3].Hint = "Address line 1", "Saved as their billing address."
+	f[5].Required = true
+	return f
 }
 
 func addressFields() []doctype.Field {

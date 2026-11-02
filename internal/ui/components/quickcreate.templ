@@ -1,0 +1,53 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// QuickCreateProps describes a QuickCreate sheet (UI v2 §5.8, N10).
+// ListboxID is the picker's listbox, which names the sheet and its form;
+// Action is the master's quick route and Role the picker's LinkRole, which
+// the form posts. Inputs are the master's quick fields, as typed or
+// prefilled; Problem is a refusal that names no shown field.
+type QuickCreateProps struct {
+	ListboxID, Title, Icon, Line, Action, Role, Problem string
+	Inputs                                              []templ.Component
+}
+
+// QuickCreate is a Sheet holding a master's quick form, opened from a
+// picker's New option. The form's answer (QuickChosen) replaces the picker
+// just before the sheet's slot and empties the slot, so the sheet closes and
+// the field shows the new record.
+templ QuickCreate(p QuickCreateProps) {
+	@Sheet(quickSheetID(p.ListboxID), p.Title) {
+		@QuickForm(p)
+	}
+}
+
+// QuickForm is the sheet's form, which a refused quick-create redraws in
+// place (422). Its submit is consumed, so the form it sits in on the page
+// never hears it.
+templ QuickForm(p QuickCreateProps) {
+	@Form(FormProps{ID: QuickFormID(p.ListboxID), Action: p.Action, HX: true, Target: "previous .picker", Swap: "outerHTML", Trigger: "submit consume"}) {
+		<div class="quick">
+			<div class="quick__head">
+				if p.Icon != "" {
+					<span class="quick__tile" aria-hidden="true">
+						@icons.Icon(p.Icon)
+					</span>
+				}
+				<p class="quick__line">{ p.Line }</p>
+			</div>
+			if p.Problem != "" {
+				@Banner(BannerProps{Kind: Danger, Message: p.Problem})
+			}
+			@RequiredNote(true)
+			for _, in := range p.Inputs {
+				@in
+			}
+			@Hidden("role", p.Role)
+			<div class="quick__actions">
+				@Button(ButtonProps{Label: "Cancel", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-close-dialog": true}})
+				@Button(ButtonProps{Label: "Add and choose", Type: "submit", Variant: Primary})
+			</div>
+		</div>
+	}
+}

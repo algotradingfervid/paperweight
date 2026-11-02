@@ -233,6 +233,40 @@ templ pickerRecentBody() {
 	})
 }
 
+// pickerQuickBody is a vendor Picker whose search ends with New vendor and
+// sends the quick-create sheet (UI v2 §5.8, N10).
+templ pickerQuickBody() {
+	@components.Picker(components.PickerProps{
+		Field:     components.FieldProps{ID: "f-new-vendor", Label: "Vendor", Required: true},
+		SearchURL: searchURL(quickList), HiddenName: "vendor_id", ListboxID: quickList,
+	})
+}
+
+// pickerQuickResults is that search's answer: the matches, or the empty
+// state, then New vendor and the sheet with Name prefilled.
+templ pickerQuickResults(q string) {
+	@components.PickerResultsNew(quickList, search(q), q, components.PickNew{Noun: "vendor", Sheet: quickSheet(q, "")})
+}
+
+// quickSheetBody is the quick-create sheet alone, refused on line 1 with a
+// long name, for the sheet-open screen (no picker under the modal).
+templ quickSheetBody() {
+	@quickSheet(uitest.LongName100, "Address line 1 is required.")
+}
+
+templ quickSheet(name, line1Err string) {
+	@components.QuickCreate(components.QuickCreateProps{
+		ListboxID: quickList, Title: "New vendor", Icon: "user-plus", Action: "/_gallery/upload", Role: "vendor",
+		Line: "Just enough to raise this order. Add contacts and more addresses later in Parties.",
+		Inputs: []templ.Component{
+			components.TextInput(components.FieldProps{ID: "f-quick_code", Name: "quick_code", Label: "Code", Required: true, Value: "SAIKRUPA", Hint: "Suggested from the name. You can change it."}),
+			components.TextInput(components.FieldProps{ID: "f-quick_name", Name: "quick_name", Label: "Name", Required: true, Value: name}),
+			components.TextInput(components.FieldProps{ID: "f-quick_line1", Name: "quick_line1", Label: "Address line 1", Required: true, Hint: "Saved as their billing address.", Error: line1Err}),
+			components.TextInput(components.FieldProps{ID: "f-quick_city", Name: "quick_city", Label: "City", Required: true}),
+		},
+	})
+}
+
 templ pickerResults(listboxID, q string) {
 	@components.PickerResults(listboxID, search(q), q)
 }
