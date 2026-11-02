@@ -116,3 +116,39 @@ func (e Env) CheckCodeChange(ctx context.Context, tx *db.Tx, p auth.Principal, o
 	}
 	return nil
 }
+
+// maxCodeLen is the longest code codePattern allows ({0,19} after the first
+// character); change both together.
+const maxCodeLen = 20
+
+// maxSuggestTries bounds SuggestCode's search for a free number.
+const maxSuggestTries = 1000
+
+// SuggestCode is quick-create's code for a new record of k named name (UI v2
+// §5.8, CD-341 (6)): the name's ASCII letters and digits upper-cased, at most
+// 20, with the lowest number from 2 that makes it unused when it is taken. A
+// name with no such character, or with every number to 1000 taken, gets ""
+// (no row has that code), and the user types one. It reads inside tx; the save's CheckCodeFree stays authoritative.
+func SuggestCode(ctx context.Context, tx *db.Tx, k Kind, name string) (string, error) {
+	var b strings.Builder
+	for _, c := range strings.ToUpper(name) {
+		if (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+			b.WriteRune(c)
+		}
+	}
+	base := b.String()
+	code := base[:min(len(base), maxCodeLen)]
+	for n := 1; n <= maxSuggestTries; n++ {
+		if n > 1 {
+			suffix := strconv.Itoa(n)
+			code = base[:min(len(base), maxCodeLen-len(suffix))] + suffix
+		}
+		var taken bool
+		err := tx.SQL().QueryRowContext(ctx,
+			"SELECT EXISTS (SELECT 1 FROM "+k.Table+" WHERE code = ?)", code).Scan(&taken) //nolint:gosec // G202: Table comes from each master's package-level Kind, never from a request
+		if err != nil || !taken {
+			return code, err
+		}
+	}
+	return "", nil
+}

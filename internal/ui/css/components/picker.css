@@ -131,6 +131,35 @@
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
   }
+  /* The New option stays pinned under the rows. */
+  & .picker__new {
+    position: sticky;
+    inset-block-end: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--color-surface);
+    border-block-start: var(--border-w) solid var(--color-border);
+    color: var(--color-primary-700);
+    font-weight: var(--weight-semibold);
+    & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); flex: none; }
+  }
+  & .picker__empty {
+    justify-items: center;
+    gap: var(--space-1);
+    padding-block: var(--space-4);
+    text-align: center;
+  }
+  & .picker__empty-icon {
+    display: grid;
+    place-items: center;
+    inline-size: calc(var(--space-12) + var(--space-2)); /* 56 px */
+    block-size: calc(var(--space-12) + var(--space-2));
+    border-radius: var(--radius-pill);
+    background: var(--color-sunken);
+    & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+  }
+  & .picker__empty-text { color: var(--color-text); font-weight: var(--weight-semibold); }
   /* The phone sheet. */
   & .picker__search[data-open] {
     position: fixed;

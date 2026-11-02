@@ -1,0 +1,32 @@
+/* quickcreate.css: the QuickCreate sheet's form (UI v2 §5.8, N10): the
+   icon tile and its sentence, then the fields, then Cancel and the primary. */
+@utility quick {
+  & .quick__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-block-end: var(--space-3);
+  }
+  & .quick__tile {
+    display: grid;
+    flex: none;
+    place-items: center;
+    inline-size: var(--space-10);
+    block-size: var(--space-10);
+    border-radius: var(--radius-md);
+    background: var(--color-primary-50);
+    color: var(--color-primary-800);
+    & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+  }
+  & .quick__line { margin: 0; color: var(--color-text-secondary); }
+  & .quick__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin-block-start: var(--space-4);
+  }
+}
+/* The picker's quick slot holds only the sheet, which draws in the top
+   layer, so it takes no row in the field. */
+@utility picker__quick { display: contents; }
