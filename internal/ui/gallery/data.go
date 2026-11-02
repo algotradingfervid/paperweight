@@ -359,6 +359,10 @@ func sampleRows(first, last int) []components.RowsRow {
 // searchURL is the picker search for the listbox with id list.
 func searchURL(list string) string { return "/_gallery/items?list=" + list }
 
+// quickList is the listbox of the quick-create page's picker, whose search
+// offers New vendor (UI v2 §5.8).
+const quickList = "f-new-vendor-list"
+
 var attachments = []components.Attachment{
 	{ID: 1, Kind: "image", Name: uitest.LongName100 + ".jpg", Size: "2.4 MB", UploadedBy: "Priya Shah", UploadedAt: "24-10-2026 10:30", URL: brand.AppLogoURL, RemoveURL: "/_gallery/upload"},
 	{ID: 2, Kind: "heic", Name: "IMG_0042.HEIC", Size: "3.1 MB", UploadedBy: "Priya Shah", UploadedAt: "24-10-2026 10:31", URL: "/_gallery/upload", RemoveURL: "/_gallery/upload"},

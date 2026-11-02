@@ -6,7 +6,8 @@
 // dropping the same rows from the search's; arrows move across both groups.
 // Closing after "Change" without a new choice shows the old summary again.
 // "Clear" empties the value and shows the closed search; focus goes to the
-// picker itself, so the phone panel doesn't open over the page.
+// picker itself, so the phone panel doesn't open over the page. The New
+// option (data-quick) opens its quick-create sheet through dialog.js instead.
 // Every handler is bound in init(), so the markup holds no expressions.
 
 function combobox() {
@@ -134,6 +135,7 @@ function combobox() {
       }
 
       function choose(o) {
+        if (o.dataset.quick) return o.dispatchEvent(new CustomEvent("dialog:open", { bubbles: true, detail: o.dataset.quick }));
         value.value = o.dataset.value;
         summary.textContent = o.dataset.label;
         setOpen(false);

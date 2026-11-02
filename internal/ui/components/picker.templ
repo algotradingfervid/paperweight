@@ -18,55 +18,78 @@ templ Picker(p PickerProps) {
 	if len(p.Options) > 0 && len(p.Options) < 50 {
 		@Select(pickerSelectField(p), p.Options)
 	} else {
-		{{ id, text := pickerChosen(p) }}
 		@field(pickerField(p)) {
-			<div class="picker" role="group" aria-label={ p.Field.Label } tabindex="-1" x-data="combobox" { pickerGroupAttrs(p)... }>
-				<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
-					<p class="picker__summary" data-picker-summary>{ text }</p>
-					@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: templ.Attributes{"data-picker-change": true}})
-					if p.Field.Clearable {
-						@Button(ButtonProps{Label: "Clear", AriaLabel: "Clear " + p.Field.Label, Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-clear": true}})
-					}
-				</div>
-				<div class="picker__search" data-picker-search hidden?={ p.Chosen != nil }>
-					<div class="picker__bar">
-						<div class="picker__box">
-							<span class="picker__icon" aria-hidden="true">
-								@icons.Icon("search")
-							</span>
-							<input
-								type="text"
-								role="combobox"
-								aria-expanded="false"
-								aria-controls={ p.ListboxID }
-								aria-autocomplete="list"
-								autocomplete="off"
-								spellcheck="false"
-								hx-get={ p.SearchURL }
-								hx-trigger="input changed delay:250ms, focus once"
-								hx-target={ "#" + p.ListboxID }
-								hx-swap="innerHTML"
-								hx-sync="this:replace"
-								hx-indicator="this"
-								{ pickerInputAttrs(p)... }
-							/>
-							<span class="picker__chevron" aria-hidden="true">
-								@icons.Icon("chevron-down")
-							</span>
-						</div>
-						@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})
-					</div>
-					<ul role="listbox" id={ p.ListboxID } class="list picker__list" aria-label={ p.Field.Label }></ul>
-					if len(p.Recent) > 0 {
-						<template data-picker-recent>
-							@pickerGroup(p.ListboxID+"-recent", "Recent", p.Recent[:min(len(p.Recent), MaxRecent)], "")
-						</template>
-					}
-				</div>
-				<input type="hidden" name={ p.HiddenName } value={ id } data-picker-value/>
-			</div>
+			@PickerBox(p)
+			@pickerQuickSlot(p)
 		}
 	}
+}
+
+// pickerQuickSlot holds the QuickCreate sheet a search sends (UI v2 §5.8).
+// It sits outside the picker, so the sheet's own fields, pickers included,
+// never reach the picker's handlers, and outside the search, which hides once
+// a value is chosen. Its hx-vals are the picker's props, which the sheet's
+// form posts back (PickerFromForm).
+templ pickerQuickSlot(p PickerProps) {
+	<div id={ p.ListboxID + "-quick" } class="picker__quick" hx-vals={ pickerVals(p) }></div>
+}
+
+// QuickChosen is a quick-create's answer: the picker with the new record
+// chosen and Change focused, and its quick slot emptied out of band, which
+// closes the sheet.
+templ QuickChosen(p PickerProps) {
+	@PickerBox(p)
+	<div id={ p.ListboxID + "-quick" } hx-swap-oob="innerHTML"></div>
+}
+
+// PickerBox is the Picker inside its field, without the quick slot.
+templ PickerBox(p PickerProps) {
+	{{ id, text := pickerChosen(p) }}
+	<div class="picker" role="group" aria-label={ p.Field.Label } tabindex="-1" x-data="combobox" { pickerGroupAttrs(p)... }>
+		<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
+			<p class="picker__summary" data-picker-summary>{ text }</p>
+			@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: pickerChangeAttrs(p)})
+			if p.Field.Clearable {
+				@Button(ButtonProps{Label: "Clear", AriaLabel: "Clear " + p.Field.Label, Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-clear": true}})
+			}
+		</div>
+		<div class="picker__search" data-picker-search hidden?={ p.Chosen != nil }>
+			<div class="picker__bar">
+				<div class="picker__box">
+					<span class="picker__icon" aria-hidden="true">
+						@icons.Icon("search")
+					</span>
+					<input
+						type="text"
+						role="combobox"
+						aria-expanded="false"
+						aria-controls={ p.ListboxID }
+						aria-autocomplete="list"
+						autocomplete="off"
+						spellcheck="false"
+						hx-get={ p.SearchURL }
+						hx-trigger="input changed delay:250ms, focus once"
+						hx-target={ "#" + p.ListboxID }
+						hx-swap="innerHTML"
+						hx-sync="this:replace"
+						hx-indicator="this"
+						{ pickerInputAttrs(p)... }
+					/>
+					<span class="picker__chevron" aria-hidden="true">
+						@icons.Icon("chevron-down")
+					</span>
+				</div>
+				@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})
+			</div>
+			<ul role="listbox" id={ p.ListboxID } class="list picker__list" aria-label={ p.Field.Label }></ul>
+			if len(p.Recent) > 0 {
+				<template data-picker-recent>
+					@pickerGroup(p.ListboxID+"-recent", "Recent", p.Recent[:min(len(p.Recent), MaxRecent)], "")
+				</template>
+			}
+		</div>
+		<input type="hidden" name={ p.HiddenName } value={ id } data-picker-value/>
+	</div>
 }
 
 // PickerResults is the listbox body a picker search returns: a group of at
@@ -79,6 +102,31 @@ templ PickerResults(listboxID string, rows []PickRow, q string) {
 	} else {
 		@pickerGroup(listboxID, resultsHeading(q), rows[:min(len(rows), maxPickRows)], q)
 	}
+}
+
+// PickerResultsNew is PickerResults for a user who may add the master (UI v2
+// §5.8, N10): the rows, or the empty state when none match, then the option
+// New {noun} "{q}", which opens n.Sheet. The sheet goes out of band into
+// the picker's quick slot.
+templ PickerResultsNew(listboxID string, rows []PickRow, q string, n PickNew) {
+	if len(rows) == 0 {
+		<li role="option" aria-disabled="true" class="picker__option picker__empty">
+			<span class="picker__empty-icon" aria-hidden="true">
+				@icons.Icon("search")
+			</span>
+			<span class="picker__empty-text">{ noMatch(n.Noun, q) }</span>
+			<span class="picker__empty-line">Check the spelling, or add them now. You'll come straight back here.</span>
+		</li>
+	} else {
+		@pickerGroup(listboxID, resultsHeading(q), rows[:min(len(rows), maxPickRows)], q)
+	}
+	<li role="option" id={ listboxID + "-new" } aria-selected="false" data-quick={ quickSheetID(listboxID) } class="picker__option picker__new">
+		@icons.Icon("plus")
+		<span>{ newLabel(n.Noun, q) }</span>
+	</li>
+	<div id={ listboxID + "-quick" } hx-swap-oob="innerHTML">
+		@n.Sheet
+	</div>
 }
 
 // pickerGroup is one labelled section of the listbox; its options' ids are

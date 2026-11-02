@@ -182,6 +182,9 @@ type Screen[R, In any] struct {
 	// a form-only one, on sections and the wizard: Party's is_vendor and
 	// is_customer to role.
 	Renames map[string]string
+	// Quick is optional and lets a picker add a record without leaving its
+	// page (quick.go): POST Base/quick.
+	Quick *Quick
 }
 
 // Choice is a form-only field: its label and its options. Required only
@@ -243,6 +246,9 @@ func (s Screen[R, In]) Routes() func(chi.Router) {
 			r.Post(s.Base+idPattern+"/delete", h.handle(h.delete))
 		}
 		r.Get("/pick/"+s.DocType, h.handle(h.pick))
+		if s.Quick != nil {
+			r.Post(s.Base+"/quick", h.handle(h.quick))
+		}
 		if s.Mount != nil {
 			s.Mount(h.pages())(r)
 		}
@@ -285,6 +291,9 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 	}
 	if len(s.Choices) > 0 && s.Sections == nil && s.Wizard == nil {
 		panic("mstweb: " + s.DocType + ": Choices are shown only by Sections or a Wizard")
+	}
+	if s.Quick != nil && (len(s.Quick.Fields) == 0 || len(s.Quick.Nouns) == 0) {
+		panic("mstweb: " + s.DocType + ": Quick needs Fields and Nouns")
 	}
 	for from, to := range s.Renames {
 		if _, ok := s.Choices[to]; !ok {
@@ -642,14 +651,26 @@ func title(lr list.Row) string {
 
 // pick is the picker search, GET /pick/{DocType}?q= (the URL
 // docscreen.FieldInput's pickers use): enabled records the user may read,
-// "{Code} {Name}" (CD-68). htmx names the listbox it fills in HX-Target.
+// "{Code} {Name}" (CD-68). htmx names the listbox it fills in HX-Target. A
+// user who may quick-create (quick.go) also gets the New option and its sheet.
 func (h *handlers[R, In]) pick(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
 	q := r.URL.Query().Get("q")
 	rows, err := h.pickRows(r, p, q)
 	if err != nil {
 		return err
 	}
-	frag := components.PickerResults(cmp.Or(r.Header.Get("HX-Target"), "pick-"+h.dt.Table), rows, q)
+	listboxID := cmp.Or(r.Header.Get("HX-Target"), "pick-"+h.dt.Table)
+	frag := components.PickerResults(listboxID, rows, q)
+	role := r.URL.Query().Get("role")
+	noun, quick, err := h.quickNoun(r.Context(), p, role)
+	if err != nil {
+		return err
+	}
+	if quick {
+		if frag, err = h.quickResults(r.Context(), listboxID, role, noun, rows, q); err != nil {
+			return err
+		}
+	}
 	ui.Render(w, r, http.StatusOK, frag, frag)
 	return nil
 }

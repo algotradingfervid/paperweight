@@ -28,6 +28,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
 	"github.com/vardhan/internaltools/internal/ui/layout"
 	"github.com/vardhan/internaltools/internal/ui/screens"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
 	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
@@ -65,6 +66,8 @@ var pages = []galleryPage{
 	{"rows", titled("Row editor"), static(rowsBody())},
 	{"picker", formWidth("Picker"), static(pickerBody())},
 	{"picker-recent", formWidth("Picker with recent picks"), static(pickerRecentBody())},
+	{"picker-quick", formWidth("Picker with quick-create"), static(pickerQuickBody())},
+	{"quickcreate", formWidth("Quick-create sheet"), static(quickSheetBody())},
 	{"upload", formWidth("File upload"), static(uploadBody())},
 	{"attachments", formWidth("Attachments"), static(attachmentsBody())},
 	{"wizard-1", wizardOpts(1), wizardBody(0)},
@@ -189,7 +192,12 @@ func index(w http.ResponseWriter, r *http.Request) {
 func show(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "page")
 	if slug == "items" {
-		ui.Render(w, r, http.StatusOK, pickerResults(r.URL.Query().Get("list"), r.URL.Query().Get("q")), nil)
+		list, q := r.URL.Query().Get("list"), r.URL.Query().Get("q")
+		if list == quickList {
+			ui.Render(w, r, http.StatusOK, pickerQuickResults(q), nil)
+			return
+		}
+		ui.Render(w, r, http.StatusOK, pickerResults(list, q), nil)
 		return
 	}
 	i := slices.IndexFunc(pages, func(p galleryPage) bool { return p.slug == slug })
@@ -353,6 +361,13 @@ func Screens(base string) []screens.Screen {
 				return chromedp.Do(ctx, chromedp.Click(chromedp.CSS("#f-item")),
 					settled(`document.querySelectorAll("#f-item-list [role=option]").length > 2 && document.querySelector(".htmx-request") === null`))
 			}},
+		screens.Screen{Name: "gallery picker-quick, no match", Route: route, URL: base + "/_gallery/picker-quick",
+			Setup: func(ctx context.Context) error {
+				return chromedp.Do(ctx, chromedp.Click(chromedp.CSS("#f-new-vendor")), chromedp.SendKeys(chromedp.CSS("#f-new-vendor"), uitest.LongName100),
+					settled(`document.querySelector("#`+quickList+` [data-quick]")?.textContent.includes(`+strconv.Quote(uitest.LongName100)+`) && document.querySelector(".htmx-request") === null`))
+			}},
+		screens.Screen{Name: "gallery quickcreate, sheet open", Route: route, URL: base + "/_gallery/quickcreate",
+			Setup: run(`document.getElementById("`+quickList+`-sheet").showModal()`, `document.getElementById("`+quickList+`-sheet").open`)},
 		screens.Screen{Name: "gallery fields, tips open", Route: route, URL: base + "/_gallery/fields",
 			Setup: run(`document.querySelectorAll("details.infotip").forEach(function (d) { d.open = true; })`, `document.querySelectorAll("details.infotip:not([open])").length === 0`)},
 		screens.Screen{Name: "gallery wizard-1, refused", Route: route, URL: base + "/_gallery/wizard-1?errors=1"},

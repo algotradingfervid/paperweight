@@ -50,7 +50,28 @@ func Routes(svc *item.Service, env mstkit.Env) func(chi.Router) {
 		Numbers:    map[string]components.NumberKind{"factor": factor6},
 		ZeroIsNone: map[string]bool{"standard_rate": true},
 		WideLines:  map[string]bool{"factor": true},
+		// A line's item picker adds a Goods item (UI v2 §5.8); a service
+		// item, rates and conversions are added later in Items.
+		Quick: &mstweb.Quick{
+			Fields:   quickFields(),
+			Nouns:    map[string]string{"": "item"},
+			Icon:     "package",
+			Line:     "Just enough to use it here. Add rates and conversions later in Items.",
+			Defaults: map[string]string{"item_type": string(item.TypeGoods)},
+		},
 	}.Routes()
+}
+
+// quickFields is the quick-create form: code, name, UoM, HSN and tax code.
+func quickFields() []doctype.Field {
+	dt, _ := doctype.Lookup(item.DocType) // registered by the item package's init
+	out := make([]doctype.Field, 0, 5)
+	for _, name := range []string{"code", "name", "stock_uom_id", "hsn_sac", "default_tax_code_id"} {
+		f, _ := dt.Field(name)
+		out = append(out, f)
+	}
+	out[0].Hint = "Suggested from the name. You can change it."
+	return out
 }
 
 // Parsers returns the factor6 parser for components.ValidateHandler; WP3

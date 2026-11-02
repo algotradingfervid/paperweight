@@ -149,6 +149,30 @@ func (s wizardSaver) save(ctx context.Context, p auth.Principal, d draft) (mstki
 	return saved, err
 }
 
+// quick is the quick-create's save (UI v2 §5.8, CD-375): the party with the
+// picker's role, then its primary billing address, in one write, so a
+// refused address leaves no party. The address's own checks, CheckGST last,
+// keep the party and address rules (CD-180). The pure checks of both run
+// first, so every field's error shows at once.
+func (s wizardSaver) quick(ctx context.Context, p auth.Principal, role string, v map[string]string) (mstkit.Saved, error) {
+	in, _ := toInput(map[string]string{"code": v["code"], "name": v["name"], roleField: role})
+	addr := address.Input{GSTIN: v["gstin"], Line1: v["line1"], City: v["city"], StateCode: v["state_code"], IsBilling: true, PrimaryBilling: true}
+	if _, err := validateDraft(draft{Party: in, Addresses: []address.Input{addr}}); err != nil {
+		return mstkit.Saved{}, err
+	}
+	var saved mstkit.Saved
+	err := s.env.Write(ctx, p, party.Kind, auth.RightCreate, func(tx *db.Tx) error {
+		var err error
+		if saved, err = s.parties.CreateTx(ctx, tx, p, in); err != nil {
+			return err
+		}
+		addr.PartyID = saved.ID
+		_, err = s.addresses.CreateTx(ctx, tx, p, addr)
+		return err
+	})
+	return saved, err
+}
+
 // billingFirst is the indexes of rows with the billing rows first: a registered
 // party's first address must be a billing one (CD-180 D1), whatever the order
 // on the page.

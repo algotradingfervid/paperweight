@@ -403,10 +403,11 @@ func (r Response) Choices(name string) []Choice {
 type PickRow struct{ Value, Text string }
 
 // PickRows lists the selectable picker results (role="option" elements that
-// are not aria-disabled, i.e. not the "No matches" row) in page order.
+// are not aria-disabled, i.e. not the "No matches" row, nor the New option
+// of a quick-create, data-quick) in page order.
 func (r Response) PickRows() []PickRow {
 	var out []PickRow
-	r.Doc.Find(`[role="option"]`).Each(func(_ int, s *goquery.Selection) {
+	r.Doc.Find(`[role="option"]:not([data-quick])`).Each(func(_ int, s *goquery.Selection) {
 		if v, _ := s.Attr("aria-disabled"); v == "true" {
 			return
 		}

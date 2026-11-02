@@ -1,6 +1,8 @@
 package components
 
 import (
+	"encoding/json"
+	"net/url"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -24,12 +26,81 @@ func (r PickRow) Display() string { return r.Code + " " + r.Name }
 // name of the field that carries the chosen ID. Recent are the user's
 // recent picks for this field, newest first (UI v2 §5.8); combobox.js shows
 // the first MaxRecent that match the typed text above each search's rows.
+// Focus puts autofocus on Change, for a picker a quick-create swaps in.
 type PickerProps struct {
 	Field                            FieldProps
 	SearchURL, HiddenName, ListboxID string
 	Chosen                           *PickRow
 	Options                          []Option
 	Recent                           []PickRow
+	Focus                            bool
+}
+
+// PickNew is a search's create option (UI v2 §5.8, N10): the master's noun
+// ("vendor") and the QuickCreate sheet it opens.
+type PickNew struct {
+	Noun  string
+	Sheet templ.Component
+}
+
+// quickSheetID is the id of the QuickCreate sheet of the picker whose
+// listbox is listboxID.
+func quickSheetID(listboxID string) string { return listboxID + "-sheet" }
+
+// QuickFormID is the id of that sheet's form, which a refused quick-create
+// redraws.
+func QuickFormID(listboxID string) string { return quickSheetID(listboxID) + "-form" }
+
+// newLabel is the create option's text: New {noun} "{q}", or New {noun} for
+// a blank search.
+func newLabel(noun, q string) string {
+	if q = strings.TrimSpace(q); q == "" {
+		return "New " + noun
+	}
+	return "New " + noun + " \"" + q + "\""
+}
+
+// noMatch is the empty state's heading: No {noun} matches "{q}", or No
+// {noun} matches for a blank search.
+func noMatch(noun, q string) string {
+	if q = strings.TrimSpace(q); q == "" {
+		return "No " + noun + " matches"
+	}
+	return "No " + noun + " matches \"" + q + "\""
+}
+
+// pickerVals is the quick slot's hx-vals: what a quick-create posts back so
+// the server draws this picker again (PickerFromForm).
+func pickerVals(p PickerProps) string {
+	flag := func(b bool) string {
+		if b {
+			return "1"
+		}
+		return ""
+	}
+	recent, _ := json.Marshal(p.Recent)     // plain values always marshal
+	b, _ := json.Marshal(map[string]string{ // a map of strings always marshals
+		"pick_recent": string(recent),
+		"pick_id":     p.Field.ID, "pick_label": p.Field.Label, "pick_hint": p.Field.Hint, "pick_tip": p.Field.Tip,
+		"pick_placeholder": p.Field.Placeholder, "pick_required": flag(p.Field.Required), "pick_clearable": flag(p.Field.Clearable),
+		"pick_search": p.SearchURL, "pick_name": p.HiddenName, "pick_list": p.ListboxID,
+	})
+	return string(b)
+}
+
+// PickerFromForm is the Picker whose quick slot posted v. Recent picks that
+// don't parse are dropped: they only show the poster's own list again.
+func PickerFromForm(v url.Values) PickerProps {
+	var recent []PickRow
+	_ = json.Unmarshal([]byte(v.Get("pick_recent")), &recent) // a bad list is no list
+	return PickerProps{
+		Recent: recent,
+		Field: FieldProps{
+			ID: v.Get("pick_id"), Label: v.Get("pick_label"), Hint: v.Get("pick_hint"), Tip: v.Get("pick_tip"),
+			Placeholder: v.Get("pick_placeholder"), Required: v.Get("pick_required") == "1", Clearable: v.Get("pick_clearable") == "1",
+		},
+		SearchURL: v.Get("pick_search"), HiddenName: v.Get("pick_name"), ListboxID: v.Get("pick_list"),
+	}
 }
 
 // maxPickRows is the most rows a search shows (design-system §7).
@@ -118,6 +189,11 @@ func pickerInputAttrs(p PickerProps) templ.Attributes {
 	}
 	a["form"] = "" // no form owner: the text goes only with the htmx search, not the form (no q= on GET filter URLs)
 	return a
+}
+
+// pickerChangeAttrs are Change's attributes; Focus autofocuses it.
+func pickerChangeAttrs(p PickerProps) templ.Attributes {
+	return templ.Attributes{"data-picker-change": true, "autofocus": p.Focus}
 }
 
 func pickerChosen(p PickerProps) (id, text string) {
