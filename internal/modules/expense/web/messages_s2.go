@@ -25,4 +25,12 @@ const (
 	msgNoReceipt   = "No receipt"
 	msgGSTSummary  = "Bill in company GSTIN"
 	msgProjSummary = "Project or site"
+
+	// The line page's cards (UI v2 §5.5 item 1, §5.9; mock expense-line).
+	msgSpentTitle = "What you spent"
+	msgSpentDesc  = "Type, amount and the day on the bill."
+	// The More details summary's names for the groups inside (UI v2 §5.5
+	// item 3); fields inside name themselves by their labels.
+	msgMoreSame = "Same receipt"
+	msgMoreGST  = "GST bill"
 )

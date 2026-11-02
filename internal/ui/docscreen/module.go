@@ -37,6 +37,7 @@ type Module struct {
 	KeyFacts    []string                                      // header fields the document header shows, in order (UI v2 §5.13 item 3)
 	LifeSteps   []string                                      // extra lifecycle steps after the approved one, by word; PageExtra.Life marks them (UI v2 §5.13 item 4)
 	Home        components.Link                               // the module's home, "Go to {Label}" after a Submit; zero for none (UI v2 §5.13 item 2)
+	FooterTotal string                                        // the header Money field the Items footer shows (UI v2 A-22, CD-376)
 }
 
 // LineNoun names a module's lines (UX-E2, CD-270 Q1): Add labels the add

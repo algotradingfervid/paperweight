@@ -85,6 +85,20 @@ func TestExpLine_NewPage(t *testing.T) {
 			t.Errorf("%s sits inside the line form or a disclosure, want it outside (UX-E1)", sel)
 		}
 	}
+	// UI v2 (E7, §5.9): the receipt card, then the line form's card.
+	receipt := s2Card(t, page.Selection, "Receipt", "camera", s2UploadHint)
+	if receipt.Find("#receipt").Length() != 1 || receipt.Find("#receipt-files").Length() != 1 || receipt.Closest("form").Length() != 0 {
+		t.Errorf("the Receipt card doesn't hold #receipt and #receipt-files outside the line form")
+	}
+	spent := s2Card(t, form, "What you spent", "receipt-indian-rupee", "Type, amount and the day on the bill.")
+	for _, n := range []string{"expense_type_id", "amount", "expense_date"} {
+		if spent.Find(`[name="`+n+`"]`).Length() == 0 {
+			t.Errorf("%s isn't in the What you spent card", n)
+		}
+	}
+	if more := s2Details(spent, s2MoreLine); more.Length() != 1 || spent.Children().Last().Get(0) != more.Get(0) {
+		t.Errorf("%q isn't the What you spent card's last part", s2MoreLine)
+	}
 	up := page.Find("#receipt")
 	if got := s2Text(up.Find("legend").First()); got != "Receipt" {
 		t.Errorf("the upload's legend is %q, want Receipt", got)
@@ -170,6 +184,9 @@ func TestExpLine_NewPage(t *testing.T) {
 	if got := form.Find(`input[name="expense_type_id"]`).AttrOr("type", ""); got != "radio" {
 		t.Errorf("Type is a %q input, want radios with 5 types", got)
 	}
+	if n := form.Find(`.segmented--tiles input[name="expense_type_id"]`).Length(); n != 5 {
+		t.Errorf("%d of Type's 5 radios are tiles, want all (UI v2 §5.5 item 8)", n)
+	}
 	for _, f := range []struct{ name, label, hint string }{
 		{"expense_type_id", "Type", ""},
 		{"amount", "Amount", s2AmountHint},
@@ -189,7 +206,7 @@ func TestExpLine_NewPage(t *testing.T) {
 		if got := s2Label(t, form, f.name); got != f.label {
 			t.Errorf("%s's label is %q, want %q", f.name, got, f.label)
 		}
-		if want := f.name == "amount" || f.name == "expense_date"; s2Required(t, form, f.name) != want {
+		if want := f.name == "expense_type_id" || f.name == "amount" || f.name == "expense_date"; s2Required(t, form, f.name) != want {
 			t.Errorf("%s marked required = %v, want %v (CD-341 (2))", f.name, !want, want)
 		}
 		if f.hint != "" {
@@ -214,10 +231,13 @@ func TestExpLine_NewPage(t *testing.T) {
 		t.Errorf("Date's hint is %q; the bill-date text belongs in the GSTIN disclosure (CD-271 G9)", s2BillDate)
 	}
 
-	// The disclosures, all closed; no same-receipt choice without another
-	// line's receipt.
-	if got, want := s2Summaries(form), []string{s2MoreNote, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
+	// The disclosures, all closed and inside the one More details; no
+	// same-receipt choice without another line's receipt.
+	if got, want := s2Summaries(form), []string{s2MoreLine, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
 		t.Errorf("the line form's disclosures are %q, want %q", got, want)
+	}
+	if n := s2Details(form, s2MoreLine).Find("details").Length(); n != 3 {
+		t.Errorf("%d disclosures inside %q, want No receipt, GSTIN and Project or site", n, s2MoreLine)
 	}
 	form.Find("details").Each(func(_ int, d *goquery.Selection) {
 		if s2Open(d) {
@@ -559,7 +579,7 @@ func TestExpLine_SameReceipt(t *testing.T) {
 
 	page := e.page(t, s2Deepak, newLine)
 	form := s2LineForm(t, page)
-	if got, want := s2Summaries(form), []string{s2MoreNote, s2SameSummary, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
+	if got, want := s2Summaries(form), []string{s2MoreSame, s2SameSummary, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
 		t.Errorf("the line form's disclosures are %q, want %q", got, want)
 	}
 	same := s2Details(form, s2SameSummary)
@@ -601,9 +621,10 @@ func TestExpLine_SameReceipt(t *testing.T) {
 	}
 
 	// Reopened, line 3 has the disclosure open with line 2 picked.
-	same = s2Details(s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/3")), s2SameSummary)
-	if !s2Open(same) {
-		t.Errorf("line 3 reopened: %q is closed, want open with line 2 picked", s2SameSummary)
+	form = s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/3"))
+	same = s2Details(form, s2SameSummary)
+	if !s2Open(same) || !s2Open(s2Details(form, s2MoreSame)) {
+		t.Errorf("line 3 reopened: %q open %v, %q open %v, want both open with line 2 picked", s2SameSummary, s2Open(same), s2MoreSame, s2Open(s2Details(form, s2MoreSame)))
 	}
 	for _, o := range s2Options(same, "same_as") {
 		if o.Checked != (o.Label == "Same receipt as line 2") {
@@ -626,4 +647,124 @@ func TestExpLine_SameReceipt(t *testing.T) {
 	if got := s2Labels(s2Options(s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c2.ID)+"/lines/2")), "same_as")); !slices.Equal(got, []string{s2SameOwn, "Same receipt as line 1"}) {
 		t.Errorf("line 2 of the second claim: same_as offers %q, want %q", got, []string{s2SameOwn, "Same receipt as line 1"})
 	}
+}
+
+// Type is marked required as tiles and as a Select (UI v2 §5.5 item 2), and
+// only the Required fields are: Type, Amount and Date. Billed to, Same receipt
+// and the no-receipt reason have no marker, as no field of theirs is Required.
+func TestExpLine_RequiredMarkers(t *testing.T) {
+	t.Parallel()
+	e := s2New(t)
+	c := e.DraftClaim(t, e.P(t, s2Deepak), nil)
+	e.withReceipts(t, c.ID, map[int]string{1: "taxi.jpg"})
+	path := s2ClaimPath(c.ID) + "/lines/new"
+
+	check := func(what string, d *goquery.Document) {
+		t.Helper()
+		form := s2LineForm(t, d)
+		if !s2Required(t, form, "expense_type_id") {
+			t.Errorf("%s: Type isn't marked required", what)
+		}
+		var names []string
+		form.Find(`[aria-required]`).Each(func(_ int, s *goquery.Selection) {
+			if n := s.AttrOr("name", ""); !slices.Contains(names, n) {
+				names = append(names, n)
+			}
+		})
+		slices.Sort(names)
+		if want := []string{"amount", "expense_date", "expense_type_id"}; !slices.Equal(names, want) {
+			t.Errorf("%s: aria-required on %q, want only %q", what, names, want)
+		}
+		// The page's note holds an asterisk too; every other one belongs to a
+		// field's label, read here as the label's own text.
+		var marked []string
+		form.Find(".field__req").Not(".field__hint .field__req").Each(func(_ int, s *goquery.Selection) {
+			marked = append(marked, strings.TrimSpace(s.Parent().Contents().First().Text()))
+		})
+		slices.Sort(marked)
+		if want := []string{"Amount", "Date", "Type"}; !slices.Equal(marked, want) {
+			t.Errorf("%s: asterisks on %q, want on %q", what, marked, want)
+		}
+		note := d.Find(".field__hint:has(.field__req)")
+		if got := strings.Join(strings.Fields(note.Text()), " "); note.Length() != 1 || got != "Fields marked * are required." {
+			t.Errorf("%s: %d required notes reading %q, want one", what, note.Length(), got)
+		}
+	}
+
+	d := e.page(t, s2Deepak, path)
+	form := s2LineForm(t, d)
+	if form.Find(`.segmented--tiles input[name="expense_type_id"]`).Length() == 0 {
+		t.Fatal("Type isn't tiles with 5 types")
+	}
+	for _, n := range []string{"billed_to_id", "same_as", "no_receipt_reason"} {
+		if form.Find(`[name="`+n+`"]`).Length() == 0 {
+			t.Errorf("%s isn't on the page, so its missing marker proves nothing", n)
+		}
+	}
+	check("tiles", d)
+
+	for _, tc := range [][2]string{{"PARKING", "Parking"}, {"TOLL", "Toll"}} {
+		e.exec(t, `INSERT INTO expense_type (code, name, created_at, updated_at) VALUES (?, ?, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`, tc[0], tc[1])
+	}
+	d = e.page(t, s2Deepak, path)
+	if s2LineForm(t, d).Find(`select[name="expense_type_id"]`).Length() != 1 {
+		t.Fatal("Type isn't a Select with 7 types")
+	}
+	check("select", d)
+}
+
+// The no-receipt reason takes at most the field's 200 characters.
+func TestExpLine_ReasonMaxLength(t *testing.T) {
+	t.Parallel()
+	e := s2New(t)
+	c := e.DraftClaim(t, e.P(t, s2Deepak), nil)
+	form := s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/new"))
+	if got := form.Find(`textarea[name="no_receipt_reason"]`).AttrOr("maxlength", ""); got != "200" {
+		t.Errorf("the reason's maxlength is %q, want 200", got)
+	}
+}
+
+// A picked same receipt, stored or posted, alone opens its disclosure and the
+// outer More details; with none picked both stay closed. Every line here has
+// nothing else that opens More details, so only the pick can open it.
+func TestExpLine_SameReceiptOpensMore(t *testing.T) {
+	t.Parallel()
+	e := s2New(t)
+	deepak := e.P(t, s2Deepak)
+	shared := e.DraftClaim(t, deepak, nil, nil, nil)
+	e.withReceipts(t, shared.ID, map[int]string{1: "bill.jpg", 2: "bill.jpg"})
+	own := e.DraftClaim(t, deepak, nil, nil, nil)
+	e.withReceipts(t, own.ID, map[int]string{1: "taxi.jpg", 2: "food.jpg"})
+	sharedLine := s2ClaimPath(shared.ID) + "/lines/2"
+	sharedNew := s2ClaimPath(shared.ID) + "/lines/new"
+
+	want := func(what string, form *goquery.Selection, open bool) {
+		t.Helper()
+		same, more := s2Details(form, s2SameSummary), s2Details(form, s2MoreSame)
+		if same.Length() != 1 || more.Length() != 1 {
+			t.Fatalf("%s: %d %q and %d %q, want one each", what, same.Length(), s2SameSummary, more.Length(), s2MoreSame)
+		}
+		if s2Open(same) != open || s2Open(more) != open {
+			t.Errorf("%s: same receipt open %v, More details open %v, want both %v", what, s2Open(same), s2Open(more), open)
+		}
+	}
+	// redraw posts page's form with same_as and a future date, for a 422.
+	redraw := func(what, path, sameAs string) *goquery.Selection {
+		t.Helper()
+		post := s2Base(t, e.page(t, s2Deepak, path), "")
+		post.Del("description")
+		post.Set("same_as", sameAs)
+		post.Set("expense_date", "25-10-2026")
+		rec := e.postForm(t, s2Deepak, path, post)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s: status %d, want 422 (body %q)", what, rec.Code, rec.Body.String())
+		}
+		return s2LineForm(t, s2Parse(t, rec))
+	}
+
+	want("stored pick", s2LineForm(t, e.page(t, s2Deepak, sharedLine)), true)
+	want("posted pick", redraw("posted pick", sharedNew, "1"), true)
+	want("new line, none picked", s2LineForm(t, e.page(t, s2Deepak, sharedNew)), false)
+	want("own receipt stored", s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(own.ID)+"/lines/2")), false)
+	want("stored pick posted away", redraw("posted away", sharedLine, ""), false)
 }

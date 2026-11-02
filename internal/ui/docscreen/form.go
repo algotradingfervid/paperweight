@@ -819,6 +819,11 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 		if v != nil && body == nil {
 			sv.M.After = d.itemsBody(c, *v)
 		}
+		if v != nil {
+			if t := footerTotal(c, *v); t != nil {
+				sv.Bar.Summary = components.BarTotalLine(*t, false) // A-22
+			}
+		}
 	default:
 		sv.Empty = len(sv.Inputs) == 0 && len(sv.Fixed) == 0
 	}

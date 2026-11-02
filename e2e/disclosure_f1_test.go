@@ -108,7 +108,8 @@ func openPickerOnTop(s *Session, field string, over ...string) {
 // TestE2E_DisclosedPickerOnTop_ExpenseLine (CD-379 F1): on the expense line
 // page each Picker inside a disclosure opens above the header, the sticky
 // bar and the disclosures after it. Tax code is in Bill in company GSTIN;
-// Project and Site are in Project or site.
+// Project and Site are in Project or site; both groups are nested in More
+// details (UI v2 E7).
 func TestE2E_DisclosedPickerOnTop_ExpenseLine(t *testing.T) {
 	h := startExpense(t)
 	cases := []struct {
@@ -140,6 +141,7 @@ func TestE2E_DisclosedPickerOnTop_ExpenseLine(t *testing.T) {
 		d.Open(line)
 		d.WaitText(saveLine)
 		settle(d)
+		openMoreDetails(d) // both groups sit in the line's More details (UI v2 E7)
 		openDisclosure(d, "Bill in company GSTIN")
 		openDisclosure(d, "Project or site")
 		openPickerOnTop(d, c.field, c.over...)

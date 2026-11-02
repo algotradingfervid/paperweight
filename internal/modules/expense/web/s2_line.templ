@@ -56,3 +56,21 @@ templ moreDetails(label string, open bool, in templ.Component) {
 templ billDate() {
 	<p>{ msgBillDate }</p>
 }
+
+// card is components.CardWith p holding parts (UI v2 §5.5 item 1).
+templ card(p components.CardProps, parts []templ.Component) {
+	@components.CardWith(p) {
+		for _, c := range parts {
+			@c
+		}
+	}
+}
+
+// moreGroup is components.MoreDetails naming inside and holding parts.
+templ moreGroup(inside []string, open bool, parts []templ.Component) {
+	@components.MoreDetails(inside, open) {
+		for _, p := range parts {
+			@p
+		}
+	}
+}

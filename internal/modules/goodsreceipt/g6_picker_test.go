@@ -10,18 +10,23 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt/grntest"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
+	"github.com/vardhan/internaltools/internal/types"
 )
 
 // g6Choice is the picker row the plan's G6 Do 1 gives for stored PO po:
 // its display, vendor snapshot name, site name, lines with pending and all
-// lines.
+// lines, and order date.
 func g6Choice(t *testing.T, env *grntest.Env, po doc.Doc, vendor string, pending int) goodsreceipt.POChoice {
 	t.Helper()
-	site := g2Query(t, env.DB, `SELECT s.name FROM purchase_order o JOIN site s ON s.id = o.site_id WHERE o.id = ?`, po.ID)
+	site := g2Query(t, env.DB, `SELECT s.name, o.order_date FROM purchase_order o JOIN site s ON s.id = o.site_id WHERE o.id = ?`, po.ID)
 	if len(site) != 1 || po.Number == "" {
 		t.Fatalf("PO %d: number %q, site %v", po.ID, po.Number, site)
 	}
-	return goodsreceipt.POChoice{ID: po.ID, Display: po.Number, VendorName: vendor, SiteName: site[0][0], Pending: pending, Lines: len(po.Lines)}
+	date, err := types.DateFromISO(site[0][1])
+	if err != nil {
+		t.Fatalf("PO %d: order date %q: %v", po.ID, site[0][1], err)
+	}
+	return goodsreceipt.POChoice{ID: po.ID, Display: po.Number, VendorName: vendor, SiteName: site[0][0], Pending: pending, Lines: len(po.Lines), OrderDate: date}
 }
 
 // g6Choices calls POChoices and stops the test on an error.

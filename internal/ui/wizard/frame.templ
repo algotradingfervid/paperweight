@@ -15,6 +15,7 @@ import (
 // primary (a check page the user may not submit). EnterPrimary starts the
 // step form with components.EnterSubmit of the primary, for a body with
 // submit buttons of its own, so Enter still presses the primary (CD-286 R4).
+// Summary is the footer's row above the buttons (the Items total, A-22).
 type Bar struct {
 	Primary      string
 	Back         bool
@@ -22,6 +23,7 @@ type Bar struct {
 	PrimaryNav   string           // the primary's nav value; "" keeps the default
 	BackLink     *components.Link // a Back link in place of the Back button
 	EnterPrimary bool
+	Summary      templ.Component
 }
 
 // formID is the step form's id; when m.After follows the form, the bar's
@@ -45,6 +47,7 @@ func (b Bar) props(m Model) components.ActionBarProps {
 		// The check step has nothing to save, and its form posts the
 		// submit, so it has no "Save and finish later".
 		FinishLater: m.Mode == Document && !m.Last(),
+		Summary:     b.Summary,
 	}
 	if m.After != nil {
 		p.Form = formID

@@ -200,6 +200,11 @@ var (
 		{Value: "challan", Label: "Delivery challan"},
 		{Value: "test", Label: "Test certificate", Hint: uitest.LongDevanagari},
 	}
+	// orderOptions are radios with extra lines and a bar (UI v2 §5.6, E7).
+	orderOptions = []components.Option{
+		{Value: "1", Label: "PO/26-27/00001 · " + uitest.LongName100, Lines: []string{uitest.LongName100, "1 of 3 lines pending · ordered 24-10-2026"}, LineIcon: "map-pin", Bar: &components.Meter{Value: 1, Max: 3}},
+		{Value: "2", Label: "PO/26-27/00004 · Bharat Tools", Lines: []string{"Pune Warehouse", "Fully received · ordered 20-10-2026"}, LineIcon: "map-pin", Bar: &components.Meter{Value: 0, Max: 2}},
+	}
 	priorityOptions = []components.Option{{Value: "Normal", Label: "Normal"}, {Value: "Urgent", Label: "Urgent"}}
 	expenseOptions  = []components.Option{{Value: "fuel", Label: "Fuel"}, {Value: "travel", Label: "Local travel"}, {Value: "food", Label: "Food and refreshments"}, {Value: "stay", Label: "Stay"}, {Value: "other", Label: uitest.LongName100}}
 	termOptions     = []components.Option{{Value: "0", Label: "Advance"}, {Value: "30", Label: "30 days"}, {Value: "60", Label: uitest.LongName100}}

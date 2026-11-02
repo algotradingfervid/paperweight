@@ -3,7 +3,9 @@ package docscreen
 import (
 	"cmp"
 	"maps"
+	"math"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -122,6 +124,28 @@ func totalsOf(c Ctx, v DocView) []components.Pair {
 	return out
 }
 
+// footerID is the Items footer total's id, which a grid save swaps (A-22).
+const footerID = "footer-total"
+
+// footerTotal is the Items footer's summary (UI v2 A-22): "{n} items ·
+// {label} ₹…" for the module's FooterTotal, n the saved lines; only the
+// count when the module hides the field or the total is blank (CD-378 (4));
+// nil when the module names none.
+func footerTotal(c Ctx, v DocView) *components.BarTotal {
+	name := c.Deps.modOf(c.DT).FooterTotal
+	if name == "" {
+		return nil
+	}
+	t := &components.BarTotal{ID: footerID, Count: strconv.Itoa(len(v.Lines)) + " items"}
+	if len(v.Lines) == 1 {
+		t.Count = "1 item"
+	}
+	if f, _ := c.DT.Field(name); !hidden(c, f) && v.Display[name] != "" {
+		t.Label, t.Value = f.Label, v.Display[name]
+	}
+	return t
+}
+
 // gridRowOf is line lv's grid row (CD-139): a Link shows its master's
 // summary with a hidden id; every other editable field is the line page's
 // FieldInput with the id grid-<no>-<field>. values are in input form. A field
@@ -203,9 +227,19 @@ type linePageView struct {
 	Question string // the remove page's question
 	Button   components.ButtonProps
 	Danger   string
+	Reload   *components.Link // a 409's document and page: Danger shows as the ConflictBanner
+	Required bool             // a line field the form shows is required: it starts with components.RequiredNote
 	Errors   []components.FieldErr
 	Top      templ.Component // the module's Line.Top, outside the form (UX-E1)
 	FormID   string          // the form's id: line-form with the module's Line
+}
+
+// conflict makes a 409's Danger the ConflictBanner, whose Reload names the
+// document and goes to href (CD-362).
+func (lp *linePageView) conflict(pr Problem, label, href string) {
+	if pr.Status == http.StatusConflict {
+		lp.Reload = &components.Link{Label: label, Href: href}
+	}
 }
 
 // draftView reads draft id for a line page; anything past draft goes to
@@ -227,7 +261,8 @@ func (d Deps) draftView(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 // (in the module's LineNoun), action, version, Back, button and the refusal.
 // An error on a field the module hides is a plain message (CD-319).
 func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, version int, errs []doctype.FieldError, danger string) linePageView {
-	errs = unhiddenAll(d.lineCtx(r, dt, &v, no), errs)
+	c := d.lineCtx(r, dt, &v, no)
+	errs = unhiddenAll(c, errs)
 	noun := d.modOf(dt).LineNoun
 	lv := linePageView{
 		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Focus: true, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
@@ -236,6 +271,9 @@ func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, ver
 		Button:  components.ButtonProps{Label: "Save line", Variant: components.Primary},
 		Danger:  danger,
 		Errors:  fieldErrs(errs),
+		Required: slices.ContainsFunc(dt.Fields, func(f doctype.Field) bool {
+			return f.OnLine && editable(f) && required(f) && !hidden(c, f)
+		}),
 	}
 	if no > 0 {
 		lv.Opts.Title = cmp.Or(noun.Title, "Line") + " " + strconv.Itoa(no)
@@ -331,11 +369,17 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	no := 0
+	gone := "" // with a line removed since a stale page, its 409's Reload
 	if chi.URLParam(r, "no") != "" {
-		// Both reads must have line no.
+		// Both reads must have line no. A stale page's line may be gone: DOC's
+		// 409 below redraws its form as a new line's, so the entries stay, and
+		// Reload goes to the items step. A grid row has no form to redraw.
 		if no, ok = lineNo(r, min(len(rec.Lines), len(loaded.Lines))); !ok {
-			problem(w, r, doctype.ErrNotFound)
-			return
+			if _, ok = lineNo(r, math.MaxInt); !ok || version == rec.Version || ui.IsHTMX(r) {
+				problem(w, r, doctype.ErrNotFound)
+				return
+			}
+			no, gone = 0, itemsURL(dt.Name, id)
 		}
 	}
 	// A reader gets AUTH's refusal, as DOC gives it, before any parsing (CD-263 G1).
@@ -370,10 +414,12 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 				web.ErrorFrom(w, r, err)
 				return
 			}
+			lp.conflict(pr, v.Info.Display, cmp.Or(gone, lp.Action))
 			ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 			return
 		}
 		lp := d.linePage(r, dt, v, no, version, typed, pr.Fields, danger)
+		lp.conflict(pr, v.Info.Display, cmp.Or(gone, lp.Action))
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 	}
 	// engineRefused answers the engine's refusal of lines, line pos's errors
@@ -477,7 +523,7 @@ func (d Deps) gridSaved(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		problem(w, r, doctype.ErrNotFound)
 		return
 	}
-	g := gridView{Row: rows[no-1], Rows: rows, Version: res.Version, Totals: totalsOf(c, v), Warnings: res.Warnings}
+	g := gridView{Row: rows[no-1], Rows: rows, Version: res.Version, Totals: totalsOf(c, v), Footer: footerTotal(c, v), Warnings: res.Warnings}
 	ui.Render(w, r, http.StatusOK, gridResponse(g), nil)
 }
 
@@ -524,6 +570,7 @@ type gridView struct {
 	Rows             []components.LineGridRow // non-nil after a save: the move forms to update
 	Version          int
 	Totals           []components.Pair
+	Footer           *components.BarTotal // the Items footer's total, swapped out of band (A-22)
 	Warnings         []string
 	Alert, ReloadURL string
 	Conflict         string // a 409's document label: Alert shows as the ConflictBanner
@@ -649,6 +696,7 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 			danger = formText(pr)
 		}
 		lp := d.removePage(r, dt, v, no, version, danger)
+		lp.conflict(pr, v.Info.Display, lp.Action)
 		notice(w, r, pr)
 		ui.Render(w, r, pr.Status, linePageFull(lp), linePageMain(lp))
 		return
