@@ -19,14 +19,21 @@ templ fromRequestMain(v fromRequestView) {
 	}
 }
 
+// refusalBanners are a redraw's refusals with no field.
+templ refusalBanners(msgs []string) {
+	for _, msg := range msgs {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg})
+	}
+}
+
 // fromRequestBody is the Create PO page (UX §5.18): the banners, the summary
 // line, then either the nothing-pending note or the rows and the vendor form.
 templ fromRequestBody(v fromRequestView) {
 	if v.conflict != "" {
-		@components.ConflictBanner(v.conflict, v.back.Label, v.action)
+		@orderAlert(components.ConflictBanner(v.conflict, v.back.Label, v.action), len(v.errs) == 0)
 	}
-	for _, msg := range v.refusals {
-		@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg})
+	if len(v.refusals) > 0 {
+		@orderAlert(refusalBanners(v.refusals), len(v.errs) == 0 && v.conflict == "")
 	}
 	@components.ErrorSummary(v.errs)
 	<p>{ v.summary }</p>

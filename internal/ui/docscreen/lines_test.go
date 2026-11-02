@@ -428,7 +428,7 @@ func TestLines_GridSaveUsesPostedVersion(t *testing.T) {
 
 	t.Run("conflict", func(t *testing.T) {
 		const msg = "Someone else changed Draft 42 after you opened it. Reload it and make your changes again."
-		e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSave, doc.Result{}, statusErr{status: http.StatusConflict, msg: msg})
+		e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSave, doc.Result{}, &doc.Error{Kind: doc.KindStale, Message: msg})
 		before := len(e.docs.Calls())
 		rec := gridPost(t, e, page, 2, "5", map[string]string{"grid-2-qty": "25"})
 		if rec.Code != http.StatusConflict {

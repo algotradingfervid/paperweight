@@ -29,7 +29,7 @@ templ Stepper(m Model) {
 					<li class="stepper__step is-current" aria-current="step">
 						<span class="stepper__item">
 							@stepDot()
-							if len(m.Errors) == 0 && m.Conflict == "" {
+							if len(m.Errors) == 0 && m.Conflict == "" && m.Danger == "" {
 								<h2 class="stepper__label" id="step-title" tabindex="-1" aria-describedby="step-count" autofocus>{ s.Label }</h2>
 							} else {
 								<h2 class="stepper__label" id="step-title" tabindex="-1" aria-describedby="step-count">{ s.Label }</h2>

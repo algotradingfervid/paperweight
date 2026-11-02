@@ -44,6 +44,7 @@ func p11Stale(display string) string {
 // p11Render is one renderSend call.
 type p11Render struct {
 	status int
+	stale  bool
 	msgs   []string
 }
 
@@ -69,12 +70,12 @@ func newP11Web(t *testing.T) *p11Web {
 	Routes(pd)(r)
 	w := &p11Web{env: env, router: r}
 	saved := renderSend
-	renderSend = func(rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {
+	renderSend = func(rw http.ResponseWriter, _ *http.Request, status int, stale bool, errs []doctype.FieldError) {
 		msgs := make([]string, len(errs))
 		for i, e := range errs {
 			msgs[i] = e.Message
 		}
-		w.renders = append(w.renders, p11Render{status: status, msgs: msgs})
+		w.renders = append(w.renders, p11Render{status: status, stale: stale, msgs: msgs})
 		plainErrors(rw, status, errs)
 	}
 	t.Cleanup(func() { renderSend = saved })
@@ -248,8 +249,8 @@ func TestPurchaseWeb_SendPost(t *testing.T) {
 			if a.status != c.status || !strings.Contains(a.text, c.msg) {
 				t.Errorf("POST = %d %q, want %d with %q", a.status, a.text, c.status, c.msg)
 			}
-			want := p11Render{status: c.status, msgs: []string{c.msg}}
-			if len(w.renders) != 1 || w.renders[0].status != want.status || !slices.Equal(w.renders[0].msgs, want.msgs) {
+			want := p11Render{status: c.status, stale: c.msg == p11Stale(display), msgs: []string{c.msg}}
+			if len(w.renders) != 1 || w.renders[0].status != want.status || w.renders[0].stale != want.stale || !slices.Equal(w.renders[0].msgs, want.msgs) {
 				t.Errorf("renderSend calls = %+v, want one %+v", w.renders, want)
 			}
 			if got := w.rows(t); got != n {

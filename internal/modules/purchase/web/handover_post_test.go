@@ -42,6 +42,7 @@ var hwMissing = []string{auth.MsgNotFound}
 // hwRender is one call of renderHandover.
 type hwRender struct {
 	status int
+	stale  bool
 	errs   []doctype.FieldError
 }
 
@@ -51,8 +52,8 @@ func hwRecordRender(t *testing.T) *[]hwRender {
 	t.Helper()
 	var calls []hwRender
 	old := renderHandover
-	renderHandover = func(w http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {
-		calls = append(calls, hwRender{status, slices.Clone(errs)})
+	renderHandover = func(w http.ResponseWriter, _ *http.Request, status int, stale bool, errs []doctype.FieldError) {
+		calls = append(calls, hwRender{status, stale, slices.Clone(errs)})
 		w.WriteHeader(status)
 	}
 	t.Cleanup(func() { renderHandover = old })
@@ -207,6 +208,9 @@ func TestPurchaseWeb_HandOverPost(t *testing.T) {
 			!slices.ContainsFunc(c.errs, func(e doctype.FieldError) bool { return e.Message == hwNotDraft }) {
 			t.Errorf("renderHandover(%d, %+v), want 409 or 422 with %q", c.status, c.errs, hwNotDraft)
 		}
+		if c.stale {
+			t.Error("a state refusal reached the redraw as stale (CD-381)")
+		}
 	})
 
 	t.Run("stale version is 409", func(t *testing.T) {
@@ -222,8 +226,8 @@ func TestPurchaseWeb_HandOverPost(t *testing.T) {
 		if len(*calls) != 1 {
 			t.Fatalf("renderHandover calls = %+v (response %d %q), want one", *calls, rec.Code, rec.Body.String())
 		}
-		if c := (*calls)[0]; c.status != http.StatusConflict || !slices.ContainsFunc(c.errs, func(e doctype.FieldError) bool { return e.Message == want }) {
-			t.Errorf("renderHandover(%d, %+v), want (409, [%q])", c.status, c.errs, want)
+		if c := (*calls)[0]; c.status != http.StatusConflict || !c.stale || !slices.ContainsFunc(c.errs, func(e doctype.FieldError) bool { return e.Message == want }) {
+			t.Errorf("renderHandover(%d, %v, %+v), want (409, stale, [%q])", c.status, c.stale, c.errs, want)
 		}
 		if owner, _ := hwOwner(t, env, po.ID); owner != env.Priya.ID {
 			t.Errorf("owner = %d after a stale POST, want Priya", owner)

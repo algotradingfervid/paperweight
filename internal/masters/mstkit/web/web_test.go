@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/allmasters/webtest"
 	"github.com/vardhan/internaltools/internal/masters/item"
@@ -129,13 +130,20 @@ func TestScreens_FieldlessErrorIsABanner(t *testing.T) {
 	}
 }
 
-// An HTTPError's own text is what the page shows, stale (with Reload) or not.
+// An HTTPError's own text is what the page shows; only a stale version has
+// Reload, not another 409 (CD-381).
 func TestScreens_HTTPErrorTextIsShown(t *testing.T) {
+	const text = "Producer's own words."
 	for _, tc := range []struct {
+		err    error
 		status int
 		reload bool
-	}{{http.StatusUnprocessableEntity, false}, {http.StatusConflict, true}} {
-		h := harness(t, stubService{rec: stubRecord{}, err: &refusal{text: "Producer's own words.", status: tc.status}})
+	}{
+		{&refusal{text: text, status: http.StatusUnprocessableEntity}, http.StatusUnprocessableEntity, false},
+		{doc.Refused(text), http.StatusConflict, false},
+		{&doc.Error{Kind: doc.KindStale, Message: text}, http.StatusConflict, true},
+	} {
+		h := harness(t, stubService{rec: stubRecord{}, err: tc.err})
 		resp := h.Post(t, h.Env.Kavya, record, url.Values{"version": {"3"}, "name": {"Typed"}})
 		webtest.WantStatus(t, resp, tc.status)
 		webtest.WantBanner(t, resp, "Producer's own words.")

@@ -22,6 +22,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/modkit"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
+	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/layout"
 )
 
@@ -66,6 +67,7 @@ func TestPurchaseWeb_StateRefusalOneBanner(t *testing.T) {
 			t.Errorf("status = %d, want 422; page %q", got.status, got.text)
 		}
 		wantOneDanger(t, "send to a draft", got, "Only an approved order can be marked as sent.")
+		wantOrderAlert(t, "send to a draft", got, ".banner--danger")
 	})
 	t.Run("expected on for a draft", func(t *testing.T) {
 		got := w.post(t, env.Priya, orderPath(draft.ID, "/expected"), url.Values{"version": {"0"}, "expected_on": {"05-11-2026"}})
@@ -73,6 +75,7 @@ func TestPurchaseWeb_StateRefusalOneBanner(t *testing.T) {
 			t.Errorf("status = %d, want 422; page %q", got.status, got.text)
 		}
 		wantOneDanger(t, "expected on for a draft", got, "Only an approved order can have an expected date.")
+		wantOrderAlert(t, "expected on for a draft", got, ".banner--danger")
 	})
 	t.Run("hand over a pending PO", func(t *testing.T) {
 		pending := purchasetest.NewOrder(t, env, purchasetest.StopAtPending())
@@ -83,6 +86,20 @@ func TestPurchaseWeb_StateRefusalOneBanner(t *testing.T) {
 			t.Errorf("status = %d, want DOC's 409 refusal; page %q", got.status, got.text)
 		}
 		wantOneDanger(t, "hand over a pending PO", got, "Withdraw this order before handing it over.")
+		wantOrderAlert(t, "hand over a pending PO", got, ".banner--danger")
+	})
+	// A state refusal met on opening the page isn't a redraw: focus stays put.
+	t.Run("GET", func(t *testing.T) {
+		pending := purchasetest.NewOrder(t, env, purchasetest.StopAtPending())
+		for _, path := range []string{orderPath(draft.ID, "/send"), orderPath(draft.ID, "/expected"), orderPath(pending.ID, "/handover")} {
+			got := w.get(t, env.Priya, path)
+			if d := dangerBanners(got); len(d) != 1 {
+				t.Errorf("GET %s: danger banners %q, want the state refusal", path, d)
+			}
+			if n := got.doc.Find("[autofocus]").Length(); n != 0 {
+				t.Errorf("GET %s: %d autofocus, want none", path, n)
+			}
+		}
 	})
 }
 
@@ -245,7 +262,7 @@ func TestPurchaseWeb_ReloadOnlyOnStale(t *testing.T) {
 	const problem = "Something else went wrong."
 	path := orderPath(po.ID, "/send")
 
-	redraw := func(status int) p15ePage {
+	redraw := func(status int, stale bool) p15ePage {
 		form := url.Values{"version": {"0"}, "sent_on": {"24-10-2026"}, "sent_via": {"email"}}
 		req := httptest.NewRequestWithContext(auth.WithPrincipal(context.Background(), env.Priya), http.MethodPost, path, strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -253,7 +270,7 @@ func TestPurchaseWeb_ReloadOnlyOnStale(t *testing.T) {
 		rc.URLParams.Add("id", strconv.FormatInt(po.ID, 10))
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rc))
 		rec := httptest.NewRecorder()
-		h.sendRedraw(rec, req, status, []doctype.FieldError{{Message: problem}})
+		h.sendRedraw(rec, req, status, stale, []doctype.FieldError{{Message: problem}})
 		d, err := goquery.NewDocumentFromReader(bytes.NewReader(rec.Body.Bytes()))
 		if err != nil {
 			t.Fatalf("parse: %v", err)
@@ -261,17 +278,156 @@ func TestPurchaseWeb_ReloadOnlyOnStale(t *testing.T) {
 		return p15ePage{status: rec.Code, doc: d, text: squash(d.Text())}
 	}
 
-	got := redraw(http.StatusUnprocessableEntity)
+	got := redraw(http.StatusUnprocessableEntity, false)
 	wantOneDanger(t, "422", got, problem)
+	wantOrderAlert(t, "422", got, ".banner--danger")
 	if n := got.doc.Find(`.banner--danger a`).Length(); n != 0 {
 		t.Errorf("422 redraw has %d links in its danger banner, want no Reload", n)
 	}
-	got = redraw(http.StatusConflict)
+	// A refused 409 can't be fixed by reloading (CD-381).
+	got = redraw(http.StatusConflict, false)
+	wantOneDanger(t, "refused 409", got, problem)
+	if main := squash(got.doc.Find("main").Text()); strings.Contains(main, "Your entries stay") || strings.Contains(main, "Reload") {
+		t.Errorf("refused 409: text %q, want no Reload and no keep-your-entries line", main)
+	}
+	got = redraw(http.StatusConflict, true)
+	wantOrderAlert(t, "stale", got, ".banner--warning")
 	if d := dangerBanners(got); len(d) != 0 || !hasBanner(got, "warning", problem) {
 		t.Errorf("409: danger banners %q, banners %q; want only the warning holding %q", d, banners(got), problem)
 	}
 	if href, _ := got.attr(".banner--warning a", "href"); href != path || !slices.Contains(got.texts(".banner--warning a"), "Reload "+po.Number) {
 		t.Errorf("409 Reload = %q %q, want Reload %s -> %q", got.texts(".banner--warning a"), href, po.Number, path)
+	}
+}
+
+// F3: a redraw with its own problem above the page's state refusal gives the
+// one focus to that banner.
+func TestPurchaseWeb_ProblemAboveRefusalHoldsFocus(t *testing.T) {
+	env := purchasetest.New(t)
+	draft := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
+	h := &handlers{d: Deps{Service: env.Service}}
+	path := orderPath(draft.ID, "/send")
+	req := httptest.NewRequestWithContext(auth.WithPrincipal(context.Background(), env.Priya), http.MethodPost, path, strings.NewReader(url.Values{"version": {"0"}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rc := chi.NewRouteContext()
+	rc.URLParams.Add("id", strconv.FormatInt(draft.ID, 10))
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rc))
+	rec := httptest.NewRecorder()
+	h.sendRedraw(rec, req, http.StatusUnprocessableEntity, false, []doctype.FieldError{{Message: "Something else went wrong."}})
+	d, err := goquery.NewDocumentFromReader(bytes.NewReader(rec.Body.Bytes()))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	f := d.Find("[autofocus]")
+	if f.Length() != 1 || !strings.Contains(f.Text(), "Something else went wrong.") {
+		t.Errorf("%d autofocus (%q), want one, around the redraw's own problem", f.Length(), squash(f.Text()))
+	}
+}
+
+// wantOrderAlert fails unless the page's one autofocus is #order-alert around
+// the banner sel.
+func wantOrderAlert(t *testing.T, what string, p p15ePage, sel string) {
+	t.Helper()
+	f := p.doc.Find("[autofocus]")
+	if f.Length() != 1 || f.AttrOr("id", "") != "order-alert" || f.AttrOr("tabindex", "") != "-1" || f.Find(sel).Length() != 1 {
+		t.Errorf("%s: %d autofocus (id %q), want one #order-alert around %s", what, f.Length(), f.AttrOr("id", ""), sel)
+	}
+}
+
+// F3: a stale post on a page with a state refusal shows only that refusal:
+// reloading would show the same page, so no banner offers it.
+func TestPurchaseWeb_StaleOnRefusalPage(t *testing.T) {
+	env := purchasetest.New(t)
+	w := newP15eWeb(t, env)
+	draft := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
+	approved := purchasetest.NewOrder(t, env)
+	for _, c := range []struct {
+		path string
+		id   int64
+		form url.Values
+	}{
+		{"/send", draft.ID, url.Values{"sent_on": {"24-10-2026"}, "sent_via": {"email"}}},
+		{"/expected", draft.ID, url.Values{"expected_on": {"05-11-2026"}}},
+		{"/handover", approved.ID, url.Values{"to": {strconv.FormatInt(int64(env.Arjun.ID), 10)}}},
+	} {
+		c.form.Set("version", "99")
+		got := w.post(t, env.Priya, orderPath(c.id, c.path), c.form)
+		if d := dangerBanners(got); len(d) != 1 || got.status == http.StatusOK {
+			t.Errorf("%s = %d, danger banners %q, want one state refusal", c.path, got.status, d)
+		}
+		wantOrderAlert(t, c.path, got, ".banner--danger")
+		if b := got.doc.Find("main .banner--warning"); b.Length() != 0 {
+			t.Errorf("%s: a warning banner beside the refusal: %q", c.path, squash(b.Text()))
+		}
+		if main := squash(got.doc.Find("main").Text()); strings.Contains(main, "Reload") {
+			t.Errorf("%s offers Reload: %q", c.path, main)
+		}
+	}
+}
+
+// F3: a stale Undo sent or Clear expected redraws the page it came from with
+// the ConflictBanner, rendered, not only recorded by the POST's tests.
+func TestPurchaseWeb_UndoAndClearStaleBanner(t *testing.T) {
+	env := purchasetest.New(t)
+	w := newP15eWeb(t, env)
+	po := purchasetest.NewOrder(t, env)
+	display := po.Number
+	sent, _ := types.ParseDate("24-10-2026")
+	on, _ := types.ParseDate("05-11-2026")
+	if err := env.Service.MarkSent(t.Context(), env.Priya, po.ID, 0, purchase.SentInput{SentOn: sent, SentVia: "email"}); err != nil {
+		t.Fatalf("MarkSent: %v", err)
+	}
+	if err := env.Service.SetExpected(t.Context(), env.Priya, po.ID, 0, on, ""); err != nil {
+		t.Fatalf("SetExpected: %v", err)
+	}
+	for _, c := range []struct{ post, page string }{
+		{"/send/undo", "/send"},
+		{"/expected/clear", "/expected"},
+	} {
+		got := w.post(t, env.Priya, orderPath(po.ID, c.post), url.Values{"version": {"99"}})
+		if got.status != http.StatusConflict || !hasBanner(got, "warning", strings.Replace(p15eStaleText, "%s", display, 1)) {
+			t.Errorf("%s = %d, banners %q; want 409 with the stale warning", c.post, got.status, banners(got))
+		}
+		if d := dangerBanners(got); len(d) != 0 {
+			t.Errorf("%s: danger banners %q, want none", c.post, d)
+		}
+		if href, _ := got.attr(".banner--warning a", "href"); href != orderPath(po.ID, c.page) || !slices.Contains(got.texts(".banner--warning a"), "Reload "+display) {
+			t.Errorf("%s: Reload = %q %q, want Reload %s -> %s", c.post, got.texts(".banner--warning a"), href, display, orderPath(po.ID, c.page))
+		}
+	}
+}
+
+// CD-381: on Create PO only a stale version is the ConflictBanner; a refused
+// 409 is a danger banner with no Reload.
+func TestPurchaseWeb_FromRequestRefused409(t *testing.T) {
+	w := newP15dWeb(t)
+	pr := w.prA(t)
+	h := &handlers{d: Deps{Service: w.env.Service}}
+	const problem = "Something else went wrong."
+	redraw := func(stale bool) p15ePage {
+		req := httptest.NewRequestWithContext(auth.WithPrincipal(context.Background(), w.env.Priya), http.MethodPost, p15dOrderPath(pr.ID), strings.NewReader(url.Values{"version": {"0"}}.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rc := chi.NewRouteContext()
+		rc.URLParams.Add("id", strconv.FormatInt(pr.ID, 10))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rc))
+		rec := httptest.NewRecorder()
+		h.fromRequestView(rec, req, http.StatusConflict, stale, []doctype.FieldError{{Message: problem}})
+		d, err := goquery.NewDocumentFromReader(bytes.NewReader(rec.Body.Bytes()))
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		return p15ePage{status: rec.Code, doc: d, text: squash(d.Text())}
+	}
+	got := redraw(false)
+	wantOneDanger(t, "refused 409", got, problem)
+	wantOrderAlert(t, "refused 409", got, ".banner--danger")
+	if main := squash(got.doc.Find("main").Text()); strings.Contains(main, "Your entries stay") || strings.Contains(main, "Reload") {
+		t.Errorf("refused 409 text %q, want no keep-your-entries line and no Reload", main)
+	}
+	got = redraw(true)
+	wantOrderAlert(t, "stale", got, ".banner--warning")
+	if d := dangerBanners(got); len(d) != 0 || !hasBanner(got, "warning", problem) {
+		t.Errorf("stale: danger banners %q, banners %q; want only the warning holding %q", d, banners(got), problem)
 	}
 }
 

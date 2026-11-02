@@ -1382,15 +1382,24 @@ func (e *rsEnv) do(t *testing.T, mode, user, method, path string, form url.Value
 	return rsResp{code: rec.Code, hdr: rec.Header(), body: rec.Body.String(), page: page}
 }
 
-// want fails the cell unless r has status code, and a 409 unless its banner
-// is the warning ConflictBanner (CD-362): a danger banner with no Reload link
-// is what the source gate in internal/ui can't see (F2).
+// want fails the cell unless r has status code, and a 409 unless it has no
+// danger banner and exactly one warning banner holding a Reload button, the
+// ConflictBanner (CD-362); a module's own warning notice may sit beside it. A
+// danger banner, or none, is what the source gate in internal/ui can't see
+// (F2, F3). The sweep's 409 cells are all stale posts; a refused or blocked
+// 409 stays danger (docscreen TestRefused409_StaysDanger).
 func (r rsResp) want(t *testing.T, what string, code int) rsResp {
 	t.Helper()
 	r = r.wantStatus(t, what, code)
 	if code == http.StatusConflict {
 		if n := r.danger(); n != 0 {
 			t.Errorf("%s: %d danger banners on a 409, want the ConflictBanner (CD-362)", what, n)
+		}
+		reload := outsideTemplates(r.page.Find(".banner--warning")).Find("a[href], button").FilterFunction(func(_ int, s *goquery.Selection) bool {
+			return strings.HasPrefix(strings.TrimSpace(s.Text()), "Reload")
+		})
+		if reload.Length() != 1 {
+			t.Errorf("%s: %d Reload buttons in warning banners on a 409, want the ConflictBanner's one (CD-362)", what, reload.Length())
 		}
 	}
 	return r
@@ -1409,9 +1418,31 @@ func noteMatchesLabels(t *testing.T, what string, r rsResp) {
 
 // danger counts r's danger banners, leaving out the shell's notice templates.
 func (r rsResp) danger() int {
-	return r.page.Find(".banner--danger").FilterFunction(func(_ int, b *goquery.Selection) bool {
+	return outsideTemplates(r.page.Find(".banner--danger")).Length()
+}
+
+// outsideTemplates leaves out the shell's notice templates.
+func outsideTemplates(banners *goquery.Selection) *goquery.Selection {
+	return banners.FilterFunction(func(_ int, b *goquery.Selection) bool {
 		return b.ParentsFiltered("template").Length() == 0
-	}).Length()
+	})
+}
+
+// wantRefused fails the cell unless r is a state refusal's 409: one danger
+// banner holding focus, no Reload and no keep-your-entries line (CD-381, F3).
+func (r rsResp) wantRefused(t *testing.T, what string) rsResp {
+	t.Helper()
+	r = r.wantStatus(t, what, http.StatusConflict)
+	if n := r.danger(); n != 1 {
+		t.Errorf("%s: %d danger banners on a state refusal, want one", what, n)
+	}
+	if f := r.page.Find("[autofocus]"); f.Length() != 1 || f.Find(".banner--danger").Length() != 1 {
+		t.Errorf("%s: %d autofocus, want the danger banner's only", what, f.Length())
+	}
+	if text := r.page.Find("main").Text(); strings.Contains(text, "Reload") || strings.Contains(text, "Your entries stay") {
+		t.Errorf("%s: a state refusal offers Reload or the keep-your-entries line: %q", what, strings.Join(strings.Fields(text), " "))
+	}
+	return r
 }
 
 // wantStatus fails the cell unless r has status code.
@@ -1419,17 +1450,6 @@ func (r rsResp) wantStatus(t *testing.T, what string, code int) rsResp {
 	t.Helper()
 	if r.code != code {
 		t.Fatalf("%s = %d, want %d; body %.600s", what, r.code, code, r.body)
-	}
-	return r
-}
-
-// wantRefused409 is a 409 on the document page or the reason page, which still
-// show a danger banner; each moves to want when it gets the ConflictBanner.
-func (r rsResp) wantRefused409(t *testing.T, what string) rsResp {
-	t.Helper()
-	r = r.wantStatus(t, what, http.StatusConflict)
-	if r.danger() == 0 {
-		t.Errorf("%s: no danger banner: use want, so the ConflictBanner gate covers it", what)
 	}
 	return r
 }
@@ -2484,7 +2504,7 @@ func (d *rsDoc) sweepActions(t *testing.T, id int64) {
 	}
 	d.cell(t, "submit 409", func(t *testing.T) {
 		d.both(t, "POST submit 409", "plain", false, func(t *testing.T, mode string) rsResp {
-			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {d.stale(t, id)}}, false).wantRefused409(t, "POST submit with a stale version")
+			return e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/submit", url.Values{"version": {d.stale(t, id)}}, false).want(t, "POST submit with a stale version", http.StatusConflict)
 		})
 	})
 	errs := d.submitErrors(t)
@@ -2601,6 +2621,27 @@ func (d *rsDoc) gap(t *testing.T, name string, err error) {
 	})
 }
 
+// sweepLinesPastDraft posts to the line routes of approved document ap, as a
+// page opened before it left draft does: each is DOC's state refusal, and
+// redraws with it, never a redirect that loses the entries (F3). sweepLines
+// has already checked the two skips.
+func (d *rsDoc) sweepLinesPastDraft(t *testing.T, ap int64) {
+	if d.dt.LinesTable == "" || d.mod.NoLinePages {
+		return
+	}
+	for _, c := range []struct{ name, path string }{
+		{"line refused", "1"},
+		{"new line refused", "new"},
+		{"remove refused", "1/remove"},
+		{"move refused", "1/move?dir=down"},
+	} {
+		d.cell(t, c.name, func(t *testing.T) {
+			form := url.Values{"version": {strconv.Itoa(d.version(t, ap))}}
+			d.e.do(t, "plain", rsAdmin, http.MethodPost, d.lineURL(ap, c.path), form, false).wantRefused(t, "POST "+c.path+" on an approved document")
+		})
+	}
+}
+
 // sweepApproved is the cells on approved and cancelled documents.
 func (d *rsDoc) sweepApproved(t *testing.T) {
 	e := d.e
@@ -2615,6 +2656,7 @@ func (d *rsDoc) sweepApproved(t *testing.T) {
 		d.gap(t, "approved", err)
 		return
 	}
+	d.sweepLinesPastDraft(t, ap)
 	d.cell(t, "page approved", func(t *testing.T) {
 		d.both(t, "GET the approved document", "plain", false, func(t *testing.T, mode string) rsResp {
 			return e.do(t, mode, rsAdmin, http.MethodGet, d.url(ap), nil, false).want(t, "GET the approved document", http.StatusOK)
@@ -2634,11 +2676,7 @@ func (d *rsDoc) sweepApproved(t *testing.T) {
 			}
 			maps.Copy(f, form)
 			r := e.do(t, mode, rsAdmin, http.MethodPost, d.url(id)+"/cancel", f, htmx)
-			if code == http.StatusConflict {
-				r.wantRefused409(t, "POST cancel")
-			} else {
-				r.want(t, "POST cancel", code)
-			}
+			r.want(t, "POST cancel", code)
 			if code != http.StatusOK {
 				if got := inputValue(r.page, "version"); got != f.Get("version") {
 					t.Errorf("POST cancel %d: version = %q, want the posted %q (CD-94)", code, got, f.Get("version"))

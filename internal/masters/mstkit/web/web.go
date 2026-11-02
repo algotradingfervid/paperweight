@@ -29,6 +29,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/csvio"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
@@ -920,7 +921,7 @@ func (h *handlers[R, In]) refused(w http.ResponseWriter, r *http.Request, p auth
 	if len(f.Errs) == 0 && f.Problem == "" {
 		f.Problem = he.Error()
 	}
-	f.Reload = he.Status() == http.StatusConflict
+	f.Reload = doc.IsStale(err)
 	return h.render(w, r, p, he.Status(), id, f)
 }
 
