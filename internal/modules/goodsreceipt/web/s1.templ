@@ -1,6 +1,9 @@
 package grnweb
 
-import "github.com/vardhan/internaltools/internal/ui/components"
+import (
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
+)
 
 // choosePOView is step 1 with the order still open to choose (UX doc §5.2):
 // the radios, the select or the combobox, or the empty text, then the link
@@ -44,23 +47,13 @@ templ fixedPOView(po []components.Pair, poID, deleteHref string, date components
 	}
 }
 
-// deliveryView is step 2 (UX doc §5.3): the inputs, then the More ones in
-// a MoreDetails, or without one when every shown input is More (CD-363),
-// then where the photo is taken.
-templ deliveryView(d deliveryForm) {
-	for _, in := range d.Inputs {
+// deliveryView is step 2 (UX doc §5.3): the shown inputs, with the More
+// ones in a MoreDetails after the others, or without one when every shown
+// input is More (docscreen.GroupMore, CD-363), then where the photo is
+// taken.
+templ deliveryView(ins []docscreen.MoreInput) {
+	for _, in := range docscreen.GroupMore(ins).Inputs() {
 		@in
-	}
-	if len(d.Inputs) == 0 {
-		for _, in := range d.More.inputs {
-			@in
-		}
-	} else if len(d.More.inputs) > 0 {
-		@components.MoreDetails(d.More.labels, d.More.open) {
-			for _, in := range d.More.inputs {
-				@in
-			}
-		}
 	}
 	<p>{ msgPhotoLater }</p>
 }
