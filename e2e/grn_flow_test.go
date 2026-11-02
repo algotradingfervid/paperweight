@@ -427,6 +427,7 @@ func TestE2E_BuyerCashClaim(t *testing.T) {
 	p.Until("the receipt's thumbnail", `!!document.querySelector('#receipt-files img')?.complete`)
 	pickRadio(p, "expense_type_id", "Site miscellaneous")
 	p.Fill("amount", "1,180")
+	openMoreDetails(p) // the line's choices sit in its More details (UI v2 E7)
 	openDisclosure(p, "Bill in company GSTIN")
 	pickRadio(p, "company_bill", "The bill shows our GSTIN")
 	pickRadio(p, "billed_to_id", "PUNE")
