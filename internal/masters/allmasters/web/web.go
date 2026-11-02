@@ -192,7 +192,8 @@ func (h *handlers) advance(w http.ResponseWriter, r *http.Request, p auth.Princi
 }
 
 func model(step int, dt *doctype.DocType) wizard.Model {
-	m := wizard.Model{Mode: wizard.Master, Title: "Import masters", BaseURL: base, Steps: steps, LastLabel: steps[stepImport].Label, Current: step, Furthest: step}
+	// The wizard has no single place it opens from, so its × goes home.
+	m := wizard.Model{Mode: wizard.Master, Title: "Import masters", BaseURL: base, Steps: steps, LastLabel: steps[stepImport].Label, Current: step, Furthest: step, Close: "/"}
 	if dt != nil {
 		m.DocLabel = dt.PluralLabel
 	}

@@ -133,11 +133,6 @@ func TestE2E_SaveCue(t *testing.T) {
 	if got := cueText(p); got != "Not saved yet" {
 		t.Errorf("new document cue = %q, want Not saved yet", got)
 	}
-	// No close × yet on docscreen wizards (C3b): the header stays, so the
-	// page is no dead end.
-	if got := Eval[string](p, `getComputedStyle(document.querySelector(".app-header")).display`); got == "none" {
-		t.Error("app header hidden at 390 on a focus page without a close ×, want shown")
-	}
 	orderDetails(p)
 	p.Press(saveContinue)
 	p.WaitText("Step 2 of 3")
@@ -171,9 +166,8 @@ func TestE2E_SaveCue(t *testing.T) {
 		t.Errorf("typed field after a saved event = %q, want f-remarks=Bay 3 still focused", got)
 	}
 
-	// With a close × in the wizard head the header hides below 64rem and
-	// shows from 64rem. Docscreen gets its × in C3b; one is added here.
-	p.Do("add a close ×", chromedp.Evaluate[chromedp.Void](`(() => { const a = document.createElement("a"); a.className = "wizard-close"; a.href = "/"; a.textContent = "Close"; document.querySelector(".wizard-head").prepend(a); })()`))
+	// With the close × in the wizard head the header hides below 64rem and
+	// shows from 64rem (TestE2E_WizardClose covers 390 too).
 	for _, c := range []struct {
 		width int64
 		want  bool
