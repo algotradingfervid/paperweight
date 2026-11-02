@@ -180,7 +180,7 @@ func TestFormSteps_FromFieldStep(t *testing.T) {
 		want := []step{
 			{"details", "Details", []string{"supplier_id", "order_date", "priority", "remarks"}, false},
 			{"items", "Items", nil, true},
-			{"check", "Check and submit", nil, false},
+			{"check", "Check", nil, false},
 		}
 		if s := got(t, docscreentest.Sample); !equal(s, want) {
 			t.Errorf("steps = %+v,\nwant %+v", s, want)
@@ -190,7 +190,7 @@ func TestFormSteps_FromFieldStep(t *testing.T) {
 		want := []step{
 			{"details", "Details", []string{"ref"}, false},
 			{"delivery", "Delivery", []string{"deliver_on", "deliver_to"}, false},
-			{"check", "Check and submit", nil, false},
+			{"check", "Check", nil, false},
 		}
 		if s := got(t, shipType); !equal(s, want) {
 			t.Errorf("steps = %+v,\nwant %+v", s, want)
@@ -199,8 +199,8 @@ func TestFormSteps_FromFieldStep(t *testing.T) {
 	t.Run("fewer than 3 adds notes", func(t *testing.T) {
 		want := []step{
 			{"details", "Details", []string{"claim_date", "total"}, false},
-			{"notes", "Other details", nil, false},
-			{"check", "Check and submit", nil, false},
+			{"notes", "Notes", nil, false},
+			{"check", "Check", nil, false},
 		}
 		if s := got(t, claimType); !equal(s, want) {
 			t.Errorf("steps = %+v,\nwant %+v", s, want)

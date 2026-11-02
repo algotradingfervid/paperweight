@@ -120,7 +120,7 @@ func (w *s1World) s3Role(name string, rights ...auth.Right) auth.Principal {
 }
 
 // GRN-013 (GRN spec §4, §11; CD-234, CD-238): with 1,200 KGS pending on
-// line 1, receiving 1,250 warns on the Received quantities step, the check
+// line 1, receiving 1,250 warns on the Quantities step, the check
 // page and, after submit, the document page, and submit goes on. Receiving
 // 1,250 with 50 rejected warns on none of the three. A cancelled receipt
 // no longer counts, so its page doesn't warn (UX doc §5.6).

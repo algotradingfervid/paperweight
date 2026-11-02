@@ -110,7 +110,7 @@ func m26Num(q string) string {
 
 // HOOK-046: on an Items step whose Body has its own submit (Receive all
 // pending), Enter in a Body input presses the primary: the step saves the
-// typed quantity and moves to Check and submit, or with a nav=stay primary
+// typed quantity and moves to Check, or with a nav=stay primary
 // redraws Items; Receive all pending's effect is absent. The form's first
 // submit is the Enter copy, laid out 0×0 but not display:none, and the page
 // has no small target, no overflow and no CSP problem, at a phone and a
@@ -190,7 +190,7 @@ func TestModuleBrowser_EnterPressesPrimary(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				want := "Check and submit"
+				want := "Check"
 				if c.stay {
 					want = "Items"
 				}

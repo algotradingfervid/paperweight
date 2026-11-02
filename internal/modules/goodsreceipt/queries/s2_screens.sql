@@ -1,4 +1,4 @@
--- S2: what the Received quantities step shows (UX doc 5.4).
+-- S2: what the Quantities step shows (UX doc 5.4).
 
 -- name: S2POLines :many
 -- Every line of GRN grn_id's PO, in PO line order, with its PO, its item

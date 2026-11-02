@@ -381,7 +381,7 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		}
 	}
 	out = append(out, h.grnScreens(s.grn)...)
-	// MOD-EXP S1: an Administrator's Claim details adds the employee code.
+	// MOD-EXP S1: an Administrator's claim Details step adds the employee code.
 	out = append(out, screens.Screen{
 		Name: expense.ClaimDocType + " details admin", Route: "/doc/{doctype}/{id}/edit/{step}",
 		URL: "/doc/" + expense.ClaimDocType + "/" + strconv.FormatInt(s.exp[expense.ClaimDocType].Draft, 10) + "/edit/details", As: admin,
@@ -602,7 +602,7 @@ func walkWizard(steps []wizardStep) func(context.Context) error {
 	}
 }
 
-// importCSV has one good row and one a master refuses, so Check results shows
+// importCSV has one good row and one a master refuses, so Check shows
 // both. importReady has only a good row, and a column no master has, so Import
 // shows its warning.
 const (

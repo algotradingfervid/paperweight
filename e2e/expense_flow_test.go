@@ -135,7 +135,7 @@ func TestE2E_ExpenseFlow(t *testing.T) {
 	noOverflow(d, "the Expense Claims list")
 	d.Press("New expense claim")
 	onStep(d, "Step 1 of 3")
-	noOverflow(d, "Claim details")
+	noOverflow(d, "Details")
 	d.Fill("purpose", "Pune Metro site visit")
 	d.Press(saveContinue)
 	onStep(d, "Step 2 of 3")
@@ -175,7 +175,7 @@ func TestE2E_ExpenseFlow(t *testing.T) {
 	d.Press(saveContinue)
 	onStep(d, "Step 3 of 3")
 	d.WaitText("This expense claim needs approval from Priya Shah.")
-	noOverflow(d, "Check and submit")
+	noOverflow(d, "Check")
 	d.Press(sendApproval)
 	d.WaitText("Pending approval")
 	noOverflow(d, "the pending claim")
@@ -259,7 +259,7 @@ func newAdvance(s *Session, amount string) int64 {
 	s.Until("back on Items", `location.pathname.endsWith("/edit/items")`)
 	s.Press(saveContinue)
 	onStep(s, "Step 3 of 3")
-	noOverflow(s, "advance Check and submit")
+	noOverflow(s, "advance Check")
 	s.Press(sendApproval)
 	s.WaitText("Pending approval")
 	return id
@@ -308,7 +308,7 @@ func newClaim(s *Session, adv, less string) int64 {
 			s.Fill("less_advance", less)
 		}
 	}
-	noOverflow(s, "Claim details")
+	noOverflow(s, "Details")
 	s.Press(saveContinue)
 	onStep(s, "Step 2 of 3")
 	return s.DocID()
@@ -336,7 +336,7 @@ func addExpense(s *Session, typ, amount, photo, reason string) {
 	s.Until("back on Expenses", `location.pathname.endsWith("/edit/items")`)
 }
 
-// submitClaim goes on from the Expenses step to Check and submit, checks
+// submitClaim goes on from the Expenses step to Check, checks
 // want there and submits.
 func submitClaim(s *Session, want ...string) {
 	s.t.Helper()
@@ -345,7 +345,7 @@ func submitClaim(s *Session, want ...string) {
 	for _, w := range want {
 		s.WaitText(w)
 	}
-	noOverflow(s, "Check and submit")
+	noOverflow(s, "Check")
 	s.Press(sendApproval)
 	s.WaitText("Pending approval")
 }

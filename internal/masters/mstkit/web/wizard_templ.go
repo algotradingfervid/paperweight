@@ -123,7 +123,7 @@ func wizardFrame(v wizardView) templ.Component {
 	})
 }
 
-// wizardCheck is Check and save's summary, one section per step with Change
+// wizardCheck is Check's summary, one section per step with Change
 // and its step's icon tile (UI v2 §5.6).
 func wizardCheck(cards []sectionCard) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

@@ -105,7 +105,7 @@ func toWizardCheck(t *testing.T, b *webtest.Browser) {
 	webtest.WantRedirect(t, b.Post(t, base+"/new/more", url.Values{}), wizardCheck)
 }
 
-// A refusal no step owns stays on Check and save, its summary pointing at the
+// A refusal no step owns stays on Check, its summary pointing at the
 // heading, since there is no input to link to.
 func TestWizard_RefusalNoStepOwns(t *testing.T) {
 	for name, err := range map[string]error{
@@ -119,7 +119,9 @@ func TestWizard_RefusalNoStepOwns(t *testing.T) {
 			r := b.Post(t, wizardCheck, url.Values{})
 			webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
 			webtest.WantText(t, r, "Nothing can be saved today.")
-			webtest.WantText(t, r, "Check and save")
+			if got := strings.TrimSpace(r.Doc.Find("h2#step-title").Text()); got != "Check" {
+				t.Errorf("heading = %q, want Check", got)
+			}
 			if href, _ := r.Doc.Find(`a[href="#step-title"]`).Attr("href"); href == "" {
 				t.Errorf("the summary doesn't link to the heading\nbody: %s", webtest.Squash(r.Body))
 			}
@@ -160,7 +162,7 @@ func TestWizard_SaveWarningsAreFlashed(t *testing.T) {
 	webtest.WantBanner(t, page, "Stub saved.")
 }
 
-// Check and save shows a Select's label, not its stored value.
+// Check shows a Select's label, not its stored value.
 func TestWizard_CheckShowsOptionLabels(t *testing.T) {
 	h := wizardHarness(t, nil, func(s *screen) {
 		s.OptionLabels = map[string]map[string]string{"item_type": {"Goods": "Physical goods"}}

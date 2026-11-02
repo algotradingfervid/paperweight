@@ -202,8 +202,8 @@ func value(t *testing.T, r webtest.Response, name, want string) {
 	}
 }
 
-// CD-50: values stay in the session and nothing is written until Check and
-// save, which makes one row and one audit entry.
+// CD-50: values stay in the session and nothing is written until Check's
+// Save, which makes one row and one audit entry.
 func TestScreens_EmployeeWizardKeepsDraft(t *testing.T) {
 	w := newWorld(t)
 	rows, audits := w.employees(t), w.allAudits(t)
@@ -232,12 +232,14 @@ func TestScreens_EmployeeWizardKeepsDraft(t *testing.T) {
 	value(t, first, "birth_date", "15-08-1990")
 
 	if w.employees(t) != rows || w.allAudits(t) != audits {
-		t.Fatalf("rows or audit entries changed before Check and save")
+		t.Fatalf("rows or audit entries changed before Check")
 	}
 
 	check := b.Get(t, stepCheck)
 	webtest.WantStatus(t, check, http.StatusOK)
-	webtest.WantText(t, check, "Check and save")
+	if got := strings.TrimSpace(check.Doc.Find("h2#step-title").Text()); got != "Check" {
+		t.Errorf("heading = %q, want Check", got)
+	}
 	webtest.WantText(t, check, "EMP-101")
 	webtest.WantText(t, check, "01-04-2024")
 	webtest.WantText(t, check, "PUNE")
@@ -340,7 +342,7 @@ func TestScreens_EmployeeWizardFirstPage(t *testing.T) {
 }
 
 // A step reports only its own parse errors on Next, and composite and required
-// rules wait for Check and save.
+// rules wait for Check.
 func TestScreens_EmployeeWizardStepErrors(t *testing.T) {
 	w := newWorld(t)
 	b := w.h.Browser(w.h.Env.Kavya)
@@ -364,7 +366,7 @@ func TestScreens_EmployeeWizardStepErrors(t *testing.T) {
 	// The stepper away and back: what was typed stays.
 	value(t, b.Get(t, stepOne), "joining_date", "not a date")
 
-	// Step 1 passes without a name: required waits for Check and save. Step 2's
+	// Step 1 passes without a name: required waits for Check. Step 2's
 	// Next then doesn't hear step 1's date, typed bad again after it passed.
 	webtest.WantRedirect(t, b.Post(t, stepOne, url.Values{"code": {"EMP-105"}, "joining_date": {"01-04-2024"}, "status": {"Active"}}), stepTwo)
 	d.Set("name", "")
@@ -388,7 +390,7 @@ func TestScreens_EmployeeWizardStepErrors(t *testing.T) {
 }
 
 // Back on the first step stays there; Back isn't offered on it, and is on the
-// next. A return asked for before Check and save is reached goes on in order.
+// next. A return asked for before Check is reached goes on in order.
 func TestScreens_EmployeeWizardBackAndReturn(t *testing.T) {
 	w := newWorld(t)
 	b := w.h.Browser(w.h.Env.Kavya)
@@ -407,7 +409,7 @@ func TestScreens_EmployeeWizardBackAndReturn(t *testing.T) {
 	}
 }
 
-// UI v2 C4c: each step's Check and save card has its own tile.
+// UI v2 C4c: each step's Check card has its own tile.
 func TestScreens_EmployeeWizardCheckTiles(t *testing.T) {
 	w := newWorld(t)
 	b := w.h.Browser(w.h.Env.Kavya)
@@ -417,7 +419,7 @@ func TestScreens_EmployeeWizardCheckTiles(t *testing.T) {
 		uitest.CheckTile{Title: "Reporting", Icon: "users"})
 }
 
-// Check and save: its button says Save, dates read dd-mm-yyyy however they were
+// Check: its button says Save, dates read dd-mm-yyyy however they were
 // typed, one that doesn't parse shows as typed, and blanks leave no row.
 func TestScreens_EmployeeWizardCheckPage(t *testing.T) {
 	w := newWorld(t)
@@ -480,7 +482,7 @@ func TestScreens_EmployeeWizardStartOver(t *testing.T) {
 		t.Errorf("button = %q", got)
 	}
 	// It comes after the action bar and outside the step form, so Enter can't
-	// press it, on a step and on Check and save.
+	// press it, on a step and on Check.
 	for _, page := range []webtest.Response{b.Get(t, stepTwo), b.Get(t, stepCheck)} {
 		if page.Doc.Find(`#wizard-form form, #wizard-form [formaction]`).Length() != 0 || strings.Contains(page.Doc.Find("#wizard-form").Text(), "Start over") {
 			t.Errorf("Start over is inside the step form")
@@ -606,7 +608,7 @@ func TestScreens_UserIsAnEmailBox(t *testing.T) {
 	}
 }
 
-// A refusal at Check and save returns 422 on the step that owns the field,
+// A refusal at Check returns 422 on the step that owns the field,
 // writes nothing and keeps the session (MST-116 on reporting, MST-110 on
 // details; MST-113 can't occur on create, CD-218).
 func TestScreens_EmployeeWizardRefusalOnItsStep(t *testing.T) {

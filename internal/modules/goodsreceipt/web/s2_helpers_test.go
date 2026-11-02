@@ -18,7 +18,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase/purchasetest"
 )
 
-// MOD-GRN S2 helpers: step 3 Received quantities (UX doc §5.4) driven over
+// MOD-GRN S2 helpers: step 3 Quantities (UX doc §5.4) driven over
 // HTTP on s1World (real engine, real auth.Service), as Suresh unless a
 // case says otherwise (CD-213). Inputs are found the way a screen reader
 // finds them, by their accessible names (UX §5.4 "Accessible name"), so the

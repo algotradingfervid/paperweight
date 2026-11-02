@@ -15,7 +15,7 @@ import (
 
 // claimStepLabels are the claim's step labels (spec §12).
 func claimStepLabels(_ Deps) map[string]string {
-	return map[string]string{"details": "Claim details", "items": "Expenses"}
+	return map[string]string{"items": "Expenses"}
 }
 
 // claimSteps are the claim's custom steps: Claim details (UX §5.3).

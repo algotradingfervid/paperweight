@@ -24,7 +24,7 @@ import (
 )
 
 // MOD-EXP S1 · Claim wizard (UX §5.3, §5.4, §5.6) on the real app: Claim
-// details, Expenses and Check and submit, through the signed-in pages.
+// details, Expenses and Check, through the signed-in pages.
 
 const (
 	s1Claims   = "/doc/" + expense.ClaimDocType
@@ -218,7 +218,10 @@ func TestS1_ClaimDetailsAdvances(t *testing.T) {
 	dk := s.signedIn(deepakEmail)
 
 	r := s1Page(t, dk, s1Claims+"/new")
-	s1Has(t, "new claim", r.pageText(), "Claim details", "Expenses", "Set against an advance", s1PaidOnly)
+	if got := strings.TrimSpace(r.doc.Find("h2#step-title").Text()); got != "Details" {
+		t.Errorf("new claim heading = %q, want Details", got)
+	}
+	s1Has(t, "new claim", r.pageText(), "Expenses", "Set against an advance", s1PaidOnly)
 	got := s1Options(r)
 	want := []string{"*No advance", "EA/26-27/00001 · ₹4,000.00 left Pune Metro site visit · 24-10-2026 · advance ₹4,000.00"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
@@ -258,7 +261,7 @@ func TestS1_ClaimDetailsAdvances(t *testing.T) {
 		t.Errorf("Less advance input = %q (present %v), want blank", v, ok)
 	}
 
-	// A crafted unpaid advance: submit returns to Claim details with the
+	// A crafted unpaid advance: submit returns to Details with the
 	// message at Advance and the disclosure open; the radio has no left figure.
 	u := s.claim(deepak, map[string]string{"advance_id": strconv.FormatInt(unpaid, 10)}, nil)
 	r = dk.post(s1URL(u.ID, "/submit"), url.Values{"version": {strconv.Itoa(u.Version)}})
@@ -570,10 +573,10 @@ func TestS1_ExpensesCards(t *testing.T) {
 	}
 }
 
-// Check and submit (EUX-009, EUX-038): Total, Less advance with the advance
+// Check (EUX-009, EUX-038): Total, Less advance with the advance
 // and To pay after the grand figure; the preview; ClaimWarnings, a hidden
 // claim never named (EUX-010, EUX-048); a typed Less advance over the total
-// returns to Claim details; the approver lines (CD-266, EUX-013).
+// returns to Details; the approver lines (CD-266, EUX-013).
 func TestS1_CheckTotalsAndWarnings(t *testing.T) {
 	s := s1New(t)
 	deepak, suresh := s.principal(deepakID), s.principal(sureshID)

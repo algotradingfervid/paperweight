@@ -9,7 +9,7 @@ import (
 )
 
 // TestScreens_PartyWizardIntros (UI v2 §5.6): each party step has its intro
-// under the stepper, from its FormStep; Check and save has none.
+// under the stepper, from its FormStep; Check has none.
 func TestScreens_PartyWizardIntros(t *testing.T) {
 	w := newWorld(t)
 	b := w.kavya()
@@ -30,6 +30,6 @@ func TestScreens_PartyWizardIntros(t *testing.T) {
 	}
 	check := b.PostHTMX(t, stepContacts, rows(sunilRow))
 	if n := check.Doc.Find(".step-intro").Length(); n != 0 {
-		t.Errorf("Check and save has %d intros, want none", n)
+		t.Errorf("Check has %d intros, want none", n)
 	}
 }

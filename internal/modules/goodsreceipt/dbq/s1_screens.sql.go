@@ -25,7 +25,7 @@ type S1ReceiptRow struct {
 	HasGoods   bool
 }
 
-// S1: what the Choose purchase order and Delivery details steps show
+// S1: what the Order and Delivery steps show
 // (UX doc 5.2, 5.3).
 // The GRN's own snapshot of its PO (CD-217, CD-228) and whether any stored
 // line is goods (G2's has_goods).

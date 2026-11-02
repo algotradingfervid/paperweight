@@ -8,7 +8,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
-// UI v2 C4c: a wizard step's Icon is its Check and save tile; a step without
+// UI v2 C4c: a wizard step's Icon is its Check tile; a step without
 // one keeps file-text.
 func TestWizard_StepIcon(t *testing.T) {
 	h := wizardHarness(t, nil, func(s *screen) { s.Wizard.(mstweb.CreateWizard[stubDraft]).Steps[1].Icon = "truck" })

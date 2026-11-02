@@ -283,7 +283,7 @@ func (a *App) setupRespond(w http.ResponseWriter, r *http.Request, o wizard.Outc
 func (a *App) setupView(r *http.Request, i, furthest int, vals map[string]string, errs []doctype.FieldError) companyView {
 	last := len(setupSteps) - 1
 	m := wizard.Model{
-		Mode: wizard.Master, Title: "Set up your company", BaseURL: companyPath, LastLabel: "Check",
+		Mode: wizard.Master, Title: "Set up your company", BaseURL: companyPath,
 		Steps: setupSteps, Current: i, Furthest: furthest,
 		Close: inboxPath, // where home sends an administrator once setup is done
 	}

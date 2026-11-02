@@ -159,7 +159,7 @@ func TestCD233_SectionKeepsAStoredLabel(t *testing.T) {
 	webtest.WantText(t, page, "MINE-1 Own Branch")
 }
 
-// TestCD233_WizardHidesTheLabel: every step redraw and Check and save.
+// TestCD233_WizardHidesTheLabel: every step redraw and Check.
 func TestCD233_WizardHidesTheLabel(t *testing.T) {
 	const (
 		details   = "/m/employee/new/details"

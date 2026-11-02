@@ -71,7 +71,7 @@ func TestPages_DeleteConfirmCancel(t *testing.T) {
 }
 
 // No case ID: a row step owns only errors that name a row. A Line 0 error on a
-// field a row step shares has no row to sit on, so it stays on Check and save.
+// field a row step shares has no row to sit on, so it stays on Check.
 // The Party wizard's field names don't overlap, so this needs the kit's stub.
 func TestWizard_RowStepOwnsOnlyRowErrors(t *testing.T) {
 	const rowStep = base + "/new/more"

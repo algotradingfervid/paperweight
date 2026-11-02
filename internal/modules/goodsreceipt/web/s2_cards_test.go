@@ -13,7 +13,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
-// MOD-GRN S2, step 3 Received quantities: the cards (UX doc §5.4 Cards;
+// MOD-GRN S2, step 3 Quantities: the cards (UX doc §5.4 Cards;
 // GRN spec §11; CD-282 Q3, Q4; CD-286 R1, R4). Suresh on the real
 // auth.Service (CD-213).
 
@@ -36,8 +36,8 @@ func TestGRNWeb_ItemsCards(t *testing.T) {
 	id := w.draft(po)
 	r := w.s2Items(id)
 
-	if got := s2Norm(r.doc.Find("h2#step-title").Text()); got != "Received quantities" {
-		t.Errorf("h1 = %q, want Received quantities", got)
+	if got := s2Norm(r.doc.Find("h2#step-title").Text()); got != "Quantities" {
+		t.Errorf("h1 = %q, want Quantities", got)
 	}
 	if got, want := r.s2Titles(), []string{"1 · " + s2Angle, "2 · " + s2Wire}; !slices.Equal(got, want) {
 		t.Fatalf("card titles = %q, want %q", got, want)
@@ -170,7 +170,7 @@ func TestGRNWeb_ItemsFullyReceived(t *testing.T) {
 	s2WantUniqueIDs(t, r, "step 3 with fully received lines")
 
 	if res := w.s2Save(id, r, s2Set{"received", 2, "5"}); res.status != http.StatusSeeOther || !strings.HasSuffix(res.location, "/edit/check") {
-		t.Fatalf("save 5 on fully received line 2 = %d %q %q, want 303 to Check and submit (a warning never refuses)", res.status, res.location, res.errorSummary())
+		t.Fatalf("save 5 on fully received line 2 = %d %q %q, want 303 to Check (a warning never refuses)", res.status, res.location, res.errorSummary())
 	}
 	ids := w.s2LineIDs(id, po)
 	if _, ok := ids[2]; !ok || len(ids) != 3 {
