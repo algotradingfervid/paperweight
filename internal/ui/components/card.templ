@@ -4,12 +4,15 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 
 // CardProps is a section card (UI v2 §5.5 item 1). Icon names the glyph in
 // the tile beside the heading and Description is the one line under it;
-// Change, when set, is its "Change" action. FocusHeading gives the heading
-// tabindex="-1" and data-focus-heading, which app.js focuses after the htmx
-// swap that brings the card (CD-358).
+// Change, when set, is its "Change" action, a plain link; Action, used when
+// Change is nil, is a ghost button in the same place (UI v2 §5.6 check
+// cards). FocusHeading gives the heading tabindex="-1" and
+// data-focus-heading, which app.js focuses after the htmx swap that brings
+// the card (CD-358).
 type CardProps struct {
 	Title, Icon, Description string
 	Change                   *Link
+	Action                   *ButtonProps
 	FocusHeading             bool
 }
 
@@ -24,7 +27,7 @@ templ Card(title string, change *Link) {
 templ CardWith(p CardProps) {
 	<section class="card card-border">
 		<div class="card-body">
-			if p.Title != "" || p.Change != nil {
+			if p.Title != "" || p.Change != nil || p.Action != nil {
 				<div class="card-head">
 					if p.Icon != "" || p.Description != "" {
 						<div class="card-lead">
@@ -50,6 +53,8 @@ templ CardWith(p CardProps) {
 								<span class="visually-hidden">{ p.Title }</span>
 							}
 						</a>
+					} else if p.Action != nil {
+						@Button(ghost(*p.Action))
 					}
 				</div>
 			}
@@ -66,4 +71,10 @@ templ cardTitle(p CardProps) {
 			<h2 class="card-title">{ p.Title }</h2>
 		}
 	}
+}
+
+// ghost is b as a ghost button.
+func ghost(b ButtonProps) ButtonProps {
+	b.Variant = Ghost
+	return b
 }

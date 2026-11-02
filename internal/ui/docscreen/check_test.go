@@ -16,6 +16,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 	"github.com/vardhan/internaltools/internal/ui/screens"
 	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
@@ -69,9 +70,9 @@ func TestCheckPage_SectionsStatusAndPreview(t *testing.T) {
 			if got := norm(page.Find("h2#step-title").Text()); got != "Check and submit" {
 				t.Errorf("heading = %q", got)
 			}
-			for _, s := range []struct{ title, slug, status, not string }{
-				{"Details", "details", "Complete", "Needs attention"},
-				{"Items", "items", "Needs attention", "Complete"},
+			for _, s := range []struct{ title, slug, status, not, icon string }{
+				{"Details", "details", "Complete", "Needs attention", "file-text"},
+				{"Items", "items", "Needs attention", "Complete", "list-checks"},
 			} {
 				sec := checkSection(page.Selection, s.title)
 				if sec.Length() != 1 {
@@ -82,7 +83,16 @@ func TestCheckPage_SectionsStatusAndPreview(t *testing.T) {
 				if status != s.status {
 					t.Errorf("%s status = %q, want %q", s.title, status, s.status)
 				}
-				change := sec.Find(".card-head a")
+				// UI v2 C4b: the icon tile (list-checks on the lines step)
+				// and the Change ghost button.
+				tile, _ := sec.Find(".card-head .card-icon svg").Html()
+				if want, _ := uitest.Render(t, icons.Icon(s.icon)).Find("svg").Html(); tile != want {
+					t.Errorf("%s tile = %q, want the %s icon", s.title, tile, s.icon)
+				}
+				change := sec.Find(".card-head > a")
+				if !change.HasClass("btn-ghost") {
+					t.Errorf("%s Change classes = %q, want a ghost button", s.title, change.AttrOr("class", ""))
+				}
 				href, _ := change.Attr("href")
 				if u, err := url.Parse(href); err != nil || u.Path != doc42+"/edit/"+s.slug || u.Query().Get("return") != "check" {
 					t.Errorf("%s Change link = %q, want %s/edit/%s?return=check", s.title, href, doc42, s.slug)

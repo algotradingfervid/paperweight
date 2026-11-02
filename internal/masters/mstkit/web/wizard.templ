@@ -30,10 +30,11 @@ templ wizardFrame(v wizardView) {
 	}
 }
 
-// wizardCheck is Check and save's summary, one section per step with Change.
+// wizardCheck is Check and save's summary, one section per step with Change;
+// every section's icon tile is file-text (UI v2 §5.6).
 templ wizardCheck(cards []sectionCard) {
 	for _, c := range cards {
-		@wizard.CheckSection(c.Title, "", c.Change.Href) {
+		@wizard.CheckSection(c.Title, "file-text", "", c.Change.Href) {
 			@components.SummaryList(c.Pairs)
 			for _, row := range c.Rows {
 				@components.SummaryList(row)

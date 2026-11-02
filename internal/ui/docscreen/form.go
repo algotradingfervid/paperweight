@@ -872,11 +872,11 @@ type checkView struct {
 
 // checkSection is one step's summary card.
 type checkSection struct {
-	Title, ChangeURL string
-	Status           wizard.StepStatus
-	Problems         []string // what submit will refuse on this step (CD-178)
-	Pairs            []components.Pair
-	Lines            *components.LineListProps
+	Title, Icon, ChangeURL string
+	Status                 wizard.StepStatus
+	Problems               []string // what submit will refuse on this step (CD-178)
+	Pairs                  []components.Pair
+	Lines                  *components.LineListProps
 }
 
 // checkStep fills the check page (design-system §8.3): a section per step
@@ -889,7 +889,8 @@ type checkSection struct {
 // (CD-256 (1)), nor, as the figure field, the grand total (CD-319 (8)); one
 // the module's totals cover (CheckExtra.Covers) isn't summarised either
 // (CD-326 (4)). The module's Check additions come last; its error is
-// returned (hooks spec §4.4).
+// returned (hooks spec §4.4). A section's icon tile is file-text, or
+// list-checks for the lines step (UI v2 §5.6).
 func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error {
 	r, dt := c.Req, c.DT
 	rights := Rights(r.Context(), d.Auth, d.principal(r), dt.Name, &v.Record)
@@ -917,7 +918,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 	}
 	problems = slices.Concat(problems, v.DraftProblems)
 	for i, s := range steps[:len(steps)-1] {
-		sec := checkSection{Title: s.Label, ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
+		sec := checkSection{Title: s.Label, Icon: "file-text", ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
 		for _, p := range problems {
 			if f, ok := dt.Field(p.Field); ok && hidden(c, f) {
 				continue
@@ -930,7 +931,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			}
 		}
 		if s.Lines {
-			sec.Lines = d.lineList(r, dt, v)
+			sec.Icon, sec.Lines = "list-checks", d.lineList(r, dt, v)
 		}
 		for _, name := range s.Fields {
 			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) && !slices.Contains(extra.Covers, name) {

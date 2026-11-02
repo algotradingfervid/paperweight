@@ -75,8 +75,8 @@ type companyView struct {
 
 // setupCard is one input step's summary on Check.
 type setupCard struct {
-	Title, Change string
-	Pairs         []components.Pair
+	Title, Icon, Change string
+	Pairs               []components.Pair
 }
 
 func (v companyView) field(name, label, hint string, required bool) components.FieldProps {
@@ -338,13 +338,13 @@ func setupCards(vals map[string]string) []setupCard {
 		name = headOffice
 	}
 	return []setupCard{
-		{Title: "Company", Change: setupURL(0) + "?return=" + setupCheckSlug, Pairs: []components.Pair{
+		{Title: "Company", Icon: "building-2", Change: setupURL(0) + "?return=" + setupCheckSlug, Pairs: []components.Pair{
 			{Label: "Legal name", Value: in.LegalName},
 			{Label: "GSTIN", Value: g, Code: true},
 			{Label: "State", Value: state},
 			{Label: "PAN", Value: pan, Code: true},
 		}},
-		{Title: "Head office", Change: setupURL(1) + "?return=" + setupCheckSlug, Pairs: []components.Pair{
+		{Title: "Head office", Icon: "map-pin", Change: setupURL(1) + "?return=" + setupCheckSlug, Pairs: []components.Pair{
 			{Label: "Head office code", Value: in.BranchCode, Code: true},
 			{Label: "Head office name", Value: name},
 			{Label: "Address", Value: vals["address_line1"]},
