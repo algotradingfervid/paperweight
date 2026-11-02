@@ -26,6 +26,7 @@ import (
 // /pick/Employee. The wizard's values wait in sm's session.
 func Routes(svc *employee.Service, env mstkit.Env, sm *scs.SessionManager) func(chi.Router) {
 	steps := mstweb.Steps(employee.DocType)
+	steps[0].Icon, steps[1].Icon = "id-card", "users" // details, reporting (UI v2 C4c)
 	return mstweb.Screen[employee.Employee, employee.Input]{
 		DocType: employee.DocType,
 		Base:    "/m/employee",

@@ -32,6 +32,7 @@ func Modules(d Deps) map[string]docscreen.Module {
 				"items":   "Add what you're buying, with the quantity and rate for each line.",
 				"check":   "Check the order, then submit it for approval.",
 			},
+			StepIcons: map[string]string{"details": "handshake", "terms": "calendar-clock"}, // UI v2 C4c
 			Steps: map[string]docscreen.Step{
 				"terms": m.orderTermsStep(), // P15a
 				"items": m.orderItemsStep(), // P15c
@@ -55,6 +56,8 @@ func Modules(d Deps) map[string]docscreen.Module {
 			Check:     m.requestCheck,    // P15d
 			LineCard:  m.requestLineCard, // P15d
 			Home:      purchaseHome,      // UI v2 E5b
+
+			StepIcons: map[string]string{"details": "clipboard-list"}, // UI v2 C4c
 		},
 	}
 }

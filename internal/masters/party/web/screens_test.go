@@ -12,6 +12,7 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/allmasters/webtest"
 	"github.com/vardhan/internaltools/internal/masters/party"
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
 // No case ID: what the implementer added beyond the committed tests' contract.
@@ -72,6 +73,17 @@ func TestScreens_PartyWizardCheckWords(t *testing.T) {
 	webtest.WantText(t, check, "BillingYes")
 	webtest.WantText(t, check, "Maharashtra (27)")
 	webtest.WantText(t, check, "PrimaryYes")
+}
+
+// UI v2 C4c: each step's Check and save card has its own tile.
+func TestScreens_PartyWizardCheckTiles(t *testing.T) {
+	w := newWorld(t)
+	b := w.kavya()
+	toCheck(t, b, details("MEHTA"), rows(mumbaiRow), rows(sunilRow))
+	uitest.WantCheckTiles(t, b.Get(t, stepCheck).Doc,
+		uitest.CheckTile{Title: "Party details", Icon: "handshake"},
+		uitest.CheckTile{Title: "Addresses", Icon: "map-pin"},
+		uitest.CheckTile{Title: "Contacts", Icon: "contact"})
 }
 
 // What counts as typed: spaces and the default don't, a tick does.

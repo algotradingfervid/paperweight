@@ -25,13 +25,27 @@ import (
 )
 
 // FormStep is one step of a DocType's wizard: its header fields, or the
-// line pages when Lines is set (design-system §8.3), and its Intro, the line
-// under the stepper (UI v2 §5.6).
+// line pages when Lines is set (design-system §8.3), its Intro, the line
+// under the stepper, and Icon, its check card's tile, blank for the default
+// (UI v2 §5.6).
 type FormStep struct {
 	Slug, Label string
 	Fields      []string
 	Lines       bool
 	Intro       string
+	Icon        string
+}
+
+// TileIcon is the step's check card tile: Icon, else list-checks for the
+// lines step and file-text for any other (UI v2 §5.6).
+func (s FormStep) TileIcon() string {
+	switch {
+	case s.Icon != "":
+		return s.Icon
+	case s.Lines:
+		return "list-checks"
+	}
+	return "file-text"
 }
 
 // Fixed step slugs.
@@ -894,8 +908,8 @@ type checkSection struct {
 // (CD-256 (1)), nor, as the figure field, the grand total (CD-319 (8)); one
 // the module's totals cover (CheckExtra.Covers) isn't summarised either
 // (CD-326 (4)). The module's Check additions come last; its error is
-// returned (hooks spec §4.4). A section's icon tile is file-text, or
-// list-checks for the lines step (UI v2 §5.6).
+// returned (hooks spec §4.4). A section's icon tile is its step's TileIcon
+// (UI v2 §5.6).
 func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error {
 	r, dt := c.Req, c.DT
 	rights := Rights(r.Context(), d.Auth, d.principal(r), dt.Name, &v.Record)
@@ -923,7 +937,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 	}
 	problems = slices.Concat(problems, v.DraftProblems)
 	for i, s := range steps[:len(steps)-1] {
-		sec := checkSection{Title: s.Label, Icon: "file-text", ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
+		sec := checkSection{Title: s.Label, Icon: s.TileIcon(), ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
 		for _, p := range problems {
 			if f, ok := dt.Field(p.Field); ok && hidden(c, f) {
 				continue
@@ -936,7 +950,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			}
 		}
 		if s.Lines {
-			sec.Icon, sec.Lines = "list-checks", d.lineList(r, dt, v)
+			sec.Lines = d.lineList(r, dt, v)
 		}
 		for _, name := range s.Fields {
 			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) && !slices.Contains(extra.Covers, name) {
