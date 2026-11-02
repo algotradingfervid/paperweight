@@ -7,6 +7,7 @@
 -- case-insensitive substring of the PO number, vendor code, vendor name or
 -- GSTIN (blank q matches all), ordered by vendor name, then PO number.
 SELECT o.id, COALESCE(o.number, '') AS number, o.snap_vendor_name, COALESCE(s.name, '') AS site_name,
+       COALESCE(o.order_date, '') AS order_date,
        COALESCE(l.qty, 0) AS qty, COALESCE(l.already_received, 0) AS already, l.received_qty
 FROM purchase_order o
 JOIN purchase_order_line l ON l.parent_id = o.id

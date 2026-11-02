@@ -502,6 +502,10 @@ func fieldSet(pre, errText string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		templ_7745c5c3_Err = components.Radios(components.FieldProps{ID: pre + "-order", Name: pre + "_order", Label: "Purchase order", Value: "1", Error: errText}, orderOptions).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		templ_7745c5c3_Err = components.Checkboxes(components.FieldProps{ID: pre + "-docs", Name: pre + "_docs", Label: "Documents to send", Error: errText}, docOptions, []string{"invoice"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -653,7 +657,7 @@ func badgesBody() templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(uitest.LongError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 121, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 122, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -733,7 +737,7 @@ func dialogsBody() templ.Component {
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(uitest.LongError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 132, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 133, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -1069,7 +1073,7 @@ func gridText(v string) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(v)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 200, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 201, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {

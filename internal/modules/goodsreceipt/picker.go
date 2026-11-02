@@ -20,8 +20,9 @@ type POChoice struct {
 	Display    string // naming.Label of the PO, e.g. PO/26-27/00001
 	VendorName string // the PO's snap_vendor_name
 	SiteName   string
-	Pending    int // lines with pending above 0
-	Lines      int // all lines ("{p} of {n} lines pending")
+	Pending    int        // lines with pending above 0
+	Lines      int        // all lines ("{p} of {n} lines pending")
+	OrderDate  types.Date // the PO's order_date (required on every approved PO)
 }
 
 // POChoices is page (1-based, below 1 is 1) of the approved POs p may read
@@ -63,7 +64,8 @@ func choices(rows []dbq.G6PickerLinesRow, readable func(int64) bool, all bool) [
 	var out []POChoice
 	for i := 0; i < len(rows); {
 		r := rows[i]
-		c := POChoice{ID: r.ID, Display: naming.Label(r.Number, r.ID), VendorName: r.SnapVendorName, SiteName: r.SiteName}
+		date, _ := types.DateFromISO(r.OrderDate) // required on an approved PO; blank only in a hand-made row: zero
+		c := POChoice{ID: r.ID, Display: naming.Label(r.Number, r.ID), VendorName: r.SnapVendorName, SiteName: r.SiteName, OrderDate: date}
 		for ; i < len(rows) && rows[i].ID == r.ID; i++ {
 			c.Lines++
 			if purchase.Pending(types.Qty(rows[i].Qty), types.Qty(rows[i].Already), types.Qty(rows[i].ReceivedQty)) > 0 {

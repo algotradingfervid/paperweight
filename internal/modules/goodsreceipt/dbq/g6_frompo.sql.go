@@ -73,6 +73,7 @@ func (q *Queries) G6POLines(ctx context.Context, parentID int64) ([]G6POLinesRow
 const g6PickerLines = `-- name: G6PickerLines :many
 
 SELECT o.id, COALESCE(o.number, '') AS number, o.snap_vendor_name, COALESCE(s.name, '') AS site_name,
+       COALESCE(o.order_date, '') AS order_date,
        COALESCE(l.qty, 0) AS qty, COALESCE(l.already_received, 0) AS already, l.received_qty
 FROM purchase_order o
 JOIN purchase_order_line l ON l.parent_id = o.id
@@ -91,6 +92,7 @@ type G6PickerLinesRow struct {
 	Number         string
 	SnapVendorName string
 	SiteName       string
+	OrderDate      string
 	Qty            int64
 	Already        int64
 	ReceivedQty    int64
@@ -116,6 +118,7 @@ func (q *Queries) G6PickerLines(ctx context.Context, q_ string) ([]G6PickerLines
 			&i.Number,
 			&i.SnapVendorName,
 			&i.SiteName,
+			&i.OrderDate,
 			&i.Qty,
 			&i.Already,
 			&i.ReceivedQty,

@@ -8,8 +8,22 @@ import "github.com/a-h/templ"
 // Link is a labelled URL.
 type Link struct{ Label, Href string }
 
-// Option is one choice in a select, radio group or picker.
-type Option struct{ Value, Label, Hint string }
+// Option is one choice in a select, radio group or picker. Radios and
+// Checkboxes show Lines as muted lines under the label and Hint, LineIcon
+// (a name from the generated icons set) before the first of them, and Bar
+// beside the last (UI v2 §5.6); other components ignore all three.
+type Option struct {
+	Value, Label, Hint string
+	Lines              []string
+	LineIcon           string
+	Bar                *Meter
+}
+
+// Meter is a small bar filled Value of Max, drawn beside a line whose text
+// says the same, so screen readers skip it. Max is above 0 and Value from 0
+// to Max; drawing panics on anything else, or on a Bar (or a LineIcon)
+// without Lines.
+type Meter struct{ Value, Max int }
 
 // FieldErr is a message for the field with the given ID.
 type FieldErr struct{ ID, Message string }
