@@ -24,6 +24,7 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
 // S2 · Expense line page and receipt route (plan MOD-EXP S2; UX
@@ -65,7 +66,11 @@ const (
 	s2NoReceipt    = "No receipt"
 	s2GSTSummary   = "Bill in company GSTIN"
 	s2ProjSummary  = "Project or site"
-	s2MoreNote     = "More details · note" // Note is Field.More (MORE, AD-11)
+	// The line page's one More details (UI v2 §5.5 item 3, E7): the summary
+	// names what is shown inside; Same receipt only when another line has a
+	// receipt.
+	s2MoreLine = "More details · note, no receipt, GST bill, project, site"
+	s2MoreSame = "More details · note, same receipt, no receipt, GST bill, project, site"
 )
 
 // s2MsgStale is DOC-069's text for draft id.
@@ -407,12 +412,13 @@ type s2Option struct {
 	Checked            bool
 }
 
-// s2Options are the radio or checkbox options named name in s, in order.
+// s2Options are the radio or checkbox options named name in s, in order:
+// a row's text, or a tile's (Type, UI v2 §5.5 item 8).
 func s2Options(s *goquery.Selection, name string) []s2Option {
 	var out []s2Option
 	s.Find(`input[name="` + name + `"]`).Each(func(_ int, in *goquery.Selection) {
 		row := in.Closest("label")
-		text := row.Find(".field__choice-text").Clone()
+		text := row.Find(".field__choice-text, .segmented__text").Clone()
 		hint := s2Text(text.Find(".field__hint"))
 		text.Find(".field__hint").Remove()
 		_, checked := in.Attr("checked")
@@ -440,6 +446,34 @@ func s2ValueOf(t *testing.T, opts []s2Option, label string) string {
 	}
 	t.Fatalf("no option %q among %q", label, s2Labels(opts))
 	return ""
+}
+
+// s2Card is the one card in s headed title, with its icon tile and
+// description (components.CardWith, UI v2 §5.5 item 1).
+func s2Card(t *testing.T, s *goquery.Selection, title, icon, desc string) *goquery.Selection {
+	t.Helper()
+	c := s.Find("section.card").FilterFunction(func(_ int, c *goquery.Selection) bool {
+		return s2Text(c.Find(".card-title").First()) == title
+	})
+	if c.Length() != 1 {
+		t.Fatalf("%d cards headed %q, want 1", c.Length(), title)
+	}
+	if got := s2Text(c.Find(".card-desc").First()); got != desc {
+		t.Errorf("card %q: description %q, want %q", title, got, desc)
+	}
+	var buf bytes.Buffer
+	if err := icons.Icon(icon).Render(context.Background(), &buf); err != nil {
+		t.Fatal(err)
+	}
+	want, err := goquery.NewDocumentFromReader(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := c.Find(".card-icon svg").First().Html()
+	if w, _ := want.Find("svg").Html(); got == "" || got != w {
+		t.Errorf("card %q has no %s icon tile", title, icon)
+	}
+	return c.Find(".card-body").First()
 }
 
 // s2Details is the <details> in s whose summary reads summary.

@@ -131,11 +131,11 @@ func (l lineState) input(name, hint string) templ.Component {
 	return l.part(name, docscreen.FieldInput(l.field(name, hint), components.FieldID(name), l.value(name), l.errorOf(name), l.c.Deps))
 }
 
-// lineTop is the receipt area: FileUpload posting to the receipt route at the
-// page's version (the posted one on a redraw, so a stale page stays stale)
-// and with the line's number, disabling Save line while it uploads (UX-E5),
-// and #receipt-files with the line's receipt, or the posted one after a 422
-// or 409.
+// lineTop is the receipt card (UI v2 §5.9): FileUpload posting to the
+// receipt route at the page's version (the posted one on a redraw, so a
+// stale page stays stale) and with the line's number, disabling Save line
+// while it uploads (UX-E5), and #receipt-files with the line's receipt, or
+// the posted one after a 422 or 409.
 func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Component, error) {
 	l := newLineState(c, no, s)
 	version := c.View.Version
@@ -165,7 +165,8 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 			}
 		}
 	}
-	return templ.Join(components.FileUpload(props), receiptFiles(items, "")), nil
+	return card(components.CardProps{Title: msgReceiptLabel, Icon: "camera", Description: msgReceiptHint},
+		[]templ.Component{components.FileUpload(props), receiptFiles(items, "")}), nil
 }
 
 // receiptAttachment is m as the receipt area shows it: S1's attachmentOf
@@ -177,8 +178,8 @@ func receiptAttachment(m files.Meta) components.Attachment {
 }
 
 // lineBody is the line form in UX §5.5's order: the hidden receipt hash,
-// Type, Amount, Date (today on a new line), Note, then the closed choices.
-// A field the module hides isn't drawn.
+// then the What you spent card (UI v2 §5.5): Type as tiles, Amount, Date
+// (today on a new line) and lineMore. A field the module hides isn't drawn.
 func lineBody(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Component, error) {
 	choices, err := d.Service.LineForm(c.Req.Context())
 	if err != nil {
@@ -189,30 +190,58 @@ func lineBody(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Com
 	if no == 0 && !s.Posted && c.Deps.Today != nil {
 		date, _ = c.Deps.Today()
 	}
-	parts := []templ.Component{
-		receiptHash(l.hash(), false),
+	spent := card(components.CardProps{Title: msgSpentTitle, Icon: "receipt-indian-rupee", Description: msgSpentDesc}, []templ.Component{
 		l.part("expense_type_id", typeInput(l, choices.Types)),
 		l.input("amount", msgAmountHint),
 		l.part("expense_date", docscreen.FieldInput(l.field("expense_date", ""), components.FieldID("expense_date"), date, l.errorOf("expense_date"), c.Deps)),
-		more(c, "description", l.value("description"), l.errorOf("description"), l.input("description", msgNoteHint)),
+		lineMore(l, choices),
+	})
+	return templ.Join(receiptHash(l.hash(), false), spent), nil
+}
+
+// lineMore is the card's one More details (UI v2 §5.5 item 3): Note, then
+// the closed choices, each in its own disclosure with its own open rule
+// (UX §5.5). The group is open when Note has a value or an error or an
+// inner disclosure is open, and its summary names only what is drawn: a
+// field the module hides, and a disclosure whose fields it all hides, is
+// left out (CD-319).
+func lineMore(l lineState, choices expense.LineForm) templ.Component {
+	var names []string
+	var parts []templ.Component
+	open := false
+	add := func(on bool, c templ.Component, name ...string) {
+		names, parts, open = append(names, name...), append(parts, c), open || on
 	}
-	if same := sameReceipt(l, choices.Types); same != nil {
-		parts = append(parts, same)
+	if !l.hidden("description") {
+		add(l.filled("description"), l.input("description", msgNoteHint), l.field("description", "").Label)
 	}
-	parts = append(parts,
-		disclosure(msgNoReceipt, l.filled("no_receipt_reason"), []templ.Component{
-			l.part("no_receipt_reason", components.Textarea(l.props("no_receipt_reason", msgReasonHint), 200)),
-		}),
-		gstDisclosure(l, choices),
-		disclosure(msgProjSummary, l.filled("project_id", "site_id"), []templ.Component{
+	if same, picked := sameReceipt(l, choices.Types); same != nil {
+		add(picked, same, msgMoreSame)
+	}
+	if !l.hidden("no_receipt_reason") {
+		on := l.filled("no_receipt_reason")
+		add(on, disclosure(msgNoReceipt, on, []templ.Component{
+			components.Textarea(l.props("no_receipt_reason", msgReasonHint), 200),
+		}), msgNoReceipt)
+	}
+	add(gstOpen(l), gstDisclosure(l, choices), msgMoreGST)
+	var place []string
+	for _, n := range []string{"project_id", "site_id"} {
+		if !l.hidden(n) {
+			place = append(place, l.field(n, "").Label)
+		}
+	}
+	if len(place) > 0 {
+		on := l.filled("project_id", "site_id")
+		add(on, disclosure(msgProjSummary, on, []templ.Component{
 			l.input("project_id", ""), l.input("site_id", ""),
-		}),
-	)
-	return templ.Join(parts...), nil
+		}), place...)
+	}
+	return moreGroup(names, open, parts)
 }
 
 // typeInput is Type: the enabled expense types by name with no default
-// (CD-270 Q7), radios up to 6 and a Select above.
+// (CD-270 Q7), tiles up to 6 (UI v2 §5.5 item 8) and a Select above.
 func typeInput(l lineState, all []expense.LineType) templ.Component {
 	var opts []components.Option
 	for _, t := range all {
@@ -222,17 +251,26 @@ func typeInput(l lineState, all []expense.LineType) templ.Component {
 	}
 	p := l.props("expense_type_id", "")
 	if len(opts) <= maxTypeRadios {
-		return components.Radios(p, opts)
+		return components.Tiles(p, opts)
 	}
 	return components.Select(p, append([]components.Option{{}}, opts...))
 }
 
-// gstDisclosure is Bill in company GSTIN: the tick, the bill-date sentence,
-// Billed to (only with more than one branch GSTIN, CD-271 G4), then the
-// supplier's details. It is open when ticked, when Billed to, Supplier
-// GSTIN, Invoice no. or GST has a value, or when any of its fields has an
-// error; tax code and HSN/SAC values don't open it, as Validate fills them
-// from the type on every line (AD ruling, S2 review).
+// gstOpen reports whether Bill in company GSTIN is open: when ticked, when
+// Billed to, Supplier GSTIN, Invoice no. or GST has a value, or when any of
+// its fields has an error; tax code and HSN/SAC values don't open it, as
+// Validate fills them from the type on every line (AD ruling, S2 review).
+func gstOpen(l lineState) bool {
+	open := l.value("company_bill") == "true" || l.filled("billed_to_id", "supplier_gstin", "invoice_no", "gst_amount")
+	for _, n := range []string{"company_bill", "tax_code_id", "hsn_sac"} {
+		open = open || l.errorOf(n) != ""
+	}
+	return open
+}
+
+// gstDisclosure is Bill in company GSTIN, open as gstOpen says: the tick,
+// the bill-date sentence, Billed to (only with more than one branch GSTIN,
+// CD-271 G4), then the supplier's details.
 func gstDisclosure(l lineState, choices expense.LineForm) templ.Component {
 	var ticked []string
 	if l.value("company_bill") == "true" { // DOC's plain Check value
@@ -265,22 +303,19 @@ func gstDisclosure(l lineState, choices expense.LineForm) templ.Component {
 		l.part("hsn_sac", components.CodeInput(hsn, components.HSN)),
 		l.input("gst_amount", msgGSTHint),
 	)
-	open := len(ticked) > 0 || l.filled("billed_to_id", "supplier_gstin", "invoice_no", "gst_amount")
-	for _, n := range []string{"company_bill", "tax_code_id", "hsn_sac"} {
-		open = open || l.errorOf(n) != ""
-	}
-	return disclosure(msgGSTSummary, open, parts)
+	return disclosure(msgGSTSummary, gstOpen(l), parts)
 }
 
 // sameReceipt is Same receipt as another expense (spec §3.3, EUX-005): one
 // option per distinct receipt hash on the other lines, labelled with the
 // lowest line holding it, after the line's own receipt; nil when no other
-// line has a receipt. A line holding a receipt that a lower line holds
+// line has a receipt; the bool reports whether another line is chosen,
+// which opens the disclosure. A line holding a receipt that a lower line holds
 // shares it, so that lower line's option is chosen and the disclosure open;
 // a line that owns its receipt (no lower line holds it) opens with its own
 // chosen and isn't offered the later lines sharing it, so a new photo
 // uploaded there is what Save line stores.
-func sameReceipt(l lineState, all []expense.LineType) templ.Component {
+func sameReceipt(l lineState, all []expense.LineType) (templ.Component, bool) {
 	names := map[string]string{}
 	for _, t := range all {
 		names[strconv.FormatInt(t.ID, 10)] = t.Name
@@ -310,14 +345,14 @@ func sameReceipt(l lineState, all []expense.LineType) templ.Component {
 		opts = append(opts, components.Option{Value: strconv.Itoa(i + 1), Label: fmt.Sprintf(msgSameAs, i+1), Hint: strings.Join(hint, " · ")})
 	}
 	if len(opts) == 1 {
-		return nil
+		return nil, false
 	}
 	if l.s.Posted {
 		picked = l.c.Req.PostFormValue("same_as")
 	}
 	// The disclosure's summary names the group; no legend repeats it.
 	p := components.FieldProps{ID: components.FieldID("same_as"), Name: "same_as", Value: picked}
-	return disclosure(msgSameSummary, picked != "", []templ.Component{components.Radios(p, opts)})
+	return disclosure(msgSameSummary, picked != "", []templ.Component{components.Radios(p, opts)}), picked != ""
 }
 
 // lineSave is this line's posted values in DOC's plain form, with NUM's

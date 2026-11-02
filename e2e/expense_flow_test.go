@@ -328,6 +328,7 @@ func addExpense(s *Session, typ, amount, photo, reason string) {
 	pickRadio(s, "expense_type_id", typ)
 	s.Fill("amount", amount)
 	if reason != "" {
+		openMoreDetails(s) // No receipt sits in the line's More details (UI v2 E7)
 		openDisclosure(s, "No receipt")
 		s.Fill("no_receipt_reason", reason)
 	}

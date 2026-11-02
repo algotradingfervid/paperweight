@@ -197,55 +197,109 @@ func TestMoreExp_ClaimRemarksHidden(t *testing.T) {
 	}
 }
 
-// The claim line page: Note in a group of its own where UX §5.5 puts the
-// Note, right after Date and before the closed choices; Project and Site
-// stay in Project or site.
+// The claim line page (UI v2 §5.5 item 3, E7): one group at the end of the
+// What you spent card, right after Date, holding Note and the closed
+// choices (Same receipt, No receipt, Bill in company GSTIN, Project or
+// site), each still in its own disclosure. It opens when anything inside
+// has a value or an error, by the inner disclosures' own rules: Tax code
+// and HSN/SAC values alone, which Validate fills from the type, don't.
 func TestMoreExp_ClaimLineNote(t *testing.T) {
 	t.Parallel()
 	e := moreEnv(t)
 	deepak := e.P(t, s2Deepak)
-	const summary = "More details · note"
-	c := e.DraftClaim(t, deepak, nil, expensetest.Values{}, expensetest.Values{"description": "Lunch at site canteen"})
+	summary := s2MoreLine
+	inside := []string{"description", "no_receipt_reason", "company_bill", "billed_to_id", "supplier_gstin", "invoice_no", "tax_code_id", "hsn_sac", "gst_amount", "project_id", "site_id"}
+	// The fixture's lines carry a reason, which opens No receipt.
+	c := e.DraftClaim(t, deepak, nil, expensetest.Values{"no_receipt_reason": ""},
+		expensetest.Values{"no_receipt_reason": "", "description": "Lunch at site canteen"})
 	newLine := s2ClaimPath(c.ID) + "/lines/new"
 	page := e.page(t, s2Deepak, newLine)
 	form := s2LineForm(t, page)
-	moreWant(t, "new line", form, summary, false, []string{"description"}, "")
+	moreWant(t, "new line", form, summary, false, inside, "")
 	if !moreFirstAfter(form, "expense_date") {
 		t.Error("More details isn't the first group after Date")
 	}
-	if n := moreGroups(form).Find(`[name="project_id"], [name="site_id"], [name="amount"]`).Length(); n != 0 {
-		t.Errorf("%d other inputs inside More details", n)
+	if n := moreGroups(form).Find(`[name="expense_type_id"], [name="amount"], [name="expense_date"]`).Length(); n != 0 {
+		t.Errorf("%d of Type, Amount and Date inside More details", n)
 	}
-	moreWant(t, "line 1, blank", s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/1")), summary, false, []string{"description"}, "")
-	moreWant(t, "line 2, stored", s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/2")), summary, true, []string{"description"}, "")
+	moreWant(t, "line 1, blank", s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/1")), summary, false, inside, "")
+	moreWant(t, "line 2, stored", s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/2")), summary, true, inside, "")
 
-	post := func(note string) *goquery.Selection {
+	post := func(name, value string) *goquery.Selection {
 		t.Helper()
 		p := s2Base(t, e.page(t, s2Deepak, newLine), "")
 		p.Set("expense_date", "25-10-2026") // a 422 elsewhere
-		p.Set("description", note)
+		p.Set("description", "")
+		if name != "" {
+			p.Set(name, value)
+		}
 		rec := e.postForm(t, s2Deepak, newLine, p)
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status %d, want 422 (body %.300q)", rec.Code, rec.Body.String())
 		}
 		return s2LineForm(t, s2Parse(t, rec))
 	}
-	moreWant(t, "422 elsewhere", post(""), summary, false, []string{"description"}, "")
-	moreWant(t, "422 typed", post("Taxi."), summary, true, []string{"description"}, "")
-	moreWant(t, "422 on note", post(strings.Repeat(moreLong, 201)), summary, true, []string{"description"}, "description")
+	moreWant(t, "422 elsewhere", post("", ""), summary, false, inside, "")
+	for _, tc := range []struct {
+		name, value string
+		open        bool
+	}{
+		{"description", "Taxi.", true},
+		{"no_receipt_reason", "Paper file", true},
+		{"company_bill", "true", true},
+		{"supplier_gstin", "27AABCS1429B1ZU", true},
+		{"invoice_no", "INV-901", true},
+		{"gst_amount", "10", true},
+		{"project_id", strconv.FormatInt(e.id(t, `SELECT id FROM project ORDER BY id LIMIT 1`), 10), true},
+		{"site_id", strconv.FormatInt(e.id(t, `SELECT id FROM site ORDER BY id LIMIT 1`), 10), true},
+		{"tax_code_id", strconv.FormatInt(e.id(t, `SELECT id FROM tax_code ORDER BY id LIMIT 1`), 10), false},
+		{"hsn_sac", "996411", false},
+	} {
+		moreWant(t, "422 typed "+tc.name, post(tc.name, tc.value), summary, tc.open, inside, "")
+	}
+	moreWant(t, "422 on note", post("description", strings.Repeat(moreLong, 201)), summary, true, inside, "description")
 }
 
-// A hidden Note is never inside or named on the claim line page.
+// A hidden field is never inside or named on the claim line page: the
+// summary lists only what is shown, and a disclosure whose fields are all
+// hidden isn't drawn.
 func TestMoreExp_ClaimLineNoteHidden(t *testing.T) {
 	t.Parallel()
-	e := moreEnv(t, "description")
-	c := e.DraftClaim(t, e.P(t, s2Deepak), nil, expensetest.Values{"description": "ZqHidden"})
-	page := e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/1")
-	if n := moreGroups(page.Selection).Length(); n != 0 {
-		t.Errorf("%d More details groups with Note hidden, want none", n)
-	}
-	if page.Find(`[name="description"]`).Length() != 0 || strings.Contains(page.Text(), "ZqHidden") {
-		t.Error("the hidden Note is drawn")
+	for _, tc := range []struct {
+		hide          []string
+		summary       string
+		gone, present []string // disclosure summaries
+	}{
+		{[]string{"description"}, "More details · no receipt, GST bill, project, site", nil, []string{s2NoReceipt, s2GSTSummary, s2ProjSummary}},
+		{[]string{"project_id"}, "More details · note, no receipt, GST bill, site", nil, []string{s2NoReceipt, s2GSTSummary, s2ProjSummary}},
+		{[]string{"site_id"}, "More details · note, no receipt, GST bill, project", nil, []string{s2NoReceipt, s2GSTSummary, s2ProjSummary}},
+		{[]string{"description", "no_receipt_reason", "project_id", "site_id"}, "More details · GST bill", []string{s2NoReceipt, s2ProjSummary}, []string{s2GSTSummary}},
+	} {
+		e := moreEnv(t, tc.hide...)
+		c := e.DraftClaim(t, e.P(t, s2Deepak), nil, expensetest.Values{"description": "ZqHidden"})
+		page := e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/1")
+		g := moreOne(t, strings.Join(tc.hide, "+"), page.Selection)
+		if got := s2Text(g.ChildrenFiltered("summary")); got != tc.summary {
+			t.Errorf("%v hidden: summary %q, want %q", tc.hide, got, tc.summary)
+		}
+		for _, d := range tc.gone {
+			if s2Details(page.Selection, d).Length() != 0 {
+				t.Errorf("%v hidden: %q is drawn", tc.hide, d)
+			}
+		}
+		for _, d := range tc.present {
+			if s2Details(g, d).Length() != 1 {
+				t.Errorf("%v hidden: %q isn't inside More details", tc.hide, d)
+			}
+		}
+		for _, n := range tc.hide {
+			if page.Find(`[name="`+n+`"]`).Length() != 0 {
+				t.Errorf("%v hidden: %s is drawn", tc.hide, n)
+			}
+		}
+		if slices.Contains(tc.hide, "description") && strings.Contains(page.Text(), "ZqHidden") {
+			t.Error("the hidden Note is drawn")
+		}
 	}
 }
 

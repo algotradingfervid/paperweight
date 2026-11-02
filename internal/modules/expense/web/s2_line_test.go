@@ -85,6 +85,20 @@ func TestExpLine_NewPage(t *testing.T) {
 			t.Errorf("%s sits inside the line form or a disclosure, want it outside (UX-E1)", sel)
 		}
 	}
+	// UI v2 (E7, §5.9): the receipt card, then the line form's card.
+	receipt := s2Card(t, page.Selection, "Receipt", "camera", s2UploadHint)
+	if receipt.Find("#receipt").Length() != 1 || receipt.Find("#receipt-files").Length() != 1 || receipt.Closest("form").Length() != 0 {
+		t.Errorf("the Receipt card doesn't hold #receipt and #receipt-files outside the line form")
+	}
+	spent := s2Card(t, form, "What you spent", "receipt-indian-rupee", "Type, amount and the day on the bill.")
+	for _, n := range []string{"expense_type_id", "amount", "expense_date"} {
+		if spent.Find(`[name="`+n+`"]`).Length() == 0 {
+			t.Errorf("%s isn't in the What you spent card", n)
+		}
+	}
+	if more := s2Details(spent, s2MoreLine); more.Length() != 1 || spent.Children().Last().Get(0) != more.Get(0) {
+		t.Errorf("%q isn't the What you spent card's last part", s2MoreLine)
+	}
 	up := page.Find("#receipt")
 	if got := s2Text(up.Find("legend").First()); got != "Receipt" {
 		t.Errorf("the upload's legend is %q, want Receipt", got)
@@ -170,6 +184,9 @@ func TestExpLine_NewPage(t *testing.T) {
 	if got := form.Find(`input[name="expense_type_id"]`).AttrOr("type", ""); got != "radio" {
 		t.Errorf("Type is a %q input, want radios with 5 types", got)
 	}
+	if n := form.Find(`.segmented--tiles input[name="expense_type_id"]`).Length(); n != 5 {
+		t.Errorf("%d of Type's 5 radios are tiles, want all (UI v2 §5.5 item 8)", n)
+	}
 	for _, f := range []struct{ name, label, hint string }{
 		{"expense_type_id", "Type", ""},
 		{"amount", "Amount", s2AmountHint},
@@ -214,10 +231,13 @@ func TestExpLine_NewPage(t *testing.T) {
 		t.Errorf("Date's hint is %q; the bill-date text belongs in the GSTIN disclosure (CD-271 G9)", s2BillDate)
 	}
 
-	// The disclosures, all closed; no same-receipt choice without another
-	// line's receipt.
-	if got, want := s2Summaries(form), []string{s2MoreNote, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
+	// The disclosures, all closed and inside the one More details; no
+	// same-receipt choice without another line's receipt.
+	if got, want := s2Summaries(form), []string{s2MoreLine, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
 		t.Errorf("the line form's disclosures are %q, want %q", got, want)
+	}
+	if n := s2Details(form, s2MoreLine).Find("details").Length(); n != 3 {
+		t.Errorf("%d disclosures inside %q, want No receipt, GSTIN and Project or site", n, s2MoreLine)
 	}
 	form.Find("details").Each(func(_ int, d *goquery.Selection) {
 		if s2Open(d) {
@@ -559,7 +579,7 @@ func TestExpLine_SameReceipt(t *testing.T) {
 
 	page := e.page(t, s2Deepak, newLine)
 	form := s2LineForm(t, page)
-	if got, want := s2Summaries(form), []string{s2MoreNote, s2SameSummary, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
+	if got, want := s2Summaries(form), []string{s2MoreSame, s2SameSummary, s2NoReceipt, s2GSTSummary, s2ProjSummary}; !slices.Equal(got, want) {
 		t.Errorf("the line form's disclosures are %q, want %q", got, want)
 	}
 	same := s2Details(form, s2SameSummary)
@@ -601,9 +621,10 @@ func TestExpLine_SameReceipt(t *testing.T) {
 	}
 
 	// Reopened, line 3 has the disclosure open with line 2 picked.
-	same = s2Details(s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/3")), s2SameSummary)
-	if !s2Open(same) {
-		t.Errorf("line 3 reopened: %q is closed, want open with line 2 picked", s2SameSummary)
+	form = s2LineForm(t, e.page(t, s2Deepak, s2ClaimPath(c.ID)+"/lines/3"))
+	same = s2Details(form, s2SameSummary)
+	if !s2Open(same) || !s2Open(s2Details(form, s2MoreSame)) {
+		t.Errorf("line 3 reopened: %q open %v, %q open %v, want both open with line 2 picked", s2SameSummary, s2Open(same), s2MoreSame, s2Open(s2Details(form, s2MoreSame)))
 	}
 	for _, o := range s2Options(same, "same_as") {
 		if o.Checked != (o.Label == "Same receipt as line 2") {
