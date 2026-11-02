@@ -79,9 +79,17 @@ templ linePageMain(lp linePageView) {
 	}
 }
 
+// linePageBanners is a refusal with no field, holding focus as the wizard's
+// conflict does, and the error summary. A 409 is the ConflictBanner (CD-362).
 templ linePageBanners(lp linePageView) {
 	if lp.Danger != "" {
-		@components.Banner(components.BannerProps{Kind: components.Danger, Message: lp.Danger})
+		<div id="line-alert" tabindex="-1" autofocus>
+			if lp.Reload != nil {
+				@components.ConflictBanner(lp.Danger, lp.Reload.Label, lp.Reload.Href)
+			} else {
+				@components.Banner(components.BannerProps{Kind: components.Danger, Message: lp.Danger})
+			}
+		</div>
 	}
 	@components.ErrorSummary(lp.Errors)
 }
@@ -98,6 +106,7 @@ templ linePageBody(lp linePageView) {
 	}
 	@components.Form(components.FormProps{ID: lp.FormID, Action: lp.Action}) {
 		<input type="hidden" name="version" value={ strconv.Itoa(lp.Version) }/>
+		@components.RequiredNote(lp.Required)
 		for _, c := range lp.Inputs {
 			@c
 		}

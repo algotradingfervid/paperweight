@@ -382,8 +382,8 @@ func TestModule_LinePage(t *testing.T) {
 			if got, _ := body.Find(`[name="qty"]`).Attr("value"); got != "9" {
 				t.Errorf("%s 409: qty in Line.Body = %q, want the typed 9", path, got)
 			}
-			if got := strings.Join(bannerTexts(page.Selection, "danger"), " "); !strings.Contains(got, "Someone else changed") {
-				t.Errorf("%s 409: danger banners = %q, want DOC's stale text", path, got)
+			if got := strings.Join(bannerTexts(page.Selection, "warning"), " "); !strings.Contains(got, "Someone else changed") {
+				t.Errorf("%s 409: warning banners = %q, want DOC's stale text (CD-362)", path, got)
 			}
 			calls := h.taken()
 			if n := len(calls); n == 0 || calls[n-1].Hook != "body" || !calls[n-1].State.Posted || calls[n-1].No != no {
