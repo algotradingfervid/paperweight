@@ -151,6 +151,7 @@ type Problem struct {
 	Message string
 	Fields  []doctype.FieldError
 	Blocked bool
+	Stale   bool // the page's version was stale: the ConflictBanner (CD-362)
 }
 
 // Classify maps a kernel error through doctype.HTTPError (CD-44) or
@@ -161,7 +162,7 @@ func Classify(err error) (Problem, bool) {
 	if errors.As(err, &he) {
 		var de *doc.Error
 		blocked := errors.As(err, &de) && de.Kind == doc.KindBlocked
-		return Problem{Status: he.Status(), Message: err.Error(), Fields: he.FieldErrors(), Blocked: blocked}, true
+		return Problem{Status: he.Status(), Message: err.Error(), Fields: he.FieldErrors(), Blocked: blocked, Stale: doc.IsStale(err)}, true
 	}
 	if errors.Is(err, doctype.ErrNotFound) {
 		return Problem{Status: 404, Message: err.Error()}, true

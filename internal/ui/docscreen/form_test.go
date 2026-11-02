@@ -640,7 +640,7 @@ func TestWizard_ConflictKeepsTypedValues(t *testing.T) {
 	const msg = "Someone else changed Draft 42 after you opened it. Reload it and make your changes again."
 	e := newFormEnv(t, allRights...)
 	e.seed(doctype.StateDraft)
-	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSave, doc.Result{}, statusErr{status: http.StatusConflict, msg: msg})
+	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionSave, doc.Result{}, &doc.Error{Kind: doc.KindStale, Message: msg})
 
 	rec := e.post(t, doc42+"/edit/details", url.Values{"supplier_id": {"7"}, "order_date": {"24-10-2026"}, "remarks": {"Deliver to gate 2"}}, "HX-Request", "true")
 	if rec.Code != http.StatusConflict {

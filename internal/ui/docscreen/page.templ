@@ -30,7 +30,13 @@ templ docBanners(pv pageView) {
 		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.V.Origin.StateReason})
 	}
 	if pv.Danger != "" {
-		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.Danger})
+		@alertFocus("doc-alert", len(pv.Errors) == 0) {
+			if pv.Reload != nil {
+				@components.ConflictBanner(pv.Danger, pv.Reload.Label, pv.Reload.Href)
+			} else {
+				@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.Danger})
+			}
+		}
 	}
 	@components.ErrorSummary(pv.Errors)
 	if pv.Block {
@@ -45,6 +51,18 @@ templ docBanners(pv pageView) {
 	}
 	if pv.Extra.Notice != nil {
 		@components.Banner(*pv.Extra.Notice)
+	}
+}
+
+// alertFocus is a refusal's banner, holding focus as the wizard's does unless
+// the error summary holds it (focus false).
+templ alertFocus(id string, focus bool) {
+	if focus {
+		<div id={ id } tabindex="-1" autofocus>
+			{ children... }
+		</div>
+	} else {
+		{ children... }
 	}
 }
 

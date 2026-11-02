@@ -58,27 +58,27 @@ type fromRequestView struct {
 // fromRequestPage serves GET /modules/purchase/requests/{id}/order (UX
 // §5.18). AUTH's 403 and 404 are the platform's error page.
 func (h *handlers) fromRequestPage(w http.ResponseWriter, r *http.Request) {
-	h.fromRequestView(w, r, http.StatusOK, nil)
+	h.fromRequestView(w, r, http.StatusOK, false, nil)
 }
 
 // renderFromRequest redraws the Create PO page with status and errs; P13's
 // POST calls it for a 422 or 409. The page reloads its own view from the
 // path id and keeps the posted vendor.
-var renderFromRequest = func(h *handlers, w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
-	h.fromRequestView(w, r, status, errs)
+var renderFromRequest = func(h *handlers, w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
+	h.fromRequestView(w, r, status, stale, errs)
 }
 
 // fromRequestView renders the page for the request in the path with status:
-// errs on vendor_id go to the picker and the error summary; a 409's message
+// errs on vendor_id go to the picker and the error summary; a stale message
 // is the conflict banner; any other message is a danger banner, unless it is
 // the nothing-pending text the page already shows. A redraw's form keeps the
 // posted version (CD-94).
-func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
+func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64) // not a number: 0, which no request has (404)
 	vendorID, _ := strconv.ParseInt(r.PostFormValue(vendorField), 10, 64)
 	p, _ := auth.PrincipalFrom(r.Context())
 	st, err := h.d.Service.FromRequestState(r.Context(), p, id, vendorID)
-	if err != nil && status == http.StatusConflict {
+	if err != nil && stale {
 		// A stale post on a request the page can't show (a draft's state
 		// refusal): the conflict text comes first (CD-259), with no form.
 		web.Error(w, r, status, errs[0].Message)
@@ -118,7 +118,7 @@ func (h *handlers) fromRequestView(w http.ResponseWriter, r *http.Request, statu
 		case e.Field == vendorField:
 			fp.Error = e.Message
 			v.errs = append(v.errs, components.FieldErr{ID: fp.ID, Message: e.Message})
-		case status == http.StatusConflict:
+		case stale:
 			v.conflict = e.Message
 		case e.Message != v.nothing:
 			v.refusals = append(v.refusals, e.Message)

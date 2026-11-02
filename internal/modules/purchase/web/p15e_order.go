@@ -26,14 +26,14 @@ import (
 // r.PostForm. They are variables so the POSTs' tests can watch the calls;
 // the request carries its handlers (withHandlers).
 var (
-	renderHandover = func(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
-		handlersOf(r).handoverRedraw(w, r, status, errs)
+	renderHandover = func(w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
+		handlersOf(r).handoverRedraw(w, r, status, stale, errs)
 	}
-	renderSend = func(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
-		handlersOf(r).sendRedraw(w, r, status, errs)
+	renderSend = func(w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
+		handlersOf(r).sendRedraw(w, r, status, stale, errs)
 	}
-	renderExpected = func(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
-		handlersOf(r).expectedRedraw(w, r, status, errs)
+	renderExpected = func(w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
+		handlersOf(r).expectedRedraw(w, r, status, stale, errs)
 	}
 )
 
@@ -83,12 +83,13 @@ type pageErrs struct {
 	summary []components.FieldErr
 	problem string
 	reload  string
+	redraw  bool // a POST's redraw: the page's state refusal takes focus, as a GET's doesn't
 }
 
 // errsOf sorts errs for the page at self; a field-less message equal to the
 // page's own state refusal is left to the page's refusal banner.
-func errsOf(status int, errs []doctype.FieldError, refusal, self string) pageErrs {
-	e := pageErrs{fields: map[string]string{}}
+func errsOf(stale bool, errs []doctype.FieldError, refusal, self string) pageErrs {
+	e := pageErrs{fields: map[string]string{}, redraw: true}
 	var problems []string
 	for _, fe := range errs {
 		if fe.Field == "" {
@@ -101,11 +102,18 @@ func errsOf(status int, errs []doctype.FieldError, refusal, self string) pageErr
 		e.summary = append(e.summary, components.FieldErr{ID: components.FieldID(fe.Field), Message: fe.Message})
 	}
 	e.problem = strings.Join(problems, " ")
-	if status == http.StatusConflict {
+	switch {
+	case stale && refusal != "":
+		e.problem = "" // the page's state refusal is the answer now: reloading shows the same
+	case stale:
 		e.reload = self
 	}
 	return e
 }
+
+// refusalFocus reports whether the page's state refusal holds focus: on a
+// redraw with no banner of its own above it.
+func (e pageErrs) refusalFocus() bool { return e.redraw && e.problem == "" }
 
 // banner is the problem's banner: the ConflictBanner naming the PO (label)
 // on the stale 409, else the danger banner.
@@ -113,10 +121,11 @@ func (e pageErrs) banner(label string) templ.Component {
 	if e.problem == "" {
 		return nil
 	}
+	focus := len(e.summary) == 0
 	if e.reload != "" {
-		return components.ConflictBanner(e.problem, label, e.reload)
+		return orderAlert(components.ConflictBanner(e.problem, label, e.reload), focus)
 	}
-	return components.Banner(components.BannerProps{Kind: components.Danger, Message: e.problem})
+	return orderAlert(components.Banner(components.BannerProps{Kind: components.Danger, Message: e.problem}), focus)
 }
 
 // handoverView is the hand-over page (UX §5.12).
@@ -157,7 +166,7 @@ func (h *handlers) handoverPage(w http.ResponseWriter, r *http.Request) {
 }
 
 // handoverRedraw is the page again with the refusal and what was posted.
-func (h *handlers) handoverRedraw(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
+func (h *handlers) handoverRedraw(w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	id := pathID(r)
 	st, err := h.d.Service.HandOverState(r.Context(), p, id)
@@ -166,7 +175,7 @@ func (h *handlers) handoverRedraw(w http.ResponseWriter, r *http.Request, status
 		return
 	}
 	v := handoverView{id: id, st: st, version: r.PostFormValue("version"), to: r.PostFormValue("to"), note: r.PostFormValue("note")}
-	v.e = errsOf(status, errs, v.refusal(), orderPage(id, "/handover"))
+	v.e = errsOf(stale, errs, v.refusal(), orderPage(id, "/handover"))
 	ui.Render(w, r, status, handoverPage(v), nil)
 }
 
@@ -230,7 +239,7 @@ func (h *handlers) sendPage(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, http.StatusOK, sendPage(v), nil)
 }
 
-func (h *handlers) sendRedraw(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
+func (h *handlers) sendRedraw(w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	id := pathID(r)
 	st, err := h.d.Service.SendState(r.Context(), p, id)
@@ -239,7 +248,7 @@ func (h *handlers) sendRedraw(w http.ResponseWriter, r *http.Request, status int
 		return
 	}
 	v := sendView{id: id, st: st, version: r.PostFormValue("version"), on: r.PostFormValue("sent_on"), via: r.PostFormValue("sent_via"), note: r.PostFormValue("note")}
-	v.e = errsOf(status, errs, v.refusal(), orderPage(id, "/send"))
+	v.e = errsOf(stale, errs, v.refusal(), orderPage(id, "/send"))
 	ui.Render(w, r, status, sendPage(v), nil)
 }
 
@@ -280,7 +289,7 @@ func (h *handlers) expectedPage(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, http.StatusOK, expectedPage(v), nil)
 }
 
-func (h *handlers) expectedRedraw(w http.ResponseWriter, r *http.Request, status int, errs []doctype.FieldError) {
+func (h *handlers) expectedRedraw(w http.ResponseWriter, r *http.Request, status int, stale bool, errs []doctype.FieldError) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	id := pathID(r)
 	st, err := h.d.Service.ExpectedState(r.Context(), p, id)
@@ -289,6 +298,6 @@ func (h *handlers) expectedRedraw(w http.ResponseWriter, r *http.Request, status
 		return
 	}
 	v := expectedView{id: id, st: st, version: r.PostFormValue("version"), on: r.PostFormValue("expected_on"), note: r.PostFormValue("note")}
-	v.e = errsOf(status, errs, st.Refusal, orderPage(id, "/expected"))
+	v.e = errsOf(stale, errs, st.Refusal, orderPage(id, "/expected"))
 	ui.Render(w, r, status, expectedPage(v), nil)
 }

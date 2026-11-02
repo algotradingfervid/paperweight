@@ -2,12 +2,11 @@ package modkitweb
 
 import (
 	"database/sql"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
-	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/modules/modkit"
 	"github.com/vardhan/internaltools/internal/platform/web"
 	"github.com/vardhan/internaltools/internal/types"
@@ -88,8 +87,7 @@ func (h *handlers) settingsPost(w http.ResponseWriter, r *http.Request) {
 		in.LockedUpTo = sql.Null[types.Date]{V: d, Valid: true}
 	}
 	err = h.kit().SaveSettings(r.Context(), p, version, in)
-	var he doctype.HTTPError
-	if errors.As(err, &he) && he.Status() == http.StatusConflict {
+	if doc.IsStale(err) {
 		v.Problem = err.Error()
 		h.render(w, r, http.StatusConflict, v)
 		return

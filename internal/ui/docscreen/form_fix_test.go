@@ -91,11 +91,11 @@ func TestCheckPage_SubmitResponseMatchesTarget(t *testing.T) {
 					t.Errorf("success banners = %q, want [%q] on the document page", got, want)
 				}
 			}},
-		{"409", doc.Result{}, statusErr{status: http.StatusConflict, msg: conflict}, http.StatusConflict,
+		{"409", doc.Result{}, &doc.Error{Kind: doc.KindStale, Message: conflict}, http.StatusConflict,
 			func(t *testing.T, _ *http.Response, page *goquery.Document) {
-				got := bannerTexts(page.Selection, "danger")
+				got := bannerTexts(page.Selection, "warning")
 				if !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, conflict) }) {
-					t.Errorf("danger banners = %q, want DOC's %q", got, conflict)
+					t.Errorf("warning banners = %q, want DOC's %q", got, conflict)
 				}
 			}},
 		{"422", doc.Result{}, statusErr{status: http.StatusUnprocessableEntity, msg: "Fix the highlighted fields and save again.",

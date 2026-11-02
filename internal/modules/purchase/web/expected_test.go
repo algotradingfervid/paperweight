@@ -40,6 +40,7 @@ func p18Stale(display string) string {
 // p18Render is one renderExpected call.
 type p18Render struct {
 	status int
+	stale  bool
 	msgs   []string
 }
 
@@ -65,12 +66,12 @@ func newP18Web(t *testing.T) *p18Web {
 	Routes(pd)(r)
 	w := &p18Web{env: env, router: r}
 	saved := renderExpected
-	renderExpected = func(rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {
+	renderExpected = func(rw http.ResponseWriter, _ *http.Request, status int, stale bool, errs []doctype.FieldError) {
 		msgs := make([]string, len(errs))
 		for i, e := range errs {
 			msgs[i] = e.Message
 		}
-		w.renders = append(w.renders, p18Render{status: status, msgs: msgs})
+		w.renders = append(w.renders, p18Render{status: status, stale: stale, msgs: msgs})
 		plainErrors(rw, status, errs)
 	}
 	t.Cleanup(func() { renderExpected = saved })
@@ -207,8 +208,8 @@ func TestPurchaseWeb_ExpectedPost(t *testing.T) {
 			if a.status != c.status || !strings.Contains(a.text, c.msg) {
 				t.Errorf("POST = %d %q, want %d with %q", a.status, a.text, c.status, c.msg)
 			}
-			want := []p18Render{{status: c.status, msgs: []string{c.msg}}}
-			if len(w.renders) != 1 || w.renders[0].status != c.status || !slices.Equal(w.renders[0].msgs, want[0].msgs) {
+			want := []p18Render{{status: c.status, stale: c.msg == p18Stale(display), msgs: []string{c.msg}}}
+			if len(w.renders) != 1 || w.renders[0].status != c.status || w.renders[0].stale != want[0].stale || !slices.Equal(w.renders[0].msgs, want[0].msgs) {
 				t.Errorf("renderExpected calls = %+v, want %+v", w.renders, want)
 			}
 			if got := w.rows(t); got != n {

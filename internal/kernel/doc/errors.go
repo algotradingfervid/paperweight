@@ -1,6 +1,8 @@
 package doc
 
 import (
+	"errors"
+
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/errs"
 )
@@ -50,6 +52,13 @@ func (e *Error) FieldErrors() []FieldError { return e.Fields }
 
 // Refused is a KindRefused error with msg, for modules' BeforeSubmit hooks too.
 func Refused(msg string) *Error { return &Error{Kind: KindRefused, Message: msg} }
+
+// IsStale reports whether err is a stale version: the one 409 the page's
+// ConflictBanner is for (CD-381).
+func IsStale(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Kind == KindStale
+}
 
 // errNotImplemented is returned by the actions later tasks fill in.
 var errNotImplemented = errs.ErrNotImplemented

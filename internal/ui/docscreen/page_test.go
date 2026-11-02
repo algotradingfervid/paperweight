@@ -541,7 +541,7 @@ func TestDirectAction_WarningsBanner(t *testing.T) {
 
 func TestDirectAction_StalePassesMessageThrough(t *testing.T) {
 	const msg = "Someone else changed Draft 42 after you opened it. Reload it and make your changes again."
-	staleErr := statusErr{status: http.StatusConflict, msg: msg}
+	staleErr := &doc.Error{Kind: doc.KindStale, Message: msg}
 	for _, hx := range []bool{false, true} {
 		e := newDocEnv(t, allRights...)
 		e.seed(doctype.StatePending)
@@ -555,8 +555,8 @@ func TestDirectAction_StalePassesMessageThrough(t *testing.T) {
 			t.Fatalf("htmx=%v: status = %d, want 409", hx, rec.Code)
 		}
 		doc := uitest.Doc(t, rec)
-		if got := bannerTexts(doc.Selection, "danger"); !slices.Equal(got, []string{msg}) {
-			t.Errorf("htmx=%v: danger banners = %q, want exactly [%q]", hx, got, msg)
+		if got := bannerTexts(doc.Selection, "warning"); len(got) != 1 || !strings.HasPrefix(got[0], msg) {
+			t.Errorf("htmx=%v: warning banners = %q, want one starting with %q", hx, got, msg)
 		}
 		if !strings.Contains(doc.Find("h1").Text(), "Draft 42") {
 			t.Errorf("htmx=%v: 409 is not the document page (h1 %q)", hx, doc.Find("h1").Text())

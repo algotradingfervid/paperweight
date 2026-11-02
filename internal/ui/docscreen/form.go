@@ -296,7 +296,7 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if status == http.StatusConflict {
-			sv.M.Conflict, sv.M.ReloadURL = pr.Message, "/doc/"+dt.Name+"/new"
+			pr.onFrame(&sv.M, "/doc/"+dt.Name+"/new")
 		}
 		ui.Render(w, r, status, stepFull(sv), stepFrame(sv))
 	}
@@ -465,7 +465,7 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		o := wizard.Invalid
 		if pr.Status == http.StatusConflict {
 			o = wizard.Conflict
-			sv.M.Conflict, sv.M.ReloadURL = pr.Message, sv.M.StepURL(i)
+			pr.onFrame(&sv.M, sv.M.StepURL(i))
 		} else if len(pr.Fields) == 0 && pr.Message != "" {
 			sv.M.Errors = []components.FieldErr{{ID: "step-title", Message: pr.Message}}
 		}
@@ -540,6 +540,16 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 		next = len(steps) - 1
 	}
 	d.advance(w, r, dt, steps, next, id, res.Warnings)
+}
+
+// onFrame shows pr on the wizard frame m: the ConflictBanner reloading to url
+// when it is stale, else a danger banner (CD-381).
+func (pr Problem) onFrame(m *wizard.Model, url string) {
+	if pr.Stale {
+		m.Conflict, m.ReloadURL = pr.Message, url
+		return
+	}
+	m.Danger = pr.Message
 }
 
 // stepRefused answers a step save the engine refused: a 422 or 409 redraws
@@ -976,7 +986,7 @@ func stepOpts(sv stepView) layout.PageOpts {
 		Focus:      true,
 		Width:      layout.Form,
 		BannerSlot: stepBanner(sv.Banner),
-		Error:      len(sv.M.Errors) > 0 || sv.M.Conflict != "",
+		Error:      len(sv.M.Errors) > 0 || sv.M.Conflict != "" || sv.M.Danger != "",
 	}
 	if sv.M.DocLabel != "" {
 		o.Title += " · " + sv.M.DocLabel
