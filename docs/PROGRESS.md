@@ -368,15 +368,15 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | UI v2 C4b, F1 | Check card icon tile and Change; Picker inside a disclosure paints above header and bars (CD-379) | Std | impl, rev opus (head) | — | 2 Nov | 1 + minors / 1 + 320 px rows | 0/0/1; 1 major (missing width) | 859d2183; 2ca6cb33; ci 0, e2e 0 |
 | UI v2 C3c, F2; E7 expense; E7 GRN | Finish-later row, one-line Items total (CD-376, CD-378); line page 409 ConflictBanner and required note (CD-379); expense line and GRN step 1 v2 (CD-380) | Std | impl, rev opus (head, AD-11, AD-12) | — | 2 Nov | 3 / 1 / 2 / 2 | C3c 2 majors, then overrun at 384–390 px; GRN no partly received row; two combined-lane test collisions | 80026498; ci 0, e2e 0 (first combined run red, second interrupted by the pause, third green) |
 | UI v2 C4c | Per-step check card icons, make mutate warns on templ-only changes | Std | impl, rev opus (head) | — | 2 Nov | 1 | 0/0/2 | merged 2 Nov; ci 0, e2e red only on the stores.pune sign-in abort (load 52), test passed alone |
+| Sign-in flake (AD-12 task, head finished) | Sweep clears pending searches; expired htmx request returns to its page (CD-382, AUTH-039); PrintButton waits for the script | Std | impl, rev opus (head) | — | 2 Nov | 2 | AUTH-039 doc vs code, 3 minors; make handin with TAGS=e2e red on -race deadlines at load 50, not compared with base | ci 0, e2e 0, no ERR_ABORTED |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
 ## RESUME HERE (paused 2 Nov 2026 evening, owner request)
 
-UI v2 is at 41 of 44 tasks merged. Steps 1 and 2 are done (80026498; AD-12's session has ended, the head runs its remaining work). Open: E7b, F3 and C2b, plus the sign-in flake fix (.worktrees/mod-grn-flake).
+UI v2 is at 41 of 44 tasks merged. Steps 1 and 2 are done (80026498; AD-12's session has ended, the head runs its remaining work). Open: E7b, F3 and C2b.
 1. **Batch trial `trial/ui-batch-2nov` (2ddb47e4)** holds C3c, F2, expense E7 and GRN E7 merged onto main, plus the combined-lane test fixes. Check its log, `.work/ci-2ddb47e4.log`: `ci exit` and `e2e exit` must both be 0 (a known load flake passes when rerun alone). If the run was interrupted, rerun it. If main has moved, merge main in first. Merge with `git merge --no-ff 2ddb47e4`, then check `git diff 2ddb47e4 HEAD -- . ':!docs' ':!CLAUDE.md'` is empty. Add PROGRESS rows: C3c, F1, C4b, F2, E7 ×2.
 2. Log the E7 rulings as a CD: GRN (Radios Lines, LineIcon, Bar; "Order to receive") and expense (three new test ids need EXP ids in docs/tests). Add AD-12's two LEARN lines: check a mock against a brief's named fields when writing it; test a proportional value with a mid-range row.
 3. **Tell AD-11** to start **E7b** once GRN E7 is on main (Tiles long option, FileUpload label, tile and progress; CD-379).
-4. **AD-12:** resume the stores.pune sign-in flake, root cause, not a raised deadline.
 5. **F3 (head):** document page and reason page 409s use ConflictBanner with Reload (CD-362), and the redraw sweep's `want` requires a warning banner with Reload.
 6. **C4c (head):** per-step check card icons (a `FormStep.Icon`); every fields step shows file-text today. Also tooling: `make mutate` should warn when touched .templ files give 0 mutants.
 7. **C2b:** shorter step labels in every module, serial, after both E7s.
