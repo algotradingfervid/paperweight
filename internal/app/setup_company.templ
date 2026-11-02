@@ -62,7 +62,7 @@ templ companyFrame(v companyView) {
 // setupCheckCards is Check's summary, one card per step with Change.
 templ setupCheckCards(cards []setupCard) {
 	for _, c := range cards {
-		@wizard.CheckSection(c.Title, "", c.Change) {
+		@wizard.CheckSection(c.Title, c.Icon, "", c.Change) {
 			@components.SummaryList(c.Pairs)
 		}
 	}

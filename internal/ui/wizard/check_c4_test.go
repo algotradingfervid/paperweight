@@ -27,7 +27,7 @@ func TestCheckSection_StatusBadge(t *testing.T) {
 		{"", "", "", ""},
 	} {
 		d := uitest.Render(t, templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-			return wizard.CheckSection("Party", tc.status, "/doc/po/42/edit/party").Render(templ.WithChildren(ctx, templ.Raw(`<p class="summary-x">Acme</p>`)), w)
+			return wizard.CheckSection("Party", "handshake", tc.status, "/doc/po/42/edit/party").Render(templ.WithChildren(ctx, templ.Raw(`<p class="summary-x">Acme</p>`)), w)
 		}))
 		sec := d.Find("section.card")
 		b := sec.Find(".check-status")

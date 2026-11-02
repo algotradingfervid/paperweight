@@ -13,11 +13,19 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
-// CheckSection is one step's summary card on the check page: its title, its
-// status as a badge (UI v2 §5.6: Complete in success, Needs attention in
-// warning, each with its icon), and a "Change" link to the step. Children are
-// the summary.
-func CheckSection(title string, status StepStatus, changeURL string) templ.Component {
+// CheckSection is one step's summary card on the check page (UI v2 §5.6): the
+// icon tile, its title, its status as a badge (Complete in success, Needs
+// attention in warning, each with its icon), and a "Change" ghost button to
+// the step, named "Change <title>" for screen readers. Children are the
+// summary. An empty icon panics: every check card has its tile.
+func CheckSection(title, icon string, status StepStatus, changeURL string) templ.Component {
+	if icon == "" {
+		panic("wizard.CheckSection: " + title + " needs an icon")
+	}
+	return checkSection(title, icon, status, changeURL)
+}
+
+func checkSection(title, icon string, status StepStatus, changeURL string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -88,7 +96,7 @@ func CheckSection(title string, status StepStatus, changeURL string) templ.Compo
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = components.Card(title, &components.Link{Label: "Change", Href: changeURL}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.CardWith(components.CardProps{Title: title, Icon: icon, Action: &components.ButtonProps{Label: "Change", AriaLabel: "Change " + title, Href: changeURL}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
