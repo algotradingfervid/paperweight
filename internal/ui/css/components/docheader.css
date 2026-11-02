@@ -77,3 +77,51 @@
   & .is-current .lifecycle__label, & .is-rejected .lifecycle__label, & .is-ended .lifecycle__label { font-weight: var(--weight-bold); }
   & .is-rejected .lifecycle__label { color: var(--color-danger-700); }
 }
+
+/* A step's note ("Part") and date (dd-mm) under its word (E5b). */
+@utility lifecycle__note {
+  color: var(--color-text-secondary);
+}
+@utility lifecycle__date {
+  color: var(--color-text-secondary);
+}
+
+/* The success after Submit (UI v2 §5.13 item 2, A-25): the circle draws in
+   400 ms, then the check 250 ms after it. With reduced motion there are no
+   keyframes at all, so the tick is drawn from the start. */
+@utility success-block {
+  & .success-block__head { display: flex; align-items: center; gap: var(--space-3); min-inline-size: 0; }
+  & .success-block__text { margin: 0; font-weight: var(--weight-bold); overflow-wrap: anywhere; }
+  & .success-block__tick { display: grid; flex: none; color: var(--color-success-600); }
+  & .success-block__tick .icon { inline-size: var(--space-12); block-size: var(--space-12); }
+  & .success-block__links { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  @media (prefers-reduced-motion: no-preference) {
+    & .success-block__tick circle { stroke-dasharray: 64; animation: success-circle 400ms var(--ease-out) backwards; }
+    & .success-block__tick path { stroke-dasharray: 12; animation: success-check 250ms var(--ease-out) 650ms backwards; }
+  }
+}
+
+/* The document's actions, last in the side column's tree: on phones the
+   sticky footer at the end of the page, as before; from 80rem a titled card
+   moved to the top of the side column. */
+@utility doc-actions {
+  display: contents;
+  & > .card, & > .card > .card-body { display: contents; }
+  & .card-head { display: none; }
+  & > .card > .card-body > * { order: 2; }
+  @media (min-width: 80rem) {
+    display: block;
+    order: -1;
+    & > .card { display: flex; }
+    & > .card > .card-body { display: flex; }
+    & .card-head { display: flex; }
+    & .actionbar { justify-content: flex-start; padding: 0; }
+  }
+}
+
+@keyframes success-circle {
+  from { stroke-dashoffset: 64; }
+}
+@keyframes success-check {
+  from { stroke-dashoffset: 12; }
+}

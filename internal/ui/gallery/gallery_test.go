@@ -45,6 +45,9 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		if d.Find(".doc-head__facts dd").Length() != 4 || d.Find("ol.lifecycle").Length() != 3 || d.Find(`ol.lifecycle li[aria-current="step"]`).Length() != 3 {
 			t.Error("docheader: want four facts and three rows of steps, one current step in each")
 		}
+		if d.Find(`.success-block[role="status"] a.btn`).Length() != 2 || !strings.Contains(d.Find(".success-block__text").Text(), uitest.LongName100) || d.Find(".lifecycle__date").Length() != 4 || d.Find(".lifecycle__note").Text() != "Part" {
+			t.Error("docheader: want the success block with LongName100 and two follow-ups, four step dates and the note Part")
+		}
 	},
 	"quickaction": func(t *testing.T, d *goquery.Document) {
 		if !strings.Contains(d.Find("main .newtiles a.newtile .newtile-label").Text(), uitest.LongName100) {

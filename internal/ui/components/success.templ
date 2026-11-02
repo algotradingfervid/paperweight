@@ -1,0 +1,33 @@
+package components
+
+import "github.com/vardhan/internaltools/internal/ui/icons"
+
+// SuccessProps is the success block after an action (UI v2 §5.13 item 2,
+// N14, A-25): Message is the action's success text, unchanged, and Links
+// its follow-ups, which the caller offers only as rights allow.
+type SuccessProps struct {
+	Message string
+	Links   []Link
+}
+
+// SuccessBlock is the block: the drawn tick (still under reduced motion), the
+// text and a button per follow-up, read out once as a status.
+templ SuccessBlock(p SuccessProps) {
+	<div class="success-block" role="status">
+		@CardWith(CardProps{}) {
+			<div class="success-block__head">
+				<span class="success-block__tick" aria-hidden="true">
+					@icons.Icon("circle-check")
+				</span>
+				<p class="success-block__text">{ p.Message }</p>
+			</div>
+			if len(p.Links) > 0 {
+				<div class="success-block__links">
+					for _, l := range p.Links {
+						@Button(ButtonProps{Label: l.Label, Href: l.Href, Variant: Secondary})
+					}
+				</div>
+			}
+		}
+	</div>
+}

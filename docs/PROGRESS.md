@@ -363,7 +363,20 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | MOD-GRN (AD-12) complete apart from moreFields (after C3) | 89 workers, 1640.2 worker-min; full rows in .worktrees/mod-grn/.work/ad-tasks.md | — | AD-12 | — | 2 Nov | — | — | 2a873bb0 |
 | UI v2 C3 | Save cue, wizard head, sticky footer, focus mode (A-12, CD-374) | Std | impl, rev opus (head) | — | 2 Nov | 2 | dead-end header, time.Now | e28ed0ac; ci 0, e2e 0 |
 | UI v2 C3b | Wizard × with leave dialog, docscreen GroupMore (CD-363, CD-376, CD-377) | Std | impl, rev opus (head) | — | 2 Nov | 2 | lost no-× coverage | 21e916b6; ci 0, e2e 0 (gallery browser-start deadline under load, passed alone) |
+| UI v2 D2 | QuickCreate party and item from the picker (CD-375) | High | impl, rev opus (head) | — | 2 Nov | 2 | nested-root events (REPEAT) | d8d4908b; ci 0, e2e 0 |
+| UI v2 E5b; MOD-GRN cleanup | Success block, step timeline with PO Sent/Received, actions order (CD-372); grnweb moreFields via GroupMore | Std | impl, rev opus (head, AD-12) | — | 2 Nov | 2 | 7 findings round 1 (one current step, flash once) | 42f5c17f; ci 0, e2e 0 |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
+
+## RESUME HERE (paused 2 Nov 2026 ~07:20, owner travelling)
+
+Main is fb12cbf1. UI v2 is at 34 of 38 tasks merged. On resume, send each AD a resume message and continue:
+- **C3c** (.worktrees/ui-c3c, base 21e916b6): review asked for changes. The fix round per CD-378 was being checked when work stopped. Re-run `make handin BASE=21e916b6 PKGS="./internal/ui/... ./internal/modules/... ./internal/app/..."`, make mutate and the full make e2e. Then send it to a fresh crew-reviewer to re-check only the two majors and CD-378. Status: scratchpad uiv2c3c-status.md.
+- **C4b** (.worktrees/ui-c4b, base d8d4908b): built, hand-in not confirmed. Re-run the hand-in, then review. Status: scratchpad uiv2c4b-status.md.
+- **E7 GRN** (AD-12, lane/mod-grn-e7): paused before hand-in, uncommitted; the worker also changed a picker query, which AD-12 must review first; includes a components.Radios extension (Option.Lines, Option.Bar *Meter) approved by the head; log it as a CD at merge. After E7: the stores.pune sign-in flake, root cause.
+- **E7 expense** (AD-11, .worktrees/mod-exp-e7 on lane/mod-exp-uie7, base d8d4908b, uncommitted). The lane also changes e2e/grn_flow_test.go, outside E7 scope: check why before review.
+- **C2b** (shorter step labels in every module): not started; it goes after both E7s.
+- Then: module UI/UX review (crew-ui-reviewer), fix lists to the ADs, the final gate, and the owner's push say-so.
+- Preview: rebuild from main. Port 8080 may be taken by another session's demo, so use 8081.
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 

@@ -439,7 +439,7 @@ func TestDocPage_FlashBanners(t *testing.T) {
 				t.Fatalf("GET %s = %d, body %.300s", next, first.Code, first.Body)
 			}
 			doc := uitest.Doc(t, first)
-			if got := bannerTexts(doc.Find("#main"), "success"); !slices.Equal(got, []string{c.want}) {
+			if got := successTexts(doc.Find("#main")); !slices.Equal(got, []string{c.want}) {
 				t.Errorf("success banners on the next GET = %q, want [%q]", got, c.want)
 			}
 			if c.action == "approve" {
@@ -449,11 +449,11 @@ func TestDocPage_FlashBanners(t *testing.T) {
 			}
 
 			again := uitest.Doc(t, e.get(t, c.page))
-			if got := bannerTexts(again.Find("#main"), "success"); len(got) != 0 {
+			if got := successTexts(again.Find("#main")); len(got) != 0 {
 				t.Errorf("second GET still shows %q", got)
 			}
 			done := uitest.Doc(t, e.get(t, c.page+"?done="+c.action))
-			if got := bannerTexts(done.Find("#main"), "success"); len(got) != 0 {
+			if got := successTexts(done.Find("#main")); len(got) != 0 {
 				t.Errorf("?done= shows a banner %q; banners come only from the flash", got)
 			}
 		})
