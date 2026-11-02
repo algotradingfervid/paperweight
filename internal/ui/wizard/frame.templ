@@ -176,12 +176,27 @@ templ DocVersion(version int, oob bool) {
 	}
 }
 
+// leaveID is the "Leave without saving?" dialog's id.
+const leaveID = "leave-wizard"
+
+// asksToLeave reports whether the × asks before leaving: a new document has
+// no draft yet, and a master wizard keeps nothing until its last step (UI v2
+// §5.6). A saved document's × goes straight to Close, as each step saved it.
+func asksToLeave(m Model) bool {
+	return m.Mode == Master || m.DocLabel == ""
+}
+
 // head is the wizard head (UI v2 §5.6): the close ×, when m.Close is set,
 // then a document's kind as the meta line above the h1, and, in Document
 // mode, the save cue. On phones in focus mode it is the sticky top bar.
+// Without JavaScript a × that asks goes straight to Close.
 templ head(m Model) {
 	<div class="wizard-head">
-		if m.Close != "" {
+		if m.Close != "" && asksToLeave(m) {
+			<a class="btn btn-ghost btn-square wizard-close" href={ templ.SafeURL(m.Close) } aria-label="Close" aria-haspopup="dialog" data-open-dialog={ leaveID }>
+				@icons.Icon("x")
+			</a>
+		} else if m.Close != "" {
 			<a class="btn btn-ghost btn-square wizard-close" href={ templ.SafeURL(m.Close) } aria-label="Close">
 				@icons.Icon("x")
 			</a>
@@ -194,6 +209,15 @@ templ head(m Model) {
 		</div>
 		if m.Mode == Document {
 			@saveCue(m.DocLabel == "")
+		}
+		if m.Close != "" && asksToLeave(m) {
+			@components.Dialog(leaveID, "Leave without saving?") {
+				<p>What you typed in this wizard is lost.</p>
+				<div class="cluster">
+					@components.Button(components.ButtonProps{Label: "Keep editing", Type: "button", Attrs: templ.Attributes{"data-close-dialog": true}})
+					@components.Button(components.ButtonProps{Label: "Leave", Href: m.Close, Variant: components.Danger})
+				</div>
+			}
 		}
 	</div>
 }

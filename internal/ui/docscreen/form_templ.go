@@ -212,8 +212,8 @@ func stepBanner(text string) templ.Component {
 	})
 }
 
-// moreGroup is b's fields in a MoreDetails.
-func moreGroup(b moreBox) templ.Component {
+// moreGroup is g's More inputs in a MoreDetails.
+func moreGroup(g MoreGroup) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -246,7 +246,7 @@ func moreGroup(b moreBox) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			for _, c := range b.inputs {
+			for _, c := range g.Group {
 				templ_7745c5c3_Err = c.Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -254,7 +254,7 @@ func moreGroup(b moreBox) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = components.MoreDetails(b.labels, b.open).Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.MoreDetails(g.Labels, g.Open).Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

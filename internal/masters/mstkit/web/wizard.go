@@ -595,6 +595,7 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 	last := len(h.wiz.steps) - 1
 	m := h.wiz.model()
 	m.Title, m.BaseURL, m.Current, m.Furthest = h.Copy.New, h.Base+"/new", i, furthest
+	m.Close = h.Base // the × goes back to the list (UI v2 §5.6)
 	if i < last && r.FormValue("return") == checkSlug {
 		m.ReturnTo = checkSlug
 	}
