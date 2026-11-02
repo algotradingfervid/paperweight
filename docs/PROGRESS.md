@@ -370,18 +370,19 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | UI v2 C4c | Per-step check card icons, make mutate warns on templ-only changes | Std | impl, rev opus (head) | — | 2 Nov | 1 | 0/0/2 | merged 2 Nov; ci 0, e2e red only on the stores.pune sign-in abort (load 52), test passed alone |
 | Sign-in flake (AD-12 task, head finished) | Sweep clears pending searches; expired htmx request returns to its page (CD-382, AUTH-039); PrintButton waits for the script | Std | impl, rev opus (head) | — | 2 Nov | 2 | AUTH-039 doc vs code, 3 minors; make handin with TAGS=e2e red on -race deadlines at load 50, not compared with base | ci 0, e2e 0, no ERR_ABORTED |
 | UI v2 F3 | ConflictBanner only for stale versions; refused line, remove and move saves keep typed values; banner focus (CD-381, CD-384) | Std | impl, rev opus (head) | — | 3 Nov | 4 | 2 majors then 1 (typed line lost, fake hid it), EUX-026 amended | c062bda5; ci 0, e2e 0 |
+| UI v2 E7b | Receipt card, upload status, attached tile, Tiles width and order (CD-379, CD-383, CD-385) | Std | impl, rev, ui-rev opus (AD-11) | — | 3 Nov | 3 | false "attached" on a redirect; first MERGE-READY had no review | 094bd568; ci 0, e2e 0 |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
 ## RESUME HERE (paused 2 Nov 2026 evening, owner request)
 
-UI v2 is at 42 of 44 tasks merged. Steps 1 and 2 are done (80026498; AD-12's session has ended, the head runs its remaining work). Open: E7b and C2b.
+UI v2 is at 43 of 44 tasks merged. Steps 1 and 2 are done (80026498; AD-12's session has ended, the head runs its remaining work). Open: C2b.
 1. **Batch trial `trial/ui-batch-2nov` (2ddb47e4)** holds C3c, F2, expense E7 and GRN E7 merged onto main, plus the combined-lane test fixes. Check its log, `.work/ci-2ddb47e4.log`: `ci exit` and `e2e exit` must both be 0 (a known load flake passes when rerun alone). If the run was interrupted, rerun it. If main has moved, merge main in first. Merge with `git merge --no-ff 2ddb47e4`, then check `git diff 2ddb47e4 HEAD -- . ':!docs' ':!CLAUDE.md'` is empty. Add PROGRESS rows: C3c, F1, C4b, F2, E7 ×2.
 2. Log the E7 rulings as a CD: GRN (Radios Lines, LineIcon, Bar; "Order to receive") and expense (three new test ids need EXP ids in docs/tests). Add AD-12's two LEARN lines: check a mock against a brief's named fields when writing it; test a proportional value with a mid-range row.
 3. **Tell AD-11** to start **E7b** once GRN E7 is on main (Tiles long option, FileUpload label, tile and progress; CD-379).
 5. **F3 (head):** document page and reason page 409s use ConflictBanner with Reload (CD-362), and the redraw sweep's `want` requires a warning banner with Reload.
 6. **C4c (head):** per-step check card icons (a `FormStep.Icon`); every fields step shows file-text today. Also tooling: `make mutate` should warn when touched .templ files give 0 mutants.
 7. **C2b:** shorter step labels in every module, serial, after both E7s.
-8. Module UI/UX review (crew-ui-reviewer). Its list so far: Select text under the chevron at 360 px; a required-at-submit GST field has no asterisk; New in a picker pressed before the last search answer left the sheet shut (seen once).
+8. Module UI/UX review (crew-ui-reviewer). Its list so far: Select text under the chevron at 360 px; a required-at-submit GST field has no asterisk; New in a picker pressed before the last search answer left the sheet shut (seen once). Also: five banner redraws without focus (mstkit, modkit settings, GRN bill, auth rights, logo); Segmented options with a word of 8 to 12 letters can split; TestTilesBrowser_DOMOrderIsVisualOrder needs a wide-tile count; upload.templ comments on Done; Receipt hint repeats for screen readers; thumbnail link name; check centring at 320 px. EXP ids for E7b tests.
 9. Then fix lists to the ADs, the final gate, and the owner's push say-so.
 
 Preview: `go build -o <scratchpad>/app-local ./cmd/app`, then serve on 127.0.0.1:8081 with `--data <scratchpad>/appdata`. Port 8080 may hold another session's demo.
