@@ -16,6 +16,8 @@
     color: var(--color-text-secondary);
     overflow-wrap: anywhere;
   }
+  /* upload.js: the Done text; the file shown below says it on screen. */
+  & > [role="status"][data-clipped] { @apply visually-hidden; }
   & > .upload__percent {
     grid-column: 2;
     order: 2;

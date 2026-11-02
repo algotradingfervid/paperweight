@@ -10,11 +10,19 @@
 // and shows in the message region, cloned from the upload's <template> as a
 // text node; only an upload form's refusal marks the inputs. No answer at all
 // shows the data-dropped text. A 2xx answer to an upload, unless it is an
-// HX-Redirect (which stored nothing), puts the status line's data-done text,
-// when it has one, where the busy text was; it stays until the next request
-// in the upload ends or the next upload starts.
+// HX-Redirect (the page is leaving), puts the status line's data-done text,
+// when it has one, where the busy text was, for screen readers only: the file
+// shown below says it on screen. It stays until the next request in the
+// upload ends or the next upload starts.
 
 const used = new WeakMap(); // upload box -> the input that started its upload
+
+// say puts text in the status line s, clipped to screen readers only when clip
+// is true. Both change in one step, so the region changes once.
+const say = (s, text, clip = false) => {
+  s.toggleAttribute("data-clipped", clip);
+  s.textContent = text;
+};
 
 // percent shows text beside the status line s, in a span made at first use.
 // It stays outside that role="status" region and out of the accessibility
@@ -58,7 +66,7 @@ on("htmx:beforeRequest", (b, e, up, p, s) => {
   msg(b, null);
   p.value = 0;
   p.hidden = false;
-  s.textContent = s.dataset.busy.replace("…", () => " " + i.files[0].name + "…");
+  say(s, s.dataset.busy.replace("…", () => " " + i.files[0].name + "…"));
   percent(s, "0%");
 });
 
@@ -86,14 +94,14 @@ on("htmx:beforeOnLoad", (b, e) => {
 on("htmx:afterRequest", (b, e, up, p, s) => {
   p.hidden = true;
   p.value = 0;
-  s.textContent = "";
+  say(s, "");
   percent(s, "");
   const i = used.get(b);
   used.delete(b);
   if (i && i.isConnected && e.detail.xhr.getResponseHeader("HX-Refresh") !== "true") {
     i.value = "";
     const st = e.detail.xhr.status;
-    if (s.dataset.done && st >= 200 && st < 300 && e.detail.xhr.getResponseHeader("HX-Redirect") === null) s.textContent = s.dataset.done;
+    if (s.dataset.done && st >= 200 && st < 300 && e.detail.xhr.getResponseHeader("HX-Redirect") === null) say(s, s.dataset.done, true);
     const a = document.activeElement;
     if (b.contains(a) || !a.matches("input,select,textarea")) i.focus();
   }

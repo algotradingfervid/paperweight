@@ -187,9 +187,30 @@ func TestUploadBrowser_BusyNameAndPercent(t *testing.T) {
 	}
 }
 
-// e7bStates records every text the status line of the upload id goes through.
+// e7bStates records every text the status line of the upload id goes through
+// and, in e7bViews, each step of any change to it, attributes too, as its text
+// and whether that step is on show.
 func e7bStates(id string) string {
-	return `(() => { const s = document.getElementById(` + strconv.Quote(id+"-status") + `); window.e7bStates = []; new MutationObserver(() => window.e7bStates.push(s.textContent)).observe(s, {childList: true, characterData: true, subtree: true}); })()`
+	return `(() => { const s = document.getElementById(` + strconv.Quote(id+"-status") + `); window.e7bStates = []; window.e7bViews = [];
+new MutationObserver(() => window.e7bStates.push(s.textContent)).observe(s, {childList: true, characterData: true, subtree: true});
+new MutationObserver(() => window.e7bViews.push(s.textContent + (` + e7bClipped(id+"-status") + ` ? " (clipped)" : " (on show)"))).observe(s, {attributes: true, childList: true, characterData: true, subtree: true}); })()`
+}
+
+// e7bClipped is true when the element with this id is measured at 1 × 1 with
+// its text clipped away, still rendered for a screen reader.
+func e7bClipped(id string) string {
+	return `(() => { const e = document.getElementById(` + strconv.Quote(id) + `), r = e.getBoundingClientRect(); return r.width === 1 && r.height === 1 && getComputedStyle(e).clipPath !== "none"; })()`
+}
+
+// e7bRect is the size of the element with this id, for a failure message.
+func e7bRect(id string) string {
+	return `(() => { const r = document.getElementById(` + strconv.Quote(id) + `).getBoundingClientRect(); return r.width + "x" + r.height; })()`
+}
+
+// e7bOnShow is true when the element with this id takes the upload's width
+// and nothing clips it. An empty line has no height, so width says it.
+func e7bOnShow(id string) string {
+	return `(() => { const e = document.getElementById(` + strconv.Quote(id) + `); return e.getBoundingClientRect().width > 100 && getComputedStyle(e).clipPath === "none"; })()`
 }
 
 const e7bDone = "Receipt attached."
@@ -220,7 +241,9 @@ func e7bOpen(t *testing.T, ctx context.Context, id string) *attachServer {
 
 // UX §5.5, WCAG 4.1.3: after a successful upload the status line goes from
 // busy to the Done text, which replaces it in one step (nothing empty for a
-// screen reader to skip) and stays. The next upload's busy text replaces it.
+// screen reader to skip, no later step that hides it) and stays in the live
+// region, clipped to a pixel because the tile below says it on screen. The
+// next upload's busy text replaces it and is on show again.
 func TestUploadBrowser_DoneAnnounced(t *testing.T) {
 	const id = "att-done"
 	ctx := uibrowser.New(t)
@@ -234,6 +257,12 @@ func TestUploadBrowser_DoneAnnounced(t *testing.T) {
 	if got, want := attachEval[[]string](t, ctx, `window.e7bStates`), []string{"Uploading bill.jpg…", e7bDone}; !slices.Equal(got, want) {
 		t.Errorf("status went through %q, want %q", got, want)
 	}
+	if got, want := attachEval[[]string](t, ctx, `window.e7bViews`), []string{"Uploading bill.jpg… (on show)", e7bDone + " (clipped)"}; !slices.Equal(got, want) {
+		t.Errorf("the status line's steps were %q, want %q", got, want)
+	}
+	if got := axChecked(t, ctx, id+"-status"); got != "status " {
+		t.Errorf("the accessibility tree has the status line as %q", got)
+	}
 	attachWait(t, ctx, id, "the inputs are back", `!`+attInputs(id)+`.some(function (i) { return i.disabled; })`)
 	if !attachEval[bool](t, ctx, attQ("#"+id+" .upload__progress")+`.hidden`) {
 		t.Error("the bar stays up after the upload")
@@ -245,11 +274,19 @@ func TestUploadBrowser_DoneAnnounced(t *testing.T) {
 	if got := attachEval[string](t, ctx, e7bStatus(id)); got != e7bDone {
 		t.Errorf("the status line after a second = %q", got)
 	}
+	if !attachEval[bool](t, ctx, e7bClipped(id+"-status")) {
+		t.Errorf("the Done text is on show: %s", attachEval[string](t, ctx, e7bRect(id+"-status")))
+	}
+	e7bOverflow(t, ctx, "after Done")
 	e7bSend(t, ctx, s, id) // e7bSend's busy wait: the next upload replaces it
+	if !attachEval[bool](t, ctx, e7bOnShow(id+"-status")) {
+		t.Errorf("the next upload's busy text isn't on show: %s", attachEval[string](t, ctx, e7bRect(id+"-status")))
+	}
 }
 
 // A refusal of any status, a dropped connection and a Remove never say Done,
-// and a refusal or drop after a success takes the old Done text away.
+// and a refusal or drop after a success takes the old Done text away and
+// leaves nothing clipped: the busy text, the message and the line itself show.
 func TestUploadBrowser_DoneNotOnFailure(t *testing.T) {
 	const id = "att-done"
 	ctx := uibrowser.New(t)
@@ -272,14 +309,37 @@ func TestUploadBrowser_DoneNotOnFailure(t *testing.T) {
 			attachEval[any](t, ctx, `window.e7bStates.length = 0`)
 
 			e7bSend(t, ctx, s, id)
+			if !attachEval[bool](t, ctx, e7bOnShow(id+"-status")) {
+				t.Errorf("the busy text after a Done isn't on show: %s", attachEval[string](t, ctx, e7bRect(id+"-status")))
+			}
 			s.reply(t, c.a)
 			attachWait(t, ctx, id, "the message", attShows(id, c.want))
 			attachWait(t, ctx, id, "idle", attIdle(id))
 			if got := attachEval[[]string](t, ctx, `window.e7bStates`); slices.Contains(got, e7bDone) {
 				t.Errorf("status went through %q", got)
 			}
+			for _, on := range []string{id + "-status", id + "-msg"} {
+				if !attachEval[bool](t, ctx, e7bOnShow(on)) {
+					t.Errorf("%s isn't on show after the failure: %s", on, attachEval[string](t, ctx, e7bRect(on)))
+				}
+			}
 		})
 	}
+	t.Run("remove after a done", func(t *testing.T) {
+		s := e7bOpen(t, ctx, id)
+		e7bSend(t, ctx, s, id)
+		s.reply(t, attachAnswer{ok: true})
+		attachWait(t, ctx, id, "the done text", e7bStatus(id)+` === `+strconv.Quote(e7bDone))
+		attachDo(t, ctx, "open the confirm", chromedp.Click(chromedp.CSS(`#att-done button[aria-label="Remove receipt.jpg"]`)))
+		attachWait(t, ctx, id, "the confirm opens", `document.getElementById("remove-file-301").open`)
+		attachDo(t, ctx, "confirm", chromedp.Click(chromedp.CSS("#remove-file-301 button[type=submit]")))
+		s.held(t)
+		s.reply(t, attachAnswer{ok: true})
+		attachWait(t, ctx, id, "the line empties", e7bStatus(id)+` === ""`)
+		if !attachEval[bool](t, ctx, e7bOnShow(id+"-status")) {
+			t.Errorf("the empty line stays clipped after a Remove: %s", attachEval[string](t, ctx, e7bRect(id+"-status")))
+		}
+	})
 	t.Run("remove", func(t *testing.T) {
 		s := e7bOpen(t, ctx, id)
 		attachDo(t, ctx, "open the confirm", chromedp.Click(chromedp.CSS(`#att-done button[aria-label="Remove receipt.jpg"]`)))
