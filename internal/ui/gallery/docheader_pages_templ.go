@@ -15,8 +15,10 @@ import (
 )
 
 // docHeaderBody is the document header with the worst cases: a 60-character
-// number, the largest amount, four 100-character facts and five steps, then
-// the rejected and closed rows of steps (UI v2 §5.13, N14).
+// number, the largest amount, four 100-character facts and five steps with
+// dates and a note, then the rejected and closed rows of steps, and the
+// success block with a 100-character name and two follow-ups (UI v2 §5.13,
+// N14, E5b).
 func docHeaderBody() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -38,6 +40,13 @@ func docHeaderBody() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = components.SuccessBlock(components.SuccessProps{
+			Message: "Submitted for approval to " + uitest.LongName100 + ".",
+			Links:   []components.Link{{Label: "New purchase order", Href: "#new"}, {Label: uitest.LongName100, Href: "#home"}},
+		}).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		templ_7745c5c3_Err = components.DocHeader(components.DocHeaderProps{
 			Title: uitest.LongCode60, State: doctype.StatePending,
 			Amount: uitest.MaxMoney, InWords: "Rupees Ninety Nine Crore Ninety Nine Lakh Ninety Nine Thousand Nine Hundred Ninety Nine and Paise Ninety Nine Only",
@@ -46,8 +55,9 @@ func docHeaderBody() templ.Component {
 				{Label: "Order date", Value: "30-10-2026", Num: true}, {Label: uitest.LongName100, Value: uitest.LongCode60, Code: true},
 			},
 			Steps: []components.LifeStep{
-				{Label: "Draft", Mark: components.LifeDone}, {Label: "Pending approval", Mark: components.LifeCurrent},
-				{Label: "Approved"}, {Label: "Sent"}, {Label: "Received"},
+				{Label: "Draft", Mark: components.LifeDone, Date: "28-10"}, {Label: "Pending approval", Mark: components.LifeDone, Date: "29-10"},
+				{Label: "Approved", Mark: components.LifeDone, Date: "30-10"}, {Label: "Sent", Mark: components.LifeDone, Date: "31-10"},
+				{Label: "Received", Mark: components.LifeCurrent, Note: "Part"},
 			},
 		}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

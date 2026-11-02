@@ -38,13 +38,13 @@ func TestPO_HeaderKeyFactsAndSteps(t *testing.T) {
 		steps []string
 	}{
 		{doctype.StatePending, "07-11-2026", []string{"Vendor=" + vendor, "Deliver to=" + site, "Order date=" + today, "Required by=07-11-2026"},
-			[]string{"Draft (done)|", "Pending approval|step", "Approved|"}},
+			[]string{"Draft (done)|", "Pending approval|step", "Approved|", "Sent|", "Received|"}},
 		{doctype.StateRejected, "", []string{"Vendor=" + vendor, "Deliver to=" + site, "Order date=" + today},
-			[]string{"Draft (done)|", "Rejected|step", "Approved|"}},
+			[]string{"Draft (done)|", "Rejected|step", "Approved|", "Sent|", "Received|"}},
 		{doctype.StateApproved, "", []string{"Vendor=" + vendor, "Deliver to=" + site, "Order date=" + today},
-			[]string{"Draft (done)|", "Pending approval (done)|", "Approved|step"}},
+			[]string{"Draft (done)|", "Pending approval (done)|", "Approved|step", "Sent|", "Received|"}},
 		{doctype.StateClosed, "", []string{"Vendor=" + vendor, "Deliver to=" + site, "Order date=" + today},
-			[]string{"Draft (done)|", "Pending approval (done)|", "Approved (done)|", "Closed|step"}},
+			[]string{"Draft (done)|", "Pending approval (done)|", "Approved (done)|", "Sent|", "Received|", "Closed|step"}},
 	} {
 		t.Run(string(c.s), func(t *testing.T) {
 			var opts []purchasetest.OrderOpt

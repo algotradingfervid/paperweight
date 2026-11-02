@@ -2,6 +2,7 @@ package purchaseweb
 
 import (
 	"github.com/vardhan/internaltools/internal/modules/purchase"
+	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
@@ -13,6 +14,9 @@ type module struct {
 // orderKeyFacts are the PO header fields the document header shows (UI v2
 // §5.13 item 3).
 var orderKeyFacts = []string{"vendor_id", "site_id", "order_date", "required_by"}
+
+// purchaseHome is the success block's "Go to Purchase" (UI v2 §5.13 item 2).
+var purchaseHome = components.Link{Label: "Purchase", Href: homePath}
 
 // Modules is what purchase adds to the generic document screens, by DocType,
 // for internal/app's docscreen.Deps.Modules. Each field calls a function in
@@ -32,13 +36,15 @@ func Modules(d Deps) map[string]docscreen.Module {
 				"terms": m.orderTermsStep(), // P15a
 				"items": m.orderItemsStep(), // P15c
 			},
-			Hide:     m.orderHide,     // P15a
-			Check:    m.orderCheck,    // P15a
-			LineCard: m.orderLineCard, // P15a
-			LineGrid: m.orderLineGrid, // P15a
-			Page:     m.orderPageHook, // P15b
-			Reason:   m.orderReason,   // P15b
-			KeyFacts: orderKeyFacts,   // UI v2 E5
+			Hide:      m.orderHide,                      // P15a
+			Check:     m.orderCheck,                     // P15a
+			LineCard:  m.orderLineCard,                  // P15a
+			LineGrid:  m.orderLineGrid,                  // P15a
+			Page:      m.orderPageHook,                  // P15b
+			Reason:    m.orderReason,                    // P15b
+			KeyFacts:  orderKeyFacts,                    // UI v2 E5
+			LifeSteps: []string{lifeSent, lifeReceived}, // UI v2 E5b
+			Home:      purchaseHome,                     // UI v2 E5b
 		},
 		purchase.RequestDocType: {
 			CardsOnly: requestCardsOnly,  // P15d
@@ -47,6 +53,7 @@ func Modules(d Deps) map[string]docscreen.Module {
 			Hide:      m.requestHide,     // P15d
 			Check:     m.requestCheck,    // P15d
 			LineCard:  m.requestLineCard, // P15d
+			Home:      purchaseHome,      // UI v2 E5b
 		},
 	}
 }

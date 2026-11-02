@@ -24,7 +24,7 @@ templ docMain(pv pageView) {
 // docBanners sit above the h1: a rejected document's reason first, then a
 // refused action's message, then an action's success and, after an approve,
 // the "Next request" link straight under it, and the module's notice last
-// (CD-263 G3).
+// (CD-263 G3). After a Submit the success is the success block (A-25).
 templ docBanners(pv pageView) {
 	if pv.V.Info.State == doctype.StateRejected && pv.V.Origin.StateReason != "" {
 		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.V.Origin.StateReason})
@@ -33,7 +33,9 @@ templ docBanners(pv pageView) {
 		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.Danger})
 	}
 	@components.ErrorSummary(pv.Errors)
-	if pv.Success != "" {
+	if pv.Block {
+		@components.SuccessBlock(components.SuccessProps{Message: pv.Success, Links: pv.Follow})
+	} else if pv.Success != "" {
 		@components.Banner(components.BannerProps{Kind: components.Success, Message: pv.Success})
 	}
 	if pv.Next != "" {
@@ -47,14 +49,16 @@ templ docBanners(pv pageView) {
 }
 
 // docBody follows the phone order of design-system §8.4, with the header
-// card first (UI v2 §5.13); from 80rem the attachments and approval history
-// sit in a side panel. Every value is read-only.
+// card first (UI v2 §5.13); from 80rem the Actions card, the attachments and
+// approval history sit in a side panel, the card moved to the top
+// (doc-actions). On phones the actions come last, as the bottom bar, in
+// tree order too. Every value is read-only.
 templ docBody(pv pageView) {
 	<div class="doc-layout">
 		<div class="doc-main">
 			@components.DocHeader(components.DocHeaderProps{
 				Title: pv.V.Info.Display, State: pv.V.Info.State, StateLabel: pv.DT.StateLabels[pv.V.Info.State],
-				Amount: pv.V.GrandTotal, InWords: pv.V.InWords, Facts: pv.Facts, Steps: lifeSteps(pv.DT, pv.V.Info.State),
+				Amount: pv.V.GrandTotal, InWords: pv.V.InWords, Facts: pv.Facts, Steps: pv.Steps,
 			})
 			if pv.Party != "" {
 				<p>{ pv.Party }</p>
@@ -106,18 +110,29 @@ templ docBody(pv pageView) {
 					@History(pv.V.Approval.History)
 				}
 			}
+			if hasActions(pv) {
+				<div class="doc-actions">
+					@components.Card("Actions", nil) {
+						@components.MoreActions(pv.More)
+						@components.ActionBar(pv.Bar)
+					}
+				</div>
+			}
 		</div>
 	</div>
 }
 
-// docBar is "More actions", the action bar and the hidden forms the bar's
-// buttons post through (each with the page's version, CD-94).
+// docBar is the hidden forms the Actions card's buttons post through (each
+// with the page's version, CD-94).
 templ docBar(pv pageView) {
-	@components.MoreActions(pv.More)
-	@components.ActionBar(pv.Bar)
 	for _, f := range pv.Forms {
 		@components.Form(components.FormProps{ID: f.ID, Action: f.Action, HX: true}) {
 			<input type="hidden" name="version" value={ strconv.Itoa(f.Version) }/>
 		}
 	}
+}
+
+// hasActions reports whether the page has an action or the bar's note to show.
+func hasActions(pv pageView) bool {
+	return pv.Bar != (components.ActionBarProps{}) || len(pv.More) > 0
 }

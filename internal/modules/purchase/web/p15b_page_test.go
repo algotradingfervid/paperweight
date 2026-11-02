@@ -393,7 +393,7 @@ func TestPO_OwnerCardRejected(t *testing.T) {
 	if got := p15dCardParas(page, "Owner"); !slices.Equal(got, []string{"You own this order. Only you can change or submit it."}) {
 		t.Errorf("Owner card %q", got)
 	}
-	if page.doc.Find(`section.card a[href="`+orderPage(po.ID, "/handover")+`"]`).Length() != 1 {
+	if page.doc.Find(`.doc-main section.card a[href="`+orderPage(po.ID, "/handover")+`"]`).Length() != 1 {
 		t.Errorf("Owner card has no Hand over to the hand-over page")
 	}
 	if !slices.Contains(page.more(), "Hand over") {

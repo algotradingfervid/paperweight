@@ -11,6 +11,12 @@ func Routes(d Deps) func(chi.Router) {
 	if err := CheckKeyFacts(d.Modules); err != nil {
 		panic(err)
 	}
+	if err := CheckLifeSteps(d.Modules); err != nil {
+		panic(err)
+	}
+	if err := CheckHome(d.Modules); err != nil {
+		panic(err)
+	}
 	return func(r chi.Router) {
 		r.Get("/search", d.search)
 		r.Get("/doc/{doctype}", d.list)
