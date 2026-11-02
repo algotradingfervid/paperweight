@@ -38,6 +38,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 	"github.com/vardhan/internaltools/internal/ui/layout"
 )
 
@@ -282,6 +283,9 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 			if _, ok := h.field(name); !ok {
 				panic("mstweb: " + s.DocType + ": step " + st.Slug + " names no field " + name)
 			}
+		}
+		if st.Icon != "" && !slices.Contains(icons.Names(), st.Icon) {
+			panic("mstweb: " + s.DocType + ": step " + st.Slug + " names no icon " + st.Icon)
 		}
 	}
 	for name := range s.Choices {

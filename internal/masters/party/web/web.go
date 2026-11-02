@@ -100,10 +100,10 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		Wizard: mstweb.CreateWizard[draft]{
 			Sessions: sm,
 			Steps: []docscreen.FormStep{ // Party's fields declare no Step: its other steps are other DocTypes
-				{Slug: "details", Label: "Party details", Fields: []string{"code", "name", roleField, "pan", "gst_category", termsField},
+				{Slug: "details", Label: "Party details", Icon: "handshake", Fields: []string{"code", "name", roleField, "pan", "gst_category", termsField},
 					Intro: "A party is a company you buy from or sell to. Nothing is saved until the last step."},
-				{Slug: stepAddresses, Label: "Addresses", Intro: "Add the addresses that go on orders and invoices."},
-				{Slug: stepContacts, Label: "Contacts", Intro: "Add the people you deal with there, if any."},
+				{Slug: stepAddresses, Label: "Addresses", Icon: "map-pin", Intro: "Add the addresses that go on orders and invoices."},
+				{Slug: stepContacts, Label: "Contacts", Icon: "contact", Intro: "Add the people you deal with there, if any."},
 			},
 			Rows: map[string]mstweb.RowStep{
 				stepAddresses: {Legend: "Addresses", AddLabel: "Add address", Fields: addressFields(), Defaults: addressDefaults},

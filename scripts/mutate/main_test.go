@@ -441,6 +441,63 @@ func TestRun_FilesAndPkgsFilter(t *testing.T) {
 	}
 }
 
+// A touched .templ file gives no mutants, so the run says so instead of
+// reading as a pass; one that is untouched, or outside -pkgs, stays quiet.
+func TestRun_WarnsOnTouchedTempl(t *testing.T) {
+	const warning = "page.templ: WARNING: touched .templ code gives no mutants"
+	templ := func(t *testing.T, root, name, text string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(root, name), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	commit := func(t *testing.T, root string) {
+		t.Helper()
+		gitRun(t, root, "add", "-A")
+		gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "c")
+	}
+
+	t.Run("untracked", func(t *testing.T) {
+		root := repo(t)
+		templ(t, root, "page.templ", "package mod\n")
+		out, code, r := mutate(t, root, "-base", "HEAD", "-pkgs", ".")
+		if code != 0 || len(r.Mutants) != 0 || !strings.Contains(out, warning) {
+			t.Errorf("exit %d, mutants %v, output %q; want exit 0, none and the warning", code, results(r), out)
+		}
+	})
+	t.Run("changed since base", func(t *testing.T) {
+		root := repo(t)
+		templ(t, root, "page.templ", "package mod\n")
+		commit(t, root)
+		templ(t, root, "page.templ", "package mod\n\ntempl x() {\n}\n")
+		if out, _, _ := mutate(t, root, "-base", "HEAD", "-pkgs", "."); !strings.Contains(out, warning) {
+			t.Errorf("output %q; want the warning", out)
+		}
+	})
+	t.Run("untouched", func(t *testing.T) {
+		root := repo(t)
+		templ(t, root, "page.templ", "package mod\n")
+		commit(t, root)
+		if out, _, _ := mutate(t, root, "-base", "HEAD", "-pkgs", "."); strings.Contains(out, "WARNING") {
+			t.Errorf("output %q; want no warning", out)
+		}
+	})
+	t.Run("outside -pkgs", func(t *testing.T) {
+		root := repo(t)
+		templ(t, root, "page.templ", "package mod\n")
+		if out, _, _ := mutate(t, root, "-base", "HEAD", "-pkgs", "./dbq"); strings.Contains(out, "WARNING") {
+			t.Errorf("output %q; want no warning", out)
+		}
+	})
+	t.Run("-files leaves it out", func(t *testing.T) {
+		root := repo(t)
+		templ(t, root, "page.templ", "package mod\n")
+		if out, _, _ := mutate(t, root, "-base", "HEAD", "-pkgs", ".", "-files", "*.go"); strings.Contains(out, "WARNING") {
+			t.Errorf("output %q; want no warning", out)
+		}
+	})
+}
+
 func TestRun_BaselineMustPass(t *testing.T) {
 	root := repo(t)
 	if err := os.WriteFile(filepath.Join(root, "fail_test.go"), []byte("package mod\n\nimport \"testing\"\n\nfunc TestWeakFails(t *testing.T) { t.Fatal(\"no\") }\n"), 0o600); err != nil {

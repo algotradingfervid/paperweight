@@ -27,6 +27,7 @@ func Modules(d Deps) map[string]docscreen.Module {
 				"items":    "Enter how much of each line arrived and how much you're rejecting.",
 				"check":    "Check the receipt, then submit it.",
 			},
+			StepIcons: map[string]string{"details": "shopping-cart", "delivery": "truck", "items": "package-check"}, // UI v2 C4c
 			Steps: map[string]docscreen.Step{
 				"details":  m.detailsStep(),  // S1
 				"delivery": m.deliveryStep(), // S1
