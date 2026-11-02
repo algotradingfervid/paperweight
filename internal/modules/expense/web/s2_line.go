@@ -114,16 +114,8 @@ func (l lineState) props(name, hint string) components.FieldProps {
 	f := l.field(name, hint)
 	return components.FieldProps{
 		ID: components.FieldID(name), Name: name, Label: f.Label, Hint: hint,
-		Error: l.errorOf(name), Value: l.value(name), Clearable: !f.Required,
+		Error: l.errorOf(name), Value: l.value(name), Required: f.Required,
 	}
-}
-
-// submitProps are props with no "(optional)": a ticked line needs the field
-// at submit (AD ruling, S2 review).
-func (l lineState) submitProps(name, hint string) components.FieldProps {
-	p := l.props(name, hint)
-	p.Clearable = false
-	return p
 }
 
 // input is FieldInput for field name with hint, unless the module hides it.
@@ -277,7 +269,7 @@ func gstDisclosure(l lineState, choices expense.LineForm) templ.Component {
 		ticked = []string{"true"}
 	}
 	parts := []templ.Component{
-		l.part("company_bill", components.Checkboxes(l.submitProps("company_bill", msgTickHint), []components.Option{{Value: "true", Label: msgTickOption}}, ticked)),
+		l.part("company_bill", components.Checkboxes(l.props("company_bill", msgTickHint), []components.Option{{Value: "true", Label: msgTickOption}}, ticked)),
 		billDate(),
 	}
 	if choices.BranchGSTINs > 1 {
@@ -285,14 +277,14 @@ func gstDisclosure(l lineState, choices expense.LineForm) templ.Component {
 		for _, b := range choices.Branches {
 			opts = append(opts, components.Option{Value: strconv.FormatInt(b.ID, 10), Label: b.Code + " · " + b.Name, Hint: "GSTIN " + b.GSTIN})
 		}
-		parts = append(parts, l.part("billed_to_id", components.Radios(l.submitProps("billed_to_id", msgBilledToHint), opts)))
+		parts = append(parts, l.part("billed_to_id", components.Radios(l.props("billed_to_id", msgBilledToHint), opts)))
 	}
 	// The three text boxes show their field's example (CD-370); Billed to
 	// is radios, which take none.
-	invoice := l.submitProps("invoice_no", "")
+	invoice := l.props("invoice_no", "")
 	invoice.Attrs = templ.Attributes{"maxlength": "40"}
 	invoice.Placeholder = l.field("invoice_no", "").Placeholder
-	gstin := l.submitProps("supplier_gstin", "")
+	gstin := l.props("supplier_gstin", "")
 	gstin.Placeholder = l.field("supplier_gstin", "").Placeholder
 	hsn := l.props("hsn_sac", "")
 	hsn.Placeholder = l.field("hsn_sac", "").Placeholder
