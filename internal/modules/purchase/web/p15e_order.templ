@@ -14,9 +14,21 @@ func orderOpts(title, display string, id int64, e pageErrs) layout.PageOpts {
 	}
 }
 
+// orderAlert is a redraw's banner, holding focus unless the error summary
+// holds it.
+templ orderAlert(banner templ.Component, focus bool) {
+	if focus {
+		<div id="order-alert" tabindex="-1" autofocus>
+			@banner
+		</div>
+	} else {
+		@banner
+	}
+}
+
 // refusalBanner is a state refusal: the page has no form then.
-templ refusalBanner(msg string) {
-	@components.Banner(components.BannerProps{Kind: components.Danger, Message: msg})
+templ refusalBanner(msg string, focus bool) {
+	@orderAlert(components.Banner(components.BannerProps{Kind: components.Danger, Message: msg}), focus)
 }
 
 // handoverPage is Hand over (UX §5.12).
@@ -24,7 +36,7 @@ templ handoverPage(v handoverView) {
 	@layout.Page(orderOpts("Hand over "+v.st.Display, v.st.Display, v.id, v.e)) {
 		<p>{ summaryLine(v.st.Vendor, v.st.Total, "Owned by "+v.st.Owner) }</p>
 		if v.refusal() != "" {
-			@refusalBanner(v.refusal())
+			@refusalBanner(v.refusal(), v.e.refusalFocus())
 		} else if len(v.st.Eligible) == 0 {
 			@components.Banner(components.BannerProps{Kind: components.Info, Message: msgNobodyEligible})
 		} else {
@@ -55,7 +67,7 @@ templ sendPage(v sendView) {
 		}
 		<p>{ summaryLine(v.st.Vendor, v.st.Total) }</p>
 		if v.refusal() != "" {
-			@refusalBanner(v.refusal())
+			@refusalBanner(v.refusal(), v.e.refusalFocus())
 		} else {
 			<h2>{ sendGetHeading }</h2>
 			<p>{ sendFileHint }</p>
@@ -95,7 +107,7 @@ templ expectedPage(v expectedView) {
 	@layout.Page(orderOpts("Expected delivery for "+v.st.Display, v.st.Display, v.id, v.e)) {
 		<p>{ v.summary() }</p>
 		if v.st.Refusal != "" {
-			@refusalBanner(v.st.Refusal)
+			@refusalBanner(v.st.Refusal, v.e.refusalFocus())
 		} else {
 			@components.ErrorSummary(v.e.summary)
 			{{ today, yesterday := v.today() }}

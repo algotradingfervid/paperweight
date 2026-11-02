@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -69,19 +70,32 @@ func ReferencedUserError(name string) *Problem {
 
 // UserChangedError: the user was saved by someone else after the page was
 // opened (the DOC-069 wording; name is the user's stored name).
-func UserChangedError(name string) *Problem {
+func UserChangedError(name string) error {
 	return changedError(name)
 }
 
 // RoleChangedError: the role was saved by someone else after the page was
 // opened (UserChangedError's wording; name is the role's stored name).
-func RoleChangedError(name string) *Problem {
+func RoleChangedError(name string) error {
 	return changedError(name)
 }
 
 // changedError is the shared body of UserChangedError and RoleChangedError.
-func changedError(name string) *Problem {
-	return &Problem{409, fmt.Sprintf("Someone else changed %s after you opened it. Reload it and make your changes again.", name)}
+func changedError(name string) error {
+	return changed{&Problem{409, fmt.Sprintf("Someone else changed %s after you opened it. Reload it and make your changes again.", name)}}
+}
+
+// changed marks a Problem as a stale version, the one 409 the page's
+// ConflictBanner is for (CD-381).
+type changed struct{ *Problem }
+
+// Unwrap gives the Problem, so errors.As finds it as for any other.
+func (c changed) Unwrap() error { return c.Problem }
+
+// IsChanged reports whether err is a stale version.
+func IsChanged(err error) bool {
+	var c changed
+	return errors.As(err, &c)
 }
 
 // NoRolesWarning is shown after saving a user with no roles.

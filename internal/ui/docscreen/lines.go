@@ -227,19 +227,17 @@ type linePageView struct {
 	Question string // the remove page's question
 	Button   components.ButtonProps
 	Danger   string
-	Reload   *components.Link // a 409's document and page: Danger shows as the ConflictBanner
+	Reload   *components.Link // a stale version's document and page: Danger shows as the ConflictBanner
 	Required bool             // a line field the form shows is required: it starts with components.RequiredNote
 	Errors   []components.FieldErr
 	Top      templ.Component // the module's Line.Top, outside the form (UX-E1)
 	FormID   string          // the form's id: line-form with the module's Line
 }
 
-// conflict makes a 409's Danger the ConflictBanner, whose Reload names the
-// document and goes to href (CD-362).
+// conflict makes a stale version's Danger the ConflictBanner, whose Reload
+// names the document and goes to href (CD-362, CD-381).
 func (lp *linePageView) conflict(pr Problem, label, href string) {
-	if pr.Status == http.StatusConflict {
-		lp.Reload = &components.Link{Label: label, Href: href}
-	}
+	lp.Reload = conflictReload(pr, label, href)
 }
 
 // draftView reads draft id for a line page; anything past draft goes to
@@ -252,6 +250,21 @@ func (d Deps) draftView(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	}
 	if v.Info.State != doctype.StateDraft {
 		http.Redirect(w, r, docURL(dt.Name, id), http.StatusSeeOther) //nolint:gosec // G710: a local /doc/ path from a registered DocType name and a numeric id
+		return DocView{}, false
+	}
+	return v, true
+}
+
+// refusedView reads document id for a refused line POST's redraw. A 409 redraws
+// past draft too, so the typed entries stay beside the refusal, as a step's
+// does; any other refusal goes where a GET would (draftView).
+func (d Deps) refusedView(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, pr Problem) (DocView, bool) {
+	if pr.Status != http.StatusConflict {
+		return d.draftView(w, r, dt, id)
+	}
+	v, err := d.View(r.Context(), d.principal(r), dt.Name, id)
+	if err != nil {
+		problem(w, r, err)
 		return DocView{}, false
 	}
 	return v, true
@@ -396,7 +409,7 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 			d.gridRefused(w, r, dt, id, no, version, typed, pr)
 			return
 		}
-		v, ok := d.draftView(w, r, dt, id)
+		v, ok := d.refusedView(w, r, dt, id, pr)
 		if !ok {
 			return
 		}
@@ -543,16 +556,19 @@ func (d Deps) gridRefused(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 	pr.Fields = unhiddenAll(d.lineCtx(r, dt, &v, no), pr.Fields) // a hidden field has no cell: its error goes in the alert (CD-319)
 	g := gridView{Row: d.gridRowOf(r, dt, v, v.Lines[no-1], strconv.Itoa(version), typed, pr.Fields)}
 	g.Alert, g.ReloadURL = formText(pr), itemsURL(dt.Name, id)
-	if pr.Status == http.StatusConflict {
+	switch {
+	case pr.Stale:
 		g.Conflict = v.Info.Display // the ConflictBanner's Reload names the document (CD-362)
+	case pr.Status == http.StatusConflict:
+		g.ReloadURL = "" // a refused 409: reloading changes nothing (CD-381)
 	}
 	ui.Render(w, r, pr.Status, gridResponse(g), nil)
 }
 
 // formText is what a refusal says beyond a row's cells: its message when it
-// has no field errors or is a conflict, else the errors no cell can show.
+// has no field errors or is stale, else the errors no cell can show.
 func formText(pr Problem) string {
-	if len(pr.Fields) == 0 || pr.Status == http.StatusConflict {
+	if len(pr.Fields) == 0 || pr.Stale {
 		return pr.Message
 	}
 	var out []string
@@ -573,7 +589,7 @@ type gridView struct {
 	Footer           *components.BarTotal // the Items footer's total, swapped out of band (A-22)
 	Warnings         []string
 	Alert, ReloadURL string
-	Conflict         string // a 409's document label: Alert shows as the ConflictBanner
+	Conflict         string // a stale version's document label: Alert shows as the ConflictBanner
 }
 
 // removeGet serves GET …/lines/{no}/remove: "Remove line {no} ({item})?".
@@ -663,19 +679,28 @@ func (d Deps) reorder(w http.ResponseWriter, r *http.Request, change func(lines 
 		problem(w, r, doctype.ErrNotFound)
 		return
 	}
-	lines, changed := change(rec.Lines, no)
-	if !changed {
-		d.backToItems(w, r, dt, id, nil)
-		return
-	}
-	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
-	if err != nil {
+	refused := func(err error) {
 		pr, ok := Classify(err)
 		if !ok {
 			web.ErrorFrom(w, r, err)
 			return
 		}
 		d.itemsRefused(w, r, dt, id, no, version, pr)
+	}
+	lines, changed := change(rec.Lines, no)
+	if !changed {
+		// A move that changes nothing writes nothing, but a stale page or a
+		// document past draft still gets DOC's refusal (CD-335).
+		if err := d.moved(r, dt, rec, version); err != nil {
+			refused(err)
+			return
+		}
+		d.backToItems(w, r, dt, id, nil)
+		return
+	}
+	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
+	if err != nil {
+		refused(err)
 		return
 	}
 	d.backToItems(w, r, dt, id, res.Warnings)
@@ -685,7 +710,7 @@ func (d Deps) reorder(w http.ResponseWriter, r *http.Request, change func(lines 
 // the kernel's message unchanged, or its field errors when it has any, and
 // its status.
 func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, no, version int, pr Problem) {
-	v, ok := d.draftView(w, r, dt, id)
+	v, ok := d.refusedView(w, r, dt, id, pr)
 	if !ok {
 		return
 	}
@@ -714,7 +739,7 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 		return
 	}
 	if len(fields) == 0 {
-		sv.M.Conflict, sv.M.ReloadURL = pr.Message, itemsURL(dt.Name, id)
+		pr.onFrame(&sv.M, itemsURL(dt.Name, id))
 	}
 	notice(w, r, pr)
 	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))

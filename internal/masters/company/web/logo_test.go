@@ -489,6 +489,9 @@ func TestLogo_RemoveOfAReplacedLogoIsRefused(t *testing.T) {
 	resp := lw.h.Post(t, kavya, action, url.Values{})
 	webtest.WantStatus(t, resp, http.StatusConflict)
 	webtest.WantText(t, resp, msgLogoChanged)
+	if b := resp.Doc.Find("#company-logo-area .banner--warning a.btn"); b.Length() != 1 || webtest.Squash(b.Text()) != "Reload Company logo" {
+		t.Errorf("%d Reload buttons, want the ConflictBanner's (CD-381)", b.Length())
+	}
 	if got := lw.logos(t); len(got) != 1 || got[0].Name != "rival.png" {
 		t.Fatalf("logos = %+v; want rival.png kept", got)
 	}

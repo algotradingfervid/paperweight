@@ -84,6 +84,11 @@ func selfChecked(f ruleForm) []string {
 
 // rulePage is the new and edit rule form; it posts the version it was loaded at (CD-94).
 templ rulePage(f ruleForm, docTypes []components.Option) {
+	if f.Conflict != "" {
+		<div id="rule-alert" tabindex="-1" autofocus>
+			@components.ConflictBanner(f.Conflict, "", rulesPath+"/"+strconv.FormatInt(f.ID, 10))
+		</div>
+	}
 	@components.ErrorSummary(f.summary())
 	@components.Form(components.FormProps{Action: f.action()}) {
 		if f.ID != 0 {

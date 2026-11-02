@@ -139,6 +139,13 @@ templ Frame(m Model, bar Bar) {
 		} else if m.Conflict != "" {
 			@conflictBanner(m)
 		}
+		if m.Danger != "" && len(m.Errors) == 0 {
+			<div id="wizard-danger" tabindex="-1" autofocus>
+				@dangerBanner(m)
+			</div>
+		} else if m.Danger != "" {
+			@dangerBanner(m)
+		}
 		@components.ErrorSummary(m.Errors)
 		@components.Warnings(m.Warnings)
 		@components.Warnings(m.Stored)
@@ -250,6 +257,10 @@ templ saveCue(isNew bool) {
 			<span id={ SavedAtID } aria-live="polite"></span>
 		</span>
 	</p>
+}
+
+templ dangerBanner(m Model) {
+	@components.Banner(components.BannerProps{Kind: components.Danger, Message: m.Danger})
 }
 
 templ conflictBanner(m Model) {

@@ -217,14 +217,8 @@ func TestStale56_StateBeforeParseAndHooks(t *testing.T) {
 				}
 			}
 			m02WantUnchanged(t, e, id, before, audits, "POST "+p.path+" on a submitted document")
-			// A line page's refusal on a document past draft goes to its
-			// document page, as it did; a step answers 409 with DOC's text.
-			if strings.HasPrefix(p.path, "/lines/") {
-				if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != m02URL(id) {
-					t.Errorf("POST %s on a submitted document = %d to %q, want 303 to %s", p.path, rec.Code, rec.Header().Get("Location"), m02URL(id))
-				}
-				return
-			}
+			// A step or line POST on a document past draft answers 409 with
+			// DOC's text, so the typed entries stay (F3).
 			if rec.Code != http.StatusConflict {
 				t.Fatalf("POST %s on a submitted document = %d, want DOC's 409; body %.400s", p.path, rec.Code, rec.Body)
 			}

@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-	"net/http"
 	"strconv"
 
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
 
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/types"
@@ -53,7 +53,7 @@ func init() { gob.Register(billPost{}) } // scs stores session values with gob
 
 // billPostOf is the refused post of in at version, refused with he.
 func billPostOf(in goodsreceipt.BillInput, version int, he doctype.HTTPError) billPost {
-	k := billPost{In: in, Version: version, Errs: map[string]string{}, Stale: he.Status() == http.StatusConflict}
+	k := billPost{In: in, Version: version, Errs: map[string]string{}, Stale: doc.IsStale(he)}
 	for _, f := range he.FieldErrors() {
 		k.Errs[f.Field] = f.Message
 	}

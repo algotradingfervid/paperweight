@@ -81,9 +81,7 @@ func caseAdminFollowsLifecycle(t *testing.T, c *authCase) {
 	r := b.post(orderURL(po)+"/lines/new", withVersion(ver, url.Values{
 		"item_id": {idText(c.m.Item["MS-ANGLE-50"])}, "qty": {"1.000"}, "rate": {"1.0000"}, "uom": {"kg"},
 	}))
-	if r.status != http.StatusSeeOther || r.location() != orderURL(po) {
-		t.Errorf("admin adds a line = %d to %q, want 303 to the document", r.status, r.location())
-	}
+	wantRefused(t, "admin adds a line", r, http.StatusConflict, locked)
 	wantRefused(t, "admin edits the header", b.post(orderURL(po)+stepDetails, c.details(po, "after approval")), http.StatusConflict, locked)
 	wantRefused(t, "admin deletes it", b.post(orderURL(po)+"/delete", url.Values{"version": {ver}}), http.StatusConflict, noDelete)
 	if got := c.state(po); got != "approved" {

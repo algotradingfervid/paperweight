@@ -40,7 +40,8 @@ type pageView struct {
 	Bar     components.ActionBarProps
 	More    []components.MoreAction
 	Forms   []actionForm
-	Danger  string // a refused action's message, unchanged
+	Danger  string           // a refused action's message, unchanged
+	Reload  *components.Link // a stale version's document and page: Danger shows as the ConflictBanner
 	Errors  []components.FieldErr
 	Success string // an htmx action's banner, or the flash's beside "Next request" (a 303 uses the flash)
 	Next    string // "Next request" link after an approve
@@ -277,9 +278,10 @@ func (d Deps) actionPost(w http.ResponseWriter, r *http.Request) {
 	d.succeeded(w, r, dt, id, a, res, display)
 }
 
-// refused renders the document page with the kernel's message in a danger
-// banner and its status (409, 403, 422; CD-44). An error on a field the
-// module hides is a plain message, linked to #main (CD-319).
+// refused renders the document page with the kernel's message and its status
+// (409, 403, 422; CD-44), in the ConflictBanner on a stale version, else in a
+// danger banner. An error on a field the module hides is a plain message, linked to
+// #main (CD-319).
 func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, id int64, pr Problem) {
 	p := d.principal(r)
 	v, err := d.View(r.Context(), p, dt.Name, id)
@@ -293,10 +295,20 @@ func (d Deps) refused(w http.ResponseWriter, r *http.Request, dt *doctype.DocTyp
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	pv.Danger = pr.Message
+	pv.Danger, pv.Reload = pr.Message, conflictReload(pr, v.Info.Display, docURL(dt.Name, id))
 	pv.Errors = pageErrs(unhiddenAll(d.ctxOf(r, dt, &v), pr.Fields))
 	notice(w, r, pr)
 	ui.Render(w, r, pr.Status, docPage(pv), docMain(pv))
+}
+
+// conflictReload is the ConflictBanner's Reload for pr, naming the document
+// and going to href, or nil unless pr is a stale version (CD-362). A refused
+// or blocked 409 stays a danger banner: reloading changes nothing.
+func conflictReload(pr Problem, label, href string) *components.Link {
+	if !pr.Stale {
+		return nil
+	}
+	return &components.Link{Label: label, Href: href}
 }
 
 // succeeded sends the user on (CD-80): htmx gets the page the action leads

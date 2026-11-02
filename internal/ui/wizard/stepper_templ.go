@@ -107,7 +107,7 @@ func Stepper(m Model) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if len(m.Errors) == 0 && m.Conflict == "" {
+				if len(m.Errors) == 0 && m.Conflict == "" && m.Danger == "" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<h2 class=\"stepper__label\" id=\"step-title\" tabindex=\"-1\" aria-describedby=\"step-count\" autofocus>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err

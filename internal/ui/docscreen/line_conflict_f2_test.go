@@ -129,7 +129,7 @@ func f2Gone(t *testing.T, e *hookedEnv, id int64) {
 
 // A missing line is a 404 unless the post is stale: at the current version,
 // from the grid, or with a {no} that was never a line. Past draft it goes to
-// the document page, as any other refusal there does.
+// the 409 that keeps the typed values, as a step's does (F3).
 func TestLinePage_MissingLine(t *testing.T) {
 	e, id := m01bHooked(t, docscreen.Module{})
 	base := m01bURL(id)
@@ -148,8 +148,10 @@ func TestLinePage_MissingLine(t *testing.T) {
 	}
 	m01bSubmit(t, e, id)
 	r := e.post(t, base+"/lines/3", stale)
-	if r.Code != http.StatusSeeOther || r.Header().Get("Location") != base {
-		t.Errorf("stale POST /lines/3 past draft = %d to %q, want 303 to the document", r.Code, r.Header().Get("Location"))
+	m03Status(t, r.Code, http.StatusConflict, "stale POST /lines/3 past draft", r.Body.String())
+	want := m56Refusal(t, e, id, m01bRecord(t, e, id).Version)
+	if d := bannerTexts(uitest.Doc(t, r).Selection, "danger"); len(d) != 1 || d[0] != want {
+		t.Errorf("stale POST /lines/3 past draft: danger banners %q, want [%q]", d, want)
 	}
 }
 

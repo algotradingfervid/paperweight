@@ -42,6 +42,7 @@ func p13Stale(display string) string {
 
 // p13Render is one renderFromRequest call.
 type p13Render struct {
+	stale  bool
 	status int
 	errs   []doctype.FieldError
 }
@@ -67,8 +68,8 @@ func newP13Web(t *testing.T) *p13Web {
 	Routes(pd)(r)
 	w := &p13Web{env: env, router: r}
 	saved := renderFromRequest
-	renderFromRequest = func(_ *handlers, rw http.ResponseWriter, _ *http.Request, status int, errs []doctype.FieldError) {
-		w.renders = append(w.renders, p13Render{status: status, errs: errs})
+	renderFromRequest = func(_ *handlers, rw http.ResponseWriter, _ *http.Request, status int, stale bool, errs []doctype.FieldError) {
+		w.renders = append(w.renders, p13Render{status: status, stale: stale, errs: errs})
 		plainErrors(rw, status, errs)
 	}
 	t.Cleanup(func() { renderFromRequest = saved })
@@ -221,7 +222,7 @@ func TestPurchaseWeb_FromRequestPost(t *testing.T) {
 		if a.status != http.StatusConflict || !strings.Contains(a.text, stale) {
 			t.Errorf("POST = %d %q, want 409 with %q", a.status, a.text, stale)
 		}
-		if len(w.renders) != 1 || w.renders[0].status != http.StatusConflict || len(w.renders[0].errs) != 1 || w.renders[0].errs[0].Message != stale {
+		if len(w.renders) != 1 || w.renders[0].status != http.StatusConflict || !w.renders[0].stale || len(w.renders[0].errs) != 1 || w.renders[0].errs[0].Message != stale {
 			t.Errorf("renders = %+v, want one 409 with %q", w.renders, stale)
 		}
 		if got, _ := w.orders(t); got != n {
