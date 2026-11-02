@@ -570,7 +570,7 @@ func TestNav(t *testing.T) {
 func TestCheckSection_StatusWords(t *testing.T) {
 	for st, word := range map[wizard.StepStatus]string{wizard.Complete: "Complete", wizard.Attention: "Needs attention"} {
 		d := uitest.Render(t, templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-			return wizard.CheckSection("Party", st, "/doc/po/42/edit/party").Render(templ.WithChildren(ctx, templ.Raw(`<p class="summary-x">Acme</p>`)), w)
+			return wizard.CheckSection("Party", "handshake", st, "/doc/po/42/edit/party").Render(templ.WithChildren(ctx, templ.Raw(`<p class="summary-x">Acme</p>`)), w)
 		}))
 		sec := d.Find("section.card")
 		if !strings.Contains(sec.Find("h2").Text(), "Party") {
@@ -580,8 +580,8 @@ func TestCheckSection_StatusWords(t *testing.T) {
 			t.Errorf("%s: want the word and an icon, got %q", word, sec.Text())
 		}
 		a := sec.Find("a")
-		if a.AttrOr("href", "") != "/doc/po/42/edit/party" || strings.Join(strings.Fields(a.Text()), " ") != "Change Party" || a.Find(".visually-hidden").Text() != "Party" {
-			t.Errorf("%s: Change link = %q", word, a.Text())
+		if a.AttrOr("href", "") != "/doc/po/42/edit/party" || strings.TrimSpace(a.Text()) != "Change" || a.AttrOr("aria-label", "") != "Change Party" {
+			t.Errorf("%s: Change link = %q (aria-label %q)", word, a.Text(), a.AttrOr("aria-label", ""))
 		}
 		if sec.Find("p.summary-x").Length() != 1 {
 			t.Errorf("%s: children missing", word)

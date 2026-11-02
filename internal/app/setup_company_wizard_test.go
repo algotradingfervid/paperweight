@@ -15,6 +15,8 @@ import (
 	"github.com/vardhan/internaltools/internal/masters/company"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/ui/icons"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
 // The setup wizard's steps (UI v2 §5.4, E2): each its own URL, the values in
@@ -353,6 +355,16 @@ func TestSetupWizard_BackAndForwardKeepValues(t *testing.T) {
 	for _, href := range []string{setupStep1 + "?return=check", setupStep2 + "?return=check"} {
 		if r.doc.Find(`a[href="`+href+`"]`).Length() != 1 {
 			t.Errorf("Check has no Change link to %s", href)
+		}
+	}
+	// UI v2 C4b (§5.6): each card's icon tile.
+	for title, icon := range map[string]string{"Company": "building-2", "Head office": "map-pin"} {
+		sec := r.doc.Find("section.card").FilterFunction(func(_ int, s *goquery.Selection) bool {
+			return strings.TrimSpace(s.Find(".card-title").Text()) == title
+		})
+		got, _ := sec.Find(".card-head .card-icon svg").Html()
+		if want, _ := uitest.Render(t, icons.Icon(icon)).Find("svg").Html(); sec.Length() != 1 || got != want {
+			t.Errorf("Check's %s card (%d) tile = %q, want the %s icon", title, sec.Length(), got, icon)
 		}
 	}
 	// Back from Check goes to step 2 and writes nothing.
