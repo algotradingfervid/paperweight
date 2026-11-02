@@ -170,7 +170,7 @@ func TestModule_StateLabels(t *testing.T) {
 					page = m04Page(t, rec, http.StatusOK, "htmx submit")
 				}
 				want := c.word + ". " + v.Info.Number + " has been numbered."
-				if got := bannerTexts(page.Selection, "success"); !slices.Equal(got, []string{want}) {
+				if got := successTexts(page.Selection); !slices.Equal(got, []string{want}) {
 					t.Errorf("success banners = %q, want exactly %q", got, want)
 				}
 				if got := m18Badge(t, page, "page after submit"); got != c.word {

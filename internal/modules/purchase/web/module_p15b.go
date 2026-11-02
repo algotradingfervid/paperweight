@@ -55,6 +55,12 @@ const (
 	noReceipts    = "No goods receipts yet."
 	receiptNoun   = "goods receipt"
 
+	// lifeSent and lifeReceived are the PO's steps after Approved, and
+	// lifePart the word under Received when part received (UI v2 §5.13).
+	lifeSent     = "Sent"
+	lifeReceived = "Received"
+	lifePart     = "Part"
+
 	// closePendingOne and closePendingMany are spec §6.4's close note, with
 	// {x} the pending quantities per unit (CD-258 Q12).
 	closePendingOne  = "1 line still has %s pending. Closing means no more goods can be received against this order."
@@ -261,6 +267,7 @@ func (m *module) orderPageHook(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		}
 		x.Cards = append(x.Cards, card)
 	}
+	x.Life = orderLife(c, rec)
 	comments, err := m.commentsCard(c, purchase.DocType, id)
 	if err != nil {
 		return docscreen.PageExtra{}, err
@@ -290,6 +297,40 @@ func (m *module) orderPageHook(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		x.More = append(x.More, components.MoreAction{Label: handOverLabel, Href: handover})
 	}
 	return x, nil
+}
+
+// orderLife marks the Sent and Received steps of an approved, closed or
+// cancelled PO (UI v2 §5.13 item 4): Sent once sent, with its day; Received
+// once anything is received, with "Part" when part received, unless Hide
+// hides receipt_status. On an approved PO the latest reached step is current
+// (Received, else Sent); otherwise both are done.
+func orderLife(c docscreen.Ctx, rec orderRecords) map[string]components.LifeStep {
+	state := c.View.Info.State
+	if state != doctype.StateApproved && state != doctype.StateClosed && state != doctype.StateCancelled {
+		return nil
+	}
+	reached := func(now bool) components.LifeMark {
+		if now && state == doctype.StateApproved {
+			return components.LifeCurrent
+		}
+		return components.LifeDone
+	}
+	receipt := c.View.Inputs["receipt_status"]
+	if hides(c, "receipt_status") {
+		receipt = ""
+	}
+	life := map[string]components.LifeStep{}
+	switch receipt {
+	case "fully_received":
+		life[lifeReceived] = components.LifeStep{Mark: reached(true)}
+	case "part_received":
+		life[lifeReceived] = components.LifeStep{Mark: reached(true), Note: lifePart}
+	}
+	if rec.isSent {
+		_, received := life[lifeReceived]
+		life[lifeSent] = components.LifeStep{Mark: reached(!received), Date: types.FormatDate(rec.sent.SentOn)[:len("02-01")]}
+	}
+	return life
 }
 
 // fullyReceived reports whether no line has anything pending.

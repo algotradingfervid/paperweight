@@ -450,7 +450,7 @@ func claimWithFiles(t *testing.T, h *Harness) int64 {
 }
 
 // TestE2E_AttachmentsSidePanel: ATT-021. At 1440 px the panel is in the
-// right column, the first block there and above Approval history (CD-372).
+// right column, under the Actions card and above Approval history (CD-372).
 func TestE2E_AttachmentsSidePanel(t *testing.T) {
 	h := Start(t)
 	id := claimWithFiles(t, h)
@@ -466,7 +466,10 @@ func TestE2E_AttachmentsSidePanel(t *testing.T) {
   const hist = [...side.querySelectorAll("summary")].find((e) => e.textContent.trim().startsWith("Approval history"));
   if (!hist) return "no Approval history in the side column";
   const a = hist.getBoundingClientRect();
+  const acts = side.lastElementChild;
+  if (!acts.matches(".doc-actions")) return "the Actions card is not the last block in .doc-side";
   if (side.firstElementChild !== card) return "the panel is not the first block in .doc-side";
+  if (acts.getBoundingClientRect().bottom > c.top) return "the panel is not under the Actions card";
   if (c.bottom > a.top) return "the panel is below Approval history";
   return "";
 })()`)

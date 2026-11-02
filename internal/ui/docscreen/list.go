@@ -70,7 +70,8 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 	plural := strings.ToLower(dt.PluralLabel)
 	var newLink *components.Link
 	if d.can(r, p, dt.Name, "create") {
-		newLink = &components.Link{Label: "New " + strings.ToLower(dt.Label), Href: "/doc/" + dt.Name + "/new"}
+		l := newDocLink(dt)
+		newLink = &l
 	}
 	v := listView{
 		Opts: layout.PageOpts{Title: dt.PluralLabel},

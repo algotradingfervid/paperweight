@@ -13,10 +13,13 @@ const (
 	LifeEnded                    // closed or cancelled: a final grey dot
 )
 
-// LifeStep is one step of StatusTimeline: its word and its mark.
+// LifeStep is one step of StatusTimeline: its word, its mark, and the
+// optional Note ("Part") and Date (dd-mm) shown under the word.
 type LifeStep struct {
 	Label string
 	Mark  LifeMark
+	Note  string
+	Date  string
 }
 
 // lifeClass is a step's classes, written out whole for the CSS build.
@@ -63,6 +66,12 @@ templ StatusTimeline(steps []LifeStep) {
 						<span class="visually-hidden">(done)</span>
 					}
 				</span>
+				if s.Note != "" {
+					<span class="lifecycle__note">{ s.Note }</span>
+				}
+				if s.Date != "" {
+					<span class="lifecycle__date num">{ s.Date }</span>
+				}
 			</li>
 		}
 	</ol>
