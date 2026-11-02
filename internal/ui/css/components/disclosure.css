@@ -3,5 +3,8 @@
   border: var(--border-w) solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
+  /* daisyUI's isolation would trap a Picker's sheet or dropdown inside the
+     disclosure, under the top bar, sticky bars and later disclosures. */
+  isolation: auto;
   & > summary { min-block-size: var(--target-min); }
 }
