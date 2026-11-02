@@ -62,7 +62,7 @@ func TestScreens_AddressWarningInAlerts(t *testing.T) {
 	}
 }
 
-// Check and save reads as words: a tick is Yes, a state its name and the
+// Check reads as words: a tick is Yes, a state its name and the
 // role its label, on a row and on the party.
 func TestScreens_PartyWizardCheckWords(t *testing.T) {
 	w := newWorld(t)
@@ -75,13 +75,13 @@ func TestScreens_PartyWizardCheckWords(t *testing.T) {
 	webtest.WantText(t, check, "PrimaryYes")
 }
 
-// UI v2 C4c: each step's Check and save card has its own tile.
+// UI v2 C4c: each step's Check card has its own tile.
 func TestScreens_PartyWizardCheckTiles(t *testing.T) {
 	w := newWorld(t)
 	b := w.kavya()
 	toCheck(t, b, details("MEHTA"), rows(mumbaiRow), rows(sunilRow))
 	uitest.WantCheckTiles(t, b.Get(t, stepCheck).Doc,
-		uitest.CheckTile{Title: "Party details", Icon: "handshake"},
+		uitest.CheckTile{Title: "Party", Icon: "handshake"},
 		uitest.CheckTile{Title: "Addresses", Icon: "map-pin"},
 		uitest.CheckTile{Title: "Contacts", Icon: "contact"})
 }
@@ -109,7 +109,7 @@ func TestScreens_PartyWizardBlankEdges(t *testing.T) {
 	})
 
 	// Add leaves a blank row in the session. A stepper link past Next still
-	// reaches Check and save, which must not count or save it.
+	// reaches Check, which must not count or save it.
 	t.Run("a blank row held by Add", func(t *testing.T) {
 		w := newWorld(t)
 		before := w.tally(t)

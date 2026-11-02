@@ -13,7 +13,7 @@ func TestCheckTiles_Receipt(t *testing.T) {
 	id := w.draft(w.s2RefPO())
 	w.s2Delivery(id)
 	uitest.WantCheckTiles(t, s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").doc,
-		uitest.CheckTile{Title: "Choose purchase order", Icon: "shopping-cart"},
-		uitest.CheckTile{Title: "Delivery details", Icon: "truck"},
-		uitest.CheckTile{Title: "Received quantities", Icon: "package-check"})
+		uitest.CheckTile{Title: "Order", Icon: "shopping-cart"},
+		uitest.CheckTile{Title: "Delivery", Icon: "truck"},
+		uitest.CheckTile{Title: "Quantities", Icon: "package-check"})
 }

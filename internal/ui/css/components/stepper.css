@@ -11,7 +11,6 @@
     counter-reset: step;
     display: flex;
     align-items: center;
-    gap: var(--space-1);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -23,19 +22,21 @@
     align-items: center;
     gap: var(--space-1);
   }
-  /* Only the current step's label may wrap; the others keep their dot. */
-  & .stepper__step.is-current { min-inline-size: 0; }
   /* The line joining a step to the one before it. */
   & .stepper__step + .stepper__step::before {
     content: "";
     flex: 1 1 var(--space-4);
+    margin-inline-start: calc(var(--space-1) - (var(--target-min) - var(--icon-lg)) / 2); /* a dot's blank target edge is on the left */
     block-size: var(--border-w-strong);
     border-radius: var(--radius-pill);
     background-color: var(--color-progress-track);
   }
+  & .stepper__step + .stepper__step.is-current::before { flex-basis: 0; }
+  & .stepper__step.is-current + .stepper__step::before { margin-inline-start: var(--space-1); } /* a label has no blank edge */
   & .stepper__step:first-child { flex-grow: 0; }
   & .stepper__step.is-done + .stepper__step::before { background-color: var(--color-primary-600); }
   & .stepper__item {
+    position: relative; /* over the next step's box, so a link keeps its 44 px */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -45,6 +46,9 @@
     color: var(--color-text-secondary);
     text-decoration: none;
   }
+  /* A dot's target has a blank edge each side. The left one sits over the
+     connector's space, so the row is shorter and connectors keep even gaps. */
+  & .stepper__step + .stepper__step:not(.is-current) .stepper__item { margin-inline-start: calc((var(--icon-lg) - var(--target-min)) / 2); }
   & .stepper__dot {
     display: grid;
     flex: none;
@@ -96,13 +100,15 @@
     text-overflow: ellipsis; /* its text is clipped on purpose, as in visually-hidden */
   }
   @container (min-width: 30rem) {
-    & .stepper__list { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: start; gap: 0; }
+    & .stepper__list { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: start; }
     & .stepper__step { position: relative; display: block; }
     & .stepper__step + .stepper__step::before {
       position: absolute;
       inset-block-start: calc(var(--target-min) / 2 - var(--border-w-strong) / 2);
       inset-inline: calc(-50% + var(--icon-lg) / 2 + var(--space-1)) calc(50% + var(--icon-lg) / 2 + var(--space-1));
     }
+    & .stepper__step + .stepper__step::before, & .stepper__step.is-current + .stepper__step::before { margin-inline-start: 0; }
+    & .stepper__step + .stepper__step:not(.is-current) .stepper__item { margin-inline-start: 0; }
     & .stepper__item { flex-direction: column; gap: var(--space-1); padding-block-start: calc((var(--target-min) - var(--icon-lg)) / 2); text-align: center; }
     & .stepper__step:not(.is-current) .stepper__label {
       position: static;

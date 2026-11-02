@@ -12,7 +12,7 @@ import (
 
 // UIV2-C3b (UI v2 §5.6): every create wizard step's × goes back to the
 // master's list, through "Leave without saving?", on the first step, a later
-// one and Check and save, in focus mode.
+// one and Check, in focus mode.
 func TestWizardClose_Master(t *testing.T) {
 	h := wizardHarness(t, func(context.Context, auth.Principal, stubDraft) (mstkit.Saved, error) { return mstkit.Saved{}, nil })
 	b := h.Browser(h.Env.Kavya)

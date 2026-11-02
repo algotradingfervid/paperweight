@@ -68,7 +68,7 @@ func TestRoleC5_Create(t *testing.T) {
 			toCheck(t, b, with(details("MEHTA"), "role", c.role), rows(mumbaiRow), rows())
 			wantRoleChoice(t, b.Get(t, stepDetails), c.role)
 			if !strings.Contains(b.Get(t, stepCheck).Text(), "This party is a"+c.label) {
-				t.Errorf("Check and save doesn't show the role %s", c.label)
+				t.Errorf("Check doesn't show the role %s", c.label)
 			}
 			webtest.WantStatus(t, b.Post(t, stepCheck, nil), http.StatusSeeOther)
 			wantRoles(t, w.get(t, "MEHTA"), c.vendor, c.customer)
@@ -77,7 +77,7 @@ func TestRoleC5_Create(t *testing.T) {
 }
 
 // An unknown or missing role is refused under the choice with the service's
-// text, on Next and at Check and save, and nothing is saved.
+// text, on Next and at Check, and nothing is saved.
 func TestRoleC5_CreateRefused(t *testing.T) {
 	for _, posted := range []string{"seller", ""} {
 		w := newWorld(t)

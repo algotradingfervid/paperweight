@@ -303,10 +303,10 @@ func wizardModel(step int, errs []components.FieldErr, conflict string) wizard.M
 	m := wizard.Model{
 		Mode: wizard.Document, Title: "Sample order", DocLabel: "Draft 42", BaseURL: "/_gallery", Close: "/_gallery",
 		Steps: []wizard.Step{
-			{Slug: "wizard-1", Label: "Supplier and date", Intro: "Who you're buying from and when you need it."},
+			{Slug: "wizard-1", Label: "Details", Intro: "Who you're buying from and when you need it."},
 			{Slug: "wizard-2", Label: "Items", Intro: "Add what you're buying. Rates fill in from the last price paid; change them if the quote differs."},
 			{Slug: "wizard-3", Label: "Terms", Intro: "How you'll pay and anything the vendor must know."},
-			{Slug: "wizard-4", Label: "Check and submit", Intro: "Check everything, then submit it for approval."},
+			{Slug: "wizard-4", Label: "Check", Intro: "Check everything, then submit it for approval."},
 		},
 		Current: step, Furthest: 3, Version: 1, Errors: errs, Conflict: conflict,
 	}

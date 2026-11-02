@@ -31,7 +31,7 @@ func docModel() wizard.Model {
 		Title:    "Purchase order",
 		DocLabel: "Draft 42",
 		BaseURL:  "/doc/po/42/edit",
-		Steps:    steps("Party", "Lines", "Terms", "Check and submit"),
+		Steps:    steps("Party", "Lines", "Terms", "Check"),
 		Current:  1,
 		Furthest: 2,
 		Version:  7,
@@ -45,7 +45,7 @@ func TestModel_Validate(t *testing.T) {
 	}
 
 	two := docModel()
-	two.Steps = steps("Party", "Check and submit")
+	two.Steps = steps("Party", "Check")
 	two.Current, two.Furthest = 0, 0
 	if err := two.Validate(); err == nil || err.Error() != "A wizard needs 3 to 5 steps." {
 		t.Errorf("2 steps: err = %v", err)
@@ -57,19 +57,24 @@ func TestModel_Validate(t *testing.T) {
 		t.Error(`last step "Review" must fail`)
 	}
 
-	docSave := docModel()
-	docSave.Steps = steps("Party", "Lines", "Terms", "Check and save")
-	if docSave.Validate() == nil {
-		t.Error(`Document mode ending "Check and save" must fail`)
-	}
-
-	master := docSave
+	master := docModel()
 	master.Mode = wizard.Master
 	if err := master.Validate(); err != nil {
-		t.Errorf(`Master mode ending "Check and save": %v`, err)
+		t.Errorf(`Master mode ending "Check": %v`, err)
 	}
 
-	named := docSave
+	for _, mode := range []wizard.Mode{wizard.Document, wizard.Master} {
+		old := docModel()
+		old.Mode = mode
+		for _, label := range []string{"Check and submit", "Check and save"} {
+			old.Steps = steps("Party", "Lines", "Terms", label)
+			if old.Validate() == nil {
+				t.Errorf(`mode %d ending %q must fail`, mode, label)
+			}
+		}
+	}
+
+	named := docModel()
 	named.Mode = wizard.Master
 	named.Steps = steps("Party", "Lines", "Terms", "Import")
 	if named.Validate() == nil {
@@ -79,9 +84,9 @@ func TestModel_Validate(t *testing.T) {
 	if err := named.Validate(); err != nil {
 		t.Errorf(`LastLabel "Import": %v`, err)
 	}
-	named.Steps = steps("Party", "Lines", "Terms", "Check and save")
+	named.Steps = steps("Party", "Lines", "Terms", "Check")
 	if named.Validate() == nil {
-		t.Error("LastLabel replaces the mode's label, so that label must fail")
+		t.Error("LastLabel replaces Check, so that label must fail")
 	}
 
 	ahead := docModel()
@@ -180,13 +185,13 @@ func TestStepper_Markup(t *testing.T) {
 		t.Error("step 3 (visited) must be a link")
 	}
 	// Numbers come from a CSS counter: each item's text is its label alone.
-	for i, want := range []string{"Completed: Party", "Lines", "Terms", "Check and submit"} {
+	for i, want := range []string{"Completed: Party", "Lines", "Terms", "Check"} {
 		if got := strings.Join(strings.Fields(li.Eq(i).Text()), " "); got != want {
 			t.Errorf("step %d text = %q, want %q", i+1, got, want)
 		}
 	}
 	s4 := li.Eq(3)
-	if s4.Find("a").Length() != 0 || strings.TrimSpace(s4.Find(".stepper__label").Text()) != "Check and submit" || s4.HasClass("is-done") || s4.HasClass("is-visited") {
+	if s4.Find("a").Length() != 0 || strings.TrimSpace(s4.Find(".stepper__label").Text()) != "Check" || s4.HasClass("is-done") || s4.HasClass("is-visited") {
 		t.Error("step 4 must be plain upcoming text")
 	}
 	if doc.Find("h1, h2").Length() != 1 || doc.Find("svg").Length() != 1 {
@@ -215,7 +220,7 @@ func TestStepper_FirstAndLast(t *testing.T) {
 	if d.Find("li.is-done").Length() != 3 || d.Find("li.is-done svg").Length() != 3 {
 		t.Error("check step: three done steps with checks")
 	}
-	if got := strings.TrimSpace(d.Find("h2#step-title").Text()); got != "Check and submit" {
+	if got := strings.TrimSpace(d.Find("h2#step-title").Text()); got != "Check" {
 		t.Errorf("heading = %q", got)
 	}
 }
@@ -304,7 +309,7 @@ func TestFrame_MasterModeHasNoVersionOrFinishLater(t *testing.T) {
 
 	m := docModel()
 	m.Mode = wizard.Master
-	m.Steps = steps("Details", "Addresses", "Contacts", "Check and save")
+	m.Steps = steps("Details", "Addresses", "Contacts", "Check")
 	mm := renderFrame(t, m, wizard.Bar{})
 	if mm.Find("input[name=version]").Length() != 0 {
 		t.Error("Master mode must have no version input")
@@ -322,7 +327,7 @@ func TestFrame_BelowFollowsTheBar(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			m := docModel()
 			m.Mode, m.After, m.Below = wizard.Master, after, below
-			m.Steps[len(m.Steps)-1].Label = "Check and save"
+			m.Steps[len(m.Steps)-1].Label = "Check"
 			doc := renderFrame(t, m, wizard.Bar{})
 			if doc.Find("#wizard-form #below").Length() != 0 {
 				t.Errorf("Below is inside the step form")
@@ -339,7 +344,7 @@ func TestFrame_BelowFollowsTheBar(t *testing.T) {
 func TestFrame_NoBelow(t *testing.T) {
 	m := docModel()
 	m.Mode = wizard.Master
-	m.Steps[len(m.Steps)-1].Label = "Check and save"
+	m.Steps[len(m.Steps)-1].Label = "Check"
 	if doc := renderFrame(t, m, wizard.Bar{}); doc.Find("#below").Length() != 0 {
 		t.Errorf("a frame without Below shows it")
 	}

@@ -1,8 +1,8 @@
 // Package wizard is the wizard framework (design-system §8.3): the step
 // model, the stepper, the step frame, the check page sections and the HTTP
 // response helper. Document wizards save the draft at every step; master
-// create wizards hold step values in the session until "Check and save"
-// (CD-50).
+// create wizards hold step values in the session until the Check step's
+// Save (CD-50).
 package wizard
 
 import (
@@ -55,7 +55,7 @@ const (
 // and After renders after
 // the step form, inside #wizard, for content holding forms of its own
 // (forms can't nest). Below renders after the action bar, last in #wizard and
-// outside the step form, so Enter in a field can't press it. LastLabel replaces the mode's required last step label
+// outside the step form, so Enter in a field can't press it. LastLabel replaces the required last step label, "Check",
 // for a wizard that ends in something else (the master import ends in
 // "Import", design-system §8.7). Close is where the wizard head's × goes
 // (where the wizard was opened from); "" shows no ×.
@@ -78,15 +78,12 @@ type Model struct {
 
 var slugRe = regexp.MustCompile(`^[a-z0-9-]+$`)
 
-// lastLabel is the required label of a mode's last step.
+// lastLabel is the required label of the last step.
 func (m Model) lastLabel() string {
 	if m.LastLabel != "" {
 		return m.LastLabel
 	}
-	if m.Mode == Master {
-		return "Check and save"
-	}
-	return "Check and submit"
+	return "Check"
 }
 
 // Validate checks the wizard's shape (design-system §8.3).

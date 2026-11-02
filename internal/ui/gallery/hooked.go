@@ -32,7 +32,7 @@ const hookedOwner auth.UserID = 9
 // What the gallery's Hooked module shows. Each text is worst case, so the
 // sweep proves the hook's region holds it.
 const (
-	hookedDetailsLabel = "Vendor, site and delivery"
+	hookedDetailsLabel = "Vendor, site"
 	hookedItemsLabel   = "Materials"
 	hookedBodyTitle    = "Who supplies it, and where it goes"
 	hookedLeadField    = "lead_days"

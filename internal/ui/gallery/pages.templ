@@ -314,7 +314,7 @@ templ wizardStep(m wizard.Model, v stepValues) {
 			@components.Radios(components.FieldProps{ID: "f-delivery", Name: "delivery", Label: "Delivery", Value: "site"}, deliveryOptions)
 			@components.Textarea(components.FieldProps{ID: "f-remarks", Name: "remarks", Label: "Remarks", Value: uitest.LongError, Clearable: true}, 1000)
 		default:
-			@wizard.CheckSection("Supplier and date", "truck", wizard.Complete, "/_gallery/wizard-1") {
+			@wizard.CheckSection("Details", "truck", wizard.Complete, "/_gallery/wizard-1") {
 				@components.SummaryList([]components.Pair{
 					{Label: "Supplier", Value: pickRows[2].Display()},
 					{Label: "Order date", Value: "24-10-2026"},

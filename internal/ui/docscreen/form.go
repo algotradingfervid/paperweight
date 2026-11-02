@@ -85,9 +85,9 @@ func FormSteps(dt *doctype.DocType) ([]FormStep, error) {
 		steps = append(steps, FormStep{Slug: slugItems, Label: "Items", Lines: true})
 	}
 	if len(steps) < 2 {
-		steps = append(steps, FormStep{Slug: slugNotes, Label: "Other details"})
+		steps = append(steps, FormStep{Slug: slugNotes, Label: "Notes"})
 	}
-	steps = append(steps, FormStep{Slug: slugCheck, Label: "Check and submit"})
+	steps = append(steps, FormStep{Slug: slugCheck, Label: "Check"})
 	if len(steps) > 5 {
 		return nil, fmt.Errorf("docscreen: %s has %d wizard steps; the most is 5", dt.Name, len(steps))
 	}

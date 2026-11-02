@@ -14,7 +14,7 @@ func TestCheckTiles_Claim(t *testing.T) {
 	e := s2New(t)
 	claim := e.DraftClaim(t, e.P(t, s2Deepak), nil)
 	uitest.WantCheckTiles(t, e.page(t, s2Deepak, "/doc/"+expense.ClaimDocType+"/"+strconv.FormatInt(claim.ID, 10)+"/edit/check"),
-		uitest.CheckTile{Title: "Claim details", Icon: "receipt-indian-rupee"},
+		uitest.CheckTile{Title: "Details", Icon: "receipt-indian-rupee"},
 		uitest.CheckTile{Title: "Expenses", Icon: "list-checks"})
 }
 

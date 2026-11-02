@@ -1543,7 +1543,7 @@ func wizardStep(m wizard.Model, v stepValues) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = wizard.CheckSection("Supplier and date", "truck", wizard.Complete, "/_gallery/wizard-1").Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = wizard.CheckSection("Details", "truck", wizard.Complete, "/_gallery/wizard-1").Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

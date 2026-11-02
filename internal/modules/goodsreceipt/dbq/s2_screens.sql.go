@@ -36,7 +36,7 @@ type S2POLinesRow struct {
 	StockWhole   int64
 }
 
-// S2: what the Received quantities step shows (UX doc 5.4).
+// S2: what the Quantities step shows (UX doc 5.4).
 // Every line of GRN grn_id's PO, in PO line order, with its PO, its item
 // and unit snapshots and the units uom.CheckLineQty needs (as G2Lines reads
 // them). Pending comes from G5POLines.
