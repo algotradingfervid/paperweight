@@ -66,16 +66,21 @@
 // skips the touched line it is on; skipped lines and their reasons are
 // counted and listed.
 //
+// Touched .templ files in those packages give no mutants, and a touched guard
+// in one is untested by this run however the summary reads: each is named in
+// a warning, which doesn't change the exit code.
+//
 // Output: the summary line
 //
 //	mutate: <n> mutants, <k> killed, <s> survived, <b> build errors, <t> timed out, <e> tool errors, <x> skipped lines, <y> exempt lines in <time>
 //
-// then `path:line: skipped: <reason>` per skipped line, `path:line: exempt:
-// error pass-through (CD-185)` per exempt line and `path:line: <mutation>
-// <result>` per mutant not killed, sorted by file and line (a tool error adds
-// the first line of go's output). -json <file> writes every mutant with its
-// result. Exit code 2 on a usage, git, baseline or tool error, else 1 when a
-// mutant survived or timed out, else 0.
+// then `path: WARNING: <text>` per touched .templ file, `path:line: skipped:
+// <reason>` per skipped line, `path:line: exempt: error pass-through (CD-185)`
+// per exempt line and `path:line: <mutation> <result>` per mutant not killed,
+// sorted by file and line (a tool error adds the first line of go's output).
+// -json <file> writes every mutant with its result. Exit code 2 on a usage,
+// git, baseline or tool error, else 1 when a mutant survived or timed out,
+// else 0.
 package main
 
 import (
@@ -118,7 +123,10 @@ const (
 	toolError  = "tool error"
 )
 
-const exemptReason = "error pass-through (CD-185)"
+const (
+	exemptReason = "error pass-through (CD-185)"
+	templWarning = "WARNING: touched .templ code gives no mutants, so this run tests none of it; run hand mutants on its _templ.go"
+)
 
 // mutant is one change to one file.
 type mutant struct {
@@ -200,7 +208,7 @@ func run(ctx context.Context, args []string, root string, out io.Writer) int {
 		return 2
 	}
 
-	mutants, skips, exempt, err := collect(root, c)
+	mutants, skips, exempt, templs, err := collect(root, c)
 	if err != nil {
 		printf("ERROR %v\n", err)
 		return 2
@@ -233,6 +241,9 @@ func run(ctx context.Context, args []string, root string, out io.Writer) int {
 	}
 	printf("mutate: %d mutants, %d killed, %d survived, %d build errors, %d timed out, %d tool errors, %d skipped lines, %d exempt lines in %s\n",
 		len(mutants), r.Killed, r.Survived, r.Build, r.Timeouts, r.Tool, len(skips), len(exempt), time.Since(start).Round(time.Second))
+	for _, p := range templs {
+		printf("%s: %s\n", p, templWarning)
+	}
 	for _, s := range skips {
 		printf("%s:%d: skipped: %s\n", s.File, s.Line, s.Reason)
 	}
@@ -268,15 +279,16 @@ func run(ctx context.Context, args []string, root string, out io.Writer) int {
 }
 
 // collect lists the mutants, skipped lines and exempt lines of the touched
-// files in the -pkgs packages, sorted by file and line.
-func collect(root string, c config) ([]mutant, []skipped, []skipped, error) {
+// files in the -pkgs packages, sorted by file and line, and the touched .templ
+// files there, which give no mutants.
+func collect(root string, c config) ([]mutant, []skipped, []skipped, []string, error) {
 	dirs, err := packageDirs(root, c)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	touched, err := touchedLines(root, c.base)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	paths := make([]string, 0, len(touched))
 	for p := range touched {
@@ -285,6 +297,7 @@ func collect(root string, c config) ([]mutant, []skipped, []skipped, error) {
 	slices.Sort(paths)
 	var mutants []mutant
 	var skips, exempt []skipped
+	var templs []string
 	for _, p := range paths {
 		if c.files != "" && !globMatch(c.files, p) {
 			continue
@@ -302,17 +315,19 @@ func collect(root string, c config) ([]mutant, []skipped, []skipped, error) {
 		case strings.HasSuffix(p, ".go") && dirs[path.Dir(p)]:
 			var keep bool
 			if keep, err = checked(root, p); err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, nil, err
 			}
 			if !keep {
 				continue
 			}
 			ms, ok, ex, err = goFileMutants(root, p, touched[p])
+		case strings.HasSuffix(p, ".templ") && dirs[path.Dir(p)]:
+			templs = append(templs, p)
 		default:
 			continue
 		}
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		for l, reason := range ok {
 			skips = append(skips, skipped{File: p, Line: l, Reason: reason})
@@ -336,7 +351,7 @@ func collect(root string, c config) ([]mutant, []skipped, []skipped, error) {
 	}
 	slices.SortFunc(skips, byLine)
 	slices.SortFunc(exempt, byLine)
-	return mutants, skips, exempt, nil
+	return mutants, skips, exempt, templs, nil
 }
 
 // globMatch reports whether the glob matches the repo path or its base name.
@@ -376,16 +391,16 @@ func packageDirs(root string, c config) (map[string]bool, error) {
 	return dirs, nil
 }
 
-// touchedLines returns the lines added or changed since base in *.go and
-// *.sql files, by repo path, counting every line of untracked files as new.
+// touchedLines returns the lines added or changed since base in *.go, *.sql
+// and *.templ files, by repo path, counting every line of untracked files as new.
 func touchedLines(root, base string) (map[string]map[int]bool, error) {
 	// Fixed prefixes: diff.noprefix or diff.mnemonicPrefix would change "+++ b/".
-	diff, err := git(root, "diff", "-U0", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", base, "--", "*.go", "*.sql")
+	diff, err := git(root, "diff", "-U0", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", base, "--", "*.go", "*.sql", "*.templ")
 	if err != nil {
 		return nil, err
 	}
 	touched := parseHunks(diff)
-	others, err := git(root, "ls-files", "-z", "--others", "--exclude-standard", "--", "*.go", "*.sql")
+	others, err := git(root, "ls-files", "-z", "--others", "--exclude-standard", "--", "*.go", "*.sql", "*.templ")
 	if err != nil {
 		return nil, err
 	}

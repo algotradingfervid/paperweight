@@ -153,11 +153,23 @@ func TestSession_ExpiredHTMXRedirect(t *testing.T) {
 
 	w.Clock.Advance(12*time.Hour + time.Second)
 
-	const next = "/signin?next=%2Fpo%2Flist%3Fstatus%3Ddraft"
-	r := c.HTMX().Get("/po/list?status=draft")
+	// next is the page the request came from, not the request: a filter sent
+	// from the plain list returns to the plain list.
+	const next = "/signin?next=%2Fpo%2Flist"
+	r := c.HTMX().WithHeader("HX-Current-URL", h.HTTP.URL+"/po/list").Get("/po/list?status=draft")
 	wantStatus(t, "HTMX GET after expiry", r, http.StatusUnauthorized)
 	if got := r.Header.Get("HX-Redirect"); got != next {
 		t.Fatalf("HX-Redirect = %q, want %q", got, next)
+	}
+	refused := c.HTMX().WithHeader("HX-Current-URL", "https://evil.example/po/list").Get("/po/list?status=draft")
+	wantStatus(t, "HTMX GET after expiry, refused page", refused, http.StatusUnauthorized)
+	if got := refused.Header.Get("HX-Redirect"); got != "/signin" {
+		t.Fatalf("refused HX-Current-URL: HX-Redirect = %q, want /signin", got)
+	}
+	absent := c.HTMX().Get("/po/list?status=draft")
+	wantStatus(t, "HTMX GET after expiry, no page", absent, http.StatusUnauthorized)
+	if got := absent.Header.Get("HX-Redirect"); got != "/signin" {
+		t.Fatalf("no HX-Current-URL: HX-Redirect = %q, want /signin", got)
 	}
 	if !strings.Contains(messageOf(r), auth.ErrSessionExpired.Msg) {
 		t.Fatalf("HTMX response lacks %q: body %q, HX-Trigger %q", auth.ErrSessionExpired.Msg, r.Body, r.Header.Get("HX-Trigger"))
@@ -172,7 +184,7 @@ func TestSession_ExpiredHTMXRedirect(t *testing.T) {
 	}
 
 	plain := c.Get("/po/list?status=draft")
-	wantRedirect(t, "plain GET after expiry", plain, http.StatusSeeOther, next)
+	wantRedirect(t, "plain GET after expiry", plain, http.StatusSeeOther, "/signin?next=%2Fpo%2Flist%3Fstatus%3Ddraft")
 	if strings.Contains(plain.Body, "PO LIST") {
 		t.Fatalf("plain GET body leaks PO LIST: %q", plain.Body)
 	}
@@ -248,6 +260,50 @@ func TestRoutes_AllDeclarePermission(t *testing.T) {
 	}
 }
 
+// An htmx request's own URL is a fragment or a POST, so sign-in returns to the
+// page it came from, and to no page when the header doesn't name one of ours.
+func TestGuest_HTMXNextIsThePage(t *testing.T) {
+	w := authtest.NewWorld(t)
+	h, _ := t10Harness(t, w)
+	c := h.Client().HTMX()
+	host := h.HTTP.URL
+
+	for _, tc := range []struct{ name, current, want string }{
+		{"the page, with its query", host + "/po/list?status=draft", "/signin?next=%2Fpo%2Flist%3Fstatus%3Ddraft"},
+		{"home", host + "/", "/signin?next=%2F"},
+		{"no header", "", "/signin"},
+		{"another host", "https://evil.example/po/list", "/signin"},
+		{"another host, same path", "//evil.example/po/list", "/signin"},
+		{"this host with a look-alike port", host + "0/po/list", "/signin"},
+		{"this host in the userinfo", "http://" + strings.TrimPrefix(host, "http://") + "@evil.example/po/list", "/signin"},
+		{"a local path, not a URL", "/po/list", "/signin"},
+		{"a subdomain of this host", "http://evil." + strings.TrimPrefix(host, "http://") + "/po", "/signin"},
+		{"a double slash path", host + "//evil.example/po/list", "/signin"},
+		// Both stay local: escaped, neither is a slash to the browser.
+		{"a backslash path", host + `/\evil`, "/signin?next=%2F%255Cevil"},
+		{"an escaped double slash path", host + "/%2F%2Fevil", "/signin?next=%2F%252F%252Fevil"},
+		{"not a URL", "http://[", "/signin"},
+		{"javascript", "javascript:alert(1)", "/signin"},
+	} {
+		// Each request is for a fragment, never a page to land on.
+		r := c.WithHeader("HX-Current-URL", tc.current).Get("/po/list?fragment=1")
+		wantStatus(t, tc.name, r, http.StatusUnauthorized)
+		if got := r.Header.Get("HX-Redirect"); got != tc.want {
+			t.Errorf("%s: HX-Redirect = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+
+	post := h.Client().HTMX().WithHeader("HX-Current-URL", host+"/po/list").Post("/po/1/save", url.Values{"name": {"x"}})
+	wantStatus(t, "guest HTMX POST", post, http.StatusUnauthorized)
+	if got, want := post.Header.Get("HX-Redirect"), "/signin?next=%2Fpo%2Flist"; got != want {
+		t.Errorf("guest HTMX POST: HX-Redirect = %q, want %q", got, want)
+	}
+
+	// A browser GET has no page behind it: the header means nothing there.
+	plain := h.Client().WithHeader("HX-Current-URL", host+"/po/list").Get("/users")
+	wantRedirect(t, "guest GET /users", plain, http.StatusSeeOther, "/signin?next=%2Fusers")
+}
+
 // AUTH-115
 func TestGuest_OnlyPublicRoutes(t *testing.T) {
 	w := authtest.NewWorld(t)
@@ -275,7 +331,7 @@ func TestGuest_OnlyPublicRoutes(t *testing.T) {
 		t.Errorf("guest GET /api/po/1: body %q, want %q and no data", api.Body, auth.ErrSignInRequired.Msg)
 	}
 
-	hx := c.HTMX().Get("/po/list")
+	hx := c.HTMX().WithHeader("HX-Current-URL", h.HTTP.URL+"/po/list").Get("/po/list")
 	wantStatus(t, "guest HTMX GET /po/list", hx, http.StatusUnauthorized)
 	if got := hx.Header.Get("HX-Redirect"); got != "/signin?next=%2Fpo%2Flist" {
 		t.Errorf("guest HTMX HX-Redirect = %q", got)

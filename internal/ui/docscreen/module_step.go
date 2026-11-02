@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
 // stepHook is the module's custom step i of dt, the zero Step when it has
@@ -22,7 +23,8 @@ func (d Deps) stepHook(dt *doctype.DocType, steps []FormStep, i int) (Step, erro
 }
 
 // labelled is steps with the module's StepLabels shown instead of their
-// labels, and its StepIntros as their intros; slugs and order are unchanged.
+// labels, its StepIntros as their intros and its StepIcons as their icons;
+// slugs and order are unchanged.
 func (d Deps) labelled(dt *doctype.DocType, steps []FormStep) []FormStep {
 	mod := d.modOf(dt)
 	out := slices.Clone(steps)
@@ -33,8 +35,38 @@ func (d Deps) labelled(dt *doctype.DocType, steps []FormStep) []FormStep {
 		if in, ok := mod.StepIntros[s.Slug]; ok {
 			out[i].Intro = in
 		}
+		out[i].Icon = mod.StepIcons[s.Slug]
 	}
 	return out
+}
+
+// CheckStepIcons reports the first Module.StepIcons entry that can't show: a
+// slug that isn't one of its DocType's steps before check, or a name that
+// isn't in the icon set, so a typo fails when the routes are built, not by
+// showing the default tile (UI v2 §5.6).
+func CheckStepIcons(mods map[string]Module) error {
+	for name, m := range mods {
+		if len(m.StepIcons) == 0 {
+			continue
+		}
+		dt, ok := doctype.Lookup(name)
+		if !ok {
+			return fmt.Errorf("docscreen: %s declares StepIcons but isn't registered", name)
+		}
+		steps, err := FormSteps(dt)
+		if err != nil {
+			return err
+		}
+		for slug, icon := range m.StepIcons {
+			if i, found := stepOf(steps, slug); !found || i == len(steps)-1 {
+				return fmt.Errorf("docscreen: %s StepIcons names step %q, which has no check card", name, slug)
+			}
+			if !slices.Contains(icons.Names(), icon) {
+				return fmt.Errorf("docscreen: %s StepIcons names icon %q, which isn't in the icon set", name, icon)
+			}
+		}
+	}
+	return nil
 }
 
 // mergeLines is the lines a custom save sends (CD-256 (3)): the loaded ones

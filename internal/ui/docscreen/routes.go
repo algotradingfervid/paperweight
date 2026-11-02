@@ -14,6 +14,9 @@ func Routes(d Deps) func(chi.Router) {
 	if err := CheckLifeSteps(d.Modules); err != nil {
 		panic(err)
 	}
+	if err := CheckStepIcons(d.Modules); err != nil {
+		panic(err)
+	}
 	if err := CheckHome(d.Modules); err != nil {
 		panic(err)
 	}

@@ -654,7 +654,7 @@ func (h *handlers[R, In]) wizardCards(ctx context.Context, vals map[string]strin
 			if err != nil {
 				return err
 			}
-			cards = append(cards, sectionCard{Title: s.Label, Pairs: pairs, Rows: rows, Change: &components.Link{Label: "Change", Href: h.wizardURL(i) + "?return=" + checkSlug}})
+			cards = append(cards, sectionCard{Title: s.Label, Icon: s.TileIcon(), Pairs: pairs, Rows: rows, Change: &components.Link{Label: "Change", Href: h.wizardURL(i) + "?return=" + checkSlug}})
 		}
 		return nil
 	})

@@ -489,6 +489,7 @@ func TestE2E_PrintButton(t *testing.T) {
 		t.Errorf("the document's tab moved to %s", got)
 	}
 	Eval[chromedp.Void](tab, `window.print = () => { window.printed = true; }`)
+	tab.Until("the page to load", `document.readyState === "complete"`)
 	tab.Press("Print / Save as PDF")
 	tab.Until("window.print", `window.printed === true`)
 	mediaPrint(tab)

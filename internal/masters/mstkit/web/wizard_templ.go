@@ -123,8 +123,8 @@ func wizardFrame(v wizardView) templ.Component {
 	})
 }
 
-// wizardCheck is Check and save's summary, one section per step with Change;
-// every section's icon tile is file-text (UI v2 §5.6).
+// wizardCheck is Check and save's summary, one section per step with Change
+// and its step's icon tile (UI v2 §5.6).
 func wizardCheck(cards []sectionCard) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -171,7 +171,7 @@ func wizardCheck(cards []sectionCard) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = wizard.CheckSection(c.Title, "file-text", "", c.Change.Href).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = wizard.CheckSection(c.Title, c.Icon, "", c.Change.Href).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
