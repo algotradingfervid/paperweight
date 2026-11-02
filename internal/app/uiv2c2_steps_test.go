@@ -2,7 +2,6 @@ package app_test
 
 import (
 	"net/http"
-	"slices"
 	"strings"
 	"testing"
 
@@ -16,25 +15,9 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
-// uiv2c2KnownLong are today's step labels over wizard.MaxLabel, by wizard.
-// UI v2 C2b shortens them and empties this list; until then the test only
-// warns about them, and fails on any other long label or on an entry that is
-// no longer long (A-14).
-var uiv2c2KnownLong = map[string][]string{
-	purchase.DocType:        {"Check and submit"},
-	purchase.RequestDocType: {"Check and submit"},
-	goodsreceipt.DocType:    {"Choose purchase order", "Delivery details", "Received quantities", "Check and submit"},
-	expense.ClaimDocType:    {"Claim details", "Check and submit"},
-	expense.AdvanceDocType:  {"Check and submit"},
-	"/m/party/new":          {"Party details", "Check and save"},
-	"/m/employee/new":       {"Check and save"},
-	"/m/import/choose":      {"Choose master", "Check results"},
-}
-
-// TestWizards_StepLabelLength (A-14, warn-only in C2a): every registered
-// document wizard (FormSteps with its Module's StepLabels) and every master
-// wizard (as rendered) has labels of 12 characters or fewer, apart from the
-// known exceptions above.
+// TestWizards_StepLabelLength (A-14): every registered document wizard
+// (FormSteps with its Module's StepLabels), every master wizard and the
+// company setup wizard (as rendered) has labels of 12 characters or fewer.
 func TestWizards_StepLabelLength(t *testing.T) {
 	w := newWorld(t)
 	deps := w.app.DocDeps()
@@ -60,7 +43,7 @@ func TestWizards_StepLabelLength(t *testing.T) {
 
 	w.seedUsers()
 	b := w.signedIn(adminEmail)
-	for _, path := range []string{"/m/party/new", "/m/employee/new", "/m/import/choose"} {
+	for _, path := range []string{"/m/party/new", "/m/employee/new", "/m/import/choose", "/setup/company"} {
 		r := b.get(path)
 		if r.status != http.StatusOK {
 			t.Fatalf("GET %s = %d", path, r.status)
@@ -78,23 +61,8 @@ func TestWizards_StepLabelLength(t *testing.T) {
 	}
 
 	for name, long := range found {
-		known := uiv2c2KnownLong[name]
 		for _, l := range long {
-			if slices.Contains(known, l) {
-				t.Logf("A-14 (C2b): %s step label %q is over %d characters", name, l, wizard.MaxLabel)
-			} else {
-				t.Errorf("%s: step label %q is over %d characters (A-14)", name, l, wizard.MaxLabel)
-			}
-		}
-		for _, l := range known {
-			if !slices.Contains(long, l) {
-				t.Errorf("%s: known long label %q is gone: remove it from uiv2c2KnownLong", name, l)
-			}
-		}
-	}
-	for name := range uiv2c2KnownLong {
-		if _, ok := found[name]; !ok {
-			t.Errorf("uiv2c2KnownLong names %s, which is not a checked wizard", name)
+			t.Errorf("%s: step label %q is over %d characters (A-14)", name, l, wizard.MaxLabel)
 		}
 	}
 }

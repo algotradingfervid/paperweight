@@ -22,7 +22,7 @@ import (
 // write.
 type sectionCard struct {
 	Title  string
-	Icon   string // the Check and save tile
+	Icon   string // the Check tile
 	Pairs  []components.Pair
 	Rows   [][]components.Pair // a wizard row step's, one summary each
 	Change *components.Link

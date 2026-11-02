@@ -17,7 +17,7 @@ func TestFrame_LeaveDialog(t *testing.T) {
 	newDoc.DocLabel = ""
 	master := docModel()
 	master.Mode = wizard.Master
-	master.Steps = steps("Details", "Addresses", "Contacts", "Check and save")
+	master.Steps = steps("Details", "Addresses", "Contacts", "Check")
 	for _, c := range []struct {
 		name   string
 		m      wizard.Model

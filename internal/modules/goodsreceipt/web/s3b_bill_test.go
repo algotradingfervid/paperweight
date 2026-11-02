@@ -521,7 +521,7 @@ func TestGRNBill_AmendmentCopied(t *testing.T) {
 }
 
 // CD-337 (6) on the pages (G11): a GRN whose challan no. is on another
-// non-cancelled GRN of the vendor warns on the Received quantities step,
+// non-cancelled GRN of the vendor warns on the Quantities step,
 // the check page and the document page, naming the other GRN for Suresh;
 // OwnReceiver, who can't read Suresh's GRNs, gets "another receipt" on its
 // own GRN's page (CD-233, CD-324). A cancelled receipt's page doesn't warn.

@@ -501,7 +501,7 @@ func (h *handlers[R, In]) display(ctx context.Context, tx *db.Tx, fd doctype.Fie
 
 // field is the step field name: the DocType's, or a Choices field as a
 // Field. Only display reads a Choice's Required: answered asks the DocType,
-// so a blank choice isn't held back to Check and save.
+// so a blank choice isn't held back to Check.
 func (h *handlers[R, In]) field(name string) (doctype.Field, bool) {
 	if c, ok := h.Choices[name]; ok {
 		return doctype.Field{Name: name, Label: c.Label, Required: c.Required}, true

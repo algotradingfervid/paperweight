@@ -618,7 +618,7 @@ func TestScreens_PartyWizardBackDropsBlankRows(t *testing.T) {
 	}
 }
 
-// Check and save lists what a row holds; a field left blank has no pair. The
+// Check lists what a row holds; a field left blank has no pair. The
 // first case shows the labels do appear for a row that fills them.
 func TestScreens_PartyWizardCheckSkipsBlankFields(t *testing.T) {
 	filled := func(t *testing.T, a, c map[string]string) webtest.Response {

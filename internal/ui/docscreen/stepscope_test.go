@@ -284,7 +284,7 @@ func TestStepScope_MovesPastAnotherStepsProblem(t *testing.T) {
 		{name: "next", to: "items", typed: true, wantHead: "Items"},
 		{name: "back", nav: "back", to: "details", typed: true, wantHead: "Details"},
 		{name: "finish later", nav: "finish", typed: true},
-		{name: "return to check", ret: "check", to: "check", typed: true, wantHead: "Check and submit"},
+		{name: "return to check", ret: "check", to: "check", typed: true, wantHead: "Check"},
 		{name: "next unchanged", to: "items", wantHead: "Items"},
 		{name: "back unchanged", nav: "back", to: "details", wantHead: "Details"},
 		{name: "finish later unchanged", nav: "finish"},
@@ -1339,7 +1339,7 @@ func TestStepScope_ErrorsWithNoStepShow(t *testing.T) {
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
 		}
-		wantHeading(t, rec, "Check and submit")
+		wantHeading(t, rec, "Check")
 		if text := wizardText(t, rec); !strings.Contains(text, msg) {
 			t.Errorf("check step doesn't show %q; text %q", msg, text)
 		}

@@ -7,7 +7,7 @@ import (
 	"github.com/vardhan/internaltools/internal/modules/purchase"
 )
 
-// stepDelivery is the Delivery details wizard step (CD-282 Q7).
+// stepDelivery is the Delivery wizard step (CD-282 Q7).
 const stepDelivery = "delivery"
 
 // fields are GRN spec §3.1 and §3.2, with the UX doc's list priorities (P4).

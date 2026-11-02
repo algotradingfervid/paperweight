@@ -244,7 +244,7 @@ func TestModule_StepKeys(t *testing.T) {
 }
 
 // m02Notes is a test DocType Hooked can't stand in for: lines and no header
-// field, so FormSteps adds the empty "notes" step (Other details) after
+// field, so FormSteps adds the empty "notes" step (Notes) after
 // items, which shows Nothing needed here.
 const m02Notes = "docscreentest.M02Notes"
 
@@ -332,7 +332,7 @@ func TestModule_StepLabels(t *testing.T) {
 	e, _, id := m02Env(t)
 	m02Mount(e, docscreen.Module{StepLabels: map[string]string{"details": "Choose supplier", "terms": "Delivery terms"}})
 	base := m02URL(id)
-	wantLabels := []string{"Choose supplier", "Delivery terms", "Items", "Check and submit"}
+	wantLabels := []string{"Choose supplier", "Delivery terms", "Items", "Check"}
 
 	page := m02Page(t, e.get(t, base+"/edit/details"), http.StatusOK, "GET details")
 	labels, hrefs := m02StepperLabels(page)

@@ -95,12 +95,12 @@ func (h *Harness) grnCount() int {
 // startGRN opens the Goods Receipts list as s's user and taps New goods
 // receipt; with one PO at the user's sites it is already chosen (UX §5.2),
 // so Save and continue creates the draft. It returns the draft's id on
-// Delivery details.
+// Delivery.
 func startGRN(s *Session) int64 {
 	s.t.Helper()
 	s.Press("New goods receipt")
 	onStep(s, "Step 1 of 4")
-	noOverflow(s, "Choose purchase order")
+	noOverflow(s, "Order")
 	if !Eval[bool](s, `!!document.querySelector("input[name=purchase_order_id]:checked")`) {
 		s.t.Errorf("the only PO at Suresh's sites isn't chosen on step 1\n%s", s.page())
 	}
@@ -109,19 +109,19 @@ func startGRN(s *Session) int64 {
 	return s.DocID()
 }
 
-// grnDelivery fills Delivery details with a delivery challan and goes on
-// to Received quantities.
+// grnDelivery fills Delivery with a delivery challan and goes on
+// to Quantities.
 func grnDelivery(s *Session, challan string) {
 	s.t.Helper()
-	noOverflow(s, "Delivery details")
+	noOverflow(s, "Delivery")
 	pickRadio(s, "challan_kind", "Delivery challan")
 	s.Fill("challan_no", challan)
 	s.Press(saveContinue)
 	onStep(s, "Step 3 of 4")
-	noOverflow(s, "Received quantities")
+	noOverflow(s, "Quantities")
 }
 
-// cardInput is the script finding a Received quantities input by its
+// cardInput is the script finding a Quantities input by its
 // accessible name, e.g. "Rejected, line 1, MS Angle 50x50x5" (UX §5.4).
 func cardInput(name string) string {
 	return `document.querySelector('[aria-label=` + strconv.Quote(name) + `]')`
@@ -148,13 +148,13 @@ func rejectOn(s *Session, n int, item, rejected, reason string) {
 	fillCard(s, "Reason for rejecting"+line, reason)
 }
 
-// submitGRN goes on to Check and submit and submits; with no approval rule
+// submitGRN goes on to Check and submits; with no approval rule
 // the receipt is approved and numbered at once (UX §5.5).
 func submitGRN(s *Session, banner string) {
 	s.t.Helper()
 	s.Press(saveContinue)
 	onStep(s, "Step 4 of 4")
-	noOverflow(s, "GRN Check and submit")
+	noOverflow(s, "GRN Check")
 	s.Press("Submit")
 	s.WaitText(banner)
 	noOverflow(s, "the approved GRN")
@@ -195,7 +195,7 @@ func TestE2E_GRNFlow(t *testing.T) {
 		}
 	}
 	rejectOn(s, 1, "MS Angle 50x50x5", "10", grnRejectReason)
-	noOverflow(s, "Received quantities with a reject")
+	noOverflow(s, "Quantities with a reject")
 	submitGRN(s, grnApproved)
 	t.Logf("five-line GRN with one reject, New goods receipt to the banner: %v (UX §1 goal under 1m, reported only)", time.Since(start))
 
@@ -247,7 +247,7 @@ func TestE2E_RequestToShortClose(t *testing.T) {
 	s.Until("back on Items", `location.pathname.endsWith("/edit/items")`)
 	s.Press(saveContinue)
 	onStep(s, "Step 3 of 3")
-	noOverflow(s, "request Check and submit")
+	noOverflow(s, "request Check")
 	s.Press("Submit")
 	s.WaitText("Submitted. " + firstPR + " has been numbered.")
 	if q := h.load(purchase.RequestDocType, pr); q.Info.State != doctype.StateApproved || len(q.Lines) != 1 || q.Values["order_status"] != "not_ordered" {

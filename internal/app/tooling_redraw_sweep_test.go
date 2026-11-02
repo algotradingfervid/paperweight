@@ -380,7 +380,7 @@ func newRSEnv(t *testing.T) *rsEnv {
 			t.Fatalf("move %s's counter: %v", name, err)
 		}
 	}
-	// Claim details draws the advance radios and Less advance only for a paid advance with money left (UX §5.3).
+	// The claim's Details step draws the advance radios and Less advance only for a paid advance with money left (UX §5.3).
 	e.paidAdvance()
 	base := w.app.ToolingRedrawDeps().Modules
 	for _, dt := range rsDocTypes() {

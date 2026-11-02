@@ -15,7 +15,7 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// MOD-GRN S1, step 1 Choose purchase order (UX doc §5.2; GRN spec §8, §11).
+// MOD-GRN S1, step 1 Order (UX doc §5.2; GRN spec §8, §11).
 // Every case runs as a non-admin user on the real auth.Service (CD-213).
 
 // GUX-001 (GRN-001): Suresh, restricted to his sites, with exactly one
@@ -39,13 +39,11 @@ func TestGRNWeb_ChoosePOOneVisible(t *testing.T) {
 	if got := r.doc.Find(`input[name="receipt_date"]`).AttrOr("value", ""); got != s1Today {
 		t.Errorf("receipt date = %q, want %s", got, s1Today)
 	}
-	if got := strings.TrimSpace(r.doc.Find("h2#step-title").Text()); got != "Choose purchase order" {
-		t.Errorf("h1 = %q, want Choose purchase order", got)
+	if got := strings.TrimSpace(r.doc.Find("h2#step-title").Text()); got != "Order" {
+		t.Errorf("h1 = %q, want Order", got)
 	}
-	for _, label := range []string{"Delivery details", "Received quantities"} {
-		if !strings.Contains(r.text(), label) {
-			t.Errorf("the stepper has no %q", label)
-		}
+	if got := r.doc.Find("nav.stepper .stepper__label").Text(); got != "OrderDeliveryQuantitiesCheck" {
+		t.Errorf("stepper labels = %q", got)
 	}
 	for _, name := range []string{"site_id", "project_id"} {
 		if r.doc.Find(`[name="`+name+`"]`).Length() != 0 {
@@ -239,7 +237,7 @@ func TestGRNWeb_ChoosePOForeign(t *testing.T) {
 
 // Plan G6 Do 3, spec §11 step 1: Save and continue creates the draft from
 // DraftFromPO, one line per PO line with pending (received = pending), with
-// the typed receipt date, and goes on to Delivery details. A date NUM can't
+// the typed receipt date, and goes on to Delivery. A date NUM can't
 // read is a 422 with nothing written.
 func TestGRNWeb_ChoosePOCreates(t *testing.T) {
 	w := newS1World(t)
@@ -261,7 +259,7 @@ func TestGRNWeb_ChoosePOCreates(t *testing.T) {
 
 	r = w.post(w.Suresh, s1New, url.Values{"purchase_order_id": {strconv.FormatInt(po.ID, 10)}, "receipt_date": {"23-10-2026"}})
 	if r.status != http.StatusSeeOther || !strings.HasSuffix(r.location, "/edit/delivery") {
-		t.Fatalf("create = %d %q, want 303 to Delivery details", r.status, r.location)
+		t.Fatalf("create = %d %q, want 303 to Delivery", r.status, r.location)
 	}
 	g := w.Load(t, goodsreceipt.DocType, w.created(r))
 	if got := g.Header["receipt_date"].(types.Date).ISO(); got != "2026-10-23" {

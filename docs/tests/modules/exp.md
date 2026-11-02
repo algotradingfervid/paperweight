@@ -612,10 +612,10 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 - **Go test:** `TestS4_ReportEmptyStates`
 - **Sources:** CD-366
 
-### EXP-085 · Claim details fields show their example placeholders
+### EXP-085 · Claim Details step fields show their example placeholders
 - **Priority:** P2
 - **Level:** unit
-- **Given** the claim details step **When** it renders **Then** Purpose shows `e.g. Pune Metro site visit` and the Project and Site pickers show `e.g. Pune Metro or PRJ-METRO` and `e.g. Metro site or METRO-SITE` (CD-370, UI v2 §5.5 item 5, §5.8).
+- **Given** the claim's Details step **When** it renders **Then** Purpose shows `e.g. Pune Metro site visit` and the Project and Site pickers show `e.g. Pune Metro or PRJ-METRO` and `e.g. Metro site or METRO-SITE` (CD-370, UI v2 §5.5 item 5, §5.8).
 - **Go test:** `TestPH_ClaimDetails`
 - **Sources:** CD-370
 

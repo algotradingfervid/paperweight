@@ -10,7 +10,7 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// POLine is one line of a GRN's PO as the Received quantities step shows
+// POLine is one line of a GRN's PO as the Quantities step shows
 // it (UX doc §5.4).
 type POLine struct {
 	ID               int64 // purchase_order_line.id

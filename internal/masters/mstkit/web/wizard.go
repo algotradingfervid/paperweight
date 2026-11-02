@@ -66,18 +66,18 @@ func Steps(docType string) []docscreen.FormStep {
 }
 
 // CreateWizard is a Master-mode create wizard (CD-50): step values wait in the
-// session, and only Check and save writes, through Save. W is what Save takes,
+// session, and only Check writes, through Save. W is what Save takes,
 // which need not be the Screen's In: one save can make several records.
 type CreateWizard[W any] struct {
 	Sessions *scs.SessionManager
-	Steps    []docscreen.FormStep // without Check and save, which is added
+	Steps    []docscreen.FormStep // without Check, which is added
 	// ToInput is Screen.ToInput's contract for W, over all the steps' values:
 	// a step's Next hears the errors on its own fields.
 	ToInput func(values map[string]string) (W, []doctype.FieldError)
 	Save    func(ctx context.Context, p auth.Principal, in W) (mstkit.Saved, error)
 	// Validate is optional and is W's pure Validate: a step's Next hears its
 	// errors on that step's fields, except the blank Required field, which
-	// waits for Check and save.
+	// waits for Check.
 	Validate func(W) (W, error)
 	// Rows makes the steps it names by Slug row steps, which have no Fields:
 	// each holds rows of its own, so ToInput reads them with WizardRows. A row
@@ -88,7 +88,7 @@ type CreateWizard[W any] struct {
 
 // RowStep is a step that edits rows with a components.RowsEditor, which at the
 // wizard's form width draws each row as a card, so a row can hold many fields.
-// Wholly blank rows go at Back and Next, and at Check and save if they got past
+// Wholly blank rows go at Back and Next, and at Check if they got past
 // both; the rest are numbered 1..n, so a row's number on the page is its Line.
 type RowStep struct {
 	Legend, AddLabel string
@@ -157,7 +157,7 @@ type saveFunc func(ctx context.Context, p auth.Principal) (mstkit.Saved, error)
 func (c CreateWizard[W]) core() wizardCore {
 	wc := wizardCore{
 		sessions: c.Sessions,
-		steps:    append(slices.Clone(c.Steps), docscreen.FormStep{Slug: checkSlug, Label: "Check and save"}),
+		steps:    append(slices.Clone(c.Steps), docscreen.FormStep{Slug: checkSlug, Label: "Check"}),
 		rows:     c.Rows,
 		read: func(values map[string]string) (saveFunc, []doctype.FieldError, []doctype.FieldError) {
 			in, errs := c.ToInput(values)
@@ -295,7 +295,7 @@ func (h *handlers[R, In]) wizardStartOver(w http.ResponseWriter, r *http.Request
 	return nil
 }
 
-// wizardPost is a step's Back, Next or, on the last, Check and save. What was
+// wizardPost is a step's Back, Next or, on the last, Save. What was
 // typed goes into the session first, so nothing is lost, and before the
 // response starts (CD-136). A finished wizard's session is empty, so a replay
 // lands here on a step past the furthest and goes back to the start.
@@ -396,7 +396,7 @@ func (h *handlers[R, In]) overLimit(s docscreen.FormStep, typed, vals map[string
 }
 
 // answered drops the errors on a blank Required field of step s, in its row on a
-// row step: they wait for Check and save.
+// row step: they wait for Check.
 func (h *handlers[R, In]) answered(s docscreen.FormStep, vals map[string]string, errs []doctype.FieldError) []doctype.FieldError {
 	rs, rowStep := h.wiz.rows[s.Slug]
 	rows := heldRows(vals, s.Slug)
@@ -503,7 +503,7 @@ func (h *handlers[R, In]) resolve(ctx context.Context, vals map[string]string, n
 	return out, errs, err
 }
 
-// wizardSave is Check and save: one Save from the session's values. A refusal
+// wizardSave is Check's Save: one Save from the session's values. A refusal
 // the page can show goes to the first step that owns a field in it, 422, with
 // the session as it was; success clears the session.
 func (h *handlers[R, In]) wizardSave(w http.ResponseWriter, r *http.Request, p auth.Principal, session wizard.SessionValues, vals map[string]string) error {
@@ -537,7 +537,7 @@ func (h *handlers[R, In]) wizardSave(w http.ResponseWriter, r *http.Request, p a
 	return nil
 }
 
-// wizardRefused shows the first failing step with its errors, or Check and save
+// wizardRefused shows the first failing step with its errors, or Check
 // when no step owns them. Save and continue comes straight back.
 func (h *handlers[R, In]) wizardRefused(w http.ResponseWriter, r *http.Request, p auth.Principal, vals map[string]string, errs []doctype.FieldError) error {
 	last := len(h.wiz.steps) - 1
@@ -588,7 +588,7 @@ func (h *handlers[R, In]) wizardAdvance(w http.ResponseWriter, r *http.Request, 
 	return nil
 }
 
-// wizardStep is step i on screen. A return to Check and save is kept from the
+// wizardStep is step i on screen. A return to Check is kept from the
 // URL or the post. Start over shows once p has a draft to drop.
 func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furthest int, vals map[string]string, errs []doctype.FieldError) (wizardView, error) {
 	ctx := r.Context()
@@ -639,7 +639,7 @@ func (c wizardCore) summary(f form, s docscreen.FormStep) []components.FieldErr 
 	return out
 }
 
-// wizardCards is Check and save's summary of the session's values, as typed: a
+// wizardCards is Check's summary of the session's values, as typed: a
 // value a later save would refuse still shows.
 func (h *handlers[R, In]) wizardCards(ctx context.Context, vals map[string]string) ([]sectionCard, error) {
 	var cards []sectionCard

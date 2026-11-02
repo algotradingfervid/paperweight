@@ -1,5 +1,5 @@
 // Package mastersweb is the master CSV import wizard (design-system §8.7,
-// CD-198, CD-201): Choose master, Upload, Check results, Import, under
+// CD-198, CD-201): Master, Upload, Check, Import, under
 // /m/import. The master and the file's token stay in the session until Import;
 // the file itself waits in csv_upload (store.go). Which DocTypes can be imported
 // and what a row means are csvio's and the masters'.
@@ -57,9 +57,9 @@ const (
 )
 
 var steps = []wizard.Step{
-	{Slug: "choose", Label: "Choose master"},
+	{Slug: "choose", Label: "Master"},
 	{Slug: "upload", Label: "Upload"},
-	{Slug: "check", Label: "Check results"},
+	{Slug: "check", Label: "Check"},
 	{Slug: "import", Label: "Import"},
 }
 
@@ -312,7 +312,7 @@ var tooLarge = sync.OnceValue(func() string {
 	return err.Error()
 })
 
-// upload holds the posted file and answers with Check results, or Upload
+// upload holds the posted file and answers with Check, or Upload
 // again with the refusal. The body is parsed whole, not streamed: a post
 // without htmx's header has already been parsed by AUTH's CSRF check.
 func (h *handlers) upload(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
@@ -396,7 +396,7 @@ func (h *handlers) checkPage(w http.ResponseWriter, r *http.Request, p auth.Prin
 	return nil
 }
 
-// showCheck is Check results. The way to Import exists only for a clean
+// showCheck is Check. The way to Import exists only for a clean
 // report: no link and no primary button otherwise.
 func showCheck(w http.ResponseWriter, r *http.Request, status int, dt *doctype.DocType, o outcome) {
 	m := model(stepCheck, dt)
@@ -492,7 +492,7 @@ func (h *handlers) importPage(w http.ResponseWriter, r *http.Request, p auth.Pri
 
 // doImport runs the import, which validates every row again in its own
 // transaction: a file that went bad since the preview imports nothing and shows
-// Check results with what is wrong now. The claim comes first, so two posts
+// Check with what is wrong now. The claim comes first, so two posts
 // can't import one file twice (a master without a code has nothing else to
 // stop the second). It is given up unless the import succeeded.
 func (h *handlers) doImport(w http.ResponseWriter, r *http.Request, p auth.Principal) error {

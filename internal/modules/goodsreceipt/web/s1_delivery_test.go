@@ -17,7 +17,7 @@ import (
 	"github.com/vardhan/internaltools/internal/types"
 )
 
-// MOD-GRN S1, step 2 Delivery details (UX doc §5.3; CD-272 Gap 5, Gap 8;
+// MOD-GRN S1, step 2 Delivery (UX doc §5.3; CD-272 Gap 5, Gap 8;
 // CD-282 Q1, Q7) and Module.Hide (UX doc §5.6, §6.3). Suresh on the real
 // auth.Service (CD-213).
 
@@ -40,8 +40,8 @@ func (p s1Page) label(id string) string {
 func TestGRNWeb_DeliveryStep(t *testing.T) {
 	w := newS1World(t)
 	r := w.get(w.Suresh, stepPath(w.draft(w.po("SHREE", "10")), "delivery"))
-	if got := strings.TrimSpace(r.doc.Find("h2#step-title").Text()); got != "Delivery details" {
-		t.Errorf("h1 = %q, want Delivery details", got)
+	if got := strings.TrimSpace(r.doc.Find("h2#step-title").Text()); got != "Delivery" {
+		t.Errorf("h1 = %q, want Delivery", got)
 	}
 	want := []s1Radio{{"Delivery challan", "Delivery challan", false}, {"Tax invoice", "Tax invoice", false}}
 	if got := r.radios("challan_kind"); !slices.Equal(got, want) || r.label("f-challan_kind") != "Document with the goods * (required)" {
@@ -117,7 +117,7 @@ func TestGRNWeb_DeliverySave(t *testing.T) {
 	}
 	r := w.post(w.Suresh, path, form(nil))
 	if r.status != http.StatusSeeOther || !strings.HasSuffix(r.location, "/edit/items") {
-		t.Fatalf("save step 2 = %d %q %q, want 303 to Received quantities", r.status, r.location, r.errorSummary())
+		t.Fatalf("save step 2 = %d %q %q, want 303 to Quantities", r.status, r.location, r.errorSummary())
 	}
 	h := w.Load(t, goodsreceipt.DocType, id).Header
 	got := []any{h["challan_kind"], h["challan_no"], h["challan_date"].(types.Date).ISO(), h["vehicle_no"], h["transporter"], h["eway_bill_no"], h["remarks"], h["rest_not_coming"]}

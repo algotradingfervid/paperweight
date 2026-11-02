@@ -412,7 +412,7 @@ func TestUpload_UnderHTMXSwapsTheWizard(t *testing.T) {
 	if got := r.Header.Get("HX-Push-Url"); got != "/m/import/check" {
 		t.Errorf("HX-Push-Url = %q", got)
 	}
-	if got := r.Doc.Find("#wizard h2#step-title").Text(); got != "Check results" {
+	if got := r.Doc.Find("#wizard h2#step-title").Text(); got != "Check" {
 		t.Errorf("heading = %q", got)
 	}
 }
@@ -545,7 +545,7 @@ func TestImport_OneRowSaysSingular(t *testing.T) {
 }
 
 // The preview is a promise about the past: Import validates again, so rows
-// that became bad after Check results are never imported.
+// that became bad after Check are never imported.
 func TestImport_StalePreviewImportsNothing(t *testing.T) {
 	w := newWorld(t)
 	b := w.browser()
@@ -859,9 +859,9 @@ func TestHTMX_EveryStepMoveSwapsItsStep(t *testing.T) {
 		target, nav, push, heading string
 	}{
 		{"/m/import/check", "", "/m/import/import", "Import"},
-		{"/m/import/import", "back", "/m/import/check", "Check results"},
+		{"/m/import/import", "back", "/m/import/check", "Check"},
 		{"/m/import/check", "back", "/m/import/upload", "Upload"},
-		{"/m/import/upload", "back", "/m/import/choose", "Choose master"},
+		{"/m/import/upload", "back", "/m/import/choose", "Master"},
 	} {
 		r := hx(tc.target, tc.nav)
 		webtest.WantStatus(t, r, http.StatusOK)

@@ -23,8 +23,8 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/components"
 )
 
-// CD-50: values stay in the session and nothing is written until Check and
-// save, which writes the party, every address and every contact in one go.
+// CD-50: values stay in the session and nothing is written until Check's
+// Save, which writes the party, every address and every contact in one go.
 func TestScreens_PartyWizardKeepsDraft(t *testing.T) {
 	w := newWorld(t)
 	terms := w.terms(t, "NET30", "Net 30 days")
@@ -80,7 +80,9 @@ func TestScreens_PartyWizardKeepsDraft(t *testing.T) {
 	check := b.Get(t, stepCheck)
 	webtest.WantStatus(t, check, http.StatusOK)
 	wantPage(t, check, "Step 4 of 4")
-	webtest.WantText(t, check, "Check and save")
+	if got := strings.TrimSpace(check.Doc.Find("h2#step-title").Text()); got != "Check" {
+		t.Errorf("heading = %q, want Check", got)
+	}
 	for _, text := range []string{
 		"MEHTA", "Mehta Fabricators", "Registered Regular", panMehta, "NET30 Net 30 days",
 		"Plot 12, MIDC", "Mumbai", gstinMumbai, "4 Residency Road", "Bengaluru", gstinBLR,
@@ -213,8 +215,11 @@ func TestScreens_PartyWizardFirstPage(t *testing.T) {
 	w := newWorld(t)
 	page := w.kavya().Get(t, wizardMain)
 	webtest.WantStatus(t, page, http.StatusOK)
-	for _, text := range []string{"New party", "Step 1 of 4", "Party details", "Addresses", "Contacts", "Check and save", "Payment terms", "GST category"} {
+	for _, text := range []string{"New party", "Step 1 of 4", "Payment terms", "GST category"} {
 		webtest.WantText(t, page, text)
+	}
+	if got := page.Doc.Find("nav.stepper .stepper__label").Text(); got != "PartyAddressesContactsCheck" {
+		t.Errorf("stepper labels = %q", got)
 	}
 	for _, step := range []string{stepAddresses, stepContacts, stepCheck} {
 		if _, found := page.RowLink(step); found {
@@ -446,7 +451,7 @@ var (
 )
 
 // A wholly blank row is dropped at Next without an error: gone from the step,
-// from Check and save and from the store, and the rows after it close up, so a
+// from Check and from the store, and the rows after it close up, so a
 // refusal reports the row as the page now numbers it. A row with anything typed
 // stays and gets its errors.
 func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
@@ -481,7 +486,7 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 				webtest.WantRedirect(t, b.Post(t, stepAddresses, url.Values{}), stepContacts)
 			}
 		}
-		// checkText posts the step, walks to Check and save and is that page's text.
+		// checkText posts the step, walks to Check and is that page's text.
 		checkText := func(t *testing.T, b *webtest.Browser, form url.Values) string {
 			t.Helper()
 			reach(t, b)
@@ -498,7 +503,7 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 			b := w.kavya()
 			got := checkText(t, b, rows(c.blank, c.first, c.blank, c.second, c.blank))
 			if want := checkText(t, w.kavya(), rows(c.first, c.second)); got != want {
-				t.Errorf("Check and save differs with blank rows:\n got %s\nwant %s", got, want)
+				t.Errorf("Check differs with blank rows:\n got %s\nwant %s", got, want)
 			}
 			page := b.Get(t, c.step)
 			value(t, page, line(1, c.field), c.wantFirst)
@@ -515,7 +520,7 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 			b := w.kavya()
 			got := checkText(t, b, rows(c.blank, c.blank))
 			if want := checkText(t, w.kavya(), url.Values{}); got != want {
-				t.Errorf("Check and save differs with blank rows:\n got %s\nwant %s", got, want)
+				t.Errorf("Check differs with blank rows:\n got %s\nwant %s", got, want)
 			}
 			webtest.WantRedirect(t, b.Post(t, stepCheck, url.Values{}), recordURL(w.get(t, "MEHTA").ID))
 			w.wantTally(t, before.plus(tally{parties: 1, audits: 1}))
@@ -536,7 +541,7 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 			noControl(t, held, line(3, c.field))
 		})
 
-		t.Run(c.name+": a refusal at Check and save reports the closed-up row", func(t *testing.T) {
+		t.Run(c.name+": a refusal at Check reports the closed-up row", func(t *testing.T) {
 			w := newWorld(t)
 			before := w.tally(t)
 			b := w.kavya()
@@ -593,7 +598,7 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 }
 
 // A step hears its own format rules on Next, a row's in that row. Required
-// fields and rules that need the database wait for Check and save.
+// fields and rules that need the database wait for Check.
 func TestScreens_PartyWizardStepErrors(t *testing.T) {
 	w := newWorld(t)
 	before := w.tally(t)
@@ -728,7 +733,7 @@ func TestScreens_PartyWizardErrorsOnFirstStep(t *testing.T) {
 	webtest.WantFieldErrorID(t, dup, components.FieldID("code"), "Code BHARAT is already used by Party Bharat Tools. Choose another code.")
 }
 
-// A rule whose cause is on another step waits for Check and save, and never
+// A rule whose cause is on another step waits for Check, and never
 // strands the user on Next; there it shows in its row, and a fix on the other
 // step clears it.
 func TestScreens_PartyWizardCrossStepRules(t *testing.T) {
@@ -777,7 +782,7 @@ func TestScreens_PartyWizardCrossStepRules(t *testing.T) {
 }
 
 // Back saves a row without validating it, and the steps after it still move:
-// its error waits for Check and save, in its row on its step.
+// its error waits for Check, in its row on its step.
 func TestScreens_PartyWizardBackNeverStrands(t *testing.T) {
 	w := newWorld(t)
 	before := w.tally(t)
@@ -805,7 +810,7 @@ func TestScreens_PartyWizardBackNeverStrands(t *testing.T) {
 }
 
 // The link on the details step: not numeric on Next; unknown or disabled at
-// Check and save, on its step; blank is none, and Clear (CD-217) posts blank.
+// Check, on its step; blank is none, and Clear (CD-217) posts blank.
 func TestScreens_PartyWizardTermsLink(t *testing.T) {
 	w := newWorld(t)
 	terms := w.terms(t, "NET30", "Net 30 days")

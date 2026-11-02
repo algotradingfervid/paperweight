@@ -114,7 +114,7 @@ Review focus (spec §16): GRN-015, GRN-022 and GRN-029 run as non-admin users on
 ### GRN-013 · Accepted above pending warns on the step, check and document pages, and submits; received above pending with the excess rejected doesn't warn
 - **Priority:** P1
 - **Level:** integration
-- **Given** line 1 with 1,200.000 kg pending **When** `suresh` enters 1,250.000 kg received **Then** the Received quantities step, the check page and, after submit, the document page show "Line 1: Accepted 1,250 KGS is more than the 1,200 KGS pending on PO/26-27/00001." (`types.FormatQtyUoM`, trailing zeros dropped), and submit succeeds. **When** he enters 1,250.000 received with 50.000 rejected **Then** no warning shows on any of the three pages.
+- **Given** line 1 with 1,200.000 kg pending **When** `suresh` enters 1,250.000 kg received **Then** the Quantities step, the check page and, after submit, the document page show "Line 1: Accepted 1,250 KGS is more than the 1,200 KGS pending on PO/26-27/00001." (`types.FormatQtyUoM`, trailing zeros dropped), and submit succeeds. **When** he enters 1,250.000 received with 50.000 rejected **Then** no warning shows on any of the three pages.
 - **Go test:** `TestGRN_OverDeliveryWarns`
 - **Sources:** GRN spec §4, §11, §16; CD-238
 - **Built in:** S3 (pages); G5 builds `Warnings` and `LineWarnings`

@@ -154,7 +154,7 @@ func choiceWizard(draft *map[string]string) func(*screen) {
 }
 
 // The step shows size; Validate's error and the save's refusal on item_type
-// show under it, an unknown value is held blank, and Check and save shows the
+// show under it, an unknown value is held blank, and Check shows the
 // chosen option's label.
 func TestChoicesC5_Wizard(t *testing.T) {
 	var draft map[string]string

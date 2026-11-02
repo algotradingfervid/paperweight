@@ -1,4 +1,4 @@
--- S1: what the Choose purchase order and Delivery details steps show
+-- S1: what the Order and Delivery steps show
 -- (UX doc 5.2, 5.3).
 
 -- name: S1Receipt :one

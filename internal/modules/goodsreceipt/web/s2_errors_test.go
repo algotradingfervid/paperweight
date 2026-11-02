@@ -182,7 +182,7 @@ func TestGRNWeb_ItemsLineErrorLinks(t *testing.T) {
 
 // GUX-013 (GRN-008, R1): 410 received with 10 rejected and no reason saves
 // (Required is a submit rule, CD-178); the submit is refused (422) back on
-// Received quantities with "Line 1: Reason for rejecting is required."
+// Quantities with "Line 1: Reason for rejecting is required."
 // linked from the summary to card 1's reason input, shown under it, and
 // card 1's Some rejected open. The receipt stays a draft.
 func TestGRNWeb_ItemsReasonOnSubmit(t *testing.T) {
@@ -196,8 +196,8 @@ func TestGRNWeb_ItemsReasonOnSubmit(t *testing.T) {
 	r := w.post(w.Suresh, "/doc/"+goodsreceipt.DocType+"/"+strconv.FormatInt(id, 10)+"/submit",
 		url.Values{"version": {strconv.Itoa(w.s2Version(id))}})
 	msg := "Line 1: Reason for rejecting is required."
-	if r.status != http.StatusUnprocessableEntity || s2Norm(r.doc.Find("h2#step-title").Text()) != "Received quantities" || r.errorSummary() != msg {
-		t.Fatalf("submit = %d on %q with %q, want 422 on Received quantities with %q", r.status, s2Norm(r.doc.Find("h2#step-title").Text()), r.errorSummary(), msg)
+	if r.status != http.StatusUnprocessableEntity || s2Norm(r.doc.Find("h2#step-title").Text()) != "Quantities" || r.errorSummary() != msg {
+		t.Fatalf("submit = %d on %q with %q, want 422 on Quantities with %q", r.status, s2Norm(r.doc.Find("h2#step-title").Text()), r.errorSummary(), msg)
 	}
 	if got := s2WantLinkIn(t, r, msg, "reason", "reject_reason", 1); got != docscreen.LineFieldID(1, "reject_reason") {
 		t.Errorf("link id %q, want %q", got, docscreen.LineFieldID(1, "reject_reason"))

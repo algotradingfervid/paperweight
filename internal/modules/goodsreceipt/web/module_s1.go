@@ -21,7 +21,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
-// S1: Choose purchase order and Delivery details (UX doc §5.2, §5.3).
+// S1: Order and Delivery (UX doc §5.2, §5.3).
 
 // Step 1 and 2 copy (UX doc §5.2, §5.3 copy tables).
 const (
@@ -72,7 +72,7 @@ var documentFields = []string{"challan_kind", "challan_no", "challan_date", "veh
 
 // stepLabels are the wizard's step labels (spec §11, hooks spec §4.1).
 func (m *module) stepLabels() map[string]string {
-	return map[string]string{slugDetails: "Choose purchase order", slugDelivery: "Delivery details", "items": "Received quantities"}
+	return map[string]string{slugDetails: "Order", "items": "Quantities"}
 }
 
 // detailsStep is step 1: the order and the receipt date.

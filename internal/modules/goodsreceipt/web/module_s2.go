@@ -16,7 +16,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
-// S2: Received quantities (UX doc §5.4). One card per PO line, keyed by its
+// S2: Quantities (UX doc §5.4). One card per PO line, keyed by its
 // PO line number; a card with a quantity above 0 is a posted line, and its
 // inputs carry docscreen.LineFieldID of its posted position, the Line the
 // engine's errors give (CD-286 R1). Save sends the posted lines in PO line
