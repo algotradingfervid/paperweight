@@ -35,6 +35,8 @@ type Module struct {
 	AddTop      bool                                          // the add button above the cards, again below from 4 lines (CD-275)
 	LineGrid    func(c Ctx, l LineView) []components.GridCell // one line's read-only cells from 64rem (CD-313)
 	KeyFacts    []string                                      // header fields the document header shows, in order (UI v2 §5.13 item 3)
+	LifeSteps   []string                                      // extra lifecycle steps after the approved one, by word; PageExtra.Life marks them (UI v2 §5.13 item 4)
+	Home        components.Link                               // the module's home, "Go to {Label}" after a Submit; zero for none (UI v2 §5.13 item 2)
 }
 
 // LineNoun names a module's lines (UX-E2, CD-270 Q1): Add labels the add
@@ -116,13 +118,14 @@ type CheckExtra struct {
 // lines keep theirs.
 type PageExtra struct {
 	Warnings  []string
-	LineNotes map[int]string          // line no → a note on that line
-	Pairs     []components.Pair       // added to Details, for a hidden field's display value
-	Cards     []templ.Component       // after Lines, before History
-	Notice    *components.BannerProps // last among the document banners
-	More      []components.MoreAction // before docscreen's own More actions
-	Primary   *components.ButtonProps // the main button when the bar has none
-	Files     *FilesCard              // replaces the read-only Attachments (UX-E7)
+	LineNotes map[int]string                 // line no → a note on that line
+	Pairs     []components.Pair              // added to Details, for a hidden field's display value
+	Cards     []templ.Component              // after Lines, before History
+	Notice    *components.BannerProps        // last among the document banners
+	More      []components.MoreAction        // before docscreen's own More actions
+	Primary   *components.ButtonProps        // the main button when the bar has none
+	Files     *FilesCard                     // replaces the read-only Attachments (UX-E7)
+	Life      map[string]components.LifeStep // a Module.LifeSteps word → its mark, note and date (Label unused); a word with none is a later step
 }
 
 // FilesCard is the read-only files a module shows in place of Attachments (UX-E7, CD-275).

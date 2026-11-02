@@ -395,27 +395,10 @@ func (m *module) detailsSave(c docscreen.Ctx) (docscreen.Save, error) {
 	return docscreen.Save{Values: values, Lines: lines}, nil
 }
 
-// deliveryForm is step 2's inputs: the shown ones in field order, the
-// Field.More ones left out to More.
-type deliveryForm struct {
-	Inputs []templ.Component
-	More   moreFields
-}
-
-// moreFields gathers step 2's Field.More inputs for one MoreDetails after
-// the others, as docscreen's moreBox does (UI v2 §5.5 item 3).
-type moreFields struct {
-	labels []string
-	inputs []templ.Component
-	open   bool
-}
-
-// add puts f's input in, as shown with value and errMsg; either opens the
-// group.
-func (m *moreFields) add(f doctype.Field, value, errMsg string, in templ.Component) {
-	m.labels = append(m.labels, f.Label)
-	m.inputs = append(m.inputs, in)
-	m.open = m.open || value != "" || errMsg != ""
+// moreInput is f's input for docscreen.GroupMore, shown with p's value and
+// error.
+func moreInput(f doctype.Field, p components.FieldProps, in templ.Component) docscreen.MoreInput {
+	return docscreen.MoreInput{Field: f, Value: p.Value, Error: p.Error, Input: in}
 }
 
 // deliveryBody draws step 2 from the post on a redraw, else from the draft
@@ -436,15 +419,10 @@ func (m *module) deliveryBody(c docscreen.Ctx, s docscreen.StepState) (templ.Com
 	upper := func(max string) templ.Attributes {
 		return templ.Attributes{"maxlength": max, "autocapitalize": "characters", "spellcheck": "false"}
 	}
-	var d deliveryForm
+	var ins []docscreen.MoreInput
 	add := func(p components.FieldProps, in templ.Component) {
-		f, _ := c.DT.Field(p.Name)
-		switch {
-		case !shown(c, f.Name):
-		case f.More:
-			d.More.add(f, p.Value, p.Error, in)
-		default:
-			d.Inputs = append(d.Inputs, in)
+		if f, _ := c.DT.Field(p.Name); shown(c, f.Name) { // a hidden field is never in the group (CD-363)
+			ins = append(ins, moreInput(f, p, in))
 		}
 	}
 	kind := field("challan_kind", "Document with the goods", "", nil)
@@ -466,8 +444,9 @@ func (m *module) deliveryBody(c docscreen.Ctx, s docscreen.StepState) (templ.Com
 	if ticked(rest.Value) {
 		checked = []string{"1"}
 	}
-	d.Inputs = append(d.Inputs, components.Checkboxes(rest, restOptions, checked)) // drawn whatever Hide says (UX doc §5.6)
-	return deliveryView(d), nil
+	// drawn whatever Hide says (UX doc §5.6), never More, so never in the group
+	ins = append(ins, docscreen.MoreInput{Field: doctype.Field{Name: rest.Name}, Input: components.Checkboxes(rest, restOptions, checked)})
+	return deliveryView(ins), nil
 }
 
 // deliverySave is step 2's save: the fields the step shows, with the tick

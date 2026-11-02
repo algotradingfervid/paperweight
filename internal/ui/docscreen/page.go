@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -48,6 +49,9 @@ type pageView struct {
 	Lines   *components.LineListProps // the line cards and display grid (CD-313)
 	Facts   []components.Pair         // the module's KeyFacts the viewer may see (UI v2 §5.13)
 	Party   string                    // the party line; "" when KeyFacts names the party field
+	Steps   []components.LifeStep     // the lifecycle with dates and the module's extra steps (UI v2 §5.13 item 4)
+	Block   bool                      // Success shows as the success block: it follows a Submit (A-25)
+	Follow  []components.Link         // the success block's follow-ups the viewer may use
 }
 
 // actionForm is the hidden form a bar button posts through.
@@ -90,11 +94,38 @@ func (d Deps) page(w http.ResponseWriter, r *http.Request) {
 		web.ErrorFrom(w, r, err)
 		return
 	}
-	if r.URL.Query().Get("next") == "1" {
+	next, submitted := r.URL.Query().Get("next") == "1", r.URL.Query().Get("submitted") == "1"
+	if next || submitted {
+		pv.Success = takeSuccess(r.Context()) // once: a second take finds the flash empty
+	}
+	if next {
 		pv.Next = d.InboxURL
-		pv.Success = takeSuccess(r.Context())
+	}
+	if submitted {
+		d.successBlock(r, p, &pv)
 	}
 	ui.Render(w, r, http.StatusOK, docPage(pv), docMain(pv))
+}
+
+// successBlock shows pv's Success, when there is one, as the success block
+// after a Submit (UI v2 §5.13 item 2, A-25), with "New {label}" for a viewer
+// who may create and "Go to {label}" when the module declares a Home.
+func (d Deps) successBlock(r *http.Request, p auth.Principal, pv *pageView) {
+	if pv.Success == "" {
+		return
+	}
+	pv.Block = true
+	if d.can(r, p, pv.DT.Name, auth.RightCreate) {
+		pv.Follow = append(pv.Follow, newDocLink(pv.DT))
+	}
+	if h := d.modOf(pv.DT).Home; h.Href != "" {
+		pv.Follow = append(pv.Follow, components.Link{Label: "Go to " + h.Label, Href: h.Href})
+	}
+}
+
+// newDocLink is "New {label}" to dt's new-document page.
+func newDocLink(dt *doctype.DocType) components.Link {
+	return components.Link{Label: "New " + strings.ToLower(dt.Label), Href: "/doc/" + dt.Name + "/new"}
 }
 
 // takeSuccess takes the flash's first success notice, so the page shows it
@@ -141,7 +172,11 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 	}
 	noteLines(shown.Lines, extra.LineNotes)
 	facts := d.modOf(dt).KeyFacts
-	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights), Lines: d.lineList(r, dt, shown), Facts: keyFacts(facts, shown), Party: shown.Info.Party}
+	steps, err := pageSteps(dt, shown, d.modOf(dt).LifeSteps, extra.Life)
+	if err != nil {
+		return pageView{}, err
+	}
+	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights), Lines: d.lineList(r, dt, shown), Facts: keyFacts(facts, shown), Party: shown.Info.Party, Steps: steps}
 	if pf, ok := doc.PartyField(dt); ok && slices.Contains(facts, pf.Name) {
 		pv.Party = "" // the facts show it
 	}
@@ -309,6 +344,9 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		if a == doctype.ActionApprove {
 			pv.Next = d.InboxURL
 		}
+		if a == doctype.ActionSubmit {
+			d.successBlock(r, p, &pv)
+		}
 		w.Header().Set("HX-Push-Url", to)
 		ui.Render(w, r, http.StatusOK, docPage(pv), docMain(pv))
 		return
@@ -319,8 +357,11 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	for _, msg := range res.Warnings {
 		web.Flash(ctx, "warning", msg)
 	}
-	if a == doctype.ActionApprove {
+	switch a {
+	case doctype.ActionApprove:
 		to += "?next=1"
+	case doctype.ActionSubmit:
+		to += "?submitted=1"
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther) //nolint:gosec // G710: a local /doc/ path from a registered DocType name and numeric ids
 }
@@ -388,6 +429,7 @@ func docOpts(pv pageView) layout.PageOpts {
 		Title:      pv.V.Info.Display,
 		Focus:      true, // the action bar is the page's bottom bar (UI v2 §5.2)
 		NoHeading:  true, // the header card has the h1 (UI v2 §5.13)
+		Back:       &components.Link{Label: pv.DT.PluralLabel, Href: listURL(pv.DT.Name, ListQuery{})},
 		Error:      pv.Danger != "" || len(pv.Errors) > 0,
 		BannerSlot: docBanners(pv),
 		BarSlot:    docBar(pv),
@@ -456,28 +498,151 @@ func CheckKeyFacts(mods map[string]Module) error {
 	return nil
 }
 
-// lifeSteps is a submittable DocType's lifecycle with the document's state s
-// marked (UI v2 §5.13 item 4, A-26): Draft, Pending approval when dt is
-// Approvable, then its approved word; Rejected marks the approval step with
-// its own word, and Closed or Cancelled adds a final step. Words follow the
-// state badge.
-func lifeSteps(dt *doctype.DocType, s doctype.State) []components.LifeStep {
+// CheckHome reports the first Module.Home that is set but has no label or a
+// URL that isn't a local path starting with "/" (UI v2 §5.13 item 2).
+func CheckHome(mods map[string]Module) error {
+	for name, m := range mods {
+		h := m.Home
+		if h == (components.Link{}) {
+			continue
+		}
+		if h.Label == "" || !strings.HasPrefix(h.Href, "/") {
+			return fmt.Errorf("docscreen: %s Home %+v needs a label and a URL starting with /", name, h)
+		}
+	}
+	return nil
+}
+
+// CheckLifeSteps reports the first Module.LifeSteps declaration that can't
+// show: on a DocType that isn't registered or submittable, a blank or
+// repeated word, or one of the DocType's own lifecycle words (UI v2 §5.13
+// item 4).
+func CheckLifeSteps(mods map[string]Module) error {
+	for name, m := range mods {
+		if len(m.LifeSteps) == 0 {
+			continue
+		}
+		dt, ok := doctype.Lookup(name)
+		if !ok || !dt.Submittable {
+			return fmt.Errorf("docscreen: %s declares LifeSteps but has no lifecycle", name)
+		}
+		seen := map[string]bool{}
+		for _, s := range lifeStates(dt, doctype.StateDraft) {
+			seen[stateWord(dt, s)] = true
+		}
+		for _, s := range []doctype.State{doctype.StateRejected, doctype.StateClosed, doctype.StateCancelled} {
+			seen[stateWord(dt, s)] = true
+		}
+		for _, w := range m.LifeSteps {
+			if w == "" || seen[w] {
+				return fmt.Errorf("docscreen: %s LifeSteps names %q, which is blank or already a step", name, w)
+			}
+			seen[w] = true
+		}
+	}
+	return nil
+}
+
+// pageSteps is v's lifecycle (lifeSteps) with each reached step's date
+// (dd-mm) from the history the page shows, and the module's extra steps
+// after the approved one, marked by life. An extra step marked current
+// takes over from the approved step, which becomes done; with none current
+// the state's own step stays current, so exactly one step is (A-26). A life
+// word the module doesn't declare, a rejected or ended mark, or a current
+// mark while the approved step isn't current (another current extra step,
+// or a document past or before Approved) is an error.
+func pageSteps(dt *doctype.DocType, v DocView, extra []string, life map[string]components.LifeStep) ([]components.LifeStep, error) {
+	for w, x := range life {
+		if !slices.Contains(extra, w) {
+			return nil, fmt.Errorf("docscreen: PageExtra.Life names %q, which %s doesn't declare in LifeSteps", w, dt.Name)
+		}
+		if x.Mark == components.LifeRejected || x.Mark == components.LifeEnded {
+			return nil, fmt.Errorf("docscreen: PageExtra.Life marks %q rejected or ended; extra steps are later, done or current", w)
+		}
+	}
+	states, steps := lifeStates(dt, v.Info.State), lifeSteps(dt, v.Info.State)
+	var out []components.LifeStep
+	for i, st := range states {
+		s := steps[i]
+		if s.Mark != components.LifeTodo {
+			s.Date = stepDate(st, v)
+		}
+		out = append(out, s)
+		if st != doctype.StateApproved {
+			continue
+		}
+		at := len(out) - 1
+		for _, w := range extra {
+			x := life[w]
+			x.Label = w
+			if x.Mark == components.LifeCurrent {
+				if out[at].Mark != components.LifeCurrent {
+					return nil, fmt.Errorf("docscreen: PageExtra.Life marks %q current, but %s isn't at its approved step or another step is current", w, v.Info.Display)
+				}
+				out[at].Mark = components.LifeDone
+			}
+			out = append(out, x)
+		}
+	}
+	return out, nil
+}
+
+// stepActions are the history words of the entry that reaches each state;
+// "Approved on submit" and "Rejected: {reason}" start with theirs.
+var stepActions = map[doctype.State]string{
+	doctype.StateDraft:     "Created",
+	doctype.StatePending:   "Submitted",
+	doctype.StateApproved:  "Approved",
+	doctype.StateRejected:  "Rejected",
+	doctype.StateClosed:    "Closed",
+	doctype.StateCancelled: "Cancelled",
+}
+
+// stepDate is the day (dd-mm) of the newest audit or approval entry that
+// reached state s, "" when there is none. Both histories are already on the
+// page for this viewer, newest first.
+func stepDate(s doctype.State, v DocView) string {
+	for _, h := range slices.Concat(v.History, v.Approval.History) {
+		if strings.HasPrefix(h.Action, stepActions[s]) {
+			return h.At[:min(len(h.At), len("02-01"))]
+		}
+	}
+	return ""
+}
+
+// lifeStates are the states lifeSteps shows for a document in state s.
+func lifeStates(dt *doctype.DocType, s doctype.State) []doctype.State {
 	if !dt.Submittable {
 		return nil
 	}
 	states := []doctype.State{doctype.StateDraft}
-	mark := components.LifeCurrent
 	switch {
 	case dt.Approvable && s == doctype.StateRejected:
-		states, mark = append(states, s), components.LifeRejected
+		states = append(states, s)
 	case dt.Approvable:
 		states = append(states, doctype.StatePending)
 	}
 	states = append(states, doctype.StateApproved)
 	switch s {
 	case doctype.StateClosed, doctype.StateCancelled:
-		mark = components.LifeEnded
 		states = append(states, s)
+	}
+	return states
+}
+
+// lifeSteps is a submittable DocType's lifecycle with the document's state s
+// marked (UI v2 §5.13 item 4, A-26): Draft, Pending approval when dt is
+// Approvable, then its approved word; Rejected marks the approval step with
+// its own word, and Closed or Cancelled adds a final step. Words follow the
+// state badge.
+func lifeSteps(dt *doctype.DocType, s doctype.State) []components.LifeStep {
+	states := lifeStates(dt, s)
+	mark := components.LifeCurrent
+	switch {
+	case dt.Approvable && s == doctype.StateRejected:
+		mark = components.LifeRejected
+	case s == doctype.StateClosed, s == doctype.StateCancelled:
+		mark = components.LifeEnded
 	}
 	at := slices.Index(states, s)
 	out := make([]components.LifeStep, len(states))
