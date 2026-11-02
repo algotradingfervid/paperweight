@@ -361,6 +361,8 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | MOD-EXP TAX | Tax code picker example | Light | impl opus (AD-11) | — | 2 Nov | 1 | — | 402041fa; ci 0, e2e 0 |
 | UI v2 E6d; MOD-GRN batch 8 | Remaining 409 banners and Reload gate; GRN final cleanup and placeholders | Std | impl, rev opus (head, AD-12) | — | 2 Nov | 1–2 | 0/0/1 | 2a873bb0; ci 0, e2e 0 |
 | MOD-GRN (AD-12) complete apart from moreFields (after C3) | 89 workers, 1640.2 worker-min; full rows in .worktrees/mod-grn/.work/ad-tasks.md | — | AD-12 | — | 2 Nov | — | — | 2a873bb0 |
+| UI v2 C3 | Save cue, wizard head, sticky footer, focus mode (A-12, CD-374) | Std | impl, rev opus (head) | — | 2 Nov | 2 | dead-end header, time.Now | e28ed0ac; ci 0, e2e 0 |
+| UI v2 C3b | Wizard × with leave dialog, docscreen GroupMore (CD-363, CD-376, CD-377) | Std | impl, rev opus (head) | — | 2 Nov | 2 | lost no-× coverage | 21e916b6; ci 0, e2e 0 (gallery browser-start deadline under load, passed alone) |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
