@@ -13,10 +13,11 @@ import (
 // with sample files. Its entry is in pages (routes.go).
 
 const (
-	attachAction = "/_gallery/attachments"
-	attachHint   = "PDF, JPG, PNG, WEBP, HEIC, XLSX, DOCX or CSV, up to 10 MB. One file at a time."
-	attachAccept = "image/*,application/pdf,.xlsx,.docx,.csv"
-	attachEmpty  = "No files attached yet."
+	attachAction  = "/_gallery/attachments"
+	attachHint    = "PDF, JPG, PNG, WEBP, HEIC, XLSX, DOCX or CSV, up to 10 MB. One file at a time."
+	attachAccept  = "image/*,application/pdf,.xlsx,.docx,.csv"
+	attachEmpty   = "No files attached yet."
+	attachedWords = "Attached to this expense"
 )
 
 // longFileName is a 120-character file name made of words.
@@ -25,6 +26,27 @@ const longFileName = uitest.LongName100 + " invoice copy 01.pdf"
 // attachUpload is the card's FileUpload with id id.
 func attachUpload(id, errText string, files []components.Attachment) components.UploadProps {
 	return components.UploadProps{ID: id, Label: "Add a file", Action: attachAction, Hint: attachHint, Accept: attachAccept, Error: errText, Files: files}
+}
+
+// cardNamedUpload is a FileUpload inside a card with its name, its files as
+// attached-file tiles: every kind, the longest name, and Remove.
+func cardNamedUpload() components.UploadProps {
+	files := []components.Attachment{
+		{ID: 201, Kind: "image", Name: "receipt.jpg", Size: "2.3 MB", UploadedAt: "24-10-2026 09:14", URL: brand.AppLogoURL, RemoveURL: attachAction, Attached: attachedWords},
+		{ID: 202, Kind: "heic", Name: "challan.heic", Size: "3.1 MB", UploadedAt: "24-10-2026 10:20", URL: attachAction, Attached: attachedWords},
+		{ID: 203, Kind: "pdf", Name: longFileName, Size: "9.9 MB", UploadedAt: "24-10-2026 10:30", URL: attachAction, RemoveURL: attachAction, Attached: attachedWords},
+	}
+	return components.UploadProps{ID: "att-tile", Label: "Receipt", Action: attachAction, Hint: attachHint, Accept: attachAccept, CardNamed: true, Files: files}
+}
+
+// targetedUpload is a FileUpload whose answers go to the #att-done-files
+// region outside it, as on the expense line page, with done as its Done text
+// and one removable file.
+func targetedUpload(id, done string, remove int64) components.UploadProps {
+	return components.UploadProps{
+		ID: id, Label: "Receipt", Action: attachAction, Hint: attachHint, Accept: attachAccept, Target: "#att-done-files", Done: done,
+		Files: []components.Attachment{{ID: remove, Kind: "image", Name: "receipt.jpg", Size: "2.3 MB", UploadedAt: "24-10-2026 09:14", URL: brand.AppLogoURL, RemoveURL: attachAction, Attached: attachedWords}},
+	}
 }
 
 // threeFiles are receipt.jpg, challan.heic and quote-shree-steel.pdf, newest

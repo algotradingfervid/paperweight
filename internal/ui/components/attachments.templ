@@ -10,7 +10,9 @@ import (
 // download link (browsers can't show it), others as a file chip. Each item
 // shows who uploaded it and when, and, when RemoveURL is set, "Remove", which
 // opens the file's confirm. A Compact item is a ~4rem thumbnail with
-// "name · size" on one line and no uploader (CD-326 (6)).
+// "name · size" on one line and no uploader (CD-326 (6)). An item with
+// Attached is a 64 × 80 tile: the thumbnail or file icon, then the name,
+// "size · uploaded time" and those words beside a check (UI v2 §5.9).
 templ Attachments(items []Attachment) {
 	@attachmentItems(items, "", "")
 }
@@ -22,12 +24,24 @@ templ attachmentItems(items []Attachment, target, alt string) {
 	<ul class="attachments">
 		for _, a := range items {
 			<li
-				if a.Compact {
+				if a.Attached != "" {
+					class="attachments-tile"
+				}
+				if a.Compact && a.Attached == "" {
 					class="attachments-compact"
 				}
 			>
 				@attachmentLink(a, orDefault(alt, a.Name))
-				if a.Compact {
+				if a.Attached != "" {
+					<div class="attachments__tile-text">
+						<p class="attachments__name">{ a.Name }</p>
+						<p class="attachments__meta">{ tileMeta(a) }</p>
+						<p class="attachments__attached">
+							@icons.Icon("circle-check")
+							<span>{ a.Attached }</span>
+						</p>
+					</div>
+				} else if a.Compact {
 					<p class="attachments__meta">{ compactLine(a) }</p>
 				} else {
 					if a.Kind == "image" || a.Kind == "heic" {
@@ -67,6 +81,16 @@ templ attachmentLink(a Attachment, alt string) {
 				<span>{ a.Name }</span>
 			</a>
 	}
+}
+
+// tileMeta is an attached-file tile's "size · uploaded time"; a HEIC file adds
+// that it downloads, as browsers can't show it.
+func tileMeta(a Attachment) string {
+	line := a.Size + " · uploaded " + a.UploadedAt
+	if a.Kind == "heic" {
+		line += " · opens as download"
+	}
+	return line
 }
 
 // compactLine is a compact item's one line: "name · size", or the size

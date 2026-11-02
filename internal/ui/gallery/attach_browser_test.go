@@ -36,11 +36,14 @@ const (
 )
 
 // attachAnswer is how the server answers one held post: a refusal with
-// status and text, or a dropped connection.
+// status and text, a dropped connection, ok, a 200 replacing the
+// #att-done-files region, or redirect, an empty 200 with that HX-Redirect.
 type attachAnswer struct {
-	status int
-	text   string
-	drop   bool
+	status   int
+	text     string
+	drop     bool
+	ok       bool
+	redirect string
 }
 
 // attachServer is gallery.Handler with POST /_gallery/attachments held until
@@ -81,6 +84,14 @@ func startAttach(t *testing.T) *attachServer {
 		if a.drop {
 			s.dropAll.Store(true)
 			drop(t, w)
+			return
+		}
+		if a.ok {
+			_, _ = io.WriteString(w, `<div id="att-done-files">Stored.</div>`)
+			return
+		}
+		if a.redirect != "" {
+			w.Header().Set("HX-Redirect", a.redirect)
 			return
 		}
 		notice, err := json.Marshal(map[string]any{"notice": map[string]string{"level": "error", "text": a.text}})
@@ -188,14 +199,15 @@ func attState(id string) string {
   dialogs: Array.from(document.querySelectorAll("dialog[open]")).map(function (d) { return d.id; })})`
 }
 
-// busy: both inputs disabled, the bar shown and Uploading… in the status line.
+// busy: both inputs disabled, the bar shown and Uploading {name}… in the status line.
 func attBusy(id string) string {
-	return `(` + attInputs(id) + `.every(function (i) { return i.disabled; }) && !` + attQ("#"+id+" .upload__progress") + `.hidden && document.getElementById(` + strconv.Quote(id+"-status") + `).textContent.trim() === "Uploading…")`
+	return `(` + attInputs(id) + `.every(function (i) { return i.disabled; }) && !` + attQ("#"+id+" .upload__progress") + `.hidden && /^Uploading .+…$/.test(document.getElementById(` + strconv.Quote(id+"-status") + `).textContent.trim()))`
 }
 
-// idle: both inputs enabled, the bar hidden at 0 and the status line empty.
+// idle: both inputs enabled, the bar hidden at 0, the status line and the
+// percent empty.
 func attIdle(id string) string {
-	return `(` + attInputs(id) + `.every(function (i) { return !i.disabled; }) && ` + attQ("#"+id+" .upload__progress") + `.hidden && ` + attQ("#"+id+" .upload__progress") + `.value === 0 && document.getElementById(` + strconv.Quote(id+"-status") + `).textContent === "")`
+	return `(` + attInputs(id) + `.every(function (i) { return !i.disabled; }) && ` + attQ("#"+id+" .upload__progress") + `.hidden && ` + attQ("#"+id+" .upload__progress") + `.value === 0 && document.getElementById(` + strconv.Quote(id+"-status") + `).textContent === "" && !` + attQ("#"+id+" .upload__percent") + `?.textContent)`
 }
 
 // shows: the message region holds text in the error style with its icon.

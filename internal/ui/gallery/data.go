@@ -368,6 +368,24 @@ func searchURL(list string) string { return "/_gallery/items?list=" + list }
 // offers New vendor (UI v2 §5.8).
 const quickList = "f-new-vendor-list"
 
+// tileOrders is every mix of short and wide options over five places.
+func tileOrders() [][]components.Option {
+	var out [][]components.Option
+	for mix := range 1 << 5 {
+		var opts []components.Option
+		for place := range 5 {
+			label := "Fuel"
+			if mix>>place&1 == 1 {
+				label = "Site miscellaneous"
+			}
+			label += " " + strconv.Itoa(place)
+			opts = append(opts, components.Option{Value: label, Label: label})
+		}
+		out = append(out, opts)
+	}
+	return out
+}
+
 var attachments = []components.Attachment{
 	{ID: 1, Kind: "image", Name: uitest.LongName100 + ".jpg", Size: "2.4 MB", UploadedBy: "Priya Shah", UploadedAt: "24-10-2026 10:30", URL: brand.AppLogoURL, RemoveURL: "/_gallery/upload"},
 	{ID: 2, Kind: "heic", Name: "IMG_0042.HEIC", Size: "3.1 MB", UploadedBy: "Priya Shah", UploadedAt: "24-10-2026 10:31", URL: "/_gallery/upload", RemoveURL: "/_gallery/upload"},
