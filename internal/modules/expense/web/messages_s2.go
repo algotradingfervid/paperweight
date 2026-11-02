@@ -4,6 +4,8 @@ package expenseweb
 const (
 	msgReceiptLabel  = "Receipt"
 	msgReceiptHint   = "Photo or PDF of the bill, up to 10 MB."
+	msgReceiptOn     = "Attached to this expense"
+	msgReceiptDone   = "Receipt attached."
 	msgReceiptReused = "This file is already on this claim, as the receipt on line %d. It is used for this expense too."
 	msgReceiptOnce   = "This file is already on this claim. It is used for this expense."
 	// msgNoFile is files/web's text for a body with no file part, which it

@@ -145,8 +145,9 @@ func TestSegmentedBrowser_ArrowKeys(t *testing.T) {
 		t.Errorf("after ArrowLeft priority = %q, want Normal", got)
 	}
 	do("focus type", chromedp.Evaluate[chromedp.Void](`document.querySelector('input[name="f_type"]:checked').focus()`), chromedp.KeyEvent(kb.ArrowDown))
-	if got := checked("f_type"); got != "food" {
-		t.Errorf("after ArrowDown type = %q, want food", got)
+	// Wide tiles are drawn after the short ones, so the next option is Stay.
+	if got := checked("f_type"); got != "stay" {
+		t.Errorf("after ArrowDown type = %q, want stay", got)
 	}
 	if got := eval("thumb", `getComputedStyle(document.querySelector('input[name="f_type"]:checked').closest("label").querySelector(".segmented__check")).display`); got == "none" {
 		t.Error("the chosen tile hides its check icon")

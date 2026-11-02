@@ -10,6 +10,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/kernel/files"
 	"github.com/vardhan/internaltools/internal/modules/expense"
+	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
@@ -139,9 +140,10 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 		action += "&line=" + strconv.Itoa(no)
 	}
 	props := components.UploadProps{
-		ID: receiptUploadID, Label: msgReceiptLabel, Hint: msgReceiptHint, Action: action,
+		ID: receiptUploadID, Label: msgReceiptLabel, Hint: msgReceiptHint, Action: action, CardNamed: true,
 		Accept:      "image/*,application/pdf",
 		Target:      "#receipt-files",
+		Done:        msgReceiptDone,
 		AlsoDisable: saveLine,
 		Error:       l.errorOf("receipt_sha256"),
 	}
@@ -162,10 +164,10 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 }
 
 // receiptAttachment is m as the receipt area shows it: S1's attachmentOf
-// as the compact item (CD-326 (6)).
+// as the attached-file tile (UI v2 §5.9, over CD-326 (6) for this area).
 func receiptAttachment(m files.Meta) components.Attachment {
 	a := attachmentOf(m)
-	a.Compact = true
+	a.Attached, a.UploadedAt = msgReceiptOn, types.FormatIST(m.UploadedAt)
 	return a
 }
 

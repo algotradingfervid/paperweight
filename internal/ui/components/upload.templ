@@ -7,7 +7,8 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 type Attachment struct {
 	ID                                                       int64
 	Name, Size, UploadedBy, UploadedAt, URL, RemoveURL, Kind string
-	Compact                                                  bool // a ~4rem thumbnail and "name · size" on one line, no uploader (CD-326 (6))
+	Compact                                                  bool   // a ~4rem thumbnail and "name · size" on one line, no uploader (CD-326 (6))
+	Attached                                                 string // when set, the 64 × 80 tile with these words beside a check; over Compact (UI v2 §5.9)
 }
 
 // UploadProps describes a FileUpload. Action receives one "file" part per
@@ -21,6 +22,8 @@ type UploadProps struct {
 	NoCamera                       bool
 	Files                          []Attachment
 	AlsoDisable                    string // more elements to disable while uploading (UX-E5)
+	CardNamed                      bool   // the card around it says Label and Hint: both for screen readers only (UI v2 §5.9)
+	Done                           string // said in the status line after a successful upload; needs a Target outside the upload, which a swap would replace
 }
 
 // UploadInputID is the id of the Choose file input of the FileUpload with id
@@ -29,11 +32,12 @@ func UploadInputID(id string) string { return id + "-file" }
 
 // FileUpload states the limits first, then offers "Take photo" (rear camera
 // on phones) and "Choose file". Choosing a file posts it at once and disables
-// both inputs; upload.js moves the progress bar, puts the status line's
-// data-busy text in it and copies the template's error markup into the
-// message region for a refusal (data-dropped when no answer came).
+// both inputs; upload.js moves the progress bar, adds the percent beside the
+// status line, puts the line's data-busy text in it with the file's name and
+// copies the template's error markup into the message region for a refusal
+// (data-dropped when no answer came). After a success it puts data-done there.
 templ FileUpload(p UploadProps) {
-	<div id={ p.ID } class="upload">
+	<div id={ p.ID } class={ "upload", templ.KV("upload--card-named", p.CardNamed) }>
 		@choiceGroup(FieldProps{ID: p.ID, Label: p.Label, Hint: orDefault(p.Hint, "JPG, PNG, HEIC or PDF, up to 10 MB"), Error: p.Error}) {
 			<div class="upload__controls">
 				if !p.NoCamera {
@@ -42,8 +46,16 @@ templ FileUpload(p UploadProps) {
 				@uploadForm(p, false)
 			</div>
 		}
-		<progress class="progress upload__progress" max="100" value="0" hidden></progress>
-		<p id={ p.ID + "-status" } role="status" data-busy="Uploading…" data-dropped="The upload didn't finish. Check your connection and try again."></p>
+		<progress class="progress upload__progress" max="100" value="0" hidden aria-label="Upload progress"></progress>
+		<p
+			id={ p.ID + "-status" }
+			role="status"
+			if p.Done != "" {
+				data-done={ p.Done }
+			}
+			data-busy="Uploading…"
+			data-dropped="The upload didn't finish. Check your connection and try again."
+		></p>
 		<template data-upload-msg>
 			@icons.Icon("alert-circle")
 			<span></span>
