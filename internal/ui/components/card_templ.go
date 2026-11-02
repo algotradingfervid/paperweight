@@ -12,12 +12,15 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 
 // CardProps is a section card (UI v2 §5.5 item 1). Icon names the glyph in
 // the tile beside the heading and Description is the one line under it;
-// Change, when set, is its "Change" action. FocusHeading gives the heading
-// tabindex="-1" and data-focus-heading, which app.js focuses after the htmx
-// swap that brings the card (CD-358).
+// Change, when set, is its "Change" action, a plain link; Action, used when
+// Change is nil, is a ghost button in the same place (UI v2 §5.6 check
+// cards). FocusHeading gives the heading tabindex="-1" and
+// data-focus-heading, which app.js focuses after the htmx swap that brings
+// the card (CD-358).
 type CardProps struct {
 	Title, Icon, Description string
 	Change                   *Link
+	Action                   *ButtonProps
 	FocusHeading             bool
 }
 
@@ -95,7 +98,7 @@ func CardWith(p CardProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if p.Title != "" || p.Change != nil {
+		if p.Title != "" || p.Change != nil || p.Action != nil {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"card-head\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -135,7 +138,7 @@ func CardWith(p CardProps) templ.Component {
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Description)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 39, Col: 45}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 42, Col: 45}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -164,7 +167,7 @@ func CardWith(p CardProps) templ.Component {
 				var templ_7745c5c3_Var5 templ.SafeURL
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(p.Change.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 47, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 50, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -177,7 +180,7 @@ func CardWith(p CardProps) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Change.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 48, Col: 23}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 51, Col: 23}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -195,7 +198,7 @@ func CardWith(p CardProps) templ.Component {
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 50, Col: 47}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 53, Col: 47}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -207,6 +210,11 @@ func CardWith(p CardProps) templ.Component {
 					}
 				}
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</a>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else if p.Action != nil {
+				templ_7745c5c3_Err = Button(ghost(*p.Action)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -258,7 +266,7 @@ func cardTitle(p CardProps) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 64, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 69, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -276,7 +284,7 @@ func cardTitle(p CardProps) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 66, Col: 35}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/card.templ`, Line: 71, Col: 35}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -290,6 +298,12 @@ func cardTitle(p CardProps) templ.Component {
 		}
 		return nil
 	})
+}
+
+// ghost is b as a ghost button.
+func ghost(b ButtonProps) ButtonProps {
+	b.Variant = Ghost
+	return b
 }
 
 var _ = templruntime.GeneratedTemplate
