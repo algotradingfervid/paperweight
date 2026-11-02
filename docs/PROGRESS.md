@@ -371,11 +371,12 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | Sign-in flake (AD-12 task, head finished) | Sweep clears pending searches; expired htmx request returns to its page (CD-382, AUTH-039); PrintButton waits for the script | Std | impl, rev opus (head) | — | 2 Nov | 2 | AUTH-039 doc vs code, 3 minors; make handin with TAGS=e2e red on -race deadlines at load 50, not compared with base | ci 0, e2e 0, no ERR_ABORTED |
 | UI v2 F3 | ConflictBanner only for stale versions; refused line, remove and move saves keep typed values; banner focus (CD-381, CD-384) | Std | impl, rev opus (head) | — | 3 Nov | 4 | 2 majors then 1 (typed line lost, fake hid it), EUX-026 amended | c062bda5; ci 0, e2e 0 |
 | UI v2 E7b | Receipt card, upload status, attached tile, Tiles width and order (CD-379, CD-383, CD-385) | Std | impl, rev, ui-rev opus (AD-11) | — | 3 Nov | 3 | false "attached" on a redirect; first MERGE-READY had no review | 094bd568; ci 0, e2e 0 |
+| UI v2 C2b | Shorter step labels in every wizard, stepper fixes, gate with no exceptions (CD-364, CD-386) | Std | impl, rev opus (head) | — | 3 Nov | 4 | mid-word break, connector through label, tap area, skip too broad | 02bff4f5; ci 0, e2e 0 |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
 ## RESUME HERE (paused 2 Nov 2026 evening, owner request)
 
-UI v2 is at 43 of 44 tasks merged. Steps 1 and 2 are done (80026498; AD-12's session has ended, the head runs its remaining work). Open: C2b.
+UI v2 is at 44 of 44 tasks merged. Steps 1 and 2 are done (80026498; AD-12's session has ended, the head runs its remaining work).
 1. **Batch trial `trial/ui-batch-2nov` (2ddb47e4)** holds C3c, F2, expense E7 and GRN E7 merged onto main, plus the combined-lane test fixes. Check its log, `.work/ci-2ddb47e4.log`: `ci exit` and `e2e exit` must both be 0 (a known load flake passes when rerun alone). If the run was interrupted, rerun it. If main has moved, merge main in first. Merge with `git merge --no-ff 2ddb47e4`, then check `git diff 2ddb47e4 HEAD -- . ':!docs' ':!CLAUDE.md'` is empty. Add PROGRESS rows: C3c, F1, C4b, F2, E7 ×2.
 2. Log the E7 rulings as a CD: GRN (Radios Lines, LineIcon, Bar; "Order to receive") and expense (three new test ids need EXP ids in docs/tests). Add AD-12's two LEARN lines: check a mock against a brief's named fields when writing it; test a proportional value with a mid-range row.
 3. **Tell AD-11** to start **E7b** once GRN E7 is on main (Tiles long option, FileUpload label, tile and progress; CD-379).
