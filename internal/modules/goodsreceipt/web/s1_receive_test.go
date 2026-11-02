@@ -67,7 +67,7 @@ func TestGRN_RestrictedCreateRealPreselect(t *testing.T) {
 			checked = append(checked, o)
 		}
 	}
-	if len(checked) != 1 || checked[0].text != full.Number+" · Rajkot Castings METRO-SITE · Fully received" {
+	if len(checked) != 1 || checked[0].text != full.Number+" · Rajkot Castings METRO-SITE Fully received · ordered 24-10-2026" {
 		t.Errorf("?po= a fully received PO: checked %+v, want it alone, in the widened list", checked)
 	}
 

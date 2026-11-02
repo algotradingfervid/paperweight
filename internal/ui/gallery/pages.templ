@@ -87,6 +87,7 @@ templ fieldSet(pre, errText string) {
 		@components.DateInput(components.DateProps{FieldProps: components.FieldProps{ID: pre + "-date", Name: pre + "_date", Label: "Order date", Value: "24-10-2026", Echo: "Saturday, 24 October 2026", Error: errText}, Today: "24-10-2026", Yesterday: "23-10-2026"})
 		@components.CodeInput(components.FieldProps{ID: pre + "-gstin", Name: pre + "_gstin", Label: "GSTIN", Value: uitest.LongCode60, Error: errText}, components.GSTIN)
 		@components.Radios(components.FieldProps{ID: pre + "-delivery", Name: pre + "_delivery", Label: "Delivery", Value: "site", Error: errText, Required: true, Tip: deliveryTip}, deliveryOptions)
+		@components.Radios(components.FieldProps{ID: pre + "-order", Name: pre + "_order", Label: "Purchase order", Value: "1", Error: errText}, orderOptions)
 		@components.Checkboxes(components.FieldProps{ID: pre + "-docs", Name: pre + "_docs", Label: "Documents to send", Error: errText}, docOptions, []string{"invoice"})
 		@components.Segmented(components.FieldProps{ID: pre + "-priority", Name: pre + "_priority", Label: "Priority", Value: "Normal", Error: errText}, priorityOptions)
 		@components.Tiles(components.FieldProps{ID: pre + "-type", Name: pre + "_type", Label: "Expense type", Value: "travel", Error: errText}, expenseOptions)

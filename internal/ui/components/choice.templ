@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 
@@ -91,10 +92,42 @@ templ Select(p FieldProps, opts []Option) {
 }
 
 templ optionText(o Option) {
+	{{ checkBar(o) }}
 	<span class="field__choice-text">
 		{ o.Label }
 		if o.Hint != "" {
 			<span class="field__hint">{ o.Hint }</span>
 		}
+		@optionLines(o)
 	</span>
+}
+
+// optionLines are o's Lines, its LineIcon first in the first one and its
+// Bar first in the last one.
+templ optionLines(o Option) {
+	for i, line := range o.Lines {
+		<span class="field__hint choice-line">
+			if o.LineIcon != "" && i == 0 {
+				@icons.Icon(o.LineIcon)
+			}
+			if o.Bar != nil && i == len(o.Lines)-1 {
+				<progress class="choice-meter" value={ strconv.Itoa(o.Bar.Value) } max={ strconv.Itoa(o.Bar.Max) } aria-hidden="true"></progress>
+			}
+			{ line }
+		</span>
+	}
+}
+
+// checkBar panics on a Bar an option row can't draw (see Meter), and on a
+// LineIcon without a line.
+func checkBar(o Option) {
+	if o.LineIcon != "" && len(o.Lines) == 0 {
+		panic(fmt.Sprintf("components: option %q: icon %q needs a line", o.Value, o.LineIcon))
+	}
+	if o.Bar == nil {
+		return
+	}
+	if b := *o.Bar; b.Max <= 0 || b.Value < 0 || b.Value > b.Max || len(o.Lines) == 0 {
+		panic(fmt.Sprintf("components: option %q: bar %d of %d needs Max above 0, Value from 0 to Max and a line", o.Value, b.Value, b.Max))
+	}
 }

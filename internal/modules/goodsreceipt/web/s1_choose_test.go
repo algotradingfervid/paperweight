@@ -29,7 +29,7 @@ func TestGRNWeb_ChoosePOOneVisible(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("GET %s = %d, want 200", s1New, r.status)
 	}
-	want := []s1Radio{{strconv.FormatInt(po.ID, 10), "PO/26-27/00001 · Shree Steel Traders METRO-SITE · 2 of 2 lines pending", true}}
+	want := []s1Radio{{strconv.FormatInt(po.ID, 10), "PO/26-27/00001 · Shree Steel Traders METRO-SITE 2 of 2 lines pending · ordered 24-10-2026", true}}
 	if got := r.radios("purchase_order_id"); !slices.Equal(got, want) {
 		t.Errorf("radios = %+v, want %+v", got, want)
 	}
@@ -55,7 +55,7 @@ func TestGRNWeb_ChoosePOOneVisible(t *testing.T) {
 
 	w.po("BHARAT", "5")
 	got := w.get(w.Suresh, s1New).radios("purchase_order_id")
-	if len(got) != 2 || got[0].text != "PO/26-27/00002 · Bharat Tools METRO-SITE · 1 of 1 line pending" || got[0].checked || got[1].checked {
+	if len(got) != 2 || got[0].text != "PO/26-27/00002 · Bharat Tools METRO-SITE 1 of 1 line pending · ordered 24-10-2026" || got[0].checked || got[1].checked {
 		t.Errorf("two POs: radios = %+v, want Bharat's first with 1 of 1 line, neither checked", got)
 	}
 }
@@ -141,8 +141,8 @@ func TestGRNWeb_ChoosePOWidened(t *testing.T) {
 
 	r = w.get(w.Suresh, s1New+"?all=1")
 	want := []s1Radio{
-		{strconv.FormatInt(full.ID, 10), full.Number + " · Bharat Tools METRO-SITE · Fully received", false},
-		{strconv.FormatInt(pending.ID, 10), pending.Number + " · Shree Steel Traders METRO-SITE · 1 of 1 line pending", false},
+		{strconv.FormatInt(full.ID, 10), full.Number + " · Bharat Tools METRO-SITE Fully received · ordered 24-10-2026", false},
+		{strconv.FormatInt(pending.ID, 10), pending.Number + " · Shree Steel Traders METRO-SITE 1 of 1 line pending · ordered 24-10-2026", false},
 	}
 	if got := r.radios("purchase_order_id"); !slices.Equal(got, want) {
 		t.Errorf("widened list = %+v, want %+v", got, want)
@@ -382,8 +382,8 @@ func TestGRNWeb_ChoosePODraftWithoutLines(t *testing.T) {
 
 	r := w.get(w.Suresh, path)
 	want := []s1Radio{
-		{strconv.FormatInt(next.ID, 10), next.Number + " · Bharat Tools METRO-SITE · 2 of 2 lines pending", false},
-		{strconv.FormatInt(full.ID, 10), full.Number + " · Shree Steel Traders METRO-SITE · Fully received", true},
+		{strconv.FormatInt(next.ID, 10), next.Number + " · Bharat Tools METRO-SITE 2 of 2 lines pending · ordered 24-10-2026", false},
+		{strconv.FormatInt(full.ID, 10), full.Number + " · Shree Steel Traders METRO-SITE Fully received · ordered 24-10-2026", true},
 	}
 	if got := r.radios("purchase_order_id"); !slices.Equal(got, want) {
 		t.Errorf("radios = %+v, want %+v", got, want)

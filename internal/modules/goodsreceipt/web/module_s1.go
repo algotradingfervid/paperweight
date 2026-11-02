@@ -16,6 +16,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
@@ -25,6 +26,7 @@ import (
 // Step 1 and 2 copy (UX doc §5.2, §5.3 copy tables).
 const (
 	labelPO           = "Purchase order"
+	labelOrderCard    = "Order to receive"
 	hintPORestricted  = "Orders with items still to receive at your sites."
 	hintPOAll         = "Orders with items still to receive."
 	hintPOWidened     = "Approved orders at your sites, including fully received ones."
@@ -253,8 +255,9 @@ func (m *module) pick(c docscreen.Ctx, s docscreen.StepState) (poPick, error) {
 	return p, nil
 }
 
-// poOptions are list as radios, or as a Select after a blank first option
-// when there are more than maxRadios.
+// poOptions are list as radios, each with its site (after a map pin) and
+// pending lines and a bar of the lines pending (UI v2 §5.6), or as a Select
+// after a blank first option when there are more than maxRadios.
 func poOptions(list []goodsreceipt.POChoice) (opts []components.Option, sel bool) {
 	sel = len(list) > maxRadios
 	if sel {
@@ -266,7 +269,8 @@ func poOptions(list []goodsreceipt.POChoice) (opts []components.Option, sel bool
 			opts = append(opts, components.Option{Value: id, Label: o.Display + " · " + o.VendorName + " · " + o.SiteName + " · " + pendingText(o)})
 			continue
 		}
-		opts = append(opts, components.Option{Value: id, Label: o.Display + " · " + o.VendorName, Hint: o.SiteName + " · " + pendingText(o)})
+		opts = append(opts, components.Option{Value: id, Label: o.Display + " · " + o.VendorName, Lines: []string{o.SiteName, pendingLine(o)},
+			LineIcon: "map-pin", Bar: &components.Meter{Value: o.Pending, Max: o.Lines}})
 	}
 	return opts, sel
 }
@@ -312,6 +316,12 @@ func pendingText(o goodsreceipt.POChoice) string {
 		return "1 of 1 line pending"
 	}
 	return fmt.Sprintf("%d of %d lines pending", o.Pending, o.Lines)
+}
+
+// pendingLine is a radio's line after its site: pendingText and the PO's
+// order date (UX doc §5.2, PROPOSED v2).
+func pendingLine(o goodsreceipt.POChoice) string {
+	return pendingText(o) + " · ordered " + types.FormatDate(o.OrderDate)
 }
 
 // poHint is the legend's hint: the widened text, or the pending text for a

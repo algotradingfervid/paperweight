@@ -248,10 +248,41 @@
   font-size: var(--text-base);
   color: var(--color-text);
   cursor: pointer;
+  /* A row with extra lines (UI v2 §5.6): the radio beside the label, room between rows. */
+  &:has(.choice-line) { align-items: flex-start; padding-block: var(--space-2); }
 }
 
 @utility field__choice-text {
   display: grid;
+  /* An option with extra lines has a bold label above them (UI v2 §5.6). */
+  &:has(> .choice-line) { font-weight: var(--weight-semibold); }
+  &:has(> .choice-line) > .field__hint { font-weight: var(--weight-regular); }
+}
+
+/* An option's extra line, with its icon or bar first when it has one (UI v2 §5.6). */
+@utility choice-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  /* The icon stays on the first line of text that wraps. */
+  & .icon { flex: none; inline-size: var(--icon-sm); block-size: var(--icon-sm); margin-block-start: calc((1lh - var(--icon-sm)) / 2); }
+}
+
+/* The bar beside a line: our own track and fill on a native element. */
+@utility choice-meter {
+  flex: none;
+  align-self: center;
+  inline-size: var(--space-10);
+  block-size: 0.375rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  appearance: none;
+  background: var(--color-progress-track);
+  color: var(--color-primary-600);
+  &::-webkit-progress-bar { background: var(--color-progress-track); }
+  &::-webkit-progress-value { background: var(--color-primary-600); }
+  &::-moz-progress-bar { background: var(--color-primary-600); }
 }
 
 /* ErrorSummary (UI v2 §5.14): a white box with a 2 px danger border, a 6 px
