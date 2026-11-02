@@ -369,7 +369,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 
 ## RESUME HERE (paused 2 Nov 2026 evening, owner request)
 
-Main is 2ca6cb33 plus this note. UI v2 is at 36 of 42 tasks merged (F3 and C4c are new; C2b, E7b, and the batch below are open).
+Main is 2ca6cb33 plus this note. UI v2 is at 36 of 44 tasks merged. Open: the four in the batch below, E7b, F3, C4c and C2b.
 1. **Batch trial `trial/ui-batch-2nov` (2ddb47e4)** holds C3c, F2, expense E7 and GRN E7 merged onto main, plus the combined-lane test fixes. Check its log, `.work/ci-2ddb47e4.log`: `ci exit` and `e2e exit` must both be 0 (a known load flake passes when rerun alone). If the run was interrupted, rerun it. If main has moved, merge main in first. Merge with `git merge --no-ff 2ddb47e4`, then check `git diff 2ddb47e4 HEAD -- . ':!docs' ':!CLAUDE.md'` is empty. Add PROGRESS rows: C3c, F1, C4b, F2, E7 ×2.
 2. Log the E7 rulings as a CD: GRN (Radios Lines, LineIcon, Bar; "Order to receive") and expense (three new test ids need EXP ids in docs/tests). Add AD-12's two LEARN lines: check a mock against a brief's named fields when writing it; test a proportional value with a mid-range row.
 3. **Tell AD-11** to start **E7b** once GRN E7 is on main (Tiles long option, FileUpload label, tile and progress; CD-379).
