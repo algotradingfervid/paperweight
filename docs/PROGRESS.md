@@ -367,6 +367,17 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | UI v2 E5b; MOD-GRN cleanup | Success block, step timeline with PO Sent/Received, actions order (CD-372); grnweb moreFields via GroupMore | Std | impl, rev opus (head, AD-12) | — | 2 Nov | 2 | 7 findings round 1 (one current step, flash once) | 42f5c17f; ci 0, e2e 0 |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
+## RESUME HERE (paused 2 Nov 2026 ~07:20, owner travelling)
+
+Main is fb12cbf1. UI v2 is at 34 of 38 tasks merged. On resume, send each AD a resume message and continue:
+- **C3c** (.worktrees/ui-c3c, base 21e916b6): review asked for changes. The fix round per CD-378 was being checked when work stopped. Re-run `make handin BASE=21e916b6 PKGS="./internal/ui/... ./internal/modules/... ./internal/app/..."`, make mutate and the full make e2e. Then send it to a fresh crew-reviewer to re-check only the two majors and CD-378. Status: scratchpad uiv2c3c-status.md.
+- **C4b** (.worktrees/ui-c4b, base d8d4908b): built, hand-in not confirmed. Re-run the hand-in, then review. Status: scratchpad uiv2c4b-status.md.
+- **E7 GRN** (AD-12, lane/mod-grn-e7): includes a components.Radios extension (Option.Lines, Option.Bar *Meter) approved by the head; log it as a CD at merge. After E7: the stores.pune sign-in flake, root cause.
+- **E7 expense** (AD-11).
+- **C2b** (shorter step labels in every module): not started; it goes after both E7s.
+- Then: module UI/UX review (crew-ui-reviewer), fix lists to the ADs, the final gate, and the owner's push say-so.
+- Preview: rebuild from main. Port 8080 may be taken by another session's demo, so use 8081.
+
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
 On main (every merge `make ci` green): NUM, NAM, APR, DOC, FILE, UI complete (UI-M2 26 Oct); AUTH done except Task 20 (now unblocked); WP3 T1 suites for FILE and DOC; covertouched tooling; WP2 part 1 (Tasks 1–5, 8–11); WP3 early deploy files.
