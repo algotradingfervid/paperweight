@@ -23,6 +23,7 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/types"
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
 // Screens under test (MST Task 22, CD-50, CD-218): /m/employee list, record and
@@ -404,6 +405,16 @@ func TestScreens_EmployeeWizardBackAndReturn(t *testing.T) {
 	if n := backs(b.Get(t, stepTwo)); n != 1 {
 		t.Errorf("second step shows %d Back", n)
 	}
+}
+
+// UI v2 C4c: each step's Check and save card has its own tile.
+func TestScreens_EmployeeWizardCheckTiles(t *testing.T) {
+	w := newWorld(t)
+	b := w.h.Browser(w.h.Env.Kavya)
+	w.toCheck(t, b, details("EMP-121"), w.reporting())
+	uitest.WantCheckTiles(t, b.Get(t, stepCheck).Doc,
+		uitest.CheckTile{Title: "Details", Icon: "id-card"},
+		uitest.CheckTile{Title: "Reporting", Icon: "users"})
 }
 
 // Check and save: its button says Save, dates read dd-mm-yyyy however they were

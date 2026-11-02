@@ -13,6 +13,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/a-h/templ"
+
+	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
 // Render renders c with a background context and parses the HTML.
@@ -65,4 +67,28 @@ func Doc(t testing.TB, rec *httptest.ResponseRecorder) *goquery.Document {
 		t.Fatalf("parse HTML: %v", err)
 	}
 	return doc
+}
+
+// CheckTile is one summary card a check page should show: its title and the
+// icon name in its tile.
+type CheckTile struct{ Title, Icon string }
+
+// WantCheckTiles fails unless the cards with a Change button in doc are want,
+// in order, each with exactly its icon.
+func WantCheckTiles(t testing.TB, doc *goquery.Document, want ...CheckTile) {
+	t.Helper()
+	cards := doc.Find("section.card:has(.card-head > a.btn-ghost)")
+	if cards.Length() != len(want) {
+		t.Fatalf("%d cards with a Change button, want %d", cards.Length(), len(want))
+	}
+	for i, w := range want {
+		card := cards.Eq(i)
+		if got := strings.Join(strings.Fields(card.Find(".card-title").First().Text()), " "); got != w.Title {
+			t.Errorf("card %d title = %q, want %q", i, got, w.Title)
+		}
+		tile, _ := card.Find(".card-head .card-icon svg").Html()
+		if icon, _ := Render(t, icons.Icon(w.Icon)).Find("svg").Html(); tile != icon {
+			t.Errorf("%s tile = %q, want the %s icon", w.Title, tile, w.Icon)
+		}
+	}
 }

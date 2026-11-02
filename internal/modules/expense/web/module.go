@@ -21,6 +21,8 @@ func ClaimModule(d Deps) docscreen.Module {
 		Reason:     claimReason(d),     // S3
 		// Cards at every width (EUX-025), until M0-40 and S2's Line.
 		CardsOnly: true,
+		// Check card tiles (UI v2 C4c).
+		StepIcons: map[string]string{"details": "receipt-indian-rupee"},
 		// The line under the stepper on each step (UI v2 C2).
 		StepIntros: map[string]string{
 			"details": "What the spending was for, the claim date and any advance to settle.",
@@ -42,5 +44,7 @@ func AdvanceModule(d Deps) docscreen.Module {
 		// 5 editable line cells would give the grid (CD-315); cards at
 		// every width (EUX-025).
 		CardsOnly: true,
+		// Check card tiles (UI v2 C4c).
+		StepIcons: map[string]string{"details": "hand-coins"},
 	}
 }
