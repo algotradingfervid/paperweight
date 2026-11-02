@@ -367,16 +367,20 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | UI v2 E5b; MOD-GRN cleanup | Success block, step timeline with PO Sent/Received, actions order (CD-372); grnweb moreFields via GroupMore | Std | impl, rev opus (head, AD-12) | — | 2 Nov | 2 | 7 findings round 1 (one current step, flash once) | 42f5c17f; ci 0, e2e 0 |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
-## RESUME HERE (paused 2 Nov 2026 ~07:20, owner travelling)
+## RESUME HERE (paused 2 Nov 2026 evening, owner request)
 
-Main is fb12cbf1. UI v2 is at 34 of 38 tasks merged. On resume, send each AD a resume message and continue:
-- **C3c** (.worktrees/ui-c3c, base 21e916b6): review asked for changes. The fix round per CD-378 was being checked when work stopped. Re-run `make handin BASE=21e916b6 PKGS="./internal/ui/... ./internal/modules/... ./internal/app/..."`, make mutate and the full make e2e. Then send it to a fresh crew-reviewer to re-check only the two majors and CD-378. Status: scratchpad uiv2c3c-status.md.
-- **C4b** (.worktrees/ui-c4b, base d8d4908b): built, hand-in not confirmed. Re-run the hand-in, then review. Status: scratchpad uiv2c4b-status.md.
-- **E7 GRN** (AD-12, lane/mod-grn-e7): paused before hand-in, uncommitted; the worker also changed a picker query, which AD-12 must review first; includes a components.Radios extension (Option.Lines, Option.Bar *Meter) approved by the head; log it as a CD at merge. After E7: the stores.pune sign-in flake, root cause.
-- **E7 expense** (AD-11, .worktrees/mod-exp-e7 on lane/mod-exp-uie7, base d8d4908b, uncommitted). The lane also changes e2e/grn_flow_test.go, outside E7 scope: check why before review.
-- **C2b** (shorter step labels in every module): not started; it goes after both E7s.
-- Then: module UI/UX review (crew-ui-reviewer), fix lists to the ADs, the final gate, and the owner's push say-so.
-- Preview: rebuild from main. Port 8080 may be taken by another session's demo, so use 8081.
+Main is 2ca6cb33 plus this note. UI v2 is at 36 of 42 tasks merged (F3 and C4c are new; C2b, E7b, and the batch below are open).
+1. **Batch trial `trial/ui-batch-2nov` (2ddb47e4)** holds C3c, F2, expense E7 and GRN E7 merged onto main, plus the combined-lane test fixes. Check its log, `.work/ci-2ddb47e4.log`: `ci exit` and `e2e exit` must both be 0 (a known load flake passes when rerun alone). If the run was interrupted, rerun it. If main has moved, merge main in first. Merge with `git merge --no-ff 2ddb47e4`, then check `git diff 2ddb47e4 HEAD -- . ':!docs' ':!CLAUDE.md'` is empty. Add PROGRESS rows: C3c, F1, C4b, F2, E7 ×2.
+2. Log the E7 rulings as a CD: GRN (Radios Lines, LineIcon, Bar; "Order to receive") and expense (three new test ids need EXP ids in docs/tests). Add AD-12's two LEARN lines: check a mock against a brief's named fields when writing it; test a proportional value with a mid-range row.
+3. **Tell AD-11** to start **E7b** once GRN E7 is on main (Tiles long option, FileUpload label, tile and progress; CD-379).
+4. **AD-12:** resume the stores.pune sign-in flake, root cause, not a raised deadline.
+5. **F3 (head):** document page and reason page 409s use ConflictBanner with Reload (CD-362), and the redraw sweep's `want` requires a warning banner with Reload.
+6. **C4c (head):** per-step check card icons (a `FormStep.Icon`); every fields step shows file-text today. Also tooling: `make mutate` should warn when touched .templ files give 0 mutants.
+7. **C2b:** shorter step labels in every module, serial, after both E7s.
+8. Module UI/UX review (crew-ui-reviewer). Its list so far: Select text under the chevron at 360 px; a required-at-submit GST field has no asterisk; New in a picker pressed before the last search answer left the sheet shut (seen once).
+9. Then fix lists to the ADs, the final gate, and the owner's push say-so.
+
+Preview: `go build -o <scratchpad>/app-local ./cmd/app`, then serve on 127.0.0.1:8081 with `--data <scratchpad>/appdata`. Port 8080 may hold another session's demo.
 
 ## RESUME HERE (paused 25 Oct 2026 ~19:55; superseded 30 Oct: AD-1 and AD-5 restarted, see CD-194 to CD-196)
 
