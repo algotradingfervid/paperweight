@@ -78,8 +78,8 @@ const (
 	upMsg    = `document.getElementById("attachments-msg")`
 	alerts   = `document.getElementById("alerts").children.length`
 
-	upBusy    = `(` + upInputs + `.every((i) => i.disabled) && !` + upBar + `.hidden && ` + upStatus + `.textContent.trim() === "Uploading…")`
-	upIdle    = `(` + upInputs + `.every((i) => !i.disabled) && ` + upBar + `.hidden && ` + upBar + `.value === 0 && ` + upStatus + `.textContent === "")`
+	upBusy    = `(` + upInputs + `.every((i) => i.disabled) && !` + upBar + `.hidden && /^Uploading .+…$/.test(` + upStatus + `.textContent.trim()))`
+	upIdle    = `(` + upInputs + `.every((i) => !i.disabled) && ` + upBar + `.hidden && ` + upBar + `.value === 0 && ` + upStatus + `.textContent === "" && !document.querySelector("#attachments .upload__percent")?.textContent)`
 	upInvalid = upInputs + `.filter((i) => i.getAttribute("aria-invalid") === "true").length`
 	upMarked  = upInputs + `.filter((i) => i.hasAttribute("aria-invalid")).length`
 	upState   = `JSON.stringify({inputs: ` + upInputs + `.map((i) => [i.disabled, i.getAttribute("aria-invalid")]), bar: ` + upBar + `.hidden, status: ` + upStatus + `.textContent, msg: ` + upMsg + `.textContent, active: document.activeElement.outerHTML.slice(0, 120)})`

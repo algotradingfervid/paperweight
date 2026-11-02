@@ -1,9 +1,30 @@
 /* upload.css: our parts of FileUpload and Attachments over daisyUI btn and progress (design-system §7, §7.1). */
 @utility upload {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-2);
   min-inline-size: 0;
   max-inline-size: var(--form-max);
+  /* One column, but for the status line with the percent beside it, then
+     the bar under them, then the files (UI v2 §5.9). */
+  & > * { grid-column: 1 / -1; }
+  & > [role="status"] {
+    grid-column: 1;
+    order: 1;
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+  }
+  & > .upload__percent {
+    grid-column: 2;
+    order: 2;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-secondary);
+  }
+  & > .upload__progress { order: 3; }
+  & > .attachments { order: 4; }
   & .upload__controls {
     display: flex;
     flex-wrap: wrap;
@@ -11,11 +32,24 @@
   }
   /* The file input lies invisibly over its label; the label shows its focus. */
   & .upload__button { position: relative; }
+  /* While uploading the label looks as disabled as its input is. */
+  & .upload__button:has(input:disabled) {
+    background: var(--color-sunken);
+    border-color: var(--color-border-subtle);
+    color: var(--color-text-disabled);
+    pointer-events: none;
+    & input { cursor: default; }
+  }
   & .upload__button:has(:focus-visible) {
     outline: var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
   }
-  & .upload__progress { inline-size: 100%; }
+  & .upload__progress { inline-size: 100%; block-size: 0.375rem; }
+}
+
+/* The card around the upload says its name and limits (UI v2 §5.9). */
+@utility upload--card-named {
+  & .field__label, & .field__hint { @apply visually-hidden; }
 }
 
 @utility attachments {
@@ -42,6 +76,37 @@
     align-items: center;
     gap: var(--space-3);
     & .attachments__thumb { flex: none; inline-size: min(100%, 4rem); }
+  }
+  /* Attached (UI v2 §5.9): a 64 × 80 picture or file icon with its words
+     beside it; Remove sits under the words. */
+  & > .attachments-tile {
+    grid-template-columns: 4rem minmax(0, 1fr);
+    column-gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-3);
+    background: var(--color-canvas);
+    border: var(--border-w) solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    & .attachments__thumb { aspect-ratio: auto; block-size: 5rem; }
+    /* The link keeps its words for screen readers; the name is beside it. */
+    & .attachments__chip {
+      justify-content: center;
+      inline-size: min(100%, 4rem);
+      block-size: 5rem;
+      padding-inline: 0;
+      border-radius: var(--radius-md);
+      & span { @apply visually-hidden; }
+    }
+    & .attachments__tile-text { display: grid; gap: var(--space-1); min-inline-size: 0; }
+    & > :not(a, .attachments__tile-text) { grid-column: 2; }
+  }
+  & .attachments__attached {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    & .icon { flex: none; inline-size: var(--icon-sm); block-size: var(--icon-sm); color: var(--color-success-600); }
   }
 }
 

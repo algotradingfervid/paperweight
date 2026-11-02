@@ -188,14 +188,15 @@ func attState(id string) string {
   dialogs: Array.from(document.querySelectorAll("dialog[open]")).map(function (d) { return d.id; })})`
 }
 
-// busy: both inputs disabled, the bar shown and Uploading… in the status line.
+// busy: both inputs disabled, the bar shown and Uploading {name}… in the status line.
 func attBusy(id string) string {
-	return `(` + attInputs(id) + `.every(function (i) { return i.disabled; }) && !` + attQ("#"+id+" .upload__progress") + `.hidden && document.getElementById(` + strconv.Quote(id+"-status") + `).textContent.trim() === "Uploading…")`
+	return `(` + attInputs(id) + `.every(function (i) { return i.disabled; }) && !` + attQ("#"+id+" .upload__progress") + `.hidden && /^Uploading .+…$/.test(document.getElementById(` + strconv.Quote(id+"-status") + `).textContent.trim()))`
 }
 
-// idle: both inputs enabled, the bar hidden at 0 and the status line empty.
+// idle: both inputs enabled, the bar hidden at 0, the status line and the
+// percent empty.
 func attIdle(id string) string {
-	return `(` + attInputs(id) + `.every(function (i) { return !i.disabled; }) && ` + attQ("#"+id+" .upload__progress") + `.hidden && ` + attQ("#"+id+" .upload__progress") + `.value === 0 && document.getElementById(` + strconv.Quote(id+"-status") + `).textContent === "")`
+	return `(` + attInputs(id) + `.every(function (i) { return !i.disabled; }) && ` + attQ("#"+id+" .upload__progress") + `.hidden && ` + attQ("#"+id+" .upload__progress") + `.value === 0 && document.getElementById(` + strconv.Quote(id+"-status") + `).textContent === "" && !` + attQ("#"+id+" .upload__percent") + `?.textContent)`
 }
 
 // shows: the message region holds text in the error style with its icon.

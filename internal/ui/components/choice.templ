@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
+
+// tileMaxChars is the longest Tiles label that shares its row. At 360 px a
+// chosen tile holds about 12 characters on a line, so two short words this
+// long wrap whole; a longer label tends to hold a word that would split.
+const tileMaxChars = 16
 
 // optionID gives the first option the field's own id, so error links reach it.
 func optionID(p FieldProps, i int) string {
@@ -52,24 +58,28 @@ templ Checkboxes(p FieldProps, opts []Option, checked []string) {
 templ Segmented(p FieldProps, opts []Option) {
 	@choiceGroup(p) {
 		<div class="segmented">
-			@segments(p, opts)
+			@segments(p, opts, false)
 		</div>
 	}
 }
 
 // Tiles is Segmented in a two-column grid, for options with longer words
-// (UI v2 §5.5 item 8, N7).
+// (UI v2 §5.5 item 8, N7); a label over tileMaxChars takes the full row.
 templ Tiles(p FieldProps, opts []Option) {
 	@choiceGroup(p) {
 		<div class="segmented segmented--tiles">
-			@segments(p, opts)
+			@segments(p, opts, true)
 		</div>
 	}
 }
 
-templ segments(p FieldProps, opts []Option) {
+templ segments(p FieldProps, opts []Option, tiles bool) {
 	for i, o := range opts {
-		<label>
+		<label
+			if tiles && utf8.RuneCountInString(o.Label) > tileMaxChars {
+				class="segmented__wide"
+			}
+		>
 			<input type="radio" value={ o.Value } checked?={ o.Value == p.Value } { choiceAttrs(p, i, "input-overlay")... }/>
 			<span class="segmented__text">
 				<span class="segmented__check">

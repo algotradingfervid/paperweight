@@ -52,4 +52,10 @@ templ attachmentsBody() {
 		<p>Opens the confirm for receipt.jpg in (b).</p>
 		@components.Button(components.ButtonProps{Label: "Open the remove confirm", Type: "button", Attrs: templ.Attributes{"data-open-dialog": "remove-file-1", "aria-haspopup": "dialog"}})
 	</section>
+	<section id="att-h" class="stack">
+		<h2>(h) In a card that names it, attached-file tiles</h2>
+		@components.Card("Receipt", nil) {
+			@components.FileUpload(cardNamedUpload())
+		}
+	</section>
 }

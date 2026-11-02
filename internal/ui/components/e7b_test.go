@@ -1,0 +1,232 @@
+package components_test
+
+import (
+	"bytes"
+	"os"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/PuerkitoBio/goquery"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
+)
+
+const (
+	e7bAttached = "Attached to this expense"
+	e7bWide     = "segmented__wide"
+)
+
+// e7bLabel is a Tiles or Segmented label of n characters; Devanagari, so a
+// count of bytes instead of characters gives the wrong side of the threshold.
+func e7bLabel(n int) string { return strings.Repeat("क", n) }
+
+// e7bWideLabels are the labels of opts' tiles with the full-row class.
+func e7bWideLabels(doc *goquery.Document) []string {
+	var out []string
+	doc.Find("." + e7bWide).Each(func(_ int, s *goquery.Selection) {
+		out = append(out, strings.TrimSpace(s.Text()))
+	})
+	return out
+}
+
+// CD-379: a Tiles option of 16 characters shares its row, one of 17 takes the
+// full row, and the seeded and existing labels fall where the threshold says.
+func TestTiles_LongOptionTakesFullRow(t *testing.T) {
+	for _, c := range []struct {
+		name, label string
+		wide        bool
+	}{
+		{"at the threshold", e7bLabel(16), false},
+		{"one past it", e7bLabel(17), true},
+		{"GRN's longest challan kind", "Delivery challan", false},
+		{"the seeded expense type", "Site miscellaneous", true},
+		{"a short word", "Fuel", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			opts := []components.Option{{Value: "a", Label: "Fuel"}, {Value: "b", Label: c.label}}
+			doc := uitest.Render(t, components.Tiles(components.FieldProps{ID: "f-t", Name: "t", Label: "Type"}, opts))
+			got := e7bWideLabels(doc)
+			if c.wide && (len(got) != 1 || got[0] != c.label) {
+				t.Errorf("full-row labels = %q, want only %q", got, c.label)
+			}
+			if !c.wide && len(got) != 0 {
+				t.Errorf("full-row labels = %q, want none", got)
+			}
+		})
+	}
+}
+
+// A short tile's label keeps its bare markup, and Segmented never takes the
+// full row, whatever the length: it has no second column to span.
+func TestTiles_FullRowOnlyOnTiles(t *testing.T) {
+	opts := []components.Option{{Value: "a", Label: e7bLabel(40)}, {Value: "b", Label: "Fuel"}}
+	doc := uitest.Render(t, components.Segmented(components.FieldProps{ID: "f-t", Name: "t", Label: "Type"}, opts))
+	if got := e7bWideLabels(doc); len(got) != 0 {
+		t.Errorf("Segmented has full-row labels %q", got)
+	}
+	tiles := uitest.Render(t, components.Tiles(components.FieldProps{ID: "f-t", Name: "t", Label: "Type"}, opts))
+	if _, ok := tiles.Find(`label:has(input[value="b"])`).Attr("class"); ok {
+		t.Error("a short tile's label gained a class attribute")
+	}
+}
+
+// e7bCSS is the rule block of name in a component CSS file.
+func e7bCSS(t *testing.T, file, name string) string {
+	t.Helper()
+	css, err := os.ReadFile("../css/components/" + file) //nolint:gosec // G304: this test's own fixed names
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m21CSSBlock(string(css), name)
+}
+
+// The full-row class spans both columns, and the grid fills the gap a long
+// option would leave, as in the mock's Food, Fuel, Lodging, Travel order.
+func TestTiles_FullRowCSS(t *testing.T) {
+	if b := e7bCSS(t, "choice.css", e7bWide); !regexp.MustCompile(`grid-column:\s*1\s*/\s*-1`).MatchString(b) {
+		t.Errorf("%s = %q, want a span of every column", e7bWide, b)
+	}
+	if b := e7bCSS(t, "choice.css", "segmented--tiles"); !strings.Contains(b, "grid-auto-flow: row dense") {
+		t.Errorf("segmented--tiles = %q, want a dense row flow", b)
+	}
+}
+
+func e7bUpload(named bool) components.UploadProps {
+	return components.UploadProps{ID: "receipt", Label: "Receipt", Hint: "Photo or PDF.", Action: "/receipt", CardNamed: named}
+}
+
+// UI v2 §5.9: with CardNamed the root gains one class and nothing else
+// changes, so the legend, the hint and aria-describedby all stay in place
+// for a screen reader.
+func TestFileUpload_CardNamed(t *testing.T) {
+	plainHTML, plain := m22Render(t, e7bUpload(false))
+	namedHTML, named := m22Render(t, e7bUpload(true))
+
+	if got := plain.Find(".upload").AttrOr("class", ""); got != "upload" {
+		t.Errorf("without CardNamed the root's class = %q", got)
+	}
+	if !named.Find(".upload").HasClass("upload--card-named") {
+		t.Error("CardNamed left out upload--card-named")
+	}
+	want := strings.Replace(plainHTML, `class="upload"`, `class="upload upload--card-named"`, 1)
+	if namedHTML != want {
+		t.Errorf("CardNamed changed more than the class:\n got %s\nwant %s", namedHTML, want)
+	}
+	if got := strings.TrimSpace(named.Find("fieldset > legend").Text()); got != "Receipt" {
+		t.Errorf("legend = %q", got)
+	}
+	if got := strings.TrimSpace(named.Find("#receipt-hint").Text()); got != "Photo or PDF." {
+		t.Errorf("hint = %q", got)
+	}
+	named.Find("input[type=file]").Each(func(_ int, s *goquery.Selection) {
+		if got := s.AttrOr("aria-describedby", ""); got != "receipt-hint receipt-msg" {
+			t.Errorf("aria-describedby = %q", got)
+		}
+	})
+	b := e7bCSS(t, "upload.css", "upload--card-named")
+	for _, part := range []string{".field__label", ".field__hint", "@apply visually-hidden"} {
+		if !strings.Contains(b, part) {
+			t.Errorf("upload--card-named = %q, lacks %s", b, part)
+		}
+	}
+}
+
+func e7bTiles() []components.Attachment {
+	return []components.Attachment{
+		{ID: 1, Kind: "image", Name: "receipt.jpg", Size: "2.3 MB", UploadedAt: "24-10-2026 09:14", URL: "/files/1", RemoveURL: "/files/1/remove", Attached: e7bAttached},
+		{ID: 2, Kind: "pdf", Name: "bill.pdf", Size: "312 KB", UploadedAt: "24-10-2026 09:15", URL: "/files/2", Attached: e7bAttached},
+		{ID: 3, Kind: "heic", Name: "IMG_1.heic", Size: "1.9 MB", UploadedAt: "24-10-2026 09:16", URL: "/files/3", Attached: e7bAttached},
+	}
+}
+
+// UI v2 §5.9: an attached-file tile is Attachments' own item: its thumbnail
+// or chip link, the name, "size · uploaded time", the caller's words with a
+// check icon, and Remove with its confirm. It names no uploader.
+func TestAttachments_AttachedTile(t *testing.T) {
+	doc := uitest.Render(t, components.Attachments(e7bTiles()))
+	items := doc.Find("ul.attachments > li.attachments-tile")
+	if items.Length() != 3 {
+		t.Fatalf("%d tiles, want 3", items.Length())
+	}
+	for i, want := range []struct{ link, name, meta string }{
+		{`a.attachments__thumb[href="/files/1"] > img[alt="receipt.jpg"]`, "receipt.jpg", "2.3 MB · uploaded 24-10-2026 09:14"},
+		{`a.attachments__chip[href="/files/2"] > svg`, "bill.pdf", "312 KB · uploaded 24-10-2026 09:15"},
+		{`a.attachments__chip[href="/files/3"][download] > svg`, "IMG_1.heic", "1.9 MB · uploaded 24-10-2026 09:16"},
+	} {
+		li := items.Eq(i)
+		if li.Find(want.link).Length() != 1 {
+			t.Errorf("tile %d lacks its link %s", i, want.link)
+		}
+		if got := m04Norm(li.Find(".attachments__name").Text()); got != want.name {
+			t.Errorf("tile %d name = %q, want %q", i, got, want.name)
+		}
+		if got := m04Norm(li.Find(".attachments__meta").Text()); got != want.meta {
+			t.Errorf("tile %d meta = %q, want %q", i, got, want.meta)
+		}
+		ok := li.Find(".attachments__attached")
+		if got := m04Norm(ok.Text()); got != e7bAttached {
+			t.Errorf("tile %d attached line = %q", i, got)
+		}
+		if ok.Find("svg").Length() != 1 {
+			t.Errorf("tile %d attached line has no icon", i)
+		}
+	}
+	first := items.Eq(0)
+	if first.Find(`button[data-open-dialog="remove-file-1"]`).Length() != 1 || first.Find(`dialog#remove-file-1 form[hx-post="/files/1/remove"]`).Length() != 1 {
+		t.Error("the tile lost Remove or its confirm")
+	}
+	if n := items.Eq(1).Find("[data-open-dialog]").Length(); n != 0 {
+		t.Errorf("a tile with no RemoveURL has %d Remove buttons", n)
+	}
+}
+
+// An item without Attached keeps its bare <li>, and Attached wins over
+// Compact, with one class attribute.
+func TestAttachments_ItemClass(t *testing.T) {
+	both := e7bTiles()[0]
+	both.Compact = true
+	plain := components.Attachment{ID: 9, Kind: "image", Name: "a.jpg", URL: "/files/9"}
+	var buf bytes.Buffer
+	if err := components.Attachments([]components.Attachment{plain, both}).Render(t.Context(), &buf); err != nil {
+		t.Fatal(err)
+	}
+	html := buf.String()
+	if !strings.Contains(html, `<ul class="attachments"><li><a `) {
+		t.Errorf("a plain item lost its bare <li>: %s", html)
+	}
+	if !strings.Contains(html, `<li class="attachments-tile"><a `) {
+		t.Errorf("an item with Attached and Compact isn't only a tile: %s", html)
+	}
+}
+
+// Inside FileUpload the tile's Remove confirm swaps the upload's target.
+func TestFileUpload_AttachedTileRemoveTarget(t *testing.T) {
+	p := e7bUpload(false)
+	p.Files = e7bTiles()[:1]
+	_, doc := m22Render(t, p)
+	if got := doc.Find("li.attachments-tile dialog form").AttrOr("hx-target", ""); got != "#receipt" {
+		t.Errorf("Remove's hx-target = %q, want #receipt", got)
+	}
+}
+
+// §5.9: the tile's thumbnail is 64 × 80, and a chip fills the same box.
+func TestAttachments_TileCSS(t *testing.T) {
+	b := e7bCSS(t, "upload.css", "attachments-tile")
+	for _, part := range []string{"4rem minmax(0, 1fr)", "block-size: 5rem"} {
+		if !strings.Contains(b, part) {
+			t.Errorf("attachments-tile = %q, lacks %q", b, part)
+		}
+	}
+}
+
+// §5.9: the busy labels look disabled, the bar is 6 px and the words wrap.
+func TestFileUpload_BusyCSS(t *testing.T) {
+	b := e7bCSS(t, "upload.css", "upload")
+	for _, part := range []string{".upload__button:has(input:disabled)", "--color-text-disabled", "block-size: 0.375rem", "overflow-wrap: anywhere", "& > .upload__progress { order: 3; }"} {
+		if !strings.Contains(b, part) {
+			t.Errorf("upload = %q, lacks %q", b, part)
+		}
+	}
+}
