@@ -36,13 +36,14 @@ const (
 )
 
 // attachAnswer is how the server answers one held post: a refusal with
-// status and text, a dropped connection, or ok, a 200 replacing the
-// #att-done-files region.
+// status and text, a dropped connection, ok, a 200 replacing the
+// #att-done-files region, or redirect, an empty 200 with that HX-Redirect.
 type attachAnswer struct {
-	status int
-	text   string
-	drop   bool
-	ok     bool
+	status   int
+	text     string
+	drop     bool
+	ok       bool
+	redirect string
 }
 
 // attachServer is gallery.Handler with POST /_gallery/attachments held until
@@ -87,6 +88,10 @@ func startAttach(t *testing.T) *attachServer {
 		}
 		if a.ok {
 			_, _ = io.WriteString(w, `<div id="att-done-files">Stored.</div>`)
+			return
+		}
+		if a.redirect != "" {
+			w.Header().Set("HX-Redirect", a.redirect)
 			return
 		}
 		notice, err := json.Marshal(map[string]any{"notice": map[string]string{"level": "error", "text": a.text}})

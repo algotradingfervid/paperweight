@@ -348,6 +348,23 @@ func TestAttachments_ItemClass(t *testing.T) {
 	if !strings.Contains(html, `<li class="attachments-tile"><a `) {
 		t.Errorf("an item with Attached and Compact isn't only a tile: %s", html)
 	}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := doc.Find("li.attachments-tile .attachments__tile-text")
+	if text.Length() != 1 {
+		t.Errorf("%d tile texts, want 1: %s", text.Length(), html)
+	}
+	if got := strings.TrimSpace(text.Find(".attachments__attached").Text()); got != e7bAttached {
+		t.Errorf("the tile's words = %q, want %q", got, e7bAttached)
+	}
+	if got, want := text.Find(".attachments__meta").Text(), "2.3 MB · uploaded 24-10-2026 09:14"; got != want {
+		t.Errorf("the tile's meta = %q, want %q", got, want)
+	}
+	if strings.Contains(html, both.Name+" · "+both.Size) {
+		t.Errorf("Attached and Compact drew the compact line: %s", html)
+	}
 }
 
 // Inside FileUpload the tile's Remove confirm swaps the upload's target.

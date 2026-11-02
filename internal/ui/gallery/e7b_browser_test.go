@@ -298,6 +298,23 @@ func TestUploadBrowser_DoneNotOnFailure(t *testing.T) {
 	})
 }
 
+// A 200 with HX-Redirect (auth's guard sends a user who must change their
+// password away) stored no file, so it never says Done. The target is a
+// fragment of this page, so htmx follows it and the status line can still be
+// read; e7bStates surviving shows the page never reloaded.
+func TestUploadBrowser_DoneNotOnRedirect(t *testing.T) {
+	const id = "att-done"
+	ctx := uibrowser.New(t)
+	s := e7bOpen(t, ctx, id)
+	e7bSend(t, ctx, s, id)
+	s.reply(t, attachAnswer{redirect: "#e7b-redirected"})
+	attachWait(t, ctx, id, "htmx follows the redirect", `location.hash === "#e7b-redirected"`)
+	attachWait(t, ctx, id, "the status line changes", `window.e7bStates.length === 2`)
+	if got, want := attachEval[[]string](t, ctx, `window.e7bStates`), []string{"Uploading bill.jpg…", ""}; !slices.Equal(got, want) {
+		t.Errorf("status went through %q, want %q", got, want)
+	}
+}
+
 // A caller with no Done keeps today's behaviour: the same successful answer
 // leaves the status line empty, not a stale busy text.
 func TestUploadBrowser_NoDoneStaysEmpty(t *testing.T) {
