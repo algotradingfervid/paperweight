@@ -659,8 +659,9 @@ func TestExpLine_RequiredMarkers(t *testing.T) {
 	e.withReceipts(t, c.ID, map[int]string{1: "taxi.jpg"})
 	path := s2ClaimPath(c.ID) + "/lines/new"
 
-	check := func(what string, form *goquery.Selection) {
+	check := func(what string, d *goquery.Document) {
 		t.Helper()
+		form := s2LineForm(t, d)
 		if !s2Required(t, form, "expense_type_id") {
 			t.Errorf("%s: Type isn't marked required", what)
 		}
@@ -674,12 +675,24 @@ func TestExpLine_RequiredMarkers(t *testing.T) {
 		if want := []string{"amount", "expense_date", "expense_type_id"}; !slices.Equal(names, want) {
 			t.Errorf("%s: aria-required on %q, want only %q", what, names, want)
 		}
-		if n := form.Find(".field__req").Length(); n != 3 {
-			t.Errorf("%s: %d asterisks, want Type's, Amount's and Date's", what, n)
+		// The page's note holds an asterisk too; every other one belongs to a
+		// field's label, read here as the label's own text.
+		var marked []string
+		form.Find(".field__req").Not(".field__hint .field__req").Each(func(_ int, s *goquery.Selection) {
+			marked = append(marked, strings.TrimSpace(s.Parent().Contents().First().Text()))
+		})
+		slices.Sort(marked)
+		if want := []string{"Amount", "Date", "Type"}; !slices.Equal(marked, want) {
+			t.Errorf("%s: asterisks on %q, want on %q", what, marked, want)
+		}
+		note := d.Find(".field__hint:has(.field__req)")
+		if got := strings.Join(strings.Fields(note.Text()), " "); note.Length() != 1 || got != "Fields marked * are required." {
+			t.Errorf("%s: %d required notes reading %q, want one", what, note.Length(), got)
 		}
 	}
 
-	form := s2LineForm(t, e.page(t, s2Deepak, path))
+	d := e.page(t, s2Deepak, path)
+	form := s2LineForm(t, d)
 	if form.Find(`.segmented--tiles input[name="expense_type_id"]`).Length() == 0 {
 		t.Fatal("Type isn't tiles with 5 types")
 	}
@@ -688,16 +701,16 @@ func TestExpLine_RequiredMarkers(t *testing.T) {
 			t.Errorf("%s isn't on the page, so its missing marker proves nothing", n)
 		}
 	}
-	check("tiles", form)
+	check("tiles", d)
 
 	for _, tc := range [][2]string{{"PARKING", "Parking"}, {"TOLL", "Toll"}} {
 		e.exec(t, `INSERT INTO expense_type (code, name, created_at, updated_at) VALUES (?, ?, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`, tc[0], tc[1])
 	}
-	form = s2LineForm(t, e.page(t, s2Deepak, path))
-	if form.Find(`select[name="expense_type_id"]`).Length() != 1 {
+	d = e.page(t, s2Deepak, path)
+	if s2LineForm(t, d).Find(`select[name="expense_type_id"]`).Length() != 1 {
 		t.Fatal("Type isn't a Select with 7 types")
 	}
-	check("select", form)
+	check("select", d)
 }
 
 // The no-receipt reason takes at most the field's 200 characters.
