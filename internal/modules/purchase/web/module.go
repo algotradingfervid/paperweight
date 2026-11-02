@@ -36,15 +36,16 @@ func Modules(d Deps) map[string]docscreen.Module {
 				"terms": m.orderTermsStep(), // P15a
 				"items": m.orderItemsStep(), // P15c
 			},
-			Hide:      m.orderHide,                      // P15a
-			Check:     m.orderCheck,                     // P15a
-			LineCard:  m.orderLineCard,                  // P15a
-			LineGrid:  m.orderLineGrid,                  // P15a
-			Page:      m.orderPageHook,                  // P15b
-			Reason:    m.orderReason,                    // P15b
-			KeyFacts:  orderKeyFacts,                    // UI v2 E5
-			LifeSteps: []string{lifeSent, lifeReceived}, // UI v2 E5b
-			Home:      purchaseHome,                     // UI v2 E5b
+			Hide:        m.orderHide,                      // P15a
+			Check:       m.orderCheck,                     // P15a
+			LineCard:    m.orderLineCard,                  // P15a
+			LineGrid:    m.orderLineGrid,                  // P15a
+			Page:        m.orderPageHook,                  // P15b
+			Reason:      m.orderReason,                    // P15b
+			KeyFacts:    orderKeyFacts,                    // UI v2 E5
+			LifeSteps:   []string{lifeSent, lifeReceived}, // UI v2 E5b
+			Home:        purchaseHome,                     // UI v2 E5b
+			FooterTotal: "net_total",                      // UI v2 C3c (A-22): "Taxable value", the field's label
 		},
 		purchase.RequestDocType: {
 			CardsOnly: requestCardsOnly,  // P15d

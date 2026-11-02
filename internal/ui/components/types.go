@@ -55,12 +55,21 @@ type BannerProps struct {
 	NoRole         bool
 }
 
-// ActionBarProps describes the sticky action bar.
+// ActionBarProps describes the sticky action bar. Summary is an optional
+// row above the buttons (a running total).
 type ActionBarProps struct {
 	Primary, Secondary *ButtonProps
 	Note               string
 	FinishLater        bool
 	Form               string
+	Summary            templ.Component
+}
+
+// BarTotal is an action bar summary (A-22): the count, then the label and
+// value when Label is set. ID is the element a later out-of-band swap
+// replaces.
+type BarTotal struct {
+	ID, Count, Label, Value string
 }
 
 // MoreAction is one entry under "More actions".
