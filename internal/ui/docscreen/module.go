@@ -35,6 +35,7 @@ type Module struct {
 	AddTop      bool                                          // the add button above the cards, again below from 4 lines (CD-275)
 	LineGrid    func(c Ctx, l LineView) []components.GridCell // one line's read-only cells from 64rem (CD-313)
 	KeyFacts    []string                                      // header fields the document header shows, in order (UI v2 §5.13 item 3)
+	FooterTotal string                                        // the header Money field the Items footer shows (UI v2 A-22, CD-376)
 }
 
 // LineNoun names a module's lines (UX-E2, CD-270 Q1): Add labels the add

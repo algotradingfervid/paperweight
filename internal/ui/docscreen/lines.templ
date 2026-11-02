@@ -54,6 +54,9 @@ templ gridResponse(g gridView) {
 		@wizard.DocVersion(g.Version, true)
 		@components.LineGridVersions(g.Rows, strconv.Itoa(g.Version))
 		@docTotals(g.Totals, true)
+		if g.Footer != nil {
+			@components.BarTotalLine(*g.Footer, true)
+		}
 	}
 	if g.Alert != "" || len(g.Warnings) > 0 {
 		<div id="grid-alerts" hx-swap-oob="true">

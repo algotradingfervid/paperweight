@@ -122,6 +122,28 @@ func totalsOf(c Ctx, v DocView) []components.Pair {
 	return out
 }
 
+// footerID is the Items footer total's id, which a grid save swaps (A-22).
+const footerID = "footer-total"
+
+// footerTotal is the Items footer's summary (UI v2 A-22): "{n} items ·
+// {label} ₹…" for the module's FooterTotal, n the saved lines; only the
+// count when the module hides the field or the total is blank (CD-378 (4));
+// nil when the module names none.
+func footerTotal(c Ctx, v DocView) *components.BarTotal {
+	name := c.Deps.modOf(c.DT).FooterTotal
+	if name == "" {
+		return nil
+	}
+	t := &components.BarTotal{ID: footerID, Count: strconv.Itoa(len(v.Lines)) + " items"}
+	if len(v.Lines) == 1 {
+		t.Count = "1 item"
+	}
+	if f, _ := c.DT.Field(name); !hidden(c, f) && v.Display[name] != "" {
+		t.Label, t.Value = f.Label, v.Display[name]
+	}
+	return t
+}
+
 // gridRowOf is line lv's grid row (CD-139): a Link shows its master's
 // summary with a hidden id; every other editable field is the line page's
 // FieldInput with the id grid-<no>-<field>. values are in input form. A field
@@ -477,7 +499,7 @@ func (d Deps) gridSaved(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		problem(w, r, doctype.ErrNotFound)
 		return
 	}
-	g := gridView{Row: rows[no-1], Rows: rows, Version: res.Version, Totals: totalsOf(c, v), Warnings: res.Warnings}
+	g := gridView{Row: rows[no-1], Rows: rows, Version: res.Version, Totals: totalsOf(c, v), Footer: footerTotal(c, v), Warnings: res.Warnings}
 	ui.Render(w, r, http.StatusOK, gridResponse(g), nil)
 }
 
@@ -524,6 +546,7 @@ type gridView struct {
 	Rows             []components.LineGridRow // non-nil after a save: the move forms to update
 	Version          int
 	Totals           []components.Pair
+	Footer           *components.BarTotal // the Items footer's total, swapped out of band (A-22)
 	Warnings         []string
 	Alert, ReloadURL string
 	Conflict         string // a 409's document label: Alert shows as the ConflictBanner

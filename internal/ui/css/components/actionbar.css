@@ -38,6 +38,26 @@
     & > .btn:not(.btn--primary) { margin-inline-end: auto; }
   }
 }
+/* The footer's summary row (A-22, CD-378 (2)): one line at every width
+   from 320 px. Its parts never wrap (each is sized to its content), and
+   below 25rem the label is visually hidden but read by screen readers.
+   25rem is where the longest text fits: a 3-digit count and the largest
+   Money value need 361.5 px, so a 393.5 px screen with the gutters. */
+@utility actionbar-summary {
+  flex: 1 1 100%;
+  order: -2;
+  line-height: var(--space-6); /* one line, as base.css's scroll padding counts it */
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+@utility actionbar-total {
+  display: flex;
+  gap: var(--space-1);
+  & > * { flex: none; }
+}
+@utility actionbar-total-label {
+  @media (width < 25rem) { @apply visually-hidden; }
+}
 @utility actionbar-later {
   display: flex;
   justify-content: center;

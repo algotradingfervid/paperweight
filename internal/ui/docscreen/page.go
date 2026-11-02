@@ -456,6 +456,22 @@ func CheckKeyFacts(mods map[string]Module) error {
 	return nil
 }
 
+// CheckFooterTotal reports the first Module.FooterTotal that isn't a header
+// Money field its DocType declares, so a typo fails when the routes are
+// built, not by showing no total (UI v2 A-22, CD-376).
+func CheckFooterTotal(mods map[string]Module) error {
+	for name, m := range mods {
+		if m.FooterTotal == "" {
+			continue
+		}
+		dt, _ := doctype.Lookup(name) // unregistered: no fields
+		if f, found := dt.Field(m.FooterTotal); !found || f.OnLine || f.Type != doctype.Money {
+			return fmt.Errorf("docscreen: %s FooterTotal names %q, which isn't one of its header Money fields", name, m.FooterTotal)
+		}
+	}
+	return nil
+}
+
 // lifeSteps is a submittable DocType's lifecycle with the document's state s
 // marked (UI v2 §5.13 item 4, A-26): Draft, Pending approval when dt is
 // Approvable, then its approved word; Rejected marks the approval step with
