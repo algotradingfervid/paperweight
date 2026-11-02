@@ -53,6 +53,12 @@ func (h *Harness) sweepAs() func(ctx context.Context, email string) error {
 			return nil
 		}
 		current = email
+		// Leave the page first. A request it still owes (a picker's
+		// delay:250ms) would go out with no session, and its HX-Redirect would
+		// abort this sign-in's navigation.
+		if err := chromedp.Do(ctx, chromedp.Navigate("about:blank")); err != nil {
+			return err
+		}
 		if _, err := chromedp.Call(ctx, network.ClearBrowserCookies, cdp.Empty{}); err != nil {
 			return err
 		}

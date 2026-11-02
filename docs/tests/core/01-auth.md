@@ -317,7 +317,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-039 · Expired session on an HTMX request leaks no data and redirects to sign-in
 - **Priority:** P1
 - **Level:** integration
-- **Given** an expired session **When** HTMX GETs `/po/list?status=draft` **Then** the response is 401 "Your session has expired. Sign in again." with `HX-Redirect: /signin?next=%2Fpo%2Flist%3Fstatus%3Ddraft`, and the body has no PO data and no stack trace. A normal browser GET gets 303 to the same URL (CD-17).
+- **Given** an expired session **When** HTMX GETs `/po/list?status=draft` from the page `/po/list` **Then** the response is 401 "Your session has expired. Sign in again." with `HX-Redirect: /signin?next=%2Fpo%2Flist`, and the body has no PO data and no stack trace. With no `HX-Current-URL`, or one on another host, `HX-Redirect` is plain `/signin`. A normal browser GET of that URL gets 303 to `/signin?next=%2Fpo%2Flist%3Fstatus%3Ddraft` (CD-17, CD-382).
 - **Go test:** `TestSession_ExpiredHTMXRedirect`
 - **Sources:** `frappe/frappe/tests/test_auth.py:748` (`test_expired_session_answers_401_without_leaking_method`)
 
