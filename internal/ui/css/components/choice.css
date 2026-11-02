@@ -39,10 +39,11 @@
   }
 }
 
-/* Five or six options with longer words: the same look in two columns.
-   Dense, so a short option after a full-row one closes the gap before it. */
+/* Five or six options with longer words: the same look in two columns,
+   filled in plain row order. Tiles draws the full-row options last, so what
+   is seen and what the keyboard follows stay the same order. */
 @utility segmented--tiles {
-  grid-auto-flow: row dense;
+  grid-auto-flow: row;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 

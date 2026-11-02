@@ -1,6 +1,8 @@
 package gallery
 
 import (
+	"strconv"
+
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/layout"
@@ -53,6 +55,13 @@ templ buttonsBody() {
 			<p>This form takes half a second to save.</p>
 			@components.Button(components.ButtonProps{Label: "Save and continue", Variant: components.Primary})
 		}
+	}
+}
+
+// tileOrdersBody is one Tiles for every mix of five short and wide options.
+templ tileOrdersBody() {
+	for i, opts := range tileOrders() {
+		@components.Tiles(components.FieldProps{ID: "order-" + strconv.Itoa(i), Name: "order_" + strconv.Itoa(i), Label: "Order " + strconv.Itoa(i)}, opts)
 	}
 }
 

@@ -35,7 +35,7 @@ templ attachmentItems(items []Attachment, target, alt string) {
 				if a.Attached != "" {
 					<div class="attachments__tile-text">
 						<p class="attachments__name">{ a.Name }</p>
-						<p class="attachments__meta">{ a.Size + " · uploaded " + a.UploadedAt }</p>
+						<p class="attachments__meta">{ tileMeta(a) }</p>
 						<p class="attachments__attached">
 							@icons.Icon("circle-check")
 							<span>{ a.Attached }</span>
@@ -81,6 +81,16 @@ templ attachmentLink(a Attachment, alt string) {
 				<span>{ a.Name }</span>
 			</a>
 	}
+}
+
+// tileMeta is an attached-file tile's "size · uploaded time"; a HEIC file adds
+// that it downloads, as browsers can't show it.
+func tileMeta(a Attachment) string {
+	line := a.Size + " · uploaded " + a.UploadedAt
+	if a.Kind == "heic" {
+		line += " · opens as download"
+	}
+	return line
 }
 
 // compactLine is a compact item's one line: "name · size", or the size

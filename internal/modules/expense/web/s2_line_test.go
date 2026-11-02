@@ -168,9 +168,10 @@ func TestExpLine_NewPage(t *testing.T) {
 		last = i
 	}
 
-	// Type: radios of the enabled types by name, none chosen (CD-270 Q7).
+	// Type: radios of the enabled types by name, none chosen (CD-270 Q7),
+	// the full-row tile last.
 	types := s2Options(form, "expense_type_id")
-	if got, want := s2Labels(types), []string{"Food", "Fuel", "Lodging", "Site miscellaneous", "Travel"}; !slices.Equal(got, want) {
+	if got, want := s2Labels(types), []string{"Food", "Fuel", "Lodging", "Travel", "Site miscellaneous"}; !slices.Equal(got, want) {
 		t.Errorf("Type offers %q, want %q", got, want)
 	}
 	for _, o := range types {
@@ -314,7 +315,7 @@ func TestExpLine_TypeChoices(t *testing.T) {
 	path := s2ClaimPath(c.ID) + "/lines/new"
 
 	form := s2LineForm(t, e.page(t, s2Deepak, path))
-	if got, want := s2Labels(s2Options(form, "expense_type_id")), []string{"Food", "Fuel", "Parking", "Site miscellaneous", "Toll", "Travel"}; !slices.Equal(got, want) {
+	if got, want := s2Labels(s2Options(form, "expense_type_id")), []string{"Food", "Fuel", "Parking", "Toll", "Travel", "Site miscellaneous"}; !slices.Equal(got, want) {
 		t.Errorf("with 6 enabled types Type offers radios %q, want %q", got, want)
 	}
 

@@ -17,10 +17,31 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
-// tileMaxChars is the longest Tiles label that shares its row. At 360 px a
-// chosen tile holds about 12 characters on a line, so two short words this
-// long wrap whole; a longer label tends to hold a word that would split.
-const tileMaxChars = 16
+// tileMaxChars is the longest Tiles label that shares its row, the same 12
+// as docscreen's maxSegment (CD-353). A chosen half-width tile is 112 px wide
+// at 320 and 132 at 360, before its padding and check, so two short words
+// this long wrap whole. It counts the label, not its longest word: one word
+// of about this length can still split when chosen.
+const tileMaxChars = 12
+
+// tileWide reports whether o takes a Tiles grid's full row.
+func tileWide(o Option) bool { return utf8.RuneCountInString(o.Label) > tileMaxChars }
+
+// tileOrder is opts as Tiles draws them: those that share a row, then the
+// wide ones, each in the order given, in a new slice. A grid can't close the
+// gap before a full-row tile without drawing out of DOM order, so the order
+// is settled here, for every caller.
+func tileOrder(opts []Option) []Option {
+	out := make([]Option, 0, len(opts))
+	for _, wide := range []bool{false, true} {
+		for _, o := range opts {
+			if tileWide(o) == wide {
+				out = append(out, o)
+			}
+		}
+	}
+	return out
+}
 
 // optionID gives the first option the field's own id, so error links reach it.
 func optionID(p FieldProps, i int) string {
@@ -79,7 +100,7 @@ func Radios(p FieldProps, opts []Option) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(o.Value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 37, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 58, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 				if templ_7745c5c3_Err != nil {
@@ -164,7 +185,7 @@ func Checkboxes(p FieldProps, opts []Option, checked []string) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(o.Value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 49, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 70, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 				if templ_7745c5c3_Err != nil {
@@ -265,7 +286,8 @@ func Segmented(p FieldProps, opts []Option) templ.Component {
 }
 
 // Tiles is Segmented in a two-column grid, for options with longer words
-// (UI v2 §5.5 item 8, N7); a label over tileMaxChars takes the full row.
+// (UI v2 §5.5 item 8, N7); a label over tileMaxChars takes the full row, and
+// those are drawn last (tileOrder).
 func Tiles(p FieldProps, opts []Option) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -303,7 +325,7 @@ func Tiles(p FieldProps, opts []Option) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = segments(p, opts, true).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = segments(p, tileOrder(opts), true).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -347,7 +369,7 @@ func segments(p FieldProps, opts []Option, tiles bool) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if tiles && utf8.RuneCountInString(o.Label) > tileMaxChars {
+			if tiles && tileWide(o) {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " class=\"segmented__wide\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -360,7 +382,7 @@ func segments(p FieldProps, opts []Option, tiles bool) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(o.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 83, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 105, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 			if templ_7745c5c3_Err != nil {
@@ -395,7 +417,7 @@ func segments(p FieldProps, opts []Option, tiles bool) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(o.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 88, Col: 13}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 110, Col: 13}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -463,7 +485,7 @@ func Select(p FieldProps, opts []Option) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(o.Value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 98, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 120, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 				if templ_7745c5c3_Err != nil {
@@ -486,7 +508,7 @@ func Select(p FieldProps, opts []Option) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(o.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 98, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 120, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -540,7 +562,7 @@ func optionText(o Option) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(o.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 107, Col: 11}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 129, Col: 11}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -558,7 +580,7 @@ func optionText(o Option) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(o.Hint)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 109, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 131, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -623,7 +645,7 @@ func optionLines(o Option) templ.Component {
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(o.Bar.Value))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 124, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 146, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 				if templ_7745c5c3_Err != nil {
@@ -636,7 +658,7 @@ func optionLines(o Option) templ.Component {
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(o.Bar.Max))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 124, Col: 100}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 146, Col: 100}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 				if templ_7745c5c3_Err != nil {
@@ -650,7 +672,7 @@ func optionLines(o Option) templ.Component {
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(line)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 126, Col: 9}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/choice.templ`, Line: 148, Col: 9}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {

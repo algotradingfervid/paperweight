@@ -58,6 +58,7 @@ func wizardOpts(n int) layout.PageOpts {
 var pages = []galleryPage{
 	{"buttons", titled("Buttons"), static(buttonsBody())},
 	{"fields", formWidth("Fields"), static(fieldsBody())},
+	{"tile-orders", formWidth("Tile orders"), static(tileOrdersBody())},
 	{"cards", formWidth("Cards"), static(cardsBody())},
 	{"badges-banners", titled("Badges and banners"), static(badgesBody())},
 	{"dialogs", titled("Dialogs and sheets"), static(dialogsBody())},

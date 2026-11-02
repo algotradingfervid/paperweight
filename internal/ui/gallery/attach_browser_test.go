@@ -36,11 +36,13 @@ const (
 )
 
 // attachAnswer is how the server answers one held post: a refusal with
-// status and text, or a dropped connection.
+// status and text, a dropped connection, or ok, a 200 replacing the
+// #att-done-files region.
 type attachAnswer struct {
 	status int
 	text   string
 	drop   bool
+	ok     bool
 }
 
 // attachServer is gallery.Handler with POST /_gallery/attachments held until
@@ -81,6 +83,10 @@ func startAttach(t *testing.T) *attachServer {
 		if a.drop {
 			s.dropAll.Store(true)
 			drop(t, w)
+			return
+		}
+		if a.ok {
+			_, _ = io.WriteString(w, `<div id="att-done-files">Stored.</div>`)
 			return
 		}
 		notice, err := json.Marshal(map[string]any{"notice": map[string]string{"level": "error", "text": a.text}})

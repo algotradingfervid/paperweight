@@ -154,6 +154,7 @@ func TestE2E_ExpenseFlow(t *testing.T) {
 	// A person taps the type while it uploads; here the upload ends first,
 	// because its thumbnail moves the form down under a tap in flight.
 	d.Until("the receipt's thumbnail", `!!document.querySelector('#receipt-files img[alt="receipt.jpg"]')?.complete`)
+	d.Until("the upload's result in the status line", `document.getElementById("receipt-status").textContent === "Receipt attached."`)
 	c.tap(d, "Food", choice("expense_type_id", "Food"))
 	d.Until("Food chosen", `(`+choice("expense_type_id", "Food")+`).querySelector("input").checked`)
 	c.tap(d, "Amount", `document.getElementById("f-amount")`)

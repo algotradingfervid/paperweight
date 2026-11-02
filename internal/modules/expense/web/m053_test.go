@@ -26,6 +26,9 @@ func TestExpLine_ReceiptTile(t *testing.T) {
 	if page.Find(".upload.upload--card-named").Length() != 1 {
 		t.Error("the page's FileUpload repeats the card's name and hint")
 	}
+	if got := page.Find("#receipt-status").AttrOr("data-done", ""); got != "Receipt attached." {
+		t.Errorf("the status line's done text = %q", got)
+	}
 
 	v := strconv.Itoa(e.version(t, c.ID))
 	rec := e.upload(t, s2Deepak, strconv.FormatInt(c.ID, 10), v, s2File("bill.jpg", s2Bytes("bill.jpg")))

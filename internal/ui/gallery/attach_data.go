@@ -39,6 +39,16 @@ func cardNamedUpload() components.UploadProps {
 	return components.UploadProps{ID: "att-tile", Label: "Receipt", Action: attachAction, Hint: attachHint, Accept: attachAccept, CardNamed: true, Files: files}
 }
 
+// targetedUpload is a FileUpload whose answers go to the #att-done-files
+// region outside it, as on the expense line page, with done as its Done text
+// and one removable file.
+func targetedUpload(id, done string, remove int64) components.UploadProps {
+	return components.UploadProps{
+		ID: id, Label: "Receipt", Action: attachAction, Hint: attachHint, Accept: attachAccept, Target: "#att-done-files", Done: done,
+		Files: []components.Attachment{{ID: remove, Kind: "image", Name: "receipt.jpg", Size: "2.3 MB", UploadedAt: "24-10-2026 09:14", URL: brand.AppLogoURL, RemoveURL: attachAction, Attached: attachedWords}},
+	}
+}
+
 // threeFiles are receipt.jpg, challan.heic and quote-shree-steel.pdf, newest
 // first; removable sets RemoveURL on each.
 func threeFiles(removable bool) []components.Attachment {

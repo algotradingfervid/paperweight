@@ -9,7 +9,9 @@
 // server notice on a form inside the upload closes any open dialog around it
 // and shows in the message region, cloned from the upload's <template> as a
 // text node; only an upload form's refusal marks the inputs. No answer at all
-// shows the data-dropped text.
+// shows the data-dropped text. A 2xx answer to an upload puts the status
+// line's data-done text, when it has one, where the busy text was; it stays
+// until the next request in the upload ends or the next upload starts.
 
 const used = new WeakMap(); // upload box -> the input that started its upload
 
@@ -89,6 +91,8 @@ on("htmx:afterRequest", (b, e, up, p, s) => {
   used.delete(b);
   if (i && i.isConnected && e.detail.xhr.getResponseHeader("HX-Refresh") !== "true") {
     i.value = "";
+    const st = e.detail.xhr.status;
+    if (s.dataset.done && st >= 200 && st < 300) s.textContent = s.dataset.done;
     const a = document.activeElement;
     if (b.contains(a) || !a.matches("input,select,textarea")) i.focus();
   }

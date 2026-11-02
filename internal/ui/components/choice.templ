@@ -9,10 +9,31 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/icons"
 )
 
-// tileMaxChars is the longest Tiles label that shares its row. At 360 px a
-// chosen tile holds about 12 characters on a line, so two short words this
-// long wrap whole; a longer label tends to hold a word that would split.
-const tileMaxChars = 16
+// tileMaxChars is the longest Tiles label that shares its row, the same 12
+// as docscreen's maxSegment (CD-353). A chosen half-width tile is 112 px wide
+// at 320 and 132 at 360, before its padding and check, so two short words
+// this long wrap whole. It counts the label, not its longest word: one word
+// of about this length can still split when chosen.
+const tileMaxChars = 12
+
+// tileWide reports whether o takes a Tiles grid's full row.
+func tileWide(o Option) bool { return utf8.RuneCountInString(o.Label) > tileMaxChars }
+
+// tileOrder is opts as Tiles draws them: those that share a row, then the
+// wide ones, each in the order given, in a new slice. A grid can't close the
+// gap before a full-row tile without drawing out of DOM order, so the order
+// is settled here, for every caller.
+func tileOrder(opts []Option) []Option {
+	out := make([]Option, 0, len(opts))
+	for _, wide := range []bool{false, true} {
+		for _, o := range opts {
+			if tileWide(o) == wide {
+				out = append(out, o)
+			}
+		}
+	}
+	return out
+}
 
 // optionID gives the first option the field's own id, so error links reach it.
 func optionID(p FieldProps, i int) string {
@@ -64,11 +85,12 @@ templ Segmented(p FieldProps, opts []Option) {
 }
 
 // Tiles is Segmented in a two-column grid, for options with longer words
-// (UI v2 §5.5 item 8, N7); a label over tileMaxChars takes the full row.
+// (UI v2 §5.5 item 8, N7); a label over tileMaxChars takes the full row, and
+// those are drawn last (tileOrder).
 templ Tiles(p FieldProps, opts []Option) {
 	@choiceGroup(p) {
 		<div class="segmented segmented--tiles">
-			@segments(p, opts, true)
+			@segments(p, tileOrder(opts), true)
 		</div>
 	}
 }
@@ -76,7 +98,7 @@ templ Tiles(p FieldProps, opts []Option) {
 templ segments(p FieldProps, opts []Option, tiles bool) {
 	for i, o := range opts {
 		<label
-			if tiles && utf8.RuneCountInString(o.Label) > tileMaxChars {
+			if tiles && tileWide(o) {
 				class="segmented__wide"
 			}
 		>

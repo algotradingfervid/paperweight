@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chromedp/chromedp"
 
@@ -37,8 +39,7 @@ func e7bTile(v string) string {
 }
 
 // At 360 px the 100-character option spans the grid's two columns, its
-// neighbours keep one line's height and nothing scrolls sideways. A short
-// option after a full-row one moves up beside the short one before it.
+// neighbours keep one line's height and nothing scrolls sideways.
 func TestTilesBrowser_LongOptionFullRow(t *testing.T) {
 	ctx, eval, _ := openFieldsB4(t, 360)
 	long := e7bTile("other")
@@ -55,10 +56,37 @@ func TestTilesBrowser_LongOptionFullRow(t *testing.T) {
 		}
 	}
 	e7bOverflow(t, ctx, "long tile")
+}
 
-	eval("order", `(() => { const f = `+e7bTile("food")+`; `+e7bTile("fuel")+`.after(f); return ""; })()`)
-	if eval("dense", `String(`+e7bTile("travel")+`.offsetTop === `+e7bTile("fuel")+`.offsetTop)`) != "true" {
-		t.Error("the short tile after a full-row one left a gap beside the one before")
+// §5.5: every mix of short and wide options, in every place, draws in reading
+// order with the gap closed: each tile is on the same row to the right of the
+// one before it in the DOM, or lower, so a keyboard user's next tile is the
+// next one seen; and the rows are as few as the shorts in pairs, then one per
+// wide tile. All at both phone widths.
+func TestTilesBrowser_DOMOrderIsVisualOrder(t *testing.T) {
+	ctx := uibrowser.New(t)
+	s := startAttach(t)
+	for _, width := range []int64{320, 360} {
+		if err := uibrowser.At(ctx, width, s.URL+"/_gallery/tile-orders"); err != nil {
+			t.Fatal(err)
+		}
+		if n := attachEval[int](t, ctx, `document.querySelectorAll(".segmented--tiles").length`); n != 32 {
+			t.Errorf("%d groups drawn, want every one of the 32 mixes", n)
+		}
+		got := attachEval[[]string](t, ctx, `[...document.querySelectorAll(".segmented--tiles")].flatMap((g, n) => {
+  const ls = [...g.children].map((l) => ({r: l.getBoundingClientRect(), wide: l.classList.contains("segmented__wide"), text: l.textContent.trim()}));
+  const out = ls.slice(1).flatMap((l, i) => {
+    const a = ls[i];
+    return (l.r.top === a.r.top && l.r.left >= a.r.right) || l.r.top >= a.r.bottom ? [] : ["group " + n + ": " + a.text + " then " + l.text];
+  });
+  const shorts = ls.filter((l) => !l.wide).length;
+  const rows = new Set(ls.map((l) => l.r.top)).size;
+  const want = Math.ceil(shorts / 2) + ls.length - shorts;
+  return rows === want ? out : [...out, "group " + n + ": " + rows + " rows, want " + want];
+})`)
+		if len(got) != 0 {
+			t.Errorf("at %d px: DOM order isn't visual order: %q", width, got)
+		}
 	}
 }
 
@@ -156,6 +184,131 @@ func TestUploadBrowser_BusyNameAndPercent(t *testing.T) {
 			attachWait(t, ctx, id, "idle after the answer", attIdle(id))
 			attachWait(t, ctx, id, "the label's colour returns", `getComputedStyle(`+labels+`[0]).color === `+strconv.Quote(idleColor))
 		})
+	}
+}
+
+// e7bStates records every text the status line of the upload id goes through.
+func e7bStates(id string) string {
+	return `(() => { const s = document.getElementById(` + strconv.Quote(id+"-status") + `); window.e7bStates = []; new MutationObserver(() => window.e7bStates.push(s.textContent)).observe(s, {childList: true, characterData: true, subtree: true}); })()`
+}
+
+const e7bDone = "Receipt attached."
+
+// e7bStatus is the text of the upload id's status line.
+func e7bStatus(id string) string {
+	return `document.getElementById(` + strconv.Quote(id+"-status") + `).textContent`
+}
+
+// e7bSend chooses a file on the upload id and waits for the server to hold it.
+func e7bSend(t *testing.T, ctx context.Context, s *attachServer, id string) {
+	t.Helper()
+	attachDo(t, ctx, "choose a file", chromedp.SetUploadFiles(chromedp.CSS("#"+id+"-file"), []string{e7bFile(t, "bill.jpg")}))
+	s.held(t)
+	attachWait(t, ctx, id, "busy", attBusy(id))
+}
+
+// e7bOpen opens the attachments page on a new server, recording id's status.
+func e7bOpen(t *testing.T, ctx context.Context, id string) *attachServer {
+	t.Helper()
+	s := startAttach(t)
+	if err := uibrowser.At(ctx, 360, s.URL+"/_gallery/attachments"); err != nil {
+		t.Fatal(err)
+	}
+	attachEval[any](t, ctx, e7bStates(id))
+	return s
+}
+
+// UX §5.5, WCAG 4.1.3: after a successful upload the status line goes from
+// busy to the Done text, which replaces it in one step (nothing empty for a
+// screen reader to skip) and stays. The next upload's busy text replaces it.
+func TestUploadBrowser_DoneAnnounced(t *testing.T) {
+	const id = "att-done"
+	ctx := uibrowser.New(t)
+	s := e7bOpen(t, ctx, id)
+	if got := attachEval[string](t, ctx, attQ("#"+id+"-status")+`.dataset.done`); got != e7bDone {
+		t.Fatalf("data-done = %q", got)
+	}
+	e7bSend(t, ctx, s, id)
+	s.reply(t, attachAnswer{ok: true})
+	attachWait(t, ctx, id, "the done text", e7bStatus(id)+` === `+strconv.Quote(e7bDone))
+	if got, want := attachEval[[]string](t, ctx, `window.e7bStates`), []string{"Uploading bill.jpg…", e7bDone}; !slices.Equal(got, want) {
+		t.Errorf("status went through %q, want %q", got, want)
+	}
+	attachWait(t, ctx, id, "the inputs are back", `!`+attInputs(id)+`.some(function (i) { return i.disabled; })`)
+	if !attachEval[bool](t, ctx, attQ("#"+id+" .upload__progress")+`.hidden`) {
+		t.Error("the bar stays up after the upload")
+	}
+	if got := attachEval[string](t, ctx, attQ("#"+id+" .upload__percent")+`.textContent`); got != "" {
+		t.Errorf("percent = %q after the upload", got)
+	}
+	attachDo(t, ctx, "time to read it", chromedp.Sleep(time.Second))
+	if got := attachEval[string](t, ctx, e7bStatus(id)); got != e7bDone {
+		t.Errorf("the status line after a second = %q", got)
+	}
+	e7bSend(t, ctx, s, id) // e7bSend's busy wait: the next upload replaces it
+}
+
+// A refusal of any status, a dropped connection and a Remove never say Done,
+// and a refusal or drop after a success takes the old Done text away.
+func TestUploadBrowser_DoneNotOnFailure(t *testing.T) {
+	const id = "att-done"
+	ctx := uibrowser.New(t)
+	for _, c := range []struct {
+		name string
+		a    attachAnswer
+		want string
+	}{
+		{"422", attachAnswer{status: http.StatusUnprocessableEntity, text: "No."}, "No."},
+		{"409", attachAnswer{status: http.StatusConflict, text: "No."}, "No."},
+		{"403", attachAnswer{status: http.StatusForbidden, text: "No."}, "No."},
+		{"413", attachAnswer{status: http.StatusRequestEntityTooLarge, text: "No."}, "No."},
+		{"dropped", attachAnswer{drop: true}, msgDropped},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s := e7bOpen(t, ctx, id)
+			e7bSend(t, ctx, s, id)
+			s.reply(t, attachAnswer{ok: true})
+			attachWait(t, ctx, id, "the done text", e7bStatus(id)+` === `+strconv.Quote(e7bDone))
+			attachEval[any](t, ctx, `window.e7bStates.length = 0`)
+
+			e7bSend(t, ctx, s, id)
+			s.reply(t, c.a)
+			attachWait(t, ctx, id, "the message", attShows(id, c.want))
+			attachWait(t, ctx, id, "idle", attIdle(id))
+			if got := attachEval[[]string](t, ctx, `window.e7bStates`); slices.Contains(got, e7bDone) {
+				t.Errorf("status went through %q", got)
+			}
+		})
+	}
+	t.Run("remove", func(t *testing.T) {
+		s := e7bOpen(t, ctx, id)
+		attachDo(t, ctx, "open the confirm", chromedp.Click(chromedp.CSS(`#att-done button[aria-label="Remove receipt.jpg"]`)))
+		attachWait(t, ctx, id, "the confirm opens", `document.getElementById("remove-file-301").open`)
+		attachDo(t, ctx, "confirm", chromedp.Click(chromedp.CSS("#remove-file-301 button[type=submit]")))
+		s.held(t)
+		s.reply(t, attachAnswer{ok: true})
+		attachWait(t, ctx, id, "the answer arrives", `document.getElementById("att-done-files").textContent.trim() === "Stored."`)
+		attachDo(t, ctx, "time for a late text", chromedp.Sleep(200*time.Millisecond))
+		if got := attachEval[[]string](t, ctx, `window.e7bStates`); slices.Contains(got, e7bDone) {
+			t.Errorf("status went through %q", got)
+		}
+		if got := attachEval[string](t, ctx, e7bStatus(id)); got != "" {
+			t.Errorf("status = %q after a Remove", got)
+		}
+	})
+}
+
+// A caller with no Done keeps today's behaviour: the same successful answer
+// leaves the status line empty, not a stale busy text.
+func TestUploadBrowser_NoDoneStaysEmpty(t *testing.T) {
+	const id = "att-no-done"
+	ctx := uibrowser.New(t)
+	s := e7bOpen(t, ctx, id)
+	e7bSend(t, ctx, s, id)
+	s.reply(t, attachAnswer{ok: true})
+	attachWait(t, ctx, id, "idle after the answer", attIdle(id))
+	if got, want := attachEval[[]string](t, ctx, `window.e7bStates`), []string{"Uploading bill.jpg…", ""}; !slices.Equal(got, want) {
+		t.Errorf("status went through %q, want %q", got, want)
 	}
 }
 

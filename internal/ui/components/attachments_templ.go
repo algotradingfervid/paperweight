@@ -122,9 +122,9 @@ func attachmentItems(items []Attachment, target, alt string) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(a.Size + " · uploaded " + a.UploadedAt)
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(tileMeta(a))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/attachments.templ`, Line: 38, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/attachments.templ`, Line: 38, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -411,6 +411,16 @@ func attachmentLink(a Attachment, alt string) templ.Component {
 	})
 }
 
+// tileMeta is an attached-file tile's "size · uploaded time"; a HEIC file adds
+// that it downloads, as browsers can't show it.
+func tileMeta(a Attachment) string {
+	line := a.Size + " · uploaded " + a.UploadedAt
+	if a.Kind == "heic" {
+		line += " · opens as download"
+	}
+	return line
+}
+
 // compactLine is a compact item's one line: "name · size", or the size
 // alone beside a file chip, which shows the name.
 func compactLine(a Attachment) string {
@@ -465,7 +475,7 @@ func removeConfirm(a Attachment, target string) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(a.Name + " will be removed from this document. You can attach it again later.")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/attachments.templ`, Line: 102, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/attachments.templ`, Line: 112, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"os"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -31,16 +33,17 @@ func e7bWideLabels(doc *goquery.Document) []string {
 	return out
 }
 
-// CD-379: a Tiles option of 16 characters shares its row, one of 17 takes the
-// full row, and the seeded and existing labels fall where the threshold says.
+// CD-379, CD-353: a Tiles option of 12 characters shares its row, one of 13
+// takes the full row, and the seeded and existing labels fall where the
+// threshold says.
 func TestTiles_LongOptionTakesFullRow(t *testing.T) {
 	for _, c := range []struct {
 		name, label string
 		wide        bool
 	}{
-		{"at the threshold", e7bLabel(16), false},
-		{"one past it", e7bLabel(17), true},
-		{"GRN's longest challan kind", "Delivery challan", false},
+		{"at the threshold", e7bLabel(12), false},
+		{"one past it", e7bLabel(13), true},
+		{"GRN's longest challan kind", "Delivery challan", true},
 		{"the seeded expense type", "Site miscellaneous", true},
 		{"a short word", "Fuel", false},
 	} {
@@ -82,14 +85,97 @@ func e7bCSS(t *testing.T, file, name string) string {
 	return m21CSSBlock(string(css), name)
 }
 
-// The full-row class spans both columns, and the grid fills the gap a long
-// option would leave, as in the mock's Food, Fuel, Lodging, Travel order.
+// The full-row class spans both columns. The grid flows in plain row order,
+// never dense: Tiles draws the wide options last, so the visual order and the
+// keyboard's are the same.
 func TestTiles_FullRowCSS(t *testing.T) {
 	if b := e7bCSS(t, "choice.css", e7bWide); !regexp.MustCompile(`grid-column:\s*1\s*/\s*-1`).MatchString(b) {
 		t.Errorf("%s = %q, want a span of every column", e7bWide, b)
 	}
-	if b := e7bCSS(t, "choice.css", "segmented--tiles"); !strings.Contains(b, "grid-auto-flow: row dense") {
-		t.Errorf("segmented--tiles = %q, want a dense row flow", b)
+	if b := e7bCSS(t, "choice.css", "segmented--tiles"); !regexp.MustCompile(`grid-auto-flow:\s*row;`).MatchString(b) {
+		t.Errorf("segmented--tiles = %q, want a plain row flow (segmented's own flow is column)", b)
+	}
+}
+
+// e7bOption is an option whose value is its label.
+func e7bOption(label string) components.Option {
+	return components.Option{Value: label, Label: label}
+}
+
+// e7bDrawn are the values of the radios Tiles draws, in DOM order.
+func e7bDrawn(doc *goquery.Document) []string {
+	var out []string
+	doc.Find(".segmented input[type=radio]").Each(func(_ int, s *goquery.Selection) {
+		out = append(out, s.AttrOr("value", ""))
+	})
+	return out
+}
+
+// Tiles draws the options up to the threshold, then the wide ones, each group
+// in the order given, and leaves the caller's list as it was. Forty options,
+// more than the sort library's small-slice path, so an unstable sort shows.
+func TestTiles_WideOptionsDrawnLast(t *testing.T) {
+	short1, short2, short3 := "Food", "Fuel", e7bLabel(12)
+	wide1, wide2 := e7bLabel(13), "Site miscellaneous"
+	var manyIn, manyShort, manyWide []string
+	for i := range 40 {
+		l := strconv.Itoa(i) + "-" + e7bLabel(i%2*20)
+		manyIn = append(manyIn, l)
+		if i%2 == 0 {
+			manyShort = append(manyShort, l)
+		} else {
+			manyWide = append(manyWide, l)
+		}
+	}
+	for _, c := range []struct {
+		name     string
+		in, want []string
+	}{
+		{"seeded order", []string{"Food", "Fuel", "Lodging", "Site miscellaneous", "Travel"}, []string{"Food", "Fuel", "Lodging", "Travel", "Site miscellaneous"}},
+		{"wide first", []string{wide1, short1, short2}, []string{short1, short2, wide1}},
+		{"two wide keep their order", []string{wide2, short1, wide1, short2}, []string{short1, short2, wide2, wide1}},
+		{"all short", []string{short3, short1, short2}, []string{short3, short1, short2}},
+		{"all wide", []string{wide2, wide1}, []string{wide2, wide1}},
+		{"GRN's two kinds", []string{"Delivery challan", "Tax invoice"}, []string{"Tax invoice", "Delivery challan"}},
+		{"forty", manyIn, slices.Concat(manyShort, manyWide)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			opts := make([]components.Option, len(c.in))
+			for i, l := range c.in {
+				opts[i] = e7bOption(l)
+			}
+			before := slices.Clone(opts)
+			doc := uitest.Render(t, components.Tiles(components.FieldProps{ID: "f-t", Name: "t", Label: "Type"}, opts))
+			if got := e7bDrawn(doc); !slices.Equal(got, c.want) {
+				t.Errorf("drawn order = %q, want %q", got, c.want)
+			}
+			if !slices.EqualFunc(opts, before, func(a, b components.Option) bool { return a.Value == b.Value }) {
+				t.Errorf("Tiles changed the caller's list: %+v, was %+v", opts, before)
+			}
+		})
+	}
+}
+
+// An error link goes to the field's id, which must be the first drawn option
+// even when the list given starts with a wide one; the others stay unique and
+// the chosen value stays checked wherever it moved to.
+func TestTiles_ErrorLinkReachesFirstDrawn(t *testing.T) {
+	opts := []components.Option{e7bOption("Site miscellaneous"), e7bOption("Food"), e7bOption("Fuel")}
+	doc := uitest.Render(t, components.Tiles(components.FieldProps{ID: "f-t", Name: "t", Label: "Type", Value: "Site miscellaneous"}, opts))
+	inputs := doc.Find(".segmented input[type=radio]")
+	if got := inputs.First().AttrOr("id", ""); got != "f-t" {
+		t.Errorf("first drawn option's id = %q, want the field's id f-t", got)
+	}
+	if got := doc.Find("#f-t").AttrOr("value", ""); got != "Food" {
+		t.Errorf("#f-t is %q, want the first drawn option Food", got)
+	}
+	var ids []string
+	inputs.Each(func(_ int, s *goquery.Selection) { ids = append(ids, s.AttrOr("id", "")) })
+	if want := []string{"f-t", "f-t-1", "f-t-2"}; !slices.Equal(ids, want) {
+		t.Errorf("ids = %q, want %q", ids, want)
+	}
+	if got := doc.Find("input:checked").AttrOr("value", ""); got != "Site miscellaneous" {
+		t.Errorf("checked = %q", got)
 	}
 }
 
@@ -153,7 +239,7 @@ func TestAttachments_AttachedTile(t *testing.T) {
 	for i, want := range []struct{ link, name, meta string }{
 		{`a.attachments__thumb[href="/files/1"] > img[alt="receipt.jpg"]`, "receipt.jpg", "2.3 MB · uploaded 24-10-2026 09:14"},
 		{`a.attachments__chip[href="/files/2"] > svg`, "bill.pdf", "312 KB · uploaded 24-10-2026 09:15"},
-		{`a.attachments__chip[href="/files/3"][download] > svg`, "IMG_1.heic", "1.9 MB · uploaded 24-10-2026 09:16"},
+		{`a.attachments__chip[href="/files/3"][download] > svg`, "IMG_1.heic", "1.9 MB · uploaded 24-10-2026 09:16 · opens as download"},
 	} {
 		li := items.Eq(i)
 		if li.Find(want.link).Length() != 1 {
@@ -179,6 +265,30 @@ func TestAttachments_AttachedTile(t *testing.T) {
 	}
 	if n := items.Eq(1).Find("[data-open-dialog]").Length(); n != 0 {
 		t.Errorf("a tile with no RemoveURL has %d Remove buttons", n)
+	}
+}
+
+// Done is on the status line as data-done only when set, so every other
+// caller's markup stays as it was; the bar always has its accessible name.
+func TestFileUpload_DoneAndBarName(t *testing.T) {
+	plainHTML, plain := m22Render(t, e7bUpload(false))
+	if _, ok := plain.Find("#receipt-status").Attr("data-done"); ok {
+		t.Error("without Done the status line has data-done")
+	}
+	if strings.Contains(plainHTML, "data-done") {
+		t.Errorf("data-done in %s", plainHTML)
+	}
+	p := e7bUpload(false)
+	p.Done = "Receipt attached."
+	doneHTML, done := m22Render(t, p)
+	if got := done.Find("#receipt-status").AttrOr("data-done", ""); got != p.Done {
+		t.Errorf("data-done = %q, want %q", got, p.Done)
+	}
+	if want := strings.Replace(plainHTML, `<p id="receipt-status" role="status"`, `<p id="receipt-status" role="status" data-done="Receipt attached."`, 1); doneHTML != want {
+		t.Errorf("Done changed more than the attribute:\n got %s\nwant %s", doneHTML, want)
+	}
+	if got := plain.Find("progress.upload__progress").AttrOr("aria-label", ""); got != "Upload progress" {
+		t.Errorf("the bar's aria-label = %q", got)
 	}
 }
 

@@ -39,8 +39,8 @@ func TestGallery_AttachmentsRemoveOpensConfirm(t *testing.T) {
 			}
 		}
 	}
-	if n := d.Find(`dialog[id^="remove-file-"]`).Length(); n != 3+20+2 {
-		t.Errorf("found %d remove confirms, want 25 (three in (b), twenty in (f), two in (h))", n)
+	if n := d.Find(`dialog[id^="remove-file-"]`).Length(); n != 3+20+2+2 {
+		t.Errorf("found %d remove confirms, want 27 (three in (b), twenty in (f), two in (h), two in (i))", n)
 	}
 }
 

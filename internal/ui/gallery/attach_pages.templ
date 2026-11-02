@@ -5,7 +5,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
-// attachmentsBody is variants (a) to (g). In (e) the refusal is FileUpload's
+// attachmentsBody is variants (a) to (i). In (e) the refusal is FileUpload's
 // Error prop; on a page upload.js writes the server's notice into the same
 // #att-refused-msg region. Each removable file's confirm is Attachments' own.
 templ attachmentsBody() {
@@ -56,6 +56,14 @@ templ attachmentsBody() {
 		<h2>(h) In a card that names it, attached-file tiles</h2>
 		@components.Card("Receipt", nil) {
 			@components.FileUpload(cardNamedUpload())
+		}
+	</section>
+	<section id="att-i" class="stack">
+		<h2>(i) Answers outside the upload, with and without a done text</h2>
+		@components.Card("Receipt", nil) {
+			@components.FileUpload(targetedUpload("att-done", "Receipt attached.", 301))
+			@components.FileUpload(targetedUpload("att-no-done", "", 302))
+			<div id="att-done-files"></div>
 		}
 	</section>
 }

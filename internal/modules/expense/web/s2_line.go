@@ -143,6 +143,7 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 		ID: receiptUploadID, Label: msgReceiptLabel, Hint: msgReceiptHint, Action: action, CardNamed: true,
 		Accept:      "image/*,application/pdf",
 		Target:      "#receipt-files",
+		Done:        msgReceiptDone,
 		AlsoDisable: saveLine,
 		Error:       l.errorOf("receipt_sha256"),
 	}
