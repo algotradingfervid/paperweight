@@ -373,7 +373,7 @@ Main is fb12cbf1. UI v2 is at 34 of 38 tasks merged. On resume, send each AD a r
 - **C3c** (.worktrees/ui-c3c, base 21e916b6): review asked for changes. The fix round per CD-378 was being checked when work stopped. Re-run `make handin BASE=21e916b6 PKGS="./internal/ui/... ./internal/modules/... ./internal/app/..."`, make mutate and the full make e2e. Then send it to a fresh crew-reviewer to re-check only the two majors and CD-378. Status: scratchpad uiv2c3c-status.md.
 - **C4b** (.worktrees/ui-c4b, base d8d4908b): built, hand-in not confirmed. Re-run the hand-in, then review. Status: scratchpad uiv2c4b-status.md.
 - **E7 GRN** (AD-12, lane/mod-grn-e7): includes a components.Radios extension (Option.Lines, Option.Bar *Meter) approved by the head; log it as a CD at merge. After E7: the stores.pune sign-in flake, root cause.
-- **E7 expense** (AD-11).
+- **E7 expense** (AD-11, .worktrees/mod-exp-e7 on lane/mod-exp-uie7, base d8d4908b, uncommitted). The lane also changes e2e/grn_flow_test.go, outside E7 scope: check why before review.
 - **C2b** (shorter step labels in every module): not started; it goes after both E7s.
 - Then: module UI/UX review (crew-ui-reviewer), fix lists to the ADs, the final gate, and the owner's push say-so.
 - Preview: rebuild from main. Port 8080 may be taken by another session's demo, so use 8081.
