@@ -10,6 +10,28 @@ templ ownerCardView(href string) {
 	}
 }
 
+// inputsView is a step's inputs, in order.
+templ inputsView(inputs []templ.Component) {
+	for _, c := range inputs {
+		@c
+	}
+}
+
+// totalsCard is the document page's totals.
+templ totalsCard(pairs []components.Pair) {
+	@components.Card(totalsTitle, nil) {
+		@components.SummaryList(pairs)
+	}
+}
+
+// aboveStep is a revised draft's rejection banner above a step's own part.
+templ aboveStep(reason string, part templ.Component) {
+	if reason != "" {
+		@components.Banner(components.BannerProps{Kind: components.Warning, Message: reason})
+	}
+	@part
+}
+
 // linkedRowsView is a card of linked records, the Goods receipts (UX §5.9)
 // or Linked orders (UX §5.16) section: a DataList row per readable record,
 // then others, the count of the rest with no state or link; with neither,

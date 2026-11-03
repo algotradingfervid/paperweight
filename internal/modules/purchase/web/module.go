@@ -15,6 +15,9 @@ type module struct {
 // §5.13 item 3).
 var orderKeyFacts = []string{"vendor_id", "site_id", "order_date", "required_by"}
 
+// itemsNoun keeps docscreen's words but for the Items step with no lines.
+var itemsNoun = docscreen.LineNoun{Empty: "No items yet."}
+
 // purchaseHome is the success block's "Go to Purchase" (UI v2 §5.13 item 2).
 var purchaseHome = components.Link{Label: "Purchase", Href: homePath}
 
@@ -34,9 +37,11 @@ func Modules(d Deps) map[string]docscreen.Module {
 			},
 			StepIcons: map[string]string{"details": "handshake", "terms": "calendar-clock"}, // UI v2 C4c
 			Steps: map[string]docscreen.Step{
-				"terms": m.orderTermsStep(), // P15a
-				"items": m.orderItemsStep(), // P15c
+				"details": withRejection(detailsStep()),      // R13
+				"terms":   withRejection(m.orderTermsStep()), // P15a
+				"items":   withRejection(m.orderItemsStep()), // P15c
 			},
+			LineNoun:    itemsNoun,                        // UX §5.6
 			Hide:        m.orderHide,                      // P15a
 			Check:       m.orderCheck,                     // P15a
 			LineCard:    m.orderLineCard,                  // P15a
@@ -50,13 +55,20 @@ func Modules(d Deps) map[string]docscreen.Module {
 			TodayDates:  []string{"order_date"},           // PO spec §3.2
 		},
 		purchase.RequestDocType: {
-			CardsOnly: requestCardsOnly,  // P15d
-			Page:      m.requestPage,     // P15d
-			Reason:    m.requestReason,   // P15d
-			Hide:      m.requestHide,     // P15d
-			Check:     m.requestCheck,    // P15d
-			LineCard:  m.requestLineCard, // P15d
-			Home:      purchaseHome,      // UI v2 E5b
+			StepIntros: map[string]string{ // UI v2 C2
+				"details": "Where the items are needed and what they're for.",
+				"items":   "Add what you need, with the quantity for each line.",
+				"check":   "Check the request, then submit it.",
+			},
+			Steps:     map[string]docscreen.Step{"details": detailsStep()}, // R13
+			LineNoun:  itemsNoun,                                           // UX §5.6
+			CardsOnly: requestCardsOnly,                                    // P15d
+			Page:      m.requestPage,                                       // P15d
+			Reason:    m.requestReason,                                     // P15d
+			Hide:      m.requestHide,                                       // P15d
+			Check:     m.requestCheck,                                      // P15d
+			LineCard:  m.requestLineCard,                                   // P15d
+			Home:      purchaseHome,                                        // UI v2 E5b
 
 			StepIcons: map[string]string{"details": "clipboard-list"}, // UI v2 C4c
 		},
