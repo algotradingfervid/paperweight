@@ -102,8 +102,8 @@ func TestApp_AllRoutesRequireSignIn(t *testing.T) {
 				if r.status != http.StatusUnauthorized {
 					t.Errorf("%s %s (%s) = %d, want 401", method, route, c.name, r.status)
 				}
-				if method != http.MethodHead && r.alert() != c.msg {
-					t.Errorf("%s %s (%s) text = %q, want %q", method, route, c.name, r.alert(), c.msg)
+				if method != http.MethodHead && !strings.Contains(r.pageText(), c.msg) {
+					t.Errorf("%s %s (%s) text = %q, want %q", method, route, c.name, r.pageText(), c.msg)
 				}
 				continue
 			}

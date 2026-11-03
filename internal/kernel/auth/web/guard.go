@@ -78,7 +78,7 @@ func (g *Guarded) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s, ctx := g.s, r.Context()
 	p, ok := auth.PrincipalFrom(ctx)
 	if !ok {
-		guest(w, r)
+		s.guest(w, r)
 		return
 	}
 	unsafe := !safeMethod(r.Method)
@@ -93,7 +93,16 @@ func (g *Guarded) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if unsafe && !s.validCSRF(r) {
-		s.WriteError(w, r, auth.ErrCSRF)
+		if isHTMX(r) || isAPI(r) {
+			s.WriteError(w, r, auth.ErrCSRF)
+			return
+		}
+		if r.URL.Path == "/signout" {
+			// Still CSRF-protected, so still signed in; the page says so.
+			s.renderPage(w, r, http.StatusForbidden, s.v.Message(MessagePage{CSRF: CSRFToken(ctx), Title: "Sign out", Message: auth.ErrSignOutRefused.Msg, SignOut: true}))
+			return
+		}
+		s.signInPage(w, r, http.StatusForbidden, auth.ErrCSRFSignIn.Msg, "", localPage(r, r.Referer()))
 		return
 	}
 	if userState(ctx).MustChangePassword && r.URL.Path != "/account/password" && r.URL.Path != "/signout" {
@@ -120,37 +129,99 @@ func (g *Guarded) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.next.ServeHTTP(w, r)
 }
 
-// guest answers a request with no principal (CD-17, CD-63).
-func guest(w http.ResponseWriter, r *http.Request) {
+// msgNotSaved goes with a plain POST's refusal: an htmx form keeps what was
+// typed, but a plain POST's page is gone.
+const msgNotSaved = "What you entered on that page wasn't saved."
+
+// expiredCookie tells the sign-in page a session ended (shell M7). It is a
+// cookie because a revoked session replayed must write no session row, and it
+// holds no text: the page says auth's own message. It lives only as long as a
+// redirect needs, and a sign-in clears it.
+const (
+	expiredCookie = "signin_expired"
+	expiredMaxAge = 10 * 60 // seconds
+)
+
+// setExpired sets expiredCookie, or clears it with maxAge below 0.
+func (s *Server) setExpired(w http.ResponseWriter, maxAge int) {
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure follows the session cookie's setting, and the cookie holds no secret.
+		Name: expiredCookie, Value: "1", Path: "/signin", MaxAge: maxAge,
+		HttpOnly: true, Secure: s.sm.Cookie.Secure, SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// guest answers a request with no principal (CD-17, CD-63). A plain POST gets
+// the sign-in page itself, with its status; a request that goes on to sign-in
+// leaves the expiry for that page to say.
+func (s *Server) guest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	msg := auth.ErrSignInRequired.Msg
-	if isExpired(r.Context()) {
+	if isExpired(ctx) {
 		msg = auth.ErrSessionExpired.Msg
 	}
 	loc := "/signin?next=" + url.QueryEscape(r.URL.RequestURI())
+	signIn := isHTMX(r) || (r.Method == http.MethodGet && !isAPI(r))
+	if signIn && isExpired(ctx) {
+		s.setExpired(w, expiredMaxAge)
+	}
 	switch {
 	case isHTMX(r):
 		w.Header().Set("HX-Redirect", htmxSignIn(r))
 		web.Error(w, r, http.StatusUnauthorized, msg)
-	case r.Method != http.MethodGet || strings.HasPrefix(r.URL.Path, "/api/"):
+	case isAPI(r):
 		web.Error(w, r, http.StatusUnauthorized, msg)
+	case r.Method != http.MethodGet:
+		s.signInPage(w, r, http.StatusUnauthorized, msg, "", localPage(r, r.Referer()))
 	default:
 		http.Redirect(w, r, loc, http.StatusSeeOther)
 	}
+}
+
+// signInPage answers a browser's plain POST refused for its session or its
+// form token: the way to sign in with the reason, returning to next by GET, so
+// nothing replays (CD-382). With a session it is the sign-in form. With none,
+// a form would need a token and so a new session row on every such POST
+// (AUTH-047), so it is a page linking to the form.
+func (s *Server) signInPage(w http.ResponseWriter, r *http.Request, status int, reason, email, next string) {
+	reasons := []string{reason, msgNotSaved}
+	if r.URL.Path == "/signin" {
+		reasons = reasons[:1] // no other page's entries were lost
+	}
+	token := s.sm.GetString(r.Context(), auth.SessionKeyCSRF)
+	if token != "" {
+		render(w, r, status, s.v.Login(LoginPage{CSRF: token, Warnings: reasons, Email: email, Next: next}))
+		return
+	}
+	link := "/signin"
+	if next != "" {
+		link += "?next=" + url.QueryEscape(next)
+	}
+	render(w, r, status, s.v.Message(MessagePage{Title: "Sign in", Warnings: reasons, SignIn: link}))
 }
 
 // htmxSignIn is the sign-in URL for an htmx request. Its own URL is a fragment
 // or a POST, not a page to land on, so next is the page it came from, when
 // HX-Current-URL names a local page of this host.
 func htmxSignIn(r *http.Request) string {
-	u, err := url.Parse(r.Header.Get("HX-Current-URL"))
-	if err != nil || u.Host != r.Host {
-		return "/signin"
-	}
-	next := u.RequestURI()
-	if SafeNext(next) != next {
+	next := localPage(r, r.Header.Get("HX-Current-URL"))
+	if next == "" {
 		return "/signin"
 	}
 	return "/signin?next=" + url.QueryEscape(next)
+}
+
+// localPage is raw's path and query when raw is a URL on r's host that passes
+// SafeNext, else "".
+func localPage(r *http.Request, raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host != r.Host {
+		return ""
+	}
+	next := u.RequestURI()
+	if SafeNext(next) != next {
+		return ""
+	}
+	return next
 }
 
 // redirect sends a 303 to loc, or HX-Redirect to an htmx request.
@@ -164,6 +235,8 @@ func redirect(w http.ResponseWriter, r *http.Request, loc string) {
 }
 
 func isHTMX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
+
+func isAPI(r *http.Request) bool { return strings.HasPrefix(r.URL.Path, "/api/") }
 
 func safeMethod(m string) bool {
 	return m == http.MethodGet || m == http.MethodHead || m == http.MethodOptions || m == http.MethodTrace

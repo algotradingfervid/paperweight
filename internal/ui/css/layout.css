@@ -224,6 +224,17 @@
   &:empty { padding-block-start: 0; }
 }
 
+/* #network stays in view under the head wherever the page is scrolled, on
+   top of the form (CD-387 (5)). The head is the app
+   header or, in focus mode, the wizard head: both are this tall. */
+@utility network-region {
+  position: sticky;
+  :root[data-axe] & { position: static; }
+  inset-block-start: calc(var(--header-h) + var(--safe-top));
+  z-index: var(--z-header);
+  padding-block-start: var(--space-2);
+}
+
 /* Side panel (state, approval history, attachments, audit): under the page
    on smaller screens, a right column from 80rem. */
 @utility app-page {

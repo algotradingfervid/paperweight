@@ -39,6 +39,8 @@ var (
 	ErrSessionExpired       = &Problem{401, "Your session has expired. Sign in again."} // CD-17
 	ErrSignInRequired       = &Problem{401, "Sign in to continue."}
 	ErrCSRF                 = &Problem{403, "Your form has expired. Reload the page and try again."}
+	ErrCSRFSignIn           = &Problem{403, "Your form has expired. Sign in again."} // a plain POST, shown on the sign-in page
+	ErrSignOutRefused       = &Problem{403, "Couldn't sign you out. Try again."}     // POST /signout with a stale token: the session stays
 	ErrNotAdminPassword     = &Problem{403, "You don't have permission to change other users' passwords."}
 	ErrResetNotAdmin        = &Problem{403, "This command only resets an administrator's password. Sign in as an administrator to reset other users' passwords."}
 	ErrAdminOnlyField       = &Problem{403, "Only an administrator can change this."}

@@ -98,8 +98,8 @@ func TestApp_ModkitRoutesMounted(t *testing.T) {
 	// No CSRF token: AUTH's refusal, nothing saved.
 	noToken := *priya
 	noToken.csrf = ""
-	if r := noToken.post(path, url.Values{"body": {"Without a token."}}); r.status != http.StatusForbidden || r.alert() != auth.ErrCSRF.Msg {
-		t.Errorf("POST %s without CSRF = %d %q, want 403 %q", path, r.status, r.alert(), auth.ErrCSRF.Msg)
+	if r := noToken.post(path, url.Values{"body": {"Without a token."}}); r.status != http.StatusForbidden || !strings.Contains(r.pageText(), auth.ErrCSRFSignIn.Msg) {
+		t.Errorf("POST %s without CSRF = %d %q, want 403 %q", path, r.status, r.pageText(), auth.ErrCSRFSignIn.Msg)
 	}
 	// No read on orders (Deepak): the same 404 as a missing record.
 	if r := deepak.post(path, url.Values{"body": {"Can I see this?"}}); r.status != http.StatusNotFound || r.alert() != auth.MsgNotFound {

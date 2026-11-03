@@ -232,7 +232,7 @@ func Page(o PageOpts) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div id=\"network\" class=\"alerts\" aria-live=\"polite\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div id=\"network\" class=\"alerts network-region\" aria-live=\"polite\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -549,7 +549,8 @@ func flash(n web.Notice) templ.Component {
 
 // networkTemplates are the banners app.js copies into #network when a request
 // gets no answer (offline) or a 5xx (server), each with Try again, and, for a
-// POST that can't be safely re-sent, one with Reload (UI v2 §5.14, CD-346).
+// POST that can't be safely re-sent, one with Reload (UI v2 §5.14, CD-346,
+// CD-387 (5)).
 func networkTemplates() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

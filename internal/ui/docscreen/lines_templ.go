@@ -543,7 +543,7 @@ func linePageBody(lp linePageView) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = components.Form(components.FormProps{ID: lp.FormID, Action: lp.Action}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Form(components.FormProps{ID: lp.FormID, Action: lp.Action, HX: true, DisabledElt: lineDisabled(lp.FormID)}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

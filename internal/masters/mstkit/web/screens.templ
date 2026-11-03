@@ -42,59 +42,64 @@ templ recordPage(v recordView) {
 // recordPageCancelTo is recordPage with the delete confirm step's Cancel going
 // to cancel.
 templ recordPageCancelTo(v recordView, cancel string) {
-	@layout.Page(layout.PageOpts{
-		Title:      v.Title,
-		Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
-		Width:      v.Width,
-		Focus:      v.Confirm || (len(v.Cards) == 0 && v.CanWrite), // its action bar is the bottom bar
-		Back:       &v.Back,
-		BannerSlot: problemBanner(v),
-	}) {
-		if v.Disabled {
-			@components.StateBadge(disabledState)
-		}
-		@components.ErrorSummary(v.Form.summary())
-		if v.Confirm {
-			@components.Card("Delete "+v.Title+"?", nil) {
-				<p>This can't be undone.</p>
-				@components.Form(components.FormProps{Action: v.Action + "/delete"}) {
-					<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
-					@components.ActionBar(components.ActionBarProps{
-						Primary:   &components.ButtonProps{Label: "Delete", Variant: components.Danger, Busy: "Deleting…"},
-						Secondary: &components.ButtonProps{Label: "Cancel", Href: cancel},
-					})
-				}
-			}
-		} else if len(v.Cards) > 0 {
-			for _, c := range v.Cards {
-				@components.Card(c.Title, c.Change) {
-					@components.SummaryList(c.Pairs)
-				}
-			}
-		} else if v.CanWrite {
-			@components.Form(components.FormProps{Action: v.Action}) {
-				if v.ID != 0 {
-					<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
-				}
-				@components.RequiredNote(v.Required)
-				for _, in := range grouped(v.Inputs) {
-					@in
-				}
-				@formRows(v.Rows)
+	@layout.Page(recordOpts(v)) {
+		@recordBody(v, cancel)
+	}
+}
+
+// recordMain is recordPageCancelTo as the #main fragment the form's htmx post
+// swaps in.
+templ recordMain(v recordView, cancel string) {
+	@layout.Main(recordOpts(v)) {
+		@recordBody(v, cancel)
+	}
+}
+
+templ recordBody(v recordView, cancel string) {
+	if v.Disabled {
+		@components.StateBadge(disabledState)
+	}
+	@components.ErrorSummary(v.Form.summary())
+	if v.Confirm {
+		@components.Card("Delete "+v.Title+"?", nil) {
+			<p>This can't be undone.</p>
+			@components.Form(components.FormProps{Action: v.Action + "/delete", HX: true}) {
+				<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
 				@components.ActionBar(components.ActionBarProps{
-					Primary: &components.ButtonProps{Label: "Save", Variant: components.Primary, Busy: "Saving…"},
+					Primary:   &components.ButtonProps{Label: "Delete", Variant: components.Danger, Busy: "Deleting…"},
+					Secondary: &components.ButtonProps{Label: "Cancel", Href: cancel},
 				})
 			}
-		} else {
-			@components.SummaryList(v.Pairs)
-			@readRows(v)
 		}
-		if !v.Confirm {
-			if v.Extra != nil {
-				@v.Extra
+	} else if len(v.Cards) > 0 {
+		for _, c := range v.Cards {
+			@components.Card(c.Title, c.Change) {
+				@components.SummaryList(c.Pairs)
 			}
-			@components.MoreActions(v.More)
 		}
+	} else if v.CanWrite {
+		@components.Form(components.FormProps{ID: recordFormID, Action: v.Action, HX: true, DisabledElt: "#" + recordFormID + " button[type=submit]"}) {
+			if v.ID != 0 {
+				<input type="hidden" name="version" value={ strconv.Itoa(v.Form.Version) }/>
+			}
+			@components.RequiredNote(v.Required)
+			for _, in := range grouped(v.Inputs) {
+				@in
+			}
+			@formRows(v.Rows)
+			@components.ActionBar(components.ActionBarProps{
+				Primary: &components.ButtonProps{Label: "Save", Variant: components.Primary, Busy: "Saving…"},
+			})
+		}
+	} else {
+		@components.SummaryList(v.Pairs)
+		@readRows(v)
+	}
+	if !v.Confirm {
+		if v.Extra != nil {
+			@v.Extra
+		}
+		@components.MoreActions(v.More)
 	}
 }
 
@@ -118,13 +123,23 @@ templ readRows(v recordView) {
 
 // problemBanner is a refusal with no field: a stale version (409, the
 // conflict banner naming the record) or mstkit's "Cannot delete …" (422).
+// It takes focus unless the error summary does, which brings it into view
+// after an htmx swap has kept the scroll (CD-384).
 templ problemBanner(v recordView) {
-	if v.Form.Problem != "" {
-		if v.Form.Reload {
-			@components.ConflictBanner(v.Form.Problem, v.Label, v.Action)
-		} else {
-			@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.Form.Problem})
-		}
+	if v.Form.Problem != "" && len(v.Form.Errs) == 0 {
+		<div id="record-alert" tabindex="-1" autofocus>
+			@problemNotice(v)
+		</div>
+	} else if v.Form.Problem != "" {
+		@problemNotice(v)
+	}
+}
+
+templ problemNotice(v recordView) {
+	if v.Form.Reload {
+		@components.ConflictBanner(v.Form.Problem, v.Label, v.Action)
+	} else {
+		@components.Banner(components.BannerProps{Kind: components.Danger, Message: v.Form.Problem})
 	}
 }
 

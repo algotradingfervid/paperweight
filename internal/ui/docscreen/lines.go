@@ -18,6 +18,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
 // phoneCards is how many line cards the items step shows before "Show all"
@@ -249,7 +250,7 @@ func (d Deps) draftView(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		return DocView{}, false
 	}
 	if v.Info.State != doctype.StateDraft {
-		http.Redirect(w, r, docURL(dt.Name, id), http.StatusSeeOther) //nolint:gosec // G710: a local /doc/ path from a registered DocType name and a numeric id
+		wizard.Respond(w, r, wizard.Finish, docURL(dt.Name, id), nil)
 		return DocView{}, false
 	}
 	return v, true
@@ -356,8 +357,9 @@ func (d Deps) lineGet(w http.ResponseWriter, r *http.Request) {
 // linePost serves POST …/lines/new and …/lines/{no}: the loaded lines,
 // plain and with their ids, with this one replaced or added, saved with
 // the posted version (CD-94) and scoped to the lines, so only a changed
-// line's error refuses (CD-207). An htmx post comes from the desktop grid and
-// gets its row back (CD-95). With the module's Line, Line.Save gives the
+// line's error refuses (CD-207). A post from the desktop grid gets its row
+// back (CD-95), and the page's own htmx post a redraw of #main. With the
+// module's Line, Line.Save gives the
 // values and parse errors in place of the posted fields, and a refusal
 // redraws Line.Body with Posted set (hooks spec §4.2, CD-256 (5)).
 func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
@@ -388,7 +390,7 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		// 409 below redraws its form as a new line's, so the entries stay, and
 		// Reload goes to the items step. A grid row has no form to redraw.
 		if no, ok = lineNo(r, min(len(rec.Lines), len(loaded.Lines))); !ok {
-			if _, ok = lineNo(r, math.MaxInt); !ok || version == rec.Version || ui.IsHTMX(r) {
+			if _, ok = lineNo(r, math.MaxInt); !ok || version == rec.Version || fromGrid(r) {
 				problem(w, r, doctype.ErrNotFound)
 				return
 			}
@@ -401,7 +403,7 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	line := d.modOf(dt).Line
-	grid := ui.IsHTMX(r) && no > 0 && d.gridShown(r, dt, loaded)
+	grid := fromGrid(r) && no > 0 && d.gridShown(r, dt, loaded)
 	var typed, plain map[string]string
 	var errs []doctype.FieldError
 	refused := func(pr Problem) {
@@ -514,7 +516,7 @@ func (d Deps) backToItems(w http.ResponseWriter, r *http.Request, dt *doctype.Do
 	for _, msg := range warnings {
 		web.Flash(r.Context(), "warning", msg)
 	}
-	http.Redirect(w, r, itemsURL(dt.Name, id), http.StatusSeeOther) //nolint:gosec // G710: a local /doc/ path from a registered DocType name and a numeric id
+	wizard.Respond(w, r, wizard.Finish, itemsURL(dt.Name, id), nil)
 }
 
 // gridSaved answers a grid row save: the row as saved, and out of band
@@ -743,6 +745,22 @@ func (d Deps) itemsRefused(w http.ResponseWriter, r *http.Request, dt *doctype.D
 	}
 	notice(w, r, pr)
 	ui.Render(w, r, pr.Status, stepFull(sv), stepMain(sv))
+}
+
+// lineDisabled is the line form's hx-disabled-elt: with an id, its bar's Save
+// line posts it from outside as well. "" is the form's own submit button.
+func lineDisabled(formID string) string {
+	if formID == "" {
+		return ""
+	}
+	return "#" + formID + " button[type=submit], button[form=" + formID + "]"
+}
+
+// fromGrid reports whether r is a desktop grid row's save. The line and remove
+// pages post through htmx too (a dropped connection reaches the network
+// banner), and they swap #main; a grid row swaps itself.
+func fromGrid(r *http.Request) bool {
+	return ui.IsHTMX(r) && r.Header.Get("HX-Target") != "main"
 }
 
 // linePageOpts adds the banners and, with the module's Line, the sticky bar

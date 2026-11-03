@@ -2,6 +2,7 @@ package views
 
 import (
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
+	"github.com/vardhan/internaltools/internal/ui/components"
 	uilayout "github.com/vardhan/internaltools/internal/ui/layout"
 )
 
@@ -13,6 +14,14 @@ templ message(p authweb.MessagePage) {
 	@page(uilayout.PageOpts{Title: p.Title, Bare: true}, p.CSRF, p.Error, "main", p.Warnings) {
 		if p.Message != "" {
 			<p>{ p.Message }</p>
+		}
+		if p.SignIn != "" {
+			@components.Button(components.ButtonProps{Label: "Sign in", Href: p.SignIn, Variant: components.Primary})
+		}
+		if p.SignOut {
+			@components.Form(components.FormProps{Action: "/signout", CSRF: p.CSRF}) {
+				@components.Button(components.ButtonProps{Label: "Sign out", Busy: "Signing out…", Variant: components.Primary})
+			}
 		}
 	}
 }

@@ -6,10 +6,12 @@ import "github.com/vardhan/internaltools/internal/ui"
 // DisabledElt is a POST form's hx-disabled-elt (default its first submit,
 // "find button[type=submit]"); a form with buttons outside it posting it
 // through form="…" names them all. CSRF replaces the shell's token on a POST,
-// for a page rendered before sign-in, when the shell has none.
+// for a page rendered before sign-in, when the shell has none. Attrs go on a
+// POST form.
 type FormProps struct {
 	ID, Action, Method, Target, Swap, Trigger, DisabledElt, CSRF string
 	HX, Multipart                                                bool
+	Attrs                                                        templ.Attributes
 }
 
 func orDefault(s, def string) string {
@@ -64,6 +66,7 @@ templ Form(p FormProps) {
 					hx-encoding="multipart/form-data"
 				}
 			}
+			{ p.Attrs... }
 		>
 			<input type="hidden" name="csrf_token" value={ orDefault(p.CSRF, ui.ShellFrom(ctx).CSRF) }/>
 			{ children... }

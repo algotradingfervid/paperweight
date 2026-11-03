@@ -9,7 +9,9 @@
 // server notice on a form inside the upload closes any open dialog around it
 // and shows in the message region, cloned from the upload's <template> as a
 // text node; only an upload form's refusal marks the inputs. No answer at all
-// shows the data-dropped text. A 2xx answer to an upload, unless it is an
+// shows the data-dropped text, which #network leaves to it. The next request
+// from the upload removes its earlier notice from #alerts. A 2xx answer to an
+// upload, unless it is an
 // HX-Redirect (the page is leaving), puts the status line's data-done text,
 // when it has one, where the busy text was, for screen readers only: the file
 // shown below says it on screen. It stays until the next request in the
@@ -60,6 +62,7 @@ const msg = (b, text, mark) => {
 };
 
 on("htmx:beforeRequest", (b, e, up, p, s) => {
+  b.alert?.remove();
   if (!up) return;
   const i = e.target.querySelector("input[type=file]");
   used.set(b, i);
@@ -92,27 +95,28 @@ on("htmx:beforeOnLoad", (b, e) => {
 // back to it unless the user moved it into a field outside the upload, so
 // typing there is never interrupted (UX-E5).
 on("htmx:afterRequest", (b, e, up, p, s) => {
+  const x = e.detail.xhr;
+  const st = x.status;
   p.hidden = true;
   p.value = 0;
   say(s, "");
   percent(s, "");
+  // No answer, or a 5xx with no notice of its own (a proxy's): #network stays
+  // out of it (app.js), so this is the only word on it.
+  if (up && (!st || (st >= 500 && !x.getResponseHeader("HX-Trigger")))) msg(b, s.dataset.dropped, false);
   const i = used.get(b);
   used.delete(b);
-  if (i && i.isConnected && e.detail.xhr.getResponseHeader("HX-Refresh") !== "true") {
+  if (i && i.isConnected && x.getResponseHeader("HX-Refresh") !== "true") {
     i.value = "";
-    const st = e.detail.xhr.status;
-    if (s.dataset.done && st >= 200 && st < 300 && e.detail.xhr.getResponseHeader("HX-Redirect") === null) say(s, s.dataset.done, true);
+    if (s.dataset.done && st >= 200 && st < 300 && x.getResponseHeader("HX-Redirect") === null) say(s, s.dataset.done, true);
     const a = document.activeElement;
     if (b.contains(a) || !a.matches("input,select,textarea")) i.focus();
   }
-});
-
-on("htmx:sendError", (b, e, up, p, s) => {
-  if (up) msg(b, s.dataset.dropped, false);
 });
 
 on("notice", (b, e, up) => {
   const d = e.target.closest("dialog");
   if (d && d.open) d.close();
   msg(b, String(e.detail.text), up);
+  b.alert = document.getElementById("alerts").lastElementChild; // toast.js ran first
 });

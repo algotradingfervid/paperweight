@@ -43,6 +43,7 @@ type attachAnswer struct {
 	text     string
 	drop     bool
 	ok       bool
+	bare     bool // the status alone, no notice
 	redirect string
 }
 
@@ -88,6 +89,10 @@ func startAttach(t *testing.T) *attachServer {
 		}
 		if a.ok {
 			_, _ = io.WriteString(w, `<div id="att-done-files">Stored.</div>`)
+			return
+		}
+		if a.bare {
+			w.WriteHeader(a.status)
 			return
 		}
 		if a.redirect != "" {
@@ -290,6 +295,25 @@ func TestAttachBrowser_UploadRefused(t *testing.T) {
 			attachWait(t, ctx, id, "idle after the second refusal", attIdle(id))
 			attachWait(t, ctx, id, "focus back on Take photo", `document.activeElement === `+attQ("#"+id+" input[capture]"))
 			attachWait(t, ctx, id, "the second refusal", attShows(id, "File is empty. Choose another file."))
+
+			// One current message: the second refusal replaced the first.
+			attachWait(t, ctx, id, "the second refusal in #alerts", attAlertsHold("File is empty. Choose another file."))
+			if n := attachEval[int](t, ctx, attAlertCount); n != alerts+1 {
+				t.Errorf("#alerts holds %d notices from the upload after two refusals, want 1", n-alerts)
+			}
+			if attachEval[bool](t, ctx, attAlertsHold(c.text)) {
+				t.Errorf("#alerts keeps the first refusal %q", c.text)
+			}
+
+			// A success leaves no refusal behind.
+			attachDo(t, ctx, "try once more", chromedp.SetUploadFiles(chromedp.CSS("#"+id+"-file"), []string{file}))
+			s.held(t)
+			attachWait(t, ctx, id, "busy once more", attBusy(id))
+			s.reply(t, attachAnswer{ok: true})
+			attachWait(t, ctx, id, "the success swapped in", `document.getElementById("att-done-files") !== null`)
+			if n := attachEval[int](t, ctx, attAlertCount); n != alerts {
+				t.Errorf("#alerts holds %d notices after a success, want none from the upload", n-alerts)
+			}
 		})
 	}
 }
@@ -315,11 +339,58 @@ func TestAttachBrowser_DroppedConnection(t *testing.T) {
 	if n := attachEval[int](t, ctx, attAlertCount); n != alerts {
 		t.Errorf("#alerts gained %d notices on a dropped connection, want none", n-alerts)
 	}
+	if n := attachEval[int](t, ctx, `document.getElementById("network").children.length`); n != 0 {
+		t.Errorf("#network shows %d banners for a dropped upload, want its own text only", n)
+	}
 	if n := attachEval[int](t, ctx, attInvalid(id)); n != 0 {
 		t.Errorf("%d inputs have aria-invalid after a dropped connection, want none (the file wasn't wrong)", n)
 	}
 	if n := attachEval[int](t, ctx, `document.querySelectorAll("#`+id+` .attachments > li").length`); n != 0 {
 		t.Errorf("the list changed: %d files", n)
+	}
+}
+
+// A 5xx says so beside the file: the server's own notice, else the dropped
+// text for one with no notice (a proxy's). #network stays empty: its Try again
+// could only send the emptied input.
+func TestAttachBrowser_ServerFailure(t *testing.T) {
+	const id = "att-empty"
+	ctx := uibrowser.New(t)
+	for _, c := range []struct {
+		name string
+		a    attachAnswer
+		want string
+	}{
+		{"notice", attachAnswer{status: http.StatusInternalServerError, text: "Couldn't save the file."}, "Couldn't save the file."},
+		{"bare", attachAnswer{status: http.StatusBadGateway, bare: true}, msgDropped},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s := startAttach(t)
+			if err := uibrowser.At(ctx, 360, s.URL+"/_gallery/attachments"); err != nil {
+				t.Fatal(err)
+			}
+			attachDo(t, ctx, "choose a file", chromedp.SetUploadFiles(chromedp.CSS("#"+id+"-file"), []string{attJPEG(t)}))
+			s.held(t)
+			s.reply(t, c.a)
+			attachWait(t, ctx, id, "the text beside the file", attShows(id, c.want))
+			attachWait(t, ctx, id, "idle", attIdle(id))
+			if n := attachEval[int](t, ctx, `document.getElementById("network").children.length`); n != 0 {
+				t.Errorf("#network shows %d banners for a failed upload", n)
+			}
+		})
+	}
+
+	// A 4xx with no notice says nothing new: only a 5xx is the dropped text.
+	s := startAttach(t)
+	if err := uibrowser.At(ctx, 360, s.URL+"/_gallery/attachments"); err != nil {
+		t.Fatal(err)
+	}
+	attachDo(t, ctx, "choose a file", chromedp.SetUploadFiles(chromedp.CSS("#"+id+"-file"), []string{attJPEG(t)}))
+	s.held(t)
+	s.reply(t, attachAnswer{status: http.StatusForbidden, bare: true})
+	attachWait(t, ctx, id, "idle after the 403", attIdle(id))
+	if attachEval[bool](t, ctx, attShows(id, msgDropped)) {
+		t.Error("a bare 403 shows the dropped text")
 	}
 }
 
