@@ -2,8 +2,10 @@ package components
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/a-h/templ"
 
@@ -148,6 +150,15 @@ func (l listLayout) nowrapTracks() string {
 // separated; the CSS gives each 2fr.
 func (l listLayout) wideTracks() string {
 	return l.tracksWhere(func(c *Column) bool { return c.Wide })
+}
+
+// labelTracks is the 1-based grid tracks whose header label holds a word
+// of more than 8 letters, space separated; the CSS gives each a minimum
+// that fits such a word, so a header never breaks inside one (RR1c).
+func (l listLayout) labelTracks() string {
+	return l.tracksWhere(func(c *Column) bool {
+		return slices.ContainsFunc(strings.Fields(c.Label), func(w string) bool { return utf8.RuneCountInString(w) > 8 })
+	})
 }
 
 // tracksWhere is the 1-based grid tracks, space separated, of the columns

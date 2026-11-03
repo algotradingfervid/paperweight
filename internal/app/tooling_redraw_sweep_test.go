@@ -32,13 +32,14 @@ package app_test
 // |----------------------------------------|---------------------------------|----------------------|
 // | GET new                                | newGet                          | new GET              |
 // | POST new success, htmx                 | newPost -> advance              | new POST ok          |
+// | POST new nav=finish                    | newPost -> finish (redirect)    | new finish           |
 // | POST new 422, module Save errors       | newPost invalid                 | new 422 module       |
 // | POST new 422, parse error              | newPost invalid                 | new 422 parse        |
 // | POST new 409                           | newPost invalid                 | new 409 (skip+check) |
 // | GET step                               | stepGet -> arrival              | step GET <slug>      |
 // | POST step success, htmx                | stepPost -> advance             | step POST ok <slug>  |
 // | POST step nav=stay                     | stepPost -> stay -> advance     | step stay <slug>     |
-// | POST step nav=finish                   | stepPost Finish (redirect)      | step finish          |
+// | POST step nav=finish                   | stepPost -> finish (redirect)   | step finish          |
 // | POST step 422, module Save errors      | stepPost rerender               | step 422 module ...  |
 // | POST step 422, parse error             | stepPost rerender               | step 422 parse ...   |
 // | POST step 409                          | stepPost rerender               | step 409 <slug>      |
@@ -138,7 +139,7 @@ var rsRoutes = map[string]string{
 	"GET /search":                                "not a form",
 	"GET /doc/{doctype}":                         "not a form",
 	"GET /doc/{doctype}/new":                     "new GET",
-	"POST /doc/{doctype}/new":                    "new POST ok, new 422 module, new 422 parse, new 409",
+	"POST /doc/{doctype}/new":                    "new POST ok, new finish, new 422 module, new 422 parse, new 409",
 	"GET /doc/{doctype}/{id}":                    "page reader, page approved",
 	"GET /doc/{doctype}/{id}/edit/{step}":        "step GET, page reader",
 	"POST /doc/{doctype}/{id}/edit/{step}":       "step POST ok, step stay, step finish, step 422 module, step 422 parse, step 409",
@@ -156,7 +157,7 @@ var rsRoutes = map[string]string{
 // rsSites is every docscreen function that sends a page or fragment, with
 // its count of ui.Render, wizard.Respond and renderList calls.
 var rsSites = map[string]int{
-	"newGet": 1, "newPost": 1, "stepGet": 1, "stepPost": 2, "advance": 2,
+	"newGet": 1, "newPost": 1, "stepGet": 1, "stepPost": 1, "advance": 2, "finish": 1,
 	"failingStep": 1, "checkPage": 1, "readOnlyPage": 1,
 	"page": 1, "refused": 2, "succeeded": 2,
 	"lineGet": 2, "linePost": 2, "gridSaved": 1, "gridRefused": 1,
@@ -1733,6 +1734,18 @@ func (d *rsDoc) sweepNew(t *testing.T) {
 		next := run(t, "plain"+rsShow).hdr.Get("HX-Push-Url")
 		none := len(d.marks(e.do(t, "plain"+rsShow, rsAdmin, http.MethodGet, next, nil, false).want(t, "GET "+next, http.StatusOK))) == 0
 		d.both(t, "POST new ok", "plain", none, run)
+	})
+	// RR1c 4 (CD-387 (4)): Save and finish later on a new document's first
+	// step creates the draft and leaves for the module list, as on any
+	// other step; it never moves on to step 2.
+	d.cell(t, "new finish", func(t *testing.T) {
+		finish := func(v url.Values) { v.Set("nav", "finish") }
+		if r := post(t, "plain", finish, true).want(t, "POST new nav=finish, htmx", http.StatusOK); r.hdr.Get("HX-Redirect") != d.base() || r.hdr.Get("HX-Push-Url") != "" {
+			t.Errorf("POST new nav=finish, htmx: HX-Redirect %q and HX-Push-Url %q, want the list %s and no step", r.hdr.Get("HX-Redirect"), r.hdr.Get("HX-Push-Url"), d.base())
+		}
+		if r := post(t, "plain", finish, false).want(t, "POST new nav=finish", http.StatusSeeOther); r.hdr.Get("Location") != d.base() {
+			t.Errorf("POST new nav=finish: Location %q, want the list %s", r.hdr.Get("Location"), d.base())
+		}
 	})
 	d.cell(t, "new 422 module", func(t *testing.T) {
 		f, typed := d.typedField(0, own)
