@@ -336,9 +336,31 @@ func selectedSort(dt *doctype.DocType, q ListQuery) string {
 
 // opWords are the words a removable chip says for an operator; = and in
 // say none, and an operator not here says itself ("on or after").
-var opWords = map[string]string{
-	"=": "", "in": "", "!=": "not ", "not in": "not ",
-	"<": "before ", "<=": "up to ", ">": "after ", ">=": "from ",
+var opWords = map[string]string{"=": "", "in": "", "!=": "not ", "not in": "not "}
+
+// dateWords and numberWords word the comparisons on a date and a number.
+var (
+	dateWords   = map[string]string{"<": "before ", "<=": "up to ", ">": "after ", ">=": "from "}
+	numberWords = map[string]string{"<": "under ", "<=": "up to ", ">": "over ", ">=": "from "}
+)
+
+// opWord is what a removable chip says for f's operator on dt.
+func opWord(dt *doctype.DocType, f Filter) string {
+	if w, ok := opWords[f.Op]; ok {
+		return w
+	}
+	fd, _ := fieldOf(dt, f.Field)
+	words := map[string]string{}
+	switch {
+	case fd.Type == doctype.Date || fd.Type == doctype.Timestamp:
+		words = dateWords
+	case fd.Type == doctype.Int || numeric(fd):
+		words = numberWords
+	}
+	if w, ok := words[f.Op]; ok {
+		return w
+	}
+	return f.Op + " "
 }
 
 // chips shows each filter; its remove URL is the list without it, on page 1.
@@ -351,12 +373,7 @@ func chips(dt *doctype.DocType, q ListQuery, quick []string) []components.Chip {
 		if isQuickState(f) && slices.Contains(quick, f.Values[0]) {
 			continue
 		}
-		label := fieldLabel(dt, f.Field) + ": "
-		if w, ok := opWords[f.Op]; ok {
-			label += w
-		} else {
-			label += f.Op + " "
-		}
+		label := fieldLabel(dt, f.Field) + ": " + opWord(dt, f)
 		rest := q
 		rest.Page = 0
 		rest.Filters = slices.Concat(q.Filters[:i], q.Filters[i+1:])

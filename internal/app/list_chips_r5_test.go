@@ -182,8 +182,9 @@ func TestApp_ListQuickChipCountPastOnePage(t *testing.T) {
 }
 
 // R5: claims, advances and goods receipts sort by their date. Dates are set
-// against id order (the newest id the oldest date), so a sort that falls
-// back to ids fails; both directions, as the administrator over every row.
+// against id order (a later id an earlier date) except the last id, which
+// gets the latest date, so in each direction alone a sort that falls back to
+// ids either way fails; as the administrator over every row.
 func TestApp_ListSortsByDate(t *testing.T) {
 	s := seedSweep(t)
 	v := s.w.signedIn(adminEmail)
@@ -206,17 +207,21 @@ func TestApp_ListSortsByDate(t *testing.T) {
 		if err := rows.Close(); err != nil {
 			t.Fatal(err)
 		}
-		if len(ids) < 2 || len(ids) > 27 {
-			t.Fatalf("%s: %d records, want 2 to 27 to date in September", c.dt, len(ids))
+		if len(ids) < 3 || len(ids) > 27 {
+			t.Fatalf("%s: %d records, want 3 to 27 to date in September", c.dt, len(ids))
 		}
+		last := ids[len(ids)-1]
 		for i, id := range ids {
 			date := fmt.Sprintf("2026-09-%02d", 28-i) // later id, earlier date
+			if id == last {
+				date = "2026-09-29" // breaks the pattern: the latest
+			}
 			if _, err := s.w.app.DB().SQL().ExecContext(context.Background(), `UPDATE `+dt.Table+` SET `+c.field+` = ? WHERE id = ?`, date, id); err != nil {
 				t.Fatal(err)
 			}
 		}
-		newest := slices.Clone(ids) // date descending = id ascending
-		oldest := slices.Clone(ids)
+		newest := append([]int64{last}, ids[:len(ids)-1]...) // the last id, then id ascending
+		oldest := slices.Clone(newest)
 		slices.Reverse(oldest)
 		for dir, want := range map[string][]int64{"desc": newest, "asc": oldest} {
 			r := v.get("/doc/" + c.dt + "?size=100&sort=" + c.field + "." + dir)

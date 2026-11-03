@@ -116,7 +116,7 @@ func layoutProblems(t *testing.T, s *Session, what string) {
 // starts where its column's cells start (figures end where they end), takes
 // at most 2 lines, every document number and date (NoWrap) sits on one line,
 // and no word of a name (a Wide cell, its code aside) breaks inside itself
-// (GRN M3).
+// (GRN M3). It returns the problems and how many Wide cells it checked.
 const columnsJS = `(() => {
   const vis = (e) => e.checkVisibility();
   const brokenWords = (el) => {
@@ -133,8 +133,9 @@ const columnsJS = `(() => {
     return out;
   };
   const out = [];
+  let wide = 0;
   const head = [...document.querySelectorAll(".datalist-head > span")].filter(vis);
-  if (head.length === 0) return ["no header row"];
+  if (head.length === 0) return {problems: ["no header row"], wide};
   for (const h of head) {
     if (h.getBoundingClientRect().height > 2.5 * parseFloat(getComputedStyle(h).lineHeight)) out.push("header " + h.innerText.trim() + " takes more than 2 lines");
   }
@@ -152,11 +153,19 @@ const columnsJS = `(() => {
     for (const dd of link.querySelectorAll("dl.datalist-wide dd")) {
       // A master shows as "{Code} {Name}" (CD-68): the code, capitals and
       // digits with no break opportunity, may break; the name's words never.
-      if (vis(dd)) for (const w of brokenWords(dd)) if (!/^[A-Z0-9/-]+$/.test(w)) out.push("row " + row + ": name word " + w + " breaks inside");
+      if (!vis(dd)) continue;
+      wide++;
+      for (const w of brokenWords(dd)) if (!/^[A-Z0-9/-]+$/.test(w)) out.push("row " + row + ": name word " + w + " breaks inside");
     }
   });
-  return out;
+  return {problems: out, wide};
 })()`
+
+// columnsResult is what columnsJS returns.
+type columnsResult struct {
+	Problems []string `json:"problems"`
+	Wide     int      `json:"wide"`
+}
 
 // R5 (GRN M3, M4, EXP claims list): at 1280 and 1440 px every module list
 // and the party list draw aligned rows whose header labels sit on their
@@ -168,17 +177,25 @@ func TestE2E_ListColumns1024And1280(t *testing.T) {
 	h := Start(t)
 	h.prepareSweep()
 	s := h.SignIn(admin, desktop)
+	wide := 0
 	for _, p := range h.listPaths() {
 		for _, w := range []int64{1280, 1440} {
 			s.openAt(w, 900, p)
 			at := p + " at " + strconv.FormatInt(w, 10)
-			for _, m := range Eval[[]string](s, columnsJS) {
+			r := Eval[columnsResult](s, columnsJS)
+			for _, m := range r.Problems {
 				t.Errorf("%s: %s", at, m)
+			}
+			if w == 1280 {
+				wide += r.Wide
 			}
 			layoutProblems(t, s, at)
 		}
 		s.openAt(1024, 800, p)
 		layoutProblems(t, s, p+" at 1024")
+	}
+	if wide == 0 {
+		t.Error("no Wide cell checked at 1280: the name check measured nothing")
 	}
 	s.openAt(1024, 800, "/doc/expense.Claim")
 	date := Eval[string](s, `(() => {

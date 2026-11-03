@@ -88,7 +88,7 @@ func (l lister) List(ctx context.Context, p auth.Principal, dt *doctype.DocType,
 func (l lister) Count(ctx context.Context, p auth.Principal, dt *doctype.DocType, q docscreen.ListQuery) (int, error) {
 	lq, err := listQuery(dt, q)
 	if err != nil {
-		return 0, err
+		return 0, err // mutate:ok callers drop the count with an error
 	}
 	return l.svc.Count(ctx, p, dt, lq)
 }

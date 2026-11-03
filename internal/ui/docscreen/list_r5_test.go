@@ -243,6 +243,7 @@ func registerColumns() {
 				{Name: "note", Label: "Note", Type: doctype.Text, ListPriority: 5},
 				{Name: "due", Label: "Due", Type: doctype.Date, ListPriority: 5},
 				{Name: "maker_id", Label: "Maker", Type: doctype.Link, Link: docscreentest.Supplier, ListPriority: 6},
+				{Name: "lines", Label: "Lines", Type: doctype.Int},
 				{Name: "state", Label: "State", Type: doctype.Select, ReadOnly: true, Filterable: true, ListPriority: 3, Options: []string{
 					string(doctype.StateClosed), string(doctype.StateApproved), string(doctype.StateRejected),
 					string(doctype.StateDraft), string(doctype.StatePending), string(doctype.StateCancelled),
@@ -380,17 +381,30 @@ func TestList_QuickChipOnlyForInOrEquals(t *testing.T) {
 	}
 }
 
-// Removable chips put the comparison operators in words.
+// Removable chips put the comparison operators in words, by field type:
+// dates before / up to / after / from, numbers under / up to / over / from;
+// other fields say the operator itself.
 func TestList_ChipOperatorWords(t *testing.T) {
 	l := &stateLister{all: labelledRows()}
 	h := r5Env(t, l, nil)
-	for op, want := range map[string]string{
-		"%3C": "At: before 2026-10-01", "%3C%3D": "At: up to 2026-10-01", "%3E": "At: after 2026-10-01",
-		"%3E%3D": "At: from 2026-10-01", "on%20or%20after": "At: on or after 2026-10-01", "not%20in": "At: not 2026-10-01",
+	for _, c := range []struct{ dt, filter, want string }{
+		{columnsType, "at:%3C:2026-10-01", "At: before 2026-10-01"},
+		{columnsType, "at:%3C%3D:2026-10-01", "At: up to 2026-10-01"},
+		{columnsType, "at:%3E:2026-10-01", "At: after 2026-10-01"},
+		{columnsType, "at:%3E%3D:2026-10-01", "At: from 2026-10-01"},
+		{columnsType, "due:%3C:2026-10-01", "Due: before 2026-10-01"},
+		{columnsType, "at:on%20or%20after:2026-10-01", "At: on or after 2026-10-01"},
+		{columnsType, "at:not%20in:2026-10-01", "At: not 2026-10-01"},
+		{columnsType, "note:%3C:m", "Note: < m"},
+		{columnsType, "lines:%3E:3", "Lines: over 3"},
+		{labelledType, "amount:%3C:500", "Amount: under 500"},
+		{labelledType, "amount:%3C%3D:500", "Amount: up to 500"},
+		{labelledType, "amount:%3E:500", "Amount: over 500"},
+		{labelledType, "amount:%3E%3D:500", "Amount: from 500"},
 	} {
-		doc := uitest.Doc(t, uitest.Do(t, h, http.MethodGet, "/doc/"+columnsType+"?f=at:"+op+":2026-10-01", nil))
-		if got := norm(doc.Find(`ul[aria-label="Active filters"] a.chip`).Text()); got != want+"Remove filter" {
-			t.Errorf("op %s: chip = %q, want %q", op, got, want)
+		doc := uitest.Doc(t, uitest.Do(t, h, http.MethodGet, "/doc/"+c.dt+"?f="+c.filter, nil))
+		if got := norm(doc.Find(`ul[aria-label="Active filters"] a.chip`).Text()); got != c.want+"Remove filter" {
+			t.Errorf("%s: chip = %q, want %q", c.filter, got, c.want)
 		}
 	}
 }
