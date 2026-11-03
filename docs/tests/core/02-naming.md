@@ -393,7 +393,7 @@ Default templates used below: Purchase Order `PO/{FY}/{#####}`, GRN `GR/{FY}/{##
 ### NAM-051 · Admin sees each series with its next number
 - **Priority:** P1
 - **Level:** e2e
-- **Given** admin (Anil Kapoor, Administrator), `PO/26-27/` at 7, fixture clock 2026-10-24 **When** Anil opens Settings → Numbering **Then** a row shows "Purchase Order · PO/{FY}/{#####} · Next: PO/26-27/00008", and similar rows for GRN and Expense. NAM owns this screen and builds it from UI components (CD-49); this browser test is owned and run by WP3 (CD-40).
+- **Given** admin (Anil Kapoor, Administrator), `PO/26-27/` at 7, fixture clock 2026-10-24 **When** Anil opens Settings → Numbering **Then** a row links Purchase Order, shows `PO / financial year / 5-digit number` and Next number `PO/26-27/00008` (UI v2 R10), and similar rows for GRN and Expense. NAM owns this screen and builds it from UI components (CD-49); this browser test is owned and run by WP3 (CD-40).
 - **Go test:** `TestE2E_NamingSettingsList`
 - **Sources:** `frappe/frappe/core/doctype/document_naming_settings/document_naming_settings.py:43` (`get_transactions_and_prefixes`), `:198` (`get_current`)
 

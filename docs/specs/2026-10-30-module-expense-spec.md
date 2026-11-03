@@ -104,7 +104,7 @@ No `uom.RegisterQtyUse`: the table has no UoM column.
 - `Validate` checks the hash is among this claim's attachments, through a new `(*files.Store).ListTx(ctx, tx, parent)` that reads in the caller's transaction (CD-209's rule). A hash that isn't there gets FILE-045's text with this line's number (`The receipt on line {n} belongs to another document. Attach it to this expense first.`). `files.CheckReceipt` isn't used.
 - One bill covering two lines: the store refuses identical bytes on one parent (`AttachLimits`), so the line page offers `Same receipt as line {n}`, and both lines hold the same hash.
 - A `files.RemoveGuard` for `expense.Claim` finds a line holding the attachment's hash and refuses with FILE-046's text, in draft and rejected states alike. The user clears the receipt on the line, then removes the file.
-- Attachment policy for `expense.Claim`: default types, `MaxCount: 100` instead of 20, because a claim may hold a receipt per line [Assumption]. A claim needing more goes in two claims. The limit message becomes `A document can have at most {n} attachments. Remove one first.`, the same text at 20 (§15 item 2).
+- Attachment policy for `expense.Claim`: photos and PDF only (`.pdf .jpg .jpeg .png .webp .heic .heif`, refusal `Receipt must be a HEIC, JPG, PDF, PNG or WEBP file.`; CD-392 (7), was default types), `MaxCount: 100` instead of 20, because a claim may hold a receipt per line [Assumption]. A claim needing more goes in two claims. The limit message becomes `A document can have at most {n} attachments. Remove one first.`, the same text at 20 (§15 item 2).
 - Print: `HasReceipt` is true when the hash is found.
 
 ## 4. Employee Advance (CD-234)
@@ -155,6 +155,7 @@ Required at submit (CD-178). `Validate` reads inside the transaction, computes t
 | Condition | Message | When |
 |---|---|---|
 | Creator has no employee | `Your user isn't linked to an employee. Ask your administrator.` | Save |
+| Administrator has no employee and leaves Employee blank | `Your user isn't linked to an employee. Enter the employee this is for, or link your user to an employee.` (CD-392 (6)) | Save |
 | Another employee, creator not Administrator | `You can only raise claims for yourself.` | Save |
 | Claim date in the future | `Claim date can't be in the future.` | Save |
 | Line date in the future | `Line {n}: Date can't be in the future.` | Save |

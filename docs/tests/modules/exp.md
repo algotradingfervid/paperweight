@@ -32,7 +32,7 @@ Review focus (spec §17): EXP-016, EXP-017, EXP-018 and EXP-039 to EXP-041 run o
 ### EXP-003 · No linked employee is refused; a leaver's pending claim approves and revises; an Administrator back-enters for a leaver
 - **Priority:** P1
 - **Level:** integration
-- **Given** a user with no linked employee **When** they save a claim **Then** it is refused with "Your user isn't linked to an employee. Ask your administrator." **Given** a pending claim for EMP-008 created while EMP-008 was Active, then EMP-008 set to Left **Then** its approver approves it (no MST-120 refusal, because `employee_id` sets `AllowBlocked`). A second such claim is rejected and revised to draft, and saves. **When** `admin` back-enters a claim for EMP-008 dated 2026-03-31 **Then** it saves and submits.
+- **Given** a user with no linked employee **When** they save a claim **Then** it is refused with "Your user isn't linked to an employee. Ask your administrator." An Administrator with no linked employee who leaves Employee blank gets "Your user isn't linked to an employee. Enter the employee this is for, or link your user to an employee." (CD-392 (6)). **Given** a pending claim for EMP-008 created while EMP-008 was Active, then EMP-008 set to Left **Then** its approver approves it (no MST-120 refusal, because `employee_id` sets `AllowBlocked`). A second such claim is rejected and revised to draft, and saves. **When** `admin` back-enters a claim for EMP-008 dated 2026-03-31 **Then** it saves and submits.
 - **Go test:** `TestExp_EmployeeAndLeavers`
 - **Sources:** Expense spec §3.1 (Leavers), §5, §15 item 7, §17; `06-masters.md` MST-120
 
