@@ -396,8 +396,9 @@ func TestModule_Navigation(t *testing.T) {
 		want      string // Location, HX-Redirect or HX-Push-Url
 	}{
 		{name: "return=check", ref: "NAV-CHECK", set: url.Values{"return": {"check"}}, want: base + "/edit/check"},
-		{name: "finish later", ref: "NAV-FINISH", set: url.Values{"nav": {"finish"}}, want: base},
-		{name: "finish later htmx", ref: "NAV-FIN-HX", set: url.Values{"nav": {"finish"}}, hx: true, want: base},
+		// The list, in one press (CD-387 (4)).
+		{name: "finish later", ref: "NAV-FINISH", set: url.Values{"nav": {"finish"}}, want: "/doc/" + docscreentest.Hooked},
+		{name: "finish later htmx", ref: "NAV-FIN-HX", set: url.Values{"nav": {"finish"}}, hx: true, want: "/doc/" + docscreentest.Hooked},
 		{name: "back", ref: "NAV-BACK", set: url.Values{"nav": {"back"}}, want: base + "/edit/details"},
 		{name: "next", ref: "NAV-NEXT", want: base + "/edit/items"},
 		{name: "next htmx", ref: "NAV-NEXT-HX", hx: true, want: base + "/edit/items"},

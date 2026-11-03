@@ -309,8 +309,8 @@ func TestAssets_JSBudget(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if gz.Len() >= 6144 { // CD-389 (E7b upload status; was 4864, CD-374; 4608, CD-343; 3584, CD-249)
-		t.Errorf("gzip(app.js) = %d bytes, budget < 6144", gz.Len())
+	if gz.Len() >= 6400 { // CD-397 (R7 leave dialog; was 6144, CD-389; 4864, CD-374; 4608, CD-343; 3584, CD-249)
+		t.Errorf("gzip(app.js) = %d bytes, budget < 6400", gz.Len())
 	}
 	for _, bad := range []string{"eval(", "new Function", "innerHTML", "insertAdjacentHTML"} {
 		if bytes.Contains(b, []byte(bad)) {

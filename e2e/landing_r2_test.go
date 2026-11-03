@@ -172,12 +172,12 @@ func TestE2E_TitleFollowsEveryHtmxMove(t *testing.T) {
 	refusedTitle(a, "a master record refused")
 
 	a.Open("/m/party/new")
-	a.Press("Save and continue")
+	a.Press("Continue") // R7: master wizard steps read Continue (CD-387)
 	refusedTitle(a, "a master wizard step refused")
 	a.Fill("code", "LAKSHMI")
 	a.Fill("name", "Lakshmi Traders")
 	pickRadio(a, "role", "Vendor")
-	a.Press("Save and continue")
+	a.Press("Continue")
 	a.Until("the next step", `location.pathname !== "/m/party/new"`)
 	titleIsPages(a, "the master wizard's next step", false)
 
