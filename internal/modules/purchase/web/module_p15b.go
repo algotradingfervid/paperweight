@@ -42,6 +42,8 @@ const (
 	notePendingClosed = "Pending %s (closed)"
 	noteOverBy        = "Over by %s"
 
+	sentHeading   = "Sent to the vendor"
+	sentWentTo    = "It went to %s."
 	sentTitle     = "Sent to vendor"
 	notSentYet    = "Not sent yet"
 	sentLine      = "Sent to vendor on %s by %s (%s)"
@@ -268,6 +270,9 @@ func (m *module) orderPageHook(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		x.Cards = append(x.Cards, card)
 	}
 	x.Life = orderLife(c, rec)
+	if c.Req.URL.Query().Get(sentQuery) == "1" && rec.isSent {
+		x.Success = sentSuccess(c)
+	}
 	comments, err := m.commentsCard(c, purchase.DocType, id)
 	if err != nil {
 		return docscreen.PageExtra{}, err
@@ -297,6 +302,16 @@ func (m *module) orderPageHook(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		x.More = append(x.More, components.MoreAction{Label: handOverLabel, Href: handover})
 	}
 	return x, nil
+}
+
+// sentSuccess is the success block's heading after Mark as sent and who it
+// went to, unless Hide hides the vendor (UI v2 §5.13 item 2).
+func sentSuccess(c docscreen.Ctx) *components.SuccessProps {
+	s := &components.SuccessProps{Title: sentHeading}
+	if _, name, ok := strings.Cut(c.View.Display["vendor_id"], " "); ok && !hides(c, "vendor_id") {
+		s.Message = fmt.Sprintf(sentWentTo, name)
+	}
+	return s
 }
 
 // orderLife marks the Sent and Received steps of an approved, closed or

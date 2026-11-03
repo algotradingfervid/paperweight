@@ -128,6 +128,7 @@ type PageExtra struct {
 	Primary   *components.ButtonProps        // the main button when the bar has none
 	Files     *FilesCard                     // replaces the read-only Attachments (UX-E7)
 	Life      map[string]components.LifeStep // a Module.LifeSteps word → its mark, note and date (Label unused); a word with none is a later step
+	Success   *components.SuccessProps       // set on the page the module's own action lands on: the flash shows as a success block with this Title, and Message after the flash's text (UI v2 §5.13 item 2); Links are ignored
 }
 
 // FilesCard is the read-only files a module shows in place of Attachments (UX-E7, CD-275).

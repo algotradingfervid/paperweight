@@ -31,7 +31,9 @@ templ billCard(v billView) {
 				@components.SummaryList(v.Rows)
 			}
 			for _, l := range v.Lines {
-				<p>{ l }</p>
+				<p>
+					@components.Whole(l)
+				</p>
 			}
 			for _, i := range v.Info {
 				@components.Banner(components.BannerProps{Kind: components.Info, Message: i, NoRole: true})

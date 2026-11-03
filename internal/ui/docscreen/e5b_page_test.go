@@ -47,28 +47,33 @@ func e5bFollow(page *goquery.Document) []string {
 
 // UI v2 E5b (§5.13 item 2, A-25, CD-372): after Submit the document page
 // shows the success block (role="status") in place of the success banner,
-// with the existing text, through htmx and through the flash after a 303.
+// through htmx and through the flash after a 303, with who it went to under
+// its heading. R9: so does Approve, heading Approved, with "Next request".
 // "New sample order" shows only with the create right; docscreen has no
-// module home, so there is no "Go to" follow-up. Approve keeps the banner,
-// and ?submitted=1 with nothing in the flash shows nothing.
+// module home, so there is no "Go to" follow-up. ?submitted=1 with nothing
+// in the flash shows nothing.
 func TestDocPage_SubmitSuccessBlock(t *testing.T) {
-	const pending = "Submitted for approval to Ravi Kulkarni (Purchase Manager)."
+	const pending = "It went to Ravi Kulkarni (Purchase Manager). You'll see it in My requests until it's decided."
+	const numbered = "SO/26-27/00001 has been numbered."
 	newLink := []string{"New sample order|" + samplePath + "/new"}
+	nextLink := []string{"Next request|" + inboxURL}
 	for _, c := range []struct {
 		name   string
 		action string
 		htmx   bool
 		create bool
 		block  []string
-		banner []string
+		title  string
 		follow []string
 	}{
-		{"htmx submit, may create", "submit", true, true, []string{pending}, nil, newLink},
-		{"htmx submit, may not create", "submit", true, false, []string{pending}, nil, nil},
-		{"submit then 303", "submit", false, true, []string{pending}, nil, newLink},
-		{"submit then 303, may not create", "submit", false, false, []string{pending}, nil, nil},
-		{"htmx approve", "approve", true, true, nil, []string{"Approved. SO/26-27/00001 has been numbered."}, nil},
-		{"approve then 303", "approve", false, true, nil, []string{"Approved. SO/26-27/00001 has been numbered."}, nil},
+		{"htmx submit, may create", "submit", true, true, []string{pending}, "Submitted for approval", newLink},
+		{"htmx submit, may not create", "submit", true, false, []string{pending}, "Submitted for approval", nil},
+		{"submit then 303", "submit", false, true, []string{pending}, "Submitted for approval", newLink},
+		{"submit then 303, may not create", "submit", false, false, []string{pending}, "Submitted for approval", nil},
+		{"htmx approve", "approve", true, true, []string{numbered}, "Approved", slices.Concat(nextLink, newLink)},
+		{"htmx approve, may not create", "approve", true, false, []string{numbered}, "Approved", nextLink},
+		{"approve then 303", "approve", false, true, []string{numbered}, "Approved", slices.Concat(nextLink, newLink)},
+		{"approve then 303, may not create", "approve", false, false, []string{numbered}, "Approved", nextLink},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			rights := allRights
@@ -103,8 +108,14 @@ func TestDocPage_SubmitSuccessBlock(t *testing.T) {
 			if !slices.Equal(blocks, c.block) {
 				t.Errorf("success blocks = %q, want %q", blocks, c.block)
 			}
-			if got := bannerTexts(page.Find("#main"), "success"); !slices.Equal(got, c.banner) {
-				t.Errorf("success banners = %q, want %q", got, c.banner)
+			if got := norm(page.Find("#main .success-block h2").Text()); got != c.title {
+				t.Errorf("heading = %q, want %q", got, c.title)
+			}
+			if got := bannerTexts(page.Find("#main"), "success"); len(got) != 0 {
+				t.Errorf("success banners = %q, want none beside the block", got)
+			}
+			if n := page.Find(`#main a[href="` + inboxURL + `"]`).Length(); c.action == "approve" && n != 1 {
+				t.Errorf("%d Next request links, want 1", n)
 			}
 			if got := e5bFollow(page); !slices.Equal(got, c.follow) {
 				t.Errorf("follow-ups = %q, want %q", got, c.follow)
@@ -229,7 +240,7 @@ func TestDocPage_StepDates(t *testing.T) {
 			[]string{"Draft (done) 19-10|", "Pending approval 26-10|step", "Approved|"}},
 		{"approved on submit", doctype.StateApproved,
 			[]docscreen.HistoryRow{{At: "20-10-2026 11:00", Action: "Created"}}, []docscreen.HistoryRow{{At: "21-10-2026 12:00", Action: "Approved on submit (no approval needed)"}, {At: "21-10-2026 12:00", Action: "Submitted"}},
-			[]string{"Draft (done) 20-10|", "Pending approval (done) 21-10|", "Approved 21-10|step"}},
+			[]string{"Draft (done) 20-10|", "Approved 21-10|step"}},
 		{"rejected", doctype.StateRejected,
 			nil, []docscreen.HistoryRow{{At: "25-10-2026 16:40", Action: "Rejected: Wrong GSTIN"}, {At: "24-10-2026 09:00", Action: "Submitted"}},
 			[]string{"Draft (done)|", "Rejected 25-10|step", "Approved|"}},
@@ -412,7 +423,7 @@ func TestRoutes_HomeChecked(t *testing.T) {
 // ?next=1&submitted=1 takes the flash once: the block keeps the text and
 // the "Next request" link is there too.
 func TestDocPage_NextAndSubmitted(t *testing.T) {
-	const pending = "Submitted for approval to Ravi Kulkarni (Purchase Manager)."
+	const pending = "It went to Ravi Kulkarni (Purchase Manager). You'll see it in My requests until it's decided."
 	e := newDocEnv(t, allRights...)
 	e.seed(doctype.StateDraft)
 	e.extras.SetApproval(docscreentest.Sample, 42, docscreen.ApprovalView{Needed: true, WaitingOn: "Ravi Kulkarni (Purchase Manager)"})
@@ -429,7 +440,8 @@ func TestDocPage_NextAndSubmitted(t *testing.T) {
 }
 
 // Only ?next=1 or ?submitted=1 take the flash's success into the page: an
-// htmx GET of the page leaves it for the next full page, which shows it.
+// htmx GET of the page leaves it for the next full page, which shows it as
+// the plain banner, in the text as flashed.
 func TestDocPage_FlashLeftWithoutParams(t *testing.T) {
 	const pending = "Submitted for approval to Ravi Kulkarni (Purchase Manager)."
 	e := newDocEnv(t, allRights...)

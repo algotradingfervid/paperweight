@@ -43,14 +43,20 @@ templ LineList(p LineListProps) {
 						</div>
 					}
 					<p class="lines-meta">
-						<span class="num">{ c.QtyRate }</span>
+						<span class="num">
+							@Whole(c.QtyRate)
+						</span>
 						<span>{ c.Tax }</span>
 					</p>
 					if c.Received != "" {
-						<p class="lines-meta">{ c.Received }</p>
+						<p class="lines-meta">
+							@Whole(c.Received)
+						</p>
 					}
 					if c.Note != "" {
-						<p class="lines-meta">{ c.Note }</p>
+						<p class="lines-meta">
+							@Whole(c.Note)
+						</p>
 					}
 					if c.ReceiptNote != "" {
 						<p class="lines-meta lines-receipt-note">

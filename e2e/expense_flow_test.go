@@ -188,7 +188,7 @@ func TestE2E_ExpenseFlow(t *testing.T) {
 	p.WaitText("Needs your approval")
 	noOverflow(p, "the claim as the approver")
 	p.Press("Approve")
-	p.WaitText("Approved. " + firstClaim + " has been numbered.")
+	p.WaitText(firstClaim + " has been numbered.")
 	noOverflow(p, "the approved claim")
 
 	// Stored state (research T10).
@@ -276,7 +276,7 @@ func approveFromInbox(s *Session, id int64, number string) {
 	s.WaitText("Needs your approval")
 	noOverflow(s, "the approver's page")
 	s.Press("Approve")
-	s.WaitText("Approved. " + number + " has been numbered.")
+	s.WaitText(number + " has been numbered.")
 }
 
 // markPaid marks the advance paid today from its page, as Meena does, and

@@ -36,6 +36,8 @@ const (
 	Primary   Variant = "primary"
 	Secondary Variant = "secondary"
 	Ghost     Variant = "ghost"
+	// DangerQuiet is a ghost button in the danger colour (More actions).
+	DangerQuiet Variant = "danger-quiet"
 )
 
 // Danger is both a Variant and a BannerKind: it is untyped, so it converts
@@ -77,6 +79,7 @@ type ActionBarProps struct {
 	FinishLater        bool
 	Form               string
 	Summary            templ.Component
+	MoreSheet          string // the sheet of More actions the ellipsis opens; "" for no ellipsis
 }
 
 // BarTotal is an action bar summary (A-22): the count, then the label and

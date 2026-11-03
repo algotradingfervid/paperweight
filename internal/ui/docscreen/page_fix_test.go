@@ -51,8 +51,14 @@ func TestActions_MoreActionsPostsCarryVersion(t *testing.T) {
 				}
 			}
 			form := page.Find(`.more-actions form[action="` + doc42 + `/withdraw"]`)
+			if c.block != nil { // R9: the bar has Withdraw, as a Purchase User's does
+				form = page.Find(`form#act-withdraw[action="` + doc42 + `/withdraw"]`)
+				if n := page.Find(`.actionbar button[form="act-withdraw"]`).Length(); n != 1 {
+					t.Errorf("%d Withdraw buttons in the bar, want 1", n)
+				}
+			}
 			if form.Length() != 1 {
-				t.Fatalf("found %d Withdraw forms under More actions, want 1", form.Length())
+				t.Fatalf("found %d Withdraw forms, want 1", form.Length())
 			}
 			if m, _ := form.Attr("method"); !strings.EqualFold(m, "post") {
 				t.Errorf("Withdraw form method = %q, want post", m)
@@ -126,11 +132,11 @@ func TestDocAction_MissingOrBadVersionIs400(t *testing.T) {
 	}
 }
 
-// After an approve the "Next request" link sits under the success banner
-// (plan Task 13): nothing shows between the banner and the link, and the
-// link comes before the state badge.
+// After an approve the "Next request" link sits under the success text, in
+// the success block (plan Task 13, R9): it is the block's first follow-up,
+// and comes before the state badge.
 func TestDocPage_NextRequestUnderBanner(t *testing.T) {
-	const want = "Approved. SO/26-27/00001 has been numbered."
+	const want = "SO/26-27/00001 has been numbered."
 	e := newDocEnv(t, allRights...)
 	e.seed(doctype.StatePending)
 	e.docs.SetResult(docscreentest.Sample, 42, doctype.ActionApprove,
@@ -150,37 +156,24 @@ func TestDocPage_NextRequestUnderBanner(t *testing.T) {
 		t.Fatalf("GET %s = %d, body %.300s", loc, res.Code, res.Body)
 	}
 	main := uitest.Doc(t, res).Find("main#main")
-	var banner *goquery.Selection
-	main.Find(".banner--success").Each(func(_ int, b *goquery.Selection) {
-		if b.ParentsFiltered("template").Length() == 0 && strings.Contains(norm(b.Text()), want) {
-			banner = b
-		}
-	})
-	if banner == nil {
-		t.Fatalf("no success banner %q in main#main", want)
+	block := main.Find(".success-block")
+	if got := norm(block.Find(".success-block__text").Text()); got != want {
+		t.Fatalf("success block text = %q, want %q", got, want)
 	}
-	link := main.Find(`a[href="` + inboxURL + `"]`).FilterFunction(func(_ int, s *goquery.Selection) bool {
+	link := block.Find(`a[href="` + inboxURL + `"]`).FilterFunction(func(_ int, s *goquery.Selection) bool {
 		return norm(s.Text()) == "Next request"
 	})
 	if link.Length() != 1 {
-		t.Fatalf("found %d \"Next request\" links in main#main, want 1", link.Length())
+		t.Fatalf("found %d \"Next request\" links in the block, want 1", link.Length())
+	}
+	if !block.Find(".btn").First().Is(`a[href="` + inboxURL + `"]`) {
+		t.Error("Next request isn't the block's first follow-up")
 	}
 	badge := main.Find(".badge").First()
 	if badge.Length() == 0 {
 		t.Fatal("no state badge in main#main")
 	}
 
-	// main#main's text in document order: the link's text follows the
-	// banner's with nothing between.
-	if full, b := norm(main.Text()), norm(banner.Text()); !strings.Contains(full, b+" Next request") {
-		i := strings.Index(full, b) + len(b)
-		j := strings.Index(full, "Next request")
-		gap := "?"
-		if i <= j {
-			gap = full[i:j]
-		}
-		t.Errorf("text between the success banner and \"Next request\" = %q, want none (the link sits straight under the banner)", strings.TrimSpace(gap))
-	}
 	all := main.Find("*")
 	if li, gi := all.IndexOfSelection(link), all.IndexOfSelection(badge); gi < li {
 		t.Errorf("the state badge (element %d) comes before \"Next request\" (element %d); the link must come first", gi, li)

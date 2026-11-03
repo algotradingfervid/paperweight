@@ -1,15 +1,57 @@
 package components
 
+import "regexp"
+
 // SummaryList shows label and value pairs.
 templ SummaryList(pairs []Pair) {
 	<dl class="summary">
 		for _, p := range pairs {
 			<div class="summary-row">
 				<dt>{ p.Label }</dt>
-				<dd class={ templ.KV("num", p.Num), templ.KV("code", p.Code) }>{ p.Value }</dd>
+				<dd class={ templ.KV("num", p.Num), templ.KV("code", p.Code) }>
+					@pairValue(p)
+				</dd>
 			</div>
 		}
 	</dl>
+}
+
+// pairValue is a pair's value: a code as it is, as it breaks anywhere, and
+// any other text with its dates and numbers whole.
+templ pairValue(p Pair) {
+	if p.Code {
+		{ p.Value }
+	} else {
+		@Whole(p.Value)
+	}
+}
+
+// wholeToken matches a word with a hyphen or slash between digits: a date or
+// a document number, where a line may otherwise break.
+var wholeToken = regexp.MustCompile(`\S*\d[-/]\d\S*`)
+
+// wholeParts splits s around its whole tokens, in order: even parts are plain
+// text, odd parts tokens.
+func wholeParts(s string) []string {
+	var out []string
+	at := 0
+	for _, m := range wholeToken.FindAllStringIndex(s, -1) {
+		out = append(out, s[at:m[0]], s[m[0]:m[1]])
+		at = m[1]
+	}
+	return append(out, s[at:])
+}
+
+// Whole is s with each date and document number kept on one line by an
+// inline box: no character is added, so copied text stays the same.
+templ Whole(s string) {
+	for i, part := range wholeParts(s) {
+		if i%2 == 1 {
+			<span class="whole">{ part }</span>
+		} else {
+			{ part }
+		}
+	}
 }
 
 // AmountInWords shows a total in words under the figure.

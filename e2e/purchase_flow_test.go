@@ -196,7 +196,7 @@ func TestE2E_PurchaseOrderFlow(t *testing.T) {
 	p.WaitText(poApprove)
 	noOverflow(p, "Check")
 	p.Press(sendApproval)
-	p.WaitText("Submitted for approval to Purchase Manager or Director.")
+	p.WaitText("It went to Purchase Manager or Director.")
 	noOverflow(p, "the pending PO page")
 
 	r := h.SignIn(ravi, phone360)
@@ -206,7 +206,7 @@ func TestE2E_PurchaseOrderFlow(t *testing.T) {
 	r.WaitText("Needs your approval")
 	noOverflow(r, "the PO page as the approver")
 	r.Press("Approve")
-	r.WaitText("Approved. " + firstNumber + " has been numbered.")
+	r.WaitText(firstNumber + " has been numbered.")
 	noOverflow(r, "the approved PO page")
 
 	// Stored state (CD-271): what the screens did is what the database holds.
@@ -269,7 +269,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	onStep(s, "Step 3 of 3")
 	noOverflow(s, "request Check")
 	s.Press("Submit")
-	s.WaitText("Submitted. " + firstPR + " has been numbered.")
+	s.WaitText(firstPR + " has been numbered.")
 	within(t, "Suresh's two-line request", time.Since(start), 90*time.Second)
 	s.WaitText("Not ordered")
 	noOverflow(s, "the submitted request")
@@ -308,7 +308,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	p.WaitText(poApprove)
 	noOverflow(p, "PO Check")
 	p.Press(sendApproval)
-	p.WaitText("Submitted for approval to Purchase Manager or Director.")
+	p.WaitText("It went to Purchase Manager or Director.")
 
 	r := h.SignIn(ravi, phone360)
 	r.Press("Open " + draft(po))
@@ -316,7 +316,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	noOverflow(r, "the PO as the approver")
 	r.Press("Approve")
 	const number = "PO/26-27/00002"
-	r.WaitText("Approved. " + number + " has been numbered.")
+	r.WaitText(number + " has been numbered.")
 
 	p.Open("/modules/purchase")
 	p.WaitText("2 approved orders not sent yet") // with lastBought's

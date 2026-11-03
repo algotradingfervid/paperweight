@@ -92,6 +92,7 @@ var pages = []galleryPage{
 	{"quickaction", titled("Quick actions"), static(quickactionBody())},
 	{"module-home", titled("Module home"), moduleHome},
 	{"docheader", layout.PageOpts{Title: "Document header", NoHeading: true}, static(docHeaderBody())},
+	{"docdisplay", titled("Document display"), static(docDisplayBody())},
 }
 
 // moduleHome is the module home filled with worst cases; ?empty=1 is a new

@@ -27,6 +27,12 @@
   text-align: end;
 }
 
+/* One line while it fits: components.Whole's dates and document numbers. */
+@utility whole {
+  display: inline-block;
+  max-inline-size: 100%;
+}
+
 @utility code {
   font-feature-settings: "zero" 1, "tnum" 1;
   overflow-wrap: anywhere;

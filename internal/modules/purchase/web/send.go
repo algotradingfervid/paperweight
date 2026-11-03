@@ -26,7 +26,7 @@ func (h *handlers) sendPost(w http.ResponseWriter, r *http.Request) {
 		return h.d.Service.MarkSent(r.Context(), p, id, version, purchase.SentInput{
 			SentOn: on, SentVia: r.PostFormValue("sent_via"), Note: r.PostFormValue("note"),
 		})
-	}, func(display string) string { return fmt.Sprintf(msgMarkedSent, display) })
+	}, func(display string) string { return fmt.Sprintf(msgMarkedSent, display) }, "?"+sentQuery+"=1")
 }
 
 // sendUndo marks the PO as not sent at the posted version.
@@ -34,15 +34,19 @@ func (h *handlers) sendUndo(w http.ResponseWriter, r *http.Request) {
 	h.sendWrite(w, r, func(id int64, version int) error {
 		p, _ := auth.PrincipalFrom(r.Context())
 		return h.d.Service.UnmarkSent(r.Context(), p, id, version)
-	}, func(display string) string { return fmt.Sprintf(msgMarkedNotSent, display) })
+	}, func(display string) string { return fmt.Sprintf(msgMarkedNotSent, display) }, "")
 }
+
+// sentQuery on the PO page's URL says the flash is Mark as sent's, shown as
+// the success block (UI v2 §5.13 item 2).
+const sentQuery = "sent"
 
 // sendWrite reads the path id and the posted version (missing or not a
 // number is AUTH's bad form, CD-146), runs write and redirects to the PO
-// page with the flash flash(display) (UX §5.13). A 422 or 409 redraws
+// page plus query with the flash flash(display) (UX §5.13). A 422 or 409 redraws
 // through renderSend; anything else (AUTH's 403 and 404 among them) is the
 // platform's error page.
-func (h *handlers) sendWrite(w http.ResponseWriter, r *http.Request, write func(id int64, version int) error, flash func(display string) string) {
+func (h *handlers) sendWrite(w http.ResponseWriter, r *http.Request, write func(id int64, version int) error, flash func(display string) string, query string) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64) // not a number: 0, which no PO has (404)
 	version, err := strconv.Atoi(r.PostFormValue("version"))
 	if err != nil {
@@ -56,7 +60,7 @@ func (h *handlers) sendWrite(w http.ResponseWriter, r *http.Request, write func(
 		if display, ok := h.sendDisplay(r, id); ok {
 			web.Flash(r.Context(), "success", flash(display))
 		}
-		http.Redirect(w, r, "/doc/"+purchase.DocType+"/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/doc/%s/%d%s", purchase.DocType, id, query), http.StatusSeeOther)
 	case errors.As(err, &he) && (he.Status() == http.StatusUnprocessableEntity || he.Status() == http.StatusConflict):
 		errs := he.FieldErrors()
 		if len(errs) == 0 {
