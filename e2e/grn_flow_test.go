@@ -31,7 +31,7 @@ const (
 	shortClose      = "Vendor can't supply the rest"
 	shreeGSTIN      = "27AABCS1429B1ZU"
 	cashInvoice     = "INV-901"
-	grnApproved     = "Approved. " + firstGRN + " has been numbered."
+	grnApproved     = firstGRN + " has been numbered."
 	closedPOText    = firstNumber + " is closed. Remove the line or pick another purchase order." // DOC-017
 )
 
@@ -249,7 +249,7 @@ func TestE2E_RequestToShortClose(t *testing.T) {
 	onStep(s, "Step 3 of 3")
 	noOverflow(s, "request Check")
 	s.Press("Submit")
-	s.WaitText("Submitted. " + firstPR + " has been numbered.")
+	s.WaitText(firstPR + " has been numbered.")
 	if q := h.load(purchase.RequestDocType, pr); q.Info.State != doctype.StateApproved || len(q.Lines) != 1 || q.Values["order_status"] != "not_ordered" {
 		t.Fatalf("stored request = %s %s with %d lines, want approved not_ordered with 1", q.Info.State, q.Values["order_status"], len(q.Lines))
 	}
@@ -278,7 +278,7 @@ func TestE2E_RequestToShortClose(t *testing.T) {
 	onStep(p, "Step 4 of 4")
 	p.WaitText(poApprove)
 	p.Press(sendApproval)
-	p.WaitText("Submitted for approval to Purchase Manager or Director.")
+	p.WaitText("It went to Purchase Manager or Director.")
 	if o := h.load(purchase.DocType, po); o.Info.State != doctype.StatePending || len(o.Lines) != 1 {
 		t.Fatalf("stored PO after submit = %s with %d lines, want pending with 1", o.Info.State, len(o.Lines))
 	}

@@ -686,13 +686,14 @@ func TestTouch_MySessionsShowsTouchedTime(t *testing.T) {
 	if chrome == "" || safari == "" {
 		t.Fatalf("sessions page lacks a row: %q", page.Body)
 	}
-	if want := types.FormatIST(chromeUsed); !strings.Contains(chrome, want) {
+	chromeText, safariText := t16Text("<li"+chrome), t16Text("<li"+safari)
+	if want := types.FormatIST(chromeUsed); !strings.Contains(chromeText, want) {
 		t.Errorf("Chrome's row does not show its touch %q: %q", want, chrome)
 	}
-	if notNow := types.FormatIST(authtest.T0.Add(10 * time.Minute)); strings.Contains(chrome, notNow) {
+	if notNow := types.FormatIST(authtest.T0.Add(10 * time.Minute)); strings.Contains(chromeText, notNow) {
 		t.Errorf("Chrome's row shows %q, a request inside the minute after its touch: %q", notNow, chrome)
 	}
-	if want := types.FormatIST(safariUsed); !strings.Contains(safari, want) {
+	if want := types.FormatIST(safariUsed); !strings.Contains(safariText, want) {
 		t.Errorf("Safari's row does not show its touch %q: %q", want, safari)
 	}
 	if !strings.Contains(chrome, "This session") || strings.Contains(chrome, "End session") {
@@ -708,7 +709,7 @@ func TestTouch_MySessionsShowsTouchedTime(t *testing.T) {
 	page = b.Get("/account/sessions")
 	wantStatus(t, "Safari GET /account/sessions", page, http.StatusOK)
 	safari = t16Row(page.Body, t16Safari)
-	if want := types.FormatIST(opened); !strings.Contains(safari, want) {
+	if want := types.FormatIST(opened); !strings.Contains(t16Text("<li"+safari), want) {
 		t.Errorf("Safari's row does not show this request's touch %q: %q", want, safari)
 	}
 	if !strings.Contains(safari, "This session") {

@@ -79,6 +79,7 @@ type ActionBarProps struct {
 	FinishLater        bool
 	Form               string
 	Summary            templ.Component
+	MoreSheet          string // the sheet of More actions the ellipsis opens; "" for no ellipsis
 }
 
 // BarTotal is an action bar summary (A-22): the count, then the label and

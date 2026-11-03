@@ -256,7 +256,7 @@ func TestExpS3_AdvancePage(t *testing.T) {
 
 	// A draft naming it keeps Undo paid; an approved claim uses it.
 	e.claim(adv.ID, "100.00", true, "100.00", "2026-10-24")
-	if r = meena.get(page); r.doc.Find(`a:contains("Undo paid")`).Length() != 1 {
+	if r = meena.get(page); r.doc.Find(`.more-actions a:contains("Undo paid")`).Length() != 1 {
 		t.Error("a draft claim naming the advance hides Undo paid")
 	}
 	used := e.claim(adv.ID, "6000.00", false, "6000.00", "2026-10-24")

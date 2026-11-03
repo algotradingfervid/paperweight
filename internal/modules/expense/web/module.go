@@ -36,9 +36,10 @@ func ClaimModule(d Deps) docscreen.Module {
 // AdvanceModule is the advance's additions to the generic screens.
 func AdvanceModule(d Deps) docscreen.Module {
 	return docscreen.Module{
-		Page:   advancePage(d),   // S3
-		Reason: advanceReason(d), // S3
-		Hide:   advanceHide(d),   // S3
+		Page:      advancePage(d),     // S3
+		LifeSteps: []string{lifePaid}, // R9
+		Reason:    advanceReason(d),   // S3
+		Hide:      advanceHide(d),     // S3
 		// The type's name and the line's note (UX §5.10); authorised for S3
 		// by AD-11 (S3 review round 1).
 		LineCard: advanceLineCard(d), // S3

@@ -186,7 +186,7 @@ func TestModule_CloseRightOutsidePageRights(t *testing.T) {
 	e.who = m04User(t, e, "m04-readclose@vardhan.test", "M04ReadClose", map[string][]auth.Right{m04ReadClose: {"read"}}, 0)
 	base := m04URL(m04ReadClose, res.ID)
 	page := m04Page(t, e.get(t, base), http.StatusOK, "reader's document page")
-	if page.Find(`a[href="`+base+`/close"]`).Length() != 1 {
+	if page.Find(`.more-actions a[href="`+base+`/close"]`).Length() != 1 {
 		t.Errorf("a reader of a DocType whose CloseRight is read sees no Close link")
 	}
 	m04Page(t, e.get(t, base+"/close"), http.StatusOK, "reader's close page")

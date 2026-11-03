@@ -229,7 +229,7 @@ func TestE2E_Doc_PurchaseLifecycle(t *testing.T) {
 
 	r.Open(path)
 	r.Press("Approve")
-	r.WaitText("Approved. " + firstNumber + " has been numbered.")
+	r.WaitText(firstNumber + " has been numbered.")
 	r.Open(path)
 	r.WaitText(firstNumber)
 	r.WaitText("Approved")
@@ -598,7 +598,7 @@ func TestE2E_ConcurrentApproveSecondSeesMessage(t *testing.T) {
 	m.WaitText("Approve")
 
 	r.Press("Approve")
-	r.WaitText("Approved. " + firstNumber + " has been numbered.")
+	r.WaitText(firstNumber + " has been numbered.")
 	m.Press("Approve")
 	m.WaitText(firstNumber + " is no longer waiting for approval. It was approved by Ravi Kulkarni.")
 

@@ -343,7 +343,7 @@ func TestPUX024_OwnerNotices(t *testing.T) {
 			t.Errorf("%s on submitted PR-A: notices %q, want %q", c.p.Name, got, c.want)
 		}
 	}
-	more := w.get(t, env.Priya, p15dDoc(purchase.RequestDocType, pr.ID)).find(".more-actions-items li")
+	more := w.get(t, env.Priya, p15dDoc(purchase.RequestDocType, pr.ID)).find(".more-actions li")
 	if slices.Contains(more, "Close") || slices.Contains(more, "Cancel") {
 		t.Errorf("Priya's More actions = %q, want neither Close nor Cancel", more)
 	}
@@ -384,7 +384,7 @@ func TestPUX033_RequestCloseAndCancel(t *testing.T) {
 		{env.Suresh, true, true, 200},
 		{env.Meena, true, false, 200},
 	} {
-		more := w.get(t, c.p, path).find(".more-actions-items li")
+		more := w.get(t, c.p, path).find(".more-actions li")
 		if slices.Contains(more, "Close") != c.close || slices.Contains(more, "Cancel") != c.cancel {
 			t.Errorf("%s More actions = %q, want Close %v, Cancel %v", c.p.Name, more, c.close, c.cancel)
 		}

@@ -383,11 +383,11 @@ func TestDocPage_FlashBanners(t *testing.T) {
 		want   string
 	}{
 		{"submit needing approval", doctype.StateDraft, "submit", "", doc.Result{ID: 42, State: doctype.StatePending, Version: 4}, doctype.StatePending, doc42, doc42,
-			"Submitted for approval to Ravi Kulkarni (Purchase Manager)."},
+			"It went to Ravi Kulkarni (Purchase Manager). You'll see it in My requests until it's decided."},
 		{"submit straight to approved", doctype.StateDraft, "submit", "", doc.Result{ID: 42, State: doctype.StateApproved, Number: "SO/26-27/00001", Version: 4}, doctype.StateApproved, doc42, doc42,
-			"Approved. SO/26-27/00001 has been numbered."},
+			"SO/26-27/00001 has been numbered."},
 		{"approve", doctype.StatePending, "approve", "", doc.Result{ID: 42, State: doctype.StateApproved, Number: "SO/26-27/00001", Version: 4}, doctype.StateApproved, doc42, doc42,
-			"Approved. SO/26-27/00001 has been numbered."},
+			"SO/26-27/00001 has been numbered."},
 		{"reject", doctype.StatePending, "reject", "Wrong GSTIN", doc.Result{ID: 42, State: doctype.StateRejected, Version: 4}, doctype.StateRejected, doc42, doc42,
 			"Rejected and sent back."},
 		{"withdraw", doctype.StatePending, "withdraw", "", doc.Result{ID: 42, State: doctype.StateDraft, Version: 4}, doctype.StateDraft, doc42 + "/edit/check", samplePath,
@@ -494,7 +494,7 @@ func TestDocPage_ApproveIsOneTapPost(t *testing.T) {
 	if form.Find(`input[type="hidden"][name="version"][value="3"]`).Length() != 1 {
 		t.Error("approve form has no version 3")
 	}
-	if page.Find(".app-page dialog, [hx-confirm], [data-confirm]").Length() != 0 {
+	if page.Find(".app-page dialog:not(#doc-more), [hx-confirm], [data-confirm]").Length() != 0 {
 		t.Error("the page has a confirm step for approve")
 	}
 
@@ -525,8 +525,8 @@ func TestDirectAction_WarningsBanner(t *testing.T) {
 	if got := bannerTexts(doc.Selection, "warning"); !slices.Equal(got, []string{warn}) {
 		t.Errorf("warning banners = %q, want exactly one with %q", got, warn)
 	}
-	if got := bannerTexts(doc.Selection, "success"); !slices.Equal(got, []string{"Approved. SO/26-27/00001 has been numbered."}) {
-		t.Errorf("success banners = %q", got)
+	if got := successTexts(doc.Selection); !slices.Equal(got, []string{"SO/26-27/00001 has been numbered."}) {
+		t.Errorf("success = %q", got)
 	}
 	if calls := e.docs.Calls(); len(calls) != 1 || calls[0].Action != doctype.ActionApprove || calls[0].Input.Version != 3 {
 		t.Errorf("engine calls = %+v", calls)

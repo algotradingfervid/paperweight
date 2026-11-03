@@ -41,3 +41,20 @@ templ docHeaderBody() {
 		})
 	}
 }
+
+// docDisplayBody is the document display's worst cases, for the layout checks
+// at every width (UI review R9): every real lifecycle with its dates and note,
+// every length of amount in a header, and kv rows of money and text.
+templ docDisplayBody() {
+	for _, steps := range docDisplaySteps {
+		@components.Card("", nil) {
+			@components.StatusTimeline(steps)
+		}
+	}
+	for _, a := range docDisplayAmounts {
+		@components.DocHeader(components.DocHeaderProps{Title: "PO/26-27/00001", State: doctype.StateApproved, Amount: a, Facts: []components.Pair{{Label: "Total", Value: a, Num: true}}})
+	}
+	@components.Card("Details", nil) {
+		@components.SummaryList(docDisplayPairs)
+	}
+}

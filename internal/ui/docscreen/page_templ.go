@@ -114,7 +114,8 @@ func docMain(pv pageView) templ.Component {
 // docBanners sit above the h1: a rejected document's reason first, then a
 // refused action's message, then an action's success and, after an approve,
 // the "Next request" link straight under it, and the module's notice last
-// (CD-263 G3). After a Submit the success is the success block (A-25).
+// (CD-263 G3). After a Submit, an Approve or a module's own action the
+// success is the success block, which holds "Next request" (A-25).
 func docBanners(pv pageView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -178,7 +179,7 @@ func docBanners(pv pageView) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if pv.Block {
-			templ_7745c5c3_Err = components.SuccessBlock(components.SuccessProps{Message: pv.Success, Links: pv.Follow}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.SuccessBlock(components.SuccessProps{Title: pv.Title, Message: pv.Success, Links: pv.Follow}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -188,7 +189,7 @@ func docBanners(pv pageView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		if pv.Next != "" {
+		if pv.Next != "" && !pv.Block {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -196,7 +197,7 @@ func docBanners(pv pageView) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 49, Col: 7}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 50, Col: 7}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -209,7 +210,7 @@ func docBanners(pv pageView) templ.Component {
 			var templ_7745c5c3_Var8 templ.SafeURL
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(pv.Next))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 50, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 51, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -261,7 +262,7 @@ func alertFocus(id string, focus bool) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(id)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 61, Col: 14}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 62, Col: 14}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 			if templ_7745c5c3_Err != nil {
@@ -293,7 +294,9 @@ func alertFocus(id string, focus bool) templ.Component {
 // card first (UI v2 §5.13); from 80rem the Actions card, the attachments and
 // approval history sit in a side panel, the card moved to the top
 // (doc-actions). On phones the actions come last, as the bottom bar, in
-// tree order too. Every value is read-only.
+// tree order too, and More actions open from its ellipsis in a sheet, so
+// they are drawn twice: the card's list shows only from 80rem and the sheet's
+// opener only below. Every value is read-only.
 func docBody(pv pageView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -334,7 +337,7 @@ func docBody(pv pageView) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(pv.Party)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 82, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 85, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -353,7 +356,7 @@ func docBody(pv pageView) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(s)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 85, Col: 10}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 88, Col: 10}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -565,11 +568,11 @@ func docBody(pv pageView) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = components.MoreActions(pv.More).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.ActionBar(pv.Bar).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.ActionBar(pv.Bar).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.MoreActions(pv.More).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -588,9 +591,36 @@ func docBody(pv pageView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		if len(pv.More) > 0 {
+			templ_7745c5c3_Var21 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Err = components.MoreActionItems(pv.More).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = components.Sheet(moreSheetID, "More actions").Render(templ.WithChildren(ctx, templ_7745c5c3_Var21), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		return nil
 	})
 }
+
+// moreSheetID is the id of the document page's More actions sheet.
+const moreSheetID = "doc-more"
 
 // docBar is the hidden forms the Actions card's buttons post through (each
 // with the page's version, CD-94).
@@ -610,13 +640,13 @@ func docBar(pv pageView) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var21 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var21 == nil {
-			templ_7745c5c3_Var21 = templ.NopComponent
+		templ_7745c5c3_Var22 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var22 == nil {
+			templ_7745c5c3_Var22 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		for _, f := range pv.Forms {
-			templ_7745c5c3_Var22 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_Var23 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 				if !templ_7745c5c3_IsBuffer {
@@ -632,12 +662,12 @@ func docBar(pv pageView) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var23 string
-				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(f.Version))
+				var templ_7745c5c3_Var24 string
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(f.Version))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 148, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/docscreen/page.templ`, Line: 159, Col: 70}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -647,7 +677,7 @@ func docBar(pv pageView) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = components.Form(components.FormProps{ID: f.ID, Action: f.Action, HX: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var22), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Form(components.FormProps{ID: f.ID, Action: f.Action, HX: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var23), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

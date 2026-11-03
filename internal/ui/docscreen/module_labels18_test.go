@@ -165,13 +165,16 @@ func TestModule_StateLabels(t *testing.T) {
 					if got := location(t, rec); got != base {
 						t.Fatalf("submit went to %q, want %q", got, base)
 					}
-					page = m04Page(t, e.get(t, base), http.StatusOK, "document page after submit")
+					page = m04Page(t, e.get(t, rec.Header().Get("Location")), http.StatusOK, "document page after submit")
 				} else {
 					page = m04Page(t, rec, http.StatusOK, "htmx submit")
 				}
-				want := c.word + ". " + v.Info.Number + " has been numbered."
+				want := v.Info.Number + " has been numbered."
 				if got := successTexts(page.Selection); !slices.Equal(got, []string{want}) {
-					t.Errorf("success banners = %q, want exactly %q", got, want)
+					t.Errorf("success = %q, want exactly %q", got, want)
+				}
+				if got := norm(page.Find(".success-block h2").Text()); got != c.word {
+					t.Errorf("success heading = %q, want %q", got, c.word)
 				}
 				if got := m18Badge(t, page, "page after submit"); got != c.word {
 					t.Errorf("page badge after submit = %q, want %q", got, c.word)
@@ -252,9 +255,12 @@ func TestModule_StateLabels(t *testing.T) {
 
 				e.docs.SetResult(c.dt, 42, doctype.ActionApprove, doc.Result{ID: 42, State: doctype.StateApproved, Number: number, Version: 4}, nil)
 				page := m04Page(t, e.post(t, base+"/approve", nil, "HX-Request", "true"), http.StatusOK, "htmx approve")
-				want := c.approved + ". " + number + " has been numbered."
-				if got := bannerTexts(page.Selection, "success"); !slices.Equal(got, []string{want}) {
-					t.Errorf("approve banners = %q, want exactly %q", got, want)
+				want := number + " has been numbered."
+				if got := successTexts(page.Selection); !slices.Equal(got, []string{want}) {
+					t.Errorf("approve success = %q, want exactly %q", got, want)
+				}
+				if got := norm(page.Find(".success-block h2").Text()); got != c.approved {
+					t.Errorf("approve heading = %q, want %q", got, c.approved)
 				}
 			})
 		}

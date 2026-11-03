@@ -289,7 +289,7 @@ func (w *p15dWeb) setExpected(t *testing.T, p auth.Principal, id int64, on, note
 }
 
 // more are the labels under More actions.
-func (p p15dPage) more() []string { return p.find(".more-actions-items li") }
+func (p p15dPage) more() []string { return p.find(".more-actions li") }
 
 // primary is the bar's primary button label and href, "" when none.
 func (p p15dPage) primary() (label, href string) {
