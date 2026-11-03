@@ -38,9 +38,11 @@ var p8Plain = map[string]struct{ sel, text string }{
 	"copy rights":        {`main input[name=source_id]`, ""},
 	"sign in":            {`form input[name=password]`, ""},
 	"password":           {"main h1", "Change password"},
-	"sessions":           {"main h1", "Sessions"},
+	"sessions":           {"main h1", "My sessions"},
 	"users":              {"main h1", "Users"},
+	"new user":           {"main h1", "New user"},
 	"user":               {"main h1", ""},
+	"reset password":     {"main h1", "Reset password"},
 	"user access":        {"main h1", ""},
 	"who can":            {"main h1", "Who can"},
 	"who can results":    {"main", "Administrator"},
@@ -51,7 +53,7 @@ var p8Plain = map[string]struct{ sel, text string }{
 func p8IDs(t *testing.T, w *authtest.World) authscreens.SweepIDs {
 	t.Helper()
 	return authscreens.SweepIDs{
-		Role: t17RoleID(t, w, p6Stores), Admin: t17RoleID(t, w, auth.RoleAdministrator), User: 1,
+		Role: t17RoleID(t, w, p6Stores), Admin: t17RoleID(t, w, auth.RoleAdministrator), User: int64(w.Users[t10Priya]),
 		NotShown: authtest.DTItem, Team: authtest.DTClaim,
 	}
 }
@@ -156,6 +158,19 @@ var p8Stateful = map[string]struct {
 	"copy rights 422": {func(t *testing.T, w *authtest.World, admin *webtest.Client, path string) webtest.Response {
 		return admin.Post(path, p1Post(t17RoleVersion(t, w, p6Stores), ""))
 	}, http.StatusUnprocessableEntity, auth.ErrCopySourceRequired.Msg},
+	"user 409": {func(t *testing.T, w *authtest.World, admin *webtest.Client, path string) webtest.Response {
+		v, err := strconv.ParseInt(t13DBVersion(t, w, t10Priya), 10, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return admin.Post(path+"/roles", t13With(url.Values{"roles": {auth.RoleAdministrator}}, strconv.FormatInt(v-1, 10)))
+	}, http.StatusConflict, "Reload"},
+	"new user refused": {func(t *testing.T, _ *authtest.World, admin *webtest.Client, _ string) webtest.Response {
+		return admin.Post("/users", url.Values{"name": {"Taken Email"}, "email": {t13Admin}, "password": {"Correct-Horse-42"}})
+	}, http.StatusConflict, auth.EmailTakenError(t13Admin).Msg},
+	"reset password refused": {func(t *testing.T, _ *authtest.World, admin *webtest.Client, path string) webtest.Response {
+		return admin.Post(path, url.Values{"password": {"short"}})
+	}, http.StatusBadRequest, auth.ErrPasswordTooShort.Msg},
 	"sign in refused": {func(t *testing.T, w *authtest.World, admin *webtest.Client, path string) webtest.Response {
 		return admin.Post(path, url.Values{"email": {"nobody@vardhan.test"}, "password": {"wrong"}})
 	}, http.StatusUnauthorized, "Invalid email or password."},

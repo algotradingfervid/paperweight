@@ -25,7 +25,7 @@ var _ authweb.Views = Default{}
 
 // page is the styled page shell: layout.Page with the error in an
 // ErrorSummary (linking to errField; it takes focus, CD-159) above the heading,
-// then the warnings and the session's CSRF token.
+// unless o has its own banner, then the warnings and the session's CSRF token.
 func page(o uilayout.PageOpts, csrf, errText, errField string, warnings []string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -48,7 +48,7 @@ func page(o uilayout.PageOpts, csrf, errText, errField string, warnings []string
 		}
 		ctx = templ.ClearChildren(ctx)
 		o.Error = errText != ""
-		if o.Error {
+		if o.Error && o.BannerSlot == nil {
 			o.BannerSlot = components.ErrorSummary([]components.FieldErr{{ID: errField, Message: errText}})
 		}
 		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

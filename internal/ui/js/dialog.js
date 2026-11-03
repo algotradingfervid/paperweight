@@ -43,3 +43,17 @@ document.addEventListener("dialog:open", function (evt) {
   const id = typeof d === "string" ? d : d && (d.value || d.id);
   if (id) openDialog(id, null);
 });
+
+// The open account <details> closes on Escape, handing focus back to its
+// summary, and on a click outside it.
+document.addEventListener("keydown", function (evt) {
+  const m = document.querySelector("details.user-menu[open]");
+  if (evt.key !== "Escape" || !m) return;
+  m.open = false;
+  m.querySelector("summary").focus();
+});
+
+document.addEventListener("click", function (evt) {
+  const m = document.querySelector("details.user-menu[open]");
+  if (m && !m.contains(evt.target)) m.open = false;
+});

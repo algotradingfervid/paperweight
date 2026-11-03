@@ -30,10 +30,13 @@ func ValidateEmail(s string) error {
 	return nil
 }
 
-// NewUser is the input to CreateUser. Nil Roles means [Employee].
+// NewUser is the input to CreateUser. Nil Roles means [Employee]. MustChange
+// makes Password temporary, as ResetPassword's is: the user screen always sets
+// it, because an administrator chose that password.
 type NewUser struct {
 	Email, Name, Mobile, Password string
 	Roles                         []string
+	MustChange                    bool
 }
 
 // UserPatch lists the fields UpdateUser changes; nil fields stay as they are.
@@ -55,6 +58,14 @@ func byArg(actor UserID) any {
 		return nil
 	}
 	return int64(actor)
+}
+
+// mustChangeArg is the must_change_password column's value.
+func mustChangeArg(must bool) int64 {
+	if must {
+		return 1
+	}
+	return 0
 }
 
 func getUser(ctx context.Context, q *dbq.Queries, id UserID) (dbq.GetUserRow, error) {
@@ -142,6 +153,10 @@ func (a *Auth) CreateUser(ctx context.Context, actor Principal, in NewUser) (Use
 	if !isAdmin(actor) {
 		return 0, nil, ErrAdminOnlyField
 	}
+	in.Name = strings.TrimSpace(in.Name)
+	if in.Name == "" {
+		return 0, nil, ErrNameRequired
+	}
 	email := NormalizeEmail(in.Email)
 	if err := ValidateEmail(email); err != nil {
 		return 0, nil, err
@@ -173,7 +188,7 @@ func (a *Auth) CreateUser(ctx context.Context, actor Principal, in NewUser) (Use
 		}
 		now := a.clock.Now()
 		got, err := q.InsertUser(ctx, dbq.InsertUserParams{
-			Email: email, Name: in.Name, Mobile: in.Mobile, PasswordHash: hash,
+			Email: email, Name: in.Name, Mobile: in.Mobile, PasswordHash: hash, MustChange: mustChangeArg(in.MustChange),
 			At: FormatTime(now), By: byArg(actor.ID),
 		})
 		if err != nil {
@@ -249,7 +264,10 @@ func (a *Auth) UpdateUser(ctx context.Context, actor Principal, id UserID, p Use
 			next.Email = email
 		}
 		if p.Name != nil {
-			next.Name = *p.Name
+			next.Name = strings.TrimSpace(*p.Name)
+			if next.Name == "" {
+				return ErrNameRequired
+			}
 		}
 		if p.Mobile != nil {
 			next.Mobile = *p.Mobile

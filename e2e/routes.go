@@ -342,6 +342,11 @@ func (h *Harness) appScreens(s sweepState) []screens.Screen {
 		{Name: "new for admin", Route: "/new", URL: "/new", As: admin},
 		{Name: "new sheet", Route: "/approvals", URL: "/approvals", As: admin, Setup: openSheet("new-sheet")},
 		{Name: "me sheet", Route: "/approvals", URL: "/approvals", As: priya, Setup: openSheet("me-sheet")},
+		{Name: "account menu", Route: "/approvals", URL: "/approvals", As: priya, Setup: func(ctx context.Context) error {
+			return chromedp.Do(ctx, chromedp.Evaluate[chromedp.Void](`document.querySelector("details.user-menu").open = true`))
+		}},
+		{Name: "disable user confirm", Route: "/users/{id}", URL: "/users/" + strconv.FormatInt(int64(s.long.User), 10), As: admin, Setup: openSheet("disable-user")},
+		{Name: "delete user confirm", Route: "/users/{id}", URL: "/users/" + strconv.FormatInt(int64(s.long.User), 10), As: admin, Setup: openSheet("delete-user")},
 		{Name: "not found", Route: "/doc/{doctype}/{id}", URL: DocPath(fixture.Order, missingDoc), As: priya},
 		// No route matches, so Route is the "" chi's Find gives (CD-250).
 		{Name: "unknown path", Route: "", URL: "/no/such/page", As: priya},
