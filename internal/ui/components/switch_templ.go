@@ -180,7 +180,7 @@ func Switch(p FieldProps, invert bool, v SwitchValues) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = fieldMsg(p.ID, p.Error, p.Echo).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = fieldMsg(p.ID, p.Error, p.Echo, false).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

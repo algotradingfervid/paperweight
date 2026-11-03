@@ -956,7 +956,7 @@ func LineGridError(id, message string) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if message != "" {
-			templ_7745c5c3_Err = fieldMsg(id, message, "").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = fieldMsg(id, message, "", false).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

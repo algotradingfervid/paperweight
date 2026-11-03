@@ -39,6 +39,7 @@ const (
 	labelSite         = "Site"
 	labelReceiptDate  = "Receipt date"
 	hintReceiptDate   = "The day the goods arrived."
+	noteReceiptDate   = "the day the goods arrived"
 	hintFullyReceived = "Fully received"
 
 	hintNumber    = "As printed on the document. Type Not recorded if it's lost."
@@ -164,7 +165,8 @@ type poPick struct {
 // detailsBody draws step 1: the order fixed once the draft has lines, else
 // the orders to choose from; then the receipt date.
 func (m *module) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Component, error) {
-	date := dateProps(c, s, components.FieldProps{Name: "receipt_date", Label: labelReceiptDate, Hint: hintReceiptDate})
+	date := dateProps(c, s, components.FieldProps{Name: "receipt_date", Label: labelReceiptDate, Hint: hintReceiptDate, EchoNote: noteReceiptDate})
+	date.Max = date.Today // a receipt can't be in the future (the calendar offers no such day)
 	if date.Value == "" && !s.Posted && c.View == nil {
 		date.Value = date.Today
 	}
