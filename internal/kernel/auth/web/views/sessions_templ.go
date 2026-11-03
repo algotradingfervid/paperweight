@@ -10,6 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
+	"strings"
 
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
 	"github.com/vardhan/internaltools/internal/types"
@@ -86,7 +87,15 @@ func sessions(p authweb.SessionsPage) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					if s.Current {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p>This session</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = components.StateBadgeLabel("", "This session").Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -120,12 +129,12 @@ func sessions(p authweb.SessionsPage) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -153,7 +162,7 @@ func sessions(p authweb.SessionsPage) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = page(uilayout.PageOpts{Title: "Sessions"}, p.CSRF, p.Error, "main", p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = page(uilayout.PageOpts{Title: "My sessions"}, p.CSRF, p.Error, "main", p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -161,13 +170,46 @@ func sessions(p authweb.SessionsPage) templ.Component {
 	})
 }
 
-// deviceName is the card title for a session: its user agent, or "Unknown
-// device" when the browser sent none.
+// deviceName is the card title for a session: the browser and system its user
+// agent names, such as "Chrome on macOS"; "Unknown device" when it names neither.
 func deviceName(ua string) string {
-	if ua == "" {
-		return "Unknown device"
+	browser, system := firstOf(ua, uaBrowsers), firstOf(ua, uaSystems)
+	switch {
+	case browser != "" && system != "":
+		return browser + " on " + system
+	case browser != "":
+		return browser
+	case system != "":
+		return system
 	}
-	return ua
+	return "Unknown device"
+}
+
+// uaName is a name and the text that shows it in a user agent.
+type uaName struct{ text, name string }
+
+// uaBrowsers and uaSystems are in the order to test them: Edge and Opera also
+// say Chrome, Chrome also says Safari, iPhones also say Mac OS X, Android also
+// says Linux.
+var (
+	uaBrowsers = []uaName{
+		{"Edg", "Edge"}, {"OPR/", "Opera"}, {"SamsungBrowser/", "Samsung Internet"},
+		{"Firefox", "Firefox"}, {"FxiOS/", "Firefox"}, {"CriOS/", "Chrome"}, {"Chrome", "Chrome"}, {"Safari", "Safari"},
+	}
+	uaSystems = []uaName{
+		{"iPhone", "iPhone"}, {"iPad", "iPad"}, {"Android", "Android"}, {"Windows", "Windows"},
+		{"Mac OS X", "macOS"}, {"CrOS", "ChromeOS"}, {"Linux", "Linux"},
+	}
+)
+
+// firstOf is the name of the first of names that ua contains, or "".
+func firstOf(ua string, names []uaName) string {
+	for _, n := range names {
+		if strings.Contains(ua, n.text) {
+			return n.name
+		}
+	}
+	return ""
 }
 
 var _ = templruntime.GeneratedTemplate

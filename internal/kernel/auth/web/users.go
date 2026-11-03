@@ -1,10 +1,14 @@
 package authweb
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -17,15 +21,6 @@ func flashWarnings(r *http.Request, warnings []string) {
 	for _, text := range warnings {
 		web.Flash(r.Context(), "warning", text)
 	}
-}
-
-// takeWarnings returns the texts of the session's flash messages.
-func takeWarnings(r *http.Request) []string {
-	var out []string
-	for _, n := range web.TakeFlash(r.Context()) {
-		out = append(out, n.Text)
-	}
-	return out
 }
 
 // pathUser is the {id} of the URL; ErrNotFound when it is not a number.
@@ -82,7 +77,94 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	s.renderPage(w, r, http.StatusOK, s.v.Users(UsersPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Users: users}))
+	s.renderPage(w, r, http.StatusOK, s.v.Users(UsersPage{CSRF: CSRFToken(ctx), Users: users}))
+}
+
+// userPage builds user id's page: an Administrator's has the forms, and
+// anyone else's is only their own. It refuses what UserForEdit refuses.
+func (s *Server) userPage(ctx context.Context, p auth.Principal, id auth.UserID) (UserPage, error) {
+	page := UserPage{CSRF: CSRFToken(ctx), Self: p.ID == id}
+	if !slices.Contains(p.Roles, auth.RoleAdministrator) {
+		u, version, _, err := s.a.UserForEdit(ctx, p, id)
+		page.User, page.Version = u, version
+		return page, err
+	}
+	v, err := s.a.UserAdmin(ctx, p, id)
+	if err != nil {
+		return page, err
+	}
+	page.User, page.Version, page.Roles, page.Held, page.Locked = v.User, v.Version, v.Roles, v.Held, v.Locked
+	page.Admin, page.AccessURL = true, accessPath(id)
+	return page, nil
+}
+
+// logReread logs a failed read of user id's name after a save that worked;
+// the page then gets the result without the name.
+func logReread(r *http.Request, id auth.UserID, err error) {
+	slog.ErrorContext(r.Context(), "read the user after a save", "user", id, "path", r.URL.Path, "err", err)
+}
+
+// writeUserRefusal redraws user id's page with a write's refusal: the
+// ConflictBanner on a stale version (CD-381), else the error summary. The forms
+// keep the posted version (CD-94), and held, when set, stays ticked. A bad form,
+// a refusal of the right (403) or an internal error keeps its plain answer.
+func (s *Server) writeUserRefusal(w http.ResponseWriter, r *http.Request, id auth.UserID, version int64, held []string, err error) {
+	status, msg, ok := userError(err)
+	if !ok || errors.Is(err, errBadForm) || status == http.StatusForbidden {
+		s.WriteError(w, r, err)
+		return
+	}
+	p, _ := auth.PrincipalFrom(r.Context())
+	page, loadErr := s.userPage(r.Context(), p, id)
+	if loadErr != nil {
+		s.WriteError(w, r, loadErr)
+		return
+	}
+	page.Version, page.Error, page.Stale = version, msg, auth.IsChanged(err)
+	if held != nil {
+		page.Held = held
+	}
+	s.renderPage(w, r, status, s.v.User(page))
+}
+
+// getNewUser shows the add-a-user form with Employee ticked (D-AUTH-22).
+func (s *Server) getNewUser(w http.ResponseWriter, r *http.Request) {
+	s.renderNewUser(w, r, http.StatusOK, NewUserPage{Held: []string{auth.RoleEmployee}})
+}
+
+// renderNewUser shows page with every role on offer.
+func (s *Server) renderNewUser(w http.ResponseWriter, r *http.Request, status int, page NewUserPage) {
+	ctx := r.Context()
+	p, _ := auth.PrincipalFrom(ctx)
+	roles, _, err := s.a.RightsMatrix(ctx, p)
+	if err != nil {
+		s.WriteError(w, r, err)
+		return
+	}
+	for _, role := range roles {
+		page.Roles = append(page.Roles, role.Name)
+	}
+	page.CSRF = CSRFToken(ctx)
+	s.renderPage(w, r, status, s.v.NewUser(page))
+}
+
+// passwordProblems are the password policy's refusals (auth.CheckPolicy) for
+// a password an administrator sets.
+var passwordProblems = []*auth.Problem{auth.ErrPasswordTooShort, auth.ErrPasswordTooLong, auth.ErrPasswordCommon, auth.ErrPasswordHasName}
+
+func isPasswordProblem(err error) bool {
+	return slices.ContainsFunc(passwordProblems, func(p *auth.Problem) bool { return errors.Is(err, p) })
+}
+
+// newUserField is the form field CreateUser's refusal err belongs to.
+func newUserField(err error) string {
+	switch {
+	case errors.Is(err, auth.ErrNameRequired):
+		return "name"
+	case isPasswordProblem(err):
+		return "password"
+	}
+	return "email"
 }
 
 func (s *Server) showUser(w http.ResponseWriter, r *http.Request) {
@@ -93,14 +175,10 @@ func (s *Server) showUser(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	u, version, _, err := s.a.UserForEdit(ctx, p, id)
+	page, err := s.userPage(ctx, p, id)
 	if err != nil {
 		s.WriteError(w, r, err)
 		return
-	}
-	page := UserPage{CSRF: CSRFToken(ctx), Warnings: takeWarnings(r), Version: version, User: u}
-	if slices.Contains(p.Roles, auth.RoleAdministrator) {
-		page.AccessURL = accessPath(id)
 	}
 	s.renderPage(w, r, http.StatusOK, s.v.User(page))
 }
@@ -110,16 +188,24 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(ctx)
 	in := auth.NewUser{
 		Email: r.PostFormValue("email"), Name: r.PostFormValue("name"),
-		Mobile: r.PostFormValue("mobile"), Password: r.PostFormValue("password"),
+		Mobile: r.PostFormValue("mobile"), Password: r.PostFormValue("password"), MustChange: true,
 	}
 	// The form is an explicit admin choice: no ticked roles means none, not
 	// the service's nil default.
 	in.Roles = append([]string{}, r.PostForm["roles"]...)
 	id, warnings, err := s.a.CreateUser(ctx, p, in)
 	if err != nil {
-		s.WriteError(w, r, err)
+		status, msg, ok := userError(err)
+		if !ok || errors.Is(err, errBadForm) {
+			s.WriteError(w, r, err)
+			return
+		}
+		s.renderNewUser(w, r, status, NewUserPage{
+			Error: msg, ErrorField: newUserField(err), Email: in.Email, Name: in.Name, Mobile: in.Mobile, Held: in.Roles,
+		})
 		return
 	}
+	web.Flash(ctx, "success", strings.TrimSpace(in.Name)+" was added.")
 	flashWarnings(r, warnings)
 	redirect(w, r, userPath(id))
 }
@@ -137,8 +223,14 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	name, mobile := r.PostFormValue("name"), r.PostFormValue("mobile")
-	patch := auth.UserPatch{Name: &name, Mobile: &mobile, Version: version}
+	patch := auth.UserPatch{Version: version}
+	// The Disable and Enable forms post neither: an absent field stays as it is.
+	if vs, ok := r.PostForm["name"]; ok {
+		patch.Name = &vs[0]
+	}
+	if vs, ok := r.PostForm["mobile"]; ok {
+		patch.Mobile = &vs[0]
+	}
 	if vs, ok := r.PostForm["email"]; ok {
 		patch.Email = &vs[0]
 	}
@@ -184,15 +276,46 @@ func (s *Server) updateRoles(w http.ResponseWriter, r *http.Request) {
 	if roles == nil {
 		roles = []string{}
 	}
-	s.saveUser(w, r, p, id, auth.UserPatch{Roles: &roles, Version: version})
+	warnings, err := s.a.UpdateUser(ctx, p, id, auth.UserPatch{Roles: &roles, Version: version})
+	if err != nil {
+		s.writeUserRefusal(w, r, id, *version, roles, err)
+		return
+	}
+	if u, _, _, err := s.a.UserForEdit(ctx, p, id); err != nil {
+		logReread(r, id, err)
+		web.Flash(ctx, "success", "Roles saved.")
+	} else {
+		web.Flash(ctx, "success", "Roles for "+u.Name+" saved.")
+	}
+	flashWarnings(r, warnings)
+	redirect(w, r, userPath(id))
 }
 
-// saveUser runs UpdateUser and redirects to the user's page.
+// saveUser runs UpdateUser and redirects to the user's page, which says what
+// a Disable or Enable did.
 func (s *Server) saveUser(w http.ResponseWriter, r *http.Request, p auth.Principal, id auth.UserID, patch auth.UserPatch) {
-	warnings, err := s.a.UpdateUser(r.Context(), p, id, patch)
+	ctx := r.Context()
+	warnings, err := s.a.UpdateUser(ctx, p, id, patch)
 	if err != nil {
-		s.WriteError(w, r, err)
+		s.writeUserRefusal(w, r, id, *patch.Version, nil, err)
 		return
+	}
+	if patch.Enabled != nil {
+		v, err := s.a.UserAdmin(ctx, p, id)
+		switch {
+		case err != nil && !*patch.Enabled:
+			logReread(r, id, err)
+			web.Flash(ctx, "success", "The user is disabled and signed out everywhere.")
+		case err != nil:
+			logReread(r, id, err)
+			web.Flash(ctx, "success", "The user is enabled.")
+		case !*patch.Enabled:
+			web.Flash(ctx, "success", v.User.Name+" is disabled and signed out everywhere.")
+		case v.Locked:
+			web.Flash(ctx, "success", v.User.Name+" is enabled, but still locked after too many failed sign-ins. Unlock the account to let them sign in.")
+		default:
+			web.Flash(ctx, "success", v.User.Name+" can sign in again.")
+		}
 	}
 	flashWarnings(r, warnings)
 	redirect(w, r, userPath(id))
@@ -262,9 +385,15 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
-	if err := s.a.DeleteUser(ctx, p, id, version); err != nil {
+	u, _, _, err := s.a.UserForEdit(ctx, p, id)
+	if err != nil {
 		s.WriteError(w, r, err)
 		return
 	}
+	if err := s.a.DeleteUser(ctx, p, id, version); err != nil {
+		s.writeUserRefusal(w, r, id, *version, nil, err)
+		return
+	}
+	web.Flash(ctx, "success", u.Name+" was deleted.")
 	redirect(w, r, "/users")
 }

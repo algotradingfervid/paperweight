@@ -205,7 +205,7 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 		"/admin/approval-rules", "/admin/approval-rules/new", "/admin/approval-rules/{id}", "/admin/approvals/overdue",
 		"/admin/approvals/stuck", "/rights/who-can", "/roles", "/roles/{id}", "/roles/{id}/copy-rights",
 		"/roles/{id}/rights/{doctype}", "/settings/business", "/settings/numbering", "/settings/numbering/preview",
-		"/settings/numbering/{doctype}", "/setup/company", "/setup/company/{step}", "/users", "/users/{id}/access", "/m/import/template",
+		"/settings/numbering/{doctype}", "/setup/company", "/setup/company/{step}", "/users", "/users/new", "/users/{id}/access", "/users/{id}/password", "/m/import/template",
 		"/m/employee/new/{step}", "/m/party/new/{step}", "/m/party/{id:[1-9][0-9]*}/addresses/new",
 		"/m/party/{id:[1-9][0-9]*}/contacts/new",
 		"/m/branch/new", "/m/employee/new", "/m/expense-type/new", "/m/item/new", "/m/party/new",

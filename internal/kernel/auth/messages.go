@@ -49,6 +49,7 @@ var (
 	ErrBadForm              = &Problem{400, "The form could not be read. Reload the page and try again."}
 	ErrSetupDone            = &Problem{409, "Setup is already complete. Sign in instead."}
 	ErrUsersExist           = &Problem{409, "Users already exist. Sign in as an administrator to add more users."}
+	ErrNameRequired         = &Problem{400, "Name is required."}
 	ErrEmailInvalid         = &Problem{400, "Enter a valid email address, such as name@company.in."}
 	ErrCannotDisableSelf    = &Problem{400, "You can't disable your own account. Ask another administrator."}
 	ErrCannotDemoteSelf     = &Problem{400, "You can't remove your own Administrator role. Ask another administrator."}

@@ -57,6 +57,9 @@ templ header(o PageOpts, s ui.Shell) {
 						<span class="user-name truncate">{ s.User }</span>
 					</summary>
 					<div class="user-menu-panel">
+						@components.Button(components.ButtonProps{Label: "My requests", Href: inboxPath + "/mine", Variant: components.Ghost})
+						@components.Button(components.ButtonProps{Label: "My sessions", Href: accountPath, Variant: components.Ghost})
+						@components.Button(components.ButtonProps{Label: "Change password", Href: "/account/password", Variant: components.Ghost})
 						<form method="post" action="/signout">
 							<input type="hidden" name="csrf_token" value={ s.CSRF }/>
 							<button type="submit" class="btn btn-ghost w-full">

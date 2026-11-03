@@ -162,9 +162,9 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (GetUserRow, error) {
 }
 
 const insertUser = `-- name: InsertUser :one
-INSERT INTO users (email, name, mobile, password_hash, created_at, created_by, updated_at, updated_by)
-VALUES (?1, ?2, ?3, ?4,
-        ?5, ?6, ?5, ?6)
+INSERT INTO users (email, name, mobile, password_hash, must_change_password, created_at, created_by, updated_at, updated_by)
+VALUES (?1, ?2, ?3, ?4, ?5,
+        ?6, ?7, ?6, ?7)
 RETURNING id
 `
 
@@ -173,6 +173,7 @@ type InsertUserParams struct {
 	Name         string
 	Mobile       string
 	PasswordHash interface{}
+	MustChange   int64
 	At           string
 	By           interface{}
 }
@@ -183,6 +184,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 		arg.Name,
 		arg.Mobile,
 		arg.PasswordHash,
+		arg.MustChange,
 		arg.At,
 		arg.By,
 	)

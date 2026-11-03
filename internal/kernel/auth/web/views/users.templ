@@ -13,20 +13,80 @@ func (Default) Users(p authweb.UsersPage) templ.Component {
 	return users(p)
 }
 
+func (Default) NewUser(p authweb.NewUserPage) templ.Component {
+	return newUser(p)
+}
+
 templ users(p authweb.UsersPage) {
 	@page(uilayout.PageOpts{Title: "Users"}, p.CSRF, p.Error, "main", p.Warnings) {
+		<p>
+			@components.Button(components.ButtonProps{Label: "New user", Icon: "user-plus", Href: "/users/new", Variant: components.Primary})
+		</p>
 		@components.DataList(usersList(p.Users))
 	}
 }
 
-// usersList is the users as list cards, as the gallery's users page shows them.
+// usersList is the users as list cards, as the gallery's users page shows them;
+// a disabled user's name says so, as on their records (AUTH-056).
 func usersList(us []auth.UserInfo) components.DataListProps {
 	p := components.DataListProps{Label: "Users", Columns: []components.Column{
 		{Key: "name", Label: "Name", Priority: components.PTitle},
 		{Key: "email", Label: "Email", Priority: components.PMeta, Code: true},
 	}}
 	for _, u := range us {
-		p.Rows = append(p.Rows, components.Row{Href: fmt.Sprintf("/users/%d", u.ID), Values: map[string]string{"name": u.Name, "email": u.Email}})
+		name := u.Name
+		if !u.Enabled {
+			name += " (disabled)"
+		}
+		p.Rows = append(p.Rows, components.Row{Href: fmt.Sprintf("/users/%d", u.ID), Values: map[string]string{"name": name, "email": u.Email}})
 	}
 	return p
+}
+
+// roleOptions are the roles as checkbox options.
+func roleOptions(roles []string) []components.Option {
+	opts := make([]components.Option, len(roles))
+	for i, r := range roles {
+		opts[i] = components.Option{Value: r, Label: r}
+	}
+	return opts
+}
+
+// rolesField is the roles a form posts; ticking none is allowed.
+templ rolesField(roles, held []string) {
+	@components.Checkboxes(components.FieldProps{ID: components.FieldID("roles"), Name: "roles", Label: "Roles they hold"}, roleOptions(roles), held)
+}
+
+// newUserError is p's refusal when it belongs to field.
+func newUserError(p authweb.NewUserPage, field string) string {
+	if field == p.ErrorField {
+		return p.Error
+	}
+	return ""
+}
+
+// newUser adds a user (UI v2 §5.5). A refusal keeps everything typed except
+// the password, which never comes back from the server.
+templ newUser(p authweb.NewUserPage) {
+	@page(uilayout.PageOpts{Title: "New user", Width: uilayout.Form, Back: &components.Link{Label: "Users", Href: "/users"}}, p.CSRF, p.Error, components.FieldID(p.ErrorField), nil) {
+		@components.Form(components.FormProps{Action: "/users", CSRF: p.CSRF}) {
+			<div class="stack">
+				@components.RequiredNote(true)
+				@components.CardWith(components.CardProps{Title: "Details", Icon: "user", Description: "Who this account is for."}) {
+					@components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "Name", Value: p.Name, Placeholder: "e.g. Priya Shah", Required: true, Error: newUserError(p, "name"), Attrs: required})
+					@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Value: p.Email, Placeholder: "e.g. name@company.in", Hint: "They sign in with this.", Required: true, Error: newUserError(p, "email"), Attrs: required}, "off")
+					@components.TextInput(components.FieldProps{ID: components.FieldID("mobile"), Name: "mobile", Label: "Mobile", Value: p.Mobile, Placeholder: "e.g. +91 98200 12345", Attrs: templ.Attributes{"inputmode": "tel"}})
+				}
+				@components.CardWith(components.CardProps{Title: "Password", Icon: "lock", Description: "Give it to them in person. They choose their own when they first sign in."}) {
+					@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Temporary password", Hint: passwordHint, Required: true, Error: newUserError(p, "password"), Attrs: required}, "new-password")
+				}
+				@components.CardWith(components.CardProps{Title: "Roles", Icon: "shield", Description: "What they can see and do. Most people start as Employee."}) {
+					@rolesField(p.Roles, p.Held)
+				}
+				<div>
+					@components.Button(components.ButtonProps{Label: "Add user", Busy: "Adding…", Variant: components.Primary})
+				</div>
+			</div>
+		}
+	}
 }

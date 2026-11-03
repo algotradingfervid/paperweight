@@ -177,11 +177,14 @@
   inset-inline-end: 0;
   inset-block-start: 100%;
   z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
   inline-size: max-content;
   padding: var(--space-2);
   background: var(--color-surface);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-pop);
+  & .btn { inline-size: 100%; justify-content: flex-start; }
 }
 
 @utility app-body {

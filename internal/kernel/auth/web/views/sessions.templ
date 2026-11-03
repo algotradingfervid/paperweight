@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"strings"
 
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
 	"github.com/vardhan/internaltools/internal/types"
@@ -16,7 +17,7 @@ func (Default) Sessions(p authweb.SessionsPage) templ.Component {
 // sessions lists the user's sessions, one card each, with their start and
 // last-use times in IST (CD-33).
 templ sessions(p authweb.SessionsPage) {
-	@page(uilayout.PageOpts{Title: "Sessions"}, p.CSRF, p.Error, "main", p.Warnings) {
+	@page(uilayout.PageOpts{Title: "My sessions"}, p.CSRF, p.Error, "main", p.Warnings) {
 		<ul class="stack">
 			for _, s := range p.Sessions {
 				<li>
@@ -27,7 +28,9 @@ templ sessions(p authweb.SessionsPage) {
 							{Label: "Last used", Value: types.FormatIST(s.LastSeenAt)},
 						})
 						if s.Current {
-							<p>This session</p>
+							<p>
+								@components.StateBadgeLabel("", "This session")
+							</p>
 						} else {
 							@components.Form(components.FormProps{Action: fmt.Sprintf("/account/sessions/%d/revoke", s.ID), CSRF: p.CSRF}) {
 								@components.Button(components.ButtonProps{Label: "End session", Busy: "Ending…"})
@@ -43,11 +46,44 @@ templ sessions(p authweb.SessionsPage) {
 	}
 }
 
-// deviceName is the card title for a session: its user agent, or "Unknown
-// device" when the browser sent none.
+// deviceName is the card title for a session: the browser and system its user
+// agent names, such as "Chrome on macOS"; "Unknown device" when it names neither.
 func deviceName(ua string) string {
-	if ua == "" {
-		return "Unknown device"
+	browser, system := firstOf(ua, uaBrowsers), firstOf(ua, uaSystems)
+	switch {
+	case browser != "" && system != "":
+		return browser + " on " + system
+	case browser != "":
+		return browser
+	case system != "":
+		return system
 	}
-	return ua
+	return "Unknown device"
+}
+
+// uaName is a name and the text that shows it in a user agent.
+type uaName struct{ text, name string }
+
+// uaBrowsers and uaSystems are in the order to test them: Edge and Opera also
+// say Chrome, Chrome also says Safari, iPhones also say Mac OS X, Android also
+// says Linux.
+var (
+	uaBrowsers = []uaName{
+		{"Edg", "Edge"}, {"OPR/", "Opera"}, {"SamsungBrowser/", "Samsung Internet"},
+		{"Firefox", "Firefox"}, {"FxiOS/", "Firefox"}, {"CriOS/", "Chrome"}, {"Chrome", "Chrome"}, {"Safari", "Safari"},
+	}
+	uaSystems = []uaName{
+		{"iPhone", "iPhone"}, {"iPad", "iPad"}, {"Android", "Android"}, {"Windows", "Windows"},
+		{"Mac OS X", "macOS"}, {"CrOS", "ChromeOS"}, {"Linux", "Linux"},
+	}
+)
+
+// firstOf is the name of the first of names that ua contains, or "".
+func firstOf(ua string, names []uaName) string {
+	for _, n := range names {
+		if strings.Contains(ua, n.text) {
+			return n.name
+		}
+	}
+	return ""
 }
