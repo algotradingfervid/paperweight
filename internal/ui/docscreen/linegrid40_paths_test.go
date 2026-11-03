@@ -27,7 +27,7 @@ var m40Modules = []struct {
 
 // M0-40, CD-315: through the public routes, a row of 4 cells shows the
 // cards with no grid on the items step, a grid row save answers as the
-// line page does, and a line error links to the step title. The 3-cell
+// line page does, and a line error links to its card (RR1a). The 3-cell
 // Module is the control, so each case sees the grid when it should.
 func TestLineGrid_FallbackOnEveryPath(t *testing.T) {
 	for _, c := range m40Modules {
@@ -63,7 +63,7 @@ func TestLineGrid_FallbackOnEveryPath(t *testing.T) {
 			}
 			var hrefs []string
 			page.Find(".error-summary a").Each(func(_ int, s *goquery.Selection) { hrefs = append(hrefs, s.AttrOr("href", "")) })
-			want := "#step-title"
+			want := "#line-2" // the line's card (R7b, RR1a)
 			if c.grid {
 				want = "#line-editor"
 			}

@@ -92,8 +92,9 @@ on("htmx:beforeOnLoad", (b, e) => {
 // htmx 2 fires htmx:afterRequest before htmx:sendError, so this also clears
 // a dropped upload. Without a refresh the input used is emptied, so picking
 // the same file again (after a dropped connection) is a change. Focus goes
-// back to it unless the user moved it into a field outside the upload, so
-// typing there is never interrupted (UX-E5).
+// back to it, or to the Change of the file shown when that folded the
+// buttons away, unless the user moved it into a field outside the upload,
+// so typing there is never interrupted (UX-E5).
 on("htmx:afterRequest", (b, e, up, p, s) => {
   const x = e.detail.xhr;
   const st = x.status;
@@ -110,7 +111,9 @@ on("htmx:afterRequest", (b, e, up, p, s) => {
     i.value = "";
     if (s.dataset.done && st >= 200 && st < 300 && x.getResponseHeader("HX-Redirect") === null) say(s, s.dataset.done, true);
     const a = document.activeElement;
-    if (b.contains(a) || !a.matches("input,select,textarea")) i.focus();
+    // A file shown with Change folds the buttons (RR1a): focus goes to it.
+    const to = i.getClientRects().length > 0 ? i : document.querySelector(e.target.getAttribute("hx-target") + " summary") || i;
+    if (b.contains(a) || !a.matches("input,select,textarea")) to.focus();
   }
 });
 

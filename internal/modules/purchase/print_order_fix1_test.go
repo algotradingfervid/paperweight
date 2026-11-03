@@ -40,14 +40,14 @@ func TestPO_PrintOwnLinesOnly(t *testing.T) {
 	htmlA := p8Print(t, env, env.Priya, a.ID)
 	p8Contains(t, "PO A", htmlA, "MS-ANGLE-50", "WIRE-18G")
 	p8Lacks(t, "PO A", htmlA, "BOLT-M12")
-	if n := strings.Count(htmlA, `<td class="sr">`); n != 2 {
+	if n := strings.Count(htmlA, `<td class="sr" data-label="Sr">`); n != 2 {
 		t.Errorf("PO A: %d line rows, want 2:\n%s", n, htmlA)
 	}
 
 	htmlB := p8Print(t, env, env.Priya, b.ID)
 	p8Contains(t, "PO B", htmlB, "BOLT-M12")
 	p8Lacks(t, "PO B", htmlB, "MS-ANGLE-50", "WIRE-18G")
-	if n := strings.Count(htmlB, `<td class="sr">`); n != 1 {
+	if n := strings.Count(htmlB, `<td class="sr" data-label="Sr">`); n != 1 {
 		t.Errorf("PO B: %d line rows, want 1:\n%s", n, htmlB)
 	}
 }

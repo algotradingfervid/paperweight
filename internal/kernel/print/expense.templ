@@ -26,9 +26,9 @@ templ ExpenseDocument(d ExpenseDoc) {
 		<tbody>
 			for _, l := range d.Lines {
 				<tr>
-					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
-					<td class="date">{ types.FormatDate(l.Date) }</td>
-					<td class="item">
+					<td class="sr" data-label="Sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="date" data-label="Date">{ types.FormatDate(l.Date) }</td>
+					<td class="item" data-label="Expense">
 						<div class="item-name">{ l.Type }</div>
 						if l.Description != "" {
 							<div class="desc">{ l.Description }</div>
@@ -42,7 +42,7 @@ templ ExpenseDocument(d ExpenseDoc) {
 							<div class="receipt">Receipt: No</div>
 						}
 					</td>
-					<td class="amount">{ types.FormatINR(l.Amount) }</td>
+					<td class="amount" data-label="Amount">{ types.FormatINR(l.Amount) }</td>
 				</tr>
 			}
 			if len(d.Lines) == 0 {

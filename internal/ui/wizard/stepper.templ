@@ -8,7 +8,8 @@ import (
 
 // Stepper is the progress indicator (UI v2 §5.6, A-13): numbered dots joined
 // by lines. Done steps show a check and are links ("Completed: " for screen
-// readers), the current step's label is the h2#step-title, visited steps
+// readers); an earlier step whose Status is Attention keeps its number in a
+// warning ring ("Needs attention: ", RR1a), the current step's label is the h2#step-title, visited steps
 // after it are numbered links and steps beyond Furthest are text. "Step n of
 // N" is only read out, through the heading's aria-describedby (#step-count).
 // The heading takes focus unless errors or a conflict are shown.
@@ -16,7 +17,14 @@ templ Stepper(m Model) {
 	<nav class="stepper" aria-label={ m.Title + " steps" }>
 		<ol class="stepper__list">
 			for i, s := range m.Steps {
-				if i < m.Current {
+				if i < m.Current && s.Status == Attention {
+					<li class="stepper__step is-visited is-attention">
+						<a class="stepper__item" href={ templ.SafeURL(m.StepURL(i)) }>
+							@stepDot()
+							<span class="stepper__label"><span class="visually-hidden">Needs attention: </span>{ s.Label }</span>
+						</a>
+					</li>
+				} else if i < m.Current {
 					<li class="stepper__step is-done">
 						<a class="stepper__item" href={ templ.SafeURL(m.StepURL(i)) }>
 							<span class="stepper__dot" aria-hidden="true">

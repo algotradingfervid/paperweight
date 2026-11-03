@@ -77,6 +77,8 @@
     box-shadow: 0 0 0 var(--space-1) var(--color-primary-100);
   }
   & .is-visited .stepper__dot { border-color: var(--color-primary-600); color: var(--color-primary-700); }
+  /* An earlier step with missing values (RR1a): its number in a warning ring. */
+  & .is-attention .stepper__dot { border-color: var(--color-warning-600); color: var(--color-warning-800); }
   & .stepper__label {
     margin: 0;
     min-inline-size: 0;

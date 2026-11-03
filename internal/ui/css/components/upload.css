@@ -102,6 +102,28 @@
     & .attachments__tile-text { display: grid; gap: var(--space-1); min-inline-size: 0; }
     & > :not(a, .attachments__tile-text) { grid-column: 2; }
   }
+  /* Attached with Change (RR1a, expense UX §5.5 "Where things sit"): one
+     compact row, a 3rem picture or file icon, the name on one line over the
+     words, and Change at the end. While Change is closed the card's head is
+     for screen readers only and its FileUpload shows no controls, unless
+     they show an error; opening Change shows them again. */
+  & > .attachments-change {
+    grid-template-columns: 3rem minmax(0, 1fr) auto;
+    padding: 0;
+    background: none;
+    border: 0;
+    & .attachments__thumb { aspect-ratio: 1; block-size: 3rem; }
+    & .attachments__chip { inline-size: min(100%, 3rem); block-size: 3rem; }
+    & .attachments__name { @apply truncate; }
+    & .attachments__meta { @apply visually-hidden; }
+    & > .attachments__change { grid-column: 3; }
+    & summary { list-style: none; &::-webkit-details-marker { display: none; } }
+  }
+  .card:has(& .attachments-change) .card-head {
+    & .card-icon, & .card-desc { display: none; }
+    & .card-title { @apply visually-hidden; }
+  }
+  .card:has(& .attachments-change):not(:has(.attachments__change[open])):not(:has(.upload [aria-invalid])) .upload > .fieldset { display: none; }
   & .attachments__attached {
     display: flex;
     align-items: center;

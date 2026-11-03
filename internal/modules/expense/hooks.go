@@ -48,20 +48,41 @@ func (claimHooks) BeforeSubmit(ctx context.Context, tx *db.Tx, id int64) error {
 	if err := checkLock(ctx, tx, ClaimDocType, id); err != nil {
 		return err
 	}
+	errs, err := submitProblems(ctx, tx, d, id)
+	if err != nil {
+		return err
+	}
+	if len(errs) > 0 {
+		return doc.Invalid(errs)
+	}
+	return checkAdvanceLeft(ctx, tx, d, id)
+}
+
+// submitProblems is the field errors of every submit rule on claim id, in
+// order; BeforeSubmit refuses them and the check page lists them (RR1a).
+func submitProblems(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctype.FieldError, error) {
 	var errs []doctype.FieldError
 	for _, rule := range []func(context.Context, *db.Tx, Deps, int64) ([]doctype.FieldError, error){
 		submitClaimFields, submitReceipts, submitAdvanceFields,
 	} {
 		fe, err := rule(ctx, tx, d, id)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		errs = append(errs, fe...)
 	}
-	if len(errs) > 0 {
-		return doc.Invalid(errs)
+	return errs, nil
+}
+
+// SubmitProblems is submitProblems for claim id's check page, which marks
+// the step that fixes each one (CD-397 (4), RR1a). The caller has checked
+// the read right.
+func SubmitProblems(ctx context.Context, tx *db.Tx, id int64) ([]doctype.FieldError, error) {
+	d, err := wiring.Get(tx)
+	if err != nil {
+		return nil, err
 	}
-	return checkAdvanceLeft(ctx, tx, d, id)
+	return submitProblems(ctx, tx, d, id)
 }
 
 func (claimHooks) ApplyEffects(ctx context.Context, tx *db.Tx, id int64) error {

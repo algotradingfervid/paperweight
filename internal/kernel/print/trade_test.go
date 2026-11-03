@@ -117,7 +117,7 @@ func TestPrint_UsesNUMFormatting(t *testing.T) {
 	d.ApprovedBy = "Ravi Kulkarni"
 	d.ApprovedAt = time.Date(2026, 10, 24, 5, 0, 0, 0, time.UTC)
 	html := renderTrade(t, d, false)
-	mustContain(t, html, "₹12,34,567.89", `<td class="qty">1,200</td><td class="uom">kg</td>`, "Date: 24-10-2026", "Ravi Kulkarni", "24-10-2026 10:30")
+	mustContain(t, html, "₹12,34,567.89", `<td class="qty" data-label="Qty">1,200</td><td class="uom" data-label="UoM">kg</td>`, "Date: 24-10-2026", "Ravi Kulkarni", "24-10-2026 10:30")
 }
 
 // FILE-082
