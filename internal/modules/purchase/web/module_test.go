@@ -28,8 +28,8 @@ func TestModules_StubsKeepGeneric(t *testing.T) {
 			t.Fatalf("Modules has no %s", dt)
 		}
 		for slug, s := range m.Steps {
-			if slug == "terms" || slug == "items" {
-				continue // P15a's and P15c's
+			if slug == "details" || slug == "terms" || slug == "items" {
+				continue // R13's, P15a's and P15c's
 			}
 			if s.Body != nil || s.Save != nil || s.Bar != nil || s.Top != nil {
 				t.Errorf("%s step %q isn't the generic step", dt, slug)
@@ -39,7 +39,7 @@ func TestModules_StubsKeepGeneric(t *testing.T) {
 			t.Errorf("%s Module sets a flag, a line page or labels", dt)
 		}
 	}
-	if s := mods[purchase.DocType].Steps; len(s) != 2 {
-		t.Errorf("Order Steps = %d, want terms (P15a) and items (P15c)", len(s))
+	if s := mods[purchase.DocType].Steps; len(s) != 3 {
+		t.Errorf("Order Steps = %d, want details (R13), terms (P15a) and items (P15c)", len(s))
 	}
 }

@@ -67,9 +67,18 @@ func noteLines(lines []LineView, notes map[int]string) {
 // entries go before docscreen's; its Primary, which must have an Href,
 // becomes the bar's primary only when the bar has no primary and no note.
 // Its Files are read-only, with no Remove, titled "Attachments" when the
-// Title is blank (UX-E7).
+// Title is blank (UX-E7). Covers leaves its fields out of Details; the key
+// facts are already taken.
 func applyPageExtra(pv *pageView) error {
 	x := pv.Extra
+	var header []components.Pair
+	var names []string
+	for i, name := range pv.V.HeaderNames {
+		if !slices.Contains(x.Covers, name) {
+			header, names = append(header, pv.V.Header[i]), append(names, name)
+		}
+	}
+	pv.V.Header, pv.V.HeaderNames = header, names
 	if x.Notice != nil && x.Notice.Kind == "" {
 		n := *x.Notice
 		n.Kind = components.Info

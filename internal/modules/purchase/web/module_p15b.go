@@ -2,6 +2,7 @@ package purchaseweb
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -195,9 +196,14 @@ func (m *module) orderPageHook(c docscreen.Ctx) (docscreen.PageExtra, error) {
 	if err != nil {
 		return docscreen.PageExtra{}, err
 	}
-	var x docscreen.PageExtra
+	// The header card shows the key facts and the amount, and the totals
+	// have their own card (UI v2 §5.13 items 3, 6).
+	x := docscreen.PageExtra{Covers: slices.Concat(orderKeyFacts, orderTotalFields)}
 	if x.Pairs, err = orderPairs(c, owner, rec); err != nil {
 		return docscreen.PageExtra{}, err
+	}
+	if totals := orderTotals(c); len(totals) > 0 {
+		x.Cards = append(x.Cards, totalsCard(totals))
 	}
 	isOwner := c.Principal.ID == v.Info.CreatedBy
 	canApprove, err := allowed(c, purchase.DocType, auth.RightApprove, &v.Record)

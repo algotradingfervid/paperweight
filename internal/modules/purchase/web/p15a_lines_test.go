@@ -44,7 +44,7 @@ func p15aTechSource(t *testing.T, w *p15dWeb) (id int64, number string) {
 // PUX-011 (PO-065, CD-258 G8 and Q6 (a), spec §24.2; UX §5.6): after an
 // approved SHREE PO on PRJ-METRO buys CEMENT-OPC at ₹345.00 on 12-10-2026,
 // a CEMENT-OPC line saved on Priya's new SHREE draft with a blank rate shows
-// `40 BAG × ₹345.00` (the unit, G8), its tax and `Last bought at ₹345.00
+// `40 Bags × ₹345.00` (the unit, G8), its tax and `Last bought at ₹345.00
 // from Shree Steel Traders on 12-10-2026 ({PO})` on the Items step and the
 // check page. When a newer price is on a PO Priya can't read, she still reads
 // the newest one she can, while Ravi, who reads both, sees the newer one.
@@ -59,8 +59,8 @@ func TestPUX011_LastPriceCard(t *testing.T) {
 		if page.status != 200 {
 			t.Fatalf("Priya GET %s = %d: %s", step, page.status, page.text())
 		}
-		if got := p15aQtyRates(page); !slices.Equal(got, []string{"40 BAG × ₹345.00"}) {
-			t.Errorf("%s card quantity = %q, want 40 BAG × ₹345.00", step, got)
+		if got := p15aQtyRates(page); !slices.Equal(got, []string{"40 Bags × ₹345.00"}) {
+			t.Errorf("%s card quantity = %q, want 40 Bags × ₹345.00", step, got)
 		}
 		if got := page.find(".lines-card .num + span"); !slices.Equal(got, []string{"GST 18%"}) {
 			t.Errorf("%s card tax = %q, want GST 18%%", step, got)
@@ -102,7 +102,7 @@ func TestPUX011_NoNoteWhenUnreadable(t *testing.T) {
 	if got := page.notes(); len(got) != 0 {
 		t.Errorf("Priya's card notes = %q, want none", got)
 	}
-	if got := p15aQtyRates(page); !slices.Equal(got, []string{"40 BAG × ₹350.00", "100 KGS × ₹62.50"}) {
+	if got := p15aQtyRates(page); !slices.Equal(got, []string{"40 Bags × ₹350.00", "100 Kilograms × ₹62.50"}) {
 		t.Errorf("card quantities = %q, want each with its unit", got)
 	}
 }
@@ -160,9 +160,9 @@ func TestPUX011_LastPriceNoteStates(t *testing.T) {
 			// which is P15b's (CD-330 (2): no own description on this line).
 			switch c.state {
 			case doctype.StateApproved:
-				want = []string{"Received 0 of 40 BAG", "Pending 40 BAG"}
+				want = []string{"Received 0 of 40 Bags", "Pending 40 Bags"}
 			case doctype.StateClosed:
-				want = []string{"Received 0 of 40 BAG", "Pending 0 BAG (closed)"}
+				want = []string{"Received 0 of 40 Bags", "Pending 0 Bags (closed)"}
 			}
 			if got := page.notes(); !slices.Equal(got, want) {
 				t.Errorf("%s card notes = %q, want %q", c.state, got, want)
@@ -190,7 +190,7 @@ func TestPUX011_LastPriceError(t *testing.T) {
 	if got := page.notes(); len(got) != 0 {
 		t.Errorf("notes with LastPricesFor failing = %q, want none", got)
 	}
-	if got := p15aQtyRates(page); !slices.Equal(got, []string{"40 BAG × ₹345.00", "10 BAG × ₹345.00"}) {
+	if got := p15aQtyRates(page); !slices.Equal(got, []string{"40 Bags × ₹345.00", "10 Bags × ₹345.00"}) {
 		t.Errorf("cards with LastPricesFor failing = %q, want both cards", got)
 	}
 	if !strings.Contains(logs(), errP15a.Error()) {
@@ -234,7 +234,7 @@ func TestPO_OrderLineGrid(t *testing.T) {
 		t.Fatalf("grid rows = %d, want 1", rows.Length())
 	}
 	text := p15dCollapse(rows.Text())
-	if !p15aContains(text, "OPC Cement 53 Grade", "CEMENT-OPC", "40", "BAG", "₹345.00", "GST 18%", "₹13,800.00") {
+	if !p15aContains(text, "OPC Cement 53 Grade", "CEMENT-OPC", "40", "Bags", "₹345.00", "GST 18%", "₹13,800.00") {
 		t.Errorf("grid row = %q, want item, code, qty, unit, rate, tax and amount in order", text)
 	}
 	for kind, want := range map[string]string{"qty": "40", "rate": "₹345.00"} {
@@ -255,7 +255,7 @@ func TestPO_OrderLineGrid(t *testing.T) {
 	want := []components.GridCell{
 		{Label: "Item", Text: "OPC Cement 53 Grade", Sub: "CEMENT-OPC"},
 		{Label: "Qty", Text: "40", Kind: "qty"},
-		{Label: "UoM", Text: "BAG"},
+		{Label: "UoM", Text: "Bag"},
 		{Label: "Rate", Text: "₹345.00", Kind: "rate"},
 		{Label: "Tax", Text: "GST 18%"},
 	}
@@ -299,7 +299,7 @@ func TestPO_OrderLinesHonourHide(t *testing.T) {
 	itemNamed := p15aCement(t, w, "40", "")
 	itemNamed["description"] = "OPC Cement 53 Grade" // the item's name
 	named := purchasetest.NewOrder(t, env, purchasetest.OrderLines(itemNamed))
-	full := []string{"40 BAG × ₹345.00", "GST 18%"}
+	full := []string{"40 Bags × ₹345.00", "GST 18%"}
 	none := []string{}
 	for _, c := range []struct {
 		field    string
@@ -311,26 +311,26 @@ func TestPO_OrderLinesHonourHide(t *testing.T) {
 		received string   // the card's Received line, exactly ("" none)
 		notes    []string // the card's notes other than Received, exactly (nil: not checked)
 	}{
-		{"item_id", "", []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"BAG", "₹345.00", "GST 18%"}, false, "40 BAG × ₹345.00", "", nil},
-		{"qty", "", []string{"40 BAG"}, []string{"₹345.00", "GST 18%"}, true, "₹345.00", "", nil},
-		{"uom_id", "", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "", nil},
-		{"price", "", []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", "", nil},
-		{"tax_code_id", "", []string{"GST 18%"}, []string{"40 BAG × ₹345.00"}, true, "40 BAG × ₹345.00", "", nil},
-		{"vendor_id", "", []string{"Shree Steel Traders"}, full, false, "40 BAG × ₹345.00", "", nil},
-		{"received_qty", "approved", []string{"Received"}, full, false, "40 BAG × ₹345.00", "", nil},
-		{"description", "approved", nil, append(slices.Clone(full), "Received 0 of 40 BAG"), false, "40 BAG × ₹345.00", "Received 0 of 40 BAG", nil},
+		{"item_id", "", []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"Bags", "₹345.00", "GST 18%"}, false, "40 Bags × ₹345.00", "", nil},
+		{"qty", "", []string{"40 Bags"}, []string{"₹345.00", "GST 18%"}, true, "₹345.00", "", nil},
+		{"uom_id", "", []string{"Bags"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "", nil},
+		{"price", "", []string{"₹345.00"}, []string{"40 Bags", "GST 18%"}, false, "40 Bags", "", nil},
+		{"tax_code_id", "", []string{"GST 18%"}, []string{"40 Bags × ₹345.00"}, true, "40 Bags × ₹345.00", "", nil},
+		{"vendor_id", "", []string{"Shree Steel Traders"}, full, false, "40 Bags × ₹345.00", "", nil},
+		{"received_qty", "approved", []string{"Received"}, full, false, "40 Bags × ₹345.00", "", nil},
+		{"description", "approved", nil, append(slices.Clone(full), "Received 0 of 40 Bags"), false, "40 Bags × ₹345.00", "Received 0 of 40 Bags", nil},
 		// On an approved or closed PO: Received and the line notes name no
 		// hidden quantity or unit.
-		{"qty", "approved", []string{"40 BAG", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG", none},
-		{"uom_id", "approved", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Pending 40"}},
-		{"qty", "closed", []string{"40 BAG", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG", none},
-		{"uom_id", "closed", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Pending 0 (closed)"}},
-		{"qty", "described", []string{"40 BAG", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 BAG", []string{"Grey, 50 kg bags"}},
-		{"uom_id", "described", []string{"BAG"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Grey, 50 kg bags · Pending 40"}},
+		{"qty", "approved", []string{"40 Bags", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 Bags", none},
+		{"uom_id", "approved", []string{"Bags"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Pending 40"}},
+		{"qty", "closed", []string{"40 Bags", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 Bags", none},
+		{"uom_id", "closed", []string{"Bags"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Pending 0 (closed)"}},
+		{"qty", "described", []string{"40 Bags", "Pending"}, []string{"₹345.00", "GST 18%"}, false, "₹345.00", "Received 0 Bags", []string{"Grey, 50 kg bags"}},
+		{"uom_id", "described", []string{"Bags"}, []string{"40 × ₹345.00", "GST 18%"}, false, "40 × ₹345.00", "Received 0 of 40", []string{"Grey, 50 kg bags · Pending 40"}},
 		// A description equal to the item's name is the item: with item_id
 		// hidden the note doesn't show it.
-		{"item_id", "named", []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"BAG", "₹345.00", "GST 18%"}, false, "40 BAG × ₹345.00", "Received 0 of 40 BAG", []string{"Pending 40 BAG"}},
-		{"price", "approved", []string{"₹345.00"}, []string{"40 BAG", "GST 18%"}, false, "40 BAG", "Received 0 of 40 BAG", []string{"Pending 40 BAG"}},
+		{"item_id", "named", []string{"OPC Cement 53 Grade", "CEMENT-OPC"}, []string{"Bags", "₹345.00", "GST 18%"}, false, "40 Bags × ₹345.00", "Received 0 of 40 Bags", []string{"Pending 40 Bags"}},
+		{"price", "approved", []string{"₹345.00"}, []string{"40 Bags", "GST 18%"}, false, "40 Bags", "Received 0 of 40 Bags", []string{"Pending 40 Bags"}},
 	} {
 		name := strings.TrimSpace(c.field + " " + c.on)
 		t.Run(name, func(t *testing.T) {

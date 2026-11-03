@@ -23,7 +23,7 @@ import (
 // The hint texts, from UX §5.4 to §5.6, one sentence each (P29).
 const (
 	p15aHintTerms    = "Left blank, the company's standard terms are used; type a dash to print none."
-	p15aHintReverse  = "Tick only if your CA has said reverse charge applies, so GST is shown as payable by us and left out of the total."
+	p15aHintReverse  = "Turn on only if your CA has said reverse charge applies, so GST is shown as payable by us and left out of the total."
 	p15aHintRemarks  = "For people in the company only, and never printed."
 	p15aHintEarlier  = "Only for orders first raised on paper; printed on the order so the vendor recognises it."
 	p15aHintRate     = "Left blank, the last price paid to this vendor on this project is used, or else the item's standard rate."
@@ -235,7 +235,7 @@ func TestPUX010_TermsErrorsOnOwnField(t *testing.T) {
 
 	t.Run("line error naming a header field", func(t *testing.T) {
 		dt, _ := doctype.Lookup(purchase.DocType)
-		body := Modules(Deps{})[purchase.DocType].Steps["terms"].Body
+		body := new(module).termsBody
 		c := docscreen.Ctx{Req: httptest.NewRequest("GET", "/", nil), DT: dt, View: &docscreen.DocView{Inputs: map[string]string{}}}
 		comp, err := body(c, docscreen.StepState{Errors: []doctype.FieldError{
 			{Line: 1, Field: "earlier_po_no", Message: "p15a line error"},

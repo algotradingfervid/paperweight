@@ -1,6 +1,7 @@
 package purchaseweb
 
 import (
+	"cmp"
 	"errors"
 	"strconv"
 	"strings"
@@ -44,10 +45,12 @@ func allowed(c docscreen.Ctx, dt string, r auth.Right, rec *auth.RecordRef) (boo
 	return err == nil, err
 }
 
-// unitOf is line l's unit code, from its "{Code} {Name}" display (CD-68).
+// unitOf is line l's unit as a screen shows it: the name from its "{Code}
+// {Name}" display (CD-68, UI v2 §5.11; print and reports keep the code,
+// CD-331), the code for a UoM with no name.
 func unitOf(l docscreen.LineView) string {
-	code, _, _ := strings.Cut(l.Display["uom_id"], " ")
-	return code
+	code, name, _ := strings.Cut(l.Display["uom_id"], " ")
+	return cmp.Or(name, code)
 }
 
 // commentsCard is the record's Comments card, with a comment post refused

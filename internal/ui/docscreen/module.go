@@ -122,6 +122,7 @@ type PageExtra struct {
 	Warnings  []string
 	LineNotes map[int]string                 // line no → a note on that line
 	Pairs     []components.Pair              // added to Details, for a hidden field's display value
+	Covers    []string                       // header fields left out of Details: the page shows them elsewhere (R13)
 	Cards     []templ.Component              // after Lines, before History
 	Notice    *components.BannerProps        // last among the document banners
 	More      []components.MoreAction        // before docscreen's own More actions

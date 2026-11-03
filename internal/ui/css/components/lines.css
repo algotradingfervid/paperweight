@@ -73,6 +73,12 @@
   & .lines-find { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); & .field { flex: 1 1 16rem; } }
   & .lines-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); margin: 0; font-weight: var(--weight-semibold); }
   & > .btn { justify-self: start; }
+  /* Add an item: the dashed full-width tile (UI v2 §5.11). */
+  & > .btn[data-add-line] {
+    justify-self: stretch;
+    min-block-size: 3.5rem;
+    border: var(--border-w) dashed var(--color-border);
+  }
   @container (min-width: 64rem) {
     &.linelist--grid :is(.lines, .lines-more, .lines-total) { display: none; }
   }

@@ -393,22 +393,26 @@ func checkEarlierPO(h dbq.OrderForValidateRow, rows []dbq.OrderLinesForValidateR
 	return errs
 }
 
-// beforeSubmitOrder refuses reverse charge with a Nil-Rated, Exempted or
-// Non-GST line, naming each such line (PO spec §4; doc.Invalid, CD-264 (2)).
-// The other rules need no second call: the kernel runs Validate again on
-// submit and approve (D-APR-15).
+// beforeSubmitOrder refuses a UoM or tax code that didn't resolve
+// (CD-387 (2)), and reverse charge with a Nil-Rated, Exempted or Non-GST line,
+// naming each such line (PO spec §4; doc.Invalid, CD-264 (2)). The other rules
+// need no second call: the kernel runs Validate again on submit and approve
+// (D-APR-15).
 func beforeSubmitOrder(ctx context.Context, tx *db.Tx, id int64) error {
 	q := dbq.New(tx.SQL())
 	h, err := q.OrderForValidate(ctx, id)
-	if err != nil || h.ReverseCharge == 0 {
+	if err != nil {
 		return err
 	}
 	rows, err := q.OrderLinesForValidate(ctx, id)
 	if err != nil {
 		return err
 	}
-	var errs []doctype.FieldError
-	for _, l := range rows { // tax_code_id is Required, so set by now (CD-178)
+	errs := orderBlanks(rows)
+	for _, l := range rows {
+		if h.ReverseCharge == 0 || l.TaxCodeID == 0 {
+			continue
+		}
 		tc, err := taxCodes.Get(ctx, tx, l.TaxCodeID)
 		if err != nil {
 			return err

@@ -159,8 +159,8 @@ func TestPUX015_NoteBoundaries(t *testing.T) {
 		))
 	purchasetest.SetReceived(t, env, po.Lines[1].ID, types.Qty(10001))
 	want := []string{
-		"Received 0 of 10 KGS", "Already received 0.001 KGS before this app · Pending 9.999 KGS",
-		"Received 10.001 of 10 KGS", "Pending 0 KGS · Over by 0.001 KGS",
+		"Received 0 of 10 Kilograms", "Already received 0.001 Kilograms before this app · Pending 9.999 Kilograms",
+		"Received 10.001 of 10 Kilograms", "Pending 0 Kilograms · Over by 0.001 Kilograms",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("line notes = %q, want %q", got, want)
@@ -180,7 +180,7 @@ func TestPUX038_PendingBoundary(t *testing.T) {
 	if label, href := page.primary(); label != "Receive goods" || href != p15bReceiveHref(po.ID) {
 		t.Errorf("0.001 pending: primary %q %q, want Receive goods", label, href)
 	}
-	want := "1 line still has 0.001 KGS pending. Closing means no more goods can be received against this order."
+	want := "1 line still has 0.001 Kilograms pending. Closing means no more goods can be received against this order."
 	if note, _ := w.poCloseNote(t, env.Priya, po.ID); note != want {
 		t.Errorf("close note %q, want %q", note, want)
 	}

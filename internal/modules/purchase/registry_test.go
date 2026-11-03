@@ -226,11 +226,11 @@ func TestPurchase_FieldFlags(t *testing.T) {
 		// Order lines (§3.2).
 		{order, "item_id", flags{line: true, required: true}},
 		{order, "description", flags{line: true, maxLen: 500}},
-		{order, "uom_id", flags{line: true, required: true}},
+		{order, "uom_id", flags{line: true}},
 		{order, "qty", flags{line: true, required: true, positive: true}},
 		{order, "price", flags{line: true, nonNegative: true}},
 		{order, "discount_pct", flags{line: true, nonNegative: true}},
-		{order, "tax_code_id", flags{line: true, required: true}},
+		{order, "tax_code_id", flags{line: true}},
 		{order, "already_received", flags{line: true, nonNegative: true}},
 		// Request header and lines (§20.2).
 		{request, "site_id", flags{required: true}},
@@ -240,7 +240,7 @@ func TestPurchase_FieldFlags(t *testing.T) {
 		{request, "order_status", flags{system: true}},
 		{request, "item_id", flags{line: true, required: true}},
 		{request, "description", flags{line: true, maxLen: 500}},
-		{request, "uom_id", flags{line: true, required: true}},
+		{request, "uom_id", flags{line: true}},
 		{request, "qty", flags{line: true, required: true, positive: true}},
 		{request, "note", flags{line: true, maxLen: 200}},
 		{request, "ordered_qty", flags{line: true, system: true}},

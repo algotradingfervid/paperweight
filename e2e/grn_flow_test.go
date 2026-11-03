@@ -272,7 +272,7 @@ func TestE2E_RequestToShortClose(t *testing.T) {
 	p.Fill("price", "6,000")
 	p.Press(saveLine)
 	p.Until("back on Items", `location.pathname.endsWith("/edit/items")`)
-	p.WaitText("10 NOS × ₹6,000.00")
+	p.WaitText("10 Numbers × ₹6,000.00")
 	noOverflow(p, "PO Items")
 	p.Press(saveContinue)
 	onStep(p, "Step 4 of 4")

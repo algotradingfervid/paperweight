@@ -37,18 +37,18 @@ func TestPUX015_PendingNotes(t *testing.T) {
 	purchasetest.SetReceived(t, env, po.Lines[0].ID, p15bQty(25))
 	purchasetest.SetReceived(t, env, po.Lines[2].ID, p15bQty(25))
 	want := []string{
-		"Received 25 of 40 BAG", "Pending 15 BAG",
-		"Received 0 of 40 BAG", "Grey, 50 kg bags · Pending 40 BAG",
-		"Received 25 of 40 BAG", "Already received 10 BAG before this app · Pending 5 BAG",
+		"Received 25 of 40 Bags", "Pending 15 Bags",
+		"Received 0 of 40 Bags", "Grey, 50 kg bags · Pending 40 Bags",
+		"Received 25 of 40 Bags", "Already received 10 Bags before this app · Pending 5 Bags",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("approved line notes = %q, want %q", got, want)
 	}
 	w.act(t, env.Priya, purchase.DocType, po.ID, doctype.ActionClose, "Vendor stopped supplying")
 	want = []string{
-		"Received 25 of 40 BAG", "Pending 0 BAG (closed)",
-		"Received 0 of 40 BAG", "Grey, 50 kg bags · Pending 0 BAG (closed)",
-		"Received 25 of 40 BAG", "Pending 0 BAG (closed)",
+		"Received 25 of 40 Bags", "Pending 0 Bags (closed)",
+		"Received 0 of 40 Bags", "Grey, 50 kg bags · Pending 0 Bags (closed)",
+		"Received 25 of 40 Bags", "Pending 0 Bags (closed)",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("closed line notes = %q, want %q", got, want)
@@ -87,16 +87,16 @@ func TestPO_OverByLineNote(t *testing.T) {
 	purchasetest.SetReceived(t, env, po.Lines[1].ID, p15bQty(45))
 	purchasetest.SetReceived(t, env, po.Lines[2].ID, p15bQty(40))
 	want := []string{
-		"Received 0 of 40 BAG", "Already received 45 BAG before this app · Pending 0 BAG · Over by 5 BAG",
-		"Received 45 of 40 BAG", "Pending 0 BAG · Over by 5 BAG",
-		"Received 40 of 40 BAG", "Pending 0 BAG",
+		"Received 0 of 40 Bags", "Already received 45 Bags before this app · Pending 0 Bags · Over by 5 Bags",
+		"Received 45 of 40 Bags", "Pending 0 Bags · Over by 5 Bags",
+		"Received 40 of 40 Bags", "Pending 0 Bags",
 	}
 	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Equal(got, want) {
 		t.Errorf("line notes = %q, want %q", got, want)
 	}
 	w.act(t, env.Priya, purchase.DocType, po.ID, doctype.ActionClose, "Done")
-	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Contains(got, "Pending 0 BAG (closed) · Over by 5 BAG") {
-		t.Errorf("closed line notes = %q, want Pending 0 BAG (closed) · Over by 5 BAG", got)
+	if got := w.page(t, env.Priya, po.ID).notes(); !slices.Contains(got, "Pending 0 Bags (closed) · Over by 5 Bags") {
+		t.Errorf("closed line notes = %q, want Pending 0 Bags (closed) · Over by 5 Bags", got)
 	}
 }
 
@@ -112,14 +112,14 @@ func TestPUX016_CloseWarning(t *testing.T) {
 	one := purchasetest.NewOrder(t, env, purchasetest.OrderLines(w.cement(t, "40", nil), w.cement(t, "10", nil)))
 	purchasetest.SetReceived(t, env, one.Lines[0].ID, p15bQty(25))
 	purchasetest.SetReceived(t, env, one.Lines[1].ID, p15bQty(10))
-	if note, h := w.poCloseNote(t, env.Priya, one.ID); note != "1 line still has 15 BAG"+tail || h != hint {
-		t.Errorf("one line: note %q hint %q, want %q and %q", note, h, "1 line still has 15 BAG"+tail, hint)
+	if note, h := w.poCloseNote(t, env.Priya, one.ID); note != "1 line still has 15 Bags"+tail || h != hint {
+		t.Errorf("one line: note %q hint %q, want %q and %q", note, h, "1 line still has 15 Bags"+tail, hint)
 	}
 	many := purchasetest.NewOrder(t, env, purchasetest.OrderLines(
 		w.cement(t, "40", nil), w.line(t, "WIRE-18G", "KGS", "7217", "120", nil), w.cement(t, "5", nil)))
 	purchasetest.SetReceived(t, env, many.Lines[0].ID, p15bQty(30))
-	if note, _ := w.poCloseNote(t, env.Priya, many.ID); note != "3 lines still have 15 BAG and 120 KGS"+tail {
-		t.Errorf("three lines: note %q, want %q", note, "3 lines still have 15 BAG and 120 KGS"+tail)
+	if note, _ := w.poCloseNote(t, env.Priya, many.ID); note != "3 lines still have 15 Bags and 120 Kilograms"+tail {
+		t.Errorf("three lines: note %q, want %q", note, "3 lines still have 15 Bags and 120 Kilograms"+tail)
 	}
 	done := purchasetest.NewOrder(t, env, purchasetest.OrderLines(w.cement(t, "40", nil)))
 	purchasetest.SetReceived(t, env, done.Lines[0].ID, p15bQty(40))
@@ -138,7 +138,7 @@ func TestPUX016_CloseWarningThreeUnits(t *testing.T) {
 	env := w.env
 	po := purchasetest.NewOrder(t, env, purchasetest.OrderLines(
 		w.cement(t, "15", nil), w.line(t, "WIRE-18G", "KGS", "7217", "120", nil), w.line(t, "BOLT-M12", "NOS", "7318", "4", nil)))
-	want := "3 lines still have 15 BAG, 120 KGS and 4 NOS pending. Closing means no more goods can be received against this order."
+	want := "3 lines still have 15 Bags, 120 Kilograms and 4 Numbers pending. Closing means no more goods can be received against this order."
 	if note, _ := w.poCloseNote(t, env.Priya, po.ID); note != want {
 		t.Errorf("note %q, want %q", note, want)
 	}
