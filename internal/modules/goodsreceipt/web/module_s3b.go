@@ -77,18 +77,20 @@ func takeBillPost(ctx context.Context, sm *scs.SessionManager, id int64) *billPo
 }
 
 // billPanel is the Bill details card of c's GRN; nil draws nothing. ?bill=edit
-// opens the form over stored bill details.
-func (m *module) billPanel(c docscreen.Ctx) (templ.Component, error) {
+// opens the form over stored bill details. add reports that the viewer can
+// add the first bill details (UX doc §5.6: write, approved, none yet).
+func (m *module) billPanel(c docscreen.Ctx) (card templ.Component, add bool, err error) {
 	ctx, id := c.Req.Context(), c.View.Info.ID
 	b, err := m.d.Service.BillCard(ctx, c.Principal, id)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	add = b.State == doctype.StateApproved && b.CanWrite && b.Bill.Version == 0
 	v, ok := billViewOf(id, b, takeBillPost(ctx, m.d.Sessions, id), c.Req.URL.Query().Get("bill") == "edit", false)
 	if !ok {
-		return nil, nil
+		return nil, add, nil
 	}
-	return billCard(v), nil
+	return billCard(v), add, nil
 }
 
 // billView is the card as billCard draws it.
@@ -99,6 +101,7 @@ type billView struct {
 	Reload   string // where the ConflictBanner's button goes
 	Errs     []components.FieldErr
 	Saved    bool // the polite status after an htmx save
+	DropBar  bool // the first save: the page's Add bill details goes
 	Empty    bool
 	Note     string // the tax invoice offer's note
 	Rows     []components.Pair

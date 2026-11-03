@@ -44,6 +44,7 @@
     color: var(--color-text-secondary);
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
+    & > span { font-variant-numeric: tabular-nums; } /* every part's figures align, as the first part's (num) */
   }
   /* A line's receipt (UX-E3): a 64 px thumbnail, or the file's chip. The
      compact line's name and size are for screen readers only. */
