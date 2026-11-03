@@ -5,8 +5,10 @@ package e2e
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/chromedp/chromedp"
+	"github.com/chromedp/chromedp/kb"
 
 	"github.com/vardhan/internaltools/internal/fixture"
 )
@@ -52,6 +54,54 @@ func TestE2E_WizardClose(t *testing.T) {
 	wantHeaderByWidth(t, p, "new PO, details step")
 	pressX(p)
 	p.Until("the list, unasked", `location.pathname === "`+list+`"`)
+
+	// A step redrawn with a refusal holds values nothing saved: the × asks,
+	// though nothing was typed since the redraw (data-unsaved).
+	p.Open(list + "/new")
+	p.Fill("order_date", "99-99-9999")
+	p.Press(saveContinue)
+	p.Until("the refused step", `document.querySelector("form#wizard-form[data-unsaved]") !== null`)
+	pressX(p)
+	p.Until("the leave dialog after a refusal", `document.getElementById("leave-wizard").open`)
+	p.Press("Leave")
+	p.Until("the list", `location.pathname === "`+list+`"`)
+
+	// Enter on the ×: a clean step goes to the list; a changed one opens the
+	// dialog, which stays open (the keypress after Enter must not press its
+	// first button).
+	p.Open(list + "/new")
+	// A keyup whose keydown was elsewhere (Enter pressed in a field, focus
+	// then on the ×) does nothing.
+	p.Do("a stray keyup on ×", chromedp.Evaluate[chromedp.Void](`document.querySelector(".wizard-close").dispatchEvent(new KeyboardEvent("keyup", {key: "Enter", bubbles: true}))`))
+	p.Do("let it act", chromedp.Sleep(400*time.Millisecond))
+	if got := Eval[string](p, `location.pathname`); got != list+"/new" {
+		t.Errorf("a stray keyup on × went to %q, want to stay on %s/new", got, list)
+	}
+	p.Do("focus ×", chromedp.Evaluate[chromedp.Void](`document.querySelector(".wizard-close").focus()`))
+	p.Keys(kb.Enter)
+	p.Until("the list after Enter, unasked", `location.pathname === "`+list+`"`)
+	p.Open(list + "/new")
+	p.FillID("f-remarks", "Bay 5")
+	p.Do("focus ×", chromedp.Evaluate[chromedp.Void](`document.querySelector(".wizard-close").focus()`))
+	p.Keys(kb.Enter)
+	p.Until("the leave dialog after Enter", `document.getElementById("leave-wizard").open`)
+	p.Do("let the key finish", chromedp.Sleep(400*time.Millisecond))
+	if !Eval[bool](p, `document.getElementById("leave-wizard").open`) {
+		t.Error("the leave dialog closed right after Enter opened it")
+	}
+	p.Press("Keep editing")
+	p.Until("the dialog closed", `!document.getElementById("leave-wizard").open`)
+	// Ctrl+Enter keeps the browser's own link behaviour: no dialog opens.
+	// What the browser then does is its own (headless follows the link in
+	// this tab), so showModal records any open in sessionStorage, which a
+	// same-tab navigation keeps.
+	p.Do("record dialog opens", chromedp.Evaluate[chromedp.Void](`(() => { sessionStorage.removeItem("r7-opened"); const show = HTMLDialogElement.prototype.showModal; HTMLDialogElement.prototype.showModal = function () { sessionStorage.setItem("r7-opened", this.id); return show.call(this); }; })()`))
+	p.Do("focus ×", chromedp.Evaluate[chromedp.Void](`document.querySelector(".wizard-close").focus()`))
+	p.Do("press Ctrl+Enter", chromedp.KeyEvent(kb.Enter, chromedp.KeyModifiers(kb.ModifierCtrl)))
+	p.Do("let the key finish", chromedp.Sleep(400*time.Millisecond))
+	if got := Eval[string](p, `sessionStorage.getItem("r7-opened") ?? ""`); got != "" {
+		t.Errorf("Ctrl+Enter on × opened dialog %q, want none", got)
+	}
 
 	p.Open(list + "/new")
 	p.FillID("f-remarks", "Bay 3")

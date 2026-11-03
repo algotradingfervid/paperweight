@@ -40,7 +40,6 @@ type Module struct {
 	Home        components.Link                               // the module's home, "Go to {Label}" after a Submit; zero for none (UI v2 §5.13 item 2)
 	FooterTotal string                                        // the header Money field the Items footer shows (UI v2 A-22, CD-376)
 	TodayDates  []string                                      // header Date fields a new document opens on today (PO spec §3.2, expense UX §5.10)
-	SelfFill    []string                                      // Required fields resolved when left blank (Project, UoM, Tax code): no star (CD-387 (2))
 }
 
 // LineNoun names a module's lines (UX-E2, CD-270 Q1): Add labels the add
@@ -117,9 +116,12 @@ type CheckExtra struct {
 	Cards    []templ.Component // after Attachments, before the grand total
 	Covers   []string          // fields Totals show, left out of the steps' details (CD-326 (4))
 
-	// Problems are what submit will refuse that DOC's problems don't show:
-	// each marks the section of the step owning it Needs attention and is
-	// listed there; one no step owns is an internal error (R7).
+	// Problems are what submit will refuse that DOC's problems don't show.
+	// Field names a field a step shows, or "lines" (or Line > 0) for the
+	// lines step: the problem marks that step's section Needs attention and
+	// is listed there once. Field "" with no Line is the document's own and
+	// is listed in the Check page's top summary. Any other Field is an
+	// internal error (R7).
 	Problems []doctype.FieldError
 }
 

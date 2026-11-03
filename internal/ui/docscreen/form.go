@@ -316,6 +316,7 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 		if status == http.StatusConflict {
 			pr.onFrame(&sv.M, "/doc/"+dt.Name+"/new")
 		}
+		sv.M.Unsaved = true // the posted values, nothing saved (CD-387 (4))
 		ui.Render(w, r, status, stepFull(sv), stepFrame(sv))
 	}
 	var saved Save
@@ -483,6 +484,7 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sv.M.Version = version // the page's, so a save made since still conflicts (CD-94)
+		sv.M.Unsaved = true    // the posted values, nothing saved (CD-387 (4))
 		o := wizard.Invalid
 		if pr.Status == http.StatusConflict {
 			o = wizard.Conflict
@@ -830,7 +832,7 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 			value = v.Inputs[name]
 		}
 		msg := headerError(errs, name)
-		shown = append(shown, MoreInput{Field: f, Value: value, Error: msg, Input: FieldInput(asShown(c, f), components.FieldID(name), value, msg, c.Deps)})
+		shown = append(shown, MoreInput{Field: f, Value: value, Error: msg, Input: FieldInput(f, components.FieldID(name), value, msg, c.Deps)})
 	}
 	sv.Inputs = append(sv.Inputs, GroupMore(shown).Inputs()...)
 	switch {
@@ -951,7 +953,10 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 	}
 	problems = slices.Concat(problems, v.DraftProblems)
 	for _, p := range extra.Problems {
-		if !slices.ContainsFunc(steps, func(s FormStep) bool { return s.owns(p) }) {
+		switch {
+		case p.Field == "" && p.Line == 0:
+			sv.M.Stored = append(sv.M.Stored, p.Message) // the document's own: the top summary
+		case !slices.ContainsFunc(steps, func(s FormStep) bool { return s.owns(p) }):
 			return fmt.Errorf("docscreen: %s Check problem on %q, which no step shows", dt.Name, p.Field)
 		}
 	}
@@ -971,7 +976,9 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 		for _, p := range extra.Problems {
 			if f, ok := dt.Field(p.Field); s.owns(p) && (!ok || !hidden(c, f)) {
 				sec.Status = wizard.Attention
-				sec.Problems = append(sec.Problems, p.Message)
+				if !slices.Contains(sec.Problems, p.Message) {
+					sec.Problems = append(sec.Problems, p.Message)
+				}
 			}
 		}
 		if s.Lines {

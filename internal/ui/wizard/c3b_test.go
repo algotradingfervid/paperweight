@@ -19,6 +19,10 @@ func TestFrame_LeaveDialog(t *testing.T) {
 	master := docModel()
 	master.Mode = wizard.Master
 	master.Steps = steps("Details", "Addresses", "Contacts", "Check")
+	held := master
+	held.Held = true
+	startOver := held
+	startOver.StartOver = true
 	for _, c := range []struct {
 		name string
 		m    wizard.Model
@@ -27,6 +31,8 @@ func TestFrame_LeaveDialog(t *testing.T) {
 		{"saved document", docModel(), "What you changed on this step is lost. The draft keeps what was saved before."},
 		{"new document", newDoc, "What you typed in this wizard is lost."},
 		{"master wizard", master, "What you typed in this wizard is lost."},
+		{"held wizard", held, "What you typed on this step is lost."},
+		{"held wizard with Start over", startOver, "What you typed on this step is lost. Start over clears the rest."},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			c.m.Close = "/doc/po"
@@ -60,17 +66,29 @@ func TestFrame_LeaveDialog(t *testing.T) {
 			}
 		})
 	}
-	// A step redrawn with errors or a refusal holds values that weren't
-	// saved: its form is marked, so the × asks however it was reached.
+	// Only Unsaved marks the form: errors, a conflict or a refusal may be
+	// drawn over stored values (a submit or move refusal), which nothing
+	// would lose.
 	for _, c := range []struct {
 		name   string
 		adjust func(*wizard.Model)
 		marked bool
 	}{
 		{"plain", func(*wizard.Model) {}, false},
-		{"errors", func(m *wizard.Model) { m.Errors = []components.FieldErr{{ID: "f-a", Message: "A is required."}} }, true},
-		{"conflict", func(m *wizard.Model) { m.Conflict = "Someone saved this first." }, true},
-		{"danger", func(m *wizard.Model) { m.Danger = "This can't be saved." }, true},
+		{"errors", func(m *wizard.Model) { m.Errors = []components.FieldErr{{ID: "f-a", Message: "A is required."}} }, false},
+		{"conflict", func(m *wizard.Model) { m.Conflict = "Someone saved this first." }, false},
+		{"danger", func(m *wizard.Model) { m.Danger = "This can't be saved." }, false},
+		{"unsaved alone", func(m *wizard.Model) { m.Unsaved = true }, true},
+		{"held, errors", func(m *wizard.Model) {
+			m.Held = true
+			m.Errors = []components.FieldErr{{ID: "f-a", Message: "A is required."}}
+		}, false},
+		{"held, conflict", func(m *wizard.Model) { m.Held, m.Conflict = true, "Someone saved this first." }, false},
+		{"held, danger", func(m *wizard.Model) { m.Held, m.Danger = true, "This can't be saved." }, false},
+		{"held, unsaved", func(m *wizard.Model) {
+			m.Held, m.Unsaved = true, true
+			m.Errors = []components.FieldErr{{ID: "f-a", Message: "A is too long."}}
+		}, true},
 	} {
 		t.Run("unsaved "+c.name, func(t *testing.T) {
 			m := docModel()

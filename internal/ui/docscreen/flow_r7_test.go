@@ -2,6 +2,7 @@ package docscreen_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/a-h/templ"
 
+	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
@@ -23,17 +25,6 @@ func r7Errors(page *goquery.Document) []string {
 	return page.Find(".error-summary a").Map(func(_ int, s *goquery.Selection) string {
 		return strings.TrimPrefix(s.AttrOr("href", ""), "#") + " " + norm(s.Text())
 	})
-}
-
-// r7Starred reports whether the field holding the control named name marks
-// it required: the label's hidden " (required)" (UI v2 §5.5 item 2).
-func r7Starred(t *testing.T, page *goquery.Document, name string) bool {
-	t.Helper()
-	field := page.Find(`[name="` + name + `"]`).First().Closest(".field")
-	if field.Length() != 1 {
-		t.Fatalf("no .field holds a control named %s", name)
-	}
-	return strings.Contains(field.Find("label, legend").First().Text(), "(required)")
 }
 
 // CD-387 (3): a line with nothing identifying it (every starred Link on the
@@ -87,6 +78,10 @@ func TestR7_BlankLineRefused(t *testing.T) {
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("status = %d, want 422; body %.300s", rec.Code, rec.Body)
 		}
+		row := uitest.Doc(t, rec).Find("form#grid-row-2")
+		if row.Length() != 1 || !strings.Contains(norm(row.Text()), "Item is required.") {
+			t.Errorf("grid row: %d, text %q; want the row with Item is required.", row.Length(), norm(row.Text()))
+		}
 		if calls := e.docs.Calls(); len(calls) != 0 {
 			t.Errorf("engine calls = %+v, want none", calls)
 		}
@@ -115,39 +110,12 @@ func TestR7_BlankLineRefused(t *testing.T) {
 	})
 }
 
-// CD-387 (2): a field the module declares SelfFill (it resolves itself when
-// left blank) has no star on the step and line pages, and doesn't make a
-// line blank; every other Required field keeps its star.
-func TestR7_SelfFillHasNoStar(t *testing.T) {
-	e := newLinesEnv(t, threeLines())
-	e.d.Modules = map[string]docscreen.Module{docscreentest.Sample: {SelfFill: []string{"supplier_id", "qty"}}}
-	e.remount()
-	details := uitest.Doc(t, e.get(t, doc42+"/edit/details"))
-	for name, want := range map[string]bool{"supplier_id": false, "order_date": true} {
-		if got := r7Starred(t, details, name); got != want {
-			t.Errorf("details %s starred = %v, want %v", name, got, want)
-		}
-	}
-	line := uitest.Doc(t, e.get(t, doc42+"/lines/new"))
-	for name, want := range map[string]bool{"qty": false, "item_id": true} {
-		if got := r7Starred(t, line, name); got != want {
-			t.Errorf("line %s starred = %v, want %v", name, got, want)
-		}
-	}
-	rec := e.post(t, doc42+"/lines/new", url.Values{"version": {"6"}}, "HX-Request", "true", "HX-Target", "main")
-	if got := r7Errors(uitest.Doc(t, rec)); !slices.Equal(got, []string{"f-item_id Item is required."}) {
-		t.Errorf("blank line errors = %q, want Item's only (qty fills itself)", got)
-	}
-}
-
-// A line whose only starred Link the module hides, or a DocType with no
-// starred Link on its lines, has nothing to identify it by: no line is
-// refused for being blank (CD-387 (3)).
+// A line whose only starred Link the module hides has nothing to identify it
+// by: no line is refused for being blank (CD-387 (3)).
 func TestR7_BlankLineNeedsAStarredLink(t *testing.T) {
 	ok := doc.Result{ID: 42, State: doctype.StateDraft, Version: 7}
 	for name, m := range map[string]docscreen.Module{
-		"item hidden":   {Hide: m01bHide("item_id")},
-		"item SelfFill": {SelfFill: []string{"item_id"}},
+		"item hidden": {Hide: m01bHide("item_id")},
 	} {
 		t.Run(name, func(t *testing.T) {
 			e := newLinesEnv(t, threeLines())
@@ -159,34 +127,6 @@ func TestR7_BlankLineNeedsAStarredLink(t *testing.T) {
 				t.Errorf("303 to %q, want the items step; status %d, body %.300s", got, rec.Code, rec.Body)
 			}
 		})
-	}
-}
-
-// A SelfFill name that isn't a Required field of its DocType fails when the
-// routes are built.
-func TestR7_CheckSelfFill(t *testing.T) {
-	docscreentest.RegisterSample()
-	for _, c := range []struct {
-		names []string
-		bad   bool
-	}{
-		{[]string{"supplier_id", "qty"}, false},
-		{[]string{"remarks"}, true},
-		{[]string{"no_such"}, true},
-	} {
-		mods := map[string]docscreen.Module{docscreentest.Sample: {SelfFill: c.names}}
-		err := docscreen.CheckSelfFill(mods)
-		if (err != nil) != c.bad {
-			t.Errorf("CheckSelfFill(%q) = %v, want error %v", c.names, err, c.bad)
-		}
-		func() {
-			defer func() {
-				if got := recover() != nil; got != c.bad {
-					t.Errorf("Routes with SelfFill %q panicked = %v, want %v", c.names, got, c.bad)
-				}
-			}()
-			docscreen.Routes(docscreen.Deps{Modules: mods})
-		}()
 	}
 }
 
@@ -212,12 +152,21 @@ func TestR7_CheckModuleProblems(t *testing.T) {
 			map[string][]string{"Details": {"Remarks need the site name."}}},
 		{"a line", []doctype.FieldError{{Field: "qty", Line: 1, Message: "Line 1: Tax code not found for this item."}}, "Complete", "Needs attention",
 			map[string][]string{"Items": {"Line 1: Tax code not found for this item."}}},
+		{"the lines as a whole", []doctype.FieldError{{Field: "lines", Message: "Add the freight line."}}, "Complete", "Needs attention",
+			map[string][]string{"Items": {"Add the freight line."}}},
+		{"a line, no field", []doctype.FieldError{{Line: 1, Message: "Line 1: Add a photo of the bill."}}, "Complete", "Needs attention",
+			map[string][]string{"Items": {"Line 1: Add a photo of the bill."}}},
+		{"one message twice", []doctype.FieldError{{Field: "remarks", Message: "Remarks need the site name."}, {Field: "priority", Message: "Remarks need the site name."}}, "Needs attention", "Complete",
+			map[string][]string{"Details": {"Remarks need the site name."}}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			e := newFormEnv(t, allRights...)
 			e.seed(doctype.StateDraft)
 			mount(e, c.problems)
 			page := uitest.Doc(t, e.get(t, doc42+"/edit/check"))
+			if got := bannerTexts(page.Find("#wizard"), "warning"); len(got) != 0 {
+				t.Errorf("top warnings = %q, want none: each problem has its section", got)
+			}
 			for title, want := range map[string]string{"Details": c.details, "Items": c.items} {
 				sec := checkSection(page.Selection, title)
 				if got := norm(sec.Find(".check-status").Text()); got != want {
@@ -248,6 +197,26 @@ func TestR7_CheckModuleProblems(t *testing.T) {
 			t.Errorf("Details lists %d problems, want none", n)
 		}
 	})
+	// Field "" is the document's own problem: the Check page's top summary
+	// lists it, and no section changes.
+	t.Run("the document's own", func(t *testing.T) {
+		e := newFormEnv(t, allRights...)
+		e.seed(doctype.StateDraft)
+		mount(e, []doctype.FieldError{{Message: "The vendor is on hold."}})
+		rec := e.get(t, doc42+"/edit/check")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", rec.Code)
+		}
+		page := uitest.Doc(t, rec)
+		if got := bannerTexts(page.Find("#wizard"), "warning"); !slices.Equal(got, []string{"The vendor is on hold."}) {
+			t.Errorf("top warnings = %q, want [The vendor is on hold.]", got)
+		}
+		for _, title := range []string{"Details", "Items"} {
+			if got := norm(checkSection(page.Selection, title).Find(".check-status").Text()); got != "Complete" {
+				t.Errorf("%s = %q, want Complete", title, got)
+			}
+		}
+	})
 	t.Run("no step owns it", func(t *testing.T) {
 		e := newFormEnv(t, allRights...)
 		e.seed(doctype.StateDraft)
@@ -256,4 +225,55 @@ func TestR7_CheckModuleProblems(t *testing.T) {
 			t.Errorf("status = %d, want 500", rec.Code)
 		}
 	})
+}
+
+// CD-387 (4): the step form is marked unsaved only where it redraws posted
+// values nothing saved (a step or new post's 422 and 409), never over stored
+// values (a submit or move refusal), so the × asks only where typing is lost.
+func TestR7_UnsavedMark(t *testing.T) {
+	marked := func(t *testing.T, rec *httptest.ResponseRecorder) bool {
+		t.Helper()
+		page := uitest.Doc(t, rec)
+		if page.Find("form#wizard-form").Length() != 1 {
+			t.Fatalf("status %d: no step form; body %.300s", rec.Code, rec.Body)
+		}
+		_, ok := page.Find("form#wizard-form").Attr("data-unsaved")
+		return ok
+	}
+	stale := &doc.Error{Kind: doc.KindStale, Message: "Someone else saved this draft."}
+	invalid := statusErr{status: http.StatusUnprocessableEntity, msg: "Fix the highlighted fields.",
+		fields: []doctype.FieldError{{Field: "qty", Line: 2, Message: "Line 2: Quantity must be more than 0."}}}
+	for _, c := range []struct {
+		name   string
+		result error
+		action doctype.Action
+		path   string
+		form   url.Values
+		status int
+		want   bool
+	}{
+		{"step 422", nil, "", doc42 + "/edit/details", url.Values{"version": {"6"}, "supplier_id": {"7"}, "order_date": {"31-02-2026"}}, http.StatusUnprocessableEntity, true},
+		{"step 409", stale, doctype.ActionSave, doc42 + "/edit/details", url.Values{"version": {"6"}, "supplier_id": {"7"}, "order_date": {"24-10-2026"}}, http.StatusConflict, true},
+		{"new 422", nil, "", samplePath + "/new", url.Values{"supplier_id": {"7"}, "order_date": {"31-02-2026"}}, http.StatusUnprocessableEntity, true},
+		{"submit 422", invalid, doctype.ActionSubmit, doc42 + "/submit", url.Values{"version": {"6"}}, http.StatusUnprocessableEntity, false},
+		{"move 422", invalid, doctype.ActionSave, doc42 + "/lines/1/move?dir=down", url.Values{"version": {"6"}}, http.StatusUnprocessableEntity, false},
+		{"move 409", stale, doctype.ActionSave, doc42 + "/lines/1/move?dir=down", url.Values{"version": {"6"}}, http.StatusConflict, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newLinesEnv(t, threeLines())
+			for _, r := range []auth.Right{"create"} {
+				e.az.Grant("Buyer", docscreentest.Sample, r, auth.ScopeAll)
+			}
+			if c.result != nil {
+				e.docs.SetResult(docscreentest.Sample, 42, c.action, doc.Result{}, c.result)
+			}
+			rec := e.post(t, c.path, c.form)
+			if rec.Code != c.status {
+				t.Fatalf("status = %d, want %d; body %.300s", rec.Code, c.status, rec.Body)
+			}
+			if got := marked(t, rec); got != c.want {
+				t.Errorf("data-unsaved = %v, want %v", got, c.want)
+			}
+		})
+	}
 }

@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -24,5 +25,27 @@ func TestSetupWizard_Close(t *testing.T) {
 		if r.doc.Find("dialog#leave-wizard a[href='/approvals']").Length() != 1 {
 			t.Errorf("%s: no Leave link to the inbox in the dialog", path)
 		}
+	}
+}
+
+// CD-387 (4): the setup session holds each step, so the leave dialog says
+// only this step's typing is lost (setup has no Start over), and a refused
+// step, whose values the session took, isn't marked unsaved.
+func TestSetupWizard_LeaveTextAndUnsaved(t *testing.T) {
+	w := newWorld(t)
+	w.seedUsers()
+	b := w.signedIn(adminEmail)
+	page := b.get(setupStep1)
+	if got := strings.Join(strings.Fields(page.doc.Find("#leave-wizard p").Text()), " "); got != "What you typed on this step is lost." {
+		t.Errorf("leave text = %q", got)
+	}
+	form := goodSetup()
+	form.Set("legal_name", "")
+	r := b.post(setupStep1, form)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("POST %s = %d, want 422", setupStep1, r.status)
+	}
+	if _, marked := r.doc.Find("form#wizard-form").Attr("data-unsaved"); marked {
+		t.Error("a refused setup step, held in the session, is marked unsaved")
 	}
 }

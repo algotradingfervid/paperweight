@@ -200,12 +200,12 @@ templ DocVersion(version int, oob bool) {
 	}
 }
 
-// formAttrs are the step form's attributes: noWrite's, and data-unsaved on a
-// step redrawn from posted values it didn't save (errors or a refusal), so
-// app.js counts it as changed and the × asks (CD-387 (4)).
+// formAttrs are the step form's attributes: noWrite's, and data-unsaved with
+// m.Unsaved, so app.js counts the form as changed and the × asks (CD-387
+// (4)).
 func formAttrs(m Model) templ.Attributes {
 	a := noWrite(m.Mode != Document && !m.Last())
-	if len(m.Errors) > 0 || m.Conflict != "" || m.Danger != "" {
+	if m.Unsaved {
 		if a == nil {
 			a = templ.Attributes{}
 		}
@@ -217,11 +217,17 @@ func formAttrs(m Model) templ.Attributes {
 // leaveID is the "Leave without saving?" dialog's id.
 const leaveID = "leave-wizard"
 
-// leaveText is the leave dialog's text: a saved document keeps every step
-// saved before; a new document and a master wizard have nothing saved yet
-// (UI v2 §5.6).
+// leaveText is the leave dialog's text: a Held wizard keeps the other steps,
+// until Start over where it is offered; a saved document keeps every step
+// saved before; a new document and any other master wizard have nothing
+// saved yet (UI v2 §5.6).
 func leaveText(m Model) string {
-	if m.Mode == Document && m.DocLabel != "" {
+	switch {
+	case m.Held && m.StartOver:
+		return "What you typed on this step is lost. Start over clears the rest."
+	case m.Held:
+		return "What you typed on this step is lost."
+	case m.Mode == Document && m.DocLabel != "":
 		return "What you changed on this step is lost. The draft keeps what was saved before."
 	}
 	return "What you typed in this wizard is lost."

@@ -26,9 +26,6 @@ func Routes(d Deps) func(chi.Router) {
 	if err := CheckTodayDates(d.Modules, d.Today); err != nil {
 		panic(err)
 	}
-	if err := CheckSelfFill(d.Modules); err != nil {
-		panic(err)
-	}
 	return func(r chi.Router) {
 		r.Get("/search", d.search)
 		r.Get("/doc/{doctype}", d.list)

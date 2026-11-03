@@ -413,12 +413,12 @@ func DocVersion(version int, oob bool) templ.Component {
 	})
 }
 
-// formAttrs are the step form's attributes: noWrite's, and data-unsaved on a
-// step redrawn from posted values it didn't save (errors or a refusal), so
-// app.js counts it as changed and the × asks (CD-387 (4)).
+// formAttrs are the step form's attributes: noWrite's, and data-unsaved with
+// m.Unsaved, so app.js counts the form as changed and the × asks (CD-387
+// (4)).
 func formAttrs(m Model) templ.Attributes {
 	a := noWrite(m.Mode != Document && !m.Last())
-	if len(m.Errors) > 0 || m.Conflict != "" || m.Danger != "" {
+	if m.Unsaved {
 		if a == nil {
 			a = templ.Attributes{}
 		}
@@ -430,11 +430,17 @@ func formAttrs(m Model) templ.Attributes {
 // leaveID is the "Leave without saving?" dialog's id.
 const leaveID = "leave-wizard"
 
-// leaveText is the leave dialog's text: a saved document keeps every step
-// saved before; a new document and a master wizard have nothing saved yet
-// (UI v2 §5.6).
+// leaveText is the leave dialog's text: a Held wizard keeps the other steps,
+// until Start over where it is offered; a saved document keeps every step
+// saved before; a new document and any other master wizard have nothing
+// saved yet (UI v2 §5.6).
 func leaveText(m Model) string {
-	if m.Mode == Document && m.DocLabel != "" {
+	switch {
+	case m.Held && m.StartOver:
+		return "What you typed on this step is lost. Start over clears the rest."
+	case m.Held:
+		return "What you typed on this step is lost."
+	case m.Mode == Document && m.DocLabel != "":
 		return "What you changed on this step is lost. The draft keeps what was saved before."
 	}
 	return "What you typed in this wizard is lost."
@@ -479,7 +485,7 @@ func head(m Model) templ.Component {
 			var templ_7745c5c3_Var9 templ.SafeURL
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(m.Close))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 239, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 245, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -492,7 +498,7 @@ func head(m Model) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(leaveID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 239, Col: 152}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 245, Col: 152}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 			if templ_7745c5c3_Err != nil {
@@ -505,7 +511,7 @@ func head(m Model) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(formID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 239, Col: 177}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 245, Col: 177}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 			if templ_7745c5c3_Err != nil {
@@ -536,7 +542,7 @@ func head(m Model) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(metaLine(m.Title))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 245, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 251, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -554,7 +560,7 @@ func head(m Model) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(heading(m))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 247, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 253, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -590,7 +596,7 @@ func head(m Model) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(leaveText(m))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 254, Col: 21}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 260, Col: 21}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -697,7 +703,7 @@ func saveCue(isNew bool) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(SavedAtID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 286, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/wizard/frame.templ`, Line: 292, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {

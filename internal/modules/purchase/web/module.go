@@ -53,8 +53,6 @@ func Modules(d Deps) map[string]docscreen.Module {
 			Home:        purchaseHome,                     // UI v2 E5b
 			FooterTotal: "net_total",                      // UI v2 C3c (A-22): "Taxable value", the field's label
 			TodayDates:  []string{"order_date"},           // PO spec §3.2
-
-			SelfFill: []string{"project_id", "uom_id", "tax_code_id"}, // resolved when blank: no star (CD-387 (2))
 		},
 		purchase.RequestDocType: {
 			StepIntros: map[string]string{ // UI v2 C2
@@ -73,7 +71,6 @@ func Modules(d Deps) map[string]docscreen.Module {
 			Home:      purchaseHome,                                        // UI v2 E5b
 
 			StepIcons: map[string]string{"details": "clipboard-list"}, // UI v2 C4c
-			SelfFill:  []string{"project_id", "uom_id"},               // resolved when blank: no star (CD-387 (2))
 		},
 	}
 }

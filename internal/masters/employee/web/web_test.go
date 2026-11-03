@@ -371,9 +371,7 @@ func TestScreens_EmployeeWizardStepErrors(t *testing.T) {
 	// hear step 1's date, typed bad again after it passed.
 	noName := b.Post(t, stepOne, url.Values{"code": {"EMP-105"}, "joining_date": {"01-04-2024"}, "status": {"Active"}})
 	webtest.WantStatus(t, noName, http.StatusUnprocessableEntity)
-	if msg, _, _ := noName.FieldMessage("name"); msg == "" {
-		t.Errorf("no error on a blank name")
-	}
+	webtest.WantFieldErrorID(t, noName, components.FieldID("name"), "Name is required.")
 	webtest.WantRedirect(t, b.Post(t, stepOne, details("EMP-105")), stepTwo)
 	d.Set("name", "")
 	webtest.WantStatus(t, b.Post(t, stepOne, d), http.StatusUnprocessableEntity)

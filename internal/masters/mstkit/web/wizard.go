@@ -244,7 +244,7 @@ func (c wizardCore) stepErrors(s docscreen.FormStep, errs []doctype.FieldError) 
 
 // model is the wizard's shape.
 func (c wizardCore) model() wizard.Model {
-	m := wizard.Model{Mode: wizard.Master}
+	m := wizard.Model{Mode: wizard.Master, Held: true} // the session holds each step (CD-50)
 	for _, s := range c.steps {
 		m.Steps = append(m.Steps, wizard.Step{Slug: s.Slug, Label: s.Label, Intro: s.Intro})
 	}
@@ -378,7 +378,7 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 	}
 	maps.Copy(vals, typed)
 	if over := h.overLimit(step, typed, vals); len(over) > 0 { // never into the session
-		return h.wizardStay(w, r, p, i, furthest, vals, over)
+		return h.wizardStay(w, r, p, i, furthest, vals, over, true)
 	}
 	if editing { // Add and Remove stay on the step, and a reload still shows them
 		session.Merge(ctx, typed)
@@ -395,7 +395,7 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 	// A step validates before Continue, blank required fields too (CD-387 (2)).
 	if own := withRules(h.wiz.stepErrors(step, errs), h.wiz.stepErrors(step, rules)); len(own) > 0 {
 		session.Merge(ctx, typed)
-		return h.wizardStay(w, r, p, i, furthest, vals, own)
+		return h.wizardStay(w, r, p, i, furthest, vals, own, false)
 	}
 	furthest = max(furthest, i+1)
 	typed[furthestKey] = strconv.Itoa(furthest)
@@ -588,12 +588,14 @@ func (h *handlers[R, In]) wizardRefused(w http.ResponseWriter, r *http.Request, 
 	return respondInvalid(w, r, v)
 }
 
-// wizardStay shows step i again with errs, 422.
-func (h *handlers[R, In]) wizardStay(w http.ResponseWriter, r *http.Request, p auth.Principal, i, furthest int, vals map[string]string, errs []doctype.FieldError) error {
+// wizardStay shows step i again with errs, 422; unsaved when the posted
+// values didn't go into the session, so the × asks (CD-387 (4)).
+func (h *handlers[R, In]) wizardStay(w http.ResponseWriter, r *http.Request, p auth.Principal, i, furthest int, vals map[string]string, errs []doctype.FieldError, unsaved bool) error {
 	v, err := h.wizardStep(r, p, i, furthest, vals, errs)
 	if err != nil {
 		return err
 	}
+	v.M.Unsaved = unsaved
 	return respondInvalid(w, r, v)
 }
 
@@ -639,7 +641,7 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 	v := wizardView{M: m, Bar: wizard.Bar{Back: i > 0}}
 	held := h.session(p).Get(ctx)
 	if len(held) > 0 {
-		v.M.Below = wizardStartOverForm(h.Base + "/new/" + startOverSlug)
+		v.M.Below, v.M.StartOver = wizardStartOverForm(h.Base+"/new/"+startOverSlug), true
 	}
 	if v.Note = held[noteKey]; v.Note != "" {
 		h.session(p).Merge(ctx, map[string]string{noteKey: ""}) // once; before the response starts (CD-136)

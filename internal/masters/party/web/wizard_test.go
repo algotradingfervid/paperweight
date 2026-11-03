@@ -648,11 +648,8 @@ func TestScreens_PartyWizardStepErrors(t *testing.T) {
 	blank := b.Post(t, stepDetails, with(details(""), "name", ""))
 	webtest.WantStatus(t, blank, http.StatusUnprocessableEntity)
 	wantPage(t, blank, "Step 1 of 4")
-	for _, id := range []string{"code", "name"} {
-		if msg, _, _ := blank.FieldMessage(id); msg == "" {
-			t.Errorf("blank %s: no error on Next", id)
-		}
-	}
+	webtest.WantFieldErrorID(t, blank, components.FieldID("code"), msgCodeReq)
+	webtest.WantFieldErrorID(t, blank, components.FieldID("name"), msgNameReq)
 	webtest.WantRedirect(t, b.Post(t, stepDetails, details("MEHTA")), stepAddresses)
 
 	for _, c := range []struct {
@@ -678,11 +675,8 @@ func TestScreens_PartyWizardStepErrors(t *testing.T) {
 	}
 	blankRows := b.Post(t, stepAddresses, rows(row(mumbaiRow, "line1", ""), row(blrRow, "city", "")))
 	webtest.WantStatus(t, blankRows, http.StatusUnprocessableEntity)
-	for _, id := range []string{line(1, "line1"), line(2, "city")} {
-		if msg, _, _ := blankRows.FieldMessage(id); msg == "" {
-			t.Errorf("blank %s: no error on Next", id)
-		}
-	}
+	webtest.WantFieldErrorID(t, blankRows, components.FieldID(line(1, "line1")), msgLine1)
+	webtest.WantFieldErrorID(t, blankRows, components.FieldID(line(2, "city")), msgCity)
 	webtest.WantRedirect(t, b.Post(t, stepAddresses, rows(mumbaiRow, blrRow)), stepContacts)
 
 	for _, c := range []struct {
@@ -700,7 +694,9 @@ func TestScreens_PartyWizardStepErrors(t *testing.T) {
 			wantPage(t, r, "Step 3 of 4")
 		})
 	}
-	webtest.WantStatus(t, b.Post(t, stepContacts, rows(row(sunilRow, "first_name", ""))), http.StatusUnprocessableEntity)
+	noFirst := b.Post(t, stepContacts, rows(row(sunilRow, "first_name", "")))
+	webtest.WantStatus(t, noFirst, http.StatusUnprocessableEntity)
+	webtest.WantFieldErrorID(t, noFirst, components.FieldID(line(1, "first_name")), msgName)
 	webtest.WantRedirect(t, b.Post(t, stepContacts, rows(sunilRow)), stepCheck)
 
 	w.wantTally(t, before)

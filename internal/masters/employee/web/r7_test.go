@@ -1,6 +1,8 @@
 package employeeweb_test
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
@@ -28,8 +30,32 @@ func TestScreens_EmployeeWizardR7(t *testing.T) {
 	if n := first.Doc.Find(".wizard-head a.wizard-close").Length(); n != 1 {
 		t.Errorf("%d wizard × links, want 1", n)
 	}
+	// The session holds a refused step's values, so its form isn't marked
+	// unsaved; a value too long to hold never reaches it, so that one is.
+	// The leave dialog says only this step is lost, and names Start over
+	// once it is offered (CD-387 (4)).
+	if got := webtest.Squash(first.Doc.Find("#leave-wizard p").Text()); got != "What you typed on this step is lost." {
+		t.Errorf("leave text with no draft = %q", got)
+	}
+	noName := details("EMP-131")
+	noName.Set("name", "")
+	refused := b.Post(t, stepOne, noName)
+	webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
+	if _, marked := refused.Doc.Find("form#wizard-form").Attr("data-unsaved"); marked {
+		t.Error("a refused step whose values the session holds is marked unsaved")
+	}
+	long := details("EMP-131")
+	long.Set("name", strings.Repeat("x", 1001))
+	tooLong := b.Post(t, stepOne, long)
+	webtest.WantStatus(t, tooLong, http.StatusUnprocessableEntity)
+	if _, marked := tooLong.Doc.Find("form#wizard-form").Attr("data-unsaved"); !marked {
+		t.Error("a value too long to hold: the form isn't marked unsaved")
+	}
 	w.toCheck(t, b, details("EMP-131"), w.reporting())
 	check := b.Get(t, stepCheck)
+	if got := webtest.Squash(check.Doc.Find("#leave-wizard p").Text()); got != "What you typed on this step is lost. Start over clears the rest." {
+		t.Errorf("leave text with a draft = %q", got)
+	}
 	if got := primary(check); got != "Save" {
 		t.Errorf("Check primary = %q, want Save", got)
 	}
