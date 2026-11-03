@@ -26,7 +26,7 @@ templ ErrorSummaryIn(titleID string, errs []FieldErr) {
 			<ul>
 				for _, e := range errs {
 					<li>
-						<a href={ templ.SafeURL("#" + e.ID) }>
+						<a href={ templ.SafeURL(orDefault(e.Href, "#"+e.ID)) }>
 							<span>
 								@Whole(e.Message)
 							</span>

@@ -73,6 +73,7 @@ func (h *handlers) saveBill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, _ := billViewOf(id, b, kept, false, kept == nil) // always a card: after a save or with kept
-	v.DropBar = kept == nil && version == 0
+	// A first save, also a refused one: the user is at the form (RR1b).
+	v.DropBar = version == 0
 	ui.Render(w, r, status, nil, billCard(v))
 }

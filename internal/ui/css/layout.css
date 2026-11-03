@@ -210,16 +210,25 @@
 
 @utility nav-sheet-box {
   inline-size: min(100%, calc(var(--space-16) * 5));
-  padding-block: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-bottom));
+  padding-block: 0 calc(var(--space-4) + var(--safe-bottom));
   padding-inline: calc(var(--space-4) + var(--safe-left)) var(--space-4);
 }
 
+/* The head stays at the top while the sheet scrolls to a current item far
+   down, so Close is always in reach (at 320 px the sheet has no backdrop
+   beside it to tap). It carries the box's top padding. */
 @utility nav-sheet-head {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   margin-block-end: var(--space-2);
+  padding-block: calc(var(--space-4) + var(--safe-top)) var(--space-2);
+  background: var(--color-surface);
+  border-block-end: var(--border-w) solid var(--color-border-subtle);
   /* From 64rem .brand takes the sidebar's fixed width and won't shrink
      (240 px + gap + Close overflowed the 288 px sheet); here it sizes to fit. */
   & .brand { flex: 0 1 auto; inline-size: auto; min-inline-size: 0; }

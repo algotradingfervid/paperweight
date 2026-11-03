@@ -85,8 +85,10 @@ func (m *module) billPanel(c docscreen.Ctx) (card templ.Component, add bool, err
 	if err != nil {
 		return nil, false, err
 	}
-	add = b.State == doctype.StateApproved && b.CanWrite && b.Bill.Version == 0
-	v, ok := billViewOf(id, b, takeBillPost(ctx, m.d.Sessions, id), c.Req.URL.Query().Get("bill") == "edit", false)
+	kept := takeBillPost(ctx, m.d.Sessions, id)
+	// Over a refused post the user is at the form: no jump to it (RR1b).
+	add = b.State == doctype.StateApproved && b.CanWrite && b.Bill.Version == 0 && kept == nil
+	v, ok := billViewOf(id, b, kept, c.Req.URL.Query().Get("bill") == "edit", false)
 	if !ok {
 		return nil, add, nil
 	}
@@ -101,7 +103,7 @@ type billView struct {
 	Reload   string // where the ConflictBanner's button goes
 	Errs     []components.FieldErr
 	Saved    bool // the polite status after an htmx save
-	DropBar  bool // the first save: the page's Add bill details goes
+	DropBar  bool // a first save, also refused: the page's Add bill details goes
 	Empty    bool
 	Note     string // the tax invoice offer's note
 	Rows     []components.Pair

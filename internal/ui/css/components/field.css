@@ -6,6 +6,9 @@
   display: grid;
   gap: var(--space-1);
   max-inline-size: var(--form-max);
+  /* A jump to a control (#f-…) keeps its label row, info tip included, in
+     view above it (RR1b). */
+  & :target { scroll-margin-block-start: calc(var(--target-min) + var(--space-1)); }
   & :where(.input, .select, .textarea) {
     inline-size: 100%;
     min-block-size: var(--control-h);

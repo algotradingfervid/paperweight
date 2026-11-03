@@ -215,7 +215,8 @@ func attachmentKind(mime string) string {
 var totalsFields = []string{"advance_id", "total", "less_advance", "net_payable"}
 
 // claimCheck adds the claim's warnings (ClaimWarnings, which names another
-// claim only when the viewer can read it), the photos not on any expense
+// claim only when the viewer can read it), what submit will refuse as
+// Problems (the same rules, CD-397 (4)), the photos not on any expense
 // with their warning and card, and, with an advance, the totals Total, Less
 // advance and To pay after the grand figure (UX §5.6, UX-E6).
 func claimCheck(d Deps) func(docscreen.Ctx) (docscreen.CheckExtra, error) {
@@ -226,6 +227,13 @@ func claimCheck(d Deps) func(docscreen.Ctx) (docscreen.CheckExtra, error) {
 			return docscreen.CheckExtra{}, err
 		}
 		ex := docscreen.CheckExtra{Warnings: ws}
+		err = c.Deps.DB.Read(ctx, func(tx *db.Tx) (err error) {
+			ex.Problems, err = expense.SubmitProblems(ctx, tx, c.View.Info.ID)
+			return err
+		})
+		if err != nil {
+			return ex, err
+		}
 		unused, err := d.unusedPhotos(ctx, c)
 		if err != nil {
 			return ex, err

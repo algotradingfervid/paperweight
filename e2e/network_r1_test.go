@@ -323,6 +323,10 @@ func TestE2E_ReceiptDroppedKeepsTyping(t *testing.T) {
 		t.Errorf("amount after the dropped save = %q", got)
 	}
 	stop()
+	// From the top: Press's scrollIntoView of the sticky banner moves the
+	// mobile visual viewport, and a click at once can land on the wizard
+	// head (RR1a's shorter page showed it).
+	Eval[any](d, `scrollTo(0, 0)`)
 	d.Press("Try again")
 	d.Until("back on Expenses", `location.pathname.endsWith("/edit/expenses") || location.pathname.endsWith("/edit/items")`)
 }

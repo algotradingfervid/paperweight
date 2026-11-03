@@ -752,6 +752,12 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	c := d.ctxOf(r, dt, v) // c.View is what this step renders
 	if v != nil {
 		applyLineCards(c, v)
+		problems := d.docProblems(dt, *v)
+		for j, st := range steps {
+			if slices.ContainsFunc(problems, func(p doctype.FieldError) bool { return st.owns(p) && !hiddenField(c, p.Field) }) {
+				sv.M.Steps[j].Status = wizard.Attention // not done in the step bar (RR1a)
+			}
+		}
 	}
 	// body is the Body's component; with none the step is generic, under
 	// the module's Top (CD-263 G6, CD-280 D5).
@@ -806,6 +812,11 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 			sv.M.Errors[n].ID = "step-title"
 		case body != nil && e.Line > 0 && strings.Contains(bodyHTML.String(), ` id="`+LineFieldID(e.Line, e.Field)+`"`):
 			sv.M.Errors[n].ID = LineFieldID(e.Line, e.Field)
+		case v != nil && s.Lines && body == nil && e.Line > 0 && e.Line <= len(v.Lines) && !d.gridShown(r, dt, *v):
+			sv.M.Errors[n].ID = components.LineCardID(components.LineCard{Pos: e.Line, Reveal: e.Line == phoneCards+1}) // the line's card (R7b, RR1a)
+			if !cardShown(r, dt, *v, e.Line) {
+				sv.M.Errors[n].Href = itemsURL(dt.Name, v.Info.ID) + "?all=1#" + sv.M.Errors[n].ID // as Check links it (CD-395)
+			}
 		case v != nil && dt.LinesTable != "" && (e.Line > 0 || e.Field == "lines"):
 			sv.M.Errors[n].ID = linesTarget(*v, d.gridShown(r, dt, *v) && body == nil) // a Body's component replaces the line editor
 		}
@@ -871,6 +882,13 @@ func stepBar(bar wizard.Bar, b StepBar) wizard.Bar {
 	bar.BackLink = b.Back
 	bar.Summary = b.Summary
 	return bar
+}
+
+// cardShown reports whether the Items step draws the card of line no, one
+// of v's: a line past the first phoneCards only when every line is shown
+// (CD-395).
+func cardShown(r *http.Request, dt *doctype.DocType, v DocView, no int) bool {
+	return no <= phoneCards || allLines(r, itemsURL(dt.Name, v.Info.ID))
 }
 
 // linesTarget is the id a line's or whole-lines error links to, on the Items
@@ -970,11 +988,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 		return err
 	}
 	cv.Extra = extra
-	problems := v.Problems
-	if dt.LinesTable != "" && len(v.Lines) == 0 {
-		problems = append(slices.Clip(problems), doctype.FieldError{Field: "lines", Message: noLinesMessage(d.modOf(dt).LineNoun)})
-	}
-	problems = slices.Concat(problems, v.DraftProblems)
+	problems := d.docProblems(dt, v)
 	for _, p := range extra.Problems {
 		switch {
 		case p.Field == "" && p.Line == 0:
@@ -988,7 +1002,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 	for i, s := range steps[:len(steps)-1] {
 		sec := checkSection{Title: s.Label, Icon: s.TileIcon(), ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
 		for _, p := range problems {
-			if f, ok := dt.Field(p.Field); ok && hidden(c, f) {
+			if hiddenField(c, p.Field) {
 				continue
 			}
 			if s.owns(p) {
@@ -999,7 +1013,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			}
 		}
 		for _, p := range extra.Problems {
-			if f, ok := dt.Field(p.Field); s.owns(p) && (!ok || !hidden(c, f)) {
+			if s.owns(p) && !hiddenField(c, p.Field) {
 				sec.Status = wizard.Attention
 				listProblem(&sec, p, page, len(v.Lines), all)
 			}
@@ -1013,9 +1027,29 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			}
 		}
 		cv.Sections = append(cv.Sections, sec)
+		sv.M.Steps[i].Status = sec.Status // the step bar says what the section says (RR1a)
 	}
 	sv.M.After = checkBody(cv)
 	return nil
+}
+
+// docProblems is what DOC refuses on draft v that a step owns: its missing
+// Required values, "Add at least one line." for a lines table with none
+// (CD-178) in the module's LineNoun (CD-326 (4)), and its stored problems
+// (CD-205).
+func (d Deps) docProblems(dt *doctype.DocType, v DocView) []doctype.FieldError {
+	problems := v.Problems
+	if dt.LinesTable != "" && len(v.Lines) == 0 {
+		problems = append(slices.Clip(problems), doctype.FieldError{Field: "lines", Message: noLinesMessage(d.modOf(dt).LineNoun)})
+	}
+	return slices.Concat(problems, v.DraftProblems)
+}
+
+// hiddenField reports whether name is a field of c's DocType the module
+// hides (CD-256 (1)).
+func hiddenField(c Ctx, name string) bool {
+	f, ok := c.DT.Field(name)
+	return ok && hidden(c, f)
 }
 
 // noLinesMessage asks for a first line in the module's word for one

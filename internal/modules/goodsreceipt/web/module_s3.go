@@ -78,7 +78,9 @@ func (m *module) page(c docscreen.Ctx) (docscreen.PageExtra, error) {
 		x.Cards = append(x.Cards, bill)
 	}
 	if add {
-		x.Primary = &components.ButtonProps{Label: labelAddBill, Href: "#bill"} // G5
+		// G5; the jump lands on Vendor invoice no., which takes focus as the
+		// fragment's target (RR1b).
+		x.Primary = &components.ButtonProps{Label: labelAddBill, Href: "#" + components.FieldID("invoice_no")}
 	}
 	if rp.PO != nil {
 		x.Cards = append(x.Cards, poCard(poRows(rp.PO)))

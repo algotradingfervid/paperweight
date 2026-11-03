@@ -25,8 +25,9 @@ type Option struct {
 // without Lines.
 type Meter struct{ Value, Max int }
 
-// FieldErr is a message for the field with the given ID.
-type FieldErr struct{ ID, Message string }
+// FieldErr is a message for the field with the given ID. Href, when set, is
+// where its summary link goes instead of #ID: the field is on another page.
+type FieldErr struct{ ID, Message, Href string }
 
 // Variant is a button style.
 type Variant string

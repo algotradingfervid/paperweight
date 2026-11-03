@@ -12,7 +12,9 @@ import (
 // opens the file's confirm. A Compact item is a ~4rem thumbnail with
 // "name · size" on one line and no uploader (CD-326 (6)). An item with
 // Attached is a 64 × 80 tile: the thumbnail or file icon, then the name,
-// "size · uploaded time" and those words beside a check (UI v2 §5.9).
+// "size · uploaded time" and those words beside a check (UI v2 §5.9). With
+// Change too it is one compact row, a 3rem thumbnail, the name and those
+// words, then Change, which unfolds the FileUpload in the same card (RR1a).
 templ Attachments(items []Attachment) {
 	@attachmentItems(items, "", "")
 }
@@ -24,7 +26,10 @@ templ attachmentItems(items []Attachment, target, alt string) {
 	<ul class="attachments">
 		for _, a := range items {
 			<li
-				if a.Attached != "" {
+				if a.Attached != "" && a.Change {
+					class="attachments-tile attachments-change"
+				}
+				if a.Attached != "" && !a.Change {
 					class="attachments-tile"
 				}
 				if a.Compact && a.Attached == "" {
@@ -41,6 +46,11 @@ templ attachmentItems(items []Attachment, target, alt string) {
 							<span>{ a.Attached }</span>
 						</p>
 					</div>
+					if a.Change {
+						<details class="attachments__change">
+							<summary class={ buttonClass(Secondary) }>Change<span class="visually-hidden">{ " " + a.Name }</span></summary>
+						</details>
+					}
 				} else if a.Compact {
 					<p class="attachments__meta">{ compactLine(a) }</p>
 				} else {

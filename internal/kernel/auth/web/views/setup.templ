@@ -30,7 +30,7 @@ func setupErrorField(p authweb.SetupPage) string {
 // fields.
 templ setup(p authweb.SetupPage) {
 	@page(uilayout.PageOpts{Title: "Set up", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, setupErrorField(p), p.Warnings) {
-		@components.Form(components.FormProps{Action: "/setup", CSRF: p.CSRF}) {
+		@components.Form(components.FormProps{Action: "/setup", CSRF: p.CSRF, Attrs: noValidate}) {
 			<div class="stack">
 				@passwordRules(false)
 				@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Value: p.Email, Attrs: required}, "username")

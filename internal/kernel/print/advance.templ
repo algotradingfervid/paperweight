@@ -24,8 +24,8 @@ templ AdvanceDocument(d AdvanceDoc) {
 		<tbody>
 			for _, l := range d.Lines {
 				<tr>
-					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
-					<td class="item">
+					<td class="sr" data-label="Sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="item" data-label="Expense">
 						<div class="item-name">{ l.Type }</div>
 						if l.Description != "" {
 							<div class="desc">{ l.Description }</div>
@@ -34,7 +34,7 @@ templ AdvanceDocument(d AdvanceDoc) {
 							<div class="project">{ "Project: " + l.Project }</div>
 						}
 					</td>
-					<td class="amount">{ types.FormatINR(l.Amount) }</td>
+					<td class="amount" data-label="Amount">{ types.FormatINR(l.Amount) }</td>
 				</tr>
 			}
 			if len(d.Lines) == 0 {
