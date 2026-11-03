@@ -8,19 +8,30 @@ import (
 
 // wizardPage is one step of a create wizard as a whole page.
 templ wizardPage(v wizardView) {
-	@layout.Page(layout.PageOpts{
+	@layout.Page(wizardOpts(v)) {
+		@wizardBody(v)
+	}
+}
+
+func wizardOpts(v wizardView) layout.PageOpts {
+	return layout.PageOpts{
 		Title:     v.M.Heading(),
 		NoHeading: true, // the frame's heading is the page's
 		Focus:     true,
 		Error:     len(v.M.Errors) > 0,
 		Width:     layout.Form, // no Back: the wizard head's × is the one exit (UI v2 §5.6)
-	}) {
-		@wizardFrame(v)
 	}
 }
 
-// wizardFrame is the #wizard fragment.
+// wizardFrame is the htmx answer for a step: its <title>, so the document
+// title follows each step and refusal, then the #wizard fragment.
 templ wizardFrame(v wizardView) {
+	@layout.Title(wizardOpts(v))
+	@wizardBody(v)
+}
+
+// wizardBody is the #wizard element.
+templ wizardBody(v wizardView) {
 	@wizard.Frame(v.M, v.Bar) {
 		@stepNote(v.Note)
 		@components.RequiredNote(v.Required)

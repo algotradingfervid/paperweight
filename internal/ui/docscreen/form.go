@@ -982,7 +982,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			}
 		}
 		if s.Lines {
-			sec.Lines = d.lineList(r, dt, v)
+			sec.Lines = d.lineList(r, dt, v, sv.M.StepURL(len(steps)-1))
 		}
 		for _, name := range s.Fields {
 			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) && !slices.Contains(extra.Covers, name) {

@@ -589,8 +589,10 @@ func TestWizardForm_GetIsFullPageWithoutHXRequest(t *testing.T) {
 		t.Fatalf("htmx GET: status = %d", rec.Code)
 	}
 	body := strings.TrimSpace(rec.Body.String())
-	if strings.Contains(body, "<html") || !strings.HasPrefix(body, `<div id="wizard"`) {
-		t.Errorf("htmx GET is not the #wizard fragment: %.200s", body)
+	// The step's <title> leads, for htmx to move into the head (R2).
+	title, frag, _ := strings.Cut(body, "</title>")
+	if strings.Contains(body, "<html") || !strings.HasPrefix(title, "<title>Items · ") || !strings.HasPrefix(frag, `<div id="wizard"`) {
+		t.Errorf("htmx GET is not the step's title and the #wizard fragment: %.200s", body)
 	}
 	if !slices.Contains(rec.Header().Values("Vary"), "HX-Request") {
 		t.Errorf("htmx GET: Vary = %q", rec.Header().Values("Vary"))
@@ -624,6 +626,9 @@ func TestWizardForm_InvalidKeepsPostedValues(t *testing.T) {
 		t.Fatalf("engine calls = %+v, want one save", calls)
 	}
 	page := uitest.Doc(t, rec)
+	if got := page.Find("title").Text(); !strings.HasPrefix(got, "Error: Details · ") {
+		t.Errorf("title = %q, want the step's with Error: (R2)", got)
+	}
 	link := page.Find(`.error-summary a[href="#f-order_date"]`)
 	if link.Length() != 1 || norm(link.Text()) != msg {
 		t.Errorf("error summary link to #f-order_date = %q, want %q", norm(link.Text()), msg)

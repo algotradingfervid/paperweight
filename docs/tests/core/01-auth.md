@@ -156,7 +156,7 @@ The password of every fixture user is `Correct-Horse-42`. The clock is fixed at 
 ### AUTH-016 · Administrator can unlock a locked account
 - **Priority:** P2
 - **Level:** integration
-- **Given** `priya@vardhan.test` is locked **When** `admin@vardhan.test` clicks "Unlock" on Priya's user record **Then** Priya's failure counter is cleared, Priya can sign in at once, and the audit trail records "unlocked by Anil Kapoor".
+- **Given** `priya@vardhan.test` is locked **When** `admin@vardhan.test` clicks "Unlock account" on Priya's user record **Then** Priya's failure counter is cleared, Priya can sign in at once, and the audit trail records "unlocked by Anil Kapoor".
 - **Go test:** `TestLockout_AdminUnlock`
 - **Sources:** `frappe/frappe/auth.py:606` (`add_success_attempt` clears the counter); Odoo has no equivalent (decision D-AUTH-04)
 

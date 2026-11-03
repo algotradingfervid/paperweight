@@ -18,6 +18,7 @@ type LineCard struct {
 	Receipt                                      *Attachment // the line's receipt (UX-E3)
 	ReceiptNote                                  string      // why the line has no receipt (UX-E3)
 	ReceiptWarn                                  bool        // no receipt and no reason (UX-E3)
+	Reveal                                       bool        // the first line "Show all" reveals: its link's #line-reveal target
 }
 
 // GridCell is one input cell of a grid row; Label heads its column. Wide
@@ -49,7 +50,8 @@ type LineGridRow struct {
 }
 
 // LineListProps describes the line cards. Total is the number of lines;
-// when it is more than len(Cards), "Show all" and "Find a line" appear.
+// when it is more than len(Cards), "Show all" appears, and "Find a line"
+// with a FindURL.
 type LineListProps struct {
 	Cards                                           []LineCard
 	Grid                                            []LineGridRow
