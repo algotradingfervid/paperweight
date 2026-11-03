@@ -182,9 +182,7 @@ func TestE2E_ExpenseFlow(t *testing.T) {
 	noOverflow(d, "the pending claim")
 
 	p := h.SignIn(priya, phone360)
-	p.WaitText(draft(claim))
-	noOverflow(p, "the approval inbox")
-	p.Press("Open " + draft(claim))
+	openFromHome(p, expense.ClaimDocType, claim)
 	p.WaitText("Needs your approval")
 	noOverflow(p, "the claim as the approver")
 	p.Press("Approve")

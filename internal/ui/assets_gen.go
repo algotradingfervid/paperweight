@@ -4,7 +4,7 @@ package ui
 
 // Hashed URLs of the files in static/, served by Static() at /static/ui/.
 const (
-	CSSURL   = "/static/ui/app.1a9e9876.css"
+	CSSURL   = "/static/ui/app.2b720c78.css"
 	JSURL    = "/static/ui/app.749208ac.js"
 	InterURL = "/static/ui/inter-var-sub.74aa47b0.woff2"
 	NotoURL  = "/static/ui/noto-sans-devanagari-sub.ddc54379.woff2"

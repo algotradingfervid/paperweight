@@ -101,6 +101,22 @@ func clickOn(s *Session, sel string) {
 	s.Do("click "+sel, chromedp.MouseClickXY(at[0], at[1]))
 }
 
+// openFromHome opens document id from Home's Waiting for you, where the
+// approver lands after signing in (CD-387 (1)): its row there names the
+// draft and why it waits, and Home doesn't scroll sideways.
+func openFromHome(s *Session, dt string, id int64) {
+	s.t.Helper()
+	path := DocPath(dt, id)
+	row := `[...document.querySelectorAll("main section.homesect")]
+  .find((x) => x.querySelector("h2")?.textContent.trim() === "Waiting for you")
+  ?.querySelector('a.datalist-link[href="` + path + `"]')`
+	s.Until("Home's Waiting row for "+draft(id), `location.pathname === "/" && ((a) => !!a &&
+  a.textContent.includes(`+strconv.Quote(draft(id))+`) && a.textContent.includes("Needs your approval"))(`+row+`)`)
+	noOverflow(s, "Home")
+	clickOn(s, `main a.datalist-link[href="`+path+`"]`)
+	s.Until("the page "+path, `location.pathname === `+strconv.Quote(path))
+}
+
 // openLink clicks the link to href in the page's main region.
 func openLink(s *Session, href string) {
 	s.t.Helper()
@@ -200,9 +216,7 @@ func TestE2E_PurchaseOrderFlow(t *testing.T) {
 	noOverflow(p, "the pending PO page")
 
 	r := h.SignIn(ravi, phone360)
-	r.WaitText(draft(po))
-	noOverflow(r, "the approval inbox")
-	r.Press("Open " + draft(po))
+	openFromHome(r, purchase.DocType, po)
 	r.WaitText("Needs your approval")
 	noOverflow(r, "the PO page as the approver")
 	r.Press("Approve")
@@ -311,7 +325,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	p.WaitText("It went to Purchase Manager or Director.")
 
 	r := h.SignIn(ravi, phone360)
-	r.Press("Open " + draft(po))
+	openFromHome(r, purchase.DocType, po)
 	r.WaitText("Needs your approval")
 	noOverflow(r, "the PO as the approver")
 	r.Press("Approve")
