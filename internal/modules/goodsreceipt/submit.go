@@ -40,6 +40,12 @@ func submitFields(ctx context.Context, tx *db.Tx, _ Deps, id int64) ([]doctype.F
 	return errs, nil
 }
 
+// SubmitProblems are submitFields on GRN id for its check page, which marks
+// the step that fixes each one (R7b). The caller has checked the read right.
+func SubmitProblems(ctx context.Context, tx *db.Tx, id int64) ([]doctype.FieldError, error) {
+	return submitFields(ctx, tx, Deps{}, id)
+}
+
 // SubmitRequired is the header fields submit requires beyond the declared
 // Required ones: the challan or invoice no. and its kind when any line is
 // goods (CD-272 Gap 5), none otherwise. Step 2 marks them required.

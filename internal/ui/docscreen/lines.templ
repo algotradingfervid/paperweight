@@ -105,8 +105,8 @@ templ linePageBanners(lp linePageView) {
 }
 
 // linePageBody is the line form ("Save line") or the remove question; the
-// module's Top sits before the form, never inside it (UX-E1). With the
-// module's Line the button is the sticky bar's primary after the form.
+// module's Top sits before the form, never inside it (UX-E1). A line form's
+// button is the sticky bar's primary after the form (CD-387 (6)).
 templ linePageBody(lp linePageView) {
 	if lp.Question != "" {
 		<p>{ lp.Question }</p>

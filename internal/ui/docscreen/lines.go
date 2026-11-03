@@ -232,7 +232,8 @@ type linePageView struct {
 	Required bool             // a line field the form shows is required: it starts with components.RequiredNote
 	Errors   []components.FieldErr
 	Top      templ.Component // the module's Line.Top, outside the form (UX-E1)
-	FormID   string          // the form's id: line-form with the module's Line
+	FormID   string          // the line form's id, line-form, whose Save line is in the sticky bar; "" on the remove page
+	Kind     string          // the DocType's label, the wizard head's meta line
 }
 
 // conflict makes a stale version's Danger the ConflictBanner, whose Reload
@@ -281,6 +282,8 @@ func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, ver
 	lv := linePageView{
 		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Focus: true, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:  docURL(dt.Name, v.Info.ID) + "/lines/new",
+		FormID:  "line-form",
+		Kind:    dt.Label,
 		Version: version,
 		Button:  components.ButtonProps{Label: "Save line", Variant: components.Primary},
 		Danger:  danger,
@@ -661,6 +664,7 @@ func (d Deps) removePage(r *http.Request, dt *doctype.DocType, v DocView, no, ve
 	return linePageView{
 		Opts:     layout.PageOpts{Title: "Remove line " + n, Width: layout.Form, Focus: true, Error: danger != "", Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
 		Action:   lineURL(dt.Name, v.Info.ID, no) + "/remove",
+		Kind:     dt.Label,
 		Version:  version,
 		Question: q,
 		Button:   components.ButtonProps{Label: "Remove line", Variant: components.Danger},
@@ -799,11 +803,15 @@ func fromGrid(r *http.Request) bool {
 	return ui.IsHTMX(r) && r.Header.Get("HX-Target") != "main"
 }
 
-// linePageOpts adds the banners and, with the module's Line, the sticky bar
-// whose Save line posts the line form (UX-E4).
+// linePageOpts adds the wizard head, the banners and, on a line form, the
+// sticky bar whose Save line posts it (UX-E4, CD-387 (6)).
 func linePageOpts(lp linePageView) layout.PageOpts {
 	o := lp.Opts
 	o.BannerSlot = linePageBanners(lp)
+	// The wizard head's ‹ replaces the Back link, so focus mode hides the
+	// app header below 64rem (CD-387 (6)).
+	o.BannerSlot = templ.Join(wizard.LineHead(*o.Back, lp.Kind, o.Title), o.BannerSlot)
+	o.Back, o.NoHeading = nil, true
 	if lp.FormID != "" {
 		o.BarSlot = components.ActionBar(components.ActionBarProps{Primary: &lp.Button, Form: lp.FormID})
 	}
