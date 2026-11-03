@@ -313,8 +313,9 @@ func TestLayout_MainFragmentOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.HasPrefix(out, "<main") {
-		t.Errorf("Main starts with %.40q", out)
+	// htmx moves a leading <title> into the head (R2).
+	if !strings.HasPrefix(out, "<title>PO · Internal tools</title><main") {
+		t.Errorf("Main starts with %.60q", out)
 	}
 	if strings.Contains(out, "<html") || strings.Contains(out, "<header") {
 		t.Error("Main renders the shell")
@@ -342,5 +343,17 @@ func TestLayout_SlotsAndOptions(t *testing.T) {
 	html, _ := doc.Find("main").Html()
 	if b, h, bar := strings.Index(html, "banner"), strings.Index(html, "Hello"), strings.Index(html, "bar</p>"); b > h || h > bar {
 		t.Error("banner, body and bar slots are out of order")
+	}
+}
+
+// A refused redraw's fragment carries the "Error: " title (R2, UI v2 §5.14).
+func TestLayout_MainErrorTitle(t *testing.T) {
+	ctx := templ.WithChildren(ui.WithShell(context.Background(), shell()), text("Hello"))
+	var buf bytes.Buffer
+	if err := layout.Main(layout.PageOpts{Title: "Details · Draft 4", Error: true}).Render(ctx, &buf); err != nil {
+		t.Fatal(err)
+	}
+	if out := buf.String(); !strings.HasPrefix(out, "<title>Error: Details · Draft 4 · Internal tools</title><main") {
+		t.Errorf("Main starts with %.80q", out)
 	}
 }

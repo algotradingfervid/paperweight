@@ -78,8 +78,10 @@ func TestScreens_HTMXRefusalIsAFragment(t *testing.T) {
 			h := harness(t, stubService{rec: stubRecord{}, err: c.err})
 			resp := h.Browser(h.Env.Kavya).PostHTMX(t, record, url.Values{"version": {"3"}, "name": {"Typed"}})
 			webtest.WantStatus(t, resp, c.status)
-			if !strings.HasPrefix(strings.TrimSpace(resp.Body), `<main id="main"`) {
-				t.Errorf("answer starts %.120s, want the #main fragment", resp.Body)
+			// The page's <title> leads, "Error: " in front (R2), then #main.
+			title, frag, _ := strings.Cut(strings.TrimSpace(resp.Body), "</title>")
+			if !strings.HasPrefix(title, "<title>Error: ") || !strings.HasPrefix(frag, `<main id="main"`) {
+				t.Errorf("answer starts %.120s, want the Error: title and the #main fragment", resp.Body)
 			}
 			if !strings.Contains(resp.Body, `value="Typed"`) {
 				t.Errorf("the typed value is lost: %.300s", resp.Body)
@@ -116,8 +118,10 @@ func TestScreens_HTMXRefusalOnSectionAndSubForm(t *testing.T) {
 			h := harness(t, stubService{rec: stubRecord{"code": "X"}, err: stale}, c.opts...)
 			resp := h.Browser(h.Env.Kavya).PostHTMX(t, c.target, url.Values{"version": {"3"}, "code": {"X"}, "size": {"s"}})
 			webtest.WantStatus(t, resp, http.StatusConflict)
-			if !strings.HasPrefix(strings.TrimSpace(resp.Body), `<main id="main"`) {
-				t.Errorf("answer starts %.120s, want the #main fragment", resp.Body)
+			// The page's <title> leads, "Error: " in front (R2), then #main.
+			title, frag, _ := strings.Cut(strings.TrimSpace(resp.Body), "</title>")
+			if !strings.HasPrefix(title, "<title>Error: ") || !strings.HasPrefix(frag, `<main id="main"`) {
+				t.Errorf("answer starts %.120s, want the Error: title and the #main fragment", resp.Body)
 			}
 			if resp.Doc.Find("#record-alert[autofocus]").Length() != 1 {
 				t.Errorf("no focused #record-alert: %.300s", resp.Body)

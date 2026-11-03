@@ -63,8 +63,10 @@ func TestLines_PagePostOnAGridDocumentIsNotARowSave(t *testing.T) {
 		t.Fatalf("refused: status %d, body %.300s", res.Code, res.Body)
 	}
 	body := res.Body.String()
-	if !strings.HasPrefix(strings.TrimSpace(body), `<main id="main"`) {
-		t.Errorf("refused: answer starts %.120s, want the #main fragment", body)
+	// The page's <title> leads, "Error: " in front (R2), then #main.
+	title, frag, _ := strings.Cut(strings.TrimSpace(body), "</title>")
+	if !strings.HasPrefix(title, "<title>Error: ") || !strings.HasPrefix(frag, `<main id="main"`) {
+		t.Errorf("refused: answer starts %.120s, want the Error: title and the #main fragment", body)
 	}
 	if !strings.Contains(body, `value="not a number"`) {
 		t.Errorf("refused: the typed value is lost: %.300s", body)

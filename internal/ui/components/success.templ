@@ -13,9 +13,11 @@ type SuccessProps struct {
 }
 
 // SuccessBlock is the block: the drawn tick (still under reduced motion), the
-// text and a button per follow-up, read out once as a status.
+// text and a button per follow-up, read out once as a status. It shows only
+// right after the action, so it takes focus (autofocus, also after an htmx
+// swap), and keyboard users start from its follow-ups (R2).
 templ SuccessBlock(p SuccessProps) {
-	<div class="success-block" role="status">
+	<div class="success-block" role="status" tabindex="-1" autofocus>
 		@CardWith(CardProps{}) {
 			<div class="success-block__head">
 				<span class="success-block__tick" aria-hidden="true">
