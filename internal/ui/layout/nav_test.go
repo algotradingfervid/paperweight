@@ -18,6 +18,7 @@ func groupedShell(path string) ui.Shell {
 	s.Path = path
 	s.Nav = []ui.NavItem{
 		{Label: "Gallery", Href: "/_gallery", Icon: "image"},
+		{Label: "Home", Href: "/", Icon: "house", Group: "Work"},
 		{Label: "Approvals", Href: "/approvals", Icon: "inbox", Group: "Work"},
 		{Label: "My requests", Href: "/approvals/mine", Icon: "file-clock", Group: "Work"},
 		{Label: "Purchase home", Href: "/modules/purchase", Icon: "layout-dashboard", Group: "Purchase"},
@@ -50,7 +51,7 @@ func TestNav_GroupsInOrder(t *testing.T) {
 		t.Fatalf("sidebar headings = %q, want %q", heads, want)
 	}
 	want := map[string][]string{
-		"Work":          {"/approvals", "/approvals/mine"},
+		"Work":          {"/", "/approvals", "/approvals/mine"},
 		"Purchase":      {"/modules/purchase", "/doc/purchase.Order"},
 		"Goods receipt": {"/doc/goodsreceipt.Receipt"},
 		"Expenses":      {"/doc/expense.Claim"},
@@ -174,5 +175,44 @@ func TestNav_ApprovalsCount(t *testing.T) {
 	s.InboxCount = 0
 	if n := render(t, s, layout.PageOpts{Title: "x"}).Find(`nav .nav-badge`).Length(); n != 0 {
 		t.Errorf("%d badges for count 0", n)
+	}
+}
+
+// H4: Home is current only on `/`, though every path starts with it; a page
+// with no nav item has no current item.
+func TestNav_HomeCurrentOnlyOnItself(t *testing.T) {
+	for path, want := range map[string]string{"/": "/", "/approvals": "/approvals", "/search": "", "/doc/purchase.Order/7": "/doc/purchase.Order"} {
+		got := render(t, groupedShell(path), layout.PageOpts{Title: "x"}).Find(`nav.app-sidebar a[aria-current="page"]`)
+		if want == "" && got.Length() != 0 {
+			t.Errorf("%s: current = %q, want none", path, got.AttrOr("href", ""))
+		}
+		if want != "" && got.AttrOr("href", "") != want {
+			t.Errorf("%s: current = %q, want %q", path, got.AttrOr("href", ""), want)
+		}
+	}
+}
+
+// M10: the drawer focuses the current item (DL §5.1), or Close with none, the sidebar's copy never
+// autofocuses a link on load, and the drawer has the brand row and the user.
+func TestNavSheet_FocusBrandAndUser(t *testing.T) {
+	for path, want := range map[string]string{"/approvals": "/approvals", "/m/uom": "/m/uom", "/search": ""} {
+		doc := render(t, groupedShell(path), layout.PageOpts{Title: "x"})
+		got := doc.Find(`#nav-sheet [data-dialog-focus]`)
+		if want == "" && (got.Length() != 1 || got.AttrOr("aria-label", "") != "Close menu") {
+			t.Errorf("%s: drawer focus on %d elements, want Close menu", path, got.Length())
+		}
+		if want != "" && (got.Length() != 1 || got.AttrOr("href", "") != want) {
+			t.Errorf("%s: drawer focus on %q (%d), want %q", path, got.AttrOr("href", ""), got.Length(), want)
+		}
+		if n := doc.Find(`nav.app-sidebar [data-dialog-focus], [autofocus]`).Length(); n != 0 {
+			t.Errorf("%s: %d focus marks in the sidebar or autofocus anywhere", path, n)
+		}
+	}
+	doc := render(t, groupedShell("/approvals"), layout.PageOpts{Title: "x"})
+	if doc.Find(`#nav-sheet .nav-sheet-head a.brand[href="/"]`).Length() != 1 {
+		t.Error("the drawer has no brand row")
+	}
+	if got := strings.TrimSpace(doc.Find(`#nav-sheet .nav-sheet-user`).Text()); got != shell().User {
+		t.Errorf("drawer user = %q, want %q", got, shell().User)
 	}
 }

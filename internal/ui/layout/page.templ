@@ -101,6 +101,9 @@ templ mainEl(o PageOpts, banners []web.Notice) {
 			if st := ui.ProblemFrom(ctx); st != 0 {
 				@components.ProblemPage(st, o.Title)
 			} else if !o.NoHeading {
+				if o.Eyebrow != "" {
+					<p class="eyebrow">{ o.Eyebrow }</p>
+				}
 				<h1 id={ headingID(o) } tabindex="-1">{ o.Title }</h1>
 			}
 			{ children... }

@@ -9,7 +9,8 @@ type Chip struct{ Label, RemoveURL string }
 type Param struct{ Name, Value string }
 
 // FilterBarProps describes the search, sort and filter bar above a result set.
-// With no SearchLabel the bar has no search box.
+// With no SearchLabel the bar has no search box. Autofocus focuses that box
+// on load.
 type FilterBarProps struct {
 	Action, Search, SearchLabel, Sort string
 	Sorts                             []Option
@@ -18,6 +19,7 @@ type FilterBarProps struct {
 	New, Export                       *Link
 	Keep                              []Param // hidden inputs, e.g. the active filters
 	Links                             []Link  // plain GET links, e.g. one per filter value
+	Autofocus                         bool
 }
 
 // FilterBar is a GET form, so a filtered URL can be shared.
@@ -35,7 +37,7 @@ templ FilterBar(p FilterBarProps) {
 				if p.SearchLabel != "" {
 					<div class="filterbar-search">
 						<label for="filter-q">{ p.SearchLabel }</label>
-						<input id="filter-q" class="input" type="search" name="q" value={ p.Search }/>
+						<input id="filter-q" class="input" type="search" name="q" value={ p.Search } autofocus?={ p.Autofocus }/>
 					</div>
 				}
 				if len(p.Sorts) > 0 {

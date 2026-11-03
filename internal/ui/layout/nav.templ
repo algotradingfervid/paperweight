@@ -26,7 +26,7 @@ templ navGroups(s ui.Shell, prefix string) {
 			}
 			<ul class="nav-links" { groupAttrs(prefix, g.Name)... }>
 				for _, it := range g.Items {
-					@navLink(it, cur, s.InboxCount)
+					@navLink(it, cur, s.InboxCount, prefix == sheetPrefix)
 				}
 				if len(g.More) > 0 {
 					<li>
@@ -38,7 +38,7 @@ templ navGroups(s ui.Shell, prefix string) {
 							</summary>
 							<ul class="nav-links">
 								for _, it := range g.More {
-									@navLink(it, cur, s.InboxCount)
+									@navLink(it, cur, s.InboxCount, prefix == sheetPrefix)
 								}
 							</ul>
 						</details>
@@ -49,13 +49,15 @@ templ navGroups(s ui.Shell, prefix string) {
 	</div>
 }
 
-// navLink is one item; Approvals carries the inbox count.
-templ navLink(it ui.NavItem, cur string, inbox int) {
+// navLink is one item; Approvals carries the inbox count. With focusCurrent
+// the current item takes focus when its dialog opens (DL §5.1).
+templ navLink(it ui.NavItem, cur string, inbox int, focusCurrent bool) {
 	<li>
 		<a
 			href={ templ.SafeURL(it.Href) }
 			if it.Href == cur {
 				aria-current="page"
+				data-dialog-focus?={ focusCurrent }
 			}
 		>
 			if it.Icon != "" {
@@ -69,16 +71,28 @@ templ navLink(it ui.NavItem, cur string, inbox int) {
 	</li>
 }
 
-// navSheet is the phone navigation: a native dialog opened by the menu button.
+// navSheet is the phone navigation: a native dialog opened by the menu
+// button, with the brand row at the top and the signed-in user at the bottom
+// (UI v2 §5.2). Focus goes to the current item, or to Close on a page that has
+// none, never to the dialog box itself.
 templ navSheet(s ui.Shell) {
 	<dialog id="nav-sheet" class="modal modal-start sheet" aria-label="Menu">
 		<div class="modal-box nav-sheet-box">
-			<button type="button" class="btn btn-ghost btn-square" aria-label="Close menu" data-close-dialog>
-				@icons.Icon("x")
-			</button>
+			<div class="nav-sheet-head">
+				@brandLink(s)
+				<button type="button" class="btn btn-ghost btn-square" aria-label="Close menu" data-close-dialog data-dialog-focus?={ currentHref(s.Nav, s.Path) == "" }>
+					@icons.Icon("x")
+				</button>
+			</div>
 			<nav aria-label="Main">
-				@navGroups(s, "sheet")
+				@navGroups(s, sheetPrefix)
 			</nav>
+			if s.SignedIn {
+				<div class="nav-sheet-user">
+					<span class="avatar-initials" aria-hidden="true" data-initials={ initials(s.User) }></span>
+					<span class="truncate">{ s.User }</span>
+				</div>
+			}
 		</div>
 	</dialog>
 }

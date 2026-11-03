@@ -91,13 +91,15 @@ func TestNav_AdminGroups(t *testing.T) {
 		}
 	}
 	want := map[string][]string{
-		"Work":          {"/approvals", "/approvals/mine"},
+		"Work":          {"/", "/approvals", "/approvals/mine"},
 		"Purchase":      {"/modules/purchase", "/doc/purchase.Order", "/doc/purchase.Request"},
 		"Goods receipt": {"/doc/goodsreceipt.Receipt", "/reports/grn"},
-		"Expenses":      {"/doc/expense.Claim", "/doc/expense.Advance"},
+		"Expenses": {"/doc/expense.Claim", "/reports/expense/open", "/reports/expense/lines",
+			"/doc/expense.Advance", "/reports/expense/advances"},
 		"Masters": {"/m/party", "/m/item", "/m/project", "/m/site", "/m/employee",
 			"/m/branch", "/m/company", "/m/expense-type", "/m/payment-terms", "/m/tax-code", "/m/uom"},
-		"Admin": {"/users", "/roles", "/admin/approval-rules", "/settings/numbering", "/settings/business"},
+		"Admin": {"/users", "/roles", "/admin/approval-rules", "/settings/numbering", "/settings/business",
+			"/m/import/choose", "/admin/approvals/stuck", "/admin/approvals/overdue"},
 	}
 	for _, g := range heads {
 		if g != "Documents" && !reflect.DeepEqual(links[g], want[g]) {

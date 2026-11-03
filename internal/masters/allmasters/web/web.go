@@ -76,6 +76,9 @@ func Routes(env mstkit.Env, sm *scs.SessionManager) func(chi.Router) {
 		files:    store{db: env.DB, clock: env.Clock},
 	}
 	return func(r chi.Router) {
+		r.Get(base, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, stepURL(stepChoose), http.StatusSeeOther)
+		})
 		r.Get(stepURL(stepChoose), h.handle(h.choosePage))
 		r.Post(stepURL(stepChoose), h.handle(h.choose))
 		r.Get(base+"/template", h.handle(h.template))

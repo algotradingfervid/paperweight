@@ -320,6 +320,9 @@ func openSheet(id string) func(ctx context.Context) error {
 func (h *Harness) appScreens(s sweepState) []screens.Screen {
 	out := []screens.Screen{
 		{Name: "home", Route: "/", URL: "/", As: priya},
+		{Name: "home caught up", Route: "/", URL: "/", As: deepak},
+		{Name: "home for admin", Route: "/", URL: "/", As: admin},
+		{Name: "import bare path", Route: "/m/import", URL: "/m/import", As: admin},
 		{Name: "inbox", Route: "/approvals", URL: "/approvals", As: meena},
 		{Name: "inbox empty", Route: "/approvals", URL: "/approvals", As: deepak},
 		{Name: "my requests", Route: "/approvals/mine", URL: "/approvals/mine", As: priya},

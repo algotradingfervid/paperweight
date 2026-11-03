@@ -7,6 +7,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/platform/db"
+	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
 
 // MsgMethodNotAllowed is the 405's text.
@@ -20,6 +21,14 @@ func (a *App) JobEvery() time.Duration { return a.jobEvery }
 
 // SetJobEvery makes Run do the jobs every d, so a test needn't wait an hour.
 func (a *App) SetJobEvery(d time.Duration) { a.jobEvery = d }
+
+// SetHide replaces the Hide registered for DocType name: Config.Modules never
+// replaces a real DocType's Module.
+func (a *App) SetHide(name string, hide func(docscreen.Ctx, doctype.Field) bool) {
+	m := a.docModules[name]
+	m.Hide = hide
+	a.docModules[name] = m
+}
 
 // ReceiveLink is purchaseweb's Deps.ReceiveLink as routes wired it.
 func (a *App) ReceiveLink() func(ctx context.Context, p auth.Principal, poID int64) (string, bool) {

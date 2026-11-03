@@ -25,6 +25,9 @@ type Deps struct {
 	// ReceiveLink is MOD-GRN's Receive goods link for a PO, ok false when p
 	// may not receive against it; nil until MOD-GRN wires it (CD-283).
 	ReceiveLink func(ctx context.Context, p auth.Principal, poID int64) (href string, ok bool)
+	// ReceiveGoods is the home's Receive goods link, ok false when p may not
+	// create a receipt; nil has no link (CD-283).
+	ReceiveGoods func(ctx context.Context, p auth.Principal) (href string, ok bool)
 	// ListHidden is docscreen's list Hide question over the app's registered
 	// modules (CD-368 (3)). Required: Routes panics without it.
 	ListHidden func(r *http.Request, dt *doctype.DocType) func(name string) bool
