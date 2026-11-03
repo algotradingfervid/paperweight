@@ -115,6 +115,14 @@ type CheckExtra struct {
 	Totals   []components.Pair // after the grand total and its words (UX-E6)
 	Cards    []templ.Component // after Attachments, before the grand total
 	Covers   []string          // fields Totals show, left out of the steps' details (CD-326 (4))
+
+	// Problems are what submit will refuse that DOC's problems don't show.
+	// Field names a field a step shows, or "lines" (or Line > 0) for the
+	// lines step: the problem marks that step's section Needs attention and
+	// is listed there once. Field "" with no Line is the document's own and
+	// is listed in the Check page's top summary. Any other Field is an
+	// internal error (R7).
+	Problems []doctype.FieldError
 }
 
 // PageExtra is what Module.Page adds to the document page. A LineNotes
