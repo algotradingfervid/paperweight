@@ -67,7 +67,9 @@ func TestP34_LinePagesNoSystemInputs(t *testing.T) {
 }
 
 // MOD-PO P34: the approved PO's document page still shows Receipt and the
-// totals as values.
+// totals as values: since R13 the totals card has the taxable value (the
+// grand total only when rounding changed it) and the header the rounded
+// total.
 func TestP34_ApprovedOrderShowsValues(t *testing.T) {
 	w := newP15dWeb(t)
 	po := w.order(t, doctype.StateApproved)
@@ -75,10 +77,11 @@ func TestP34_ApprovedOrderShowsValues(t *testing.T) {
 	if v, ok := pg.pair("Receipt"); !ok || v != "Not received" {
 		t.Errorf("approved PO Receipt = %q, %v; want Not received", v, ok)
 	}
-	for _, label := range []string{"Taxable value", "Grand total", "Rounded total"} {
-		if v, ok := pg.pair(label); !ok || !strings.HasPrefix(v, "₹") {
-			t.Errorf("approved PO %s = %q, %v; want a rupee value", label, v, ok)
-		}
+	if v, ok := pg.pair("Taxable value"); !ok || !strings.HasPrefix(v, "₹") {
+		t.Errorf("approved PO Taxable value = %q, %v; want a rupee value", v, ok)
+	}
+	if v := pg.doc.Find(".doc-head__amount").Text(); !strings.HasPrefix(v, "₹") {
+		t.Errorf("approved PO header amount = %q; want a rupee value", v)
 	}
 }
 

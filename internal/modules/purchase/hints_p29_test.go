@@ -29,7 +29,7 @@ func TestPO_FieldHints(t *testing.T) {
 			"payment_terms_id":  "Left blank, the vendor's usual terms are used, for example 30 days from the bill date.",
 			"vendor_quote_ref":  "The vendor's quotation number, printed on the order, for example QT-2026-118.",
 			"terms":             "Left blank, the company's standard terms are used; type a dash to print none.",
-			"reverse_charge":    "Tick only if your CA has said reverse charge applies, so GST is shown as payable by us and left out of the total.",
+			"reverse_charge":    "Turn on only if your CA has said reverse charge applies, so GST is shown as payable by us and left out of the total.",
 			"remarks":           "For people in the company only, and never printed.",
 			"earlier_po_no":     "Only for orders first raised on paper; printed on the order so the vendor recognises it.",
 			"earlier_po_date":   "The date of the paper order, given together with Earlier PO no.",

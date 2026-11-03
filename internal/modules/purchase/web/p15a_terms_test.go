@@ -301,7 +301,7 @@ func TestPO_OrderHideNilViewAndErrors(t *testing.T) {
 		{map[string]string{"earlier_po_no": "P-17"}, []string{"copied_from_no", "copied_from_id", "copy_notes", "request_line_id"}},
 	} {
 		c0 := ctx(&p15aReader{db: env.DB})
-		c0.View = &docscreen.DocView{Inputs: c.inputs}
+		c0.View = &docscreen.DocView{Inputs: c.inputs, Lines: []docscreen.LineView{{}}} // with a line: R13 hides the totals of none
 		got := hiddenOf(c0)
 		want := slices.Clone(c.want)
 		slices.Sort(got)
