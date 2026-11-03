@@ -43,7 +43,7 @@ templ login(p authweb.LoginPage) {
 	@uilayout.Solo(uilayout.PageOpts{Title: "Sign in", Error: p.Error != "", BannerSlot: signInError(p.Error)}) {
 		@components.Warnings(p.Warnings)
 		@components.Hidden("csrf_token", p.CSRF)
-		@components.Form(components.FormProps{Action: "/signin", CSRF: p.CSRF}) {
+		@components.Form(components.FormProps{Action: "/signin", CSRF: p.CSRF, Attrs: noValidate}) {
 			if p.Next != "" {
 				@components.Hidden("next", p.Next)
 			}

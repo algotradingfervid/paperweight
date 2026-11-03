@@ -69,7 +69,7 @@ func newUserError(p authweb.NewUserPage, field string) string {
 // the password, which never comes back from the server.
 templ newUser(p authweb.NewUserPage) {
 	@page(uilayout.PageOpts{Title: "New user", Width: uilayout.Form, Back: &components.Link{Label: "Users", Href: "/users"}}, p.CSRF, p.Error, components.FieldID(p.ErrorField), nil) {
-		@components.Form(components.FormProps{Action: "/users", CSRF: p.CSRF}) {
+		@components.Form(components.FormProps{Action: "/users", CSRF: p.CSRF, Attrs: noValidate}) {
 			<div class="stack">
 				@components.RequiredNote(true)
 				@components.CardWith(components.CardProps{Title: "Details", Icon: "user", Description: "Who this account is for."}) {

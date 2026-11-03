@@ -210,7 +210,8 @@ type cardCell struct {
 	title, state, blank, sep, sepLow bool
 }
 
-// thirdCells is card row 3: the listThird values, then the state badge.
+// thirdCells is card row 3: the listThird values, then the state badge,
+// blank for a row with no State (an enabled master in search, RR1b).
 // Each drawn value gets a separator when a drawn value follows it, low
 // priority when every drawn value after it is.
 func (l listLayout) thirdCells(r Row) []cardCell {
@@ -220,7 +221,7 @@ func (l listLayout) thirdCells(r Row) []cardCell {
 		cells = append(cells, cardCell{Column: c, blank: blank})
 	}
 	if l.state != nil {
-		cells = append(cells, cardCell{Column: *l.state, state: true})
+		cells = append(cells, cardCell{Column: *l.state, state: true, blank: r.State == ""})
 	}
 	for i := range cells {
 		if cells[i].blank {

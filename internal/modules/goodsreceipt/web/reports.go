@@ -87,12 +87,15 @@ var reportSpecs = map[string]reportSpec{
 }
 
 // The DataList columns (UX doc §5.11, §5.12); the CSVs have every column.
+// Names are Wide, so their words stay whole, and the header labels are
+// short enough for 2 lines in an 8-track row (CD-396, RR1b); a value names
+// its own parts ("Received 10 · Accepted 8").
 var (
 	billsColumns = []components.Column{
 		{Key: "grn", Label: "GRN no.", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "value", Label: "Accepted value", Priority: components.PFigure, Num: true},
-		{Key: "vendor", Label: "Vendor", Priority: components.PMeta},
-		{Key: "receipt", Label: "Receipt date, PO no. and challan no.", Priority: components.PMeta},
+		{Key: "vendor", Label: "Vendor", Priority: components.PMeta, Wide: true},
+		{Key: "receipt", Label: "Receipt, PO, challan", Priority: components.PMeta},
 		{Key: "bill", Label: "Bill details", Priority: components.PMeta},
 		{Key: "photos", Label: "Photos", Priority: components.PMeta},
 		{Key: "gstin", Label: "GSTIN", Priority: components.PLow, Code: true, NoWrap: true},
@@ -100,10 +103,10 @@ var (
 	itemsColumns = []components.Column{
 		{Key: "grn", Label: "GRN no.", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "value", Label: "Accepted value", Priority: components.PFigure, Num: true},
-		{Key: "item", Label: "Item", Priority: components.PMeta},
-		{Key: "qty", Label: "Received, accepted and rejected", Priority: components.PMeta},
+		{Key: "item", Label: "Item", Priority: components.PMeta, Wide: true},
+		{Key: "qty", Label: "Quantities", Priority: components.PMeta},
 		{Key: "reason", Label: "Reject reason", Priority: components.PMeta},
-		{Key: "vendor", Label: "Vendor", Priority: components.PMeta},
+		{Key: "vendor", Label: "Vendor", Priority: components.PMeta, Wide: true},
 		{Key: "date_po", Label: "Date and PO no.", Priority: components.PLow},
 		{Key: "hsn_rate", Label: "HSN and rate", Priority: components.PLow},
 	}

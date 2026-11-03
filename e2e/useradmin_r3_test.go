@@ -319,3 +319,17 @@ func TestE2E_AccountMenu(t *testing.T) {
 		s.Until("the password page", `location.pathname === "/account/password"`)
 	}
 }
+
+// RR1b finding 4: Add user with every field blank posts the form (it is
+// novalidate), and the server's error summary names the first blank
+// required field, not the browser's own bubble.
+func TestE2E_UserAdmin_BlankShowsErrorSummary(t *testing.T) {
+	h := Start(t)
+	s := h.SignIn(admin, desktop)
+	s.Open("/users/new")
+	s.Press("Add user")
+	s.Until("the error summary", `document.querySelector(".error-summary")?.checkVisibility() ?? false`)
+	if got := Eval[string](s, `document.querySelector(".error-summary").innerText`); !strings.Contains(got, auth.ErrNameRequired.Msg) {
+		t.Errorf("error summary %q, want %q", got, auth.ErrNameRequired.Msg)
+	}
+}

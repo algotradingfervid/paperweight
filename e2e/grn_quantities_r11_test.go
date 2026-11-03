@@ -343,7 +343,8 @@ func TestE2E_GRNQuantitiesRedrawsKeepValues(t *testing.T) {
 }
 
 // H4, UX §5.6, §5.7: on an approved GRN with no bill, Add bill details jumps
-// to the Bill details card, under the top bar and on screen, at each phone
+// to the Bill details card's first field (RR1b), its label under the top bar
+// and on screen, at each phone
 // width and on a desktop. Saving there removes the button at once, with no
 // empty footer left. An Actions card with nothing else goes with it.
 func TestE2E_GRNAddBillDetails(t *testing.T) {
@@ -361,11 +362,11 @@ func TestE2E_GRNAddBillDetails(t *testing.T) {
 			t.Errorf("%d px: Add bill details isn't a 44 px target on the first screen\n%s", w, s.page())
 		}
 		Eval[bool](s, `(`+add+`.click(), true)`)
-		s.Until("the jump", `location.hash === "#bill" && Math.abs(document.getElementById("bill").getBoundingClientRect().top) < innerHeight`)
-		top := Eval[float64](s, `document.getElementById("bill").getBoundingClientRect().top`)
+		s.Until("the jump", `location.hash === "#f-invoice_no" && Math.abs(document.getElementById("bill").getBoundingClientRect().top) < innerHeight`)
+		top := Eval[float64](s, `document.querySelector('label[for="f-invoice_no"]').getBoundingClientRect().top`)
 		head := Eval[float64](s, `(document.querySelector("header")?.getBoundingClientRect().bottom ?? 0)`)
 		if top < head-0.5 || top > float64(r11Height)/2 {
-			t.Errorf("%d px: the card's top is at %v under a %v px header", w, top, head)
+			t.Errorf("%d px: the card's first field label is at %v under a %v px header", w, top, head)
 		}
 		noOverflow(s, "the GRN at #bill")
 	}

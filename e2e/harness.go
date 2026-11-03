@@ -501,7 +501,8 @@ func (s *Session) Press(label string) {
 // From 64rem it presses the list's own label button. On a phone the list
 // carries that link hidden (UI v2 §5.12: New is the bottom nav's), so it
 // checks the link is there and hidden, then presses the bottom nav's New and
-// the Create new sheet's tile going to the same place.
+// the Create new sheet's tile going to the same place, and waits for that
+// tile's page, so a press on another tile fails here.
 func (s *Session) PressNew(label string) {
 	s.t.Helper()
 	if !Eval[bool](s, `document.querySelector("nav.bottomnav")?.checkVisibility() ?? false`) {
@@ -522,6 +523,7 @@ func (s *Session) PressNew(label string) {
 		s.t.Fatalf("the Create new sheet has no tile to %s\n%s", href, s.page())
 	}
 	s.Press(tile)
+	s.Until("the page of the tile to "+href, `location.pathname === new URL(`+strconv.Quote(href)+`, location.href).pathname`)
 }
 
 // SetFile picks path on the file input sel selects, as a user's choice does

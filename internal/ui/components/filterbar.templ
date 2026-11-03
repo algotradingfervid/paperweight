@@ -165,6 +165,7 @@ templ FilterBar(p FilterBarProps) {
 						<label for="filter-sort" class="visually-hidden">Sort by</label>
 						@icons.Icon("arrow-up-down")
 						<select id="filter-sort" class="select" name="sort">
+							<button type="button"><selectedcontent></selectedcontent></button>
 							for _, o := range p.Sorts {
 								<option value={ o.Value } selected?={ o.Value == p.Sort }>{ o.Label }</option>
 							}

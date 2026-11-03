@@ -18,8 +18,8 @@ func (p s1Page) r11Bar() (label, href string, n int) {
 }
 
 // H4, UX §3.5, §5.6: an approved GRN with no bill details has the bar
-// primary Add bill details, jumping to the Bill details card, for a user who
-// holds write, and only write beside read. Without write there is none, not
+// primary Add bill details, jumping to the Bill details card's Vendor invoice
+// no. (RR1b), for a user who holds write, and only write beside read. Without write there is none, not
 // on a read-only draft, and none once bill details exist. A cancelled receipt
 // never has it, also for a writer who can't amend (the bar would be free).
 func TestGRNWeb_AddBillPrimary(t *testing.T) {
@@ -31,11 +31,11 @@ func TestGRNWeb_AddBillPrimary(t *testing.T) {
 
 	for name, p := range map[string]auth.Principal{"Suresh": w.Suresh, "write only": writer} {
 		r := s3OK(t, w.get(p, s3Doc(g.ID)), name)
-		if label, href, n := r.r11Bar(); n != 1 || label != "Add bill details" || href != "#bill" {
-			t.Errorf("%s: bar primary %d %q to %q, want Add bill details to #bill", name, n, label, href)
+		if label, href, n := r.r11Bar(); n != 1 || label != "Add bill details" || href != "#f-invoice_no" {
+			t.Errorf("%s: bar primary %d %q to %q, want Add bill details to #f-invoice_no", name, n, label, href)
 		}
-		if r.s3bCard().Length() != 1 {
-			t.Errorf("%s: no #bill card for the primary to jump to", name)
+		if r.s3bCard().Find("input#f-invoice_no").Length() != 1 {
+			t.Errorf("%s: no Vendor invoice no. in the #bill card for the primary to jump to", name)
 		}
 	}
 	for name, p := range map[string]auth.Principal{"Priya": w.Priya, "no write": reader} {
@@ -67,16 +67,17 @@ func TestGRNWeb_AddBillPrimary(t *testing.T) {
 }
 
 // H4: the first bill save answers htmx with the card and drops the bar that
-// held Add bill details (the browser test proves the swap); a refused save
-// and a later change of stored details leave the page's bar alone.
+// held Add bill details (the browser test proves the swap), and so does a
+// refused first save (RR1b fix 2: the user is at the form); a later change
+// of stored details leaves the page's bar alone.
 func TestGRNWeb_BillSaveDropsPrimary(t *testing.T) {
 	w := newS1World(t)
 	g := w.s3bGRN(w.Suresh, w.s3bPO(), doctype.StateApproved)
 	oob := `[hx-swap-oob^="delete:"]`
 
 	r := w.s3bSave(w.Suresh, g.ID, s3bForm(0, "", "23-10-2026", "6,250.00"), true)
-	if r.status != http.StatusUnprocessableEntity || r.doc.Find(oob).Length() != 0 {
-		t.Errorf("refused save = %d with %d bar deletes, want 422 and none", r.status, r.doc.Find(oob).Length())
+	if r.status != http.StatusUnprocessableEntity || r.doc.Find(oob).Length() != 1 {
+		t.Errorf("refused first save = %d with %d bar deletes, want 422 and one", r.status, r.doc.Find(oob).Length())
 	}
 	r = w.s3bSave(w.Suresh, g.ID, s3bForm(0, s3bInvoice, "23-10-2026", "6,250.00"), true)
 	if r.status != http.StatusOK || r.doc.Find(oob).Length() != 1 {

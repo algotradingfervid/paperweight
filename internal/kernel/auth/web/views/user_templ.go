@@ -761,7 +761,7 @@ func resetPassword(p authweb.ResetPasswordPage) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = components.Form(components.FormProps{Action: fmt.Sprintf("/users/%d/password", p.User.ID), CSRF: p.CSRF}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var24), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Form(components.FormProps{Action: fmt.Sprintf("/users/%d/password", p.User.ID), CSRF: p.CSRF, Attrs: noValidate}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var24), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -35,16 +35,17 @@ var pendingKeys = []pendingKey{
 }
 
 // pendingColumns are the report's DataList columns (UX §5.19); the CSV has
-// all 15 of spec §13.
+// all 15 of spec §13. Names are Wide and the header labels fit 2 lines in
+// an 8-track row (CD-396, RR1b); a value names its own parts.
 var pendingColumns = []components.Column{
 	{Key: "po", Label: "PO number", Priority: components.PTitle, Code: true, NoWrap: true},
 	{Key: "value", Label: "Pending value", Priority: components.PFigure, Num: true},
-	{Key: "item", Label: "Item", Priority: components.PMeta},
-	{Key: "qty", Label: "Pending and received", Priority: components.PMeta},
-	{Key: "vendor", Label: "Vendor", Priority: components.PMeta},
+	{Key: "item", Label: "Item", Priority: components.PMeta, Wide: true},
+	{Key: "qty", Label: "Quantities", Priority: components.PMeta},
+	{Key: "vendor", Label: "Vendor", Priority: components.PMeta, Wide: true},
 	{Key: "due", Label: "Due", Priority: components.PMeta},
 	{Key: "place", Label: "Project and site", Priority: components.PLow, Code: true, NoWrap: true},
-	{Key: "order", Label: "Order date and net rate", Priority: components.PLow},
+	{Key: "order", Label: "Order, rate", Priority: components.PLow},
 }
 
 // dueText is `Due {date}`, with `(expected)` when the date is Expected on

@@ -183,6 +183,11 @@ func (d Deps) PartyListed(ctx context.Context, p auth.Principal, name string) bo
 	return !partyHidden(Ctx{Req: r, Principal: p, DT: dt, Deps: d, Listing: true})
 }
 
+// masterDisabled is a disabled master's state, so its state column (the
+// disabled field, CD-42 priority 3) says Disabled; an enabled master has no
+// State, and the column stays empty (RR1b, as mstkit's list).
+const masterDisabled doctype.State = "Disabled"
+
 // listRows is rs as DataList rows over cols; href is each row's link. The
 // party is left out when the module hides its field (CD-319 (7)); Hide is
 // asked with no View and Listing set (CD-327 (1)). PartyKey names the party
@@ -218,6 +223,9 @@ func (d Deps) listRows(r *http.Request, dt *doctype.DocType, cols []components.C
 				Values:     vals,
 				State:      lr.Info.State,
 				StateLabel: dt.StateLabels[lr.Info.State],
+			}
+			if lr.Values["disabled"] == "true" { // only masters have the field
+				rows[i].State = masterDisabled
 			}
 			if !noParty {
 				rows[i].Party = lr.Info.Party

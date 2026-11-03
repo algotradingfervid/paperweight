@@ -114,11 +114,14 @@ func layoutProblems(t *testing.T, s *Session, what string) {
 
 // columnsJS checks a list's aligned rows, every row: each header label
 // starts where its column's cells start (figures end where they end), takes
-// at most 2 lines, every document number and date (NoWrap) sits on one line,
-// and no word of a name (a Wide cell, its code aside) breaks inside itself
-// (GRN M3). It returns the problems and how many Wide cells it checked.
+// at most 2 lines, every document number and date (NoWrap) sits on one line
+// (a NoWrap value of several tokens, a report's "EX/26-27/00001 · line 1",
+// breaks only between them), and no word of a name (a Wide cell, its code aside) breaks inside itself
+// (GRN M3). Low-priority values below 64rem are hidden in tracks of no
+// width (RR1b) and not measured. It returns the problems and how many Wide
+// cells it checked.
 const columnsJS = `(() => {
-  const vis = (e) => e.checkVisibility();
+  const vis = (e) => e.checkVisibility({visibilityProperty: true});
   const brokenWords = (el) => {
     const out = [];
     const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -140,7 +143,7 @@ const columnsJS = `(() => {
     if (h.getBoundingClientRect().height > 2.5 * parseFloat(getComputedStyle(h).lineHeight)) out.push("header " + h.innerText.trim() + " takes more than 2 lines");
   }
   document.querySelectorAll("ul.datalist-rows > li a").forEach((link, row) => {
-    const cells = [...link.querySelectorAll("dl")].filter((d) => vis(d) || d.classList.contains("datalist-blank"));
+    const cells = [...link.querySelectorAll("dl")].filter((d) => vis(d) || (d.classList.contains("datalist-blank") && d.dataset.priority !== "low"));
     if (cells.length !== head.length) { out.push("row " + row + ": header has " + head.length + " labels, the row " + cells.length + " cells"); return; }
     head.forEach((h, i) => {
       const a = h.getBoundingClientRect(), c = cells[i].getBoundingClientRect();
@@ -148,7 +151,10 @@ const columnsJS = `(() => {
       if (off > 2) out.push("row " + row + ": " + h.innerText.trim() + " is " + Math.round(off) + " px off its cells");
     });
     for (const dd of link.querySelectorAll(".datalist-nowrap dd")) {
-      if (dd.getBoundingClientRect().height > parseFloat(getComputedStyle(dd).lineHeight) * 1.5) out.push("row " + row + ": " + dd.innerText.trim() + " breaks over lines");
+      if (!vis(dd)) continue;
+      if (/\s/.test(dd.innerText.trim())) {
+        for (const w of brokenWords(dd)) out.push("row " + row + ": token " + w + " breaks inside");
+      } else if (dd.getBoundingClientRect().height > parseFloat(getComputedStyle(dd).lineHeight) * 1.5) out.push("row " + row + ": " + dd.innerText.trim() + " breaks over lines");
     }
     for (const dd of link.querySelectorAll("dl.datalist-wide dd")) {
       // A master shows as "{Code} {Name}" (CD-68): the code, capitals and
