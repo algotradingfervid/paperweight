@@ -25,6 +25,11 @@
   & > .btn:not(.btn--primary) { order: -1; }
   & > [data-open-dialog]:only-child { flex: 1 1 auto; }
   & .actionbar-note { order: -2; margin: 0; flex: 1 1 100%; color: var(--color-text-secondary); }
+  /* A bar link that jumps to a field on the page (GRN's Add bill details)
+     goes once a field is the jump's target: the user is at the form. A bar
+     left with nothing else goes with it (RR1b). */
+  :root:has(.field :target) & > a[href^="#f-"] { display: none; }
+  :root:has(.field :target) &:not(:has(> :not(a[href^="#f-"]))) { display: none; }
   /* Static while uibrowser.Axe runs (data-axe on html, CD-344 (3)). */
   :root[data-axe] & { position: static; }
   @media (min-width: 64rem) {

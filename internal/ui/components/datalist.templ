@@ -29,6 +29,9 @@ templ dataList(p DataListProps, l listLayout) {
 		if l.wideTracks() != "" {
 			data-wide={ l.wideTracks() }
 		}
+		if l.state != nil {
+			data-state={ strconv.Itoa(l.tracks()) }
+		}
 	>
 		<div class="datalist-head" aria-hidden="true">
 			if l.title != nil {
@@ -106,7 +109,9 @@ templ listCard(l listLayout, r Row) {
 			for _, c := range l.thirdCells(r) {
 				if c.state {
 					@listCell(c) {
-						@StateBadgeLabel(r.State, r.StateLabel)
+						if !c.blank {
+							@StateBadgeLabel(r.State, r.StateLabel)
+						}
 					}
 				} else {
 					@listCell(c) {

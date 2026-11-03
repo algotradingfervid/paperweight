@@ -21,6 +21,11 @@ func (Default) Password(p authweb.PasswordPage) templ.Component {
 // required marks a field the form cannot be sent without.
 var required = templ.Attributes{"required": true}
 
+// noValidate goes on every form holding a required field: a blank one
+// reaches the server and its error summary, never the browser's own bubble
+// (RR1b).
+var noValidate = templ.Attributes{"novalidate": true}
+
 // passwordRules lists the password policy (auth.CheckPolicy) before the
 // fields (design-system §8.7); change says the new one must differ from the
 // current one.
@@ -150,7 +155,7 @@ func password(p authweb.PasswordPage) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = components.Form(components.FormProps{Action: "/account/password", CSRF: p.CSRF}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Form(components.FormProps{Action: "/account/password", CSRF: p.CSRF, Attrs: noValidate}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -958,22 +958,25 @@ const brokenWordsJS = `const brokenWords = function (el) {
 // past its track (a NoWrap track is as wide as its values; CD-307 (3),
 // CD-308 (3)) and no separator is shown, a low-priority one included
 // (auth-users has one: its list has no state column). No word of a Wide
-// name breaks inside itself and no header label takes more than 2 lines,
-// with the name, date and code in every order (R5, GRN M3).
+// name breaks inside itself, no state badge word breaks inside itself
+// (RR1b) and no header label takes more than 2 lines, with the name, date
+// and code in every order (R5, GRN M3). Low-priority values hidden in
+// tracks of no width below 64rem are not measured.
 func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
 	g := startGallery(t)
 	ctx := New(t)
 	type result struct {
-		Aligned, LowSeps int
-		Bad              []string
+		Badges, Aligned, LowSeps int
+		Bad                      []string
 	}
+	badges := 0
 	for _, p := range []string{"datalist", "auth-users"} {
 		for _, w := range []int64{900, 1100, 1280, 1440} {
 			open(t, ctx, w, g.URL+"/_gallery/"+p)
 			r := eval[result](t, ctx, `(() => {
-  const shown = function (e) { return e.getClientRects().length > 0; };
+  const shown = function (e) { return e.getClientRects().length > 0 && e.checkVisibility({visibilityProperty: true}); };
   `+brokenWordsJS+`
-  const r = {Aligned: 0, LowSeps: document.querySelectorAll(".datalist-sep[data-priority=low]").length, Bad: []};
+  const r = {Badges: 0, Aligned: 0, LowSeps: document.querySelectorAll(".datalist-sep[data-priority=low]").length, Bad: []};
   document.querySelectorAll(".datalist").forEach(function (l) {
     const head = l.querySelector(".datalist-head");
     if (!head || getComputedStyle(head).display === "none") return;
@@ -989,6 +992,11 @@ func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
     l.querySelectorAll(".datalist-link dl.datalist-wide dd").forEach(function (dd) {
       if (shown(dd)) brokenWords(dd).forEach(function (w) { r.Bad.push("name word " + JSON.stringify(w) + " breaks inside"); });
     });
+    l.querySelectorAll(".datalist-link .badge").forEach(function (b) {
+      if (!shown(b)) return;
+      r.Badges++;
+      brokenWords(b).forEach(function (w) { r.Bad.push("state word " + JSON.stringify(w) + " breaks inside"); });
+    });
     head.querySelectorAll("span").forEach(function (s) {
       if (shown(s) && s.getBoundingClientRect().height > 2.5 * parseFloat(getComputedStyle(s).lineHeight)) r.Bad.push("header " + JSON.stringify(s.textContent) + " takes more than 2 lines");
     });
@@ -998,6 +1006,7 @@ func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
 			if r.Aligned == 0 {
 				t.Errorf("%s@%d: no list is drawn as aligned rows", p, w)
 			}
+			badges += r.Badges
 			if p == "auth-users" && r.LowSeps == 0 {
 				t.Errorf("%s@%d: no low-priority separator to check", p, w)
 			}
@@ -1005,5 +1014,8 @@ func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
 				t.Errorf("%s@%d: %s", p, w, b)
 			}
 		}
+	}
+	if badges == 0 {
+		t.Error("no state badge in aligned rows to check")
 	}
 }

@@ -162,7 +162,7 @@ templ userDelete(p authweb.UserPage) {
 templ resetPassword(p authweb.ResetPasswordPage) {
 	@page(uilayout.PageOpts{Title: "Reset password", Width: uilayout.Form, Back: &components.Link{Label: p.User.Name, Href: fmt.Sprintf("/users/%d", p.User.ID)}}, p.CSRF, p.Error, components.FieldID("password"), nil) {
 		<p>{ p.User.Name } · { p.User.Email }</p>
-		@components.Form(components.FormProps{Action: fmt.Sprintf("/users/%d/password", p.User.ID), CSRF: p.CSRF}) {
+		@components.Form(components.FormProps{Action: fmt.Sprintf("/users/%d/password", p.User.ID), CSRF: p.CSRF, Attrs: noValidate}) {
 			<div class="stack">
 				@components.RequiredNote(true)
 				@components.CardWith(components.CardProps{Title: "New sign-in password", Icon: "lock", Description: "This signs them out everywhere. They must choose a new password when they next sign in."}) {

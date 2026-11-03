@@ -67,17 +67,17 @@ var (
 	openColumns = []components.Column{
 		{Key: "claim", Label: "Claim", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "to_pay", Label: "To pay", Priority: components.PFigure, Num: true},
-		{Key: "employee", Label: "Employee", Priority: components.PMeta},
+		{Key: "employee", Label: "Employee", Priority: components.PMeta, Wide: true},
 		{Key: "purpose", Label: "Purpose", Priority: components.PMeta},
 		{Key: "approved", Label: "Approved", Priority: components.PMeta},
 		{Key: "no_receipt", Label: "Without a receipt", Priority: components.PMeta},
-		{Key: "totals", Label: "Total and less advance", Priority: components.PLow},
+		{Key: "totals", Label: "Totals", Priority: components.PLow}, // fits 2 lines beside a Wide name; the value names its parts (RR1b)
 	}
 	linesColumns = []components.Column{
 		{Key: "line", Label: "Claim and line", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "amount", Label: "Amount", Priority: components.PFigure, Num: true},
 		{Key: "type_date", Label: "Type and date", Priority: components.PMeta},
-		{Key: "employee", Label: "Employee", Priority: components.PMeta},
+		{Key: "employee", Label: "Employee", Priority: components.PMeta, Wide: true},
 		{Key: "receipt", Label: "Receipt", Priority: components.PMeta},
 		{Key: "place", Label: "Project and site", Priority: components.PLow, Code: true, NoWrap: true},
 		{Key: "gst", Label: "GST details", Priority: components.PLow}, // holds the invoice no.: free text
@@ -86,7 +86,7 @@ var (
 	advancesColumns = []components.Column{
 		{Key: "advance", Label: "Advance", Priority: components.PTitle, Code: true, NoWrap: true},
 		{Key: "left", Label: "Left", Priority: components.PFigure, Num: true},
-		{Key: "employee", Label: "Employee", Priority: components.PMeta},
+		{Key: "employee", Label: "Employee", Priority: components.PMeta, Wide: true},
 		{Key: "date_purpose", Label: "Date and purpose", Priority: components.PMeta},
 		{Key: "paid", Label: "Paid on", Priority: components.PMeta, NoWrap: true},
 		{Key: "amounts", Label: "Amount and used", Priority: components.PLow},

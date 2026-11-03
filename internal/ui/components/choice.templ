@@ -138,6 +138,9 @@ templ segments(p FieldProps, opts []Option, tiles bool) {
 templ Select(p FieldProps, opts []Option) {
 	@field(p) {
 		<select { controlAttrs(p, "select field__input")... }>
+			// The choice shows through selectedcontent, which clips inside
+			// the end padding, clear of the arrow (RR1b, as the sort select).
+			<button type="button"><selectedcontent></selectedcontent></button>
 			for _, o := range opts {
 				<option value={ o.Value } selected?={ o.Value == p.Value }>{ o.Label }</option>
 			}
