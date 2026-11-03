@@ -19,6 +19,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
+	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/masters/party"
@@ -57,7 +58,7 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		Base:    basePath,
 		Copy: mstweb.Copy{
 			Plural: "Parties", Noun: "parties", One: "party", New: "New party",
-			Search: "Search parties", Empty: "No parties yet.",
+			Search: "Search parties", Empty: "No parties yet.", Icon: "handshake",
 			Saved: "Party saved.", Disabled: "Party disabled.", Enabled: "Party enabled.", Deleted: "Party deleted.",
 		},
 		Svc:      svc,
@@ -68,11 +69,12 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		Head:     head,
 		Ref:      ref,
 		Codes:    map[string]components.CodeKind{"pan": components.PAN, "gstin": components.GSTIN},
-		Selects:  map[string][]components.Option{"state_code": stateOptions()},
+		Selects:  map[string][]components.Option{"state_code": gstinweb.StateOptions()},
 		Extra:    rec.lists,
 		Mount:    rec.routes,
 		PickRole: pickRole(svc),
-		Choices: map[string]mstweb.Choice{roleField: {Label: "This party is a", Required: true, Options: []components.Option{
+		PickLine: addresses.PickLine,
+		Choices: map[string]mstweb.Choice{roleField: {Label: "This party is a", Hint: "Only vendors can be picked on purchase orders.", Required: true, Options: []components.Option{
 			{Value: roleVendor, Label: "Vendor"}, {Value: roleCustomer, Label: "Customer"}, {Value: roleBoth, Label: "Both"},
 		}}},
 		Renames: map[string]string{"is_vendor": roleField, "is_customer": roleField},
@@ -87,7 +89,8 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		// (UI v2 §5.8, CD-375).
 		Quick: &mstweb.Quick{
 			Fields:  quickFields(),
-			Nouns:   map[string]string{roleVendor: "vendor", roleCustomer: "customer"},
+			Given:   map[string]mstweb.Given{"state_code": {By: "gstin", Check: components.GSTINState, Echo: stateEcho}},
+			Nouns:   map[string]components.Noun{roleVendor: {One: "vendor", Many: "vendors"}, roleCustomer: {One: "customer", Many: "customers"}},
 			Icon:    "user-plus",
 			Line:    "Just enough to raise this order. Add contacts and more addresses later in Parties.",
 			Creates: []string{address.DocType},
@@ -102,9 +105,14 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 			return env.Auth.CanTx(ctx, tx, p, address.ContactDocType, auth.RightCreate, nil)
 		},
 		Sections: []docscreen.FormStep{
-			{Slug: "details", Label: "Party details", Fields: []string{"code", "name", roleField}},
-			{Slug: "gst", Label: "GST", Fields: []string{"pan", "gst_category"}},
-			{Slug: "terms", Label: "Payment Terms", Fields: []string{termsField}},
+			{Slug: "details", Label: "Party details", Icon: "handshake", Fields: []string{"code", "name", roleField}},
+			{Slug: "gst", Label: "GST", Icon: "percent", Fields: []string{"pan", "gst_category"}},
+			{Slug: "terms", Label: "Payment Terms", Icon: "calendar-clock", Fields: []string{termsField}},
+		},
+		Cards: []mstweb.FormCard{
+			{Title: "Who they are", Icon: "handshake", Description: "How the party appears in pickers and on orders.", Fields: []string{"code", "name", roleField}},
+			{Title: "Tax", Icon: "percent", Description: "Decides whether orders show CGST and SGST or IGST.", Fields: []string{"pan", "gst_category"}},
+			{Title: "Payment", Icon: "calendar-clock", Description: "When this party is paid, unless an order says otherwise.", Fields: []string{termsField}},
 		},
 		Wizard: mstweb.CreateWizard[draft]{
 			Sessions: sm,
@@ -115,24 +123,14 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 				{Slug: stepContacts, Label: "Contacts", Icon: "contact", Intro: "Add the people you deal with there, if any."},
 			},
 			Rows: map[string]mstweb.RowStep{
-				stepAddresses: {Legend: "Addresses", AddLabel: "Add address", Fields: addressFields(), Defaults: addressDefaults},
-				stepContacts:  {Legend: "Contacts", AddLabel: "Add contact", Fields: contactFields()},
+				stepAddresses: {Legend: "Addresses", AddLabel: "Add address", Noun: "address", Fields: addressFields(), Defaults: addressDefaults, FirstDefaults: firstAddressDefaults},
+				stepContacts:  {Legend: "Contacts", AddLabel: "Add contact", Noun: "contact", Fields: contactFields()},
 			},
 			ToInput:  toDraft,
 			Validate: validateDraft,
 			Save:     saver.save,
 		},
 	}.Routes()
-}
-
-// stateOptions is the state Select: GST states by name, blank for an address
-// outside India.
-func stateOptions() []components.Option {
-	opts := []components.Option{{Label: "Choose a state"}}
-	for _, s := range gstin.States() {
-		opts = append(opts, components.Option{Value: s.Code, Label: s.Name + " (" + s.Code + ")"})
-	}
-	return opts
 }
 
 // pickRole is the picker search of a Link with a LinkRole (CD-218). Any other
@@ -229,21 +227,34 @@ func fieldsOf(docType string, names ...string) []doctype.Field {
 	return out
 }
 
-// quickFields is the quick-create form (CD-375): the party's code and name,
-// then its billing address's GSTIN, line 1, city and state. State is
-// required: without a GSTIN the address needs one, and with one it may stay
-// blank and comes from the GSTIN.
+// quickFields is the quick-create form (CD-375, CD-388): the party's name,
+// then its billing address's GSTIN, city, line 1 and state. The code comes
+// from the name unless it is refused. State is required, and shows only
+// while no valid GSTIN gives it.
 func quickFields() []doctype.Field {
-	f := slices.Concat(fieldsOf(party.DocType, "code", "name"), fieldsOf(address.DocType, "gstin", "line1", "city", "state_code"))
-	f[0].Hint = "Suggested from the name. You can change it."
-	f[3].Label, f[3].Hint = "Address line 1", "Saved as their billing address."
+	f := slices.Concat(fieldsOf(party.DocType, "code", "name"), fieldsOf(address.DocType, "gstin", "city", "line1", "state_code"))
+	f[0].Hint = "Made from the name. You can change it."
+	f[1].Hint = "The code is made from this. You can change it later in Parties."
+	f[4].Label, f[4].Hint = "Address line 1", "Saved as their billing address."
 	f[5].Required = true
 	return f
 }
 
+// stateEcho is the live check's echo for g when it is a valid GSTIN that
+// names a state, and "" when it doesn't give one.
+func stateEcho(g string) string {
+	_, echo, err := gstinweb.Parsers()[string(components.GSTINState)](g)
+	if err != nil {
+		return ""
+	}
+	return echo
+}
+
 func addressFields() []doctype.Field {
-	return fieldsOf(address.DocType, "title", "line1", "line2", "city", "state_code", "country", "pincode", "gstin",
+	f := fieldsOf(address.DocType, "title", "line1", "line2", "city", "state_code", "country", "pincode", "gstin",
 		"is_billing", "is_shipping", "is_primary_billing", "is_primary_shipping")
+	f[1].Label, f[2].Label = "Address line 1", "Address line 2" // the service's messages say so; the CSV column stays Line 1
+	return f
 }
 
 func contactFields() []doctype.Field {
@@ -252,6 +263,10 @@ func contactFields() []doctype.Field {
 
 // addressDefaults is a new address's values.
 var addressDefaults = map[string]string{"country": "India"}
+
+// firstAddressDefaults is a party's first address: it bills, and is the
+// primary billing address, which a registered party needs (CD-180).
+var firstAddressDefaults = map[string]string{"country": "India", "is_billing": "1", "is_primary_billing": "1"}
 
 // addressInput is an address's fields as the service input.
 func addressInput(v map[string]string) address.Input {

@@ -23,6 +23,7 @@ func ClaimModule(d Deps) docscreen.Module {
 		CardsOnly: true,
 		// Check card tiles (UI v2 C4c).
 		StepIcons: map[string]string{"details": "receipt-indian-rupee"},
+		KeyFacts:  claimKeyFacts, // UI v2 §5.13 item 3
 		// The line under the stepper on each step (UI v2 C2).
 		StepIntros: map[string]string{
 			"details": "What the spending was for, the claim date and any advance to settle.",
@@ -35,9 +36,10 @@ func ClaimModule(d Deps) docscreen.Module {
 // AdvanceModule is the advance's additions to the generic screens.
 func AdvanceModule(d Deps) docscreen.Module {
 	return docscreen.Module{
-		Page:   advancePage(d),   // S3
-		Reason: advanceReason(d), // S3
-		Hide:   advanceHide(d),   // S3
+		Page:      advancePage(d),     // S3
+		LifeSteps: []string{lifePaid}, // R9
+		Reason:    advanceReason(d),   // S3
+		Hide:      advanceHide(d),     // S3
 		// The type's name and the line's note (UX §5.10); authorised for S3
 		// by AD-11 (S3 review round 1).
 		LineCard: advanceLineCard(d), // S3
@@ -46,5 +48,12 @@ func AdvanceModule(d Deps) docscreen.Module {
 		CardsOnly: true,
 		// Check card tiles (UI v2 C4c).
 		StepIcons: map[string]string{"details": "hand-coins"},
+		// Expense UX §5.10 (docs/ux/2026-10-31-expense.md): DateInput, default today.
+		TodayDates: []string{"advance_date"},
+		KeyFacts:   advanceKeyFacts, // UI v2 §5.13 item 3
+		Steps:      advanceSteps(),  // R12
+		Line:       advanceLine(),   // R12
+		// The line under the stepper (UI v2 §5.6).
+		StepIntros: map[string]string{"details": introAdvance},
 	}
 }

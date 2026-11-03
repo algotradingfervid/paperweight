@@ -15,13 +15,15 @@ Every blocker and high is fixed. Mediums go in the task that owns their code. Lo
 - **R2 Landing.** Scroll 0 and the success block first after Submit; document title updates after every htmx move, with `Error:` on a refusal. Sources: EXP H, GRN H3, PO L, EXP M.
 - **R4 Home and nav.** `/` is Home per CD-387; sidebar Home; links to expense reports, Import, stuck and overdue approvals; Search focus; drawer focus. Sources: EXP H, shell H4, H6, M10, M11; PO L.
 - **R5 Lists.** Filter control and quick chips everywhere; plain chip wording; New and Export per §5.12, list top under the fold line; date column and sort; master rows show identifying data. Sources: PO H3, M; GRN M3, M4; EXP M; shell M5, M6.
-- **R7 Wizard flow.** × and finish later per CD-387; blank lines refused; stars per CD-387; Check's Complete reflects the state; line page in focus mode with the sticky footer; Check links reach the line; master wizards validate a step, `Continue`, Start over confirms, one exit. Sources: PO H4, H5, Ms; EXP Ms; GRN M1, M9; shell M1–M4.
+- **R7 Wizard flow.** × and finish later per CD-387; blank lines refused; stars per CD-387; Check's Complete reflects the state, including module problems such as an unresolved tax code (a docscreen hook so the section shows `Needs attention`, from R13's review); line page in focus mode with the sticky footer; Check links reach the line; master wizards validate a step, `Continue`, Start over confirms, one exit. Sources: PO H4, H5, Ms; EXP Ms; GRN M1, M9; shell M1–M4.
 
 ## Wave 3 (after wave 2)
 - **R10 Masters v2 forms.** Section cards, icon tiles, one-line descriptions, examples, hints; Branch State a Select derived from the GSTIN; address defaults; error text matches the screen. Sources: shell H5, H8, M12, M14, M15, L5, L6, L8. Owner: AD-13 or a head worker.
 - **R11 GRN.** `Add bill details`; compact Quantities with `{n} of {m} lines entered`. Sources: GRN H4, H5, M2, M11. Owner: head worker (AD-12's session has ended).
 - **R12 Expense.** Receipt types match the hint; KeyFacts; line card icons; advance line footer. Sources: EXP Ms. Owner: AD-11.
 - **R13 Purchase.** Items empty state, Check and page totals repeat, 109-line `Show all`, rejection reason kept on revise. Sources: PO Ms. Owner: AD-13.
+- **R7b Wizard flow, rest (head).** Line page in focus mode with the general sticky footer (CD-387 (6)), replacing R12's advance-line copy; Check links reach the line (line cards get ids); purchase reports an unresolved tax code and GRN its submit-only checks through `CheckExtra.Problems`. After R7 merges. Owner: head worker.
+- **R14 Show all (head).** docscreen Check and document pages show a long line list in pages with `Show all`, left out of R13. Sources: PO M. Owner: head worker.
 
 ## Each task
 Standard tier: tests that fail on today's code, `make handin`, `make mutate` plus hand mutants for templ, full `make e2e`. Layout checks loop over every supported width and measure what the change could break. Review by crew-reviewer, and the screen re-driven at the reviewed widths. A MERGE-READY names the APPROVE on its exact commit.

@@ -36,6 +36,7 @@ type Param struct{ Name, Value string }
 // With no SearchLabel the bar has no search box; with a Placeholder its label
 // is for screen readers only. Panel groups go in the Filters disclosure, with
 // Active as its count; Export then shows there on phones.
+// Autofocus focuses the search box on load.
 type FilterBarProps struct {
 	Action, Search, SearchLabel, Sort string
 	Placeholder                       string
@@ -48,6 +49,7 @@ type FilterBarProps struct {
 	New, Export                       *Link
 	Keep                              []Param // hidden inputs, e.g. the active filters
 	Links                             []Link  // plain GET links, e.g. one per filter value
+	Autofocus                         bool
 }
 
 // filterTrigger is the form's hx-trigger. With a panel only the search and
@@ -96,6 +98,7 @@ templ FilterBar(p FilterBarProps) {
 								type="search"
 								name="q"
 								value={ p.Search }
+								autofocus?={ p.Autofocus }
 								if p.Placeholder != "" {
 									placeholder={ p.Placeholder }
 								}

@@ -93,3 +93,23 @@ func TestHeader_AccountChip(t *testing.T) {
 		}
 	}
 }
+
+// H7, §5.2: the account chip's menu matches Me, with links a keyboard reaches
+// and Sign out last.
+func TestHeader_AccountMenuLinks(t *testing.T) {
+	panel := render(t, shell(), layout.PageOpts{Title: "PO"}).Find(".user-menu .user-menu-panel")
+	want := [][2]string{{"My requests", "/approvals/mine"}, {"My sessions", "/account/sessions"}, {"Change password", "/account/password"}}
+	links := panel.Find("a")
+	if links.Length() != len(want) {
+		t.Fatalf("%d links in the panel, want %d", links.Length(), len(want))
+	}
+	for i, w := range want {
+		a := links.Eq(i)
+		if got := strings.TrimSpace(a.Text()); got != w[0] || a.AttrOr("href", "") != w[1] {
+			t.Errorf("link %d = %q -> %q, want %q -> %q", i, got, a.AttrOr("href", ""), w[0], w[1])
+		}
+	}
+	if !panel.Children().Last().Is(`form[action="/signout"]`) {
+		t.Error("Sign out isn't last")
+	}
+}

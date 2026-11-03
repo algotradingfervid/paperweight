@@ -27,7 +27,7 @@ func Routes(svc *expensetype.Service, env mstkit.Env) func(chi.Router) {
 		Base:    "/m/expense-type",
 		Copy: mstweb.Copy{
 			Plural: "Expense Types", Noun: "expense types", One: "expense type", New: "New expense type",
-			Search: "Search expense types", Empty: "No expense types yet.",
+			Search: "Search expense types", Empty: "No expense types yet.", Icon: "tags",
 			Saved: "Expense type saved.", Disabled: "Expense type disabled.", Enabled: "Expense type enabled.", Deleted: "Expense type deleted.",
 		},
 		Svc:      svc,
@@ -38,6 +38,10 @@ func Routes(svc *expensetype.Service, env mstkit.Env) func(chi.Router) {
 		Head:     head,
 		Ref:      ref,
 		Codes:    map[string]components.CodeKind{"default_hsn_sac": components.HSN},
+		Cards: []mstweb.FormCard{
+			{Title: "Expense type details", Icon: "tags", Description: "What people pick on an expense line.", Fields: []string{"code", "name"}},
+			{Title: "Tax", Icon: "percent", Description: "What new expense lines start with.", Fields: []string{"default_hsn_sac", "default_tax_code_id"}},
+		},
 	}.Routes()
 }
 

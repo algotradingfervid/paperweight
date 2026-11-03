@@ -89,5 +89,5 @@ func RenderSubForm(w http.ResponseWriter, r *http.Request, status int, s SubForm
 	if s.ID != 0 {
 		v.Label = s.Title
 	}
-	ui.Render(w, r, status, recordPageCancelTo(v, s.Back.Href), nil)
+	ui.Render(w, r, status, recordPageCancelTo(v, s.Back.Href), recordMain(v, s.Back.Href))
 }

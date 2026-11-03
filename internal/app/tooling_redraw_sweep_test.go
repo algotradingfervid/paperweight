@@ -160,6 +160,7 @@ var rsSites = map[string]int{
 	"failingStep": 1, "checkPage": 1, "readOnlyPage": 1,
 	"page": 1, "refused": 2, "succeeded": 2,
 	"lineGet": 2, "linePost": 2, "gridSaved": 1, "gridRefused": 1,
+	"draftView": 1, "backToItems": 1, // redirects, no page to redraw: wizard.Respond answers htmx
 	"removeGet": 1, "itemsRefused": 2,
 	"reasonGet": 1, "reasonPost": 1,
 	"list": 1, "renderList": 1, "problem": 1, "search": 1,
@@ -2446,8 +2447,8 @@ func (d *rsDoc) noGrid(t *testing.T, id int64, form func(t *testing.T, mode stri
 			continue
 		}
 		r := d.e.do(t, mode, rsAdmin, http.MethodPost, d.lineURL(id, "1"), form(t, mode), true)
-		if r.code != http.StatusSeeOther {
-			t.Fatalf("an htmx post of line 1 in %s = %d, want the line page's 303 with the grid off", mode, r.code)
+		if r.code != http.StatusOK || !strings.HasSuffix(r.hdr.Get("HX-Redirect"), "/edit/items") {
+			t.Fatalf("an htmx post of line 1 in %s = %d to %q, want the line page's redirect with the grid off", mode, r.code, r.hdr.Get("HX-Redirect"))
 		}
 		off += " " + mode
 	}

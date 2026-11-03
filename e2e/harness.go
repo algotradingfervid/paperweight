@@ -298,7 +298,7 @@ func (h *Harness) pick(w http.ResponseWriter, r *http.Request, name string) {
 		rows = append(rows, row)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = components.PickerResults(r.Header.Get("HX-Target"), rows, q).Render(r.Context(), w) // the client is gone
+	_ = components.PickerResults(r.Header.Get("HX-Target"), rows, q, components.Noun{One: "record", Many: "records"}).Render(r.Context(), w) // the client is gone
 }
 
 // Principal is what AUTH loads for the fixture user with this email.
@@ -354,7 +354,7 @@ func (h *Harness) SignIn(email string, width int64) *Session {
 	s.Fill("email", email)
 	s.Fill("password", password)
 	s.Press("Sign in")
-	s.Until("the signed-in landing page", `location.pathname === "/approvals"`)
+	s.Until("the signed-in landing page", `location.pathname === "/"`)
 	return s
 }
 
@@ -477,9 +477,14 @@ func (s *Session) Pick(field, query string) {
 func (s *Session) Press(label string) {
 	s.t.Helper()
 	find := `(() => {
-  const m = [...document.querySelectorAll("button, a")].find((e) =>
-    e.checkVisibility() && !e.disabled && e.textContent.replace(/\s+/g, " ").trim() === ` + strconv.Quote(label) + `);
-  if (!m) return [];
+  const named = (e) => e.textContent.replace(/\s+/g, " ").trim() === ` + strconv.Quote(label) + `;
+  const m = [...document.querySelectorAll("button, a")].find((e) => e.checkVisibility() && !e.disabled && named(e));
+  if (!m) {
+    // On a phone a document's More actions are behind the footer's ellipsis.
+    const open = document.querySelector(".actionbar > [data-open-dialog]");
+    if (open?.checkVisibility() && [...document.querySelectorAll("#" + open.getAttribute("data-open-dialog") + " .btn")].some(named)) open.click();
+    return [];
+  }
   m.scrollIntoView({block: "center", behavior: "instant"});
   const r = m.getBoundingClientRect();
   return [r.x + r.width / 2, r.y + r.height / 2];

@@ -4,6 +4,7 @@ package expense
 // their full `Line {n}: ` prefix (CD-264 (8)).
 const (
 	msgNoEmployee        = "Your user isn't linked to an employee. Ask your administrator."
+	msgNoEmployeeAdmin   = "Your user isn't linked to an employee. Enter the employee this is for, or link your user to an employee."
 	msgOnlyOwnClaims     = "You can only raise claims for yourself."
 	msgOnlyOwnAdvances   = "You can only raise advances for yourself."
 	msgClaimDateFuture   = "Claim date can't be in the future."

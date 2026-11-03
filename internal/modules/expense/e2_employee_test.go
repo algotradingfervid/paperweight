@@ -17,6 +17,7 @@ import (
 // Spec §5's employee texts (claims; an advance says advances).
 const (
 	msgNoEmployee      = "Your user isn't linked to an employee. Ask your administrator."
+	msgNoEmployeeAdmin = "Your user isn't linked to an employee. Enter the employee this is for, or link your user to an employee." // R12
 	msgOnlyOwnClaims   = "You can only raise claims for yourself."
 	msgOnlyOwnAdvances = "You can only raise advances for yourself."
 )

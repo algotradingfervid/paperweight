@@ -3,9 +3,11 @@ package components
 import "github.com/vardhan/internaltools/internal/ui/icons"
 
 // SuccessProps is the success block after an action (UI v2 §5.13 item 2,
-// N14, A-25): Message is the action's success text, unchanged, and Links
-// its follow-ups, which the caller offers only as rights allow.
+// N14, A-25): Title its heading from the lifecycle, Message the line about
+// what happened and who it went to, and Links its follow-ups, which the
+// caller offers only as rights allow.
 type SuccessProps struct {
+	Title   string
 	Message string
 	Links   []Link
 }
@@ -19,7 +21,12 @@ templ SuccessBlock(p SuccessProps) {
 				<span class="success-block__tick" aria-hidden="true">
 					@icons.Icon("circle-check")
 				</span>
-				<p class="success-block__text">{ p.Message }</p>
+				<div class="success-block__words">
+					if p.Title != "" {
+						<h2 class="success-block__title">{ p.Title }</h2>
+					}
+					<p class="success-block__text">{ p.Message }</p>
+				</div>
 			</div>
 			if len(p.Links) > 0 {
 				<div class="success-block__links">

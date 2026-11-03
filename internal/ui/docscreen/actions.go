@@ -127,10 +127,11 @@ func buttons(v DocView, printable bool, r map[auth.Right]bool) []ActionButton {
 			add(ActionButton{Action: doctype.ActionReject, Label: "Reject", Place: BarSecondary, Confirm: true, Href: base + "/reject"})
 		}
 		if r["submit"] {
-			// The bar holds Withdraw only when it shows no approve buttons
-			// and no note (a note replaces the bar's buttons).
+			// The bar holds Withdraw unless Approve and Reject fill it. A
+			// user who may approve but not this one has Withdraw there too,
+			// under the note (an administrator who raised the document).
 			place := BarSecondary
-			if approver || (r["approve"] && v.ApproveBlocked != "") {
+			if approver {
 				place = More
 			}
 			add(ActionButton{Action: doctype.ActionWithdraw, Label: "Withdraw", Place: place})

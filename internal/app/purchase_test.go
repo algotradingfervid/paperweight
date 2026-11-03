@@ -86,8 +86,8 @@ func TestApp_PurchaseRoutesStubbed(t *testing.T) {
 		}
 		if rt.method == http.MethodPost {
 			r := guest.do(rt.method, rt.path, strings.NewReader(form.Encode()), "application/x-www-form-urlencoded", map[string]string{"Origin": w.srv.URL})
-			if r.status != http.StatusUnauthorized || r.alert() != msgSignInRequired {
-				t.Errorf("guest POST %s = %d %q, want 401 %q", rt.path, r.status, r.alert(), msgSignInRequired)
+			if r.status != http.StatusUnauthorized || !strings.Contains(r.pageText(), msgSignInRequired) {
+				t.Errorf("guest POST %s = %d %q, want 401 %q", rt.path, r.status, r.pageText(), msgSignInRequired)
 			}
 		} else if r := guest.get(rt.path); r.status != http.StatusSeeOther || r.location() != "/signin?next="+url.QueryEscape(rt.path) {
 			t.Errorf("guest GET %s = %d Location %q, want 303 to the sign-in page", rt.path, r.status, r.location())
@@ -97,8 +97,8 @@ func TestApp_PurchaseRoutesStubbed(t *testing.T) {
 			t.Errorf("signed in %s %s = %d (%q), want the route mounted (not 404, 405 or a 500 panic)", rt.method, rt.path, r.status, r.pageText())
 		}
 		if rt.method == http.MethodPost {
-			if r := send(&noToken); r.status != http.StatusForbidden || r.alert() != auth.ErrCSRF.Msg {
-				t.Errorf("POST %s without CSRF = %d %q, want 403 %q", rt.path, r.status, r.alert(), auth.ErrCSRF.Msg)
+			if r := send(&noToken); r.status != http.StatusForbidden || !strings.Contains(r.pageText(), auth.ErrCSRFSignIn.Msg) {
+				t.Errorf("POST %s without CSRF = %d %q, want 403 %q", rt.path, r.status, r.pageText(), auth.ErrCSRFSignIn.Msg)
 			}
 		}
 	}

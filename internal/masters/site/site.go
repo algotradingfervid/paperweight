@@ -62,11 +62,12 @@ func init() {
 		Table:       Kind.Table,
 		Importable:  true,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. PUNE-WH", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1, Placeholder: "e.g. Pune Warehouse"},
 			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType, Required: true, Importable: true, ListPriority: 6},
-			{Name: "type", Label: "Type", Column: "type", Type: doctype.Select, Required: true, Importable: true, ListPriority: 5, Options: options},
-			{Name: "project_id", Label: "Project", Column: "project_id", Type: doctype.Link, Link: project.DocType, Importable: true},
+			{Name: "type", Label: "Type", Column: "type", Type: doctype.Select, Required: true, Importable: true, ListPriority: 5, Options: options,
+				OptionLabels: map[string]string{string(Warehouse): "Warehouse", string(SiteKind): "Site"}},
+			{Name: "project_id", Label: "Project", Column: "project_id", Type: doctype.Link, Link: project.DocType, Importable: true, Hint: "Leave blank for a site every project can use."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, Filterable: true, ListPriority: 3},
 		},
 		SearchFields: []string{"code", "name"},
@@ -122,7 +123,7 @@ func Validate(in Input) (Input, error) {
 			}
 		}
 	}
-	code, err := mstkit.NormalizeCode(in.Code)
+	code, err := mstkit.NormalizeCodeLike(in.Code, "PUNE-WH")
 	add(err)
 	name, err := mstkit.NormalizeName(in.Name)
 	add(err)

@@ -39,6 +39,7 @@ type Module struct {
 	LifeSteps   []string                                      // extra lifecycle steps after the approved one, by word; PageExtra.Life marks them (UI v2 §5.13 item 4)
 	Home        components.Link                               // the module's home, "Go to {Label}" after a Submit; zero for none (UI v2 §5.13 item 2)
 	FooterTotal string                                        // the header Money field the Items footer shows (UI v2 A-22, CD-376)
+	TodayDates  []string                                      // header Date fields a new document opens on today (PO spec §3.2, expense UX §5.10)
 }
 
 // LineNoun names a module's lines (UX-E2, CD-270 Q1): Add labels the add
@@ -79,6 +80,7 @@ type StepBar struct {
 	Primary string           // the primary button's label
 	Stay    bool             // the primary posts nav=stay and redraws the step
 	Back    *components.Link // a Back link in place of the Back button
+	Summary templ.Component  // the footer's row above the buttons (CD-387 (7))
 }
 
 // StepState is the redraw input: Posted is true on a 422 or 409, when the
@@ -122,12 +124,14 @@ type PageExtra struct {
 	Warnings  []string
 	LineNotes map[int]string                 // line no → a note on that line
 	Pairs     []components.Pair              // added to Details, for a hidden field's display value
+	Covers    []string                       // header fields left out of Details: the page shows them elsewhere (R13)
 	Cards     []templ.Component              // after Lines, before History
 	Notice    *components.BannerProps        // last among the document banners
 	More      []components.MoreAction        // before docscreen's own More actions
 	Primary   *components.ButtonProps        // the main button when the bar has none
 	Files     *FilesCard                     // replaces the read-only Attachments (UX-E7)
 	Life      map[string]components.LifeStep // a Module.LifeSteps word → its mark, note and date (Label unused); a word with none is a later step
+	Success   *components.SuccessProps       // set on the page the module's own action lands on: the flash shows as a success block with this Title, and Message after the flash's text (UI v2 §5.13 item 2); Links are ignored
 }
 
 // FilesCard is the read-only files a module shows in place of Attachments (UX-E7, CD-275).

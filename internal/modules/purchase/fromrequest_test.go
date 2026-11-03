@@ -25,7 +25,7 @@ import (
 const (
 	p13PickVendor = "Pick a vendor."
 	p13Nothing    = "Everything on %s is already on an order." // request display
-	p13NotVendor  = "Acme Builders is not marked as a vendor. Tick Vendor on the party first."
+	p13NotVendor  = "Acme Builders is not marked as a vendor. Set the party to Vendor or Both first."
 	p13NeededBy   = "2026-11-07"
 )
 

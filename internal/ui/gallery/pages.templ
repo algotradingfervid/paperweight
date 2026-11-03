@@ -259,7 +259,7 @@ templ pickerQuickBody() {
 // pickerQuickResults is that search's answer: the matches, or the empty
 // state, then New vendor and the sheet with Name prefilled.
 templ pickerQuickResults(q string) {
-	@components.PickerResultsNew(quickList, search(q), q, components.PickNew{Noun: "vendor", Sheet: quickSheet(q, "")})
+	@components.PickerResultsNew(quickList, search(q), q, components.PickNew{Noun: vendorNoun, Sheet: quickSheet(q, "")})
 }
 
 // quickSheetBody is the quick-create sheet alone, refused on line 1 with a
@@ -273,7 +273,6 @@ templ quickSheet(name, line1Err string) {
 		ListboxID: quickList, Title: "New vendor", Icon: "user-plus", Action: "/_gallery/upload", Role: "vendor",
 		Line: "Just enough to raise this order. Add contacts and more addresses later in Parties.",
 		Inputs: []templ.Component{
-			components.TextInput(components.FieldProps{ID: "f-quick_code", Name: "quick_code", Label: "Code", Required: true, Value: "SAIKRUPA", Hint: "Suggested from the name. You can change it."}),
 			components.TextInput(components.FieldProps{ID: "f-quick_name", Name: "quick_name", Label: "Name", Required: true, Value: name}),
 			components.TextInput(components.FieldProps{ID: "f-quick_line1", Name: "quick_line1", Label: "Address line 1", Required: true, Hint: "Saved as their billing address.", Error: line1Err}),
 			components.TextInput(components.FieldProps{ID: "f-quick_city", Name: "quick_city", Label: "City", Required: true}),
@@ -282,7 +281,7 @@ templ quickSheet(name, line1Err string) {
 }
 
 templ pickerResults(listboxID, q string) {
-	@components.PickerResults(listboxID, search(q), q)
+	@components.PickerResults(listboxID, search(q), q, components.Noun{One: "item", Many: "items"})
 }
 
 templ uploadBody() {

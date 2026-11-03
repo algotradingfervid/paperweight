@@ -59,8 +59,8 @@ func TestLogin_GuestTokenRefusedAfterSignIn(t *testing.T) {
 
 	out := c.NoCSRF().Post("/signout", url.Values{"csrf_token": {guest}})
 	wantStatus(t, "POST /signout with the guest token", out, http.StatusForbidden)
-	if !strings.Contains(out.Body, auth.ErrCSRF.Msg) {
-		t.Errorf("body %q, want %q", out.Body, auth.ErrCSRF.Msg)
+	if !strings.Contains(out.Body, auth.ErrSignOutRefused.Msg) {
+		t.Errorf("body %q, want %q", out.Body, auth.ErrSignOutRefused.Msg)
 	}
 	if n := t11SignedInSessions(t, w); n != 1 {
 		t.Errorf("sessions rows with a user = %d, want 1", n)

@@ -102,8 +102,8 @@ func TestApp_AllRoutesRequireSignIn(t *testing.T) {
 				if r.status != http.StatusUnauthorized {
 					t.Errorf("%s %s (%s) = %d, want 401", method, route, c.name, r.status)
 				}
-				if method != http.MethodHead && r.alert() != c.msg {
-					t.Errorf("%s %s (%s) text = %q, want %q", method, route, c.name, r.alert(), c.msg)
+				if method != http.MethodHead && !strings.Contains(r.pageText(), c.msg) {
+					t.Errorf("%s %s (%s) text = %q, want %q", method, route, c.name, r.pageText(), c.msg)
 				}
 				continue
 			}
@@ -326,10 +326,10 @@ func TestApp_ApprovalsOpensForEveryone(t *testing.T) {
 				t.Fatalf("POST /signin redirected to %q, want /", r.location())
 			}
 			r = b.get("/")
-			if r.status != http.StatusSeeOther || r.location() != "/approvals" {
-				t.Fatalf("GET / = %d to %q, want 303 to /approvals", r.status, r.location())
+			if r.status != http.StatusOK {
+				t.Fatalf("GET / = %d to %q, want 200: Home (CD-387 (1))", r.status, r.location())
 			}
-			r = b.get(r.location())
+			r = b.get("/approvals")
 			if r.status != http.StatusOK {
 				t.Fatalf("GET /approvals = %d (%q), want 200", r.status, r.pageText())
 			}
@@ -394,10 +394,10 @@ func TestApp_SecureFirstInstall(t *testing.T) {
 		t.Fatalf("Save company = %d to %q (%q), want 303 to /", r.status, r.location(), r.pageText())
 	}
 	r = b.get("/")
-	if r.status != http.StatusSeeOther || r.location() != "/approvals" {
-		t.Fatalf("GET / after company setup = %d to %q, want 303 to /approvals", r.status, r.location())
+	if r.status != http.StatusOK {
+		t.Fatalf("GET / after company setup = %d to %q, want 200: Home (CD-387 (1))", r.status, r.location())
 	}
-	if r := b.get(r.location()); r.status != http.StatusOK || !strings.Contains(r.pageText(), msgInboxEmpty) {
+	if r := b.get("/approvals"); r.status != http.StatusOK || !strings.Contains(r.pageText(), msgInboxEmpty) {
 		t.Errorf("GET /approvals = %d, text %q, want 200 and %q", r.status, r.pageText(), msgInboxEmpty)
 	}
 }
@@ -516,17 +516,17 @@ func TestApp_SignedInHome(t *testing.T) {
 		t.Errorf("GET / as Administrator with no company = %d to %q, want 303 to /setup/company", r.status, r.location())
 	}
 	priya := w.signedIn(priyaEmail)
-	if r := priya.get("/"); r.status != http.StatusSeeOther || r.location() != "/approvals" {
-		t.Errorf("GET / as Priya with no company = %d to %q, want 303 to /approvals", r.status, r.location())
+	if r := priya.get("/"); r.status != http.StatusOK {
+		t.Errorf("GET / as Priya with no company = %d to %q, want 200: Home (CD-387 (1))", r.status, r.location())
 	}
 	if r := admin.setupCompany(goodSetup()); r.status != http.StatusSeeOther {
 		t.Fatalf("Save company = %d (%q), want 303", r.status, r.pageText())
 	}
-	if r := admin.get("/"); r.status != http.StatusSeeOther || r.location() != "/approvals" {
-		t.Errorf("GET / as Administrator with a company = %d to %q, want 303 to /approvals", r.status, r.location())
+	if r := admin.get("/"); r.status != http.StatusOK {
+		t.Errorf("GET / as Administrator with a company = %d to %q, want 200: Home (CD-387 (1))", r.status, r.location())
 	}
 	page := priya.get("/approvals")
-	if page.doc.Find(`a.brand[href="/"]`).Length() != 1 {
+	if page.doc.Find(`header a.brand[href="/"]`).Length() != 1 {
 		t.Error("the header has no brand link to /")
 	}
 }

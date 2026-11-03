@@ -385,7 +385,7 @@ func TestMstFixture_HookRefusals(t *testing.T) {
 		h := w.shree()
 		h.VendorID, h.AddressID = id, 0
 		_, err := mstfixture.Save(ctx, w.env, w.env.Kavya, 0, h, []mstfixture.Line{w.line("MS-ANGLE-50", "KGS", qtyUnit)})
-		wantFieldError(t, err, doctype.FieldError{Message: "Only Customer Ltd is not marked as a vendor. Tick Vendor on the party first."})
+		wantFieldError(t, err, doctype.FieldError{Message: "Only Customer Ltd is not marked as a vendor. Set the party to Vendor or Both first."})
 	})
 	t.Run("address of another party", func(t *testing.T) {
 		h := w.shree()

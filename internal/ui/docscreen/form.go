@@ -269,7 +269,8 @@ func (d Deps) newGet(w http.ResponseWriter, r *http.Request) {
 }
 
 // defaults holds each header ProjectFields and SiteFields field the user may
-// fill with exactly one value, prefilled with it (AUTH-100, CD-245).
+// fill with exactly one value, prefilled with it (AUTH-100, CD-245), and the
+// module's TodayDates, on today.
 func (d Deps) defaults(r *http.Request, dt *doctype.DocType) (map[string]string, error) {
 	out := map[string]string{}
 	for dim, cols := range map[auth.Dimension][]string{auth.DimProject: dt.ProjectFields, auth.DimSite: dt.SiteFields} {
@@ -285,6 +286,9 @@ func (d Deps) defaults(r *http.Request, dt *doctype.DocType) (map[string]string,
 				out[f.Name] = strconv.FormatInt(id, 10)
 			}
 		}
+	}
+	for _, name := range d.modOf(dt).TodayDates {
+		out[name], _ = d.Today()
 	}
 	return out, nil
 }
@@ -864,6 +868,7 @@ func stepBar(bar wizard.Bar, b StepBar) wizard.Bar {
 		bar.PrimaryNav = "stay"
 	}
 	bar.BackLink = b.Back
+	bar.Summary = b.Summary
 	return bar
 }
 

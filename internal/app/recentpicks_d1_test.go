@@ -120,3 +120,53 @@ func TestApp_LinkRoleFailsClosed(t *testing.T) {
 		}
 	}
 }
+
+// pickerLines is the .picker__line texts of the recent picks waiting in
+// field's picker, in order.
+func pickerLines(t *testing.T, r *response, field string) []string {
+	t.Helper()
+	h, err := r.doc.Find(`.picker:has(input[type="hidden"][name="` + field + `"]) template[data-picker-recent]`).Html()
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner, err := goquery.NewDocumentFromReader(strings.NewReader(h))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	inner.Find(`[role="option"]`).Each(func(_ int, o *goquery.Selection) {
+		out = append(out, strings.Join(strings.Fields(o.Find(".picker__line").Text()), " "))
+	})
+	return out
+}
+
+// R8 review, through the app's wiring: the line (GSTIN and city) is a
+// party's alone. A site whose id is a party's with a primary billing address
+// shows no line in its recent picks, while the vendor's shows its own.
+func TestApp_LinkLineOnlyForParties(t *testing.T) {
+	w := newWorld(t)
+	w.canonical()
+	ctx := context.Background()
+	priya := w.principal(priyaID)
+	id := func(table, code string) string {
+		t.Helper()
+		return w.text(`SELECT CAST(id AS TEXT) FROM `+table+` WHERE code = ?`, code)
+	}
+	site := id("site", "METRO-SITE")
+	if n := w.count(`SELECT count(*) FROM address WHERE party_id = ? AND is_primary_billing = 1 AND disabled = 0`, site); n != 1 {
+		t.Fatalf("party %s has %d primary billing addresses: the fixture no longer gives the site's id a party with a line", site, n)
+	}
+	if _, err := w.app.Engine().Do(ctx, priya, purchase.DocType, 0, doctype.ActionSave, doc.ActionInput{Values: map[string]string{
+		"vendor_id": id("party", "SHREE"), "site_id": site, "project_id": id("project", "PRJ-METRO"), "order_date": "2026-10-24",
+	}}); err != nil {
+		t.Fatalf("save a draft: %v", err)
+	}
+	r := w.signedIn(priyaEmail).get("/doc/" + purchase.DocType + "/new")
+	gstin := w.text(`SELECT gstin FROM address WHERE party_id = ? AND is_primary_billing = 1`, id("party", "SHREE"))
+	if got := pickerLines(t, r, "vendor_id"); len(got) != 1 || !strings.HasPrefix(got[0], gstin+" · ") {
+		t.Errorf("vendor recent lines = %q, want SHREE's GSTIN and city", got)
+	}
+	if got := pickerLines(t, r, "site_id"); !slices.Equal(got, []string{""}) {
+		t.Errorf("site recent lines = %q, want one pick with no line", got)
+	}
+}

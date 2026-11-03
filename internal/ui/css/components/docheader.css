@@ -11,49 +11,59 @@
     font-size: 2rem;
     font-weight: var(--weight-bold);
     line-height: 1.1;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal; /* a figure never splits: amountClass steps a long one down */
+    @media (width < 30rem) {
+      &.doc-head__amount--long { font-size: 1.5rem; }
+      &.doc-head__amount--huge { font-size: 1.25rem; }
+    }
   }
   & .doc-head__facts {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* min-content: a figure's column grows to it; text wraps anywhere. */
+    grid-template-columns: repeat(2, minmax(min-content, 1fr));
     gap: var(--space-3) var(--space-4);
     margin: 0;
-    @media (min-width: 48rem) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (min-width: 48rem) { grid-template-columns: repeat(4, minmax(min-content, 1fr)); }
   }
   & .doc-head__facts > div { min-inline-size: 0; }
   & .doc-head__facts dt { color: var(--color-text-secondary); font-size: var(--text-sm); }
   & .doc-head__facts dd { margin: 0; font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+  & .doc-head__facts dd.num { overflow-wrap: normal; }
 }
 
-/* Dots joined by a line; done and current steps join in green. */
+/* Dots joined by a line; done and current steps join in green. Each word
+   stays whole (§5.13: a readable word on every dot): on a phone the steps
+   stand one above the other, each with its date at the end of its row; from
+   30rem six steps fit side by side with the longest word, Cancelled, in bold. */
 @utility lifecycle {
   display: grid;
-  grid-auto-columns: minmax(0, 1fr);
-  grid-auto-flow: column;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
   & .lifecycle__step {
     position: relative;
-    display: grid;
-    justify-items: center;
-    gap: var(--space-1);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     min-inline-size: 0;
     color: var(--color-text-secondary);
     font-size: var(--text-xs);
-    text-align: center;
   }
+  & .lifecycle__date { margin-inline-start: auto; }
   & .lifecycle__step + .lifecycle__step::before {
     content: "";
     position: absolute;
-    inset-block-start: calc(var(--icon-lg) / 2 - 1px);
-    inset-inline: calc(-50% + var(--icon-lg) / 2 + var(--space-1)) calc(50% + var(--icon-lg) / 2 + var(--space-1));
-    block-size: var(--border-w-strong);
+    inset-block-start: calc(-1 * var(--space-2));
+    inset-inline-start: calc(var(--icon-lg) / 2 - 1px);
+    inline-size: var(--border-w-strong);
+    block-size: var(--space-2);
     background-color: var(--color-progress-track);
   }
   & .lifecycle__step.is-done + .lifecycle__step::before { background-color: var(--color-success-600); }
   & .lifecycle__dot {
     display: grid;
+    flex: none;
     place-items: center;
     inline-size: var(--icon-lg);
     block-size: var(--icon-lg);
@@ -73,9 +83,29 @@
   }
   & .is-rejected .lifecycle__dot { border-color: var(--color-danger-600); background-color: var(--color-danger-600); color: var(--color-text-on-fill); }
   & .is-ended .lifecycle__dot { border-color: var(--color-text-secondary); background-color: var(--color-text-secondary); }
-  & .lifecycle__label { color: var(--color-text); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+  & :is(.lifecycle__label, .lifecycle__note, .lifecycle__date) { overflow-wrap: normal; }
+  & .lifecycle__label { color: var(--color-text); font-weight: var(--weight-medium); }
   & .is-current .lifecycle__label, & .is-rejected .lifecycle__label, & .is-ended .lifecycle__label { font-weight: var(--weight-bold); }
   & .is-rejected .lifecycle__label { color: var(--color-danger-700); }
+  @media (min-width: 30rem) {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 0;
+    & .lifecycle__step {
+      display: grid;
+      align-items: start;
+      justify-items: center;
+      gap: var(--space-1);
+      text-align: center;
+    }
+    & .lifecycle__date { margin-inline-start: 0; }
+    & .lifecycle__step + .lifecycle__step::before {
+      inset-block-start: calc(var(--icon-lg) / 2 - 1px);
+      inset-inline: calc(-50% + var(--icon-lg) / 2 + var(--space-1)) calc(50% + var(--icon-lg) / 2 + var(--space-1));
+      inline-size: auto;
+      block-size: var(--border-w-strong);
+    }
+  }
 }
 
 /* A step's note ("Part") and date (dd-mm) under its word (E5b). */
@@ -86,12 +116,14 @@
   color: var(--color-text-secondary);
 }
 
-/* The success after Submit (UI v2 §5.13 item 2, A-25): the circle draws in
+/* The success after Submit, Approve or Send (UI v2 §5.13 item 2, A-25): the circle draws in
    400 ms, then the check 250 ms after it. With reduced motion there are no
    keyframes at all, so the tick is drawn from the start. */
 @utility success-block {
   & .success-block__head { display: flex; align-items: center; gap: var(--space-3); min-inline-size: 0; }
-  & .success-block__text { margin: 0; font-weight: var(--weight-bold); overflow-wrap: anywhere; }
+  & .success-block__words { display: grid; gap: var(--space-1); min-inline-size: 0; }
+  & .success-block__title { margin: 0; font-size: var(--h3); line-height: var(--leading-tight); overflow-wrap: anywhere; }
+  & .success-block__text { margin: 0; overflow-wrap: anywhere; }
   & .success-block__tick { display: grid; flex: none; color: var(--color-success-600); }
   & .success-block__tick .icon { inline-size: var(--space-12); block-size: var(--space-12); }
   & .success-block__links { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -101,21 +133,28 @@
   }
 }
 
-/* The document's actions, last in the side column's tree: on phones the
-   sticky footer at the end of the page, as before; from 80rem a titled card
-   moved to the top of the side column. */
+/* The document's actions, last in the side column's tree: below 80rem the
+   sticky footer with an ellipsis for the More actions sheet; from 80rem a
+   titled card moved to the top of the side column, the bar's buttons first,
+   stacked, then More actions. */
 @utility doc-actions {
   display: contents;
   & > .card, & > .card > .card-body { display: contents; }
-  & .card-head { display: none; }
+  & .card-head, & .more-actions { display: none; }
   & > .card > .card-body > * { order: 2; }
   @media (min-width: 80rem) {
     display: block;
     order: -1;
     & > .card { display: flex; }
     & > .card > .card-body { display: flex; }
+    & > .card > .card-body > * { order: 0; }
     & .card-head { display: flex; }
-    & .actionbar { justify-content: flex-start; padding: 0; }
+    & .more-actions { display: grid; }
+    & .more-actions h2 { color: var(--color-text-secondary); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+    & .actionbar { display: contents; }
+    & .actionbar > [data-open-dialog] { display: none; }
+    & .actionbar > .btn:not(.btn--primary) { order: 0; margin-inline-end: 0; }
+    & .actionbar > .btn--primary { min-inline-size: 0; }
   }
 }
 

@@ -32,8 +32,8 @@ templ paidBanners(s paidScreen) {
 	@components.ErrorSummary(s.errs)
 }
 
-// paidBody is the summary, Undo paid's text, then the form: the version, the
-// Paid on date on Mark as paid, and the button.
+// paidBody is the summary, Undo paid's text, then the form: the version and
+// the Paid on date on Mark as paid. Its button is the sticky bar's (paidOpts).
 templ paidBody(s paidScreen) {
 	<h1
 		id="page-title"
@@ -46,11 +46,10 @@ templ paidBody(s paidScreen) {
 	if s.question != "" {
 		<p>{ s.question }</p>
 	}
-	@components.Form(components.FormProps{Action: s.action, HX: true}) {
+	@components.Form(components.FormProps{ID: paidFormID, Action: s.action, HX: true}) {
 		<input type="hidden" name="version" value={ strconv.Itoa(s.version) }/>
 		if s.date != nil {
 			@components.DateInput(*s.date)
 		}
-		@components.Button(s.button)
 	}
 }

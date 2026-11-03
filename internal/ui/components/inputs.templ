@@ -3,6 +3,7 @@ package components
 import (
 	"encoding/json"
 	"maps"
+	"slices"
 	"strconv"
 	"unicode/utf16"
 
@@ -31,6 +32,9 @@ const (
 	PAN     CodeKind = "pan"
 	HSN     CodeKind = "hsn"
 	Pincode CodeKind = "pincode"
+	// GSTINState is GSTIN for a field that gives a state: its echo shows only
+	// for a GSTIN that names one, so a quick sheet's State hides only then.
+	GSTINState CodeKind = "gstin-state"
 )
 
 // DateProps describes a date field; Today, Yesterday and the optional
@@ -53,9 +57,17 @@ func pickerBounds(p DateProps) templ.Attributes {
 	return a
 }
 
-// validateAttrs make a control check itself on change at /ui/validate/{kind}.
+// validateAttrs make a control check itself on change at /ui/validate/{kind};
+// p.EchoNote goes along for the answer's echo.
 func validateAttrs(p FieldProps, kind string) templ.Attributes {
-	vals, _ := json.Marshal(map[string]string{"_id": p.ID, "_name": p.Name}) //nolint:errchkjson // a string map always marshals
+	v := map[string]string{"_id": p.ID, "_name": p.Name}
+	if p.EchoNote != "" {
+		v["_note"] = p.EchoNote
+	}
+	if p.EchoMax != "" {
+		v["_max"] = p.EchoMax
+	}
+	vals, _ := json.Marshal(v) //nolint:errchkjson // a string map always marshals
 	return templ.Attributes{
 		"hx-post":    "/ui/validate/" + kind,
 		"hx-trigger": "change",
@@ -152,6 +164,9 @@ templ numberInput(p FieldProps, k NumberKind, whole bool, control string) {
 				autocomplete="off"
 				value={ p.Value }
 				data-scale={ scale(k, whole) }
+				if k == Qty || k == Rate || k == Money {
+					data-tap-select
+				}
 				{ validateAttrs(p, string(k))... }
 				{ controlAttrs(p, "input join-item field__input num")... }
 			/>
@@ -195,24 +210,44 @@ func withSuffix(p FieldProps, s string) FieldProps {
 	return p
 }
 
-// dateField is p with the date hint when it has none, and the weekday of
-// its value as the echo when it has none (CD-326 (5)).
-func dateField(p FieldProps) FieldProps {
+// dateField is p's field with the date hint when it has none, the weekday of
+// its value as the echo when it has none (CD-326 (5)), EchoNote after it, and
+// the echo's check icon (UI v2 §5.7) unless the value is past Max.
+func dateField(d DateProps) FieldProps {
+	p := d.FieldProps
 	if p.Hint == "" {
 		p.Hint = "For example, 27-03-2026"
 	}
 	if p.Echo == "" {
 		p.Echo = weekday(p.Value)
 	}
+	p.Echo, p.EchoCheck, p.EchoMax = noted(p.Echo, p.EchoNote), !pastMax(p.Value, d.Max), d.Max
 	return p
 }
 
-// DateInput is a dd-mm-yyyy text input with a "Choose date" button that
-// opens the platform picker through a hidden date input, "Today" and
-// "Yesterday" chips (date.js, CD-336 (1)) and the weekday echo in the message
-// region, rendered here on every draw and by /ui/validate/date on change.
+// dateChip is a date button under the box: its label and dd-mm-yyyy day.
+type dateChip struct{ Label, Day string }
+
+// dateChips are p's Today and Yesterday, leaving out one with no day: its tap
+// would blank the field.
+func dateChips(p DateProps) []dateChip {
+	return slices.DeleteFunc([]dateChip{{"Today", p.Today}, {"Yesterday", p.Yesterday}}, func(c dateChip) bool { return c.Day == "" })
+}
+
+// chipPressed is a chip's aria-pressed: whether value is its day, in any form
+// the server reads (UI v2 §5.7). date.js keeps it as the box changes.
+func chipPressed(value, day string) string {
+	d, err := types.ParseDate(value)
+	return strconv.FormatBool(err == nil && types.FormatDate(d) == day)
+}
+
+// DateInput is a dd-mm-yyyy text input that takes its dashes as digits are
+// typed, with a "Choose date" button that opens the platform picker through a
+// hidden date input, "Today" and "Yesterday" chips (date.js, CD-336 (1),
+// CD-387 (9)) and the weekday echo in the message region, rendered here on
+// every draw and by /ui/validate/date on change.
 templ DateInput(p DateProps) {
-	@field(dateField(p.FieldProps)) {
+	@field(dateField(p)) {
 		<div class="field__date">
 			<input
 				type="text"
@@ -220,18 +255,23 @@ templ DateInput(p DateProps) {
 				autocomplete="off"
 				placeholder="dd-mm-yyyy"
 				value={ p.Value }
-				{ validateAttrs(p.FieldProps, "date")... }
-				{ controlAttrs(dateField(p.FieldProps), "input field__input")... }
+				data-date
+				data-tap-select
+				{ validateAttrs(dateField(p), "date")... }
+				{ controlAttrs(dateField(p), "input field__input")... }
 			/>
 			<button type="button" class="field__cal" data-date-pick aria-controls={ p.ID } aria-label="Choose date">
 				@icons.Icon("calendar")
 			</button>
 			<input type="date" class="field__picker" data-date-picker={ p.ID } tabindex="-1" aria-hidden="true" { pickerBounds(p)... }/>
 		</div>
-		<div class="field__actions">
-			<button type="button" class="btn btn-outline tap field__chip" data-set-date={ p.Today } aria-controls={ p.ID }>Today</button>
-			<button type="button" class="btn btn-outline tap field__chip" data-set-date={ p.Yesterday } aria-controls={ p.ID }>Yesterday</button>
-		</div>
+		if chips := dateChips(p); len(chips) > 0 {
+			<div class="field__actions">
+				for _, c := range chips {
+					<button type="button" class="btn btn-outline tap field__chip" data-set-date={ c.Day } aria-controls={ p.ID } aria-pressed={ chipPressed(p.Value, c.Day) }>{ c.Label }</button>
+				}
+			</div>
+		}
 	}
 }
 
@@ -240,7 +280,7 @@ templ CodeInput(p FieldProps, k CodeKind) {
 	@field(p) {
 		<input
 			type="text"
-			if k == GSTIN || k == PAN {
+			if k == GSTIN || k == GSTINState || k == PAN {
 				autocapitalize="characters"
 			} else {
 				inputmode="numeric"

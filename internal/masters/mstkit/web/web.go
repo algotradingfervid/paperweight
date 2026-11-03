@@ -41,6 +41,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/icons"
 	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
 // pageSize is the list page size (list.PageSizes[0]); the picker asks for
@@ -72,6 +73,7 @@ type Copy struct {
 	New    string // "New tax code"
 	Search string // "Search tax codes"
 	Empty  string // "No tax codes yet."
+	Icon   string // the empty list's icon (UI v2 §5.14); blank is the inbox
 	// Success banners after each write: "Tax code saved."
 	Saved, Disabled, Enabled, Deleted string
 	// Rows and AddRow are the rows editor's legend and Add button: "Unit
@@ -184,6 +186,10 @@ type Screen[R, In any] struct {
 	// a form-only one, on sections and the wizard: Party's is_vendor and
 	// is_customer to role.
 	Renames map[string]string
+	// PickLine is optional and gives a picker row's line for record id: what
+	// tells it from a similar one. "" leaves the row with its name; a line
+	// the user may not read is "" too.
+	PickLine func(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) (string, error)
 	// Quick is optional and lets a picker add a record without leaving its
 	// page (quick.go): POST Base/quick.
 	Quick *Quick
@@ -192,15 +198,22 @@ type Screen[R, In any] struct {
 	// transaction, as p may see it: Party's city, GSTIN and role (R5).
 	ListExtra  []components.Column
 	ListValues func(ctx context.Context, tx *db.Tx, p auth.Principal, row list.Row) (map[string]string, error)
+	// Cards is optional and draws every form of the Screen as section cards
+	// (cards.go): each form field in exactly one, checked when the routes are
+	// built.
+	Cards []FormCard
+	// Fills names the Codes fields that set a Selects field from their first
+	// two characters once the live check passes: Branch's GSTIN its state.
+	Fills map[string]string
 }
 
 // Choice is a form-only field: its label and its options. Required only
 // marks it (the asterisk and aria-required); a step's Next still hears its
 // refusal, which ToInput or Validate gives.
 type Choice struct {
-	Label    string
-	Required bool
-	Options  []components.Option
+	Label, Hint string
+	Required    bool
+	Options     []components.Option
 }
 
 // Lookup is a field whose form shows a person's key for a stored value
@@ -276,7 +289,10 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 		dt:       sortable(dt),
 		list:     &list.Service{DB: s.Env.DB, Auth: s.Env.Auth},
 		exporter: csvio.NewExporter(s.Env.DB, s.Env.Auth),
-		deps:     docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine, LinkRead: s.Env.CanLinkTargetTx, MasterChecks: true},
+		deps: docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine, LinkRead: s.Env.CanLinkTargetTx, MasterChecks: true, Today: func() (string, string) {
+			today := s.Env.Today()
+			return types.FormatDate(today), types.FormatDate(types.AddDays(today, -1))
+		}},
 		// disabled is set by Disable and Enable, never on the form.
 		fields:    slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return f.Name == "disabled" || f.OnLine }),
 		rowFields: rowFields,
@@ -314,6 +330,17 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 			panic("mstweb: " + s.DocType + ": Renames moves " + from + " to " + to + ", which is no choice")
 		}
 	}
+	if s.Copy.Icon != "" && !slices.Contains(icons.Names(), s.Copy.Icon) {
+		panic("mstweb: " + s.DocType + ": Copy.Icon names no icon " + s.Copy.Icon)
+	}
+	for from, to := range s.Fills {
+		_, code := s.Codes[from]
+		_, sel := s.Selects[to]
+		if !code || !sel {
+			panic("mstweb: " + s.DocType + ": Fills needs a Codes field and a Selects field: " + from + ", " + to)
+		}
+	}
+	h.checkCards()
 	return h
 }
 
@@ -600,11 +627,12 @@ func (h *handlers[R, In]) empty(ctx context.Context, p auth.Principal, q url.Val
 	if err != nil {
 		return nil, err
 	}
+	icon := cmp.Or(h.Copy.Icon, "inbox")
 	if n > 0 {
-		return components.EmptyState("All "+h.Copy.Noun+" are disabled.", nil), nil
+		return components.ObjectEmpty(icon, "All "+h.Copy.Noun+" are disabled.", ""), nil
 	}
 	line := strings.ToUpper(h.Copy.Noun[:1]) + h.Copy.Noun[1:] + " you add show up here."
-	return components.EmptyList(strings.TrimSuffix(h.Copy.Empty, "."), line), nil
+	return components.ObjectEmpty(icon, strings.TrimSuffix(h.Copy.Empty, "."), line), nil
 }
 
 // count is the bar's result count; an empty list says so itself.
@@ -692,23 +720,41 @@ func (h *handlers[R, In]) pick(w http.ResponseWriter, r *http.Request, p auth.Pr
 		return err
 	}
 	listboxID := cmp.Or(r.Header.Get("HX-Target"), "pick-"+h.dt.Table)
-	frag := components.PickerResults(listboxID, rows, q)
 	role := r.URL.Query().Get("role")
 	noun, quick, err := h.quickNoun(r.Context(), p, role)
 	if err != nil {
 		return err
 	}
+	if noun.One == "" {
+		noun = components.Noun{One: h.Copy.One, Many: h.Copy.Noun}
+	}
+	frag := components.PickerResults(listboxID, rows, q, noun)
 	if quick {
-		if frag, err = h.quickResults(r.Context(), listboxID, role, noun, rows, q); err != nil {
-			return err
-		}
+		frag = h.quickResults(listboxID, role, noun, rows, q)
 	}
 	ui.Render(w, r, http.StatusOK, frag, frag)
 	return nil
 }
 
-// pickRows is the search's rows: PickRole's when the URL names a role.
+// pickRows is the search's rows, each with its line.
 func (h *handlers[R, In]) pickRows(r *http.Request, p auth.Principal, q string) ([]components.PickRow, error) {
+	rows, err := h.foundRows(r, p, q)
+	if err != nil || h.PickLine == nil {
+		return rows, err
+	}
+	ctx := r.Context()
+	return rows, h.Env.DB.Read(ctx, func(tx *db.Tx) error {
+		for i := range rows[:min(len(rows), components.MaxPickRows)] { // only the rows shown
+			if rows[i].Line, err = h.PickLine(ctx, tx, p, rows[i].ID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// foundRows is the search's records: PickRole's when the URL names a role.
+func (h *handlers[R, In]) foundRows(r *http.Request, p auth.Principal, q string) ([]components.PickRow, error) {
 	if role := r.URL.Query().Get("role"); role != "" && h.PickRole != nil {
 		return h.PickRole(r.Context(), p, role, q)
 	}
@@ -930,7 +976,7 @@ func Done(w http.ResponseWriter, r *http.Request, msg, next string, warnings ...
 		web.Flash(r.Context(), "warning", warning)
 	}
 	web.Flash(r.Context(), "success", msg)
-	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // G710: next is Base or Base + "/" + a numeric id
+	wizard.Respond(w, r, wizard.Finish, next, nil)
 	return nil
 }
 
@@ -972,6 +1018,7 @@ func splitErrs(errs []doctype.FieldError) ([]doctype.FieldError, string) {
 // without write sees the values instead of the form.
 func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.Principal, status int, id int64, f form) error {
 	ctx := r.Context()
+	f.Errs = h.inPageOrder(f.Errs)
 	v := recordView{Title: h.Copy.New, Action: h.Base + "/new", Back: components.Link{Label: h.Copy.Plural, Href: h.Base}, CanWrite: true, Width: layout.Form}
 	if len(h.rowFields) > 0 {
 		v.Width = layout.Content // the editor's rows need more than a form's width (CD-201)
@@ -1029,14 +1076,17 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 		}
 	}
 	v.Form = f
-	for _, fd := range h.fields {
-		v.Inputs = append(v.Inputs, h.input(fd, fd.Name, f))
+	names := make([]string, len(h.fields))
+	for i, fd := range h.fields {
+		names[i] = fd.Name
 		v.Required = v.Required || fd.Required
 	}
+	v.Inputs = h.carded(names, f)
 	if len(h.rowFields) > 0 {
 		v.Rows = h.rows(f)
+		v.RowsCard = h.rowsCard()
 	}
-	ui.Render(w, r, status, recordPage(v), nil)
+	ui.Render(w, r, status, recordPage(v), recordMain(v, v.Action))
 	return nil
 }
 
@@ -1065,15 +1115,16 @@ func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.C
 	if !looked && !coded && !numbered && !labelled && !selected && !chosen {
 		return docscreen.FieldInput(fd, id, value, msg, h.deps.WithStored(f.Stored))
 	}
-	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Tip: fd.Tip, Error: msg, Value: value, Required: fd.Required}
+	p := props(fd, path, f)
 	if looked {
-		p.Hint = lookup.Hint
+		p.Hint, p.Placeholder = lookup.Hint, fd.Placeholder
 		return components.EmailInput(p, "off")
 	}
 	if selected {
 		return components.Select(p, opts)
 	}
 	if chosen {
+		p.Hint = choice.Hint
 		return components.Segmented(p, choice.Options)
 	}
 	if labelled {
@@ -1083,13 +1134,33 @@ func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.C
 		}
 		return components.Radios(p, opts)
 	}
-	if fd.MaxLen > 0 {
-		p.Attrs = templ.Attributes{"maxlength": strconv.Itoa(fd.MaxLen)}
+	p.Placeholder = fd.Placeholder
+	p = withMaxLen(p, fd)
+	if to, ok := h.Fills[path]; ok {
+		p.Attrs["data-fills"] = components.FieldID(to)
 	}
 	if numbered {
 		return components.NumberInput(p, number, false)
 	}
 	return components.CodeInput(p, code)
+}
+
+// props are the FieldProps control gives fd's own controls at path.
+func props(fd doctype.Field, path string, f form) components.FieldProps {
+	return components.FieldProps{ID: components.FieldID(path), Name: path, Label: fd.Label, Hint: fd.Hint, Tip: fd.Tip,
+		Error: f.errFor(path), Echo: f.Echo[path], Value: f.Values[path], Required: fd.Required}
+}
+
+// withMaxLen is p with fd's MaxLen as maxlength, when it has one; p.Attrs is
+// never nil after it.
+func withMaxLen(p components.FieldProps, fd doctype.Field) components.FieldProps {
+	if p.Attrs == nil {
+		p.Attrs = templ.Attributes{}
+	}
+	if fd.MaxLen > 0 {
+		p.Attrs["maxlength"] = strconv.Itoa(fd.MaxLen)
+	}
+	return p
 }
 
 // rows is the editor for f's rows, a cell for each OnLine field.
@@ -1330,6 +1401,7 @@ type form struct {
 	Errs    []doctype.FieldError
 	Problem string
 	Reload  bool
+	Echo    map[string]string // a code field's checked echo by path, on a redraw that has one
 }
 
 // errFor is the message on the field at path, "" when none.
@@ -1365,6 +1437,22 @@ type listView struct {
 	ShowDisabled *components.Link // lists disabled records too; nil when they are listed
 }
 
+// recordFormID is the record form's id. Its rows editor has submit buttons
+// too, so a post disables them all, Save with them.
+const recordFormID = "record-form"
+
+// recordOpts is the record page's layout.
+func recordOpts(v recordView) layout.PageOpts {
+	return layout.PageOpts{
+		Title:      v.Title,
+		Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
+		Width:      v.Width,
+		Focus:      v.Confirm || (len(v.Cards) == 0 && v.CanWrite), // its action bar is the bottom bar
+		Back:       &v.Back,
+		BannerSlot: problemBanner(v),
+	}
+}
+
 // recordView is what the new and record pages render. ID is 0 on the new
 // page.
 type recordView struct {
@@ -1378,6 +1466,7 @@ type recordView struct {
 	Required                    bool // whether an input is required; the form then starts with components.RequiredNote
 	Width                       layout.Width
 	Rows                        *components.RowsProps // nil for a master without rows
+	RowsCard                    *FormCard             // the card around Rows on the form; nil draws them bare
 	Cards                       []sectionCard         // the summary, with Sections
 	Pairs                       []components.Pair
 	RowPairs                    [][]components.Pair

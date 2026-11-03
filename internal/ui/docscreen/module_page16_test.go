@@ -558,7 +558,7 @@ func m16WantModulePrimary(t *testing.T, page *goquery.Document, after []string, 
 	if bar.Length() != 1 {
 		t.Fatalf("%s: %d action bars, want 1; main %.600s", what, bar.Length(), norm(page.Find("#main").Text()))
 	}
-	ctrls := bar.Find("a, button")
+	ctrls := bar.Find("a, button").Not("[data-open-dialog]")
 	labels := ctrls.Map(func(_ int, s *goquery.Selection) string { return norm(s.Text()) })
 	if want := slices.Concat([]string{m16SendLabel}, after); !slices.Equal(labels, want) {
 		t.Fatalf("%s: action bar = %q, want %q (the module's primary first)", what, labels, want)
@@ -581,7 +581,7 @@ func m16WantNoModulePrimary(t *testing.T, page *goquery.Document, labels []strin
 		t.Errorf("%s: the module's %q shows (%d links), want docscreen's bar only", what, m16SendLabel, n)
 	}
 	bar := page.Find(".actionbar")
-	got := bar.Find("a, button").Map(func(_ int, s *goquery.Selection) string { return norm(s.Text()) })
+	got := bar.Find("a, button").Not("[data-open-dialog]").Map(func(_ int, s *goquery.Selection) string { return norm(s.Text()) })
 	if !slices.Equal(got, labels) {
 		t.Errorf("%s: action bar = %q, want docscreen's %q", what, got, labels)
 	}

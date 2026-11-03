@@ -146,6 +146,7 @@ func advanceExtra(c docscreen.Ctx, d Deps) (docscreen.PageExtra, error) {
 	}
 	if !pairHides(c, "paid_on") {
 		x.Pairs = append(x.Pairs, components.Pair{Label: "Paid on", Value: paid})
+		x.Life = paidLife(v.Info.State, paid, paidOn != "")
 	}
 	if pairHides(c, "used_amount") { // Left and Other claims reveal it too
 		card.other = ""
@@ -174,6 +175,24 @@ func advanceExtra(c docscreen.Ctx, d Deps) (docscreen.PageExtra, error) {
 		x.More = []components.MoreAction{{Label: "Undo paid", Href: base + "/unpaid"}}
 	}
 	return x, nil
+}
+
+// lifePaid is the advance's step after Approved (UI v2 §5.13 item 4).
+const lifePaid = "Paid"
+
+// paidLife marks the Paid step of an advance marked as paid on day paid
+// (dd-mm-yyyy), with its day: the step it stands at while approved, done once
+// closed. One not paid has no mark, so it stays a later step, or goes when
+// the advance is closed.
+func paidLife(state doctype.State, paid string, isPaid bool) map[string]components.LifeStep {
+	if !isPaid {
+		return nil
+	}
+	mark := components.LifeDone
+	if state == doctype.StateApproved {
+		mark = components.LifeCurrent
+	}
+	return map[string]components.LifeStep{lifePaid: {Mark: mark, Date: paid[:len("02-01")]}}
 }
 
 // claimsAgainst lists each live claim naming the advance that the viewer

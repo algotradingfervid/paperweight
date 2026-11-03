@@ -187,20 +187,8 @@ func TestFilterBar_KeepsParams(t *testing.T) {
 	}
 }
 
-func TestActionBar_NoteReplacesButtons(t *testing.T) {
+func TestActionBar_Buttons(t *testing.T) {
 	doc := uitest.Render(t, components.ActionBar(components.ActionBarProps{
-		Primary: &components.ButtonProps{Label: "Submit for approval", Variant: components.Primary},
-		Note:    "Waiting for approval by Asha Rao.",
-	}))
-	bar := doc.Find("div.actionbar")
-	if bar.Length() != 1 || text(bar) != "Waiting for approval by Asha Rao." {
-		t.Errorf("bar = %d %q", bar.Length(), text(bar))
-	}
-	if doc.Find("button, a").Length() != 0 {
-		t.Error("note bar has buttons")
-	}
-
-	doc = uitest.Render(t, components.ActionBar(components.ActionBarProps{
 		Primary:   &components.ButtonProps{Label: "Save and continue", Name: "nav", Value: "next", Variant: components.Primary},
 		Secondary: &components.ButtonProps{Label: "Back", Href: "/doc/po/1/edit?step=1", Variant: components.Secondary},
 		Form:      "wizard", FinishLater: true,
@@ -334,7 +322,7 @@ func TestMoreActions_PostHasCSRFAndDangerClass(t *testing.T) {
 		t.Error("POST action has no csrf_token")
 	}
 	b := f.Find(`button[type="submit"]`)
-	if !b.HasClass("btn-error") || text(b) != "Cancel order" {
+	if !b.HasClass("btn--danger-quiet") || text(b) != "Cancel order" {
 		t.Errorf("danger button class %q text %q", b.AttrOr("class", ""), text(b))
 	}
 	a := doc.Find(`a[href="/doc/po/1/print"]`)
@@ -347,7 +335,7 @@ func TestMoreActions_PostHasCSRFAndDangerClass(t *testing.T) {
 	doc = uitest.Render(t, components.MoreActions([]components.MoreAction{
 		{Label: "Delete draft", Href: "/doc/po/1/delete", Danger: true},
 	}))
-	if l := doc.Find(`a[href="/doc/po/1/delete"]`); !l.HasClass("btn--danger") || !l.HasClass("tap") {
+	if l := doc.Find(`a[href="/doc/po/1/delete"]`); !l.HasClass("btn--danger-quiet") || !l.HasClass("tap") {
 		t.Errorf("danger link class %q", l.AttrOr("class", ""))
 	}
 

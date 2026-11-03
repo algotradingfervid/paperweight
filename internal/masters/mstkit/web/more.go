@@ -46,6 +46,25 @@ func filled(fd doctype.Field, value string) bool {
 // at the end. Without one, or when every input is one (a section of only
 // More fields, which the user chose to change), inputs are as they are.
 func grouped(inputs []templ.Component) []templ.Component {
+	out, box := splitMore(inputs)
+	if len(box.inputs) == 0 || len(out) == 0 {
+		return inputs
+	}
+	return append(out, moreGroup(box))
+}
+
+// groupedCard is a card's inputs with its moreInputs in one MoreDetails at the
+// end, even when the card holds nothing else: Party's Payment card.
+func groupedCard(inputs []templ.Component) []templ.Component {
+	out, box := splitMore(inputs)
+	if len(box.inputs) == 0 {
+		return inputs
+	}
+	return append(out, moreGroup(box))
+}
+
+// splitMore is inputs without their moreInputs, and those in a moreBox.
+func splitMore(inputs []templ.Component) ([]templ.Component, moreBox) {
 	var out []templ.Component
 	var box moreBox
 	for _, in := range inputs {
@@ -58,10 +77,7 @@ func grouped(inputs []templ.Component) []templ.Component {
 		box.inputs = append(box.inputs, m.in)
 		box.open = box.open || m.open
 	}
-	if len(box.inputs) == 0 || len(out) == 0 {
-		return inputs
-	}
-	return append(out, moreGroup(box))
+	return out, box
 }
 
 // moreBox is the inputs of one MoreDetails, their labels and whether it opens.

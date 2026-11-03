@@ -24,7 +24,8 @@ templ docMain(pv pageView) {
 // docBanners sit above the h1: a rejected document's reason first, then a
 // refused action's message, then an action's success and, after an approve,
 // the "Next request" link straight under it, and the module's notice last
-// (CD-263 G3). After a Submit the success is the success block (A-25).
+// (CD-263 G3). After a Submit, an Approve or a module's own action the
+// success is the success block, which holds "Next request" (A-25).
 templ docBanners(pv pageView) {
 	if pv.V.Info.State == doctype.StateRejected && pv.V.Origin.StateReason != "" {
 		@components.Banner(components.BannerProps{Kind: components.Danger, Message: pv.V.Origin.StateReason})
@@ -40,11 +41,11 @@ templ docBanners(pv pageView) {
 	}
 	@components.ErrorSummary(pv.Errors)
 	if pv.Block {
-		@components.SuccessBlock(components.SuccessProps{Message: pv.Success, Links: pv.Follow})
+		@components.SuccessBlock(components.SuccessProps{Title: pv.Title, Message: pv.Success, Links: pv.Follow})
 	} else if pv.Success != "" {
 		@components.Banner(components.BannerProps{Kind: components.Success, Message: pv.Success})
 	}
-	if pv.Next != "" {
+	if pv.Next != "" && !pv.Block {
 		// A space keeps the banner's text and the link's apart in the page text.
 		{ " " }
 		<p><a href={ templ.SafeURL(pv.Next) }>Next request</a></p>
@@ -70,7 +71,9 @@ templ alertFocus(id string, focus bool) {
 // card first (UI v2 §5.13); from 80rem the Actions card, the attachments and
 // approval history sit in a side panel, the card moved to the top
 // (doc-actions). On phones the actions come last, as the bottom bar, in
-// tree order too. Every value is read-only.
+// tree order too, and More actions open from its ellipsis in a sheet, so
+// they are drawn twice: the card's list shows only from 80rem and the sheet's
+// opener only below. Every value is read-only.
 templ docBody(pv pageView) {
 	<div class="doc-layout">
 		<div class="doc-main">
@@ -131,14 +134,22 @@ templ docBody(pv pageView) {
 			if hasActions(pv) {
 				<div class="doc-actions">
 					@components.Card("Actions", nil) {
-						@components.MoreActions(pv.More)
 						@components.ActionBar(pv.Bar)
+						@components.MoreActions(pv.More)
 					}
 				</div>
 			}
 		</div>
 	</div>
+	if len(pv.More) > 0 {
+		@components.Sheet(moreSheetID, "More actions") {
+			@components.MoreActionItems(pv.More)
+		}
+	}
 }
+
+// moreSheetID is the id of the document page's More actions sheet.
+const moreSheetID = "doc-more"
 
 // docBar is the hidden forms the Actions card's buttons post through (each
 // with the page's version, CD-94).

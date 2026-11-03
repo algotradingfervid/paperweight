@@ -38,15 +38,15 @@ const (
 )
 
 const (
-	msgTypeRequired     = "Item type is required (Goods or Service)."
+	msgTypeRequired     = "Type is required (Goods or Service)."
 	msgTypeUnknown      = "Item type must be Goods or Service."
-	msgStockRequired    = "Stock UoM is required."
+	msgStockRequired    = "UoM is required."
 	msgServiceStock     = "Service items can't be stock items."
-	msgStockLocked      = "Stock UoM can't change after the item is used. Create a new item."
-	msgTypeLocked       = "Item type can't change after the item is used. Create a new item."
+	msgStockLocked      = "UoM can't change after the item is used. Create a new item."
+	msgTypeLocked       = "Type can't change after the item is used. Create a new item."
 	msgUoMDisabled      = "UoM %s is disabled. Pick another UoM."
 	msgRateNegative     = "Standard Rate can't be negative."
-	MsgStockNotFound    = "Stock UoM not found. Pick one from the list."    // DOC-032's wording
+	MsgStockNotFound    = "UoM not found. Pick one from the list."          // DOC-032's wording
 	MsgPurchaseNotFound = "Purchase UoM not found. Pick one from the list." // DOC-032's wording
 )
 
@@ -59,19 +59,19 @@ func init() {
 		LinesTable:  "item_uom",
 		Importable:  true,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. MS-ANGLE-50", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1, Placeholder: "e.g. MS Angle 50x50x5"},
 			{Name: "item_type", Label: "Type", Column: "item_type", Type: doctype.Select, Required: true, Importable: true, ListPriority: 5,
 				Options: []string{string(TypeGoods), string(TypeService)}},
-			{Name: "stock_uom_id", Label: "UoM", Column: "stock_uom_id", Type: doctype.Link, Link: uom.DocType, Required: true, Importable: true, ListPriority: 6},
-			{Name: "hsn_sac", Label: "HSN/SAC", Column: "hsn_sac", Type: doctype.Text, Importable: true, MaxLen: 8},
-			{Name: "purchase_uom_id", Label: "Purchase UoM", Column: "purchase_uom_id", Type: doctype.Link, Link: uom.DocType},
-			{Name: "default_tax_code_id", Label: "Tax Code", Column: "default_tax_code_id", Type: doctype.Link, Link: taxcode.DocType, Importable: true},
-			{Name: "is_stock", Label: "Stock item", Column: "is_stock", Type: doctype.Check},
-			{Name: "standard_rate", Label: "Standard Rate", Column: "standard_rate", Type: doctype.Rate, Importable: true, ListPriority: 2},
+			{Name: "stock_uom_id", Label: "UoM", Column: "stock_uom_id", Type: doctype.Link, Link: uom.DocType, Required: true, Importable: true, ListPriority: 6, Hint: "The unit you count this item in."},
+			{Name: "hsn_sac", Label: "HSN/SAC", Column: "hsn_sac", Type: doctype.Text, Importable: true, MaxLen: 8, Placeholder: "e.g. 7216", Tip: "The GST code for this item: 4, 6 or 8 digits. Goods need an HSN code; services use a SAC starting 99."},
+			{Name: "purchase_uom_id", Label: "Purchase UoM", Column: "purchase_uom_id", Type: doctype.Link, Link: uom.DocType, Hint: "Only if you buy in another unit."},
+			{Name: "default_tax_code_id", Label: "Tax Code", Column: "default_tax_code_id", Type: doctype.Link, Link: taxcode.DocType, Importable: true, Hint: "Filled in on new lines. You can change it per line."},
+			{Name: "is_stock", Label: "Stock item", Column: "is_stock", Type: doctype.Check, Hint: "Turn on for goods you keep count of."},
+			{Name: "standard_rate", Label: "Standard Rate", Column: "standard_rate", Type: doctype.Rate, Importable: true, ListPriority: 2, Placeholder: "0.00", Hint: "Filled in on new lines. You can change it per order."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, ListPriority: 3, Filterable: true},
 			{Name: "uom_id", Label: "UoM", Column: "uom_id", Type: doctype.Link, Link: uom.DocType, Required: true, OnLine: true},
-			{Name: "factor", Label: "Conversion factor", Column: "factor", Type: doctype.Factor, Required: true, OnLine: true},
+			{Name: "factor", Label: "Conversion factor", Column: "factor", Type: doctype.Factor, Required: true, OnLine: true, Placeholder: "e.g. 50"},
 		},
 		SearchFields: []string{"code", "name"},
 		DefaultSort:  []doctype.SortKey{{Field: "name"}},
@@ -121,7 +121,7 @@ func Validate(in Input) (Input, error) {
 	}
 	out := in
 	var err error
-	out.Code, err = mstkit.NormalizeCode(in.Code)
+	out.Code, err = mstkit.NormalizeCodeLike(in.Code, "MS-ANGLE-50")
 	add(err)
 	out.Name, err = mstkit.NormalizeName(in.Name)
 	add(err)

@@ -51,7 +51,8 @@ type pageView struct {
 	Facts   []components.Pair         // the module's KeyFacts the viewer may see (UI v2 §5.13)
 	Party   string                    // the party line; "" when KeyFacts names the party field
 	Steps   []components.LifeStep     // the lifecycle with dates and the module's extra steps (UI v2 §5.13 item 4)
-	Block   bool                      // Success shows as the success block: it follows a Submit (A-25)
+	Block   bool                      // Success shows as the success block under Title: it follows a Submit, an Approve or a module's own action (A-25)
+	Title   string                    // the success block's heading
 	Follow  []components.Link         // the success block's follow-ups the viewer may use
 }
 
@@ -96,32 +97,52 @@ func (d Deps) page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	next, submitted := r.URL.Query().Get("next") == "1", r.URL.Query().Get("submitted") == "1"
-	if next || submitted {
+	block := next || submitted || pv.Extra.Success != nil
+	if block {
 		pv.Success = takeSuccess(r.Context()) // once: a second take finds the flash empty
 	}
 	if next {
 		pv.Next = d.InboxURL
 	}
-	if submitted {
-		d.successBlock(r, p, &pv)
-	}
+	d.successBlock(r, p, &pv)
 	ui.Render(w, r, http.StatusOK, docPage(pv), docMain(pv))
 }
 
 // successBlock shows pv's Success, when there is one, as the success block
-// after a Submit (UI v2 §5.13 item 2, A-25), with "New {label}" for a viewer
-// who may create and "Go to {label}" when the module declares a Home.
+// (UI v2 §5.13 item 2, A-25), under its heading (blockText), with "Next
+// request" after an approve, "New {label}" for a viewer who may create and
+// "Go to {label}" when the module declares a Home.
 func (d Deps) successBlock(r *http.Request, p auth.Principal, pv *pageView) {
 	if pv.Success == "" {
 		return
 	}
 	pv.Block = true
+	pv.Title, pv.Success = blockText(*pv)
+	if pv.Next != "" {
+		pv.Follow = append(pv.Follow, components.Link{Label: "Next request", Href: pv.Next})
+	}
 	if d.can(r, p, pv.DT.Name, auth.RightCreate) {
 		pv.Follow = append(pv.Follow, newDocLink(pv.DT))
 	}
 	if h := d.modOf(pv.DT).Home; h.Href != "" {
 		pv.Follow = append(pv.Follow, components.Link{Label: "Go to " + h.Label, Href: h.Href})
 	}
+}
+
+// blockText is the success block's heading and line for pv's Success. A
+// module's own action gives its heading, and any line goes after Success. A
+// document sent for approval says who it went to (who ends in Success's full
+// stop); otherwise it is approved, and the heading is the word Success starts
+// with.
+func blockText(pv pageView) (title, line string) {
+	if x := pv.Extra.Success; x != nil {
+		return x.Title, strings.TrimSpace(pv.Success + " " + x.Message)
+	}
+	if who, ok := strings.CutPrefix(pv.Success, submittedTo); ok {
+		return "Submitted for approval", "It went to " + who + " You'll see it in My requests until it's decided."
+	}
+	title = doctype.StateLabel(*pv.DT, doctype.StateApproved)
+	return title, strings.TrimPrefix(pv.Success, title+". ")
 }
 
 // newDocLink is "New {label}" to dt's new-document page.
@@ -185,11 +206,12 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 	if err := applyPageExtra(&pv); err != nil {
 		return pageView{}, err
 	}
-	if pv.Bar.Note == "" {
-		for _, b := range buttons(v, dt.Printable, rights) {
-			if b.Place != More && b.Href == "" {
-				pv.Forms = append(pv.Forms, actionForm{ID: actionFormID(b.Action), Action: docURL(dt.Name, v.Info.ID) + "/" + string(b.Action), Version: v.Version})
-			}
+	if len(pv.More) > 0 {
+		pv.Bar.MoreSheet = moreSheetID
+	}
+	for _, b := range buttons(v, dt.Printable, rights) {
+		if b.Place != More && b.Href == "" {
+			pv.Forms = append(pv.Forms, actionForm{ID: actionFormID(b.Action), Action: docURL(dt.Name, v.Info.ID) + "/" + string(b.Action), Version: v.Version})
 		}
 	}
 	return pv, nil
@@ -356,7 +378,7 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		if a == doctype.ActionApprove {
 			pv.Next = d.InboxURL
 		}
-		if a == doctype.ActionSubmit {
+		if a == doctype.ActionSubmit || a == doctype.ActionApprove {
 			d.successBlock(r, p, &pv)
 		}
 		w.Header().Set("HX-Push-Url", to)
@@ -378,6 +400,9 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 	http.Redirect(w, r, to, http.StatusSeeOther) //nolint:gosec // G710: a local /doc/ path from a registered DocType name and numeric ids
 }
 
+// submittedTo starts the success text after a Submit that needs approval.
+const submittedTo = "Submitted for approval to "
+
 // successText is the banner after action a (design-system §8.3, §8.5).
 func (d Deps) successText(ctx context.Context, p auth.Principal, dt *doctype.DocType, id int64, a doctype.Action, res doc.Result, display string) string {
 	numbered := doctype.StateLabel(*dt, doctype.StateApproved) + ". " + res.Number + " has been numbered."
@@ -386,7 +411,7 @@ func (d Deps) successText(ctx context.Context, p auth.Principal, dt *doctype.Doc
 		switch res.State {
 		case doctype.StatePending:
 			if av, err := d.Extras.Approval(ctx, p, dt.Name, id); err == nil && av.WaitingOn != "" {
-				return "Submitted for approval to " + av.WaitingOn + "."
+				return submittedTo + av.WaitingOn + "."
 			}
 		case doctype.StateApproved:
 			return numbered
@@ -510,6 +535,27 @@ func CheckKeyFacts(mods map[string]Module) error {
 	return nil
 }
 
+// CheckTodayDates reports the first Module.TodayDates name that isn't a header
+// Date field its DocType declares, or a name with no today to fill it, so a
+// typo fails when the routes are built, not by leaving the date blank.
+func CheckTodayDates(mods map[string]Module, today func() (string, string)) error {
+	for name, m := range mods {
+		dt, ok := doctype.Lookup(name)
+		for _, f := range m.TodayDates {
+			if !ok {
+				return fmt.Errorf("docscreen: TodayDates on unregistered DocType %s", name)
+			}
+			if fd, found := dt.Field(f); !found || fd.OnLine || fd.Type != doctype.Date {
+				return fmt.Errorf("docscreen: %s TodayDates names %q, which isn't one of its header Date fields", name, f)
+			}
+			if today == nil {
+				return fmt.Errorf("docscreen: %s TodayDates needs Deps.Today", name)
+			}
+		}
+	}
+	return nil
+}
+
 // CheckHome reports the first Module.Home that is set but has no label or a
 // URL that isn't a local path starting with "/" (UI v2 §5.13 item 2).
 func CheckHome(mods map[string]Module) error {
@@ -573,7 +619,12 @@ func CheckLifeSteps(mods map[string]Module) error {
 
 // pageSteps is v's lifecycle (lifeSteps) with each reached step's date
 // (dd-mm) from the history the page shows, and the module's extra steps
-// after the approved one, marked by life. An extra step marked current
+// after the approved one, marked by life. A document APR passed with no rule
+// has no approval step, and a closed or cancelled document keeps only the
+// extra steps it reached: the timeline shows no step that didn't happen. A
+// draft keeps its approval step: whether it will need one depends on who
+// asks (APR's preview), and the timeline is the same for every reader. An
+// extra step marked current
 // takes over from the approved step, which becomes done; with none current
 // the state's own step stays current, so exactly one step is (A-26). A life
 // word the module doesn't declare, a rejected or ended mark, or a current
@@ -592,6 +643,9 @@ func pageSteps(dt *doctype.DocType, v DocView, extra []string, life map[string]c
 	var out []components.LifeStep
 	for i, st := range states {
 		s := steps[i]
+		if st == doctype.StatePending && !waitedForApproval(v) {
+			continue
+		}
 		if s.Mark != components.LifeTodo {
 			s.Date = stepDate(st, v)
 		}
@@ -603,6 +657,9 @@ func pageSteps(dt *doctype.DocType, v DocView, extra []string, life map[string]c
 		for _, w := range extra {
 			x := life[w]
 			x.Label = w
+			if x.Mark == components.LifeTodo && ended(v.Info.State) {
+				continue
+			}
 			if x.Mark == components.LifeCurrent {
 				if out[at].Mark != components.LifeCurrent {
 					return nil, fmt.Errorf("docscreen: PageExtra.Life marks %q current, but %s isn't at its approved step or another step is current", w, v.Info.Display)
@@ -614,6 +671,22 @@ func pageSteps(dt *doctype.DocType, v DocView, extra []string, life map[string]c
 	}
 	return out, nil
 }
+
+// ended reports whether s is a final state.
+func ended(s doctype.State) bool {
+	return s == doctype.StateClosed || s == doctype.StateCancelled
+}
+
+// waitedForApproval reports whether v's approval step stands: the newest
+// approval row, History being newest first, isn't APR's own pass with no rule.
+func waitedForApproval(v DocView) bool {
+	h := v.Approval.History
+	return len(h) == 0 || !strings.HasPrefix(h[0].Action, autoApprovedAction)
+}
+
+// autoApprovedAction starts the history row of a document APR passed with no
+// rule, "Approved on submit (no approval needed)".
+const autoApprovedAction = "Approved on submit"
 
 // stepActions are the history words of the entry that reaches each state;
 // "Approved on submit" and "Rejected: {reason}" start with theirs.

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -46,7 +47,7 @@ const (
 	msgNoManager  = "Reporting manager not found. Pick one from the list."                                // CD-170
 	msgCodeForm   = "Code can use letters, digits and . _ / - only, must start with a letter or digit, and be at most 20 characters."
 	msgRelieving  = "Relieving date can't be before date of joining."
-	msgCodeReq    = "Code is required. Enter a short code such as SHREE."                                             // MST-001
+	msgCodeReq    = "Code is required. Enter a short code such as EMP-007."                                           // MST-001
 	msgLinked     = "User priya@vardhan.test is already linked to employee EMP-004."                                  // MST-111
 	msgForbidden  = "You don't have permission to create Employee. Ask your administrator for a role that allows it." // AUTH
 	staleEmp007   = "Someone else changed Employee EMP-007 after you opened it. Reload it and make your changes again."
@@ -1326,4 +1327,23 @@ func TestScreens_OwnScopeEveryPath(t *testing.T) {
 		t.Errorf("export = %s", csv.Body)
 	}
 	webtest.WantStatus(t, priya.Get(t, w.recordURL(e)), http.StatusNotFound)
+}
+
+// Shell review H1: a master's date chips carry the dates from the app's clock
+// (Date of joining, Date of birth, Relieving date), at the IST date just
+// after IST midnight, and none is pressed on an empty field.
+func TestScreens_EmployeeDateChips(t *testing.T) {
+	w := newWorld(t)
+	w.h.Env.Clock.Set(time.Date(2026, 10, 24, 18, 31, 0, 0, time.UTC))
+	page := w.h.Browser(w.h.Env.Kavya).Get(t, wizardMain)
+	webtest.WantStatus(t, page, http.StatusOK)
+	for _, name := range []string{"joining_date", "birth_date", "relieving_date"} {
+		id := components.FieldID(name)
+		for _, c := range []struct{ label, day string }{{"Today", "25-10-2026"}, {"Yesterday", "24-10-2026"}} {
+			chip := page.Doc.Find(`button[aria-controls="` + id + `"][data-set-date="` + c.day + `"]`)
+			if chip.Length() != 1 || strings.TrimSpace(chip.Text()) != c.label || chip.AttrOr("aria-pressed", "") != "false" {
+				t.Errorf("%s: %d chips for %s, label %q, aria-pressed %q", name, chip.Length(), c.day, chip.Text(), chip.AttrOr("aria-pressed", ""))
+			}
+		}
+	}
 }

@@ -33,12 +33,13 @@ func TestNumberingScreen_Exhausted(t *testing.T) {
 		e.exhaustGRN()
 		r := e.get("anil", "/settings/numbering")
 		wantStatus(t, "admin GET /settings/numbering (GRN exhausted)", r, http.StatusOK)
-		row := r.doc.Find(`a[href="` + testEditPath(testGRN) + `"]`).First().Closest("li")
-		const want = "GRN · GR/{FY}/{###} · Next: " + msgExhaustedGRN
-		if got := testNorm(row.Text()); got != want {
-			t.Errorf("GRN row text %q, want %q", got, want)
+		row := r.doc.Find(`a[href="` + testEditPath(testGRN) + `"]`).First()
+		for _, want := range []string{"GR / financial year / 3-digit number", msgExhaustedGRN} {
+			if got := testNorm(row.Text()); !strings.Contains(got, want) {
+				t.Errorf("GRN row text %q, want it to contain %q", got, want)
+			}
 		}
-		if txt := testPageText(r); !strings.Contains(txt, "Next: PO/26-27/00001") {
+		if txt := testPageText(r); !strings.Contains(txt, "PO/26-27/00001") {
 			t.Errorf("other rows missing; page text %q", txt)
 		}
 	})

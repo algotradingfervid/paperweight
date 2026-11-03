@@ -62,9 +62,20 @@ func (b Bar) props(m Model) components.ActionBarProps {
 	case b.Back && b.BackLink != nil:
 		p.Secondary = &components.ButtonProps{Label: b.BackLink.Label, Href: b.BackLink.Href, Variant: components.Secondary}
 	case b.Back:
-		p.Secondary = &components.ButtonProps{Label: "Back", Icon: "chevron-left", Name: "nav", Value: "back", Variant: components.Secondary}
+		p.Secondary = &components.ButtonProps{Label: "Back", Icon: "chevron-left", Name: "nav", Value: "back", Variant: components.Secondary, Attrs: noWrite(m.Mode != Document)}
 	}
 	return p
+}
+
+// noWrite marks a master wizard's form or button for app.js when on: its
+// request writes only the session, so a lost answer saved nothing and Try again
+// is safe. The last step's primary creates the record, so there only Back is
+// marked (CD-387 (5)).
+func noWrite(on bool) templ.Attributes {
+	if !on {
+		return nil
+	}
+	return templ.Attributes{"data-no-write": true}
 }
 
 // reloadLabel is the record the conflict banner's Reload names: the document
@@ -149,7 +160,7 @@ templ Frame(m Model, bar Bar) {
 		@components.ErrorSummary(m.Errors)
 		@components.Warnings(m.Warnings)
 		@components.Warnings(m.Stored)
-		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: m.formTarget(), DisabledElt: disabledElt}) {
+		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: m.formTarget(), DisabledElt: disabledElt, Attrs: noWrite(m.Mode != Document && !m.Last())}) {
 			if p := bar.props(m).Primary; bar.EnterPrimary && p != nil {
 				@components.EnterSubmit(*p)
 				{ children... }

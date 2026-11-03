@@ -162,6 +162,10 @@ type Deps struct {
 	// LinkRole, inside tx (the app wires party's vendor and customer flags;
 	// CD-218). nil offers no recent picks on a field with a LinkRole.
 	LinkRole func(ctx context.Context, tx *db.Tx, target *doctype.DocType, id int64, role string) (bool, error)
+	// LinkLine is the line a chosen or recent pick of master id shows, ""
+	// for none or one p may not read (the app wires Party's, UI v2 §5.8).
+	// nil shows no line.
+	LinkLine func(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) (string, error)
 	// DocLinkRead reports whether p may read document id of DocType target,
 	// inside tx (the app wires auth.CheckLinkTx). doctype.ErrNotFound,
 	// auth.ErrForbidden or a *auth.LinkError means not, and a link to it shows

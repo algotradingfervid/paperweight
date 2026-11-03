@@ -13,7 +13,7 @@ import (
 	"github.com/vardhan/internaltools/internal/platform/db"
 )
 
-const typeLockedMsg = "Item type can't change after the item is used. Create a new item."
+const typeLockedMsg = "Type can't change after the item is used. Create a new item."
 
 func TestItem_TypeLocked(t *testing.T) { // MST-075
 	w := newWorld(t)
@@ -58,7 +58,7 @@ func TestItem_TypeLocked(t *testing.T) { // MST-075
 	in, v = w.input(t, angle)
 	in.Type = ""
 	_, err = svc.Update(ctx, kavya, angle, v, in)
-	wantOnlyMessage(t, "Update(blank type, used)", err, "Item type is required (Goods or Service).")
+	wantOnlyMessage(t, "Update(blank type, used)", err, "Type is required (Goods or Service).")
 	in.Type = "Asset"
 	_, err = svc.Update(ctx, kavya, angle, v, in)
 	wantOnlyMessage(t, "Update(unknown type, used)", err, "Item type must be Goods or Service.")
@@ -195,7 +195,7 @@ func TestItem_UoMLinksNotFound(t *testing.T) {
 	stock := in
 	stock.StockUoMID = missing
 	_, err := w.svc.Create(ctx, w.env.Kavya, stock)
-	wantSaveError(t, "Create(missing stock UoM)", err, doctype.FieldError{Field: "stock_uom_id", Message: "Stock UoM not found. Pick one from the list."})
+	wantSaveError(t, "Create(missing stock UoM)", err, doctype.FieldError{Field: "stock_uom_id", Message: "UoM not found. Pick one from the list."})
 
 	purchase := in
 	purchase.PurchaseUoMID = missing

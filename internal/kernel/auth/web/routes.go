@@ -26,6 +26,7 @@ func (s *Server) Mount(r chi.Router) {
 	r.Method(http.MethodPost, "/setup", Public(http.HandlerFunc(s.postSetup)))
 	r.Method(http.MethodGet, "/account/password", s.Self(http.HandlerFunc(s.getPassword)))
 	r.Method(http.MethodPost, "/account/password", s.Self(http.HandlerFunc(s.postPassword)))
+	r.Method(http.MethodGet, "/users/{id}/password", s.Admin(auth.ErrNotAdminPassword.Msg, http.HandlerFunc(s.getResetPassword)))
 	r.Method(http.MethodPost, "/users/{id}/password", s.Admin(auth.ErrNotAdminPassword.Msg, http.HandlerFunc(s.postResetPassword)))
 	// Unlock and sessions (Task 16).
 	r.Method(http.MethodPost, "/users/{id}/unlock", s.Admin(auth.ErrAdminOnlyField.Msg, http.HandlerFunc(s.postUnlock)))
@@ -35,6 +36,7 @@ func (s *Server) Mount(r chi.Router) {
 	// User administration (Task 13).
 	r.Method(http.MethodGet, "/users", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.listUsers)))
 	r.Method(http.MethodPost, "/users", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.createUser)))
+	r.Method(http.MethodGet, "/users/new", s.Admin(auth.ErrAdminOnlyUsers.Msg, http.HandlerFunc(s.getNewUser)))
 	r.Method(http.MethodGet, "/users/{id}", s.Self(http.HandlerFunc(s.showUser)))
 	r.Method(http.MethodPost, "/users/{id}", s.Self(http.HandlerFunc(s.updateUser)))
 	r.Method(http.MethodPost, "/users/{id}/roles", s.Admin(auth.ErrAdminOnlyRoles.Msg, http.HandlerFunc(s.updateRoles)))

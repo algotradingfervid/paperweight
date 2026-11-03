@@ -177,11 +177,14 @@
   inset-inline-end: 0;
   inset-block-start: 100%;
   z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
   inline-size: max-content;
   padding: var(--space-2);
   background: var(--color-surface);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-pop);
+  & .btn { inline-size: 100%; justify-content: flex-start; }
 }
 
 @utility app-body {
@@ -211,6 +214,28 @@
   padding-inline: calc(var(--space-4) + var(--safe-left)) var(--space-4);
 }
 
+@utility nav-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-block-end: var(--space-2);
+  /* From 64rem .brand takes the sidebar's fixed width and won't shrink
+     (240 px + gap + Close overflowed the 288 px sheet); here it sizes to fit. */
+  & .brand { flex: 0 1 auto; inline-size: auto; min-inline-size: 0; }
+}
+
+@utility nav-sheet-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  margin-block-start: var(--space-4);
+  padding-block-start: var(--space-3);
+  border-block-start: var(--border-w) solid var(--color-border-subtle);
+  font-weight: var(--weight-semibold);
+}
+
 @utility app-content {
   min-inline-size: 0;
   padding-inline: calc(var(--gutter) + var(--safe-left)) calc(var(--gutter) + var(--safe-right));
@@ -222,6 +247,17 @@
   gap: var(--space-2);
   padding-block-start: var(--space-4);
   &:empty { padding-block-start: 0; }
+}
+
+/* #network stays in view under the head wherever the page is scrolled, on
+   top of the form (CD-387 (5)). The head is the app
+   header or, in focus mode, the wizard head: both are this tall. */
+@utility network-region {
+  position: sticky;
+  :root[data-axe] & { position: static; }
+  inset-block-start: calc(var(--header-h) + var(--safe-top));
+  z-index: var(--z-header);
+  padding-block-start: var(--space-2);
 }
 
 /* Side panel (state, approval history, attachments, audit): under the page

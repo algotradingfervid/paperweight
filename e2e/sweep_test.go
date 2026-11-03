@@ -296,7 +296,7 @@ func TestE2E_BackAfterSignOutShowsNothing(t *testing.T) {
 		s.Fill("email", priya)
 		s.Fill("password", password)
 		s.Press("Sign in")
-		s.Until("the signed-in landing page", `location.pathname === "/approvals"`)
+		s.Until("the signed-in landing page", `location.pathname === "/"`)
 	}
 	backShowsSignIn := func(when string) {
 		s.Back()

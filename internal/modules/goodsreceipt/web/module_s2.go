@@ -43,7 +43,36 @@ const (
 
 // itemsStep is step 3: the cards and their save.
 func (m *module) itemsStep() docscreen.Step {
-	return docscreen.Step{Body: m.itemsBody, Save: m.itemsSave}
+	return docscreen.Step{Body: m.itemsBody, Save: m.itemsSave, Bar: itemsBar}
+}
+
+// itemsBar puts {n} of {m} lines entered in the footer (CD-387 (7)): m is the
+// lines still pending and n those of them Save would post (CD-391), as the
+// page's own script counts while typing (counter.js, the inputs marked
+// data-line-entry). A viewer who can't see Received now gets no count (CD-319),
+// nor does a PO with nothing pending.
+func itemsBar(c docscreen.Ctx, s docscreen.StepState) (docscreen.StepBar, error) {
+	if !shown(c, "received_qty") {
+		return docscreen.StepBar{}, nil
+	}
+	lines, err := poLines(c)
+	if err != nil {
+		return docscreen.StepBar{}, err
+	}
+	es, n, m := entries(c, lines, s.Posted), 0, 0
+	for _, l := range lines {
+		if l.Pending <= 0 {
+			continue
+		}
+		m++
+		if nonZero(es[l.ID].received) {
+			n++
+		}
+	}
+	if m == 0 {
+		return docscreen.StepBar{}, nil // nothing pending: no count (CD-391)
+	}
+	return docscreen.StepBar{Summary: linesEntered(n, m)}, nil
 }
 
 // noLinePages: the lines come only from step 3's cards (CD-256 (7)).
@@ -187,7 +216,7 @@ func checkQty(l goodsreceipt.POLine, pos int, field, s string) (types.Qty, *doct
 
 // itemCard is one PO line's card.
 type itemCard struct {
-	Title, Code                string
+	Title, Code, Hint          string
 	Received, Rejected, Reason components.FieldProps
 	Show                       map[string]bool // the fields Hide shows
 	Whole                      bool
@@ -296,6 +325,10 @@ func acceptedOf(e entry) (types.Qty, bool) {
 // the reason's longest length.
 func cardOf(dt *doctype.DocType, l goodsreceipt.POLine, e entry, s docscreen.StepState, warning string, reasonMax int) itemCard {
 	n := strconv.Itoa(l.No)
+	rejected := e.rejected
+	if !s.Posted && !nonZero(rejected) {
+		rejected = "" // no reject shows the placeholder, never a 0 to type after (CD-387 (8))
+	}
 	field := func(key, name, label, value string, attrs templ.Attributes) components.FieldProps {
 		id := components.FieldID("po-line[" + n + "]." + name)
 		if e.pos > 0 {
@@ -307,11 +340,12 @@ func cardOf(dt *doctype.DocType, l goodsreceipt.POLine, e entry, s docscreen.Ste
 	}
 	c := itemCard{
 		Title: n + " · " + l.ItemName, Code: l.ItemCode, Whole: l.UoM.WholeNumber, UoM: l.UoM.Code,
-		Received: field("received", "received_qty", labelReceived, e.received, templ.Attributes{}),
-		Rejected: field("rejected", "rejected_qty", labelRejected, e.rejected, templ.Attributes{}),
+		Received: field("received", "received_qty", labelReceived, e.received, templ.Attributes{"data-line-entry": l.Pending > 0}), // counted (CD-391)
+		Rejected: field("rejected", "rejected_qty", labelRejected, rejected, templ.Attributes{}),
 		Reason:   field("reason", "reject_reason", labelReason, e.reason, templ.Attributes{"maxlength": strconv.Itoa(reasonMax)}),
 	}
-	c.Received.Hint = "Ordered " + types.FormatQty(l.Ordered) + " · Pending " + types.FormatQtyUoM(l.Pending, l.UoM.Code)
+	c.Hint = "Ordered " + types.FormatQty(l.Ordered) + " · Pending " + types.FormatQtyUoM(l.Pending, l.UoM.Code)
+	c.Received.Attrs["aria-describedby"] = c.Received.ID + "-hint " + c.Received.ID + "-msg" // the hint sits with the item, not the field
 	c.Reason.Hint = hintReason
 	c.Open = nonZero(e.rejected) || c.Rejected.Error != "" || c.Reason.Error != ""
 	if a, ok := acceptedOf(e); ok && !s.Posted && nonZero(e.rejected) {

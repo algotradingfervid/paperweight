@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,7 +36,18 @@ const (
 	// lastPriceFormat is "Last bought at ₹{rate} from {vendor} on {date}
 	// ({PO})" (spec §24.2).
 	lastPriceFormat = "Last bought at ₹%s from %s on %s (%s)"
+	// totalsTitle heads the document page's totals card (UI v2 §5.13 item 6).
+	totalsTitle = "Totals"
+	// rejectedFormat is the banner on a revised draft's steps.
+	rejectedFormat = "Rejected: %s"
 )
+
+// noDiscount is a line's discount when it has none, as its display shows it.
+var noDiscount = types.FormatPercent(0)
+
+// orderTotalFields are the header's totals: their own list on Check and their
+// own card on the document page, never in Details.
+var orderTotalFields = []string{"net_total", "cgst_total", "sgst_total", "igst_total", "grand_total", "rounded_total"}
 
 // addresses reads a vendor's addresses inside the caller's tx; ForParty uses
 // no Env field.
@@ -63,6 +75,117 @@ var (
 	pricesOf perRequest[map[purchase.ItemUoM]purchase.LastPrice] // LastPricesFor every line of c.View
 )
 
+// detailsStep is the first wizard step of both DocTypes: the generic post
+// under detailsBody.
+func detailsStep() docscreen.Step {
+	return docscreen.Step{Body: detailsBody}
+}
+
+// detailsBody is the generic first step but for the Project, which resolves
+// itself when blank and so has no star (CD-387 (2)). The field stays Required
+// for DOC: submit and a restricted user's draft need it (CD-178, PO-012).
+func detailsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Component, error) {
+	steps, err := docscreen.FormSteps(c.DT)
+	if err != nil {
+		return nil, err
+	}
+	var shown []docscreen.MoreInput
+	for _, name := range steps[0].Fields {
+		f, _ := c.DT.Field(name)
+		if f.ReadOnly || hides(c, name) {
+			continue
+		}
+		f.Required = f.Required && name != "project_id"
+		value, msg := stepInput(c, st, name)
+		id := components.FieldID(name)
+		shown = append(shown, docscreen.MoreInput{Field: f, Value: value, Error: msg, Input: docscreen.FieldInput(f, id, value, msg, c.Deps)})
+	}
+	return inputsView(docscreen.GroupMore(shown).Inputs()), nil
+}
+
+// stepInput is header field name's value on a step, the posted one, else the
+// record's, else the step's default, and its error message from st.
+func stepInput(c docscreen.Ctx, st docscreen.StepState, name string) (value, msg string) {
+	switch {
+	case st.Posted:
+		value = c.Req.PostFormValue(name)
+	case c.View != nil:
+		value = c.View.Inputs[name]
+	default:
+		value = st.Defaults[name]
+	}
+	for _, e := range st.Errors {
+		if e.Line == 0 && e.Field == name {
+			return value, e.Message
+		}
+	}
+	return value, ""
+}
+
+// withRejection puts a revised draft's rejection banner on step, whose Body
+// every caller sets: above the Body's component, and above its Top for when
+// the Body gives none (Items without ?from=requests).
+func withRejection(step docscreen.Step) docscreen.Step {
+	top, body := step.Top, step.Body
+	if top != nil {
+		step.Top = func(c docscreen.Ctx) (templ.Component, error) {
+			part, err := top(c)
+			if err != nil {
+				return nil, err
+			}
+			reason, err := rejection(c)
+			if err != nil {
+				return nil, err
+			}
+			return aboveStep(reason, part), nil
+		}
+	}
+	step.Body = func(c docscreen.Ctx, st docscreen.StepState) (templ.Component, error) {
+		part, err := body(c, st)
+		if err != nil || part == nil {
+			return nil, err
+		}
+		reason, err := rejection(c)
+		if err != nil {
+			return nil, err
+		}
+		return aboveStep(reason, part), nil
+	}
+	return step
+}
+
+// rejection is the banner text of the rejection c's draft was revised from,
+// "" with none or no record. The viewer got here with the read right.
+func rejection(c docscreen.Ctx) (string, error) {
+	if c.View == nil {
+		return "", nil
+	}
+	ctx := c.Req.Context()
+	var reason string
+	err := c.Deps.DB.Read(ctx, func(tx *db.Tx) (err error) {
+		reason, err = purchase.RejectedReason(ctx, tx, c.View.Info.ID)
+		return err
+	})
+	if err != nil || reason == "" {
+		return "", err
+	}
+	return fmt.Sprintf(rejectedFormat, reason), nil
+}
+
+// missingTexts are the messages of what read leaves unresolved on c's record.
+func missingTexts(c docscreen.Ctx, read func(context.Context, *db.Tx, int64) ([]doctype.FieldError, error)) ([]string, error) {
+	ctx := c.Req.Context()
+	var out []string
+	err := c.Deps.DB.Read(ctx, func(tx *db.Tx) error {
+		errs, err := read(ctx, tx, c.View.Info.ID)
+		for _, e := range errs {
+			out = append(out, e.Message)
+		}
+		return err
+	})
+	return out, err
+}
+
 // orderTermsStep is the Order's Terms step: the vendor address as radios of
 // the vendor's own addresses (UX §5.5); the generic post saves it.
 func (m *module) orderTermsStep() docscreen.Step {
@@ -83,12 +206,6 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 			fields = s.Fields
 		}
 	}
-	value := func(name string) string {
-		if st.Posted {
-			return c.Req.PostFormValue(name)
-		}
-		return c.View.Inputs[name]
-	}
 	var shown, more []templ.Component
 	var labels []string
 	open := false
@@ -97,26 +214,20 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 		if hides(c, name) {
 			continue
 		}
-		msg := ""
-		for _, e := range st.Errors {
-			if e.Line == 0 && e.Field == name {
-				msg = e.Message
-				break
-			}
-		}
+		value, msg := stepInput(c, st, name)
 		switch {
 		case name == "vendor_address_id":
-			in, err := addressInput(c, f, value(name), msg, steps[0].Slug)
+			in, err := addressInput(c, f, value, msg, steps[0].Slug)
 			if err != nil {
 				return nil, err
 			}
 			shown = append(shown, in)
 		case f.More:
-			open = open || value(name) != "" || msg != ""
+			open = open || value != "" || msg != ""
 			labels = append(labels, f.Label)
-			more = append(more, docscreen.FieldInput(f, components.FieldID(name), value(name), msg, c.Deps))
+			more = append(more, docscreen.FieldInput(f, components.FieldID(name), value, msg, c.Deps))
 		default:
-			shown = append(shown, docscreen.FieldInput(f, components.FieldID(name), value(name), msg, c.Deps))
+			shown = append(shown, docscreen.FieldInput(f, components.FieldID(name), value, msg, c.Deps))
 		}
 	}
 	return termsView(shown, more, labels, open), nil
@@ -201,8 +312,12 @@ func addressHint(a address.Address) string {
 // while purchase.Order has no approval rule (CD-258 Q7 (a)) or when either
 // has a value; Already received only when Earlier PO no. is set (UX §5.6).
 // Receipt hides while the order is edited (P34). A nil View is no record
-// (CD-327).
+// (CD-327). The totals hide on a record with no lines: nothing to add up
+// (UI v2 §5.11).
 func (m *module) orderHide(c docscreen.Ctx, f doctype.Field) bool {
+	if slices.Contains(orderTotalFields, f.Name) {
+		return c.View != nil && len(c.View.Lines) == 0
+	}
 	switch f.Name {
 	case "receipt_status":
 		return editing(c)
@@ -260,13 +375,37 @@ func (m *module) hasRules(c docscreen.Ctx) bool {
 	return rulesOf.get(c.Req, load)
 }
 
+// orderTotals are the Order's totals as Check and the document page list them:
+// the taxable value, the GST rows that aren't zero and, when rounding changed
+// it, the grand total; the rounded total is the page's own figure. A field
+// the screen hides is left out.
+func orderTotals(c docscreen.Ctx) []components.Pair {
+	var out []components.Pair
+	for _, name := range orderTotalFields {
+		f, _ := c.DT.Field(name)
+		v := c.View.Display[name]
+		switch {
+		case hides(c, name), name == "rounded_total":
+			continue
+		case name == "grand_total" && v == c.View.Display["rounded_total"]:
+			continue
+		case name != "net_total" && name != "grand_total" && v == types.FormatINR(0):
+			continue
+		}
+		out = append(out, components.Pair{Label: f.Label, Value: v, Num: true})
+	}
+	return out
+}
+
 // orderCheck adds to the check page (UX §5.8): the copy notes, the place
-// reason and the reverse-charge note; OrderWarnings; the Owner card (to the
-// owner only) and the Comments card.
+// reason and the reverse-charge note; the rejection a revised draft came
+// from; OrderWarnings and what Submit will refuse as unresolved; the Owner
+// card (to the owner only), the Comments card and the totals in their own
+// list.
 func (m *module) orderCheck(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 	ctx := c.Req.Context()
 	id := c.View.Info.ID
-	var x docscreen.CheckExtra
+	x := docscreen.CheckExtra{Totals: orderTotals(c), Covers: orderTotalFields}
 	if n := c.View.Inputs["copy_notes"]; n != "" {
 		x.Notes = strings.Split(n, "\n")
 	}
@@ -290,6 +429,18 @@ func (m *module) orderCheck(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 	if x.Warnings, err = m.d.Service.OrderWarnings(ctx, c.Principal, id); err != nil {
 		return docscreen.CheckExtra{}, err
 	}
+	reason, err := rejection(c)
+	if err != nil {
+		return docscreen.CheckExtra{}, err
+	}
+	if reason != "" {
+		x.Warnings = slices.Insert(x.Warnings, 0, reason)
+	}
+	missing, err := missingTexts(c, purchase.MissingOrder)
+	if err != nil {
+		return docscreen.CheckExtra{}, err
+	}
+	x.Warnings = append(x.Warnings, missing...)
 	if owner := ownerCard(c, id); owner != nil {
 		x.Cards = append(x.Cards, owner)
 	}
@@ -301,10 +452,11 @@ func (m *module) orderCheck(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 	return x, nil
 }
 
-// orderLineCard is an Order line's card: `40 BAG × ₹350.00` and `Received
-// 25 of 40 BAG` with the unit (CD-258 G8), the tax, and the last-price note
-// (CD-258 Q6). An Order line has no note field of its own, so the note is
-// the last price alone. A field the screen's Hide hides is left out.
+// orderLineCard is an Order line's card: `40 Bag × ₹350.00 less 10%` and
+// `Received 25 of 40 Bag` with the unit (CD-258 G8) and any discount, the tax,
+// and the last-price note (CD-258 Q6). An Order line has no note field of its
+// own, so the note is the last price alone. A field the screen's Hide hides
+// is left out.
 func (m *module) orderLineCard(c docscreen.Ctx, l docscreen.LineView) components.LineCard {
 	l = shownLine(c, l)
 	card := l.Card
@@ -313,6 +465,9 @@ func (m *module) orderLineCard(c docscreen.Ctx, l docscreen.LineView) components
 		parts = append(parts, strings.TrimSpace(q+" "+unitOf(l)))
 	}
 	if r := l.Display["price"]; r != "" {
+		if d := l.Display["discount_pct"]; d != "" && d != noDiscount {
+			r += " less " + d
+		}
 		parts = append(parts, r)
 	}
 	card.QtyRate, card.Tax, card.Note = strings.Join(parts, " × "), taxOf(l), m.lastPriceNote(c, l)

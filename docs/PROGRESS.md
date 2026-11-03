@@ -372,6 +372,7 @@ Times are local (IST). Findings are blocker / major / minor from the task review
 | UI v2 F3 | ConflictBanner only for stale versions; refused line, remove and move saves keep typed values; banner focus (CD-381, CD-384) | Std | impl, rev opus (head) | — | 3 Nov | 4 | 2 majors then 1 (typed line lost, fake hid it), EUX-026 amended | c062bda5; ci 0, e2e 0 |
 | UI v2 E7b | Receipt card, upload status, attached tile, Tiles width and order (CD-379, CD-383, CD-385) | Std | impl, rev, ui-rev opus (AD-11) | — | 3 Nov | 3 | false "attached" on a redirect; first MERGE-READY had no review | 094bd568; ci 0, e2e 0 |
 | UI v2 C2b | Shorter step labels in every wizard, stepper fixes, gate with no exceptions (CD-364, CD-386) | Std | impl, rev opus (head) | — | 3 Nov | 4 | mid-word break, connector through label, tap area, skip too broad | 02bff4f5; ci 0, e2e 0 |
+| UI fix R1 | Failure states: network banner matrix, Reload until a 2xx on every lost save, sign-out refusal, master refusal banner (CD-387 (5), CD-381, CD-346) | High | impl, rev opus (head) | — | 3 Nov | 5 | Reload cleared by another path, status-0 retry, offline read at send, dialog host, focus | 522f79c8; ci 0, e2e 0 bar LineGridRapidEdits (load, passes alone 3/3) |
 | MOD-PO (AD-13), MOD-EXP (AD-11) complete | idle until the module UI review fix lists | — | AD-13, AD-11 | — | 2 Nov | — | — | 402041fa |
 
 ## RESUME HERE (3 Nov 2026)

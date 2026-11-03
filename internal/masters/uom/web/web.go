@@ -21,7 +21,7 @@ func Routes(svc *uom.Service, env mstkit.Env) func(chi.Router) {
 		DocType: uom.DocType,
 		Base:    "/m/uom",
 		Copy: mstweb.Copy{
-			Plural: "UoMs", Noun: "UoMs", One: "UoM", New: "New UoM", Search: "Search UoMs", Empty: "No UoMs yet.",
+			Plural: "UoMs", Noun: "UoMs", One: "UoM", New: "New UoM", Search: "Search UoMs", Empty: "No UoMs yet.", Icon: "ruler",
 			Saved: "UoM saved.", Disabled: "UoM disabled.", Enabled: "UoM enabled.", Deleted: "UoM deleted.",
 		},
 		Svc:     svc,
@@ -30,6 +30,9 @@ func Routes(svc *uom.Service, env mstkit.Env) func(chi.Router) {
 		Values:  values,
 		Head:    head,
 		Ref:     ref,
+		Cards: []mstweb.FormCard{
+			{Title: "Unit details", Icon: "ruler", Description: "The units items are counted in.", Fields: []string{"code", "name", "uqc", "whole_number"}},
+		},
 	}.Routes()
 }
 

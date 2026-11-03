@@ -46,6 +46,6 @@ templ Switch(p FieldProps, invert bool, v SwitchValues) {
 			<input type="hidden" name={ p.Name } value={ v.Yes }/>
 		}
 		@choiceTip(p)
-		@fieldMsg(p.ID, p.Error, p.Echo)
+		@fieldMsg(p.ID, p.Error, p.Echo, false)
 	</div>
 }

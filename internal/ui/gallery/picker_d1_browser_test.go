@@ -94,10 +94,10 @@ func TestPickerD1_KeyboardAcrossSections(t *testing.T) {
 			}
 			// İ lower-cases to two letters, so "İstanbul" stays unmarked
 			// rather than marking the wrong letters.
-			if got := value[string](t, ctx, d1Marks); got != "ST,St,ST,St,st" {
-				t.Errorf("st: marks = %q, want ST,St (recent code, name), none on İstanbul, ST,St (row 2), st (row 3's name)", got)
+			if got := value[string](t, ctx, d1Marks); got != "St,ST,St,ST,st" {
+				t.Errorf("st: marks = %q, want St,ST (recent name, code), none on İstanbul, St,ST (row 2), st (row 3's name)", got)
 			}
-			if got := value[string](t, ctx, `document.querySelector("#f-vendor-list [role=option]").textContent.replace(/\s+/g, " ").trim()`); got != "ST-001 Steel rod 12 mm Raw material · kg" {
+			if got := value[string](t, ctx, `document.querySelector("#f-vendor-list [role=option] .picker__text").textContent.replace(/\s+/g, " ").trim()`); got != "Steel rod 12 mmST-001 Raw material · kg" {
 				t.Errorf("st: marking changed the recent row's text to %q", got)
 			}
 

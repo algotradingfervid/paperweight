@@ -3,6 +3,7 @@ package app_test
 import (
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
@@ -24,8 +25,8 @@ func TestApp_QuickCreateNeedsCSRF(t *testing.T) {
 	htmx := map[string]string{"HX-Request": "true"}
 	noToken := *admin
 	noToken.csrf = ""
-	if r := noToken.post("/m/party/quick", form); r.status != http.StatusForbidden || r.alert() != auth.ErrCSRF.Msg {
-		t.Errorf("POST without CSRF = %d %q, want 403 %q", r.status, r.alert(), auth.ErrCSRF.Msg)
+	if r := noToken.post("/m/party/quick", form); r.status != http.StatusForbidden || !strings.Contains(r.pageText(), auth.ErrCSRFSignIn.Msg) {
+		t.Errorf("POST without CSRF = %d %q, want 403 %q", r.status, r.pageText(), auth.ErrCSRFSignIn.Msg)
 	}
 	if n := w.count(`SELECT count(*) FROM party WHERE code = 'SAIKRUPA'`); n != 0 {
 		t.Errorf("parties saved without a token = %d, want 0", n)

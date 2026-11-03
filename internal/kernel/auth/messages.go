@@ -39,6 +39,8 @@ var (
 	ErrSessionExpired       = &Problem{401, "Your session has expired. Sign in again."} // CD-17
 	ErrSignInRequired       = &Problem{401, "Sign in to continue."}
 	ErrCSRF                 = &Problem{403, "Your form has expired. Reload the page and try again."}
+	ErrCSRFSignIn           = &Problem{403, "Your form has expired. Sign in again."} // a plain POST, shown on the sign-in page
+	ErrSignOutRefused       = &Problem{403, "Couldn't sign you out. Try again."}     // POST /signout with a stale token: the session stays
 	ErrNotAdminPassword     = &Problem{403, "You don't have permission to change other users' passwords."}
 	ErrResetNotAdmin        = &Problem{403, "This command only resets an administrator's password. Sign in as an administrator to reset other users' passwords."}
 	ErrAdminOnlyField       = &Problem{403, "Only an administrator can change this."}
@@ -49,6 +51,7 @@ var (
 	ErrBadForm              = &Problem{400, "The form could not be read. Reload the page and try again."}
 	ErrSetupDone            = &Problem{409, "Setup is already complete. Sign in instead."}
 	ErrUsersExist           = &Problem{409, "Users already exist. Sign in as an administrator to add more users."}
+	ErrNameRequired         = &Problem{400, "Name is required."}
 	ErrEmailInvalid         = &Problem{400, "Enter a valid email address, such as name@company.in."}
 	ErrCannotDisableSelf    = &Problem{400, "You can't disable your own account. Ask another administrator."}
 	ErrCannotDemoteSelf     = &Problem{400, "You can't remove your own Administrator role. Ask another administrator."}

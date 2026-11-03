@@ -46,12 +46,19 @@ type rowKind struct {
 	saved, disabledMsg, enabledMsg, deleted string
 	fields                                  []doctype.Field
 	defaults                                map[string]string
-	get                                     func(ctx context.Context, tx *db.Tx, id int64) (stored, error)
-	posted                                  func(r *http.Request) map[string]string
-	create                                  func(ctx context.Context, p auth.Principal, partyID int64, v map[string]string) (mstkit.Saved, error)
-	update                                  func(ctx context.Context, p auth.Principal, id int64, version int, v map[string]string) (mstkit.Saved, error)
-	setDisabled                             func(ctx context.Context, p auth.Principal, id int64, version int, off bool) error
-	remove                                  func(ctx context.Context, p auth.Principal, id int64, version int) error
+	// first is optional and is the new page's values for the party's first row.
+	first map[string]string
+	// none is what first asks: whether the party has no enabled row yet.
+	none func(ctx context.Context, tx *db.Tx, partyID int64) (bool, error)
+	// cards is the form's sections; extraCard holds extra.
+	cards       []mstweb.FormCard
+	extraCard   mstweb.FormCard
+	get         func(ctx context.Context, tx *db.Tx, id int64) (stored, error)
+	posted      func(r *http.Request) map[string]string
+	create      func(ctx context.Context, p auth.Principal, partyID int64, v map[string]string) (mstkit.Saved, error)
+	update      func(ctx context.Context, p auth.Principal, id int64, version int, v map[string]string) (mstkit.Saved, error)
+	setDisabled func(ctx context.Context, p auth.Principal, id int64, version int, off bool) error
+	remove      func(ctx context.Context, p auth.Principal, id int64, version int) error
 	// extra is the form's controls besides fields.
 	extra func(pages mstweb.Pages, f mstweb.Form) []templ.Component
 }
@@ -60,6 +67,12 @@ type rowKind struct {
 // employee field.
 func (k rowKind) ref(id int64) *auth.RecordRef {
 	return &auth.RecordRef{DocType: k.kind.DocType, ID: id}
+}
+
+// checkCards panics unless k's cards hold each of its fields once (mstweb's
+// card rules), checked when the routes are built.
+func (k rowKind) checkCards() {
+	mstweb.CheckCards(k.kind.DocType, k.cards, k.names())
 }
 
 func (k rowKind) names() []string {
@@ -75,7 +88,16 @@ func (s records) addressKind() rowKind {
 	return rowKind{
 		kind: address.Kind, path: stepAddresses, newTitle: "New address",
 		saved: "Address saved.", disabledMsg: "Address disabled.", enabledMsg: "Address enabled.", deleted: "Address deleted.",
-		fields: addressFields(), defaults: addressDefaults,
+		fields: addressFields(), defaults: addressDefaults, first: firstAddressDefaults,
+		none: func(ctx context.Context, tx *db.Tx, partyID int64) (bool, error) {
+			rows, err := a.ForParty(ctx, tx, partyID, false) // enabled ones: a disabled address bills nothing
+			return len(rows) == 0, err
+		},
+		cards: []mstweb.FormCard{
+			{Title: "Where it is", Icon: "map-pin", Description: "As it should print on orders.", Fields: []string{"title", "line1", "line2", "city", "pincode"}},
+			{Title: "State and GST", Icon: "percent", Description: "Decides whether orders show CGST and SGST or IGST.", Fields: []string{"state_code", "country", "gstin"}},
+			{Title: "What it's for", Icon: "truck", Description: "Whether orders bill to it, deliver to it, or both.", Fields: []string{"is_billing", "is_shipping", "is_primary_billing", "is_primary_shipping"}},
+		},
 		get: func(ctx context.Context, tx *db.Tx, id int64) (stored, error) {
 			x, err := a.Get(ctx, tx, id)
 			return stored{PartyID: x.PartyID, Version: x.Version, Title: cmp.Or(x.Title, x.City), Values: addressValues(x)}, err
@@ -106,6 +128,10 @@ func (s records) contactKind() rowKind {
 		kind: address.ContactKind, path: stepContacts, newTitle: "New contact",
 		saved: "Contact saved.", disabledMsg: "Contact disabled.", enabledMsg: "Contact enabled.", deleted: "Contact deleted.",
 		fields: fields,
+		cards: []mstweb.FormCard{
+			{Title: "Who they are", Icon: "contact", Description: "A person you deal with at this party.", Fields: []string{"first_name", "middle_name", "last_name", "is_primary"}},
+		},
+		extraCard: mstweb.FormCard{Title: "Email and phone", Icon: "send", Description: "How to reach them. Leave the spare row blank."},
 		get: func(ctx context.Context, tx *db.Tx, id int64) (stored, error) {
 			x, err := a.GetContact(ctx, tx, id)
 			return stored{PartyID: x.PartyID, Version: x.Version, Title: address.FullName(x), Values: contactValues(x)}, err
@@ -248,6 +274,7 @@ type records struct {
 func (s records) routes(pages mstweb.Pages) func(chi.Router) {
 	return func(r chi.Router) {
 		for _, k := range []rowKind{s.addressKind(), s.contactKind()} {
+			k.checkCards()
 			base := basePath + partyPattern + "/" + k.path
 			row := base + rowPattern
 			r.Get(base+"/new", pages.Handle(s.newPage(pages, k)))
@@ -335,11 +362,13 @@ func (s records) show(w http.ResponseWriter, r *http.Request, pages mstweb.Pages
 		sub.Action = k.rowPath(pt.ID, id)
 	}
 	for _, fd := range k.fields {
-		sub.Inputs = append(sub.Inputs, pages.Input(fd, fd.Name, f))
 		sub.Required = sub.Required || fd.Required
 	}
+	sub.Inputs = mstweb.Cards(k.cards, func(name string) templ.Component {
+		return pages.Input(k.fields[slices.IndexFunc(k.fields, func(fd doctype.Field) bool { return fd.Name == name })], name, f)
+	})
 	if k.extra != nil {
-		sub.Inputs = append(sub.Inputs, k.extra(pages, f)...)
+		sub.Inputs = append(sub.Inputs, mstweb.Card(k.extraCard, k.extra(pages, f)))
 	}
 	mstweb.RenderSubForm(w, r, status, sub)
 	return nil
@@ -353,6 +382,19 @@ func (s records) newPage(pages mstweb.Pages, k rowKind) mstweb.HandlerFunc {
 		}
 		values := map[string]string{}
 		maps.Copy(values, k.defaults)
+		if k.none != nil {
+			ctx := r.Context()
+			err := s.env.DB.Read(ctx, func(tx *db.Tx) error {
+				none, err := k.none(ctx, tx, pt.ID)
+				if none {
+					maps.Copy(values, k.first)
+				}
+				return err
+			})
+			if err != nil {
+				return err
+			}
+		}
 		return s.show(w, r, pages, http.StatusOK, k, pt, 0, k.newTitle, mstweb.Form{Values: values}, false)
 	}
 }

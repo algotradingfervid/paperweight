@@ -24,7 +24,7 @@ var galleryPages = []string{
 	"buttons", "fields", "badges-banners", "dialogs", "datalist", "lines",
 	"picker", "upload", "wizard-1", "wizard-2", "wizard-3", "wizard-4",
 	"actionbar", "warnings", "filterbar", "pagination", "bare", "rows", "attachments", "cards",
-	"problem", "stepper", "statcard", "quickaction", "module-home", "docheader",
+	"problem", "stepper", "statcard", "quickaction", "module-home", "docheader", "docdisplay",
 }
 
 // pageChecks pin the worst-case content each page must carry (Review
@@ -47,6 +47,11 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		}
 		if d.Find(`.success-block[role="status"] a.btn`).Length() != 2 || !strings.Contains(d.Find(".success-block__text").Text(), uitest.LongName100) || d.Find(".lifecycle__date").Length() != 4 || d.Find(".lifecycle__note").Text() != "Part" {
 			t.Error("docheader: want the success block with LongName100 and two follow-ups, four step dates and the note Part")
+		}
+	},
+	"docdisplay": func(t *testing.T, d *goquery.Document) {
+		if d.Find("ol.lifecycle").Length() != len(docDisplaySteps) || d.Find(".doc-head__amount").Length() != len(docDisplayAmounts) || d.Find(".summary-row").Length() < 8 {
+			t.Error("docdisplay: want every timeline, every amount and the kv rows")
 		}
 	},
 	"quickaction": func(t *testing.T, d *goquery.Document) {

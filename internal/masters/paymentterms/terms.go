@@ -35,11 +35,11 @@ func init() {
 		LinesTable:  rowKind.Table,
 		Importable:  false,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. NET30", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1, Placeholder: "e.g. 30 days after delivery"},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, ListPriority: 3},
-			{Name: "portion", Label: "Portion", Column: "portion", Type: doctype.Percent, Required: true, OnLine: true},
-			{Name: "days", Label: "Days", Column: "days", Type: doctype.Int, Required: true, OnLine: true},
+			{Name: "portion", Label: "Portion", Column: "portion", Type: doctype.Percent, Required: true, OnLine: true, Placeholder: "e.g. 100"},
+			{Name: "days", Label: "Days", Column: "days", Type: doctype.Int, Required: true, OnLine: true, Placeholder: "e.g. 30"},
 		},
 		SearchFields: []string{"code", "name"},
 		DefaultSort:  []doctype.SortKey{{Field: "name"}},
@@ -70,7 +70,7 @@ func Validate(in Input) (Input, error) {
 			fields = append(fields, ve.Fields...)
 		}
 	}
-	code, err := mstkit.NormalizeCode(in.Code)
+	code, err := mstkit.NormalizeCodeLike(in.Code, "NET30")
 	add(err)
 	name, err := mstkit.NormalizeName(in.Name)
 	add(err)
