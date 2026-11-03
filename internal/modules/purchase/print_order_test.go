@@ -155,9 +155,9 @@ func TestPO_PrintGolden(t *testing.T) {
 		`<p class="ref">Earlier PO no.: VIP/PO/1187</p>`,
 		`<p class="party-name">Shree Steel Traders</p>`,
 		`<p class="gstin">GSTIN: 27AABCS1429B1ZU</p>`,
-		`<td class="hsn">7216</td>`, `<td class="hsn">7217</td>`,
-		`<td class="rate">₹62.50</td>`, `<td class="amount">₹75,000.00</td>`,
-		`<td class="rate">₹96.00</td>`, `<td class="amount">₹4,800.00</td>`,
+		`<td class="hsn" data-label="HSN">7216</td>`, `<td class="hsn" data-label="HSN">7217</td>`,
+		`<td class="rate" data-label="Rate">₹62.50</td>`, `<td class="amount" data-label="Amount">₹75,000.00</td>`,
+		`<td class="rate" data-label="Rate">₹96.00</td>`, `<td class="amount" data-label="Amount">₹4,800.00</td>`,
 		"<p>Taxable Value ₹79,800.00</p>",
 		"<p>CGST 9% ₹7,182.00</p>",
 		"<p>SGST 9% ₹7,182.00</p>",
@@ -188,7 +188,7 @@ func TestPO_PrintGolden(t *testing.T) {
 		l["discount_pct"] = "12.5"
 		po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(l))
 		html := p8Print(t, env, env.Priya, po.ID)
-		p8Contains(t, "discounted line", html, `<td class="rate">₹87.50</td>`, `<td class="amount">₹875.00</td>`,
+		p8Contains(t, "discounted line", html, `<td class="rate" data-label="Rate">₹87.50</td>`, `<td class="amount" data-label="Amount">₹875.00</td>`,
 			"<p>Taxable Value ₹875.00</p>")
 		p8Lacks(t, "discounted line", html, "₹100.00", "12.5")
 	})

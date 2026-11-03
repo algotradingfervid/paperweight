@@ -127,8 +127,9 @@ func (l lineState) input(name, hint string) templ.Component {
 // lineTop is the receipt card (UI v2 §5.9): FileUpload posting to the
 // receipt route at the page's version (the posted one on a redraw, so a
 // stale page stays stale) and with the line's number, disabling Save line
-// while it uploads (UX-E5), and #receipt-files with the line's receipt, or
-// the posted one after a 422 or 409.
+// while it uploads (UX-E5), under #receipt-files with the line's receipt, or
+// the posted one after a 422 or 409, as one compact row whose Change unfolds
+// the upload (UI v2 §5.9's tile above the buttons; RR1a).
 func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Component, error) {
 	l := newLineState(c, no, s)
 	version := c.View.Version
@@ -160,14 +161,15 @@ func lineTop(d Deps, c docscreen.Ctx, no int, s docscreen.StepState) (templ.Comp
 		}
 	}
 	return card(components.CardProps{Title: msgReceiptLabel, Icon: "camera", Description: msgReceiptHint},
-		[]templ.Component{components.FileUpload(props), receiptFiles(items, "")}), nil
+		[]templ.Component{receiptFiles(items, ""), components.FileUpload(props)}), nil
 }
 
 // receiptAttachment is m as the receipt area shows it: S1's attachmentOf
-// as the attached-file tile (UI v2 §5.9, over CD-326 (6) for this area).
+// as the attached-file tile (UI v2 §5.9, over CD-326 (6) for this area),
+// compact with Change (RR1a).
 func receiptAttachment(m files.Meta) components.Attachment {
 	a := attachmentOf(m)
-	a.Attached, a.UploadedAt = msgReceiptOn, types.FormatIST(m.UploadedAt)
+	a.Attached, a.UploadedAt, a.Change = msgReceiptOn, types.FormatIST(m.UploadedAt), true
 	return a
 }
 

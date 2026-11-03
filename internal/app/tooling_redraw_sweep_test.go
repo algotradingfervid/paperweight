@@ -921,8 +921,8 @@ func (d *rsDoc) grid(hide bool) bool {
 
 // lineTarget is where step i's error on field of line links in page: the
 // field's input when the step's Body draws that id (CD-286 R1), read from the
-// rendered page; the step heading when a Body draws no such id (its component
-// replaces the line editor); else linesTarget.
+// rendered page; the step heading when a drawn Body has no such id (its
+// component replaces the line editor); else linesTarget.
 func (d *rsDoc) lineTarget(i, line, lines int, hide bool, page *goquery.Document, field string) string {
 	id := docscreen.LineFieldID(line, field)
 	if d.mod.Steps[d.steps[i].Slug].Body != nil {
@@ -930,18 +930,27 @@ func (d *rsDoc) lineTarget(i, line, lines int, hide bool, page *goquery.Document
 			d.tally.add(&d.tally.body, d.dt.Name)
 			return "#" + id
 		}
-		return "#step-title"
+		// A Body that returned nil leaves docscreen's items, which draw the
+		// line cards (only then: a drawn Body replaces them; RR1a).
+		if page.Find(`#wizard .linelist [id="line-`+strconv.Itoa(line)+`"]`).Length() == 0 {
+			return "#step-title"
+		}
 	}
 	d.tally.add(&d.tally.generic, d.dt.Name)
-	return d.linesTarget(lines, hide)
+	return d.linesTarget(line, lines, hide)
 }
 
-// linesTarget is where a line error links on the generic items step, with
+// linesTarget is where line's error links on the generic items step, with
 // the probe hiding or not: the line editor when the grid shows lines, else
-// the step heading.
-func (d *rsDoc) linesTarget(lines int, hide bool) string {
-	if d.grid(hide) && lines > 0 {
+// the line's card (R7b, RR1a), else the step heading. Lines past the first
+// 20 (CD-395) never occur here, because the sweep's records hold 2 lines;
+// TestRR1a_RefusalLinksLineCards covers them.
+func (d *rsDoc) linesTarget(line, lines int, hide bool) string {
+	switch {
+	case d.grid(hide) && lines > 0:
 		return "#line-editor"
+	case line > 0 && line <= lines && line <= 20:
+		return "#line-" + strconv.Itoa(line)
 	}
 	return "#step-title"
 }
@@ -2777,7 +2786,7 @@ func (d *rsDoc) wantErrors(errs []doctype.FieldError, i, lines int, refusal bool
 		case e.Line > 0:
 			out = append(out, d.lineTarget(i, e.Line, lines, true, page, e.Field)+"|"+e.Message)
 		case e.Field == "lines":
-			out = append(out, d.linesTarget(lines, true)+"|"+e.Message)
+			out = append(out, d.linesTarget(0, lines, true)+"|"+e.Message)
 		default:
 			out = append(out, "#"+components.FieldID(e.Field)+"|"+e.Message)
 		}

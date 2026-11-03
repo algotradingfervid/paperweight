@@ -34,17 +34,17 @@ templ GRNDocument(d GRNDoc) {
 		<tbody>
 			for _, l := range d.Lines {
 				<tr>
-					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="sr" data-label="Sr">{ strconv.Itoa(l.Sr) }</td>
 					if l.RejectReason != "" {
-						<td class="item">{ l.Item }<div class="reject-reason">{ "Reason for rejecting: " + l.RejectReason }</div></td>
+						<td class="item" data-label="Item">{ l.Item }<div class="reject-reason">{ "Reason for rejecting: " + l.RejectReason }</div></td>
 					} else {
-						<td class="item">{ l.Item }</td>
+						<td class="item" data-label="Item">{ l.Item }</td>
 					}
-					<td class="hsn">{ l.HSN }</td>
-					<td class="uom">{ l.UoM }</td>
-					<td class="qty">{ types.FormatQty(l.Received) }</td>
-					<td class="qty">{ types.FormatQty(l.Accepted) }</td>
-					<td class="qty">{ types.FormatQty(l.Rejected) }</td>
+					<td class="hsn" data-label="HSN">{ l.HSN }</td>
+					<td class="uom" data-label="UoM">{ l.UoM }</td>
+					<td class="qty" data-label="Received">{ types.FormatQty(l.Received) }</td>
+					<td class="qty" data-label="Accepted">{ types.FormatQty(l.Accepted) }</td>
+					<td class="qty" data-label="Rejected">{ types.FormatQty(l.Rejected) }</td>
 				</tr>
 			}
 			if len(d.Lines) == 0 {

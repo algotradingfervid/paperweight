@@ -46,3 +46,16 @@ img { image-orientation: from-image; }
      focusable and names it). */
   table { display: block; max-inline-size: 100%; overflow-x: auto; overflow-wrap: normal; }
 }
+
+/* Below 48rem each line is a block of its cells, each after its column's
+   name (data-label, written beside each cell by the templates), so Amount
+   is on screen and nothing scrolls (RR1a). Paper keeps the table. */
+@media screen and (width < 48rem) {
+  table.lines, table.lines tbody, table.lines tr { display: block; overflow-wrap: anywhere; }
+  table.lines thead { display: none; }
+  table.lines tr { padding-block: 2mm; border-block-end: 0.2mm solid #ccc; }
+  table.lines td { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 3mm; padding: 0.5mm 0; text-align: end; }
+  table.lines td > * { grid-column: 2; }
+  table.lines td.item { text-align: start; }
+  table.lines td[data-label]::before { content: attr(data-label); grid-row: 1 / span 9; font-weight: 600; text-align: start; }
+}

@@ -64,7 +64,7 @@ func TestServer_ServesReferencePO(t *testing.T) {
 		t.Errorf("draft print lacks Draft 42:\n%s", body)
 	}
 	// One <td class="sr"> per line row: the lines template's rows carry no class.
-	if n := strings.Count(body, `<td class="sr">`); n != 60 {
+	if n := strings.Count(body, `<td class="sr" data-label="Sr">`); n != 60 {
 		t.Errorf("draft print has %d line rows, want 60", n)
 	}
 	if n := strings.Count(body, `<div class="desc">`); n != 20 {

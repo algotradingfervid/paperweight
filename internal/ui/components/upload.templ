@@ -9,6 +9,7 @@ type Attachment struct {
 	Name, Size, UploadedBy, UploadedAt, URL, RemoveURL, Kind string
 	Compact                                                  bool   // a ~4rem thumbnail and "name · size" on one line, no uploader (CD-326 (6))
 	Attached                                                 string // when set, the 64 × 80 tile with these words beside a check; over Compact (UI v2 §5.9)
+	Change                                                   bool   // on an Attached tile: one compact row ending in a Change disclosure; while it is closed the card around it shows no FileUpload controls and keeps its head for screen readers (RR1a)
 }
 
 // UploadProps describes a FileUpload. Action receives one "file" part per

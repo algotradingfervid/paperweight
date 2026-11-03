@@ -115,18 +115,18 @@ templ Lines(lines []TradeLine) {
 		<tbody>
 			for _, l := range lines {
 				<tr>
-					<td class="sr">{ strconv.Itoa(l.Sr) }</td>
-					<td class="item">
+					<td class="sr" data-label="Sr">{ strconv.Itoa(l.Sr) }</td>
+					<td class="item" data-label="Item">
 						<div class="item-name">{ l.Item }</div>
 						if l.Description != "" {
 							<div class="desc">{ l.Description }</div>
 						}
 					</td>
-					<td class="hsn">{ l.HSN }</td>
-					<td class="qty">{ types.FormatQty(l.Qty) }</td>
-					<td class="uom">{ l.UoM }</td>
-					<td class="rate">{ "₹" + types.FormatRate(l.Rate) }</td>
-					<td class="amount">{ types.FormatINR(l.Amount) }</td>
+					<td class="hsn" data-label="HSN">{ l.HSN }</td>
+					<td class="qty" data-label="Qty">{ types.FormatQty(l.Qty) }</td>
+					<td class="uom" data-label="UoM">{ l.UoM }</td>
+					<td class="rate" data-label="Rate">{ "₹" + types.FormatRate(l.Rate) }</td>
+					<td class="amount" data-label="Amount">{ types.FormatINR(l.Amount) }</td>
 				</tr>
 			}
 			if len(lines) == 0 {
