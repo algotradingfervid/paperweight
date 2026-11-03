@@ -114,7 +114,7 @@ func TestModule_CloseRight(t *testing.T) {
 				id = m04ApprovedHooked(t, e)
 			}
 			base := m04URL(c.dt, id)
-			closeLink := `a[href="` + base + `/close"]`
+			closeLink := `.more-actions a[href="` + base + `/close"]`
 
 			// The user holding CloseRight sees Close and may open and use it.
 			e.who = c.closer

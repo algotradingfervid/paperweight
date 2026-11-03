@@ -124,7 +124,7 @@ func TestPO_VendorRoleRequired(t *testing.T) {
 	if _, err := party.New(p2Kit(env)).Create(t.Context(), env.Admin, party.Input{Code: "ACME", Name: "Acme Builders", IsCustomer: true}); err != nil {
 		t.Fatalf("create customer ACME: %v", err)
 	}
-	want := doctype.FieldError{Field: "vendor_id", Message: "Acme Builders is not marked as a vendor. Tick Vendor on the party first."}
+	want := doctype.FieldError{Field: "vendor_id", Message: "Acme Builders is not marked as a vendor. Set the party to Vendor or Both first."}
 	acme := map[string]string{"vendor_id": masterID(t, env.DB, "party", "ACME")}
 
 	before := p2CountAll(t, env)

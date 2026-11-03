@@ -47,7 +47,7 @@ const (
 	msgNoManager  = "Reporting manager not found. Pick one from the list."                                // CD-170
 	msgCodeForm   = "Code can use letters, digits and . _ / - only, must start with a letter or digit, and be at most 20 characters."
 	msgRelieving  = "Relieving date can't be before date of joining."
-	msgCodeReq    = "Code is required. Enter a short code such as SHREE."                                             // MST-001
+	msgCodeReq    = "Code is required. Enter a short code such as EMP-007."                                           // MST-001
 	msgLinked     = "User priya@vardhan.test is already linked to employee EMP-004."                                  // MST-111
 	msgForbidden  = "You don't have permission to create Employee. Ask your administrator for a role that allows it." // AUTH
 	staleEmp007   = "Someone else changed Employee EMP-007 after you opened it. Reload it and make your changes again."

@@ -277,34 +277,33 @@ func TestNumberingScreen_List(t *testing.T) {
 		r := e.get("anil", "/settings/numbering")
 		wantStatus(t, "admin GET /settings/numbering", r, http.StatusOK)
 
-		rows := []struct{ dt, text string }{
-			{testEXP, "Expense Claim · EX/{FY}/{#####} · Next: EX/26-27/00001"},
-			{testGRN, "GRN · GR/{FY}/{#####} · Next: GR/26-27/00001"},
-			{testPO, "Purchase Order · PO/{FY}/{#####} · Next: PO/26-27/00008"},
+		rows := []struct{ dt, title, series, next string }{
+			{testEXP, "Expense Claim", "EX / financial year / 5-digit number", "EX/26-27/00001"},
+			{testGRN, "GRN", "GR / financial year / 5-digit number", "GR/26-27/00001"},
+			{testPO, "Purchase Order", "PO / financial year / 5-digit number", "PO/26-27/00008"},
 		}
 		txt := testPageText(r)
 		prev := -1
 		for _, row := range rows {
-			i := strings.Index(txt, row.text)
+			i := strings.Index(txt, row.title)
 			if i < 0 {
-				t.Errorf("list text missing %q; page text %q", row.text, txt)
+				t.Errorf("list text missing %q; page text %q", row.title, txt)
 				continue
 			}
 			if i < prev {
-				t.Errorf("row %q out of label order", row.text)
+				t.Errorf("row %q out of label order", row.title)
 			}
 			prev = i
 			a := r.doc.Find(`a[href="` + testEditPath(row.dt) + `"]`)
-			if a.Length() == 0 {
-				t.Errorf("no link to %s for row %q", testEditPath(row.dt), row.text)
+			if a.Length() != 1 {
+				t.Errorf("%d links to %s for row %q, want 1", a.Length(), testEditPath(row.dt), row.title)
 				continue
 			}
-			item := a.First().Closest("li")
-			if item.Length() == 0 {
-				item = a.First()
-			}
-			if got := testNorm(item.Text()); !strings.Contains(got, row.text) {
-				t.Errorf("row linking to %s has text %q, want it to contain %q", testEditPath(row.dt), got, row.text)
+			got := testNorm(a.Text())
+			for _, want := range []string{row.title, row.series, row.next} {
+				if !strings.Contains(got, want) {
+					t.Errorf("row linking to %s has text %q, want it to contain %q", testEditPath(row.dt), got, want)
+				}
 			}
 		}
 		if strings.Contains(r.raw, "<table") {
@@ -318,7 +317,7 @@ func TestNumberingScreen_List(t *testing.T) {
 		e := newScreenEnv(t, time.Date(2027, time.March, 31, 20, 0, 0, 0, time.UTC))
 		r := e.get("anil", "/settings/numbering")
 		wantStatus(t, "admin GET /settings/numbering at 2027-03-31T20:00Z", r, http.StatusOK)
-		const want = "Purchase Order · PO/{FY}/{#####} · Next: PO/27-28/00001"
+		const want = "PO/27-28/00001"
 		if txt := testPageText(r); !strings.Contains(txt, want) {
 			t.Errorf("list text missing %q (IST date); page text %q", want, txt)
 		}

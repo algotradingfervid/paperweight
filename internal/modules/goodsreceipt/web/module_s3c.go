@@ -51,7 +51,9 @@ func (m *module) receiptLines(c docscreen.Ctx) (map[int64]goodsreceipt.ReceiptLi
 }
 
 // lineCard is line l's card: numbered by its PO line, titled by the item,
-// "Received {qty} · Accepted {qty}" in the line's snapshot unit, the accepted
+// "Received {qty}" and "Accepted {qty}" in the line's snapshot unit, the first
+// in QtyRate's slot and the second in Tax's, two parts that each stay whole
+// and start at the card's edge when they wrap (GRN review M11), the accepted
 // value as its amount, and "Rejected {qty}: {reason}" when anything was
 // rejected. Each part is left out when Hide, asked with the line's Ctx c,
 // hides its field (CD-319); the accepted value needs both accepted and the
@@ -95,7 +97,8 @@ func (m *module) lineCard(c docscreen.Ctx, l docscreen.LineView) components.Line
 			card.Amount = types.FormatINR(v)
 		}
 	}
-	card.QtyRate = strings.Join(parts, " · ")
+	parts = append(parts, "", "") // a part Hide hides leaves its slot blank, the rest first
+	card.QtyRate, card.Tax = parts[0], parts[1]
 	if q, ok := qty("rejected_qty"); ok && q > 0 {
 		card.Note = cardRejected + text(q)
 		if reason := l.Inputs["reject_reason"]; reason != "" && shown(c, "reject_reason") {

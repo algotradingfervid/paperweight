@@ -60,6 +60,53 @@ func (a *Auth) UserForEdit(ctx context.Context, actor Principal, id UserID) (Use
 	return UserInfo{ID: id, Email: u.Email, Name: u.Name, Enabled: u.Enabled != 0}, u.Version, out, nil
 }
 
+// UserAdminView is what user id's page shows an Administrator. Roles is every
+// role and Held the ones the user has; Locked says the account is locked out.
+type UserAdminView struct {
+	User        UserInfo
+	Version     int64
+	Roles, Held []string
+	Locked      bool
+}
+
+// UserAdmin returns user id for its administration page, read together, so the
+// version the page posts (CD-94) is that of the roles it shows. Only an
+// Administrator may read it; an unknown id is ErrNotFound.
+func (a *Auth) UserAdmin(ctx context.Context, actor Principal, id UserID) (UserAdminView, error) {
+	if !isAdmin(actor) {
+		return UserAdminView{}, ErrAdminOnlyUsers
+	}
+	var v UserAdminView
+	err := a.db.Read(ctx, func(tx *db.Tx) error {
+		q := dbq.New(tx.SQL())
+		u, err := getUser(ctx, q, id)
+		if err != nil {
+			return err
+		}
+		v.User = UserInfo{ID: id, Email: u.Email, Name: u.Name, Enabled: u.Enabled != 0}
+		v.Version = u.Version
+		if v.Held, err = q.ListUserRoles(ctx, int64(id)); err != nil {
+			return err
+		}
+		roles, err := q.ListRoles(ctx)
+		if err != nil {
+			return err
+		}
+		for _, r := range roles {
+			v.Roles = append(v.Roles, r.Name)
+		}
+		n, err := q.LockoutIsLocked(ctx, dbq.LockoutIsLockedParams{
+			Key: AccountKey(u.Email), Limit: AccountLimit, Now: FormatTime(a.clock.Now()),
+		})
+		v.Locked = n > 0
+		return err
+	})
+	if err != nil {
+		return UserAdminView{}, err
+	}
+	return v, nil
+}
+
 // UserAccess returns user id, its version (CD-94) and its restricted values
 // per dimension with their labels, read together (CD-146). Only an
 // Administrator may read it (ErrAdminOnlyAccess); an unknown id is

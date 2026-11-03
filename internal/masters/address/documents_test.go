@@ -20,8 +20,8 @@ import (
 // Literal values from 06-masters.md. docNewGSTIN is also Thane's, which the
 // same party may share (MST-044).
 const (
-	docNotVendorMsg = "Only Customer Ltd is not marked as a vendor. Tick Vendor on the party first." // MST-042
-	docNewGSTIN     = "27AABCS1429B2ZT"                                                              // MST-052
+	docNotVendorMsg = "Only Customer Ltd is not marked as a vendor. Set the party to Vendor or Both first." // MST-042
+	docNewGSTIN     = "27AABCS1429B2ZT"                                                                     // MST-052
 )
 
 const docQty types.Qty = 1000 // 1.000

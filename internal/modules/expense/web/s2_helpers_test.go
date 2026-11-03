@@ -46,7 +46,7 @@ const (
 	// FILE's texts (CD-142, CD-209).
 	s2MsgTwoParts  = "Upload one file at a time."
 	s2MsgTooLarge  = "File is larger than 10 MB. Choose a smaller file or compress it."
-	s2MsgGIF       = "File type .gif is not allowed. Use PDF, JPG, PNG, WEBP, HEIC, XLSX, DOCX or CSV."
+	s2MsgGIF       = "Receipt must be a HEIC, JPG, PDF, PNG or WEBP file."
 	s2MsgLimit100  = "A document can have at most 100 attachments. Remove one first."
 	s2MsgReuseLine = "This file is already on this claim, as the receipt on line 2. It is used for this expense too."
 	s2MsgReuseNone = "This file is already on this claim. It is used for this expense."
@@ -91,7 +91,9 @@ func s2New(t *testing.T) *s2Env {
 	d := expenseweb.Deps{Service: e.Service, Engine: e.Engine, Auth: e.Auth, Files: e.Files}
 	ds := docscreen.Deps{
 		DB: e.DB, Engine: e.Engine, Auth: e.Auth, Extras: s2Extras{e},
-		Today: func() (string, string) { return s2Today, s2Yesterday },
+		// As internal/app wires it: a document link shows only to a reader (CD-321).
+		DocLinkRead: e.Auth.CheckLinkTx,
+		Today:       func() (string, string) { return s2Today, s2Yesterday },
 		Modules: map[string]docscreen.Module{
 			expense.ClaimDocType:   expenseweb.ClaimModule(d),
 			expense.AdvanceDocType: expenseweb.AdvanceModule(d),

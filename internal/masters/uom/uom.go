@@ -34,10 +34,10 @@ func init() {
 		Table:       Kind.Table,
 		Importable:  true,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
-			{Name: "whole_number", Label: "Whole number", Column: "whole_number", Type: doctype.Check, Importable: true},
-			{Name: "uqc", Label: "UQC", Column: "uqc", Type: doctype.Text, Importable: true},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. KGS", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1, Placeholder: "e.g. Kilograms"},
+			{Name: "whole_number", Label: "Whole number", Column: "whole_number", Type: doctype.Check, Importable: true, Hint: "Turn on for units you can't split, such as bags."},
+			{Name: "uqc", Label: "UQC", Column: "uqc", Type: doctype.Text, Importable: true, Placeholder: "e.g. KGS", Hint: "The unit code on GST returns."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, ListPriority: 3},
 		},
 		SearchFields: []string{"code", "name"},
@@ -71,7 +71,7 @@ func Validate(in Input) (Input, error) {
 			fields = append(fields, ve.Fields...)
 		}
 	}
-	code, err := mstkit.NormalizeCode(in.Code)
+	code, err := mstkit.NormalizeCodeLike(in.Code, "KGS")
 	add(err)
 	name, err := mstkit.NormalizeName(in.Name)
 	add(err)

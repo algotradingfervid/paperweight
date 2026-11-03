@@ -449,7 +449,7 @@ func TestPUX028_CopyMore(t *testing.T) {
 				copy bool
 			}{{env.Arjun, true}, {creator, true}, {env.Ravi, false}, {reader, false}} {
 				page := w.page(t, c.p, po.ID)
-				form := page.doc.Find(`.more-actions-items form[action="` + copyPath + `"]`).Length()
+				form := page.doc.Find(`.more-actions form[action="` + copyPath + `"]`).Length()
 				if got := slices.Contains(page.more(), "Copy"); got != c.copy || (form == 1) != c.copy {
 					t.Errorf("%s %s: More %q (copy forms %d), want Copy %v", s, c.p.Name, page.more(), form, c.copy)
 				}
@@ -490,7 +490,7 @@ func TestPUX038_ReceiveGoods(t *testing.T) {
 	if label, _ := page.primary(); label != "" {
 		t.Errorf("fully received: primary %q, want none", label)
 	}
-	if got := page.more(); len(got) == 0 || got[0] != "Receive goods" || page.doc.Find(`.more-actions-items a[href="`+href+`"]`).Length() != 1 {
+	if got := page.more(); len(got) == 0 || got[0] != "Receive goods" || page.doc.Find(`.more-actions a[href="`+href+`"]`).Length() != 1 {
 		t.Errorf("fully received: More %q, want Receive goods first, linking %s", got, href)
 	}
 	w.act(t, env.Priya, purchase.DocType, po.ID, doctype.ActionClose, "Done")

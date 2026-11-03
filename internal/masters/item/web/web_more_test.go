@@ -26,7 +26,7 @@ import (
 
 // The service's messages, as literals (CD-142).
 const (
-	msgStockNotFound    = "Stock UoM not found. Pick one from the list."
+	msgStockNotFound    = "UoM not found. Pick one from the list."
 	msgPurchaseNotFound = "Purchase UoM not found. Pick one from the list."
 	msgTaxNotFound      = "Default tax code not found. Pick one from the list."
 	msgRow2UoMNotFound  = "Row 2: UoM not found. Pick one from the list."

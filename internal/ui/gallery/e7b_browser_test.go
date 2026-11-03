@@ -73,6 +73,10 @@ func TestTilesBrowser_DOMOrderIsVisualOrder(t *testing.T) {
 		if n := attachEval[int](t, ctx, `document.querySelectorAll(".segmented--tiles").length`); n != 32 {
 			t.Errorf("%d groups drawn, want every one of the 32 mixes", n)
 		}
+		// Each of the 5 places is wide in half of the 32 mixes.
+		if n := attachEval[int](t, ctx, `document.querySelectorAll(".segmented--tiles .segmented__wide").length`); n != 80 {
+			t.Errorf("%d wide tiles drawn, want 80: a page with no mix checks nothing", n)
+		}
 		got := attachEval[[]string](t, ctx, `[...document.querySelectorAll(".segmented--tiles")].flatMap((g, n) => {
   const ls = [...g.children].map((l) => ({r: l.getBoundingClientRect(), wide: l.classList.contains("segmented__wide"), text: l.textContent.trim()}));
   const out = ls.slice(1).flatMap((l, i) => {

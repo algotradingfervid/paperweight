@@ -4,10 +4,11 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 
 // daisyVariant maps a Variant to its daisyUI class (design-system §7.1).
 var daisyVariant = map[Variant]string{
-	Primary:   "btn-primary",
-	Secondary: "btn-outline",
-	Ghost:     "btn-ghost",
-	Danger:    "btn-error",
+	Primary:     "btn-primary",
+	Secondary:   "btn-outline",
+	Ghost:       "btn-ghost",
+	Danger:      "btn-error",
+	DangerQuiet: "btn-ghost ghost-danger",
 }
 
 // buttonClass is v's classes; an empty Variant is Secondary.

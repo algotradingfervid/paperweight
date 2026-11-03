@@ -59,7 +59,7 @@ func TestE2E_SetupWizardPhone(t *testing.T) {
 	noOverflow(s, "Check")
 
 	s.Press("Save company")
-	s.Until("the inbox", `location.pathname === "/approvals"`)
+	s.Until("Home", `location.pathname === "/"`)
 	s.WaitText("Your company is set up. Next, add your users.")
 }
 

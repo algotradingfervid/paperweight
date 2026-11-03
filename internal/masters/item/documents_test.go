@@ -19,7 +19,7 @@ import (
 
 const (
 	wholeQty        types.Qty = 1000 // 1.000
-	stockLockedMsg            = "Stock UoM can't change after the item is used. Create a new item."
+	stockLockedMsg            = "UoM can't change after the item is used. Create a new item."
 	stockChangedMsg           = "Stock UoM changed. Re-enter the other conversions."
 )
 

@@ -24,10 +24,7 @@ templ header(o PageOpts, s ui.Shell) {
 				@icons.Icon("menu")
 			</button>
 		}
-		<a class="brand" href="/">
-			<img class="brand-logo" src={ brand.AppLogoURL } width={ strconv.Itoa(brand.AppLogoWidth) } height={ strconv.Itoa(brand.AppLogoHeight) } alt=""/>
-			<span class="brand-name truncate">{ s.AppName }</span>
-		</a>
+		@brandLink(s)
 		if s.SignedIn && !o.Bare {
 			<form class="header-search" role="search" method="get" action="/search">
 				@icons.Icon("search")
@@ -57,6 +54,9 @@ templ header(o PageOpts, s ui.Shell) {
 						<span class="user-name truncate">{ s.User }</span>
 					</summary>
 					<div class="user-menu-panel">
+						@components.Button(components.ButtonProps{Label: "My requests", Href: inboxPath + "/mine", Variant: components.Ghost})
+						@components.Button(components.ButtonProps{Label: "My sessions", Href: accountPath, Variant: components.Ghost})
+						@components.Button(components.ButtonProps{Label: "Change password", Href: "/account/password", Variant: components.Ghost})
 						<form method="post" action="/signout">
 							<input type="hidden" name="csrf_token" value={ s.CSRF }/>
 							<button type="submit" class="btn btn-ghost w-full">
@@ -69,4 +69,12 @@ templ header(o PageOpts, s ui.Shell) {
 			}
 		</div>
 	</header>
+}
+
+// brandLink is the logo and the app name, linking Home.
+templ brandLink(s ui.Shell) {
+	<a class="brand" href="/">
+		<img class="brand-logo" src={ brand.AppLogoURL } width={ strconv.Itoa(brand.AppLogoWidth) } height={ strconv.Itoa(brand.AppLogoHeight) } alt=""/>
+		<span class="brand-name truncate">{ s.AppName }</span>
+	</a>
 }

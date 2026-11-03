@@ -139,6 +139,13 @@ func checkEmployee(ctx context.Context, tx *db.Tx, d Deps, stored sql.NullInt64,
 	}
 	if !stored.Valid {
 		if !ok {
+			admin, err := d.Auth.HasRoleTx(ctx, tx, u, auth.RoleAdministrator)
+			if err != nil {
+				return stored, nil, err
+			}
+			if admin {
+				return stored, []doctype.FieldError{{Field: "employee_id", Message: msgNoEmployeeAdmin}}, nil
+			}
 			return stored, []doctype.FieldError{{Field: "employee_id", Message: msgNoEmployee}}, nil
 		}
 		return sql.NullInt64{Int64: own, Valid: true}, nil, nil

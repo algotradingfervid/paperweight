@@ -35,3 +35,14 @@ img { image-orientation: from-image; }
 
 .toolbar { display: flex; gap: 2mm; margin-block-end: 4mm; }
 @media print { .toolbar { display: none; } }
+
+/* The page as a screen shows it, on a phone too. Nothing here reaches paper. */
+@media screen {
+  body { padding: 4mm; overflow-wrap: anywhere; }
+  .toolbar { flex-wrap: wrap; }
+  .toolbar button { min-block-size: 44px; min-inline-size: 44px; padding: 0 16px; border: 0.3mm solid var(--doc-accent); border-radius: 6px; background: #fff; color: var(--doc-accent); font: inherit; font-weight: 600; cursor: pointer; }
+  .toolbar #print-btn { background: var(--doc-accent); color: #fff; }
+  /* The lines keep their columns in a box that scrolls (print.js makes it
+     focusable and names it). */
+  table { display: block; max-inline-size: 100%; overflow-x: auto; overflow-wrap: normal; }
+}

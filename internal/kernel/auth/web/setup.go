@@ -39,7 +39,7 @@ func (s *Server) postSetup(w http.ResponseWriter, r *http.Request) {
 			s.WriteError(w, r, err)
 			return
 		}
-		render(w, r, status, s.v.Setup(SetupPage{CSRF: CSRFToken(ctx), Error: msg, Email: email, Name: name}))
+		render(w, r, status, s.v.Setup(SetupPage{CSRF: CSRFToken(ctx), Error: msg, Email: email, Name: name, NameError: errors.Is(err, auth.ErrNameRequired)}))
 		return
 	}
 	http.Redirect(w, r, "/signin", http.StatusSeeOther)

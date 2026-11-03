@@ -868,6 +868,7 @@ func stepBar(bar wizard.Bar, b StepBar) wizard.Bar {
 		bar.PrimaryNav = "stay"
 	}
 	bar.BackLink = b.Back
+	bar.Summary = b.Summary
 	return bar
 }
 

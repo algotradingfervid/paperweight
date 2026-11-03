@@ -86,7 +86,7 @@ func TestCheckPage_SubmitResponseMatchesTarget(t *testing.T) {
 	}{
 		{"success", doc.Result{ID: 42, State: doctype.StateApproved, Number: "SO/26-27/00001", Version: 4}, nil, http.StatusOK,
 			func(t *testing.T, _ *http.Response, page *goquery.Document) {
-				want := "Approved. SO/26-27/00001 has been numbered."
+				want := "SO/26-27/00001 has been numbered."
 				if got := successTexts(page.Selection); !slices.Equal(got, []string{want}) {
 					t.Errorf("success banners = %q, want [%q] on the document page", got, want)
 				}

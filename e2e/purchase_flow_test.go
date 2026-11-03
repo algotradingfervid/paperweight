@@ -101,6 +101,22 @@ func clickOn(s *Session, sel string) {
 	s.Do("click "+sel, chromedp.MouseClickXY(at[0], at[1]))
 }
 
+// openFromHome opens document id from Home's Waiting for you, where the
+// approver lands after signing in (CD-387 (1)): its row there names the
+// draft and why it waits, and Home doesn't scroll sideways.
+func openFromHome(s *Session, dt string, id int64) {
+	s.t.Helper()
+	path := DocPath(dt, id)
+	row := `[...document.querySelectorAll("main section.homesect")]
+  .find((x) => x.querySelector("h2")?.textContent.trim() === "Waiting for you")
+  ?.querySelector('a.datalist-link[href="` + path + `"]')`
+	s.Until("Home's Waiting row for "+draft(id), `location.pathname === "/" && ((a) => !!a &&
+  a.textContent.includes(`+strconv.Quote(draft(id))+`) && a.textContent.includes("Needs your approval"))(`+row+`)`)
+	noOverflow(s, "Home")
+	clickOn(s, `main a.datalist-link[href="`+path+`"]`)
+	s.Until("the page "+path, `location.pathname === `+strconv.Quote(path))
+}
+
 // openLink clicks the link to href in the page's main region.
 func openLink(s *Session, href string) {
 	s.t.Helper()
@@ -196,17 +212,15 @@ func TestE2E_PurchaseOrderFlow(t *testing.T) {
 	p.WaitText(poApprove)
 	noOverflow(p, "Check")
 	p.Press(sendApproval)
-	p.WaitText("Submitted for approval to Purchase Manager or Director.")
+	p.WaitText("It went to Purchase Manager or Director.")
 	noOverflow(p, "the pending PO page")
 
 	r := h.SignIn(ravi, phone360)
-	r.WaitText(draft(po))
-	noOverflow(r, "the approval inbox")
-	r.Press("Open " + draft(po))
+	openFromHome(r, purchase.DocType, po)
 	r.WaitText("Needs your approval")
 	noOverflow(r, "the PO page as the approver")
 	r.Press("Approve")
-	r.WaitText("Approved. " + firstNumber + " has been numbered.")
+	r.WaitText(firstNumber + " has been numbered.")
 	noOverflow(r, "the approved PO page")
 
 	// Stored state (CD-271): what the screens did is what the database holds.
@@ -269,7 +283,7 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	onStep(s, "Step 3 of 3")
 	noOverflow(s, "request Check")
 	s.Press("Submit")
-	s.WaitText("Submitted. " + firstPR + " has been numbered.")
+	s.WaitText(firstPR + " has been numbered.")
 	within(t, "Suresh's two-line request", time.Since(start), 90*time.Second)
 	s.WaitText("Not ordered")
 	noOverflow(s, "the submitted request")
@@ -308,15 +322,15 @@ func TestE2E_RequestToSentFlow(t *testing.T) {
 	p.WaitText(poApprove)
 	noOverflow(p, "PO Check")
 	p.Press(sendApproval)
-	p.WaitText("Submitted for approval to Purchase Manager or Director.")
+	p.WaitText("It went to Purchase Manager or Director.")
 
 	r := h.SignIn(ravi, phone360)
-	r.Press("Open " + draft(po))
+	openFromHome(r, purchase.DocType, po)
 	r.WaitText("Needs your approval")
 	noOverflow(r, "the PO as the approver")
 	r.Press("Approve")
 	const number = "PO/26-27/00002"
-	r.WaitText("Approved. " + number + " has been numbered.")
+	r.WaitText(number + " has been numbered.")
 
 	p.Open("/modules/purchase")
 	p.WaitText("2 approved orders not sent yet") // with lastBought's

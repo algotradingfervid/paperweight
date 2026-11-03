@@ -1,6 +1,10 @@
 package components
 
-import "github.com/vardhan/internaltools/internal/kernel/doctype"
+import (
+	"unicode/utf8"
+
+	"github.com/vardhan/internaltools/internal/kernel/doctype"
+)
 
 // DocHeaderProps is a document page's header card (UI v2 §5.13 item 3,
 // N14): the number (or "Draft 57") as the h1 with its state badge, the
@@ -16,6 +20,24 @@ type DocHeaderProps struct {
 	Steps           []LifeStep
 }
 
+// amountClass is the amount's classes: a long figure steps down on a phone,
+// so it stays on one line (GRN M8). Written out whole for the CSS build.
+func amountClass(amount string) string {
+	switch n := utf8.RuneCountInString(amount); {
+	case n > amountLongRunes:
+		return "doc-head__amount doc-head__amount--huge num"
+	case n > amountRunes:
+		return "doc-head__amount doc-head__amount--long num"
+	}
+	return "doc-head__amount num"
+}
+
+// Lengths of amount, ₹ included, that fit at each size in 320 px.
+const (
+	amountRunes     = 13 // ₹99,99,999.00 at 2rem
+	amountLongRunes = 18 // ₹9,99,99,99,999.00 at 1.5rem
+)
+
 // DocHeader is the header card. It draws the page's h1 (#page-title, as the
 // layout would), so the page sets NoHeading.
 templ DocHeader(p DocHeaderProps) {
@@ -27,7 +49,7 @@ templ DocHeader(p DocHeaderProps) {
 			</div>
 			if p.Amount != "" {
 				<div>
-					<p class="doc-head__amount num">{ p.Amount }</p>
+					<p class={ amountClass(p.Amount) }>{ p.Amount }</p>
 					if p.InWords != "" {
 						@AmountInWords(p.InWords)
 					}
@@ -38,7 +60,9 @@ templ DocHeader(p DocHeaderProps) {
 					for _, f := range p.Facts {
 						<div>
 							<dt>{ f.Label }</dt>
-							<dd class={ templ.KV("num", f.Num), templ.KV("code", f.Code) }>{ f.Value }</dd>
+							<dd class={ templ.KV("num", f.Num), templ.KV("code", f.Code) }>
+								@pairValue(f)
+							</dd>
 						</div>
 					}
 				</dl>

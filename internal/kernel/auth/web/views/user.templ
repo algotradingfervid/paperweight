@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"strconv"
 
 	authweb "github.com/vardhan/internaltools/internal/kernel/auth/web"
@@ -12,8 +13,42 @@ func (Default) User(p authweb.UserPage) templ.Component {
 	return user(p)
 }
 
+func (Default) ResetPassword(p authweb.ResetPasswordPage) templ.Component {
+	return resetPassword(p)
+}
+
+// The ids of the Delete and Disable confirms.
+const (
+	deleteDialogID  = "delete-user"
+	disableDialogID = "disable-user"
+)
+
+// passwordHint is the policy (auth.CheckPolicy) as it reads for someone
+// setting another person's password.
+const passwordHint = "At least 10 characters. Not a common password, and not containing their email name."
+
+func userPagePath(p authweb.UserPage) string {
+	return fmt.Sprintf("/users/%d", p.User.ID)
+}
+
+// userOpts is the page's options: an Administrator's Back link, and the
+// ConflictBanner on a stale version (CD-381); page shows any other refusal in
+// the summary (CD-91).
+func userOpts(p authweb.UserPage) uilayout.PageOpts {
+	o := uilayout.PageOpts{Title: p.User.Name, Width: uilayout.Form}
+	if p.Admin {
+		o.Back = &components.Link{Label: "Users", Href: "/users"}
+	}
+	if p.Stale {
+		o.BannerSlot = components.ConflictBanner(p.Error, p.User.Name, userPagePath(p))
+	}
+	return o
+}
+
+// user is one user's page. Anyone sees their own; only an Administrator gets
+// the forms, each posting the page's version where its route takes one.
 templ user(p authweb.UserPage) {
-	@page(uilayout.PageOpts{Title: p.User.Name}, p.CSRF, p.Error, "main", p.Warnings) {
+	@page(userOpts(p), p.CSRF, p.Error, "main", p.Warnings) {
 		<p>{ p.User.Email }</p>
 		if p.AccessURL != "" {
 			<p>
@@ -21,5 +56,122 @@ templ user(p authweb.UserPage) {
 			</p>
 		}
 		@components.Hidden("version", strconv.FormatInt(p.Version, 10))
+		if p.Admin {
+			<div class="stack">
+				@userRoles(p)
+				@userSignIn(p)
+				if !p.Self {
+					@userDisable(p)
+					@userDelete(p)
+				}
+			</div>
+		}
+	}
+}
+
+// userRoles saves the ticked roles; ticking none is allowed, with a warning.
+templ userRoles(p authweb.UserPage) {
+	@components.CardWith(components.CardProps{Title: "Roles", Icon: "shield", Description: "What they can see and do. A change applies on their next click."}) {
+		@components.Form(components.FormProps{Action: userPagePath(p) + "/roles", CSRF: p.CSRF}) {
+			<div class="stack">
+				@components.Hidden("version", strconv.FormatInt(p.Version, 10))
+				@rolesField(p.Roles, p.Held)
+				<div>
+					@components.Button(components.ButtonProps{Label: "Save roles", Variant: components.Primary})
+				</div>
+			</div>
+		}
+	}
+}
+
+// userSignIn leads to the password reset, which would end the viewer's own
+// session on their own page, and shows whether the account is locked.
+templ userSignIn(p authweb.UserPage) {
+	@components.CardWith(components.CardProps{Title: "Password and sign-in", Icon: "lock", Description: "For a forgotten password or too many failed sign-ins."}) {
+		<div class="stack">
+			if !p.Self {
+				<div>
+					@components.Button(components.ButtonProps{Label: "Reset password", Href: userPagePath(p) + "/password"})
+				</div>
+			}
+			if p.Locked {
+				<p>This account is locked after too many failed sign-ins.</p>
+				@components.Form(components.FormProps{Action: userPagePath(p) + "/unlock", CSRF: p.CSRF}) {
+					@components.Button(components.ButtonProps{Label: "Unlock account", Busy: "Unlocking…"})
+				}
+			} else {
+				<p>This account isn't locked.</p>
+			}
+		</div>
+	}
+}
+
+// userDisable is the normal way out (D-AUTH-17), on the route that saves the
+// user. Nobody may disable themselves, so their own page offers neither this
+// nor Delete.
+templ userDisable(p authweb.UserPage) {
+	if p.User.Enabled {
+		@components.CardWith(components.CardProps{Title: "Disable user", Icon: "ban", Description: "For someone who has left. Their name stays on their records."}) {
+			<div>
+				@components.Button(components.ButtonProps{Label: "Disable user", Type: "button", Variant: components.Danger, Attrs: templ.Attributes{"aria-haspopup": "dialog", "data-open-dialog": disableDialogID}})
+			</div>
+		}
+		@components.Dialog(disableDialogID, "Disable "+p.User.Name+"?") {
+			<p>This signs them out everywhere, and they can't sign in until someone enables them.</p>
+			@components.Form(components.FormProps{Action: userPagePath(p), CSRF: p.CSRF}) {
+				@components.Hidden("version", strconv.FormatInt(p.Version, 10))
+				@components.Hidden("enabled", "false")
+				<div class="cluster">
+					@components.Button(components.ButtonProps{Label: "Yes, disable", Busy: "Disabling…", Variant: components.Danger})
+					@components.Button(components.ButtonProps{Label: "Keep enabled", Type: "button", Variant: components.Secondary, Attrs: templ.Attributes{"data-close-dialog": true}})
+				</div>
+			}
+		}
+	} else {
+		@components.CardWith(components.CardProps{Title: "Enable user", Icon: "circle-check", Description: "This account is disabled. Enable it to let them sign in again."}) {
+			@components.Form(components.FormProps{Action: userPagePath(p), CSRF: p.CSRF}) {
+				@components.Hidden("version", strconv.FormatInt(p.Version, 10))
+				@components.Hidden("enabled", "true")
+				@components.Button(components.ButtonProps{Label: "Enable user", Busy: "Enabling…"})
+			}
+		}
+	}
+}
+
+// userDelete asks before the only form that posts the delete.
+templ userDelete(p authweb.UserPage) {
+	@components.CardWith(components.CardProps{Title: "Delete user", Icon: "trash-2", Description: "Only for someone who has never signed in and has no records."}) {
+		<div>
+			@components.Button(components.ButtonProps{Label: "Delete user", Type: "button", Variant: components.Danger, Attrs: templ.Attributes{"aria-haspopup": "dialog", "data-open-dialog": deleteDialogID}})
+		</div>
+	}
+	@components.Dialog(deleteDialogID, "Delete "+p.User.Name+"?") {
+		<p>This can't be undone.</p>
+		@components.Form(components.FormProps{Action: userPagePath(p) + "/delete", CSRF: p.CSRF}) {
+			@components.Hidden("version", strconv.FormatInt(p.Version, 10))
+			<div class="cluster">
+				@components.Button(components.ButtonProps{Label: "Yes, delete", Busy: "Deleting…", Variant: components.Danger})
+				@components.Button(components.ButtonProps{Label: "Keep user", Type: "button", Variant: components.Secondary, Attrs: templ.Attributes{"data-close-dialog": true}})
+			</div>
+		}
+	}
+}
+
+// resetPassword sets a temporary password; being its own page, it is the
+// confirmation too. The password never comes back from the server.
+templ resetPassword(p authweb.ResetPasswordPage) {
+	@page(uilayout.PageOpts{Title: "Reset password", Width: uilayout.Form, Back: &components.Link{Label: p.User.Name, Href: fmt.Sprintf("/users/%d", p.User.ID)}}, p.CSRF, p.Error, components.FieldID("password"), nil) {
+		<p>{ p.User.Name } · { p.User.Email }</p>
+		@components.Form(components.FormProps{Action: fmt.Sprintf("/users/%d/password", p.User.ID), CSRF: p.CSRF}) {
+			<div class="stack">
+				@components.RequiredNote(true)
+				@components.CardWith(components.CardProps{Title: "New sign-in password", Icon: "lock", Description: "This signs them out everywhere. They must choose a new password when they next sign in."}) {
+					@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Temporary password", Hint: passwordHint, Required: true, Error: p.Error, Attrs: required}, "new-password")
+				}
+				<div>
+					@components.Button(components.ButtonProps{Label: "Reset password", Busy: "Resetting…", Variant: components.Danger})
+				</div>
+			</div>
+		}
 	}
 }

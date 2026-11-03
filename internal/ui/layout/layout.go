@@ -32,8 +32,9 @@ const (
 // wizard, line and document pages, which have their own action footer: they
 // get no bottom nav, and below 64rem, when the wizard head has its close ×,
 // no app header, so the wizard head is the top bar (UI v2 §5.6, N12).
+// Eyebrow is a short line above the h1.
 type PageOpts struct {
-	Title                     string
+	Title, Eyebrow            string
 	Error                     bool
 	Bare                      bool
 	Focus                     bool
@@ -84,12 +85,13 @@ func widthClass(o PageOpts) string {
 }
 
 // currentHref is the Href of the nav item that is the longest path prefix of
-// path, or "" when none is.
+// path, or "" when none is. Home ("/") is the current item only on itself:
+// every path starts with it.
 func currentHref(items []ui.NavItem, path string) string {
 	best := ""
 	for _, it := range items {
 		h := it.Href
-		if (path == h || strings.HasPrefix(path, strings.TrimSuffix(h, "/")+"/")) && len(h) > len(best) {
+		if (path == h || (h != "/" && strings.HasPrefix(path, strings.TrimSuffix(h, "/")+"/"))) && len(h) > len(best) {
 			best = h
 		}
 	}
@@ -125,6 +127,10 @@ func groupNav(items []ui.NavItem) []navGroup {
 	}
 	return out
 }
+
+// sheetPrefix keeps the phone sheet's group ids apart from the sidebar's, and
+// marks the copy of the links that moves focus.
+const sheetPrefix = "sheet"
 
 // groupID is the id of a group's heading; prefix keeps the sidebar's and the
 // phone sheet's apart.

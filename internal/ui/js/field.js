@@ -81,5 +81,9 @@ document.addEventListener("ui:field", function (e) {
   } else {
     input.removeAttribute("aria-invalid");
     input.classList.remove("field--error");
+    // A valid GSTIN gives the state: its Select follows (data-fills), only
+    // for the value the input still holds, never a stale reply's.
+    const s = document.getElementById(input.dataset.fills), code = d.value.slice(0, 2);
+    if (s && code && input.value === d.value && s.querySelector('option[value="' + code + '"]')) s.value = code;
   }
 });
