@@ -84,6 +84,15 @@ func (l lister) List(ctx context.Context, p auth.Principal, dt *doctype.DocType,
 	return out, nil
 }
 
+// Count is list.Service's count for q: read and scope checked, no rows read.
+func (l lister) Count(ctx context.Context, p auth.Principal, dt *doctype.DocType, q docscreen.ListQuery) (int, error) {
+	lq, err := listQuery(dt, q)
+	if err != nil {
+		return 0, err // mutate:ok callers drop the count with an error
+	}
+	return l.svc.Count(ctx, p, dt, lq)
+}
+
 // info is a row's Info: the engine serves documents only, so a master answers
 // through its own lookup as "{Code} {Name}" (CD-68).
 func (l lister) info(ctx context.Context, tx *db.Tx, dt *doctype.DocType, id int64) (doctype.Info, error) {

@@ -1,15 +1,60 @@
-/* filterbar.css: search, sort, removable filter chips with Clear all, and
-   the result count. Chips wrap, never scroll sideways (UI v2 §5.12). */
+/* filterbar.css: search with its icon, the Filters disclosure, quick chips,
+   removable chips with Clear all, and the result line (count, sort, Export,
+   New). Chips wrap, never scroll sideways (UI v2 §5.12). */
 @utility filterbar {
   display: grid;
   gap: var(--space-3);
-  & .filterbar-row { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); }
+  & .filterbar-row { position: relative; display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); }
   & .filterbar-row > * { min-inline-size: 0; }
-  & .filterbar-search { display: grid; gap: var(--space-1); flex: 1 1 16rem; }
-  & .filterbar-sort { display: grid; gap: var(--space-1); }
-  & .filterbar-search .input { inline-size: 100%; text-overflow: ellipsis; }
+  /* The search takes the row; Filters keeps its place beside it, also at
+     320 px. */
+  & .filterbar-search { display: grid; gap: var(--space-1); flex: 1 1 0; min-inline-size: min(100%, 8rem); }
+  & .filterbar-box { position: relative; }
+  & .filterbar-box > .icon {
+    position: absolute;
+    inset-inline-start: var(--space-3);
+    inset-block-start: 50%;
+    translate: 0 -50%;
+    inline-size: var(--icon-sm);
+    block-size: var(--icon-sm);
+    z-index: 1; /* over the input's background */
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+  & .filterbar-search .input { inline-size: 100%; padding-inline-start: calc(var(--space-3) + var(--icon-sm) + var(--space-2)); text-overflow: ellipsis; }
+  /* The sort shares the result line with the count, also at 320 px: it
+     starts from no width and its select shortens its text. */
+  & .filterbar-sort { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); flex: 1 1 0; min-inline-size: min(100%, 9rem); }
+  & .filterbar-sort > .icon { flex: none; inline-size: var(--icon-sm); block-size: var(--icon-sm); color: var(--color-text-muted); }
+  & .filterbar-sort .select { inline-size: auto; min-inline-size: 0; max-inline-size: 100%; }
+  & .filterbar-result { align-items: center; }
   & .filterbar-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
   & .filterbar-count { margin: 0; margin-inline-end: auto; color: var(--color-text-secondary); }
+
+  /* The Filters disclosure: its button sits beside the search; the open
+     sheet spans the bar's first row and lies over what follows. */
+  & .filterbar-panel { position: static; }
+  & .filterbar-panel > summary { list-style: none; }
+  & .filterbar-panel > summary::-webkit-details-marker { display: none; }
+  & .filterbar-sheet {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: calc(100% + var(--space-2));
+    z-index: var(--z-dropdown);
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: var(--border-w) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-pop);
+  }
+  & .chip-count { font-variant-numeric: tabular-nums; font-weight: var(--weight-semibold); }
+
+  /* On phones New is the bottom nav's and Export is in the Filters sheet
+     (UI v2 §5.12, CD-366); from 64rem they sit in the bar. */
+  @media (width < 64rem) { & .filterbar-wide { display: none; } }
+  @media (width >= 64rem) { & .filterbar-narrow { display: none; } }
 }
 @utility chip {
   block-size: auto;
@@ -28,4 +73,10 @@
   transition: background-color var(--dur-fast) var(--ease-out);
   &:active { background-color: var(--color-primary-100); }
   & .icon { inline-size: var(--icon-sm); block-size: var(--icon-sm); flex: none; }
+}
+/* A quick chip is plain until it is the current one, which is tinted. */
+@utility chip-quick {
+  &.chip { padding-inline: var(--space-3); min-inline-size: var(--target-min); justify-content: center; }
+  &.chip { background-color: var(--color-surface); border-color: var(--color-border-subtle); color: var(--color-text); }
+  &.chip[aria-current="true"] { background-color: var(--color-primary-50); border-color: var(--color-primary-600); color: var(--color-primary-800); }
 }

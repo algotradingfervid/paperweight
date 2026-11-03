@@ -93,9 +93,12 @@ type ListRow struct {
 	Values map[string]string
 }
 
-// Lister runs a list query (WP3: list.Build + auth.Scope + db.Read).
+// Lister runs a list query (WP3: list.Build + auth.Scope + db.Read). Count
+// is the number of rows List would page through, read without the rows
+// (CD-394 (3)).
 type Lister interface {
 	List(ctx context.Context, p auth.Principal, dt *doctype.DocType, q ListQuery) (types.Result[ListRow], error)
+	Count(ctx context.Context, p auth.Principal, dt *doctype.DocType, q ListQuery) (int, error)
 }
 
 // ChangeRow is one changed field in a history entry.

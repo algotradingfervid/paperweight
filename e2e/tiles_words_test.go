@@ -147,7 +147,7 @@ func tileLinePage(h *Harness, width int64) *Session {
 	h.t.Helper()
 	d := h.SignIn(deepak, width)
 	d.Open("/doc/" + expense.ClaimDocType)
-	d.Press("New expense claim")
+	d.PressNew("New expense claim")
 	onStep(d, "Step 1 of 3")
 	d.Fill("purpose", "Pune Metro site visit")
 	d.Press(saveContinue)

@@ -73,19 +73,28 @@ func (d Deps) renderList(w http.ResponseWriter, r *http.Request, dt *doctype.Doc
 		l := newDocLink(dt)
 		newLink = &l
 	}
+	quick, err := d.quickChips(ctx, p, dt, q, hide)
+	if err != nil {
+		problem(w, r, err)
+		return
+	}
 	v := listView{
 		Opts: layout.PageOpts{Title: dt.PluralLabel},
 		Bar: components.FilterBarProps{
 			Action:      "/doc/" + dt.Name,
 			Search:      q.Search,
 			SearchLabel: "Search " + plural,
+			Placeholder: SearchPlaceholder(dt, hide),
 			Sort:        selectedSort(dt, q),
 			Sorts:       sortOptions(dt, hide),
-			Chips:       chips(dt, q),
+			Quick:       quick,
+			Chips:       chips(dt, q, quickOptions(dt, hide)),
+			Panel:       filterGroups(dt, q, hide),
+			Active:      len(q.Filters),
 			ClearURL:    listURL(dt.Name, ListQuery{Search: q.Search, Sort: q.Sort, Size: q.Size}),
 			Count:       countLine(dt, res.Total),
 			New:         newLink,
-			Keep:        keep(q),
+			Keep:        keep(dt, q, hide),
 		},
 		List: components.DataListProps{
 			Label:   dt.PluralLabel,
@@ -325,14 +334,46 @@ func selectedSort(dt *doctype.DocType, q ListQuery) string {
 	return q.Sort
 }
 
+// opWords are the words a removable chip says for an operator; = and in
+// say none, and an operator not here says itself ("on or after").
+var opWords = map[string]string{"=": "", "in": "", "!=": "not ", "not in": "not "}
+
+// dateWords and numberWords word the comparisons on a date and a number.
+var (
+	dateWords   = map[string]string{"<": "before ", "<=": "up to ", ">": "after ", ">=": "from "}
+	numberWords = map[string]string{"<": "under ", "<=": "up to ", ">": "over ", ">=": "from "}
+)
+
+// opWord is what a removable chip says for f's operator on dt.
+func opWord(dt *doctype.DocType, f Filter) string {
+	if w, ok := opWords[f.Op]; ok {
+		return w
+	}
+	fd, _ := fieldOf(dt, f.Field)
+	words := map[string]string{}
+	switch {
+	case fd.Type == doctype.Date || fd.Type == doctype.Timestamp:
+		words = dateWords
+	case fd.Type == doctype.Int || numeric(fd):
+		words = numberWords
+	}
+	if w, ok := words[f.Op]; ok {
+		return w
+	}
+	return f.Op + " "
+}
+
 // chips shows each filter; its remove URL is the list without it, on page 1.
-func chips(dt *doctype.DocType, q ListQuery) []components.Chip {
-	out := make([]components.Chip, len(q.Filters))
+// The label is the field and its values, with the operator only as a word
+// users say ("not", "on or after"). The filter a quick chip sets, one of
+// quick, is that chip, not a removable one (CD-394 (2)).
+func chips(dt *doctype.DocType, q ListQuery, quick []string) []components.Chip {
+	var out []components.Chip
 	for i, f := range q.Filters {
-		label := fieldLabel(dt, f.Field) + ": "
-		if f.Op != "=" {
-			label += f.Op + " "
+		if isQuickState(f) && slices.Contains(quick, f.Values[0]) {
+			continue
 		}
+		label := fieldLabel(dt, f.Field) + ": " + opWord(dt, f)
 		rest := q
 		rest.Page = 0
 		rest.Filters = slices.Concat(q.Filters[:i], q.Filters[i+1:])
@@ -340,16 +381,155 @@ func chips(dt *doctype.DocType, q ListQuery) []components.Chip {
 		for n, v := range f.Values {
 			values[n] = filterValueLabel(dt, f.Field, v)
 		}
-		out[i] = components.Chip{Label: label + strings.Join(values, ", "), RemoveURL: listURL(dt.Name, rest)}
+		out = append(out, components.Chip{Label: label + strings.Join(values, ", "), RemoveURL: listURL(dt.Name, rest)})
 	}
 	return out
 }
 
-// filterValueLabel is a filter value as users see it: a state's
-// doctype.StateLabel, a Select option's label, else the value (CD-325).
+// isQuickState reports whether f is what a quick chip sets: the state, one
+// value, = or in.
+func isQuickState(f Filter) bool {
+	return f.Field == stateKey && (f.Op == "=" || f.Op == "in") && len(f.Values) == 1
+}
+
+// quickField is dt's state field when it declares one to filter by, a
+// Filterable Select the module lists (CD-144), and hide shows it.
+func quickField(dt *doctype.DocType, hide func(string) bool) (doctype.Field, bool) {
+	f, ok := fieldOf(dt, stateKey)
+	return f, ok && f.Filterable && f.Type == doctype.Select && !f.OnLine && !hide(stateKey)
+}
+
+// quickStates are the states a quick chip may offer, the ones work moves
+// through; the rest are in the Filters panel. A DocType offers those its
+// state field declares.
+var quickStates = []string{string(doctype.StateDraft), string(doctype.StatePending), string(doctype.StateApproved)}
+
+// quickOptions are the quickStates dt's state field declares, in declared
+// order; none when hide hides it or dt has no state field to filter by.
+func quickOptions(dt *doctype.DocType, hide func(string) bool) []string {
+	f, ok := quickField(dt, hide)
+	if !ok {
+		return nil
+	}
+	return slices.DeleteFunc(slices.Clone(f.Options), func(v string) bool { return !slices.Contains(quickStates, v) })
+}
+
+// quickChips are the list's quick chips (UI v2 §5.12, A-23): All, then each
+// of the state field's options that is a quickState, in declared order,
+// worded as the badge and with its count. The counts come from the Lister,
+// so they hold only records p may read, with q's search and other filters.
+// An option with no records is left out unless it is the current one.
+func (d Deps) quickChips(ctx context.Context, p auth.Principal, dt *doctype.DocType, q ListQuery, hide func(string) bool) ([]components.QuickChip, error) {
+	opts := quickOptions(dt, hide)
+	if opts == nil {
+		return nil, nil
+	}
+	base := q
+	base.Page = 0
+	base.Filters = slices.DeleteFunc(slices.Clone(q.Filters), func(f Filter) bool { return f.Field == stateKey })
+	current := ""
+	hasState := false
+	for _, qf := range q.Filters {
+		if qf.Field == stateKey {
+			hasState = true
+			if isQuickState(qf) && slices.Contains(opts, qf.Values[0]) {
+				current = qf.Values[0]
+			}
+		}
+	}
+	out := []components.QuickChip{{Label: "All", Href: listURL(dt.Name, base), Current: !hasState}}
+	for _, v := range opts {
+		cq := base
+		cq.Filters = append(slices.Clone(base.Filters), Filter{Field: stateKey, Op: "in", Values: []string{v}})
+		n, err := d.Lister.Count(ctx, p, dt, ListQuery{Search: cq.Search, Filters: cq.Filters})
+		if err != nil {
+			return nil, err
+		}
+		if n == 0 && v != current {
+			continue
+		}
+		out = append(out, components.QuickChip{
+			Label:   stateWord(dt, doctype.State(v)),
+			Href:    listURL(dt.Name, cq),
+			Count:   types.FormatCount(int64(n)),
+			Current: v == current,
+		})
+	}
+	return out, nil
+}
+
+// panelField reports whether the Filters panel shows f: a Filterable header
+// Select field hide shows.
+func panelField(f doctype.Field, hide func(string) bool) bool {
+	return f.Filterable && f.Type == doctype.Select && !f.OnLine && !hide(f.Name)
+}
+
+// inPanel reports whether the panel shows filter f as ticks: an = or in
+// filter on a panel field.
+func inPanel(dt *doctype.DocType, f Filter, hide func(string) bool) bool {
+	fd, ok := fieldOf(dt, f.Field)
+	return ok && panelField(fd, hide) && (f.Op == "=" || f.Op == "in")
+}
+
+// filterGroups are the Filters panel's groups: one per panel field, in
+// declared order, a tick per option with its label. A tick is the filter
+// field:in:value; the ticks on are the values of q's filters inPanel.
+func filterGroups(dt *doctype.DocType, q ListQuery, hide func(string) bool) []components.FilterGroup {
+	var out []components.FilterGroup
+	for _, f := range dt.Fields {
+		if !panelField(f, hide) {
+			continue
+		}
+		g := components.FilterGroup{Label: f.Label, Name: "f"}
+		for _, v := range f.Options {
+			g.Options = append(g.Options, components.Option{Value: f.Name + ":in:" + v, Label: filterValueLabel(dt, f.Name, v)})
+		}
+		for _, qf := range q.Filters {
+			if qf.Field == f.Name && inPanel(dt, qf, hide) {
+				for _, v := range qf.Values {
+					g.Checked = append(g.Checked, f.Name+":in:"+v)
+				}
+			}
+		}
+		out = append(out, g)
+	}
+	return out
+}
+
+// SearchPlaceholder names what the search box matches: the labels of dt's
+// SearchFields that hide shows, as "Number, purpose or remarks".
+func SearchPlaceholder(dt *doctype.DocType, hide func(string) bool) string {
+	var labels []string
+	for _, name := range dt.SearchFields {
+		if !hide(name) {
+			labels = append(labels, lowerFirst(fieldLabel(dt, name)))
+		}
+	}
+	n := len(labels)
+	if n == 0 {
+		return ""
+	}
+	s := labels[n-1]
+	if n > 1 {
+		s = strings.Join(labels[:n-1], ", ") + " or " + s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// lowerFirst is label with its first word in lower case, unless that word is
+// an abbreviation in capitals (PO, GSTIN).
+func lowerFirst(label string) string {
+	if word, _, _ := strings.Cut(label, " "); word == strings.ToUpper(word) {
+		return label
+	}
+	return strings.ToLower(label[:1]) + label[1:]
+}
+
+// filterValueLabel is a filter value as users see it: a state's badge word
+// (stateWord, CD-394 (1)), a Select option's label, else the value (CD-325).
 func filterValueLabel(dt *doctype.DocType, field, v string) string {
 	if field == stateKey {
-		return cmp.Or(doctype.StateLabel(*dt, doctype.State(v)), v)
+		return stateWord(dt, doctype.State(v)) // CD-394 (1)
 	}
 	if f, ok := fieldOf(dt, field); ok && f.Type == doctype.Select {
 		return optionLabel(f, v)
@@ -358,10 +538,14 @@ func filterValueLabel(dt *doctype.DocType, field, v string) string {
 }
 
 // keep is what the filter bar carries through a search or sort: the
-// filters and size, never page, so the result starts on page 1.
-func keep(q ListQuery) []components.Param {
+// filters the panel doesn't show as ticks, and size, never page, so the
+// result starts on page 1.
+func keep(dt *doctype.DocType, q ListQuery, hide func(string) bool) []components.Param {
 	var out []components.Param
 	for _, f := range q.Filters {
+		if inPanel(dt, f, hide) {
+			continue
+		}
 		for _, val := range f.Values {
 			out = append(out, components.Param{Name: "f", Value: f.param(val)})
 		}

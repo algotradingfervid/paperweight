@@ -88,6 +88,16 @@ func (l *Lister) List(_ context.Context, _ auth.Principal, dt *doctype.DocType, 
 	return l.results[dt.Name], nil
 }
 
+// Count returns the Set result's Total for dt; Last stays List's query.
+func (l *Lister) Count(_ context.Context, _ auth.Principal, dt *doctype.DocType, _ docscreen.ListQuery) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.err != nil {
+		return 0, l.err
+	}
+	return l.results[dt.Name].Total, nil
+}
+
 type docKey struct {
 	doctype string
 	id      int64

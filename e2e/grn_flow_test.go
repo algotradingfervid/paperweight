@@ -98,7 +98,7 @@ func (h *Harness) grnCount() int {
 // Delivery.
 func startGRN(s *Session) int64 {
 	s.t.Helper()
-	s.Press("New goods receipt")
+	s.PressNew("New goods receipt")
 	onStep(s, "Step 1 of 4")
 	noOverflow(s, "Order")
 	if !Eval[bool](s, `!!document.querySelector("input[name=purchase_order_id]:checked")`) {

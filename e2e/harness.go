@@ -497,6 +497,33 @@ func (s *Session) Press(label string) {
 	s.Do("press "+label, chromedp.MouseClickXY(at[0], at[1]))
 }
 
+// PressNew starts a document from its list as a user does at this width.
+// From 64rem it presses the list's own label button. On a phone the list
+// carries that link hidden (UI v2 §5.12: New is the bottom nav's), so it
+// checks the link is there and hidden, then presses the bottom nav's New and
+// the Create new sheet's tile going to the same place.
+func (s *Session) PressNew(label string) {
+	s.t.Helper()
+	if !Eval[bool](s, `document.querySelector("nav.bottomnav")?.checkVisibility() ?? false`) {
+		s.Press(label)
+		return
+	}
+	href := Eval[string](s, `(() => {
+  const a = [...document.querySelectorAll(".filterbar-result a")].find((e) => e.textContent.replace(/\s+/g, " ").trim() === `+strconv.Quote(label)+`);
+  return !a ? "missing" : a.checkVisibility() ? "shown" : a.getAttribute("href");
+})()`)
+	if href == "missing" || href == "shown" {
+		s.t.Fatalf("on a phone the list's %q is %s; want it there and hidden, New being the bottom nav's\n%s", label, href, s.page())
+	}
+	s.Press("New")
+	s.Until("the Create new sheet", `document.getElementById("new-sheet").open`)
+	tile := Eval[string](s, `document.querySelector('#new-sheet a.newtile[href="`+href+`"]')?.textContent.replace(/\s+/g, " ").trim() ?? ""`)
+	if tile == "" {
+		s.t.Fatalf("the Create new sheet has no tile to %s\n%s", href, s.page())
+	}
+	s.Press(tile)
+}
+
 // SetFile picks path on the file input sel selects, as a user's choice does
 // (the input's change event fires). Like a user it waits for the page to
 // settle (htmx processes swapped-in forms when the swap settles) and brings

@@ -576,9 +576,10 @@ func wantRows(t *testing.T, s *Session, what string, want []string) {
 }
 
 // TestE2E_ListStateInURL: NUM-125, on fixture.Order (search over remarks, a
-// sortable amount and the state filter). The list has no filter control yet,
-// so the status filter arrives as a URL; search, sort and page go through the
-// page. Amounts stay under the approval rule, so submit approves.
+// sortable amount and the state filter). The status filter arrives as a URL;
+// search, sort and page go through the page. The Filters panel carries the
+// state as its tick, state:in:approved (R5), the same rows. Amounts stay
+// under the approval rule, so submit approves.
 func TestE2E_ListStateInURL(t *testing.T) {
 	h := Start(t)
 	for i := range listPeers + 1 {
@@ -642,7 +643,7 @@ func TestE2E_ListStateInURL(t *testing.T) {
 	p.Until("page 2", `location.search.includes("page=2")`)
 
 	search := Eval[string](p, `location.search`)
-	for _, wantParam := range []string{"f=state%3A%3D%3Aapproved", "q=steel", "sort=amount.desc", "page=2"} {
+	for _, wantParam := range []string{"f=state%3Ain%3Aapproved", "q=steel", "sort=amount.desc", "page=2"} {
 		if !strings.Contains(search, wantParam) {
 			t.Errorf("URL %s has no %s", search, wantParam)
 		}

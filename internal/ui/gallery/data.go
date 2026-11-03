@@ -166,6 +166,12 @@ func (l searchLister) List(_ context.Context, _ auth.Principal, dt *doctype.DocT
 	return types.Result[docscreen.ListRow]{Total: len(out), Rows: out}, nil
 }
 
+// Count is List's Total.
+func (l searchLister) Count(ctx context.Context, p auth.Principal, dt *doctype.DocType, q docscreen.ListQuery) (int, error) {
+	res, err := l.List(ctx, p, dt, q)
+	return res.Total, err
+}
+
 // pickRows are the picker's search results: long rows and similar ones.
 var pickRows = []components.PickRow{
 	{ID: 1, Code: "ST-001", Name: "Steel rod 12 mm", Line: "Raw material · kg"},
@@ -235,6 +241,33 @@ func sampleList(empty bool) components.DataListProps {
 		{Href: "/_gallery/datalist", Party: "Shree Steel Traders", Values: map[string]string{"number": "PO/0043", "amount": "₹1,200.00", "date": "24-10-2026", "hindi": uitest.LongDevanagari}, State: doctype.StateApproved}, // blank GSTIN between two values
 	}
 	return p
+}
+
+// orderLists are DataLists with a Wide name, a NoWrap date and a Code column
+// in each of their six orders on the meta tracks, beside the largest amount
+// (R5, GRN M3).
+func orderLists() []components.DataListProps {
+	meta := []components.Column{
+		{Key: "vendor", Label: "Vendor", Priority: components.PMeta, Wide: true},
+		{Key: "date", Label: "Receipt date", Priority: components.PMeta, NoWrap: true},
+		{Key: "code", Label: "Challan", Priority: components.PMeta, Code: true},
+	}
+	values := map[string]string{"number": "GR/26-27/00001", "amount": uitest.MaxMoney, "vendor": uitest.LongName100, "date": "24-10-2026", "code": uitest.LongCode60}
+	short := map[string]string{"number": "Draft 7", "amount": "₹1.00", "vendor": "Bharat Tools", "date": "01-11-2026", "code": "DC-1"}
+	var out []components.DataListProps
+	for _, order := range [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}} {
+		cols := []components.Column{
+			{Key: "number", Label: "Number", Priority: components.PTitle, NoWrap: true},
+			{Key: "amount", Label: "Accepted value", Priority: components.PFigure, Num: true},
+			meta[order[0]], meta[order[1]], meta[order[2]],
+			{Key: "state", Label: "State", Priority: components.PState},
+		}
+		out = append(out, components.DataListProps{Label: "Goods receipts", Columns: cols, Rows: []components.Row{
+			{Href: "/_gallery/datalist", Values: values, State: doctype.StatePending},
+			{Href: "/_gallery/datalist", Values: short, State: doctype.StateApproved},
+		}})
+	}
+	return out
 }
 
 // noStateList is a DataList with no state column (a non-submittable

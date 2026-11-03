@@ -288,7 +288,7 @@ func TestE2E_ReceiptDroppedKeepsTyping(t *testing.T) {
 	h := startExpense(t)
 	d := h.SignIn(deepak, phone360)
 	d.Open("/doc/" + expense.ClaimDocType)
-	d.Press("New expense claim")
+	d.PressNew("New expense claim")
 	onStep(d, "Step 1 of 3")
 	d.Fill("purpose", "Pune Metro site visit")
 	d.Press(saveContinue)

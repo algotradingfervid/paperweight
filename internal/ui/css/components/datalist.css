@@ -5,6 +5,9 @@
 @utility datalist {
   container-type: inline-size;
   --datalist-nowrap-min: 15ch;
+  /* The figure is bold on cards and rows: a little wider than 15ch. */
+  --datalist-figure-min: 16ch;
+  --datalist-wide-min: 9rem;
   --datalist-go-w: calc(var(--space-3) + var(--icon-sm) + var(--space-3));
   --datalist-inner-r: calc(var(--radius-lg) - var(--border-w));
   /* UI v2 §5.12: one white card of rows split by dividers. Inside a card
@@ -37,6 +40,15 @@
   & .datalist-link--warning { background: var(--color-warning-50); box-shadow: inset var(--space-1) 0 0 var(--color-warning-600); }
   /* The amount stays at the end of card row 1, also when it wraps. */
   & .datalist-r1 > .num { margin-inline-start: auto; }
+  /* A master's code before its name, set apart (shell M6). */
+  & .datalist-code {
+    margin-inline-end: var(--space-1);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
+    overflow-wrap: anywhere;
+  }
   & .datalist-go { display: none; color: var(--color-text-muted); }
   & .datalist-go .icon { display: block; inline-size: var(--icon-sm); block-size: var(--icon-sm); }
   & :where(.datalist-cell, dd) { margin: 0; min-inline-size: 0; overflow-wrap: anywhere; }
@@ -66,7 +78,7 @@
      outside its own container query. */
   /* The figure (track 2, a .num header) fits the largest amount,
      ₹99,99,99,999.99, so money never breaks in aligned rows. */
-  &:has(> .datalist-head > .num:nth-child(2)) { --dl-t2: var(--datalist-nowrap-min); }
+  &:has(> .datalist-head > .num:nth-child(2)) { --dl-t2: var(--datalist-figure-min); }
   &[data-nowrap~="1"] { --dl-t1: var(--datalist-nowrap-min); }
   &[data-nowrap~="2"] { --dl-t2: var(--datalist-nowrap-min); }
   &[data-nowrap~="3"] { --dl-t3: var(--datalist-nowrap-min); }
@@ -75,44 +87,69 @@
   &[data-nowrap~="6"] { --dl-t6: var(--datalist-nowrap-min); }
   &[data-nowrap~="7"] { --dl-t7: var(--datalist-nowrap-min); }
   &[data-nowrap~="8"] { --dl-t8: var(--datalist-nowrap-min); }
+  /* A Wide track (names: vendor, project) takes twice a plain track's
+     share and never less than a long word (Venkateshwara), so names break
+     between words, not inside them (GRN M3). */
+  &[data-wide~="2"] { --dl-f2: 2fr; --dl-t2: var(--datalist-wide-min); }
+  &[data-wide~="3"] { --dl-f3: 2fr; --dl-t3: var(--datalist-wide-min); }
+  &[data-wide~="4"] { --dl-f4: 2fr; --dl-t4: var(--datalist-wide-min); }
+  &[data-wide~="5"] { --dl-f5: 2fr; --dl-t5: var(--datalist-wide-min); }
+  &[data-wide~="6"] { --dl-f6: 2fr; --dl-t6: var(--datalist-wide-min); }
+  &[data-wide~="7"] { --dl-f7: 2fr; --dl-t7: var(--datalist-wide-min); }
+  &[data-wide~="8"] { --dl-f8: 2fr; --dl-t8: var(--datalist-wide-min); }
 
+  /* Rows need room for their minimum tracks: up to 5 tracks from 48rem,
+     6 to 8 (four fixed minimums in GRN's list) from 56rem; narrower, the
+     same items stay cards (R5, GRN M3). */
   @container (min-width: 48rem) {
-    &:is([data-cols="3"], [data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"], [data-cols="8"]) {
-      & :is(.datalist-head, .datalist-link) { display: grid; column-gap: var(--space-4); row-gap: var(--space-1); align-items: start; }
-      & .datalist-head {
-        padding: var(--space-2) var(--datalist-go-w) var(--space-2) var(--space-4);
-        color: var(--color-text-muted);
-        font-size: var(--text-xs);
-        font-weight: var(--weight-semibold);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        background: var(--color-canvas);
-        border-block-end: var(--border-w) solid var(--color-border-subtle);
-        border-start-start-radius: var(--datalist-inner-r);
-        border-start-end-radius: var(--datalist-inner-r);
-        & > * { min-inline-size: 0; overflow-wrap: anywhere; }
-      }
-      & .datalist-rows > li:first-child .datalist-link { border-start-start-radius: 0; border-start-end-radius: 0; }
-      & .datalist-link { padding-inline-end: var(--datalist-go-w); }
-      & .datalist-go { display: block; position: absolute; inset-inline-end: var(--space-3); inset-block-start: 50%; translate: 0 -50%; }
-      & :is(.datalist-r1, .datalist-r2, .datalist-r3) { display: contents; }
-      & .datalist-sep { display: none; }
-      & .datalist-link dl.datalist-blank:not([data-priority="low"]) { display: block; }
-      /* Opted-in values (dates, codes, GSTINs) break only where words do. */
-      & :is(.datalist-nowrap, .datalist-cell.num) dd { overflow-wrap: normal; }
-      & .datalist-title { grid-column: 1; grid-row: 1; }
-      & .datalist-party { grid-column: 1; grid-row: 2; }
-    }
-    &[data-cols="3"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr); }
-    &[data-cols="4"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr); }
-    &[data-cols="5"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr); }
-    &[data-cols="6"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr) minmax(var(--dl-t6, 0), 1fr); }
-    &[data-cols="7"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr) minmax(var(--dl-t6, 0), 1fr) minmax(var(--dl-t7, 0), 1fr); }
-    &[data-cols="8"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), 1fr) minmax(var(--dl-t3, 0), 1fr) minmax(var(--dl-t4, 0), 1fr) minmax(var(--dl-t5, 0), 1fr) minmax(var(--dl-t6, 0), 1fr) minmax(var(--dl-t7, 0), 1fr) minmax(var(--dl-t8, 0), 1fr); }
+    &:is([data-cols="3"], [data-cols="4"], [data-cols="5"]) { @apply datalist-aligned; }
+
+    &[data-cols="3"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), var(--dl-f2, 1fr)) minmax(var(--dl-t3, 0), var(--dl-f3, 1fr)); }
+    &[data-cols="4"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), var(--dl-f2, 1fr)) minmax(var(--dl-t3, 0), var(--dl-f3, 1fr)) minmax(var(--dl-t4, 0), var(--dl-f4, 1fr)); }
+    &[data-cols="5"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), var(--dl-f2, 1fr)) minmax(var(--dl-t3, 0), var(--dl-f3, 1fr)) minmax(var(--dl-t4, 0), var(--dl-f4, 1fr)) minmax(var(--dl-t5, 0), var(--dl-f5, 1fr)); }
+    &[data-cols="6"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), var(--dl-f2, 1fr)) minmax(var(--dl-t3, 0), var(--dl-f3, 1fr)) minmax(var(--dl-t4, 0), var(--dl-f4, 1fr)) minmax(var(--dl-t5, 0), var(--dl-f5, 1fr)) minmax(var(--dl-t6, 0), var(--dl-f6, 1fr)); }
+    &[data-cols="7"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), var(--dl-f2, 1fr)) minmax(var(--dl-t3, 0), var(--dl-f3, 1fr)) minmax(var(--dl-t4, 0), var(--dl-f4, 1fr)) minmax(var(--dl-t5, 0), var(--dl-f5, 1fr)) minmax(var(--dl-t6, 0), var(--dl-f6, 1fr)) minmax(var(--dl-t7, 0), var(--dl-f7, 1fr)); }
+    &[data-cols="8"] :is(.datalist-head, .datalist-link) { grid-template-columns: minmax(var(--dl-t1, 0), 2fr) minmax(var(--dl-t2, 0), var(--dl-f2, 1fr)) minmax(var(--dl-t3, 0), var(--dl-f3, 1fr)) minmax(var(--dl-t4, 0), var(--dl-f4, 1fr)) minmax(var(--dl-t5, 0), var(--dl-f5, 1fr)) minmax(var(--dl-t6, 0), var(--dl-f6, 1fr)) minmax(var(--dl-t7, 0), var(--dl-f7, 1fr)) minmax(var(--dl-t8, 0), var(--dl-f8, 1fr)); }
+  }
+  @container (min-width: 56rem) {
+    &:is([data-cols="6"], [data-cols="7"], [data-cols="8"]) { @apply datalist-aligned; }
   }
   @container (min-width: 64rem) {
     & dl[data-priority="low"] { display: block; }
     & span[data-priority="low"] { display: inline; }
     &:is([data-cols="3"], [data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"], [data-cols="8"]) .datalist-link dl.datalist-blank { display: block; }
   }
+}
+
+/* datalist-aligned is a data list drawn as aligned rows with a header; the
+   datalist utility applies it at the container width its track count needs. */
+@utility datalist-aligned {
+  & :is(.datalist-head, .datalist-link) { display: grid; column-gap: var(--space-4); row-gap: var(--space-1); align-items: start; }
+  & .datalist-head {
+    padding: var(--space-2) var(--datalist-go-w) var(--space-2) var(--space-4);
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    background: var(--color-canvas);
+    border-block-end: var(--border-w) solid var(--color-border-subtle);
+    border-start-start-radius: var(--datalist-inner-r);
+    border-start-end-radius: var(--datalist-inner-r);
+    /* The small bold type is on the labels, not the grid: a track's ch
+       minimum then measures the same as the rows', so the header
+       tracks match the cells (GRN M3). */
+    & > * { min-inline-size: 0; overflow-wrap: anywhere; font-size: var(--text-xs); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.06em; }
+  }
+  & .datalist-rows > li:first-child .datalist-link { border-start-start-radius: 0; border-start-end-radius: 0; }
+  & .datalist-link { padding-inline-end: var(--datalist-go-w); }
+  & .datalist-go { display: block; position: absolute; inset-inline-end: var(--space-3); inset-block-start: 50%; translate: 0 -50%; }
+  & :is(.datalist-r1, .datalist-r2, .datalist-r3) { display: contents; }
+  & .datalist-sep { display: none; }
+  & .datalist-link dl.datalist-blank:not([data-priority="low"]) { display: block; }
+  /* Text breaks between words; a word breaks only when it alone
+     overflows its track. A state badge keeps breaking anywhere, so it
+     still shrinks into a narrow track. */
+  & .datalist-cell:not(.code) dd:not(:has(> .badge)) { overflow-wrap: break-word; }
+  /* Opted-in values (dates, codes, GSTINs) break only where words do. */
+  & :is(.datalist-nowrap, .datalist-cell.num) dd { overflow-wrap: normal; }
+  & .datalist-title { grid-column: 1; grid-row: 1; }
+  & .datalist-party { grid-column: 1; grid-row: 2; }
 }

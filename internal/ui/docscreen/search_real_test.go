@@ -274,3 +274,9 @@ func TestSearch_RealAuth_GuardedBySelf(t *testing.T) {
 
 	wantSearchPage(t, realSearch(t, e.client(t, realRestricted), "steel"))
 }
+
+// Count is List's Total.
+func (l realLister) Count(ctx context.Context, p auth.Principal, dt *doctype.DocType, q docscreen.ListQuery) (int, error) {
+	res, err := l.List(ctx, p, dt, q)
+	return res.Total, err
+}

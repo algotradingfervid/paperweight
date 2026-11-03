@@ -361,3 +361,9 @@ func TestHide47_Listing(t *testing.T) {
 	}
 	e.who = e.open
 }
+
+// Count is List's Total.
+func (l m47Lister) Count(ctx context.Context, p auth.Principal, dt *doctype.DocType, q docscreen.ListQuery) (int, error) {
+	res, err := l.List(ctx, p, dt, q)
+	return res.Total, err
+}

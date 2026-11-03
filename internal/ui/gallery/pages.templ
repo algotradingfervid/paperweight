@@ -158,6 +158,10 @@ templ datalistBody() {
 	@components.DataList(sampleList(false))
 	<h2>Without a state column</h2>
 	@components.DataList(noStateList())
+	<h2>A name, a date and a code in every order</h2>
+	for _, l := range orderLists() {
+		@components.DataList(l)
+	}
 	<h2>Inside a card</h2>
 	@components.Card("Waiting for you", nil) {
 		@components.DataList(sampleList(false))
@@ -354,7 +358,25 @@ templ warningsBody() {
 
 templ filterbarBody() {
 	@components.FilterBar(components.FilterBarProps{
-		Action: "/_gallery/filterbar", Search: uitest.LongName100, SearchLabel: "Search sample orders",
+		Action: "/_gallery/filterbar", Search: uitest.LongName100, SearchLabel: "Search sample orders", Placeholder: "Number, supplier or remarks",
+		Quick: []components.QuickChip{
+			{Label: "All", Href: "/_gallery/filterbar"},
+			{Label: "Draft", Href: "/_gallery/filterbar", Count: "3"},
+			{Label: "Pending approval", Href: "/_gallery/filterbar", Count: "12,34,567", Current: true},
+			{Label: "Approved", Href: "/_gallery/filterbar", Count: "99,99,999"},
+			{Label: "Rejected", Href: "/_gallery/filterbar", Count: "1"},
+			{Label: "Cancelled", Href: "/_gallery/filterbar", Count: "2"},
+		},
+		Active: 6,
+		Panel: []components.FilterGroup{
+			{Label: "State", Name: "f", Options: []components.Option{
+				{Value: "state:in:draft", Label: "Draft"}, {Value: "state:in:pending_approval", Label: "Pending approval"},
+				{Value: "state:in:approved", Label: "Approved"}, {Value: "state:in:closed", Label: "Closed"},
+			}, Checked: []string{"state:in:approved"}},
+			{Label: "Receipt", Name: "f", Options: []components.Option{
+				{Value: "receipt_status:in:none", Label: "Not received"}, {Value: "receipt_status:in:part", Label: "Part received " + uitest.LongName100},
+			}},
+		},
 		Sort: "amount.desc", Sorts: []components.Option{{Value: "amount.desc", Label: "Amount high to low"}, {Value: "amount.asc", Label: "Amount low to high"}},
 		Chips: []components.Chip{
 			{Label: "State: Approved, Pending approval", RemoveURL: "/_gallery/filterbar"},
@@ -364,7 +386,7 @@ templ filterbarBody() {
 			{Label: "Order date: 01-04-2026, 31-03-2027", RemoveURL: "/_gallery/filterbar"},
 			{Label: "Name: " + uitest.LongDevanagari, RemoveURL: "/_gallery/filterbar"},
 		},
-		FilterURL: "/_gallery/filterbar", ClearURL: "/_gallery/filterbar", Count: "12,34,567 sample orders",
+		ClearURL: "/_gallery/filterbar", Count: "12,34,567 sample orders",
 		New:    &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"},
 		Export: &components.Link{Label: "Export", Href: "/_gallery/filterbar"},
 	})

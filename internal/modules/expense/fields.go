@@ -28,7 +28,7 @@ func claimFields() []doctype.Field {
 	return []doctype.Field{
 		{Name: "number", Label: "Claim number", Type: doctype.Text, ReadOnly: true, ListPriority: 1},
 		employeeField,
-		{Name: "claim_date", Label: "Claim date", Type: doctype.Date, Required: true},
+		{Name: "claim_date", Label: "Claim date", Type: doctype.Date, Required: true, Sortable: true, ListPriority: 4}, // on the card and a column (R5)
 		{Name: "purpose", Label: "Purpose", Type: doctype.Text, Required: true, MaxLen: 140, Placeholder: "e.g. Pune Metro site visit"},
 		{Name: "advance_id", Label: "Advance", Type: doctype.Link, Link: AdvanceDocType},
 		{Name: "less_advance", Label: "Less advance", Type: doctype.Money, NonNegative: true},
@@ -65,7 +65,7 @@ func advanceFields() []doctype.Field {
 	return []doctype.Field{
 		{Name: "number", Label: "Advance number", Type: doctype.Text, ReadOnly: true, ListPriority: 1},
 		employeeField,
-		{Name: "advance_date", Label: "Advance date", Type: doctype.Date, Required: true},
+		{Name: "advance_date", Label: "Advance date", Type: doctype.Date, Required: true, Sortable: true, ListPriority: 4}, // on the card and a column (R5)
 		{Name: "purpose", Label: "Purpose", Type: doctype.Text, Required: true, MaxLen: 140, Placeholder: "e.g. Nagpur site visit, 3 days"},
 		{Name: "amount", Label: "Amount", Type: doctype.Money, ReadOnly: true, ListPriority: 2},
 		{Name: "used_amount", Label: "Used", Type: doctype.Money, ReadOnly: true, System: true, EditableAfterSubmit: true},
