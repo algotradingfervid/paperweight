@@ -97,19 +97,24 @@
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
   &:empty { display: none; }
+  /* A message with its icon is laid out by the icon, not by the variant class:
+     while an htmx swap settles, the new message wears the old one's class, and
+     an unsized icon would grow the reserved line (CD-287). */
+  &:has(> .icon) {
+    display: flex;
+    gap: var(--space-1);
+  }
+  & > .icon {
+    flex: none;
+    inline-size: var(--icon-sm);
+    block-size: var(--icon-sm);
+  }
 }
 
 /* A date's echo with its check (UI v2 §5.7). */
 @utility field__msg--echo {
-  display: flex;
-  gap: var(--space-1);
   align-items: center;
-  & .icon {
-    flex: none;
-    inline-size: var(--icon-sm);
-    block-size: var(--icon-sm);
-    color: var(--color-success-600);
-  }
+  & .icon { color: var(--color-success-600); }
 }
 
 @utility field__msg--error {
