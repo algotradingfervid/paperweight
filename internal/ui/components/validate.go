@@ -60,6 +60,25 @@ func weekday(s string) string {
 	return weekdayOf(d)
 }
 
+// pastMax reports whether the date value is after the day limit; false when
+// either isn't a date.
+func pastMax(value, limit string) bool {
+	d, err := types.ParseDate(value)
+	if err != nil {
+		return false
+	}
+	m, err := types.ParseDate(limit)
+	return err == nil && d.Compare(m) > 0
+}
+
+// noted is echo with note after it, when both are there.
+func noted(echo, note string) string {
+	if echo == "" || note == "" {
+		return echo
+	}
+	return echo + " · " + note
+}
+
 // ValidateHandler serves POST /ui/validate/{kind}. It parses the value of the
 // field named by _name and answers with the field's message region for _id,
 // plus an HX-Trigger "ui:field" event that field.js uses to write the
@@ -88,7 +107,7 @@ func ValidateHandler(parsers map[string]ParseFunc) http.Handler {
 		}
 		w.Header().Set("HX-Trigger", fieldTrigger(id, value, in, msg != ""))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := fieldMsg(id, msg, echo).Render(r.Context(), w); err != nil {
+		if err := fieldMsg(id, msg, noted(echo, r.PostFormValue("_note")), r.PathValue("kind") == "date" && !pastMax(in, r.PostFormValue("_max"))).Render(r.Context(), w); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})

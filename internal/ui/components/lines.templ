@@ -225,7 +225,7 @@ templ LineGridRowForm(r LineGridRow) {
 // the field's own markup; id is the cell's grid-<no>-<field>.
 templ LineGridError(id, message string) {
 	if message != "" {
-		@fieldMsg(id, message, "")
+		@fieldMsg(id, message, "", false)
 	}
 }
 

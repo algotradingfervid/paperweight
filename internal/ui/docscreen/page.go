@@ -510,6 +510,27 @@ func CheckKeyFacts(mods map[string]Module) error {
 	return nil
 }
 
+// CheckTodayDates reports the first Module.TodayDates name that isn't a header
+// Date field its DocType declares, or a name with no today to fill it, so a
+// typo fails when the routes are built, not by leaving the date blank.
+func CheckTodayDates(mods map[string]Module, today func() (string, string)) error {
+	for name, m := range mods {
+		dt, ok := doctype.Lookup(name)
+		for _, f := range m.TodayDates {
+			if !ok {
+				return fmt.Errorf("docscreen: TodayDates on unregistered DocType %s", name)
+			}
+			if fd, found := dt.Field(f); !found || fd.OnLine || fd.Type != doctype.Date {
+				return fmt.Errorf("docscreen: %s TodayDates names %q, which isn't one of its header Date fields", name, f)
+			}
+			if today == nil {
+				return fmt.Errorf("docscreen: %s TodayDates needs Deps.Today", name)
+			}
+		}
+	}
+	return nil
+}
+
 // CheckHome reports the first Module.Home that is set but has no label or a
 // URL that isn't a local path starting with "/" (UI v2 §5.13 item 2).
 func CheckHome(mods map[string]Module) error {

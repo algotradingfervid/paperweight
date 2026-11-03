@@ -75,7 +75,7 @@ templ RowsEditor(p RowsProps) {
 					}
 				</ol>
 			}
-			@fieldMsg(p.ID, p.Error, "")
+			@fieldMsg(p.ID, p.Error, "", false)
 			@Button(ButtonProps{
 				Label: p.AddLabel, Busy: "Adding…", Icon: "plus", Variant: Secondary,
 				Name: "_rows", Value: "add", Attrs: rowsNoValidate,

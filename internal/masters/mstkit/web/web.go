@@ -271,7 +271,10 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 		dt:       sortable(dt),
 		list:     &list.Service{DB: s.Env.DB, Auth: s.Env.Auth},
 		exporter: csvio.NewExporter(s.Env.DB, s.Env.Auth),
-		deps:     docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine, LinkRead: s.Env.CanLinkTargetTx, MasterChecks: true},
+		deps: docscreen.Deps{DB: s.Env.DB, Engine: s.Env.Engine, LinkRead: s.Env.CanLinkTargetTx, MasterChecks: true, Today: func() (string, string) {
+			today := s.Env.Today()
+			return types.FormatDate(today), types.FormatDate(types.AddDays(today, -1))
+		}},
 		// disabled is set by Disable and Enable, never on the form.
 		fields:    slices.DeleteFunc(slices.Clone(dt.Fields), func(f doctype.Field) bool { return f.Name == "disabled" || f.OnLine }),
 		rowFields: rowFields,

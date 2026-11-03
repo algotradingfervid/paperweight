@@ -47,6 +47,7 @@ func Modules(d Deps) map[string]docscreen.Module {
 			LifeSteps:   []string{lifeSent, lifeReceived}, // UI v2 E5b
 			Home:        purchaseHome,                     // UI v2 E5b
 			FooterTotal: "net_total",                      // UI v2 C3c (A-22): "Taxable value", the field's label
+			TodayDates:  []string{"order_date"},           // PO spec §3.2
 		},
 		purchase.RequestDocType: {
 			CardsOnly: requestCardsOnly,  // P15d
