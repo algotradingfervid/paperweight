@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -198,7 +199,7 @@ func (d Deps) pageViewOf(r *http.Request, p auth.Principal, dt *doctype.DocType,
 	if err != nil {
 		return pageView{}, err
 	}
-	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights), Lines: d.lineList(r, dt, shown), Facts: keyFacts(facts, shown), Party: shown.Info.Party, Steps: steps}
+	pv := pageView{DT: dt, V: shown, Extra: extra, Attach: attachOf(dt, v, rights), Lines: d.lineList(r, dt, shown, docURL(dt.Name, v.Info.ID)), Facts: keyFacts(facts, shown), Party: shown.Info.Party, Steps: steps}
 	if pf, ok := doc.PartyField(dt); ok && slices.Contains(facts, pf.Name) {
 		pv.Party = "" // the facts show it
 	}
@@ -493,10 +494,37 @@ func waitingLine(pv pageView) string {
 }
 
 // lineList is v's line cards with no actions, as the check and document
-// pages show them, and the module's display grid (CD-313).
-func (d Deps) lineList(r *http.Request, dt *doctype.DocType, v DocView) *components.LineListProps {
+// pages show them, and the module's display grid (CD-313) with every line.
+// More than phoneCards lines show the first phoneCards cards and "Show all"
+// linking to page at ?all=1, where the first revealed card is the link's
+// fragment target (design-system §8.2).
+func (d Deps) lineList(r *http.Request, dt *doctype.DocType, v DocView, page string) *components.LineListProps {
 	cards := lineCards(v.Lines)
-	return &components.LineListProps{Cards: cards, Total: len(v.Lines), Grid: d.displayRows(r, dt, v, cards), Display: true}
+	l := &components.LineListProps{Cards: cards, Total: len(v.Lines), Grid: d.displayRows(r, dt, v, cards), Display: true}
+	if len(cards) > phoneCards {
+		if allLines(r, page) {
+			cards[phoneCards].Reveal = true
+		} else {
+			l.Cards, l.ShowAllURL = cards[:phoneCards], page+"?all=1#line-reveal"
+		}
+	}
+	return l
+}
+
+// allLines reports whether page shows every line: ?all=1 on the request,
+// or, for htmx, on HX-Current-URL when its path is page. A refused htmx post
+// redraws page without a new address, so the address bar keeps its ?all=1;
+// drawing 20 lines there would leave a Show all that differs from the
+// address only by its fragment, which the browser never reloads.
+func allLines(r *http.Request, page string) bool {
+	if r.URL.Query().Get("all") == "1" {
+		return true
+	}
+	if !ui.IsHTMX(r) {
+		return false
+	}
+	u, err := url.Parse(r.Header.Get("HX-Current-URL"))
+	return err == nil && u.Path == page && u.Query().Get("all") == "1"
 }
 
 func lineCards(lines []LineView) []components.LineCard {

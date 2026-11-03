@@ -28,7 +28,13 @@ templ LineList(p LineListProps) {
 		}
 		<ol class="lines">
 			for _, c := range p.Cards {
-				<li class="lines-card">
+				<li
+					class="lines-card"
+					if c.Reveal {
+						id="line-reveal"
+						tabindex="-1"
+					}
+				>
 					<div class="lines-top">
 						<span class="lines-no">{ strconv.Itoa(c.No) }</span>
 						<span class="lines-name">
@@ -75,11 +81,13 @@ templ LineList(p LineListProps) {
 		if p.Total > len(p.Cards) {
 			<div class="lines-more">
 				@Button(ButtonProps{Label: "Show all " + strconv.Itoa(p.Total) + " lines", Href: p.ShowAllURL, Variant: Secondary})
-				@Form(FormProps{Action: p.FindURL, Method: "get"}) {
-					<div class="lines-find">
-						@TextInput(FieldProps{ID: "line-find", Name: "find", Label: "Find a line", Value: p.Find})
-						@Button(ButtonProps{Label: "Find", Busy: "Finding…", Icon: "search", Variant: Secondary})
-					</div>
+				if p.FindURL != "" {
+					@Form(FormProps{Action: p.FindURL, Method: "get"}) {
+						<div class="lines-find">
+							@TextInput(FieldProps{ID: "line-find", Name: "find", Label: "Find a line", Value: p.Find})
+							@Button(ButtonProps{Label: "Find", Busy: "Finding…", Icon: "search", Variant: Secondary})
+						</div>
+					}
 				}
 			</div>
 		}
