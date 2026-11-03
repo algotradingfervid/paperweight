@@ -32,3 +32,12 @@ Four crew-ui-reviewer passes, one per area, each on its own copy of the data, at
   - real phones, on-screen keyboards and screen readers;
   - order pickers with 7 or more orders;
   - approver and reader views of expense.
+
+## Final fix round (RR1a, RR1b, merged 3 Nov)
+
+Every item under "Left open" is fixed, and CD-398 records the rulings. The expense line page's Amount one swipe below the footer at 360 × 640 is accepted as designed (§5.5). Trial c8daf95b: ci exit 0, e2e exit 0.
+
+More backlog:
+- The harness `Press` should check `elementFromPoint` before clicking; a sticky banner can move the target.
+- A `make mutate` operator that drops each part of an `&&` case condition.
+- The column gap on collapsed low-priority list tracks.

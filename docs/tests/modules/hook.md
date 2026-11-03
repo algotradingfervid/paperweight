@@ -402,9 +402,9 @@ Fixtures are in `docs/tests/core/00-fixtures.md`.
 ### HOOK-057 · The card fallback holds on every grid path
 - **Priority:** P1
 - **Level:** integration
-- **Given** Hooked with a 4-cell row (and a 3-cell control) **When** the Items step is shown, a line is saved over htmx and a submit lands on Items with a line error **Then** no grid input or row renders, the save answers 303 to the Items step, and the error links to `#step-title`.
+- **Given** Hooked with a 4-cell row (and a 3-cell control) **When** the Items step is shown, a line is saved over htmx and a submit lands on Items with a line error **Then** no grid input or row renders, the save answers 303 to the Items step, and the error links to the line's card (`#line-2`; R7b, RR1a); the 3-cell control links to `#line-editor`.
 - **Go test:** `TestLineGrid_FallbackOnEveryPath`
-- **Sources:** CD-315; M0-40
+- **Sources:** CD-315; M0-40; RR1a
 
 ### HOOK-058 · A line page error on a hidden field is a plain message
 - **Priority:** P1
