@@ -121,7 +121,7 @@ func (d Deps) fromRecord(ctx context.Context, tx *db.Tx, dt *doctype.DocType, re
 		plain := rec.Values[f.Name]
 		if plain == "" {
 			if required(f) {
-				v.Problems = append(v.Problems, doctype.FieldError{Field: f.Name, Message: f.Label + " is required."})
+				v.Problems = append(v.Problems, doc.RequiredError(f, 0))
 			}
 			continue
 		}
@@ -181,7 +181,7 @@ func (d Deps) lineView(ctx context.Context, tx *db.Tx, dt *doctype.DocType, no i
 		plain := line[f.Name]
 		if plain == "" {
 			if required(f) {
-				problems = append(problems, doctype.FieldError{Field: f.Name, Line: no, Message: f.Label + " is required."})
+				problems = append(problems, doc.RequiredError(f, no))
 			}
 			continue
 		}

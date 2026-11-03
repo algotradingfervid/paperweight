@@ -147,7 +147,7 @@ func (e *engine) restrictedRequired(ctx context.Context, tx *db.Tx, p auth.Princ
 				return err
 			}
 			if r {
-				errs = append(errs, fieldErr(f, line, msgRequired))
+				errs = append(errs, RequiredError(f, line))
 			}
 		}
 		return nil

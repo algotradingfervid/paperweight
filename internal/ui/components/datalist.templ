@@ -29,6 +29,9 @@ templ dataList(p DataListProps, l listLayout) {
 		if l.wideTracks() != "" {
 			data-wide={ l.wideTracks() }
 		}
+		if l.labelTracks() != "" {
+			data-label={ l.labelTracks() }
+		}
 		if l.state != nil {
 			data-state={ strconv.Itoa(l.tracks()) }
 		}
