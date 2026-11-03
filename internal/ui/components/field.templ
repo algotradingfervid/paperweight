@@ -14,6 +14,9 @@ import (
 // cleared (CD-217, CD-359 (1)); it marks nothing on the label.
 type FieldProps struct {
 	ID, Name, Label, Hint, Error, Value, Suffix, Echo string
+	EchoNote                                          string // after the echo, also in /ui/validate's answer: "· the day the goods arrived" (UI v2 §5.7)
+	EchoCheck                                         bool   // the echo has a check icon
+	EchoMax                                           string // a date past this dd-mm-yyyy day echoes with no check, in /ui/validate's answer too
 	Placeholder, Tip                                  string
 	Required, Clearable                               bool
 	Attrs                                             templ.Attributes
@@ -95,7 +98,7 @@ templ field(p FieldProps) {
 		}
 		@fieldHint(p)
 		{ children... }
-		@fieldMsg(p.ID, p.Error, p.Echo)
+		@fieldMsg(p.ID, p.Error, p.Echo, p.EchoCheck)
 	</div>
 }
 
@@ -125,7 +128,7 @@ templ choiceGroup(p FieldProps) {
 		@choiceTip(p)
 		@fieldHint(p)
 		{ children... }
-		@fieldMsg(p.ID, p.Error, p.Echo)
+		@fieldMsg(p.ID, p.Error, p.Echo, p.EchoCheck)
 	</fieldset>
 }
 
@@ -141,13 +144,19 @@ templ fieldHint(p FieldProps) {
 	}
 }
 
-// fieldMsg is the message region: the error with its icon, else the echo.
-// ValidateHandler renders the same element for htmx to swap.
-templ fieldMsg(id, errText, echo string) {
+// fieldMsg is the message region: the error with its icon, else the echo, with
+// a check icon when check. ValidateHandler renders the same element for htmx
+// to swap.
+templ fieldMsg(id, errText, echo string, check bool) {
 	if errText != "" {
 		<p id={ id + "-msg" } class="field__msg field__msg--error">
 			@icons.Icon("circle-alert")
 			<span>{ errText }</span>
+		</p>
+	} else if check && echo != "" {
+		<p id={ id + "-msg" } class="field__msg field__msg--echo">
+			@icons.Icon("check")
+			<span>{ echo }</span>
 		</p>
 	} else {
 		<p id={ id + "-msg" } class="field__msg">{ echo }</p>

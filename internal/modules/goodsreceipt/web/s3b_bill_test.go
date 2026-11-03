@@ -197,6 +197,9 @@ func TestGRNBill_CardWriterAndReader(t *testing.T) {
 			t.Errorf("Invoice date %s chip: %d, date %q; want one at %q", chip, b.Length(), got, want)
 		}
 	}
+	if got := card.Find(`input[type=date][data-date-picker="f-invoice_date"]`).AttrOr("max", ""); got != "2026-10-24" {
+		t.Errorf("Invoice date's calendar max = %q, want today (the bill refuses a future date)", got)
+	}
 	if got := s2Norm(card.Find("#f-invoice_amount-hint").Text()); got != s3bAccepted {
 		t.Errorf("Invoice total hint %q, want %q", got, s3bAccepted)
 	}

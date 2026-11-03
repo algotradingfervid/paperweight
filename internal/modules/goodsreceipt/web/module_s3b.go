@@ -189,7 +189,7 @@ func billFormOf(id int64, b goodsreceipt.BillCard, kept *billPost) *billForm {
 		Action: billPath(id), Version: strconv.Itoa(version),
 		No: no, Amount: amount,
 		Date: components.DateProps{FieldProps: field("invoice_date", labelInvoiceDate, in.InvoiceDate, true),
-			Today: types.FormatDate(b.Today), Yesterday: types.FormatDate(types.AddDays(b.Today, -1))},
+			Today: types.FormatDate(b.Today), Yesterday: types.FormatDate(types.AddDays(b.Today, -1)), Max: types.FormatDate(b.Today)},
 		Save: components.ButtonProps{Label: labelSaveBill, Variant: components.Secondary},
 	}
 }

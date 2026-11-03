@@ -296,6 +296,10 @@ func acceptedOf(e entry) (types.Qty, bool) {
 // the reason's longest length.
 func cardOf(dt *doctype.DocType, l goodsreceipt.POLine, e entry, s docscreen.StepState, warning string, reasonMax int) itemCard {
 	n := strconv.Itoa(l.No)
+	rejected := e.rejected
+	if !s.Posted && !nonZero(rejected) {
+		rejected = "" // no reject shows the placeholder, never a 0 to type after (CD-387 (8))
+	}
 	field := func(key, name, label, value string, attrs templ.Attributes) components.FieldProps {
 		id := components.FieldID("po-line[" + n + "]." + name)
 		if e.pos > 0 {
@@ -308,7 +312,7 @@ func cardOf(dt *doctype.DocType, l goodsreceipt.POLine, e entry, s docscreen.Ste
 	c := itemCard{
 		Title: n + " · " + l.ItemName, Code: l.ItemCode, Whole: l.UoM.WholeNumber, UoM: l.UoM.Code,
 		Received: field("received", "received_qty", labelReceived, e.received, templ.Attributes{}),
-		Rejected: field("rejected", "rejected_qty", labelRejected, e.rejected, templ.Attributes{}),
+		Rejected: field("rejected", "rejected_qty", labelRejected, rejected, templ.Attributes{}),
 		Reason:   field("reason", "reject_reason", labelReason, e.reason, templ.Attributes{"maxlength": strconv.Itoa(reasonMax)}),
 	}
 	c.Received.Hint = "Ordered " + types.FormatQty(l.Ordered) + " · Pending " + types.FormatQtyUoM(l.Pending, l.UoM.Code)

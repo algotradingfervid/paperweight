@@ -46,5 +46,7 @@ func AdvanceModule(d Deps) docscreen.Module {
 		CardsOnly: true,
 		// Check card tiles (UI v2 C4c).
 		StepIcons: map[string]string{"details": "hand-coins"},
+		// Expense UX §5.10 (docs/ux/2026-10-31-expense.md): DateInput, default today.
+		TodayDates: []string{"advance_date"},
 	}
 }
