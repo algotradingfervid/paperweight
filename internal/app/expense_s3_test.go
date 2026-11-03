@@ -182,11 +182,12 @@ func wantNoText(t *testing.T, what string, r *response, unwanted ...string) {
 }
 
 // pairValue is the value of Details' pair labelled label; "" when absent.
-// It fails when the label shows more than once.
+// It fails when the label shows more than once. The header's key facts
+// repeat some pairs by design (UI v2 §5.13 item 3) and aren't Details.
 func pairValue(t *testing.T, r *response, label string) string {
 	t.Helper()
 	var vals []string
-	r.doc.Find("dl dt").Each(func(_ int, dt *goquery.Selection) {
+	r.doc.Find("dl:not(.doc-head__facts) dt").Each(func(_ int, dt *goquery.Selection) {
 		if strings.TrimSpace(dt.Text()) == label {
 			vals = append(vals, strings.Join(strings.Fields(dt.Next().Text()), " "))
 		}
@@ -441,8 +442,9 @@ func TestExpS3_PaidPages(t *testing.T) {
 	if _, ok := in.Attr("autofocus"); !ok {
 		t.Error("Paid on isn't focused")
 	}
-	if got := r.doc.Find(`form[action="` + paidPath(adv.ID, "paid") + `"] button[type="submit"]`).Text(); !strings.Contains(got, "Mark as paid") {
-		t.Errorf("the form's button reads %q", got)
+	form := r.doc.Find(`form[action="` + paidPath(adv.ID, "paid") + `"]`)
+	if got := r.doc.Find(`.actionbar button[type="submit"][form="` + form.AttrOr("id", "none") + `"]`).Text(); !strings.Contains(got, "Mark as paid") {
+		t.Errorf("the form's button in the sticky bar reads %q", got)
 	}
 	v := r.doc.Find(`form input[name="version"]`).AttrOr("value", "")
 	if v != e.text(`SELECT CAST(version AS TEXT) FROM employee_advance WHERE id = ?`, adv.ID) {

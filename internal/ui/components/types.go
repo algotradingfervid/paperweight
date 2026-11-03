@@ -36,6 +36,8 @@ const (
 	Primary   Variant = "primary"
 	Secondary Variant = "secondary"
 	Ghost     Variant = "ghost"
+	// DangerQuiet is a ghost button in the danger colour (More actions).
+	DangerQuiet Variant = "danger-quiet"
 )
 
 // Danger is both a Variant and a BannerKind: it is untyped, so it converts

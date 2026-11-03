@@ -69,7 +69,18 @@
     & .lines-card:has(.lines-receipt .attachments__thumb) { grid-template-columns: 3rem minmax(0, 1fr); column-gap: var(--space-2); }
   }
   & .lines-receipt-note { align-items: center; & .icon { flex: none; inline-size: var(--icon-sm); block-size: var(--icon-sm); } }
-  & .lines-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); & form { display: contents; } }
+  /* Change and Remove first, the square move buttons together at the row's
+     end, on a row of their own where the three don't fit (320 px). */
+  & .lines-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    & form { display: contents; }
+    & .btn { padding-inline: var(--space-2); gap: var(--space-1); }
+    & .icon { inline-size: var(--icon-md); block-size: var(--icon-md); }
+  }
+  & .lines-moves { display: flex; gap: var(--space-1); margin-inline-start: auto; & form { display: contents; } }
+  & .lines-actions [data-move], & .linegrid-actions [data-move] { padding-inline: 0; }
   & .lines-more { display: grid; gap: var(--space-3); justify-items: start; & > * { max-inline-size: 100%; } }
   & .lines-find { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); & .field { flex: 1 1 16rem; } }
   & .lines-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); margin: 0; font-weight: var(--weight-semibold); }
@@ -137,8 +148,9 @@
       & form { display: contents; }
       & .btn { max-inline-size: 100%; }
     }
-    /* The widest action, Move down, keeps its label on one line. */
+    /* The widest action keeps its label on one line. */
     & .linegrid-actions .btn { min-inline-size: max-content; }
+    & .linegrid-actions [data-move] { min-inline-size: var(--target-min); }
     & .linegrid-head {
       padding: var(--space-2) 0;
       color: var(--color-text-secondary);

@@ -54,7 +54,11 @@ const widestGridRowJS = `(() => {
   if (lines(amount.lastChild) !== 1) out.push("the amount wraps");
   const buttons = [...row.querySelectorAll(".linegrid-actions .btn")];
   if (buttons.length !== 3) out.push(buttons.length + " actions, want Remove, Move up and Move down");
-  for (const b of buttons) if (lines(b.querySelector("span")) !== 1) out.push("action wraps: " + JSON.stringify(b.textContent.trim()));
+  for (const b of buttons) {
+    const word = b.querySelector("span"); // the move buttons are icon-only (§5.11)
+    if (word && lines(word) !== 1) out.push("action wraps: " + JSON.stringify(b.textContent.trim()));
+  }
+  if (buttons.filter((b) => b.querySelector("span")).length !== 1) out.push("want Remove's word alone");
   const tracks = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
   const shown = (els) => els.filter((e) => getComputedStyle(e).display !== "none");
   const headCells = shown([...head.children]), cells = shown([...row.querySelector(".linegrid-form").children, row.querySelector(".linegrid-actions")]);

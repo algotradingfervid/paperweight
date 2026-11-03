@@ -26,7 +26,8 @@ import (
 // Q8).
 const (
 	hintCode     = "Leave blank for your own claim. Type a code to enter a claim for someone else, including someone who has left."
-	hintPurpose  = `For example "Pune Metro site visit".`
+	hintPurpose  = "Your approver reads this first."
+	hintDate     = "Expenses on this claim can't be dated after it."
 	hintLess     = "Left blank, the smaller of what's left and the claim total is used."
 	hintRemarks  = "For your manager. Not printed."
 	hintPaidOnly = "Only advances marked as paid are listed. Ask the Director if yours is missing."
@@ -135,7 +136,7 @@ func (d Deps) detailsBody(c docscreen.Ctx, s docscreen.StepState) (templ.Compone
 	}
 	v := detailsView{
 		purpose: input("purpose", hintPurpose, val("purpose")),
-		date:    input("claim_date", "", date),
+		date:    input("claim_date", hintDate, date),
 		remarks: more(c, "remarks", val("remarks"), errOf("remarks"), input("remarks", hintRemarks, val("remarks"))),
 	}
 	if isAdmin(c.Principal) && !hides(c, "employee_id") {
