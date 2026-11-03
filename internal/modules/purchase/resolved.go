@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/purchase/dbq"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -17,37 +18,35 @@ import (
 // text. A draft saves without them, so Validate can't refuse them. Project
 // stays Required: DOC's restricted-user check (CD-178, PO-012) reads the flag.
 
-// Labels in the refusals, as the fields declare them.
-const (
-	orderUoMLabel   = "UoM"
-	requestUoMLabel = "Unit"
-	taxCodeLabel    = "Tax code"
-	msgLineRequired = "Line %d: %s is required."
-)
+// msgLineRequired is DOC's required text on a line: msgLinePrefix and
+// msgRequired in internal/kernel/doc/messages.go, which DOC doesn't export.
+const msgLineRequired = "Line %d: %s is required."
 
-// blankLine is the error of a blank link on line, or none.
-func blankLine(id, line int64, field, label string) []doctype.FieldError {
+// blankLine is the error of a blank link on line, or none, labelled as dt
+// declares field.
+func blankLine(dt *doctype.DocType, id, line int64, field string) []doctype.FieldError {
 	if id != 0 {
 		return nil
 	}
-	return []doctype.FieldError{{Field: field, Line: int(line), Message: fmt.Sprintf(msgLineRequired, line, label)}}
+	f, _ := dt.Field(field)
+	return []doctype.FieldError{{Field: field, Line: int(line), Message: fmt.Sprintf(msgLineRequired, line, f.Label)}}
 }
 
 // orderBlanks are what the PO's stored lines leave unresolved.
-func orderBlanks(rows []dbq.OrderLinesForValidateRow) []doctype.FieldError {
+func orderBlanks(dt *doctype.DocType, rows []dbq.OrderLinesForValidateRow) []doctype.FieldError {
 	var errs []doctype.FieldError
 	for _, l := range rows {
-		errs = append(errs, blankLine(l.UomID, l.LineNo, "uom_id", orderUoMLabel)...)
-		errs = append(errs, blankLine(l.TaxCodeID, l.LineNo, "tax_code_id", taxCodeLabel)...)
+		errs = append(errs, blankLine(dt, l.UomID, l.LineNo, "uom_id")...)
+		errs = append(errs, blankLine(dt, l.TaxCodeID, l.LineNo, "tax_code_id")...)
 	}
 	return errs
 }
 
 // requestBlanks are what the request's stored lines leave unresolved.
-func requestBlanks(rows []dbq.RequestLinesForValidateRow) []doctype.FieldError {
+func requestBlanks(dt *doctype.DocType, rows []dbq.RequestLinesForValidateRow) []doctype.FieldError {
 	var errs []doctype.FieldError
 	for _, l := range rows {
-		errs = append(errs, blankLine(l.UomID, l.LineNo, "uom_id", requestUoMLabel)...)
+		errs = append(errs, blankLine(dt, l.UomID, l.LineNo, "uom_id")...)
 	}
 	return errs
 }
@@ -59,7 +58,8 @@ func MissingOrder(ctx context.Context, tx *db.Tx, id int64) ([]doctype.FieldErro
 	if err != nil {
 		return nil, err
 	}
-	return orderBlanks(rows), nil
+	dt, _ := doc.Lookup(DocType)
+	return orderBlanks(dt, rows), nil
 }
 
 // RejectedReason is the reason of the rejection PO id's latest submit ended

@@ -123,7 +123,8 @@ func beforeSubmitRequest(ctx context.Context, tx *db.Tx, id int64) error {
 	must(q.SetRequestDate(ctx, dbq.SetRequestDateParams{ID: id, RequestDate: sql.NullString{String: h.RequestDate, Valid: true}}))
 	rows, err := q.RequestLinesForValidate(ctx, id)
 	must(err)
-	if errs := append(checkRequestDates(h, today), requestBlanks(rows)...); len(errs) > 0 {
+	dt, _ := doc.Lookup(RequestDocType)
+	if errs := append(checkRequestDates(h, today), requestBlanks(dt, rows)...); len(errs) > 0 {
 		return doc.Invalid(errs)
 	}
 	return nil

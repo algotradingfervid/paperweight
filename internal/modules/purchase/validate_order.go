@@ -408,7 +408,8 @@ func beforeSubmitOrder(ctx context.Context, tx *db.Tx, id int64) error {
 	if err != nil {
 		return err
 	}
-	errs := orderBlanks(rows)
+	dt, _ := doc.Lookup(DocType)
+	errs := orderBlanks(dt, rows)
 	for _, l := range rows {
 		if h.ReverseCharge == 0 || l.TaxCodeID == 0 {
 			continue

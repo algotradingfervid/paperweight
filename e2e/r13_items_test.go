@@ -3,7 +3,6 @@
 package e2e
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
@@ -33,47 +32,52 @@ const r13TileJS = `(() => {
 // TestE2E_R13_AddTileEveryWidth (UI v2 §5.11): Add an item is a 56 px dashed
 // full-width tile at every supported width, with no lines and with one, on a
 // PO and on a request; with no lines the step shows No items yet. and no
-// total rows, and the widest card text (a long unit, a discount) never
-// pushes the page sideways.
+// total rows, and the widest card text (a long quantity and rate, a discount)
+// never pushes the page sideways.
 func TestE2E_R13_AddTileEveryWidth(t *testing.T) {
 	h := startPurchase(t)
-	empty := h.Do(priya, purchase.DocType, 0, doctype.ActionSave, doc.ActionInput{Values: map[string]string{
+	order := map[string]string{
 		"vendor_id": h.idOf("party", "SHREE"), "site_id": h.idOf("site", "METRO-SITE"), "project_id": h.idOf("project", "PRJ-METRO"), "order_date": plainDate,
-	}}).ID
-	if _, err := h.App.DB().SQL().ExecContext(context.Background(), `UPDATE uom SET name = 'Square Metre Sheet' WHERE code = 'KGS'`); err != nil {
-		t.Fatal(err)
 	}
-	full := h.Do(priya, purchase.DocType, 0, doctype.ActionSave, doc.ActionInput{
-		Values: map[string]string{
-			"vendor_id": h.idOf("party", "SHREE"), "site_id": h.idOf("site", "METRO-SITE"), "project_id": h.idOf("project", "PRJ-METRO"), "order_date": plainDate,
-		},
-		Lines: []map[string]string{{
+	request := map[string]string{"site_id": h.idOf("site", "METRO-SITE"), "project_id": h.idOf("project", "PRJ-METRO"), "request_date": plainDate}
+	save := func(dt string, values map[string]string, lines []map[string]string) int64 {
+		return h.Do(priya, dt, 0, doctype.ActionSave, doc.ActionInput{Values: values, Lines: lines}).ID
+	}
+	for _, c := range []struct {
+		dt, step    string
+		empty, full int64
+	}{
+		{purchase.DocType, "Step 3 of 4", save(purchase.DocType, order, nil), save(purchase.DocType, order, []map[string]string{{
 			"item_id": h.idOf("item", "WIRE-18G"), "uom_id": h.idOf("uom", "KGS"), "qty": "1234.567", "price": "123456.7891", "discount_pct": "12.5",
-		}},
-	}).ID
-	path := func(id int64) string {
-		return "/doc/" + purchase.DocType + "/" + strconv.FormatInt(id, 10) + "/edit/items"
-	}
-	for _, w := range r13Widths {
-		p := h.SignIn(priya, w)
-		p.Open(path(empty))
-		onStep(p, "Step 3 of 4")
-		if bad := Eval[[]string](p, r13TileJS); len(bad) != 0 {
-			t.Errorf("%d px, no lines: %q", w, bad)
+		}})},
+		{purchase.RequestDocType, "Step 2 of 3", save(purchase.RequestDocType, request, nil), save(purchase.RequestDocType, request, []map[string]string{{
+			"item_id": h.idOf("item", "WIRE-18G"), "uom_id": h.idOf("uom", "KGS"), "qty": "1234.567",
+		}})},
+	} {
+		path := func(id int64) string {
+			return "/doc/" + c.dt + "/" + strconv.FormatInt(id, 10) + "/edit/items"
 		}
-		if got := Eval[string](p, `document.querySelector(".empty-state-text")?.innerText ?? ""`); got != "No items yet." {
-			t.Errorf("%d px: empty text = %q", w, got)
-		}
-		if Eval[bool](p, `document.querySelector("main").innerText.includes("₹0.00")`) {
-			t.Errorf("%d px: ₹0.00 with no lines", w)
-		}
-		noOverflow(p, "the empty Items step")
+		for _, w := range r13Widths {
+			p := h.SignIn(priya, w)
+			p.Open(path(c.empty))
+			onStep(p, c.step)
+			if bad := Eval[[]string](p, r13TileJS); len(bad) != 0 {
+				t.Errorf("%s %d px, no lines: %q", c.dt, w, bad)
+			}
+			if got := Eval[string](p, `document.querySelector(".empty-state-text")?.innerText ?? ""`); got != "No items yet." {
+				t.Errorf("%s %d px: empty text = %q", c.dt, w, got)
+			}
+			if Eval[bool](p, `document.querySelector("main").innerText.includes("₹0.00")`) {
+				t.Errorf("%s %d px: ₹0.00 with no lines", c.dt, w)
+			}
+			noOverflow(p, c.dt+" empty Items step")
 
-		p.Open(path(full))
-		onStep(p, "Step 3 of 4")
-		if bad := Eval[[]string](p, r13TileJS); len(bad) != 0 {
-			t.Errorf("%d px, one line: %q", w, bad)
+			p.Open(path(c.full))
+			onStep(p, c.step)
+			if bad := Eval[[]string](p, r13TileJS); len(bad) != 0 {
+				t.Errorf("%s %d px, one line: %q", c.dt, w, bad)
+			}
+			noOverflow(p, c.dt+" Items step with a long line")
 		}
-		noOverflow(p, "the Items step with a long unit and a discount")
 	}
 }

@@ -89,15 +89,6 @@ func detailsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Component, erro
 	if err != nil {
 		return nil, err
 	}
-	value := func(name string) string {
-		switch {
-		case st.Posted:
-			return c.Req.PostFormValue(name)
-		case c.View != nil:
-			return c.View.Inputs[name]
-		}
-		return st.Defaults[name]
-	}
 	var shown []docscreen.MoreInput
 	for _, name := range steps[0].Fields {
 		f, _ := c.DT.Field(name)
@@ -105,17 +96,30 @@ func detailsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Component, erro
 			continue
 		}
 		f.Required = f.Required && name != "project_id"
-		msg := ""
-		for _, e := range st.Errors {
-			if e.Line == 0 && e.Field == name {
-				msg = e.Message
-				break
-			}
-		}
+		value, msg := stepInput(c, st, name)
 		id := components.FieldID(name)
-		shown = append(shown, docscreen.MoreInput{Field: f, Value: value(name), Error: msg, Input: docscreen.FieldInput(f, id, value(name), msg, c.Deps)})
+		shown = append(shown, docscreen.MoreInput{Field: f, Value: value, Error: msg, Input: docscreen.FieldInput(f, id, value, msg, c.Deps)})
 	}
 	return inputsView(docscreen.GroupMore(shown).Inputs()), nil
+}
+
+// stepInput is header field name's value on a step, the posted one, else the
+// record's, else the step's default, and its error message from st.
+func stepInput(c docscreen.Ctx, st docscreen.StepState, name string) (value, msg string) {
+	switch {
+	case st.Posted:
+		value = c.Req.PostFormValue(name)
+	case c.View != nil:
+		value = c.View.Inputs[name]
+	default:
+		value = st.Defaults[name]
+	}
+	for _, e := range st.Errors {
+		if e.Line == 0 && e.Field == name {
+			return value, e.Message
+		}
+	}
+	return value, ""
 }
 
 // withRejection puts a revised draft's rejection banner on step, whose Body
@@ -202,12 +206,6 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 			fields = s.Fields
 		}
 	}
-	value := func(name string) string {
-		if st.Posted {
-			return c.Req.PostFormValue(name)
-		}
-		return c.View.Inputs[name]
-	}
 	var shown, more []templ.Component
 	var labels []string
 	open := false
@@ -216,26 +214,20 @@ func (m *module) termsBody(c docscreen.Ctx, st docscreen.StepState) (templ.Compo
 		if hides(c, name) {
 			continue
 		}
-		msg := ""
-		for _, e := range st.Errors {
-			if e.Line == 0 && e.Field == name {
-				msg = e.Message
-				break
-			}
-		}
+		value, msg := stepInput(c, st, name)
 		switch {
 		case name == "vendor_address_id":
-			in, err := addressInput(c, f, value(name), msg, steps[0].Slug)
+			in, err := addressInput(c, f, value, msg, steps[0].Slug)
 			if err != nil {
 				return nil, err
 			}
 			shown = append(shown, in)
 		case f.More:
-			open = open || value(name) != "" || msg != ""
+			open = open || value != "" || msg != ""
 			labels = append(labels, f.Label)
-			more = append(more, docscreen.FieldInput(f, components.FieldID(name), value(name), msg, c.Deps))
+			more = append(more, docscreen.FieldInput(f, components.FieldID(name), value, msg, c.Deps))
 		default:
-			shown = append(shown, docscreen.FieldInput(f, components.FieldID(name), value(name), msg, c.Deps))
+			shown = append(shown, docscreen.FieldInput(f, components.FieldID(name), value, msg, c.Deps))
 		}
 	}
 	return termsView(shown, more, labels, open), nil

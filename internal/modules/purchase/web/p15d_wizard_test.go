@@ -31,8 +31,8 @@ func TestPUX021_RequestItemsCards(t *testing.T) {
 			t.Errorf("Items step has %d %s, want cards only", n, sel)
 		}
 	}
-	if got := page.find(".lines-card .num"); !slices.Equal(got, []string{"40 Bags", "25 Kilograms"}) {
-		t.Errorf("card quantities = %q, want 40 Bags and 25 Kilograms", got)
+	if got := page.find(".lines-card .num"); !slices.Equal(got, []string{"40 BAG", "25 KGS"}) {
+		t.Errorf("card quantities = %q, want 40 BAG and 25 KGS", got)
 	}
 	if got := page.notes(); !slices.Equal(got, []string{"UltraTech or ACC only"}) {
 		t.Errorf("card notes = %q, want only row 1's note", got)

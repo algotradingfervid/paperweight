@@ -47,14 +47,14 @@ func TestPUX022_RequestPage(t *testing.T) {
 		t.Fatalf("Priya GET PR-A = %d: %s", page.status, page.text())
 	}
 	wantNotes := []string{
-		"UltraTech or ACC only · Requested 40 Bags · Ordered 25 Bags · Pending to order 15 Bags",
-		"Requested 25 Kilograms · Ordered 0 Kilograms · Pending to order 0 Kilograms · On " + draft + " (Priya Shah)",
+		"UltraTech or ACC only · Requested 40 BAG · Ordered 25 BAG · Pending to order 15 BAG",
+		"Requested 25 KGS · Ordered 0 KGS · Pending to order 0 KGS · On " + draft + " (Priya Shah)",
 	}
 	if got := page.notes(); !slices.Equal(got, wantNotes) {
 		t.Errorf("line notes = %q, want %q", got, wantNotes)
 	}
-	if got := page.find(".lines-card .num"); !slices.Equal(got, []string{"40 Bags", "25 Kilograms"}) {
-		t.Errorf("line quantities = %q, want 40 Bags and 25 Kilograms", got)
+	if got := page.find(".lines-card .num"); !slices.Equal(got, []string{"40 BAG", "25 KGS"}) {
+		t.Errorf("line quantities = %q, want 40 BAG and 25 KGS", got)
 	}
 	card := p15dCard(page, "Linked orders")
 	for _, want := range []string{h.ordered.Number, "Shree Steel Traders", "Approved", "Not received", draft, "Draft"} {
@@ -98,7 +98,7 @@ func TestPUX022_RequestPage(t *testing.T) {
 	if page.status != 200 {
 		t.Fatalf("Deepak GET his request = %d: %s", page.status, page.text())
 	}
-	if got, want := page.notes(), []string{"Requested 40 Bags · Ordered 0 Bags · Pending to order 30 Bags · On another order"}; !slices.Equal(got, want) {
+	if got, want := page.notes(), []string{"Requested 40 BAG · Ordered 0 BAG · Pending to order 30 BAG · On another order"}; !slices.Equal(got, want) {
 		t.Errorf("Deepak's line notes = %q, want %q", got, want)
 	}
 	if card := p15dCardParas(page, "Linked orders"); !slices.Equal(card, []string{"1 other order"}) {
@@ -223,7 +223,7 @@ func TestPUX022_LinkedOrdersEmptyAndPlural(t *testing.T) {
 	if card := p15dCardParas(page, "Linked orders"); !slices.Equal(card, []string{"2 other orders"}) {
 		t.Errorf("Linked orders with two unreadable orders = %q, want 2 other orders", card)
 	}
-	if got, want := page.notes(), []string{"Requested 40 Bags · Ordered 5 Bags · Pending to order 25 Bags · On another order"}; !slices.Equal(got, want) {
+	if got, want := page.notes(), []string{"Requested 40 BAG · Ordered 5 BAG · Pending to order 25 BAG · On another order"}; !slices.Equal(got, want) {
 		t.Errorf("line notes = %q, want %q", got, want)
 	}
 }

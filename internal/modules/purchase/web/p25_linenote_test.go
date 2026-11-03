@@ -21,8 +21,8 @@ func TestPUX022_RequestPageKeepsLineNote(t *testing.T) {
 		t.Fatalf("Priya GET PR-A = %d: %s", page.status, page.text())
 	}
 	want := []string{
-		"UltraTech or ACC only · Requested 40 Bags · Ordered 0 Bags · Pending to order 15 Bags · On " + p15dDisplay(draft) + " (Priya Shah)",
-		"Requested 25 Kilograms · Ordered 0 Kilograms · Pending to order 25 Kilograms",
+		"UltraTech or ACC only · Requested 40 BAG · Ordered 0 BAG · Pending to order 15 BAG · On " + p15dDisplay(draft) + " (Priya Shah)",
+		"Requested 25 KGS · Ordered 0 KGS · Pending to order 25 KGS",
 	}
 	if got := page.notes(); !slices.Equal(got, want) {
 		t.Errorf("line notes = %q, want %q", got, want)

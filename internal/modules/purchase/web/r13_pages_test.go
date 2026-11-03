@@ -179,10 +179,10 @@ func TestR13_TotalsObeyHide(t *testing.T) {
 	}
 }
 
-// R13 item 5: the Order's card has the unit's name and the discount, so
-// `{qty} {unit} × {rate}` adds up to the amount; no discount, no words; the
-// line notes and the Request's card use the name too, a hidden discount
-// isn't shown, and the print's code stays (CD-331).
+// R13 item 5: the Order's card has the discount, so `{qty} {unit} × {rate}`
+// adds up to the amount; no discount, no words. Every card, the line notes
+// and the Request's card keep the unit code, not the renamed name (CD-393
+// (2), CD-331), and a hidden discount isn't shown.
 func TestR13_LineCardUnitAndDiscount(t *testing.T) {
 	env := purchasetest.New(t)
 	w := newP15aWeb(t, env, nil)
@@ -196,7 +196,7 @@ func TestR13_LineCardUnitAndDiscount(t *testing.T) {
 	po := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft(), purchasetest.OrderLines(cement, plain))
 	items := w.get(t, env.Priya, p15dDoc(purchase.DocType, po.ID)+"/edit/items")
 	got := items.find(".lines-card .lines-meta .num")
-	want := []string{"40 Metric Ton × ₹350.00 less 10%", "40 Metric Ton × ₹350.00"}
+	want := []string{"40 BAG × ₹350.00 less 10%", "40 BAG × ₹350.00"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("cards = %q, want %q", got, want)
 	}
@@ -206,25 +206,25 @@ func TestR13_LineCardUnitAndDiscount(t *testing.T) {
 
 	approved := purchasetest.NewOrder(t, env, purchasetest.OrderLines(plain))
 	page := w.get(t, env.Priya, p15dDoc(purchase.DocType, approved.ID))
-	if notes := page.notes(); !r13Has(notes, "Pending 40 Metric Ton") {
+	if notes := page.notes(); !r13Has(notes, "Pending 40 BAG") {
 		t.Errorf("approved notes = %q", notes)
 	}
 
 	pr := purchasetest.NewRequest(t, env, purchasetest.StopAtDraft(), purchasetest.RequestLines(map[string]string{
 		"item_id": w.id(t, "item", "CEMENT-OPC"), "uom_id": w.id(t, "uom", "BAG"), "qty": "40",
 	}))
-	if got := w.get(t, env.Suresh, p15dDoc(purchase.RequestDocType, pr.ID)+"/edit/items").find(".lines-card .lines-meta .num"); len(got) != 1 || got[0] != "40 Metric Ton" {
+	if got := w.get(t, env.Suresh, p15dDoc(purchase.RequestDocType, pr.ID)+"/edit/items").find(".lines-card .lines-meta .num"); len(got) != 1 || got[0] != "40 BAG" {
 		t.Errorf("request card = %q", got)
 	}
 }
 
-// R13 item 5: a UoM whose name is blank keeps its code; a discount the screen
-// hides leaves the card; so does a hidden rate's.
+// R13 item 5: a card shows the unit code, with or without a name (CD-393
+// (2)); a discount the screen hides leaves the card; so does a hidden rate's.
 func TestR13_CardGuards(t *testing.T) {
 	if got := unitOf(docscreen.LineView{Display: map[string]string{"uom_id": "BAG"}}); got != "BAG" {
 		t.Errorf("no name: %q", got)
 	}
-	if got := unitOf(docscreen.LineView{Display: map[string]string{"uom_id": "BAG Bag"}}); got != "Bag" {
+	if got := unitOf(docscreen.LineView{Display: map[string]string{"uom_id": "BAG Bag"}}); got != "BAG" {
 		t.Errorf("code and name: %q", got)
 	}
 	for _, name := range []string{"discount_pct", "price"} {
