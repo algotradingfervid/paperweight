@@ -1,10 +1,12 @@
 package components
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/a-h/templ"
@@ -19,6 +21,18 @@ type PickRow struct {
 
 // Display is the master's display text, "{Code} {Name}" (CD-68).
 func (r PickRow) Display() string { return r.Code + " " + r.Name }
+
+// Monogram is the row's tile: the first letter or digit of the first two
+// words of its name; "" with no name, as for a raw id (CD-233, UI v2 §5.8).
+func (r PickRow) Monogram() string {
+	words := strings.FieldsFunc(r.Name, func(c rune) bool { return !unicode.IsLetter(c) && !unicode.IsMark(c) && !unicode.IsDigit(c) })
+	var b strings.Builder
+	for _, w := range words[:min(len(words), 2)] {
+		c, _ := utf8.DecodeRuneInString(w)
+		b.WriteRune(unicode.ToUpper(c))
+	}
+	return b.String()
+}
 
 // PickerProps describes a Picker. Field.ID is what an ErrorSummary links to:
 // the search input's id, or the picker's own when rendered with a row chosen,
@@ -36,10 +50,13 @@ type PickerProps struct {
 	Focus                            bool
 }
 
+// Noun names a picker's master in its texts: One "vendor", Many "vendors".
+type Noun struct{ One, Many string }
+
 // PickNew is a search's create option (UI v2 §5.8, N10): the master's noun
-// ("vendor") and the QuickCreate sheet it opens.
+// and the QuickCreate sheet it opens, which the option carries.
 type PickNew struct {
-	Noun  string
+	Noun  Noun
 	Sheet templ.Component
 }
 
@@ -60,13 +77,36 @@ func newLabel(noun, q string) string {
 	return "New " + noun + " \"" + q + "\""
 }
 
-// noMatch is the empty state's heading: No {noun} matches "{q}", or No
-// {noun} matches for a blank search.
+// noMatch is the empty text: No {noun} matches "{q}", or, with nothing typed,
+// that the master has nothing to offer yet.
 func noMatch(noun, q string) string {
 	if q = strings.TrimSpace(q); q == "" {
-		return "No " + noun + " matches"
+		return "No " + noun + " to choose from yet."
 	}
 	return "No " + noun + " matches \"" + q + "\""
+}
+
+// emptyLine is the empty state's sentence under noMatch.
+func emptyLine(q string) string {
+	if strings.TrimSpace(q) == "" {
+		return "Add one now. You'll come straight back here."
+	}
+	return "Check the spelling, or add them now. You'll come straight back here."
+}
+
+// countLine is the line over a search's n rows (§5.8), "" with nothing typed:
+// more than the rows shown asks for more letters.
+func countLine(n int, q string, noun Noun) string {
+	q = strings.TrimSpace(q)
+	switch {
+	case q == "":
+		return ""
+	case n > MaxPickRows:
+		return "More than " + strconv.Itoa(MaxPickRows) + " " + noun.Many + " match \"" + q + "\". Keep typing to narrow."
+	case n == 1:
+		return "1 " + noun.One + " matches \"" + q + "\"."
+	}
+	return strconv.Itoa(n) + " " + noun.Many + " match \"" + q + "\"."
 }
 
 // pickerVals is the quick slot's hx-vals: what a quick-create posts back so
@@ -103,8 +143,8 @@ func PickerFromForm(v url.Values) PickerProps {
 	}
 }
 
-// maxPickRows is the most rows a search shows (design-system §7).
-const maxPickRows = 20
+// MaxPickRows is the most rows a search shows (design-system §7).
+const MaxPickRows = 20
 
 // MaxRecent is the most recent picks a Picker shows (UI v2 §5.8).
 const MaxRecent = 5
@@ -183,11 +223,8 @@ func pickerSearchField(p PickerProps) FieldProps {
 func pickerInputAttrs(p PickerProps) templ.Attributes {
 	a := controlAttrs(pickerSearchField(p), "input field__input")
 	a["id"] = pickerInputID(p)
-	a["placeholder"] = "Type to search"
-	if p.Field.Placeholder != "" {
-		a["placeholder"] = p.Field.Placeholder
-	}
-	a["form"] = "" // no form owner: the text goes only with the htmx search, not the form (no q= on GET filter URLs)
+	a["placeholder"] = cmp.Or(p.Field.Placeholder, "Name or code") // UI v2 §5.8
+	a["form"] = ""                                                 // no form owner: the text goes only with the htmx search, not the form (no q= on GET filter URLs)
 	return a
 }
 
@@ -196,9 +233,9 @@ func pickerChangeAttrs(p PickerProps) templ.Attributes {
 	return templ.Attributes{"data-picker-change": true, "autofocus": p.Focus}
 }
 
-func pickerChosen(p PickerProps) (id, text string) {
+func pickerChosen(p PickerProps) (id, text, tile, line string) {
 	if p.Chosen == nil {
-		return "", ""
+		return "", "", "", ""
 	}
-	return strconv.FormatInt(p.Chosen.ID, 10), p.Chosen.Display()
+	return strconv.FormatInt(p.Chosen.ID, 10), p.Chosen.Display(), p.Chosen.Monogram(), p.Chosen.Line
 }

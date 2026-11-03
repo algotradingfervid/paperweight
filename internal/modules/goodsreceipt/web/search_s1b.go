@@ -39,7 +39,7 @@ func (h *handlers) poSearch(w http.ResponseWriter, r *http.Request) {
 	for _, o := range list {
 		rows = append(rows, pickRow(o))
 	}
-	frag := components.PickerResults(poListboxID, rows, q)
+	frag := components.PickerResults(poListboxID, rows, q, components.Noun{One: "order", Many: "orders"})
 	ui.Render(w, r, http.StatusOK, frag, frag)
 }
 

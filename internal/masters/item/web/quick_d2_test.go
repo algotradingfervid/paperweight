@@ -38,7 +38,7 @@ func (w *world) quickForm(t *testing.T, kv ...string) url.Values {
 func TestQuickD2_ItemNewOption(t *testing.T) {
 	w := newWorld(t)
 	r := w.h.GetHTMX(t, w.h.Env.Kavya, "/pick/Item?q=TMT+bar")
-	if got := webtest.Squash(r.Doc.Find(`[role="option"][data-quick]`).Text()); got != `New item "TMT bar"` {
+	if got := webtest.Squash(r.Doc.Find(`[role="option"][data-quick] > span`).Text()); got != `New item "TMT bar"` {
 		t.Errorf("New option = %q", got)
 	}
 	sheet := r.Doc.Find(`dialog#pick-item-sheet`)
@@ -50,14 +50,20 @@ func TestQuickD2_ItemNewOption(t *testing.T) {
 			t.Errorf("the sheet has no %s", name)
 		}
 	}
-	if got := webtest.Squash(sheet.Find(`#f-quick_code-hint`).Text()); got != "Suggested from the name. You can change it." {
+	if got := webtest.Squash(sheet.Find(`#f-quick_code-hint`).Text()); got != "Made from the name. You can change it." {
 		t.Errorf("code hint = %q", got)
 	}
-	if n := sheet.Find(`.field__hint[id$="-hint"]`).Length(); n != 1 {
-		t.Errorf("%d field hints, want only the code's", n)
+	if got := webtest.Squash(sheet.Find(`#f-quick_name-hint`).Text()); got != "The code is made from this. You can change it later in Items." {
+		t.Errorf("name hint = %q", got)
 	}
-	if got := sheet.Find(`[name="quick_code"]`).AttrOr("value", ""); got != "TMTBAR" {
-		t.Errorf("suggested code = %q, want TMTBAR", got)
+	if n := sheet.Find(`.field__hint[id$="-hint"]`).Length(); n != 2 {
+		t.Errorf("%d field hints, want the code's and the name's", n)
+	}
+	if sheet.Find(`div[hidden]:has([name="quick_code"])`).Length() != 1 || sheet.Find(`[name="quick_code"]`).AttrOr("value", "x") != "" {
+		t.Error("Code should be blank and hidden: the save makes it from the name")
+	}
+	if got := webtest.Squash(sheet.Find(`label[for="f-quick_hsn_sac"]`).Text()); got != "HSN/SAC * (required)" {
+		t.Errorf("HSN label = %q, want the star: the quick form adds Goods", got)
 	}
 	if got := webtest.Squash(w.h.GetHTMX(t, w.h.Env.Priya, "/pick/Item?q=TMT").Doc.Find(`[data-quick]`).Text()); got != "" {
 		t.Errorf("Priya's New option = %q, want none", got)
@@ -121,5 +127,22 @@ func TestQuickD2_ItemRefusals(t *testing.T) {
 	}
 	if n := count(); n != before {
 		t.Errorf("items = %d after refusals, want %d", n, before)
+	}
+}
+
+// R8: an item's code is made from the name, past a collision, and a refused
+// HSN shows with the code still hidden.
+func TestQuickR8_ItemCode(t *testing.T) {
+	w := newWorld(t)
+	webtest.WantStatus(t, w.h.Browser(w.h.Env.Kavya).PostHTMX(t, itemQuick, w.quickForm(t, "quick_code", "")), http.StatusOK)
+	r := w.h.Browser(w.h.Env.Kavya).PostHTMX(t, itemQuick, w.quickForm(t, "quick_code", ""))
+	webtest.WantStatus(t, r, http.StatusOK)
+	if got := webtest.Squash(r.Doc.Find("[data-picker-summary]").Text()); got != "TMTBAR12MM2 TMT bar 12 mm" {
+		t.Errorf("chosen = %q, want the second code", got)
+	}
+	r = w.h.Browser(w.h.Env.Kavya).PostHTMX(t, itemQuick, w.quickForm(t, "quick_code", "", "quick_name", "Angle", "quick_hsn_sac", ""))
+	webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
+	if r.Doc.Find(`div[hidden]:has([name="quick_code"])`).Length() != 1 {
+		t.Error("another field's refusal shows Code")
 	}
 }

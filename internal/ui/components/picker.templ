@@ -13,7 +13,8 @@ import (
 // the hidden summary while nothing is chosen, for a row chosen in the
 // browser. The search shows a search icon and a chevron (UI v2 §5.8), and
 // the user's recent picks wait in a template for combobox.js. Below 48rem
-// the open search fills the screen like a sheet.
+// the open search fills the screen like a sheet. The chosen row is a bordered
+// box: the monogram tile, its display text and its line (§5.8 Chosen).
 templ Picker(p PickerProps) {
 	if len(p.Options) > 0 && len(p.Options) < 50 {
 		@Select(pickerSelectField(p), p.Options)
@@ -25,11 +26,13 @@ templ Picker(p PickerProps) {
 	}
 }
 
-// pickerQuickSlot holds the QuickCreate sheet a search sends (UI v2 §5.8).
-// It sits outside the picker, so the sheet's own fields, pickers included,
-// never reach the picker's handlers, and outside the search, which hides once
-// a value is chosen. Its hx-vals are the picker's props, which the sheet's
-// form posts back (PickerFromForm).
+// pickerQuickSlot holds the QuickCreate sheet while it is in use (UI v2 §5.8).
+// Only pressing New writes it (combobox.js copies the sheet out of that row),
+// and no search answer touches it, so a late answer can't close or redraw an
+// open sheet. It sits outside the picker, so the sheet's own fields, pickers
+// included, never reach the picker's handlers, and outside the search, which
+// hides once a value is chosen. Its hx-vals are the picker's props, which the
+// sheet's form posts back (PickerFromForm).
 templ pickerQuickSlot(p PickerProps) {
 	<div id={ p.ListboxID + "-quick" } class="picker__quick" hx-vals={ pickerVals(p) }></div>
 }
@@ -44,11 +47,15 @@ templ QuickChosen(p PickerProps) {
 
 // PickerBox is the Picker inside its field, without the quick slot.
 templ PickerBox(p PickerProps) {
-	{{ id, text := pickerChosen(p) }}
+	{{ id, text, tile, line := pickerChosen(p) }}
 	<div class="picker" role="group" aria-label={ p.Field.Label } tabindex="-1" x-data="combobox" { pickerGroupAttrs(p)... }>
 		<div class="picker__chosen" data-picker-chosen hidden?={ p.Chosen == nil }>
-			<p class="picker__summary" data-picker-summary>{ text }</p>
-			@Button(ButtonProps{Label: "Change", Type: "button", Variant: Secondary, Attrs: pickerChangeAttrs(p)})
+			<span class="picker__tile" aria-hidden="true" data-picker-tile>{ tile }</span>
+			<div class="picker__picked">
+				<p class="picker__summary" data-picker-summary>{ text }</p>
+				<p class="picker__line" data-picker-line>{ line }</p>
+			</div>
+			@Button(ButtonProps{Label: "Change", Type: "button", Variant: Ghost, Attrs: pickerChangeAttrs(p)})
 			if p.Field.Clearable {
 				@Button(ButtonProps{Label: "Clear", AriaLabel: "Clear " + p.Field.Label, Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-clear": true}})
 			}
@@ -81,6 +88,7 @@ templ PickerBox(p PickerProps) {
 				</div>
 				@Button(ButtonProps{Label: "Close", Type: "button", Variant: Ghost, Attrs: templ.Attributes{"data-picker-close": true}})
 			</div>
+			<p id={ p.ListboxID + "-count" } class="picker__count" role="status" aria-live="polite"></p>
 			<ul role="listbox" id={ p.ListboxID } class="list picker__list" aria-label={ p.Field.Label }></ul>
 			if len(p.Recent) > 0 {
 				<template data-picker-recent>
@@ -92,45 +100,58 @@ templ PickerBox(p PickerProps) {
 	</div>
 }
 
-// PickerResults is the listbox body a picker search returns: a group of at
-// most 20 rows headed "All" or "Matches", the typed text marked in each part
-// (a GSTIN in the line matches too), or one disabled "No matches" option.
-// The rows keep the ids {listboxID}-{n}.
-templ PickerResults(listboxID string, rows []PickRow, q string) {
+// PickerResults is the listbox body a picker search returns: the count line
+// and a group of at most 20 rows headed "All" or "Matches", the typed text
+// marked in each part (a GSTIN in the line matches too), or one disabled
+// option that names the master, noun. The rows keep the ids {listboxID}-{n}.
+templ PickerResults(listboxID string, rows []PickRow, q string, noun Noun) {
 	if len(rows) == 0 {
-		<li role="option" aria-disabled="true" class="picker__option">{ "No matches for “" + q + "”." }</li>
+		<li role="option" aria-disabled="true" class="picker__option">{ noMatch(noun.One, q) }</li>
+		<p id={ listboxID + "-count" } hx-swap-oob="innerHTML"></p>
 	} else {
-		@pickerGroup(listboxID, resultsHeading(q), rows[:min(len(rows), maxPickRows)], q)
+		@pickerRows(listboxID, rows, q, noun)
 	}
+}
+
+// pickerRows is the rows and the count line, when something was typed. The
+// line goes out of band into the picker's live region beside the listbox,
+// so it is announced and the listbox holds only options; with no line the
+// region empties.
+templ pickerRows(listboxID string, rows []PickRow, q string, noun Noun) {
+	@pickerGroup(listboxID, resultsHeading(q), rows[:min(len(rows), MaxPickRows)], q)
+	<p id={ listboxID + "-count" } hx-swap-oob="innerHTML">{ countLine(len(rows), q, noun) }</p>
 }
 
 // PickerResultsNew is PickerResults for a user who may add the master (UI v2
 // §5.8, N10): the rows, or the empty state when none match, then the option
-// New {noun} "{q}", which opens n.Sheet. The sheet goes out of band into
-// the picker's quick slot.
+// New {noun} "{q}", which opens n.Sheet. The sheet stays inert in that row's
+// template until it is pressed, so an answer never touches the picker's
+// quick slot, and the sheet that opens is the one the pressed row offered.
 templ PickerResultsNew(listboxID string, rows []PickRow, q string, n PickNew) {
 	if len(rows) == 0 {
 		<li role="option" aria-disabled="true" class="picker__option picker__empty">
 			<span class="picker__empty-icon" aria-hidden="true">
 				@icons.Icon("search")
 			</span>
-			<span class="picker__empty-text">{ noMatch(n.Noun, q) }</span>
-			<span class="picker__empty-line">Check the spelling, or add them now. You'll come straight back here.</span>
+			<span class="picker__empty-text">{ noMatch(n.Noun.One, q) }</span>
+			<span class="picker__empty-line">{ emptyLine(q) }</span>
 		</li>
+		<p id={ listboxID + "-count" } hx-swap-oob="innerHTML"></p>
 	} else {
-		@pickerGroup(listboxID, resultsHeading(q), rows[:min(len(rows), maxPickRows)], q)
+		@pickerRows(listboxID, rows, q, n.Noun)
 	}
 	<li role="option" id={ listboxID + "-new" } aria-selected="false" data-quick={ quickSheetID(listboxID) } class="picker__option picker__new">
 		@icons.Icon("plus")
-		<span>{ newLabel(n.Noun, q) }</span>
+		<span>{ newLabel(n.Noun.One, q) }</span>
+		<template>
+			@n.Sheet
+		</template>
 	</li>
-	<div id={ listboxID + "-quick" } hx-swap-oob="innerHTML">
-		@n.Sheet
-	</div>
 }
 
 // pickerGroup is one labelled section of the listbox; its options' ids are
-// {id}-{n}. The Recent heading carries the history icon.
+// {id}-{n}. The Recent heading carries the history icon. A row is its tile,
+// its name, and under that the code and the line (§5.8).
 templ pickerGroup(id, heading string, rows []PickRow, q string) {
 	<li role="group" class="picker__group" aria-labelledby={ id + "-h" }>
 		<span class="picker__heading" id={ id + "-h" }>
@@ -149,17 +170,22 @@ templ pickerGroup(id, heading string, rows []PickRow, q string) {
 					data-label={ r.Display() }
 					class="picker__option"
 				>
-					<span class="picker__code">
-						@pickerMarked(r.Code, q)
-					</span>
-					<span class="picker__name">
-						@pickerMarked(r.Name, q)
-					</span>
-					if r.Line != "" {
-						<span class="picker__line">
-							@pickerMarked(r.Line, q)
+					<span class="picker__tile" aria-hidden="true">{ r.Monogram() }</span>
+					<div class="picker__text">
+						<span class="picker__name">
+							@pickerMarked(r.Name, q)
 						</span>
-					}
+						<div class="picker__sub">
+							<span class="picker__code">
+								@pickerMarked(r.Code, q)
+							</span>
+							if r.Line != "" {
+								<span class="picker__line">
+									@pickerMarked(r.Line, q)
+								</span>
+							}
+						</div>
+					</div>
 				</li>
 			}
 		</ul>

@@ -12,13 +12,13 @@ import (
 )
 
 // UI v2 §5.8 closed: a search icon at the start, a chevron at the end and a
-// "Type to search" placeholder, so a master link no longer looks like free
+// "Name or code" placeholder, so a master link no longer looks like free
 // text.
 func TestPicker_V2SearchLook(t *testing.T) {
 	doc := uitest.Render(t, components.Picker(pickerProps()))
 	in := doc.Find(`input[role="combobox"]`)
-	if got, _ := in.Attr("placeholder"); got != "Type to search" {
-		t.Errorf("placeholder = %q, want Type to search", got)
+	if got, _ := in.Attr("placeholder"); got != "Name or code" {
+		t.Errorf("placeholder = %q, want Name or code", got)
 	}
 	box := in.Parent()
 	if !box.HasClass("picker__box") {
@@ -119,7 +119,7 @@ func TestPicker_RecentGroup(t *testing.T) {
 func TestPickerResults_Sections(t *testing.T) {
 	rows := []components.PickRow{{ID: 1, Code: "SHREE", Name: "Shree Steel Traders"}, {ID: 2, Code: "SAI", Name: "Sai Krupa"}}
 	for _, c := range []struct{ q, heading string }{{"", "All"}, {"  ", "All"}, {"s", "Matches"}} {
-		doc := uitest.Render(t, components.PickerResults("item-lb", rows, c.q))
+		doc := uitest.Render(t, components.PickerResults("item-lb", rows, c.q, components.Noun{One: "item", Many: "items"}))
 		g := doc.Find(`li[role="group"].picker__group`)
 		if g.Length() != 1 {
 			t.Fatalf("q %q: want one group, got %d", c.q, g.Length())
@@ -133,7 +133,7 @@ func TestPickerResults_Sections(t *testing.T) {
 			}
 		})
 	}
-	doc := uitest.Render(t, components.PickerResults("item-lb", nil, "zz"))
+	doc := uitest.Render(t, components.PickerResults("item-lb", nil, "zz", components.Noun{One: "item", Many: "items"}))
 	if doc.Find(".picker__group").Length() != 0 || doc.Find(`li[role="option"][aria-disabled="true"]`).Length() != 1 {
 		t.Error("no rows: want only the disabled No matches option, no group")
 	}
@@ -148,7 +148,7 @@ func TestPickerResults_HighlightsMatch(t *testing.T) {
 		{ID: 3, Code: "SAI", Name: "Sai Krupa", Line: "SAI · Shree Nagar, Pune"},
 		{ID: 4, Code: "ŚRĪ", Name: "Śrī Ganesh"},
 	}
-	doc := uitest.Render(t, components.PickerResults("item-lb", rows, " shree "))
+	doc := uitest.Render(t, components.PickerResults("item-lb", rows, " shree ", components.Noun{One: "item", Many: "items"}))
 	// The line is marked too: a GSTIN or city match shows where it matched.
 	if got := doc.Find(`li[role="option"]`).Eq(2).Find(".picker__line mark").Text(); got != "Shree" {
 		t.Errorf("line marks %q, want Shree", got)
@@ -180,17 +180,17 @@ func TestPickerResults_HighlightsMatch(t *testing.T) {
 		t.Error("HTML in a name was not escaped")
 	}
 
-	doc = uitest.Render(t, components.PickerResults("item-lb", rows, "śrī"))
+	doc = uitest.Render(t, components.PickerResults("item-lb", rows, "śrī", components.Noun{One: "item", Many: "items"}))
 	if got := doc.Find(`li[role="option"]`).Eq(3).Find(".picker__name mark").Text(); got != "Śrī" {
 		t.Errorf("non-ASCII match marks %q, want Śrī", got)
 	}
 	// The cut is made on the original text, so a letter whose lower case is
 	// longer (İ) never shifts it.
 	ist := []components.PickRow{{ID: 5, Code: "TR-9", Name: "İstanbul Pipes"}}
-	if got := uitest.Render(t, components.PickerResults("item-lb", ist, "st")).Find(".picker__name mark").Text(); got != "st" {
+	if got := uitest.Render(t, components.PickerResults("item-lb", ist, "st", components.Noun{One: "item", Many: "items"})).Find(".picker__name mark").Text(); got != "st" {
 		t.Errorf("İstanbul marks %q, want st", got)
 	}
-	if n := uitest.Render(t, components.PickerResults("item-lb", rows, "")).Find("mark").Length(); n != 0 {
+	if n := uitest.Render(t, components.PickerResults("item-lb", rows, "", components.Noun{One: "item", Many: "items"})).Find("mark").Length(); n != 0 {
 		t.Errorf("empty search: %d marks", n)
 	}
 }

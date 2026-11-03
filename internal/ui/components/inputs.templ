@@ -31,6 +31,9 @@ const (
 	PAN     CodeKind = "pan"
 	HSN     CodeKind = "hsn"
 	Pincode CodeKind = "pincode"
+	// GSTINState is GSTIN for a field that gives a state: its echo shows only
+	// for a GSTIN that names one, so a quick sheet's State hides only then.
+	GSTINState CodeKind = "gstin-state"
 )
 
 // DateProps describes a date field; Today, Yesterday and the optional
@@ -240,7 +243,7 @@ templ CodeInput(p FieldProps, k CodeKind) {
 	@field(p) {
 		<input
 			type="text"
-			if k == GSTIN || k == PAN {
+			if k == GSTIN || k == GSTINState || k == PAN {
 				autocapitalize="characters"
 			} else {
 				inputmode="numeric"

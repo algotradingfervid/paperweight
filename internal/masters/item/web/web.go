@@ -54,7 +54,7 @@ func Routes(svc *item.Service, env mstkit.Env) func(chi.Router) {
 		// item, rates and conversions are added later in Items.
 		Quick: &mstweb.Quick{
 			Fields:   quickFields(),
-			Nouns:    map[string]string{"": "item"},
+			Nouns:    map[string]components.Noun{"": {One: "item", Many: "items"}},
 			Icon:     "package",
 			Line:     "Just enough to use it here. Add rates and conversions later in Items.",
 			Defaults: map[string]string{"item_type": string(item.TypeGoods)},
@@ -62,7 +62,9 @@ func Routes(svc *item.Service, env mstkit.Env) func(chi.Router) {
 	}.Routes()
 }
 
-// quickFields is the quick-create form: code, name, UoM, HSN and tax code.
+// quickFields is the quick-create form: name, UoM, HSN and tax code, with a
+// code made from the name unless it is refused. HSN is required: the quick
+// form adds a Goods item.
 func quickFields() []doctype.Field {
 	dt, _ := doctype.Lookup(item.DocType) // registered by the item package's init
 	out := make([]doctype.Field, 0, 5)
@@ -70,7 +72,9 @@ func quickFields() []doctype.Field {
 		f, _ := dt.Field(name)
 		out = append(out, f)
 	}
-	out[0].Hint = "Suggested from the name. You can change it."
+	out[0].Hint = "Made from the name. You can change it."
+	out[1].Hint = "The code is made from this. You can change it later in Items."
+	out[3].Required = true
 	return out
 }
 

@@ -4,6 +4,7 @@
 package address
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -575,6 +576,28 @@ func (s *Service) ForParty(ctx context.Context, tx *db.Tx, partyID int64, includ
 		out = append(out, fromRow(r))
 	}
 	return out, nil
+}
+
+// PickLine is the line a picker row shows for a party (UI v2 §5.8): the
+// primary billing address's GSTIN, or "No GSTIN", and city. It is "" when the
+// party has none or p may not read that address, so a user with read on the
+// party alone sees only its name.
+func (s *Service) PickLine(ctx context.Context, tx *db.Tx, p auth.Principal, partyID int64) (string, error) {
+	list, err := s.ForParty(ctx, tx, partyID, false)
+	if err != nil {
+		return "", err
+	}
+	for _, a := range list {
+		if !a.PrimaryBilling {
+			continue
+		}
+		err := s.env.CanRowTx(ctx, tx, p, Kind, auth.RightRead, &auth.RecordRef{DocType: DocType, ID: a.ID})
+		if errors.Is(err, auth.ErrForbidden) || errors.Is(err, doctype.ErrNotFound) {
+			return "", nil // an address out of p's scope reads as not found
+		}
+		return cmp.Or(a.GSTIN, "No GSTIN") + " · " + a.City, err
+	}
+	return "", nil
 }
 
 // PrimaryGSTIN is the GSTIN of the party's primary billing address, "" when

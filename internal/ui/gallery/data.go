@@ -364,6 +364,9 @@ func sampleRows(first, last int) []components.RowsRow {
 // searchURL is the picker search for the listbox with id list.
 func searchURL(list string) string { return "/_gallery/items?list=" + list }
 
+// vendorNoun names the quick-create page's master.
+var vendorNoun = components.Noun{One: "vendor", Many: "vendors"}
+
 // quickList is the listbox of the quick-create page's picker, whose search
 // offers New vendor (UI v2 §5.8).
 const quickList = "f-new-vendor-list"

@@ -1,5 +1,7 @@
 /* quickcreate.css: the QuickCreate sheet's form (UI v2 §5.8, N10): the
-   icon tile and its sentence, then the fields, then Cancel and the primary. */
+   icon tile and its sentence, then the fields, then Cancel and the primary,
+   pinned to the sheet's foot: it reaches over the box's bottom padding so
+   nothing shows under it, and the fields scroll behind. */
 @utility quick {
   & .quick__head {
     display: flex;
@@ -24,9 +26,22 @@
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: var(--space-2);
-    margin-block-start: var(--space-4);
+    position: sticky;
+    inset-block-end: calc(-1 * (var(--space-6) + var(--safe-bottom)));
+    z-index: 1;
+    margin-block: var(--space-4) calc(-1 * (var(--space-6) + var(--safe-bottom)));
+    padding-block: var(--space-3) calc(var(--space-6) + var(--safe-bottom));
+    background: var(--color-surface);
+    border-block-start: var(--border-w) solid var(--color-border-subtle);
   }
+  /* The giving field's echo (a GSTIN naming a state) hides what it gives. */
+  &:has([data-gives] .field__msg:not(.field__msg--error):not(:empty)) .quick__given { display: none; }
+  & .quick__problem { margin-block-end: var(--space-3); outline: none; }
 }
 /* The picker's quick slot holds only the sheet, which draws in the top
    layer, so it takes no row in the field. */
-@utility picker__quick { display: contents; }
+@utility picker__quick {
+  display: contents;
+  /* A focused field scrolls clear of the pinned buttons, as in a wizard. */
+  & .modal-box { scroll-padding-block-end: calc(var(--target-min) + var(--space-3) + var(--space-6) + var(--space-2) + var(--safe-bottom)); }
+}
