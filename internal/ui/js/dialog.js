@@ -1,8 +1,40 @@
 // dialog.js: native <dialog> open and close. [data-open-dialog="<id>"] opens
 // the dialog modally; [data-close-dialog] and a click on the backdrop close
 // it; focus returns to the opener. HX-Trigger {"dialog:open":"<id>"} opens it too.
+// An opener with data-if-dirty opens it only when its form changed (below).
 
 const openers = new WeakMap();
+
+// [data-if-dirty="<form id>"] on an opener opens its dialog only when that
+// form has unsaved changes; otherwise the opener's link is followed (CD-387
+// (4)). A form is changed when it carries data-unsaved (a redraw of values
+// that weren't saved) or its values differ from when the user first touched
+// it (focus, pointer or key, so before any typing, picking or tapping a chip,
+// also where a tap doesn't focus a button).
+const drawn = new WeakMap();
+
+function formState(form) {
+  const parts = [];
+  for (const [k, v] of new FormData(form)) {
+    parts.push(k + "=" + (typeof v === "string" ? v : v.name + ":" + v.size));
+  }
+  return parts.join("&");
+}
+
+function touched(evt) {
+  const t = evt.target;
+  if (!(t instanceof Element)) return;
+  const form = t.form || t.closest("form");
+  if (form && !drawn.has(form)) drawn.set(form, formState(form));
+}
+for (const type of ["focusin", "pointerdown", "keydown"]) document.addEventListener(type, touched, true);
+
+function unsaved(id) {
+  const form = document.getElementById(id);
+  if (!(form instanceof HTMLFormElement)) return false;
+  if (form.hasAttribute("data-unsaved")) return true;
+  return drawn.has(form) && drawn.get(form) !== formState(form);
+}
 
 function openDialog(id, opener) {
   const dlg = document.getElementById(id);
@@ -16,6 +48,8 @@ document.addEventListener("click", function (evt) {
   if (!(t instanceof Element)) return;
   const opener = t.closest("[data-open-dialog]");
   if (opener) {
+    const form = opener.getAttribute("data-if-dirty");
+    if (form && !unsaved(form)) return;
     evt.preventDefault();
     openDialog(opener.getAttribute("data-open-dialog"), opener);
     return;

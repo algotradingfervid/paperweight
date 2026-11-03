@@ -352,6 +352,17 @@ func toCheck(t *testing.T, b *webtest.Browser, d, a, c url.Values) {
 	webtest.WantRedirect(t, b.Post(t, stepContacts, c), stepCheck)
 }
 
+// toCheckBack reaches Check with valid steps, then stores d, a and c through
+// Back, which saves a step without validating it: the way a draft reaches
+// Check's Save with errors now that each step validates on Next (CD-387 (2)).
+func toCheckBack(t *testing.T, b *webtest.Browser, d, a, c url.Values) {
+	t.Helper()
+	toCheck(t, b, details("MEHTA"), rows(mumbaiRow), rows(sunilRow))
+	webtest.WantRedirect(t, b.Post(t, stepDetails, with(d, "nav", "back")), stepDetails)
+	webtest.WantRedirect(t, b.Post(t, stepAddresses, with(a, "nav", "back")), stepDetails)
+	webtest.WantRedirect(t, b.Post(t, stepContacts, with(c, "nav", "back")), stepAddresses)
+}
+
 func value(t *testing.T, r webtest.Response, name, want string) {
 	t.Helper()
 	got, ok := r.Value(name)

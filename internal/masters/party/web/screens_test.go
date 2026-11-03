@@ -160,7 +160,7 @@ func TestScreens_PartyWizardRowValueTooLong(t *testing.T) {
 func TestScreens_PartyWizardErrorsInRowOrder(t *testing.T) {
 	w := newWorld(t)
 	b := w.kavya()
-	toCheck(t, b, details("MEHTA"), rows(row(blrRow, "city", ""), row(mumbaiRow, "line1", "")), url.Values{})
+	toCheckBack(t, b, details("MEHTA"), rows(row(blrRow, "city", ""), row(mumbaiRow, "line1", "")), url.Values{})
 	r := b.Post(t, stepCheck, url.Values{})
 	webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
 	text := r.Text()

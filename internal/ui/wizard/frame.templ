@@ -11,7 +11,7 @@ import (
 )
 
 // Bar is the step's action bar: the primary label (default "Save and
-// continue"), whether "Back" shows, and NoPrimary for a step with no
+// continue", or "Continue" in a master wizard, UI v2 §5.6), whether "Back" shows, and NoPrimary for a step with no
 // primary (a check page the user may not submit). EnterPrimary starts the
 // step form with components.EnterSubmit of the primary, for a body with
 // submit buttons of its own, so Enter still presses the primary (CD-286 R4).
@@ -35,11 +35,14 @@ const formID = "wizard-form"
 // all matches ("find" only to the first).
 const disabledElt = "#" + formID + " button[type=submit], button[form=" + formID + "]"
 
-func (b Bar) primary() string {
-	if b.Primary == "" {
-		return "Save and continue"
+func (b Bar) primary(m Model) string {
+	switch {
+	case b.Primary != "":
+		return b.Primary
+	case m.Mode == Master:
+		return "Continue"
 	}
-	return b.Primary
+	return "Save and continue"
 }
 
 func (b Bar) props(m Model) components.ActionBarProps {
@@ -53,7 +56,7 @@ func (b Bar) props(m Model) components.ActionBarProps {
 		p.Form = formID
 	}
 	if !b.NoPrimary {
-		p.Primary = &components.ButtonProps{Label: b.primary(), Variant: components.Primary}
+		p.Primary = &components.ButtonProps{Label: b.primary(m), Variant: components.Primary}
 		if b.PrimaryNav != "" {
 			p.Primary.Name, p.Primary.Value = "nav", b.PrimaryNav
 		}
@@ -160,7 +163,7 @@ templ Frame(m Model, bar Bar) {
 		@components.ErrorSummary(m.Errors)
 		@components.Warnings(m.Warnings)
 		@components.Warnings(m.Stored)
-		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: m.formTarget(), DisabledElt: disabledElt, Attrs: noWrite(m.Mode != Document && !m.Last())}) {
+		@components.Form(components.FormProps{ID: formID, Action: m.formAction(), HX: true, Target: m.formTarget(), DisabledElt: disabledElt, Attrs: formAttrs(m)}) {
 			if p := bar.props(m).Primary; bar.EnterPrimary && p != nil {
 				@components.EnterSubmit(*p)
 				{ children... }
@@ -197,28 +200,43 @@ templ DocVersion(version int, oob bool) {
 	}
 }
 
+// formAttrs are the step form's attributes: noWrite's, and data-unsaved on a
+// step redrawn from posted values it didn't save (errors or a refusal), so
+// app.js counts it as changed and the × asks (CD-387 (4)).
+func formAttrs(m Model) templ.Attributes {
+	a := noWrite(m.Mode != Document && !m.Last())
+	if len(m.Errors) > 0 || m.Conflict != "" || m.Danger != "" {
+		if a == nil {
+			a = templ.Attributes{}
+		}
+		a["data-unsaved"] = true
+	}
+	return a
+}
+
 // leaveID is the "Leave without saving?" dialog's id.
 const leaveID = "leave-wizard"
 
-// asksToLeave reports whether the × asks before leaving: a new document has
-// no draft yet, and a master wizard keeps nothing until its last step (UI v2
-// §5.6). A saved document's × goes straight to Close, as each step saved it.
-func asksToLeave(m Model) bool {
-	return m.Mode == Master || m.DocLabel == ""
+// leaveText is the leave dialog's text: a saved document keeps every step
+// saved before; a new document and a master wizard have nothing saved yet
+// (UI v2 §5.6).
+func leaveText(m Model) string {
+	if m.Mode == Document && m.DocLabel != "" {
+		return "What you changed on this step is lost. The draft keeps what was saved before."
+	}
+	return "What you typed in this wizard is lost."
 }
 
 // head is the wizard head (UI v2 §5.6): the close ×, when m.Close is set,
 // then a document's kind as the meta line above the h1, and, in Document
 // mode, the save cue. On phones in focus mode it is the sticky top bar.
-// Without JavaScript a × that asks goes straight to Close.
+// The × goes to Close in one press; app.js opens "Leave without saving?"
+// first only when the step form has unsaved changes (data-if-dirty, CD-387
+// (4)). Without JavaScript it goes straight to Close.
 templ head(m Model) {
 	<div class="wizard-head">
-		if m.Close != "" && asksToLeave(m) {
-			<a class="btn btn-ghost btn-square wizard-close" href={ templ.SafeURL(m.Close) } aria-label="Close" aria-haspopup="dialog" data-open-dialog={ leaveID }>
-				@icons.Icon("x")
-			</a>
-		} else if m.Close != "" {
-			<a class="btn btn-ghost btn-square wizard-close" href={ templ.SafeURL(m.Close) } aria-label="Close">
+		if m.Close != "" {
+			<a class="btn btn-ghost btn-square wizard-close" href={ templ.SafeURL(m.Close) } aria-label="Close" aria-haspopup="dialog" data-open-dialog={ leaveID } data-if-dirty={ formID }>
 				@icons.Icon("x")
 			</a>
 		}
@@ -231,9 +249,9 @@ templ head(m Model) {
 		if m.Mode == Document {
 			@saveCue(m.DocLabel == "")
 		}
-		if m.Close != "" && asksToLeave(m) {
+		if m.Close != "" {
 			@components.Dialog(leaveID, "Leave without saving?") {
-				<p>What you typed in this wizard is lost.</p>
+				<p>{ leaveText(m) }</p>
 				<div class="cluster">
 					@components.Button(components.ButtonProps{Label: "Keep editing", Type: "button", Attrs: templ.Attributes{"data-close-dialog": true}})
 					@components.Button(components.ButtonProps{Label: "Leave", Href: m.Close, Variant: components.Danger})

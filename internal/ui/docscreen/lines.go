@@ -165,7 +165,7 @@ func (d Deps) gridRowOf(r *http.Request, dt *doctype.DocType, v DocView, lv Line
 		if f.Type == doctype.Link {
 			in = gridItem(id, f.Label, lv.Display[f.Name], f.Name, values[f.Name], lineError(errs, f.Name))
 		} else {
-			in = FieldInput(f, id, values[f.Name], lineError(errs, f.Name), d)
+			in = FieldInput(asShown(c, f), id, values[f.Name], lineError(errs, f.Name), d)
 		}
 		row.Cells = append(row.Cells, components.GridCell{Label: f.Label, Input: in})
 	}
@@ -286,7 +286,7 @@ func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, ver
 		Danger:  danger,
 		Errors:  fieldErrs(errs),
 		Required: slices.ContainsFunc(dt.Fields, func(f doctype.Field) bool {
-			return f.OnLine && editable(f) && required(f) && !hidden(c, f)
+			return f.OnLine && editable(f) && starred(c, f) && !hidden(c, f)
 		}),
 	}
 	if no > 0 {
@@ -313,7 +313,7 @@ func (d Deps) linePage(r *http.Request, dt *doctype.DocType, v DocView, no, vers
 			continue
 		}
 		msg := lineError(errs, f.Name)
-		shown = append(shown, MoreInput{Field: f, Value: values[f.Name], Error: msg, Input: FieldInput(f, components.FieldID(f.Name), values[f.Name], msg, c.Deps)})
+		shown = append(shown, MoreInput{Field: f, Value: values[f.Name], Error: msg, Input: FieldInput(asShown(c, f), components.FieldID(f.Name), values[f.Name], msg, c.Deps)})
 	}
 	lv.Inputs = append(lv.Inputs, GroupMore(shown).Inputs()...)
 	return lv
@@ -482,6 +482,14 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		maps.Copy(l, plain)
 		lines[no-1] = l
 	}
+	pos := no
+	if pos == 0 {
+		pos = len(lines)
+	}
+	if errs := blankLine(d.lineCtx(r, dt, &loaded, no), lines[pos-1]); len(errs) > 0 {
+		refused(Problem{Status: http.StatusUnprocessableEntity, Fields: errs})
+		return
+	}
 	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
 	if err != nil {
 		engineRefused(err, lines)
@@ -492,6 +500,34 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.backToItems(w, r, dt, id, res.Warnings)
+}
+
+// blankLine is line's refusal when nothing identifies it: the line's starred
+// Links (the item, the expense type) are all blank. Each starred field it
+// leaves blank then gets "{Label} is required." (CD-387 (3)). A DocType with
+// no starred Link on its lines refuses nothing; fields the module hides are
+// left out.
+func blankLine(c Ctx, line map[string]string) []doctype.FieldError {
+	var errs []doctype.FieldError
+	identified := true
+	for _, f := range c.DT.Fields {
+		if !f.OnLine || !editable(f) || hidden(c, f) || !starred(c, f) {
+			continue
+		}
+		if f.Type == doctype.Link {
+			if line[f.Name] != "" {
+				return nil
+			}
+			identified = false
+		}
+		if line[f.Name] == "" {
+			errs = append(errs, doctype.FieldError{Field: f.Name, Message: f.Label + " is required."})
+		}
+	}
+	if identified {
+		return nil
+	}
+	return errs
 }
 
 // lineErrors keeps the errors of line pos, and those no line owns: with no

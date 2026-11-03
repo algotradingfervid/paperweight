@@ -342,8 +342,8 @@ func TestScreens_EmployeeWizardFirstPage(t *testing.T) {
 	}
 }
 
-// A step reports only its own parse errors on Next, and composite and required
-// rules wait for Check.
+// A step reports only its own parse errors and rules on Next, its blank
+// required fields too (CD-387 (2)).
 func TestScreens_EmployeeWizardStepErrors(t *testing.T) {
 	w := newWorld(t)
 	b := w.h.Browser(w.h.Env.Kavya)
@@ -367,9 +367,14 @@ func TestScreens_EmployeeWizardStepErrors(t *testing.T) {
 	// The stepper away and back: what was typed stays.
 	value(t, b.Get(t, stepOne), "joining_date", "not a date")
 
-	// Step 1 passes without a name: required waits for Check. Step 2's
-	// Next then doesn't hear step 1's date, typed bad again after it passed.
-	webtest.WantRedirect(t, b.Post(t, stepOne, url.Values{"code": {"EMP-105"}, "joining_date": {"01-04-2024"}, "status": {"Active"}}), stepTwo)
+	// Step 1 stops without a name (CD-387 (2)). Step 2's Next then doesn't
+	// hear step 1's date, typed bad again after it passed.
+	noName := b.Post(t, stepOne, url.Values{"code": {"EMP-105"}, "joining_date": {"01-04-2024"}, "status": {"Active"}})
+	webtest.WantStatus(t, noName, http.StatusUnprocessableEntity)
+	if msg, _, _ := noName.FieldMessage("name"); msg == "" {
+		t.Errorf("no error on a blank name")
+	}
+	webtest.WantRedirect(t, b.Post(t, stepOne, details("EMP-105")), stepTwo)
 	d.Set("name", "")
 	webtest.WantStatus(t, b.Post(t, stepOne, d), http.StatusUnprocessableEntity)
 	webtest.WantRedirect(t, b.Post(t, stepTwo, w.reporting()), stepCheck)
@@ -470,7 +475,7 @@ func TestScreens_EmployeeWizardStartOver(t *testing.T) {
 	rows, audits := w.employees(t), w.allAudits(t)
 	b := w.h.Browser(w.h.Env.Kavya)
 	offered := func(r webtest.Response) bool {
-		return r.Doc.Find(`form[action="`+startOver+`"] button`).Length() == 1
+		return r.Doc.Find(`form[action="`+startOver+`"] > button`).Length() == 1
 	}
 	if offered(b.Get(t, wizardMain)) {
 		t.Errorf("Start over offered with no draft")
@@ -479,7 +484,7 @@ func TestScreens_EmployeeWizardStartOver(t *testing.T) {
 	if !offered(b.Get(t, stepOne)) || !offered(b.Get(t, stepCheck)) {
 		t.Fatalf("Start over not offered with a draft")
 	}
-	if got := webtest.Squash(b.Get(t, stepCheck).Doc.Find(`form[action="` + startOver + `"] button`).Text()); got != "Start over" {
+	if got := webtest.Squash(b.Get(t, stepCheck).Doc.Find(`form[action="` + startOver + `"] > button`).Text()); got != "Start over" {
 		t.Errorf("button = %q", got)
 	}
 	// It comes after the action bar and outside the step form, so Enter can't
@@ -671,8 +676,12 @@ func TestScreens_EmployeeWizardRefusalOnItsStep(t *testing.T) {
 
 	t.Run("a required field", func(t *testing.T) {
 		b := w.h.Browser(w.h.Env.Kavya)
+		// Next refuses a blank code (CD-387 (2)); Back stores it unchecked,
+		// so Check's Save still meets it.
+		w.toCheck(t, b, details("EMP-124"), w.reporting())
 		d := details("")
-		w.toCheck(t, b, d, w.reporting())
+		d.Set("nav", "back")
+		webtest.WantRedirect(t, b.Post(t, stepOne, d), stepOne)
 		refused := b.Post(t, stepCheck, url.Values{})
 		webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
 		webtest.WantFieldErrorID(t, refused, components.FieldID("code"), msgCodeReq)

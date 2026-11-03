@@ -2,6 +2,7 @@ package docscreen
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -274,6 +275,26 @@ func figure(f doctype.Field) bool {
 
 // required matches DOC's check: a Check field is never "missing".
 func required(f doctype.Field) bool { return f.Required && f.Type != doctype.Check }
+
+// starred reports whether f's input shows the required star in c's module:
+// Required, but not a field the module resolves itself when left blank
+// (Module.SelfFill, CD-387 (2)).
+func starred(c Ctx, f doctype.Field) bool {
+	return required(f) && !selfFilled(c, f)
+}
+
+func selfFilled(c Ctx, f doctype.Field) bool {
+	return slices.Contains(c.Deps.modOf(c.DT).SelfFill, f.Name)
+}
+
+// asShown is f as its input draws it: a SelfFill field without Required, so
+// it has no star (CD-387 (2)).
+func asShown(c Ctx, f doctype.Field) doctype.Field {
+	if selfFilled(c, f) {
+		f.Required = false
+	}
+	return f
+}
 
 func numeric(f doctype.Field) bool {
 	switch f.Type {

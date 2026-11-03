@@ -411,7 +411,7 @@ func TestScreens_PartyWizardShippingRowFirst(t *testing.T) {
 			w := newWorld(t)
 			before := w.tally(t)
 			b := w.kavya()
-			toCheck(t, b, details("MEHTA"), c.rows, url.Values{})
+			toCheckBack(t, b, details("MEHTA"), c.rows, url.Values{})
 			refused := b.Post(t, stepCheck, url.Values{})
 			webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
 			wantPage(t, refused, "Step 2 of 4")
@@ -545,7 +545,10 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 			w := newWorld(t)
 			before := w.tally(t)
 			b := w.kavya()
-			checkText(t, b, rows(c.first, c.blank, c.onSave))
+			// Check is reached valid; Back then holds the row Check refuses,
+			// as each step validates on Next (CD-387 (2)).
+			checkText(t, b, rows(c.first, c.second))
+			webtest.WantStatus(t, b.Post(t, c.step, with(rows(c.first, c.blank, c.onSave), "nav", "back")), http.StatusSeeOther)
 			r := b.Post(t, stepCheck, url.Values{})
 			webtest.WantStatus(t, r, http.StatusUnprocessableEntity)
 			wantPage(t, r, c.pageNo)
@@ -577,11 +580,13 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 			w := newWorld(t)
 			before := w.tally(t)
 			b := w.kavya()
-			toCheck(t, b, details("MEHTA"), url.Values{}, rows(sunilRow, row(blankContact, field, typed)))
-			value(t, b.Get(t, stepContacts), line(2, field), typed)
-			refused := b.Post(t, stepCheck, url.Values{})
+			webtest.WantRedirect(t, b.Post(t, stepDetails, details("MEHTA")), stepAddresses)
+			webtest.WantRedirect(t, b.Post(t, stepAddresses, url.Values{}), stepContacts)
+			// The row stays and its blank name stops Next (CD-387 (2)).
+			refused := b.Post(t, stepContacts, rows(sunilRow, row(blankContact, field, typed)))
 			webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
 			wantPage(t, refused, "Step 3 of 4")
+			value(t, refused, line(2, field), typed)
 			webtest.WantFieldErrorID(t, refused, components.FieldID(line(2, "first_name")), msgName)
 			w.wantTally(t, before)
 		})
@@ -597,8 +602,9 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 	})
 }
 
-// A step hears its own format rules on Next, a row's in that row. Required
-// fields and rules that need the database wait for Check.
+// A step hears its own format rules on Next, a row's in that row, and its
+// blank required fields (CD-387 (2)). Rules that need the database wait for
+// Check.
 func TestScreens_PartyWizardStepErrors(t *testing.T) {
 	w := newWorld(t)
 	before := w.tally(t)
@@ -621,8 +627,15 @@ func TestScreens_PartyWizardStepErrors(t *testing.T) {
 		})
 	}
 
-	// Blank required fields pass Next.
-	webtest.WantRedirect(t, b.Post(t, stepDetails, with(details(""), "name", "")), stepAddresses)
+	// Blank required fields stop Next, each with its error (CD-387 (2)).
+	blank := b.Post(t, stepDetails, with(details(""), "name", ""))
+	webtest.WantStatus(t, blank, http.StatusUnprocessableEntity)
+	wantPage(t, blank, "Step 1 of 4")
+	for _, id := range []string{"code", "name"} {
+		if msg, _, _ := blank.FieldMessage(id); msg == "" {
+			t.Errorf("blank %s: no error on Next", id)
+		}
+	}
 	webtest.WantRedirect(t, b.Post(t, stepDetails, details("MEHTA")), stepAddresses)
 
 	for _, c := range []struct {
@@ -646,7 +659,14 @@ func TestScreens_PartyWizardStepErrors(t *testing.T) {
 			wantPage(t, r, "Step 2 of 4")
 		})
 	}
-	webtest.WantRedirect(t, b.Post(t, stepAddresses, rows(row(mumbaiRow, "line1", ""), row(blrRow, "city", ""))), stepContacts)
+	blankRows := b.Post(t, stepAddresses, rows(row(mumbaiRow, "line1", ""), row(blrRow, "city", "")))
+	webtest.WantStatus(t, blankRows, http.StatusUnprocessableEntity)
+	for _, id := range []string{line(1, "line1"), line(2, "city")} {
+		if msg, _, _ := blankRows.FieldMessage(id); msg == "" {
+			t.Errorf("blank %s: no error on Next", id)
+		}
+	}
+	webtest.WantRedirect(t, b.Post(t, stepAddresses, rows(mumbaiRow, blrRow)), stepContacts)
 
 	for _, c := range []struct {
 		name, id, msg string
@@ -663,7 +683,8 @@ func TestScreens_PartyWizardStepErrors(t *testing.T) {
 			wantPage(t, r, "Step 3 of 4")
 		})
 	}
-	webtest.WantRedirect(t, b.Post(t, stepContacts, rows(row(sunilRow, "first_name", ""))), stepCheck)
+	webtest.WantStatus(t, b.Post(t, stepContacts, rows(row(sunilRow, "first_name", ""))), http.StatusUnprocessableEntity)
+	webtest.WantRedirect(t, b.Post(t, stepContacts, rows(sunilRow)), stepCheck)
 
 	w.wantTally(t, before)
 }
@@ -681,7 +702,7 @@ func TestScreens_PartyWizardAllRowErrors(t *testing.T) {
 		row(blrRow, "title", "Rajkot", "city", "Rajkot", "state_code", "24", "pincode", "360001", "gstin", gstinRajkot),
 	)
 	c := rows(row(sunilRow, "first_name", ""), row(kiranRow, "first_name", ""))
-	toCheck(t, b, details("MEHTA"), a, c)
+	toCheckBack(t, b, details("MEHTA"), a, c)
 
 	refused := b.Post(t, stepCheck, url.Values{})
 	webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
@@ -718,7 +739,7 @@ func TestScreens_PartyWizardAllRowErrors(t *testing.T) {
 func TestScreens_PartyWizardErrorsOnFirstStep(t *testing.T) {
 	w := newWorld(t)
 	b := w.kavya()
-	toCheck(t, b, with(details(""), "name", ""), rows(row(mumbaiRow, "city", "")), url.Values{})
+	toCheckBack(t, b, with(details(""), "name", ""), rows(row(mumbaiRow, "city", "")), url.Values{})
 	refused := b.Post(t, stepCheck, url.Values{})
 	webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
 	wantPage(t, refused, "Step 1 of 4")
@@ -859,7 +880,7 @@ func TestScreens_PartyWizardRefusalWritesNothing(t *testing.T) {
 		w := newWorld(t)
 		before := w.tally(t)
 		b := w.kavya()
-		toCheck(t, b, details("MEHTA"), rows(mumbaiRow, blrRow), rows(sunilRow, row(kiranRow, "first_name", "")))
+		toCheckBack(t, b, details("MEHTA"), rows(mumbaiRow, blrRow), rows(sunilRow, row(kiranRow, "first_name", "")))
 		refused := b.Post(t, stepCheck, url.Values{})
 		webtest.WantStatus(t, refused, http.StatusUnprocessableEntity)
 		wantPage(t, refused, "Step 3 of 4")
@@ -1148,7 +1169,7 @@ func TestScreens_PartyWizardStartOver(t *testing.T) {
 	before := w.tally(t)
 	b := w.kavya()
 	offered := func(r webtest.Response) bool {
-		return r.Doc.Find(`form[action="`+startOver+`"] button`).Length() == 1
+		return r.Doc.Find(`form[action="`+startOver+`"] > button`).Length() == 1
 	}
 	if offered(b.Get(t, wizardMain)) {
 		t.Errorf("Start over offered with no draft")

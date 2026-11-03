@@ -5,13 +5,14 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
-// TestFrame_LeaveDialog (UI v2 §5.6, C3b): the × of a saved document goes
-// straight to Close; the × of a new document or of a master wizard opens
-// "Leave without saving?", whose Leave goes to Close. Without Close there
-// is neither.
+// TestFrame_LeaveDialog (UI v2 §5.6, C3b, CD-387 (4)): every × goes to Close
+// and opens "Leave without saving?" only when the step form has unsaved
+// changes (data-if-dirty, app.js); Leave goes to Close. A saved document's
+// dialog says the draft keeps what was saved. Without Close there is neither.
 func TestFrame_LeaveDialog(t *testing.T) {
 	newDoc := docModel()
 	newDoc.DocLabel = ""
@@ -19,13 +20,13 @@ func TestFrame_LeaveDialog(t *testing.T) {
 	master.Mode = wizard.Master
 	master.Steps = steps("Details", "Addresses", "Contacts", "Check")
 	for _, c := range []struct {
-		name   string
-		m      wizard.Model
-		dialog bool
+		name string
+		m    wizard.Model
+		body string
 	}{
-		{"saved document", docModel(), false},
-		{"new document", newDoc, true},
-		{"master wizard", master, true},
+		{"saved document", docModel(), "What you changed on this step is lost. The draft keeps what was saved before."},
+		{"new document", newDoc, "What you typed in this wizard is lost."},
+		{"master wizard", master, "What you typed in this wizard is lost."},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			c.m.Close = "/doc/po"
@@ -36,11 +37,8 @@ func TestFrame_LeaveDialog(t *testing.T) {
 			}
 			dlg := d.Find("dialog#leave-wizard")
 			opener, opens := x.Attr("data-open-dialog")
-			if !c.dialog {
-				if dlg.Length() != 0 || opens {
-					t.Errorf("a saved document's × asks before leaving (dialog %d, opener %q)", dlg.Length(), opener)
-				}
-				return
+			if got := x.AttrOr("data-if-dirty", ""); got != "wizard-form" {
+				t.Errorf("× data-if-dirty = %q, want wizard-form", got)
 			}
 			if !opens || opener != "leave-wizard" || x.AttrOr("aria-haspopup", "") != "dialog" {
 				t.Errorf("× opener = %q, aria-haspopup %q; want leave-wizard, dialog", opener, x.AttrOr("aria-haspopup", ""))
@@ -51,7 +49,7 @@ func TestFrame_LeaveDialog(t *testing.T) {
 			if got := norm(dlg.Find("h2").Text()); got != "Leave without saving?" {
 				t.Errorf("title = %q", got)
 			}
-			if got := norm(dlg.Find("p").Text()); got != "What you typed in this wizard is lost." {
+			if got := norm(dlg.Find("p").Text()); got != c.body {
 				t.Errorf("body = %q", got)
 			}
 			if k := dlg.Find("button[data-close-dialog]").FilterFunction(func(_ int, s *goquery.Selection) bool { return norm(s.Text()) == "Keep editing" }); k.Length() != 1 {
@@ -59,6 +57,28 @@ func TestFrame_LeaveDialog(t *testing.T) {
 			}
 			if l := dlg.Find("a.btn"); l.Length() != 1 || norm(l.Text()) != "Leave" || l.AttrOr("href", "") != "/doc/po" {
 				t.Errorf("Leave link: %d, %q, href %q; want one Leave to /doc/po", l.Length(), norm(l.Text()), l.AttrOr("href", ""))
+			}
+		})
+	}
+	// A step redrawn with errors or a refusal holds values that weren't
+	// saved: its form is marked, so the × asks however it was reached.
+	for _, c := range []struct {
+		name   string
+		adjust func(*wizard.Model)
+		marked bool
+	}{
+		{"plain", func(*wizard.Model) {}, false},
+		{"errors", func(m *wizard.Model) { m.Errors = []components.FieldErr{{ID: "f-a", Message: "A is required."}} }, true},
+		{"conflict", func(m *wizard.Model) { m.Conflict = "Someone saved this first." }, true},
+		{"danger", func(m *wizard.Model) { m.Danger = "This can't be saved." }, true},
+	} {
+		t.Run("unsaved "+c.name, func(t *testing.T) {
+			m := docModel()
+			m.Close = "/doc/po"
+			c.adjust(&m)
+			_, got := renderFrame(t, m, wizard.Bar{}).Find("form#wizard-form").Attr("data-unsaved")
+			if got != c.marked {
+				t.Errorf("form data-unsaved = %v, want %v", got, c.marked)
 			}
 		})
 	}

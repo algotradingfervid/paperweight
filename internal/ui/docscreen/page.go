@@ -510,6 +510,21 @@ func CheckKeyFacts(mods map[string]Module) error {
 	return nil
 }
 
+// CheckSelfFill reports the first Module.SelfFill name that isn't a Required
+// field its DocType declares, so a typo fails when the routes are built, not
+// by leaving a star (CD-387 (2)).
+func CheckSelfFill(mods map[string]Module) error {
+	for name, m := range mods {
+		dt, _ := doctype.Lookup(name) // unregistered: no fields, so every name fails
+		for _, f := range m.SelfFill {
+			if fd, found := dt.Field(f); !found || !required(fd) {
+				return fmt.Errorf("docscreen: %s SelfFill names %q, which isn't one of its Required fields", name, f)
+			}
+		}
+	}
+	return nil
+}
+
 // CheckTodayDates reports the first Module.TodayDates name that isn't a header
 // Date field its DocType declares, or a name with no today to fill it, so a
 // typo fails when the routes are built, not by leaving the date blank.

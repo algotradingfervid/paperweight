@@ -349,7 +349,8 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 	if err != nil {
 		return err
 	}
-	if own := withRules(h.wiz.stepErrors(step, errs), h.answered(step, vals, h.wiz.stepErrors(step, rules))); len(own) > 0 {
+	// A step validates before Continue, blank required fields too (CD-387 (2)).
+	if own := withRules(h.wiz.stepErrors(step, errs), h.wiz.stepErrors(step, rules)); len(own) > 0 {
 		session.Merge(ctx, typed)
 		return h.wizardStay(w, r, p, i, furthest, vals, own)
 	}
@@ -393,21 +394,6 @@ func (h *handlers[R, In]) overLimit(s docscreen.FormStep, typed, vals map[string
 		return []doctype.FieldError{{Message: msgDraftTooBig}}
 	}
 	return nil
-}
-
-// answered drops the errors on a blank Required field of step s, in its row on a
-// row step: they wait for Check.
-func (h *handlers[R, In]) answered(s docscreen.FormStep, vals map[string]string, errs []doctype.FieldError) []doctype.FieldError {
-	rs, rowStep := h.wiz.rows[s.Slug]
-	rows := heldRows(vals, s.Slug)
-	return slices.DeleteFunc(slices.Clone(errs), func(e doctype.FieldError) bool {
-		if !rowStep {
-			fd, ok := h.dt.Field(e.Field)
-			return ok && fd.Required && strings.TrimSpace(vals[e.Field]) == ""
-		}
-		i := slices.IndexFunc(rs.Fields, func(fd doctype.Field) bool { return fd.Name == e.Field })
-		return i >= 0 && rs.Fields[i].Required && strings.TrimSpace(rows[e.Path()]) == ""
-	})
 }
 
 // withRules adds rules to errs, a parse error standing for its field: Validate
@@ -601,7 +587,7 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 	}
 	f := form{Values: vals, Errs: errs}
 	m.Errors = h.wiz.summary(f, h.wiz.steps[i])
-	v := wizardView{M: m, Bar: wizard.Bar{Back: i > 0}, Back: components.Link{Label: h.Copy.Plural, Href: h.Base}}
+	v := wizardView{M: m, Bar: wizard.Bar{Back: i > 0}}
 	if len(h.session(p).Get(ctx)) > 0 {
 		v.M.Below = wizardStartOverForm(h.Base + "/new/" + startOverSlug)
 	}
@@ -744,7 +730,6 @@ type wizardView struct {
 	M      wizard.Model
 	Bar    wizard.Bar
 	Inputs []templ.Component
-	Back   components.Link
 	// Required reports whether a step input is required; the step then starts
 	// with components.RequiredNote.
 	Required bool
