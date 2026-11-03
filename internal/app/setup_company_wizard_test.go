@@ -405,9 +405,16 @@ func TestSetupWizard_HTMX(t *testing.T) {
 	if r.status != http.StatusUnprocessableEntity || r.doc.Find("#wizard").Length() != 1 || r.doc.Find("main#main").Length() != 0 {
 		t.Errorf("htmx refusal = %d, want 422 and the #wizard fragment", r.status)
 	}
+	// Each fragment's <title> updates the document title (R2).
+	if got := r.doc.Find("title").Text(); !strings.HasPrefix(got, "Error: Company · ") {
+		t.Errorf("htmx refusal title = %q, want Error: Company · …", got)
+	}
 	r = b.postHeaders(setupStep1, stepForm(good, 0), hx)
 	if r.status != http.StatusOK || r.header.Get("HX-Push-Url") != setupStep2 || r.doc.Find(`#wizard [name="branch_code"]`).Length() != 1 {
 		t.Errorf("htmx step 1 = %d, push %q; want 200, %s and step 2's fields", r.status, r.header.Get("HX-Push-Url"), setupStep2)
+	}
+	if got := r.doc.Find("title").Text(); !strings.HasPrefix(got, "Head office · ") {
+		t.Errorf("htmx step 1 title = %q, want step 2's", got)
 	}
 	r = b.postHeaders(setupStep2, stepForm(good, 1), hx)
 	if r.status != http.StatusOK || r.header.Get("HX-Push-Url") != setupCheck {

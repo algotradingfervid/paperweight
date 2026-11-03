@@ -401,6 +401,16 @@ func TestUpload_UnderHTMXSwapsTheWizard(t *testing.T) {
 	if got := r.Doc.Find("#wizard h2#step-title").Text(); got != "Upload" {
 		t.Errorf("heading = %q", got)
 	}
+	// The fragment's <title> updates the document title (R2).
+	if got := r.Doc.Find("title").Text(); !strings.HasPrefix(got, "Error: Upload · ") {
+		t.Errorf("title = %q, want Error: Upload · …", got)
+	}
+	// So does the whole page a plain POST gets.
+	full := b.sendPart(t, p, "file", strings.Repeat("x", csvio.MaxFileBytes+1))
+	webtest.WantStatus(t, full, http.StatusUnprocessableEntity)
+	if got := full.Doc.Find("title").Text(); !strings.HasPrefix(got, "Error: Upload · ") {
+		t.Errorf("plain POST: title = %q, want Error: Upload · …", got)
+	}
 	webtest.WantFieldError(t, r, "file", "This file is larger than 5 MB. Split it into smaller files.")
 	href, _ := r.Doc.Find(`a[href^="#"]`).First().Attr("href")
 	if href == "" || r.Doc.Find(href+`[name="file"]`).Length() != 1 {
@@ -414,6 +424,9 @@ func TestUpload_UnderHTMXSwapsTheWizard(t *testing.T) {
 	}
 	if got := r.Doc.Find("#wizard h2#step-title").Text(); got != "Check" {
 		t.Errorf("heading = %q", got)
+	}
+	if got := r.Doc.Find("title").Text(); !strings.HasPrefix(got, "Check · ") {
+		t.Errorf("title = %q, want Check · …", got)
 	}
 }
 

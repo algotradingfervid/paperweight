@@ -334,6 +334,10 @@ func conflictReload(pr Problem, label, href string) *components.Link {
 	return &components.Link{Label: label, Href: href}
 }
 
+// landSwap is the swap of a page an action lands on: #main replaced, the
+// window scrolled to the top after the settle has focused the success block.
+const landSwap = "outerHTML show:window:top"
+
 // succeeded sends the user on (CD-80): htmx gets the page the action leads
 // to (the document page, a check page or the list) with the banners
 // rendered and HX-Push-Url; otherwise the banners go in the flash and a 303
@@ -352,6 +356,11 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 		to, onPage = "/doc/"+dt.Name, false
 	}
 	if ui.IsHTMX(r) && !onPage {
+		// Every page an action lands on opens at its top, the success first
+		// (R2): a swap otherwise keeps the scroll of the page it replaced.
+		// checkPage sets its own HX-Push-Url (form.go), so the swap goes
+		// just before the call.
+		w.Header().Set("HX-Reswap", landSwap)
 		switch a {
 		case doctype.ActionDelete:
 			w.Header().Set("HX-Push-Url", to)
@@ -383,6 +392,7 @@ func (d Deps) succeeded(w http.ResponseWriter, r *http.Request, dt *doctype.DocT
 			d.successBlock(r, p, &pv)
 		}
 		w.Header().Set("HX-Push-Url", to)
+		w.Header().Set("HX-Reswap", landSwap)
 		ui.Render(w, r, http.StatusOK, docPage(pv), docMain(pv))
 		return
 	}

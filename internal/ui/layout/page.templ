@@ -75,12 +75,20 @@ templ Page(o PageOpts) {
 	</html>
 }
 
-// Main is only <main id="main">…</main>, the htmx fragment. It never shows
-// the flash (CD-80).
+// Main is the htmx fragment: the page's <title>, which htmx moves into the
+// head, then only <main id="main">…</main>. It never shows the flash (CD-80).
 templ Main(o PageOpts) {
+	@Title(o)
 	@mainEl(o, nil) {
 		{ children... }
 	}
+}
+
+// Title is the page's <title>. A fragment that moves to another page or
+// redraws one with a refusal starts with it, so htmx updates the document
+// title, "Error: " included (UI v2 §5.14).
+templ Title(o PageOpts) {
+	<title>{ pageTitle(o, ui.ShellFrom(ctx).AppName) }</title>
 }
 
 templ mainEl(o PageOpts, banners []web.Notice) {

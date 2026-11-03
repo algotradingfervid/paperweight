@@ -211,7 +211,7 @@ type view struct {
 }
 
 func render(w http.ResponseWriter, r *http.Request, status int, v view) {
-	ui.Render(w, r, status, stepPage(v, status != http.StatusOK), stepFrame(v))
+	ui.Render(w, r, status, stepPage(v, status != http.StatusOK), stepAnswer(v, status != http.StatusOK))
 }
 
 func (h *handlers) choosePage(w http.ResponseWriter, r *http.Request, p auth.Principal) error {
