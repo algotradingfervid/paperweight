@@ -590,7 +590,7 @@ func TestNetworkBanner_WhatClearsReload(t *testing.T) {
 	}
 	for _, c := range []struct {
 		name, method, path, fault, js string
-		press, cleared            bool
+		press, cleared                bool
 	}{
 		{name: "unsafe on another key", method: http.MethodPost, path: "/_gallery/cards", fault: fault503, js: ajax("post", "/_gallery/cards")},
 		{name: "safe in the background", method: http.MethodGet, path: "/_gallery/other", fault: faultDrop, js: ajax("get", "/_gallery/other")},
