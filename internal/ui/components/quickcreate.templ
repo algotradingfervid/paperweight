@@ -6,10 +6,12 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 // ListboxID is the picker's listbox, which names the sheet and its form;
 // Action is the master's quick route and Role the picker's LinkRole, which
 // the form posts. Inputs are the master's quick fields, as typed or
-// prefilled; Problem is a refusal that names no shown field.
+// prefilled; Errors the refused ones, which the summary lists; Problem is a
+// refusal that names no shown field.
 type QuickCreateProps struct {
 	ListboxID, Title, Icon, Line, Action, Role, Problem string
 	Inputs                                              []templ.Component
+	Errors                                              []FieldErr
 }
 
 // QuickCreate is a Sheet holding a master's quick form, opened from a
@@ -23,8 +25,9 @@ templ QuickCreate(p QuickCreateProps) {
 }
 
 // QuickForm is the sheet's form, which a refused quick-create redraws in
-// place (422). Its submit is consumed, so the form it sits in on the page
-// never hears it.
+// place (422) with focus on what was refused: the summary, or the problem.
+// Its submit is consumed, so the form it sits in on the page never hears it.
+// The buttons stay pinned to the sheet's foot while its fields scroll.
 templ QuickForm(p QuickCreateProps) {
 	@Form(FormProps{ID: QuickFormID(p.ListboxID), Action: p.Action, HX: true, Target: "previous .picker", Swap: "outerHTML", Trigger: "submit consume"}) {
 		<div class="quick">
@@ -36,8 +39,11 @@ templ QuickForm(p QuickCreateProps) {
 				}
 				<p class="quick__line">{ p.Line }</p>
 			</div>
+			@ErrorSummaryIn(QuickFormID(p.ListboxID)+"-errors", p.Errors)
 			if p.Problem != "" {
-				@Banner(BannerProps{Kind: Danger, Message: p.Problem})
+				<div class="quick__problem" tabindex="-1" autofocus>
+					@Banner(BannerProps{Kind: Danger, Message: p.Problem})
+				</div>
 			}
 			@RequiredNote(true)
 			for _, in := range p.Inputs {
@@ -50,4 +56,22 @@ templ QuickForm(p QuickCreateProps) {
 			</div>
 		</div>
 	}
+}
+
+// QuickGives marks the field another one hides behind (a GSTIN that gives
+// the state): quickcreate.css reads only its echo.
+templ QuickGives(field templ.Component) {
+	<div data-gives>
+		@field
+	</div>
+}
+
+// QuickHidden keeps a quick field in the form, out of sight, while it needs
+// no answer: a code made from the name. Given is for a field another one
+// gives instead, a state from a GSTIN: quickcreate.css hides it while the
+// live check's echo shows, so the browser needs no script for it.
+templ QuickHidden(hidden, given bool, field templ.Component) {
+	<div hidden?={ hidden } class={ templ.KV("quick__given", given) }>
+		@field
+	</div>
 }

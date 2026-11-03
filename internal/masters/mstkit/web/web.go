@@ -186,6 +186,10 @@ type Screen[R, In any] struct {
 	// a form-only one, on sections and the wizard: Party's is_vendor and
 	// is_customer to role.
 	Renames map[string]string
+	// PickLine is optional and gives a picker row's line for record id: what
+	// tells it from a similar one. "" leaves the row with its name; a line
+	// the user may not read is "" too.
+	PickLine func(ctx context.Context, tx *db.Tx, p auth.Principal, id int64) (string, error)
 	// Quick is optional and lets a picker add a record without leaving its
 	// page (quick.go): POST Base/quick.
 	Quick *Quick
@@ -689,23 +693,41 @@ func (h *handlers[R, In]) pick(w http.ResponseWriter, r *http.Request, p auth.Pr
 		return err
 	}
 	listboxID := cmp.Or(r.Header.Get("HX-Target"), "pick-"+h.dt.Table)
-	frag := components.PickerResults(listboxID, rows, q)
 	role := r.URL.Query().Get("role")
 	noun, quick, err := h.quickNoun(r.Context(), p, role)
 	if err != nil {
 		return err
 	}
+	if noun.One == "" {
+		noun = components.Noun{One: h.Copy.One, Many: h.Copy.Noun}
+	}
+	frag := components.PickerResults(listboxID, rows, q, noun)
 	if quick {
-		if frag, err = h.quickResults(r.Context(), listboxID, role, noun, rows, q); err != nil {
-			return err
-		}
+		frag = h.quickResults(listboxID, role, noun, rows, q)
 	}
 	ui.Render(w, r, http.StatusOK, frag, frag)
 	return nil
 }
 
-// pickRows is the search's rows: PickRole's when the URL names a role.
+// pickRows is the search's rows, each with its line.
 func (h *handlers[R, In]) pickRows(r *http.Request, p auth.Principal, q string) ([]components.PickRow, error) {
+	rows, err := h.foundRows(r, p, q)
+	if err != nil || h.PickLine == nil {
+		return rows, err
+	}
+	ctx := r.Context()
+	return rows, h.Env.DB.Read(ctx, func(tx *db.Tx) error {
+		for i := range rows[:min(len(rows), components.MaxPickRows)] { // only the rows shown
+			if rows[i].Line, err = h.PickLine(ctx, tx, p, rows[i].ID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// foundRows is the search's records: PickRole's when the URL names a role.
+func (h *handlers[R, In]) foundRows(r *http.Request, p auth.Principal, q string) ([]components.PickRow, error) {
 	if role := r.URL.Query().Get("role"); role != "" && h.PickRole != nil {
 		return h.PickRole(r.Context(), p, role, q)
 	}
@@ -1066,7 +1088,7 @@ func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.C
 	if !looked && !coded && !numbered && !labelled && !selected && !chosen {
 		return docscreen.FieldInput(fd, id, value, msg, h.deps.WithStored(f.Stored))
 	}
-	p := components.FieldProps{ID: id, Name: fd.Name, Label: fd.Label, Hint: fd.Hint, Tip: fd.Tip, Error: msg, Value: value, Required: fd.Required}
+	p := props(fd, path, f)
 	if looked {
 		p.Hint, p.Placeholder = lookup.Hint, fd.Placeholder
 		return components.EmailInput(p, "off")
@@ -1086,10 +1108,7 @@ func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.C
 		return components.Radios(p, opts)
 	}
 	p.Placeholder = fd.Placeholder
-	p.Attrs = templ.Attributes{}
-	if fd.MaxLen > 0 {
-		p.Attrs["maxlength"] = strconv.Itoa(fd.MaxLen)
-	}
+	p = withMaxLen(p, fd)
 	if to, ok := h.Fills[path]; ok {
 		p.Attrs["data-fills"] = components.FieldID(to)
 	}
@@ -1097,6 +1116,24 @@ func (h *handlers[R, In]) control(fd doctype.Field, path string, f form) templ.C
 		return components.NumberInput(p, number, false)
 	}
 	return components.CodeInput(p, code)
+}
+
+// props are the FieldProps control gives fd's own controls at path.
+func props(fd doctype.Field, path string, f form) components.FieldProps {
+	return components.FieldProps{ID: components.FieldID(path), Name: path, Label: fd.Label, Hint: fd.Hint, Tip: fd.Tip,
+		Error: f.errFor(path), Echo: f.Echo[path], Value: f.Values[path], Required: fd.Required}
+}
+
+// withMaxLen is p with fd's MaxLen as maxlength, when it has one; p.Attrs is
+// never nil after it.
+func withMaxLen(p components.FieldProps, fd doctype.Field) components.FieldProps {
+	if p.Attrs == nil {
+		p.Attrs = templ.Attributes{}
+	}
+	if fd.MaxLen > 0 {
+		p.Attrs["maxlength"] = strconv.Itoa(fd.MaxLen)
+	}
+	return p
 }
 
 // rows is the editor for f's rows, a cell for each OnLine field.
@@ -1337,6 +1374,7 @@ type form struct {
 	Errs    []doctype.FieldError
 	Problem string
 	Reload  bool
+	Echo    map[string]string // a code field's checked echo by path, on a redraw that has one
 }
 
 // errFor is the message on the field at path, "" when none.

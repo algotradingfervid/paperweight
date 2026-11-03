@@ -280,6 +280,8 @@ func (a *App) docDeps() docscreen.Deps {
 		DocLinkRead: a.auth.CheckLinkTx,
 		// Recent picks on a LinkRole field keep its role (CD-218).
 		LinkRole: a.linkRole,
+		// A chosen or recent party shows its GSTIN and city (UI v2 §5.8).
+		LinkLine: a.linkLine,
 		Modules:  a.docModules,
 	}
 }
@@ -670,6 +672,15 @@ func (a *App) linkRole(ctx context.Context, tx *db.Tx, target *doctype.DocType, 
 		return pt.IsCustomer, nil
 	}
 	return false, nil
+}
+
+// linkLine is a party's picker line for p, through the Address read right.
+// Any other target has none.
+func (a *App) linkLine(ctx context.Context, tx *db.Tx, p auth.Principal, target *doctype.DocType, id int64) (string, error) {
+	if target.Name != party.DocType {
+		return "", nil
+	}
+	return a.masters.Address.PickLine(ctx, tx, p, id)
 }
 
 // wizardClock gives wizard.Respond the app's clock, so the save cue's

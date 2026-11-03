@@ -71,6 +71,7 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		Extra:    rec.lists,
 		Mount:    rec.routes,
 		PickRole: pickRole(svc),
+		PickLine: addresses.PickLine,
 		Choices: map[string]mstweb.Choice{roleField: {Label: "This party is a", Hint: "Only vendors can be picked on purchase orders.", Required: true, Options: []components.Option{
 			{Value: roleVendor, Label: "Vendor"}, {Value: roleCustomer, Label: "Customer"}, {Value: roleBoth, Label: "Both"},
 		}}},
@@ -79,7 +80,8 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 		// (UI v2 §5.8, CD-375).
 		Quick: &mstweb.Quick{
 			Fields:  quickFields(),
-			Nouns:   map[string]string{roleVendor: "vendor", roleCustomer: "customer"},
+			Given:   map[string]mstweb.Given{"state_code": {By: "gstin", Check: components.GSTINState, Echo: stateEcho}},
+			Nouns:   map[string]components.Noun{roleVendor: {One: "vendor", Many: "vendors"}, roleCustomer: {One: "customer", Many: "customers"}},
 			Icon:    "user-plus",
 			Line:    "Just enough to raise this order. Add contacts and more addresses later in Parties.",
 			Creates: []string{address.DocType},
@@ -216,16 +218,27 @@ func fieldsOf(docType string, names ...string) []doctype.Field {
 	return out
 }
 
-// quickFields is the quick-create form (CD-375): the party's code and name,
-// then its billing address's GSTIN, line 1, city and state. State is
-// required: without a GSTIN the address needs one, and with one it may stay
-// blank and comes from the GSTIN.
+// quickFields is the quick-create form (CD-375, CD-388): the party's name,
+// then its billing address's GSTIN, city, line 1 and state. The code comes
+// from the name unless it is refused. State is required, and shows only
+// while no valid GSTIN gives it.
 func quickFields() []doctype.Field {
-	f := slices.Concat(fieldsOf(party.DocType, "code", "name"), fieldsOf(address.DocType, "gstin", "line1", "city", "state_code"))
-	f[0].Hint = "Suggested from the name. You can change it."
-	f[3].Label, f[3].Hint = "Address line 1", "Saved as their billing address."
+	f := slices.Concat(fieldsOf(party.DocType, "code", "name"), fieldsOf(address.DocType, "gstin", "city", "line1", "state_code"))
+	f[0].Hint = "Made from the name. You can change it."
+	f[1].Hint = "The code is made from this. You can change it later in Parties."
+	f[4].Label, f[4].Hint = "Address line 1", "Saved as their billing address."
 	f[5].Required = true
 	return f
+}
+
+// stateEcho is the live check's echo for g when it is a valid GSTIN that
+// names a state, and "" when it doesn't give one.
+func stateEcho(g string) string {
+	_, echo, err := gstinweb.Parsers()[string(components.GSTINState)](g)
+	if err != nil {
+		return ""
+	}
+	return echo
 }
 
 func addressFields() []doctype.Field {

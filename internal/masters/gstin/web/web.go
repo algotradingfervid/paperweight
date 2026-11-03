@@ -16,7 +16,14 @@ import (
 // The messages are the gstin package's.
 func Parsers() map[string]components.ParseFunc {
 	return map[string]components.ParseFunc{
-		string(components.GSTIN):   parseGSTIN,
+		string(components.GSTIN): parseGSTIN,
+		string(components.GSTINState): func(in string) (string, string, error) {
+			g, echo, err := parseGSTIN(in)
+			if _, ok := gstin.StateByCode(gstin.StateCode(g)); !ok {
+				echo = ""
+			}
+			return g, echo, err
+		},
 		string(components.PAN):     noEcho(gstin.ValidatePAN),
 		string(components.HSN):     noEcho(validateHSN),
 		string(components.Pincode): noEcho(gstin.ValidatePincode),

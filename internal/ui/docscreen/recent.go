@@ -99,7 +99,11 @@ func (d Deps) recentPicks(ctx context.Context, f doctype.Field) ([]components.Pi
 				return err
 			}
 			if found && !mi.Disabled {
-				out = append(out, components.PickRow{ID: id, Code: mi.Code, Name: mi.Name})
+				row := components.PickRow{ID: id, Code: mi.Code, Name: mi.Name}
+				if row.Line, err = d.linkLine(ctx, tx, target, id); err != nil {
+					return err
+				}
+				out = append(out, row)
 			}
 		}
 		return nil

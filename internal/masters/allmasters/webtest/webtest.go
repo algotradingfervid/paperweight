@@ -399,7 +399,7 @@ func (r Response) Choices(name string) []Choice {
 	return out
 }
 
-// PickRow is one picker result: the id it posts and its visible text.
+// PickRow is one picker result: the id it posts and its "{Code} {Name}".
 type PickRow struct{ Value, Text string }
 
 // PickRows lists the selectable picker results (role="option" elements that
@@ -412,7 +412,7 @@ func (r Response) PickRows() []PickRow {
 			return
 		}
 		v, _ := s.Attr("data-value")
-		out = append(out, PickRow{Value: v, Text: Squash(s.Text())})
+		out = append(out, PickRow{Value: v, Text: Squash(s.AttrOr("data-label", ""))})
 	})
 	return out
 }

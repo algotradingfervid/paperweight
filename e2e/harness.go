@@ -298,7 +298,7 @@ func (h *Harness) pick(w http.ResponseWriter, r *http.Request, name string) {
 		rows = append(rows, row)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = components.PickerResults(r.Header.Get("HX-Target"), rows, q).Render(r.Context(), w) // the client is gone
+	_ = components.PickerResults(r.Header.Get("HX-Target"), rows, q, components.Noun{One: "record", Many: "records"}).Render(r.Context(), w) // the client is gone
 }
 
 // Principal is what AUTH loads for the fixture user with this email.
