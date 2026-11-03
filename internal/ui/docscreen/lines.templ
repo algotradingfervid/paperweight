@@ -114,7 +114,7 @@ templ linePageBody(lp linePageView) {
 	if lp.Top != nil {
 		@lp.Top
 	}
-	@components.Form(components.FormProps{ID: lp.FormID, Action: lp.Action}) {
+	@components.Form(components.FormProps{ID: lp.FormID, Action: lp.Action, HX: true, DisabledElt: lineDisabled(lp.FormID)}) {
 		<input type="hidden" name="version" value={ strconv.Itoa(lp.Version) }/>
 		@components.RequiredNote(lp.Required)
 		for _, c := range lp.Inputs {

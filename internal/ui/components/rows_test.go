@@ -297,3 +297,16 @@ func TestRowsEditor_ZeroRowsShowsAddOnly(t *testing.T) {
 		t.Errorf("visible buttons = %d (%q), want only Add conversion", vis.Length(), accName(vis))
 	}
 }
+
+// Add and Remove redraw the form and save nothing, so app.js may re-send them
+// after a dropped connection (CD-387 review).
+func TestRowsEditor_ButtonsWriteNothing(t *testing.T) {
+	doc := uitest.Render(t, components.RowsEditor(rowsProps(2, nil)))
+	buttons := doc.Find(`button[name="_rows"]`)
+	if n := buttons.Length(); n != 3 {
+		t.Fatalf("%d row buttons, want Add and two Removes", n)
+	}
+	if n := buttons.Filter("[data-no-write]").Length(); n != 3 {
+		t.Errorf("%d of 3 row buttons are marked data-no-write", n)
+	}
+}

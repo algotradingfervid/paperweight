@@ -299,8 +299,8 @@ func TestLineGrid_DisplayApprovedPage(t *testing.T) {
 func TestLineGrid_DisplayLineSave(t *testing.T) {
 	e := m40bNewEnv(t)
 	rec := e.post(t, m01bURL(e.id)+"/lines/1", e.m01bLine1(m01bVersion(t, e.hookedEnv, e.id)), "HX-Request", "true")
-	if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != m01bURL(e.id)+"/edit/items" {
-		t.Errorf("htmx line save = %d to %q, want 303 to %s; body %.300s", rec.Code, loc, m01bURL(e.id)+"/edit/items", rec.Body)
+	if loc := rec.Header().Get("HX-Redirect"); rec.Code != http.StatusOK || loc != m01bURL(e.id)+"/edit/items" {
+		t.Errorf("htmx line save = %d to %q, want HX-Redirect to %s; body %.300s", rec.Code, loc, m01bURL(e.id)+"/edit/items", rec.Body)
 	}
 	if got := m01bRecord(t, e.hookedEnv, e.id).Lines[0]["qty"]; got != "7.000" && got != "7" {
 		t.Errorf("line 1's quantity after the save = %q, want 7", got)

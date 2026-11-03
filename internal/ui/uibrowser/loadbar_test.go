@@ -268,16 +268,206 @@ func waitReload(t *testing.T, ctx context.Context, path string) {
 	t.Fatalf("the page did not reload to %s", path)
 }
 
-// A 4xx is the page's own refusal: it never shows the network banner, and it
-// clears one left by an earlier failure (CD-346).
+// CD-387 (5) on a POST with no saved version. Online, a lost answer can't be
+// told from an abort, so a drop offers Reload as a 503 does (CD-346). While the
+// browser reports offline nothing was sent: the connection text with Try again,
+// which saves.
+func TestNetworkBanner_UnversionedDrop(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	g.set("/_gallery/buttons", faultDrop)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner", netText+`.includes("Your change may have been saved. Reload to check before trying again.")`)
+	if n := eval[int](t, ctx, `document.querySelectorAll("#network [data-retry]").length`); n != 0 {
+		t.Errorf("an online drop offers %d Try again buttons, want none", n)
+	}
+
+	// That banner stays until its form is answered: a fresh page for the rest.
+	offline := func() {
+		t.Helper()
+		g.set("/_gallery/buttons", "")
+		open(t, ctx, 360, g.URL+"/_gallery/buttons")
+		do(t, ctx, "report offline", chromedp.Evaluate[chromedp.Void](`Object.defineProperty(navigator, "onLine", {get: () => false})`))
+	}
+	offline()
+	g.set("/_gallery/buttons", faultDrop)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the offline banner", netText+`.includes("Couldn't reach the server. Check your connection. Nothing you typed is lost.")`)
+	if n := eval[int](t, ctx, `document.querySelectorAll("#network [data-reload]").length`); n != 0 {
+		t.Errorf("an offline drop offers %d Reload buttons, want none", n)
+	}
+
+	// Offline covers only what got no answer: a 503 was received.
+	offline()
+	g.set("/_gallery/buttons", fault503)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner for a 503", netText+`.includes("Your change may have been saved.")`)
+
+	offline()
+	g.set("/_gallery/buttons", faultDrop)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the offline banner again", netText+`.includes("Couldn't reach the server.")`)
+	g.set("/_gallery/buttons", "")
+	m := g.mark()
+	clickEl(t, ctx, "press Try again", `document.querySelector("#network [data-retry]")`)
+	waitFor(t, ctx, "the banner cleared", netEmpty)
+	if n := len(g.requests(m, http.MethodPost, "/_gallery/buttons")); n != 1 {
+		t.Errorf("%d POSTs after Try again, want 1", n)
+	}
+}
+
+// CD-387 (5): which failure gets which banner, by a form's version and by what
+// marks a request as writing nothing.
+func TestNetworkBanner_Matrix(t *testing.T) {
+	const (
+		offline = "Couldn't reach the server. Check your connection. Nothing you typed is lost."
+		server  = "The server had a problem. Try again in a minute."
+		unsure  = "Your change may have been saved. Reload to check before trying again."
+	)
+	const path = "/_gallery/buttons"
+	for _, c := range []struct {
+		name, setup   string
+		drop, fail503 string
+	}{
+		{"a saved version", `v.value = "4";`, offline, server},
+		{"version 0", `v.value = "0";`, unsure, unsure},
+		{"a form writing nothing", `b.form.setAttribute("data-no-write", "");`, offline, server},
+		{"a button writing nothing", `b.setAttribute("data-no-write", "");`, offline, server},
+		{"neither", ``, unsure, unsure},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			g := startFaultGallery(t)
+			ctx := New(t)
+			open(t, ctx, 360, g.URL+path)
+			do(t, ctx, "set up the form", chromedp.Evaluate[chromedp.Void](`(() => {
+  const b = `+savingButton+`;
+  const v = document.createElement("input");
+  v.type = "hidden"; v.name = "version"; v.value = "";
+  b.form.append(v);
+  `+c.setup+`
+})()`))
+			for _, f := range []struct{ fault, want string }{{faultDrop, c.drop}, {fault503, c.fail503}} {
+				g.set(path, f.fault)
+				clickEl(t, ctx, "press Save", savingButton)
+				waitFor(t, ctx, f.fault+": "+f.want, netText+`.includes(`+jsString(f.want)+`)`)
+				retry := f.want != unsure
+				if got := eval[bool](t, ctx, `!!document.querySelector("#network [data-retry]")`); got != retry {
+					t.Errorf("%s: Try again shown = %v, want %v", f.fault, got, retry)
+				}
+				waitFor(t, ctx, "the button back", `!(`+savingButton+`).disabled`)
+			}
+		})
+	}
+}
+
+// Offline counts when the request was sent. Going offline after a request left
+// says nothing about what the server got: that's a lost answer.
+func TestNetworkBanner_OfflineIsReadAtSend(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	g.set("/_gallery/buttons", faultDrop)
+	do(t, ctx, "go offline just after sending", chromedp.Evaluate[chromedp.Void](`document.addEventListener("htmx:beforeSend", () => Object.defineProperty(navigator, "onLine", {get: () => false, configurable: true}))`))
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner", netText+`.includes("Your change may have been saved.")`)
+}
+
+// Reload's banner goes only with an answer to the path it failed on: another
+// request says nothing about the lost save. Any other banner goes with any
+// answer but a field's check.
+func TestNetworkBanner_WhatClearsIt(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	send := func(path string) {
+		t.Helper()
+		m := g.mark()
+		do(t, ctx, "send "+path, chromedp.Evaluate[chromedp.Void](`htmx.ajax("post", `+jsString(path)+`, {source: document.body, swap: "none"})`))
+		g.waitRequests(t, m, 1, http.MethodPost, path)
+		waitFor(t, ctx, "the request done", `document.querySelector(".htmx-request") === null`)
+	}
+	g.set("/_gallery/buttons", fault503)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner", netText+`.includes("Your change may have been saved.")`)
+	g.set("/_gallery/buttons", "")
+	send("/ui/validate/qty")
+	send("/_gallery/other")
+	if !eval[bool](t, ctx, netBanner+` !== null`) {
+		t.Fatal("another request cleared the unsure banner")
+	}
+	clickEl(t, ctx, "press Reload's form again", savingButton)
+	waitFor(t, ctx, "the banner cleared by its own path", netEmpty)
+
+	do(t, ctx, "version the form", chromedp.Evaluate[chromedp.Void](`(() => {
+  const v = document.createElement("input");
+  v.type = "hidden"; v.name = "version"; v.value = "3";
+  (`+savingButton+`).form.append(v);
+})()`))
+	g.set("/_gallery/buttons", fault503)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the server banner", netText+`.includes("The server had a problem.")`)
+	send("/ui/validate/qty")
+	if !eval[bool](t, ctx, netBanner+` !== null`) {
+		t.Fatal("a field's check cleared the server banner")
+	}
+	send("/_gallery/other")
+	waitFor(t, ctx, "the banner cleared by another answer", netEmpty)
+}
+
+// The banner takes focus from a failed form post, on any page position, but a
+// request the user didn't press for leaves them typing.
+func TestNetworkBanner_FocusFollowsTheUsersRequest(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/wizard-1")
+	g.set("/_gallery/wizard-1", faultDrop)
+	clickEl(t, ctx, "press Save and continue", wizardPrimary)
+	waitFor(t, ctx, "the banner holds focus", netBanner+` !== null && document.activeElement === `+netBanner)
+
+	// Enter in a field sends the form: that is a press too, with focus in a field.
+	g.set("/_gallery/wizard-1", "")
+	open(t, ctx, 360, g.URL+"/_gallery/wizard-1")
+	g.set("/_gallery/wizard-1", faultDrop)
+	do(t, ctx, "press Enter in a field", chromedp.Focus(chromedp.CSS("#f-reference")), chromedp.SendKeys(chromedp.CSS("#f-reference"), "PO-77\r"))
+	waitFor(t, ctx, "the banner holds focus after Enter", netBanner+` !== null && document.activeElement === `+netBanner)
+
+	open(t, ctx, 1024, g.URL+"/_gallery/picker")
+	if !markEl(t, ctx, `document.querySelector("input[role=combobox]")`) {
+		t.Fatal("picker page: no combobox input")
+	}
+	g.set("/_gallery/items", faultDrop)
+	do(t, ctx, "type a search", chromedp.Click(target, chromedp.NodeVisible), chromedp.SendKeys(target, "ce"))
+	waitFor(t, ctx, "the banner", netBanner+` !== null`)
+	if !eval[bool](t, ctx, `document.activeElement.matches("input[role=combobox]")`) {
+		t.Errorf("a failed search took focus to %s", eval[string](t, ctx, `document.activeElement.outerHTML.slice(0, 80)`))
+	}
+}
+
+// A field's own check failing is no banner: it would take the banner from the
+// Save the same tap sent, and it saves nothing.
+func TestNetworkBanner_FieldCheckStaysQuiet(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	g.set("/ui/validate/check", faultDrop)
+	m := g.mark()
+	do(t, ctx, "a field checks itself", chromedp.Evaluate[chromedp.Void](`htmx.ajax("post", "/ui/validate/check", {source: document.body, swap: "none"})`))
+	g.waitRequests(t, m, 1, http.MethodPost, "/ui/validate/check")
+	waitFor(t, ctx, "the request done", `document.querySelector(".htmx-request") === null`)
+	if got := eval[string](t, ctx, netText); got != "" {
+		t.Errorf("#network = %q after a field check dropped, want empty", got)
+	}
+}
+
+// A 4xx is the page's own refusal: it never shows the network banner (CD-346).
+// Nor does it clear Reload's banner: a lost first save is still unresolved, and
+// a second Save would make a second draft (CD-387 (5) review).
 func TestNetworkBanner_4xxLeavesItEmpty(t *testing.T) {
 	g := startFaultGallery(t)
 	ctx := New(t)
 	open(t, ctx, 360, g.URL+"/_gallery/buttons")
 	for _, f := range []string{fault404, fault403} {
-		g.set("/_gallery/buttons", fault503)
-		clickEl(t, ctx, "press Save", savingButton)
-		waitFor(t, ctx, "a banner", netBanner+` !== null`)
 		g.set("/_gallery/buttons", f)
 		m := g.mark()
 		clickEl(t, ctx, "press Save", savingButton)
@@ -286,6 +476,179 @@ func TestNetworkBanner_4xxLeavesItEmpty(t *testing.T) {
 		if got := eval[string](t, ctx, netText); got != "" {
 			t.Errorf("after a %s, #network = %q, want empty", f, got)
 		}
+	}
+	g.set("/_gallery/buttons", fault503)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner", netText+`.includes("Your change may have been saved.")`)
+	for _, f := range []string{fault404, fault403} {
+		g.set("/_gallery/buttons", f)
+		m := g.mark()
+		clickEl(t, ctx, "press Save", savingButton)
+		g.waitRequests(t, m, 1, http.MethodPost, "/_gallery/buttons")
+		waitFor(t, ctx, "the "+f+" handled", `document.querySelector(".htmx-request") === null`)
+		if got := eval[string](t, ctx, netText); !strings.Contains(got, "Your change may have been saved.") {
+			t.Errorf("after a %s on the lost save's form, #network = %q, want the unsure banner kept", f, got)
+		}
+	}
+}
+
+// A background request failing after a lost save never puts a safe banner in
+// its place: that one would clear on the next good answer, and the warning with
+// it.
+func TestNetworkBanner_UnsureOutlastsABackgroundFailure(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	g.set("/_gallery/buttons", fault503)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner", netText+`.includes("Your change may have been saved.")`)
+	for _, f := range []string{faultDrop, fault503, ""} {
+		g.set("/_gallery/other", f)
+		m := g.mark()
+		do(t, ctx, "a background GET", chromedp.Evaluate[chromedp.Void](`htmx.ajax("get", "/_gallery/other", {source: document.body, swap: "none"})`))
+		g.waitRequests(t, m, 1, http.MethodGet, "/_gallery/other")
+		waitFor(t, ctx, "the request done", `document.querySelector(".htmx-request") === null`)
+		if got := eval[string](t, ctx, netText); !strings.Contains(got, "Your change may have been saved.") {
+			t.Errorf("after a background GET (%q), #network = %q, want the unsure banner", f, got)
+		}
+	}
+	g.set("/_gallery/buttons", "")
+	clickEl(t, ctx, "press Save on its own form", savingButton)
+	waitFor(t, ctx, "a 2xx from its own path clears it", netEmpty)
+}
+
+// Every request that may have saved needs its own 2xx before the warning goes:
+// a second lost POST elsewhere (a quick-create after a lost first save) may
+// show its own warning, but its success says nothing about the first. A 2xx
+// GET of the first path doesn't either: it's another method.
+func TestNetworkBanner_EveryLostSaveNeedsItsAnswer(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	send := func(verb, path, fault string) {
+		t.Helper()
+		g.set(path, fault)
+		m := g.mark()
+		do(t, ctx, verb+" "+path, chromedp.Evaluate[chromedp.Void](`htmx.ajax(`+jsString(verb)+`, `+jsString(path)+`, {source: document.body, swap: "none"})`))
+		g.waitRequests(t, m, 1, strings.ToUpper(verb), path)
+		waitFor(t, ctx, "the request done", `document.querySelector(".htmx-request") === null`)
+	}
+	const unsure = "Your change may have been saved."
+	kept := func(after string) {
+		t.Helper()
+		if got := eval[string](t, ctx, netText); !strings.Contains(got, unsure) {
+			t.Errorf("after %s, #network = %q, want the unsure banner", after, got)
+		}
+	}
+	g.set("/_gallery/buttons", fault503)
+	clickEl(t, ctx, "press Save", savingButton)
+	waitFor(t, ctx, "the unsure banner", netText+`.includes(`+jsString(unsure)+`)`)
+	send("post", "/_gallery/cards", fault503)
+	kept("a second lost POST")
+	send("post", "/_gallery/cards", "")
+	kept("the second POST's 2xx")
+	send("get", "/_gallery/buttons", "")
+	kept("a 2xx GET of the first path")
+	g.set("/_gallery/buttons", "")
+	clickEl(t, ctx, "press Save again", savingButton)
+	waitFor(t, ctx, "the banner cleared by the last 2xx", netEmpty)
+}
+
+// A dialog holding the warning can be swapped away without a close event: the
+// warning comes home with the next answer.
+func TestNetworkBanner_RemovedDialogHandsItBack(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/buttons")
+	do(t, ctx, "move the form into a dialog", chromedp.Evaluate[chromedp.Void](`(() => {
+  const d = document.createElement("dialog");
+  d.id = "uiv2r1-dialog";
+  const box = document.createElement("div");
+  box.className = "modal-box";
+  box.append((`+savingButton+`).form);
+  d.append(box);
+  document.body.append(d);
+  d.showModal();
+})()`))
+	g.set("/_gallery/buttons", fault503)
+	clickEl(t, ctx, "press Save in the dialog", savingButton)
+	waitFor(t, ctx, "the banner in the dialog", `!!document.querySelector("#uiv2r1-dialog .banner")`)
+	do(t, ctx, "swap the dialog away", chromedp.Evaluate[chromedp.Void](`document.getElementById("uiv2r1-dialog").remove()`))
+	m := g.mark()
+	do(t, ctx, "another request", chromedp.Evaluate[chromedp.Void](`htmx.ajax("get", "/_gallery/buttons", {source: document.body, swap: "none"})`))
+	g.waitRequests(t, m, 1, http.MethodGet, "/_gallery/buttons")
+	waitFor(t, ctx, "the warning back on the page", netText+`.includes("Your change may have been saved.")`)
+}
+
+// Reload's banner, after a lost save: every failure or answer that can follow
+// it, and only a 2xx on the same method and path clears it. Kept, it never
+// turns into a Try again that would send the save twice.
+func TestNetworkBanner_WhatClearsReload(t *testing.T) {
+	const unsure = "Your change may have been saved."
+	ajax := func(verb, path string) string {
+		return `htmx.ajax(` + jsString(verb) + `, ` + jsString(path) + `, {source: document.body, swap: "none"})`
+	}
+	for _, c := range []struct {
+		name, method, path, fault, js string
+		press, cleared            bool
+	}{
+		{name: "unsafe on another key", method: http.MethodPost, path: "/_gallery/cards", fault: fault503, js: ajax("post", "/_gallery/cards")},
+		{name: "safe in the background", method: http.MethodGet, path: "/_gallery/other", fault: faultDrop, js: ajax("get", "/_gallery/other")},
+		{name: "offline-safe on the same key", method: http.MethodPost, path: "/_gallery/buttons", fault: faultDrop, press: true,
+			js: `Object.defineProperty(navigator, "onLine", {get: () => false, configurable: true})`},
+		{name: "a 4xx on the same key", method: http.MethodPost, path: "/_gallery/buttons", fault: fault404, press: true},
+		{name: "a field check answered", method: http.MethodPost, path: "/ui/validate/check", js: ajax("post", "/ui/validate/check")},
+		{name: "a field check dropped", method: http.MethodPost, path: "/ui/validate/check", fault: faultDrop, js: ajax("post", "/ui/validate/check")},
+		{name: "a 2xx on the same method and path", method: http.MethodPost, path: "/_gallery/buttons", press: true, cleared: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			g := startFaultGallery(t)
+			ctx := New(t)
+			open(t, ctx, 360, g.URL+"/_gallery/buttons")
+			g.set("/_gallery/buttons", fault503)
+			clickEl(t, ctx, "press Save", savingButton)
+			waitFor(t, ctx, "the unsure banner", netText+`.includes(`+jsString(unsure)+`)`)
+			waitFor(t, ctx, "the button back", `!(`+savingButton+`).disabled`)
+			g.set("/_gallery/buttons", "")
+			g.set(c.path, c.fault)
+			m := g.mark()
+			if c.js != "" {
+				do(t, ctx, c.name, chromedp.Evaluate[chromedp.Void](c.js))
+			}
+			if c.press {
+				clickEl(t, ctx, "press Save", savingButton)
+			}
+			g.waitRequests(t, m, 1, c.method, c.path)
+			waitFor(t, ctx, "the request done", `document.querySelector(".htmx-request") === null`)
+			if c.cleared {
+				waitFor(t, ctx, "the banner cleared", netEmpty)
+				return
+			}
+			if got := eval[string](t, ctx, netText); !strings.Contains(got, unsure) {
+				t.Errorf("#network = %q, want the unsure banner kept", got)
+			}
+			if n := eval[int](t, ctx, `document.querySelectorAll("#network [data-retry]").length`); n != 0 {
+				t.Errorf("the banner offers %d Try again buttons, want Reload only", n)
+			}
+		})
+	}
+}
+
+// A request the user didn't press for leaves them typing: focus and the caret
+// stay where they were.
+func TestNetworkBanner_TypingKeepsFocus(t *testing.T) {
+	g := startFaultGallery(t)
+	ctx := New(t)
+	open(t, ctx, 360, g.URL+"/_gallery/wizard-1")
+	do(t, ctx, "type in a field", chromedp.Focus(chromedp.CSS("#f-reference")), chromedp.SendKeys(chromedp.CSS("#f-reference"), "PO-77"))
+	do(t, ctx, "move the caret", chromedp.Evaluate[chromedp.Void](`document.getElementById("f-reference").setSelectionRange(2, 2)`))
+	g.set("/_gallery/other", faultDrop)
+	m := g.mark()
+	do(t, ctx, "a background request", chromedp.Evaluate[chromedp.Void](`htmx.ajax("get", "/_gallery/other", {source: document.body, swap: "none"})`))
+	g.waitRequests(t, m, 1, http.MethodGet, "/_gallery/other")
+	waitFor(t, ctx, "the banner", netBanner+` !== null`)
+	if got := eval[string](t, ctx, `document.activeElement.id + ":" + document.activeElement.selectionStart`); got != "f-reference:2" {
+		t.Errorf("focus and caret = %q, want f-reference:2", got)
 	}
 }
 

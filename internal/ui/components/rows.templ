@@ -18,8 +18,9 @@ type RowsProps struct {
 }
 
 // rowsNoValidate lets a row button past the browser's required-field check:
-// the server redraws the form, it isn't saved.
-var rowsNoValidate = templ.Attributes{"formnovalidate": true}
+// the server redraws the form, it isn't saved, so app.js may re-send it
+// (data-no-write).
+var rowsNoValidate = templ.Attributes{"formnovalidate": true, "data-no-write": true}
 
 // rowsCellClass is one column's track, the same in the head and the rows.
 func rowsCellClass(c GridCell) string {

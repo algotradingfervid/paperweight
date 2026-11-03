@@ -18,11 +18,14 @@ type Views interface {
 	User(UserPage) templ.Component
 }
 
-// MessagePage shows one message.
+// MessagePage shows one message, with a link to SignIn when set and, with
+// SignOut, a sign-out form.
 type MessagePage struct {
 	CSRF, Error    string
 	Warnings       []string
 	Title, Message string
+	SignIn         string
+	SignOut        bool
 }
 
 // LoginPage is the sign-in form.

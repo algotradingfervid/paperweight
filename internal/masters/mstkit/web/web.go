@@ -41,6 +41,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/icons"
 	"github.com/vardhan/internaltools/internal/ui/layout"
+	"github.com/vardhan/internaltools/internal/ui/wizard"
 )
 
 // pageSize is the list page size (list.PageSizes[0]); the picker asks for
@@ -903,7 +904,7 @@ func Done(w http.ResponseWriter, r *http.Request, msg, next string, warnings ...
 		web.Flash(r.Context(), "warning", warning)
 	}
 	web.Flash(r.Context(), "success", msg)
-	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // G710: next is Base or Base + "/" + a numeric id
+	wizard.Respond(w, r, wizard.Finish, next, nil)
 	return nil
 }
 
@@ -1009,7 +1010,7 @@ func (h *handlers[R, In]) render(w http.ResponseWriter, r *http.Request, p auth.
 	if len(h.rowFields) > 0 {
 		v.Rows = h.rows(f)
 	}
-	ui.Render(w, r, status, recordPage(v), nil)
+	ui.Render(w, r, status, recordPage(v), recordMain(v, v.Action))
 	return nil
 }
 
@@ -1336,6 +1337,22 @@ type listView struct {
 	List         components.DataListProps
 	Pages        components.PageInfo
 	ShowDisabled *components.Link // lists disabled records too; nil when they are listed
+}
+
+// recordFormID is the record form's id. Its rows editor has submit buttons
+// too, so a post disables them all, Save with them.
+const recordFormID = "record-form"
+
+// recordOpts is the record page's layout.
+func recordOpts(v recordView) layout.PageOpts {
+	return layout.PageOpts{
+		Title:      v.Title,
+		Error:      len(v.Form.Errs) > 0 || v.Form.Problem != "",
+		Width:      v.Width,
+		Focus:      v.Confirm || (len(v.Cards) == 0 && v.CanWrite), // its action bar is the bottom bar
+		Back:       &v.Back,
+		BannerSlot: problemBanner(v),
+	}
 }
 
 // recordView is what the new and record pages render. ID is 0 on the new

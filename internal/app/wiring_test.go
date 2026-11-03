@@ -717,11 +717,11 @@ func TestApp_TrustedOrigins(t *testing.T) {
 
 	// A trusted origin passes the check and meets the missing form token.
 	r := b.do(http.MethodPost, "/signin", nil, "", map[string]string{"Origin": trusted})
-	if r.status != http.StatusForbidden || r.alert() != auth.ErrCSRF.Msg {
-		t.Errorf("POST from a trusted origin = %d %q, want 403 %q", r.status, r.alert(), auth.ErrCSRF.Msg)
+	if r.status != http.StatusForbidden || !strings.Contains(r.pageText(), auth.ErrCSRF.Msg) {
+		t.Errorf("POST from a trusted origin = %d %q, want 403 %q", r.status, r.pageText(), auth.ErrCSRF.Msg)
 	}
 	r = b.do(http.MethodPost, "/signin", nil, "", map[string]string{"Origin": "https://evil.test"})
-	if r.status != http.StatusForbidden || r.alert() == auth.ErrCSRF.Msg {
+	if r.status != http.StatusForbidden || strings.Contains(r.pageText(), auth.ErrCSRF.Msg) {
 		t.Errorf("POST from another origin = %d %q, want the cross-origin refusal", r.status, r.alert())
 	}
 }

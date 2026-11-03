@@ -39,7 +39,6 @@ const (
 	p1NoSource = "Role not found. Pick one from the list."
 	p1Same     = "Pick a different role to copy from."
 	p1FromAdm  = "Administrator has every right that applies and can't be copied."
-	p1CSRF     = "Your form has expired. Reload the page and try again."
 	p1NoRoleID = 999999
 )
 
@@ -389,7 +388,7 @@ func TestCopyRightsPost_CSRFRequired(t *testing.T) {
 
 	r := admin.NoCSRF().Post(path, p1Post(t17RoleVersion(t, w, p1Target), p1IDText(t, w, p1Source)))
 	wantStatus(t, "POST without csrf_token", r, http.StatusForbidden)
-	wantBody(t, "POST without csrf_token", r, p1CSRF)
+	wantBody(t, "POST without csrf_token", r, auth.ErrCSRFSignIn.Msg)
 	keep("POST without csrf_token")
 }
 

@@ -369,8 +369,8 @@ func TestGuard_CheckedInHandler(t *testing.T) {
 
 	r = priya.NoCSRF().Post("/doc/authtest.Order/1/save", url.Values{"name": {"x"}})
 	wantStatus(t, "NoCSRF POST to CheckedInHandler", r, http.StatusForbidden)
-	if !strings.Contains(r.Body, auth.ErrCSRF.Msg) {
-		t.Fatalf("NoCSRF POST body = %q, want %q", r.Body, auth.ErrCSRF.Msg)
+	if !strings.Contains(r.Body, auth.ErrCSRFSignIn.Msg) {
+		t.Fatalf("NoCSRF POST body = %q, want %q", r.Body, auth.ErrCSRFSignIn.Msg)
 	}
 	if st.DocSaves() != 0 {
 		t.Fatalf("NoCSRF POST reached the handler %d times", st.DocSaves())

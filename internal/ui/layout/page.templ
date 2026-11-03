@@ -47,7 +47,7 @@ templ Page(o PageOpts) {
 						}
 					</div>
 					@components.NoticeTemplates()
-					<div id="network" class="alerts" aria-live="polite"></div>
+					<div id="network" class="alerts network-region" aria-live="polite"></div>
 					@networkTemplates()
 					<div class="app-page">
 						@mainEl(o, banners) {
@@ -118,7 +118,8 @@ templ flash(n web.Notice) {
 
 // networkTemplates are the banners app.js copies into #network when a request
 // gets no answer (offline) or a 5xx (server), each with Try again, and, for a
-// POST that can't be safely re-sent, one with Reload (UI v2 §5.14, CD-346).
+// POST that can't be safely re-sent, one with Reload (UI v2 §5.14, CD-346,
+// CD-387 (5)).
 templ networkTemplates() {
 	<template id="network-offline">
 		@networkBanner("Couldn't reach the server.", "Check your connection. Nothing you typed is lost.", "Try again", "data-retry")

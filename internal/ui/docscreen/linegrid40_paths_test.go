@@ -49,8 +49,8 @@ func TestLineGrid_FallbackOnEveryPath(t *testing.T) {
 				}
 				return
 			}
-			if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || !strings.HasSuffix(loc, "/edit/items") {
-				t.Errorf("line save = %d to %q, want 303 to the items step", rec.Code, loc)
+			if loc := rec.Header().Get("HX-Redirect"); rec.Code != http.StatusOK || !strings.HasSuffix(loc, "/edit/items") {
+				t.Errorf("line save = %d to %q, want HX-Redirect to the items step", rec.Code, loc)
 			}
 		})
 		t.Run(c.name+" line error link", func(t *testing.T) {

@@ -30,22 +30,28 @@ func userError(err error) (int, string, bool) {
 	return 0, "", false
 }
 
-// getSignIn renders the sign-in form; CSRFToken creates the guest session
-// and its token.
+// getSignIn renders the sign-in form, saying so when a session just expired
+// (the mark stays until a sign-in: two requests of one page can both hit expiry,
+// and the browser lands on the second redirect); CSRFToken creates the guest
+// session and its token.
 func (s *Server) getSignIn(w http.ResponseWriter, r *http.Request) {
 	page := LoginPage{CSRF: CSRFToken(r.Context()), Next: r.URL.Query().Get("next")}
+	if _, err := r.Cookie(expiredCookie); err == nil {
+		page.Warnings = []string{auth.ErrSessionExpired.Msg}
+	}
 	render(w, r, http.StatusOK, s.v.Login(page))
 }
 
 // postSignIn checks the CSRF token itself (the route is Public), signs in,
 // renews the session token and rotates the CSRF token (Review Focus 1).
 func (s *Server) postSignIn(w http.ResponseWriter, r *http.Request) {
-	if !s.validCSRF(r) {
-		s.WriteError(w, r, auth.ErrCSRF)
-		return
-	}
 	ctx := r.Context()
 	next := r.PostFormValue("next")
+	if !s.validCSRF(r) {
+		// A sign-in page left open too long gets a fresh one, keeping next.
+		s.signInPage(w, r, http.StatusForbidden, auth.ErrCSRF.Msg, r.PostFormValue("email"), next)
+		return
+	}
 	res, err := s.a.SignIn(ctx, auth.SignInInput{
 		Email: r.PostFormValue("email"), Password: r.PostFormValue("password"),
 		IP: ClientIP(r, s.cfg.TrustProxy), UserAgent: r.UserAgent(),
@@ -64,6 +70,7 @@ func (s *Server) postSignIn(w http.ResponseWriter, r *http.Request) {
 		s.WriteError(w, r, err)
 		return
 	}
+	s.setExpired(w, -1)
 	s.sm.Put(ctx, auth.SessionKeyUser, int64(res.User))
 	s.sm.Put(ctx, auth.SessionKeyCSRF, newCSRFToken())
 	loc := SafeNext(next)

@@ -210,6 +210,6 @@ func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, 
 		v.Inputs = append(v.Inputs, h.input(fd, name, f))
 		v.Required = v.Required || fd.Required
 	}
-	ui.Render(w, r, status, recordPage(v), nil)
+	ui.Render(w, r, status, recordPage(v), recordMain(v, v.Action))
 	return nil
 }

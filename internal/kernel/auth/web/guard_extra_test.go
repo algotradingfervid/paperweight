@@ -36,8 +36,8 @@ func TestGuard_CSRFBeforeRight(t *testing.T) {
 
 	r := deepak.NoCSRF().Post("/po/1/save", url.Values{"name": {"x"}})
 	wantStatus(t, "deepak POST without token", r, http.StatusForbidden)
-	if !strings.Contains(r.Body, auth.ErrCSRF.Msg) || strings.Contains(r.Body, "permission") {
-		t.Fatalf("body = %q, want %q and not the denial", r.Body, auth.ErrCSRF.Msg)
+	if !strings.Contains(r.Body, auth.ErrCSRFSignIn.Msg) || strings.Contains(r.Body, "permission") {
+		t.Fatalf("body = %q, want %q and not the denial", r.Body, auth.ErrCSRFSignIn.Msg)
 	}
 	if st.Saves() != 0 {
 		t.Fatalf("reached the handler %d times", st.Saves())
@@ -97,8 +97,8 @@ func TestCSRF_WrongFormToken(t *testing.T) {
 
 	r := c.NoCSRF().Post("/po/1/save", url.Values{"name": {"x"}, "csrf_token": {"wrong"}})
 	wantStatus(t, "POST with a wrong csrf_token", r, http.StatusForbidden)
-	if !strings.Contains(r.Body, auth.ErrCSRF.Msg) {
-		t.Fatalf("body = %q, want %q", r.Body, auth.ErrCSRF.Msg)
+	if !strings.Contains(r.Body, auth.ErrCSRFSignIn.Msg) {
+		t.Fatalf("body = %q, want %q", r.Body, auth.ErrCSRFSignIn.Msg)
 	}
 	if st.Saves() != 0 {
 		t.Fatalf("reached the handler %d times", st.Saves())

@@ -30,7 +30,7 @@ func TestPage_LoadbarIsTheBodyIndicator(t *testing.T) {
 	}
 }
 
-// The network banner goes in its own polite live region in the page flow
+// The network banner goes in its own polite live region
 // (never over a field), and its two texts come from the page's templates.
 func TestPage_NetworkBannerTemplates(t *testing.T) {
 	for _, o := range []layout.PageOpts{{Title: "Purchase orders"}, {Title: "Sign in", Bare: true}} {
