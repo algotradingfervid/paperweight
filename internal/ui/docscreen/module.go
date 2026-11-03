@@ -80,6 +80,7 @@ type StepBar struct {
 	Primary string           // the primary button's label
 	Stay    bool             // the primary posts nav=stay and redraws the step
 	Back    *components.Link // a Back link in place of the Back button
+	Summary templ.Component  // the footer's row above the buttons (CD-387 (7))
 }
 
 // StepState is the redraw input: Posted is true on a 422 or 409, when the

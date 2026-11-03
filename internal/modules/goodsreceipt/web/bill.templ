@@ -7,7 +7,9 @@ import "github.com/vardhan/internaltools/internal/ui/components"
 // summary first, then the saved status, the empty text, the tax invoice
 // note, the read view's values and lines, its information line, the
 // duplicate warning and the form. After a save the heading takes focus
-// (Card's FocusHeading, CD-358).
+// (Card's FocusHeading, CD-358). DropBar removes, out of band, the page's
+// bar that held Add bill details, the bar's only button on an approved GRN,
+// and the Actions card when nothing else is in it.
 templ billCard(v billView) {
 	<div id="bill">
 		@components.CardWith(components.CardProps{Title: billTitle, Change: v.Change, FocusHeading: v.Saved}) {
@@ -49,4 +51,7 @@ templ billCard(v billView) {
 			}
 		}
 	</div>
+	if v.DropBar {
+		<div hx-swap-oob={ "delete:" + billBarSelector }></div>
+	}
 }
