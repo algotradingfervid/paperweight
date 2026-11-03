@@ -349,3 +349,19 @@ func TestScreens_SiteDelete(t *testing.T) {
 	webtest.WantStatus(t, page, http.StatusNotFound)
 	webtest.WantText(t, page, doctype.ErrNotFound.Error()) // CD-76
 }
+
+// UI v2 R10 (shell L8): Type is Segmented, as Item's is, with its words.
+func TestScreens_SiteTypeSegmented(t *testing.T) {
+	w := newWorld(t)
+	r := w.h.Get(t, w.h.Env.Kavya, "/m/site/new")
+	webtest.WantStatus(t, r, http.StatusOK)
+	seg := r.Doc.Find(`.segmented input[type="radio"][name="type"]`)
+	if seg.Length() != 2 {
+		t.Fatalf("%d segments for Type, want 2\nbody: %s", seg.Length(), webtest.Squash(r.Body))
+	}
+	for _, want := range []string{"Warehouse", "Site"} {
+		if !strings.Contains(r.Doc.Find(".segmented").Text(), want) {
+			t.Errorf("Type lacks %q", want)
+		}
+	}
+}

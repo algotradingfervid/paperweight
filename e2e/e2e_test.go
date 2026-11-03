@@ -367,9 +367,9 @@ func TestE2E_NamingSettingsList(t *testing.T) {
 	a := h.SignIn(admin, desktop)
 	a.Press("Numbering")
 	for _, want := range []string{
-		"Purchase Order · PO/{FY}/{#####} · Next: PO/26-27/00008",
-		"Goods Receipt · GR/{FY}/{#####} · Next: GR/26-27/00001",
-		"Expense Claim · EX/{FY}/{#####} · Next: EX/26-27/00001",
+		"PO / financial year / 5-digit number", "PO/26-27/00008",
+		"GR / financial year / 5-digit number", "GR/26-27/00001",
+		"EX / financial year / 5-digit number", "EX/26-27/00001",
 	} {
 		a.WaitText(want)
 	}

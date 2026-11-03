@@ -35,6 +35,9 @@ const (
 	furthestKey = "_furthest"
 	// startOverSlug is the route that drops a draft; it is no step.
 	startOverSlug = "start-over"
+	// noteKey holds the note the next step shows once: the empty rows Continue
+	// left out. No field has this name.
+	noteKey = "_note"
 
 	// defaultMaxLen is the least a step value may hold. It only keeps the
 	// session small: a Field's own MaxLen is the service's rule, so Validate
@@ -92,17 +95,31 @@ type CreateWizard[W any] struct {
 // both; the rest are numbered 1..n, so a row's number on the page is its Line.
 type RowStep struct {
 	Legend, AddLabel string
-	Fields           []doctype.Field
+	// Noun is one row in a sentence, "address": the note after Continue left
+	// out an empty row says "Left out the empty address."; required.
+	Noun   string
+	Fields []doctype.Field
 	// Defaults is a new row's values, keyed by field name. A value equal to its
 	// default isn't typed, so it leaves a row blank.
 	Defaults map[string]string
+	// FirstDefaults is optional and is the first row's values, in place of
+	// Defaults: Party's first address bills.
+	FirstDefaults map[string]string
+}
+
+// defaults is row no's Defaults.
+func (rs RowStep) defaults(no int) map[string]string {
+	if no == 1 && rs.FirstDefaults != nil {
+		return rs.FirstDefaults
+	}
+	return rs.Defaults
 }
 
 // blank reports whether row no holds nothing typed.
 func (rs RowStep) blank(held map[string]string, no int) bool {
 	return !slices.ContainsFunc(rs.Fields, func(fd doctype.Field) bool {
 		v := strings.TrimSpace(held[rowKey(no, fd.Name)])
-		return v != "" && v != rs.Defaults[fd.Name]
+		return v != "" && v != rs.defaults(no)[fd.Name]
 	})
 }
 
@@ -171,21 +188,44 @@ func (c CreateWizard[W]) core() wizardCore {
 	if err := wc.model().Validate(); err != nil {
 		panic("mstweb: " + err.Error())
 	}
+	for slug, rs := range c.Rows {
+		if rs.Noun == "" {
+			panic("mstweb: row step " + slug + " needs a Noun")
+		}
+		for _, defaults := range []map[string]string{rs.Defaults, rs.FirstDefaults} {
+			for name := range defaults {
+				if !slices.ContainsFunc(rs.Fields, func(fd doctype.Field) bool { return fd.Name == name }) {
+					panic("mstweb: row step " + slug + " defaults name no row field " + name)
+				}
+			}
+		}
+	}
 	return wc
 }
 
 // closeRows drops the wholly blank rows of every row step vals holds and numbers
-// the rest 1..n.
-func (c wizardCore) closeRows(vals map[string]string) {
-	for slug, rs := range c.rows {
+// the rest 1..n. It returns the note saying what it dropped, "" for nothing.
+func (c wizardCore) closeRows(vals map[string]string) string {
+	var notes []string
+	for _, slug := range slices.Sorted(maps.Keys(c.rows)) {
+		rs := c.rows[slug]
 		if _, held := vals[slug]; !held {
 			continue
 		}
 		rows := heldRows(vals, slug)
-		nos := slices.DeleteFunc(rowNos(rs.Fields, rows), func(no int) bool { return rs.blank(rows, no) })
+		all := rowNos(rs.Fields, rows)
+		nos := slices.DeleteFunc(slices.Clone(all), func(no int) bool { return rs.blank(rows, no) })
 		renumberRows(rs.Fields, rows, nos)
 		vals[slug] = holdRows(rows)
+		switch n := len(all) - len(nos); n {
+		case 0:
+		case 1:
+			notes = append(notes, "Left out the empty "+rs.Noun+".")
+		default:
+			notes = append(notes, "Left out "+strconv.Itoa(n)+" empty "+strings.ToLower(rs.Legend)+".")
+		}
 	}
+	return strings.Join(notes, " ")
 }
 
 // owns reports whether e belongs to step s: a row step's errors have a Line.
@@ -231,6 +271,7 @@ func (h *handlers[R, In]) draft(ctx context.Context, s wizard.SessionValues) (ma
 	held := s.Get(ctx)
 	furthest, _ := strconv.Atoi(held[furthestKey]) // absent: 0
 	delete(held, furthestKey)
+	delete(held, noteKey)
 	vals := make(map[string]string, len(h.Defaults)+len(held))
 	maps.Copy(vals, h.Defaults)
 	maps.Copy(vals, held)
@@ -326,12 +367,14 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 	editing := rowStep && action != ""
 	if editing {
 		rows := heldRows(typed, step.Slug)
-		if err := editRows(rs.Fields, rs.Defaults, rows, action); err != nil {
+		if err := editRows(rs.Fields, rs.defaults(len(rowNos(rs.Fields, rows))+1), rows, action); err != nil {
 			return err
 		}
 		typed[step.Slug] = holdRows(rows)
-	} else {
-		h.wiz.closeRows(typed)
+	}
+	var note string
+	if !editing {
+		note = h.wiz.closeRows(typed)
 	}
 	maps.Copy(vals, typed)
 	if over := h.overLimit(step, typed, vals); len(over) > 0 { // never into the session
@@ -355,6 +398,7 @@ func (h *handlers[R, In]) wizardPost(w http.ResponseWriter, r *http.Request, p a
 	}
 	furthest = max(furthest, i+1)
 	typed[furthestKey] = strconv.Itoa(furthest)
+	typed[noteKey] = note // the next step shows it, once
 	session.Merge(ctx, typed)
 	next := i + 1
 	if r.PostFormValue("return") == checkSlug && furthest == last {
@@ -578,8 +622,13 @@ func respondInvalid(w http.ResponseWriter, r *http.Request, v wizardView) error 
 }
 
 // wizardAdvance moves to step i: 303 for a plain post, the step's fragment with
-// HX-Push-Url for htmx.
+// HX-Push-Url for htmx. Only a step that renders is built, so its one-time
+// note waits for the GET a 303 leads to.
 func (h *handlers[R, In]) wizardAdvance(w http.ResponseWriter, r *http.Request, p auth.Principal, i, furthest int, vals map[string]string) error {
+	if !ui.IsHTMX(r) {
+		wizard.Respond(w, r, wizard.Advance, h.wizardURL(i), nil)
+		return nil
+	}
 	v, err := h.wizardStep(r, p, i, furthest, vals, nil)
 	if err != nil {
 		return err
@@ -599,11 +648,15 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 	if i < last && r.FormValue("return") == checkSlug {
 		m.ReturnTo = checkSlug
 	}
-	f := form{Values: vals, Errs: errs}
+	f := form{Values: vals, Errs: h.inPageOrder(errs)}
 	m.Errors = h.wiz.summary(f, h.wiz.steps[i])
 	v := wizardView{M: m, Bar: wizard.Bar{Back: i > 0}, Back: components.Link{Label: h.Copy.Plural, Href: h.Base}}
-	if len(h.session(p).Get(ctx)) > 0 {
+	held := h.session(p).Get(ctx)
+	if len(held) > 0 {
 		v.M.Below = wizardStartOverForm(h.Base + "/new/" + startOverSlug)
+	}
+	if v.Note = held[noteKey]; v.Note != "" {
+		h.session(p).Merge(ctx, map[string]string{noteKey: ""}) // once; before the response starts (CD-136)
 	}
 	if i == last {
 		cards, err := h.wizardCards(ctx, vals)
@@ -621,9 +674,9 @@ func (h *handlers[R, In]) wizardStep(r *http.Request, p auth.Principal, i, furth
 	}
 	for _, name := range h.wiz.steps[i].Fields {
 		fd, _ := h.field(name) // handlers checked every step's fields
-		v.Inputs = append(v.Inputs, h.input(fd, name, f))
 		v.Required = v.Required || fd.Required
 	}
+	v.Inputs = h.carded(h.wiz.steps[i].Fields, f)
 	return v, nil
 }
 
@@ -748,4 +801,7 @@ type wizardView struct {
 	// Required reports whether a step input is required; the step then starts
 	// with components.RequiredNote.
 	Required bool
+	// Note is a status line above the step's inputs: the empty rows the last
+	// Continue left out.
+	Note string
 }

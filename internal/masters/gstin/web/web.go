@@ -5,6 +5,7 @@ package gstinweb
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/vardhan/internaltools/internal/masters/gstin"
@@ -20,6 +21,23 @@ func Parsers() map[string]components.ParseFunc {
 		string(components.HSN):     noEcho(validateHSN),
 		string(components.Pincode): noEcho(gstin.ValidatePincode),
 	}
+}
+
+// StateOptions is the state Select: GST states by name, blank for an address
+// outside India.
+func StateOptions() []components.Option {
+	opts := []components.Option{{Label: "Choose a state"}}
+	for _, s := range gstin.States() {
+		opts = append(opts, components.Option{Value: s.Code, Label: s.Name + " (" + s.Code + ")"})
+	}
+	return opts
+}
+
+// IndianStateOptions is StateOptions without what no branch can be in.
+func IndianStateOptions() []components.Option {
+	return slices.DeleteFunc(StateOptions(), func(o components.Option) bool {
+		return o.Value != "" && !gstin.IsIndianState(o.Value)
+	})
 }
 
 func noEcho(validate func(string) (string, error)) components.ParseFunc {

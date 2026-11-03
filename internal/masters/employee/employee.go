@@ -69,17 +69,17 @@ func init() {
 		Importable:  true,
 		// Step slugs follow the create wizard: details ("", the first step), then reporting (M13, CD-82).
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. EMP-007", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1, Placeholder: "e.g. Deepak Rao"},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Filterable: true},
-			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType, Required: true, Importable: true, ListPriority: 5, Step: "reporting"},
+			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType, Required: true, Importable: true, ListPriority: 5, Step: "reporting", Hint: "The branch they work from."},
 			{Name: "user_email", Label: "User Email", Type: doctype.Text, Importable: true, ImportOnly: true},
-			{Name: "manager_id", Label: "Reporting manager", Column: "manager_id", Type: doctype.Link, Link: DocType, Importable: true, ListPriority: 6, Step: "reporting"},
+			{Name: "manager_id", Label: "Reporting manager", Column: "manager_id", Type: doctype.Link, Link: DocType, Importable: true, ListPriority: 6, Step: "reporting", Hint: "Who approves their expenses."},
 			{Name: "joining_date", Label: "Date of joining", Column: "joining_date", Type: doctype.Date, Required: true, Importable: true},
 			{Name: "birth_date", Label: "Date of birth", Column: "birth_date", Type: doctype.Date, Importable: true},
 			{Name: "status", Label: "Status", Column: "status", Type: doctype.Select, Required: true, Importable: true, Filterable: true, ListPriority: 3, Options: options},
-			{Name: "relieving_date", Label: "Relieving date", Column: "relieving_date", Type: doctype.Date, Importable: true},
-			{Name: "user_id", Label: "User", Column: "user_id", Type: doctype.Int, Step: "reporting"}, // a user id; users are not a DocType
+			{Name: "relieving_date", Label: "Relieving date", Column: "relieving_date", Type: doctype.Date, Importable: true, Hint: "Their last working day, once they leave."},
+			{Name: "user_id", Label: "User", Column: "user_id", Type: doctype.Int, Step: "reporting", Placeholder: "e.g. deepak@vardhan.example"}, // a user id; users are not a DocType
 		},
 		SearchFields: []string{"code", "name"},
 		DefaultSort:  []doctype.SortKey{{Field: "name"}}, // list adds id as the tie-breaker
@@ -143,7 +143,7 @@ func Validate(in Input) (Input, error) {
 			}
 		}
 	}
-	code, err := mstkit.NormalizeCode(in.Code)
+	code, err := mstkit.NormalizeCodeLike(in.Code, "EMP-007")
 	add(err)
 	name, err := mstkit.NormalizeName(in.Name)
 	add(err)

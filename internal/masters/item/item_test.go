@@ -81,8 +81,8 @@ func serviceInput(sac string) item.Input {
 
 func TestItem_RequiredFields(t *testing.T) { // MST-069
 	const (
-		typeMsg  = "Item type is required (Goods or Service)."
-		stockMsg = "Stock UoM is required."
+		typeMsg  = "Type is required (Goods or Service)."
+		stockMsg = "UoM is required."
 	)
 	noType := goodsInput("7214")
 	noType.Type = ""

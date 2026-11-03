@@ -79,7 +79,7 @@ func TestWizard_RowStepOwnsOnlyRowErrors(t *testing.T) {
 		w := s.Wizard.(mstweb.CreateWizard[stubDraft])
 		w.Steps = []docscreen.FormStep{w.Steps[0], {Slug: "more", Label: "More"}}
 		w.Rows = map[string]mstweb.RowStep{"more": {
-			Legend: "Rows", AddLabel: "Add row", Fields: []doctype.Field{{Name: "note", Label: "Note", Type: doctype.Text}},
+			Legend: "Rows", AddLabel: "Add row", Noun: "row", Fields: []doctype.Field{{Name: "note", Label: "Note", Type: doctype.Text}},
 		}}
 		s.Wizard = w
 	}

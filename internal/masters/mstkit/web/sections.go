@@ -40,7 +40,7 @@ func (h *handlers[R, In]) sectionCards(ctx context.Context, tx *db.Tx, id int64,
 		if err != nil {
 			return nil, err
 		}
-		c := sectionCard{Title: s.Label, Pairs: pairs}
+		c := sectionCard{Title: s.Label, Icon: s.Icon, Pairs: pairs}
 		if canWrite {
 			c.Change = &components.Link{Label: "Change", Href: h.sectionPath(id, s)}
 		}
@@ -196,6 +196,7 @@ func (h *handlers[R, In]) sectionRefused(w http.ResponseWriter, r *http.Request,
 // renderSection is the section's form on the record page's template.
 func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, status int, id int64, s docscreen.FormStep, rec R, f form) error {
 	head := h.Head(rec)
+	f.Errs = h.inPageOrder(f.Errs)
 	var err error
 	if f.Stored, err = h.formValues(rec); err != nil {
 		return err
@@ -207,9 +208,9 @@ func (h *handlers[R, In]) renderSection(w http.ResponseWriter, r *http.Request, 
 	}
 	for _, name := range s.Fields {
 		fd, _ := h.field(name) // handlers checked every step's fields
-		v.Inputs = append(v.Inputs, h.input(fd, name, f))
 		v.Required = v.Required || fd.Required
 	}
+	v.Inputs = h.carded(s.Fields, f)
 	ui.Render(w, r, status, recordPage(v), recordMain(v, v.Action))
 	return nil
 }

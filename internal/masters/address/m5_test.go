@@ -23,8 +23,8 @@ const (
 	m5NeedPrimaryMsg    = "A registered party needs a primary billing address with a GSTIN. Add the billing address first." // CD-180 D1
 	m5EnableFirstMsg    = "Enable this address before making it primary."                                                   // CD-177 (3), CD-180 D2
 	m5DupEnabledMsg     = "GSTIN 27AABCS1429B1ZU is already used by party SHREE. Use that party instead."                   // CD-176
-	m5TickBillingMsg    = "Tick Billing on this address before making it the primary billing address."                      // CD-176
-	m5TickShippingMsg   = "Tick Shipping on this address before making it the primary shipping address."                    // CD-176
+	m5TickBillingMsg    = "Turn on Billing on this address before making it the primary billing address."                   // CD-176
+	m5TickShippingMsg   = "Turn on Shipping on this address before making it the primary shipping address."                 // CD-176
 	m5PartyNotFoundMsg  = "Party not found. Pick one from the list."                                                        // CD-170
 	m5PartyDisabledMsg  = "Party SHREE is disabled. Pick another party."                                                    // CD-170
 	m5BranchNotFoundMsg = "Branch not found. Pick one from the list."                                                       // CD-170
