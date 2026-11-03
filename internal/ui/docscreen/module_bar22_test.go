@@ -120,9 +120,9 @@ func m22WantBar(t *testing.T, page *goquery.Document, items, what string) {
 		}
 	})
 
-	back := page.Find("main a.back-link")
+	back := page.Find("main .wizard-head a.wizard-close")
 	if back.Length() != 1 || back.AttrOr("href", "") != items {
-		t.Errorf("%s: %d Back links (href %q), want one leading to %s", what, back.Length(), back.AttrOr("href", ""), items)
+		t.Errorf("%s: %d ‹ in the wizard head (href %q), want one leading to %s", what, back.Length(), back.AttrOr("href", ""), items)
 	}
 }
 
@@ -170,25 +170,12 @@ func TestModule_LineBar(t *testing.T) {
 		}
 	})
 
-	t.Run("no Line keeps Save in the form", func(t *testing.T) {
+	t.Run("no Line has the bar too", func(t *testing.T) {
 		e, id := m20Env(t, 2, docscreen.Module{Hide: m01bHide(), LineNoun: m20Noun})
 		base := m01bURL(id)
 		for _, path := range []string{"/lines/new", "/lines/1"} {
 			what := "GET " + path + " without Module.Line"
-			page := m01bOK(t, e.get(t, base+path), what)
-			saves := m22Submits(page).FilterFunction(func(_ int, s *goquery.Selection) bool { return norm(s.Text()) == m22SaveLabel })
-			if saves.Length() != 1 {
-				t.Fatalf("%s: found %d %q submits, want 1", what, saves.Length(), m22SaveLabel)
-			}
-			if _, ok := saves.Attr("form"); ok {
-				t.Errorf("%s: %s has a form attribute, want none (UX-E4 only with Module.Line)", what, m22SaveLabel)
-			}
-			if got, _ := saves.Closest("form").Attr("action"); got != base+path {
-				t.Errorf("%s: %s sits in a form posting to %q, want inside the line form (%s)", what, m22SaveLabel, got, base+path)
-			}
-			if saves.Closest(".actionbar").Length() != 0 {
-				t.Errorf("%s: %s is in an .actionbar, want today's inline button", what, m22SaveLabel)
-			}
+			m22WantBar(t, m01bOK(t, e.get(t, base+path), what), base+"/edit/items", what)
 		}
 	})
 

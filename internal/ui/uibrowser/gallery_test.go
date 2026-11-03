@@ -937,10 +937,29 @@ func TestGalleryBrowser_NumberInputsNotClipped(t *testing.T) {
 	}
 }
 
+// brokenWordsJS defines brokenWords(el): the words of el's text that wrap
+// inside themselves (their letters sit on more than one line).
+const brokenWordsJS = `const brokenWords = function (el) {
+    const out = [];
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      for (const m of n.data.matchAll(/\S+/g)) {
+        const rg = document.createRange();
+        rg.setStart(n, m.index);
+        rg.setEnd(n, m.index + m[0].length);
+        const tops = new Set([...rg.getClientRects()].filter(function (q) { return q.width > 0; }).map(function (q) { return Math.round(q.top); }));
+        if (tops.size > 1) out.push(m[0]);
+      }
+    }
+    return out;
+  };`
+
 // TestGalleryBrowser_DataListAlignedRowsFit: in aligned rows no value runs
 // past its track (a NoWrap track is as wide as its values; CD-307 (3),
 // CD-308 (3)) and no separator is shown, a low-priority one included
-// (auth-users has one: its list has no state column).
+// (auth-users has one: its list has no state column). No word of a Wide
+// name breaks inside itself and no header label takes more than 2 lines,
+// with the name, date and code in every order (R5, GRN M3).
 func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
 	g := startGallery(t)
 	ctx := New(t)
@@ -953,6 +972,7 @@ func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
 			open(t, ctx, w, g.URL+"/_gallery/"+p)
 			r := eval[result](t, ctx, `(() => {
   const shown = function (e) { return e.getClientRects().length > 0; };
+  `+brokenWordsJS+`
   const r = {Aligned: 0, LowSeps: document.querySelectorAll(".datalist-sep[data-priority=low]").length, Bad: []};
   document.querySelectorAll(".datalist").forEach(function (l) {
     const head = l.querySelector(".datalist-head");
@@ -965,6 +985,12 @@ func TestGalleryBrowser_DataListAlignedRowsFit(t *testing.T) {
     });
     l.querySelectorAll(".datalist-sep").forEach(function (s) {
       if (shown(s)) r.Bad.push("separator shown after " + JSON.stringify(s.parentElement.textContent.trim()));
+    });
+    l.querySelectorAll(".datalist-link dl.datalist-wide dd").forEach(function (dd) {
+      if (shown(dd)) brokenWords(dd).forEach(function (w) { r.Bad.push("name word " + JSON.stringify(w) + " breaks inside"); });
+    });
+    head.querySelectorAll("span").forEach(function (s) {
+      if (shown(s) && s.getBoundingClientRect().height > 2.5 * parseFloat(getComputedStyle(s).lineHeight)) r.Bad.push("header " + JSON.stringify(s.textContent) + " takes more than 2 lines");
     });
   });
   return r;

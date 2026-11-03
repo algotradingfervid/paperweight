@@ -634,3 +634,9 @@ func TestSearch_HasAScreenEntryForTheSweep(t *testing.T) {
 		t.Error("docscreen.Screens has no entry for route /search")
 	}
 }
+
+// Count is List's Total.
+func (l *srchLister) Count(ctx context.Context, p auth.Principal, dt *doctype.DocType, q docscreen.ListQuery) (int, error) {
+	res, err := l.List(ctx, p, dt, q)
+	return res.Total, err
+}

@@ -45,7 +45,8 @@ func pressX(s *Session) {
 // goes to the list in one press, from a new PO, from every step of a saved
 // draft and from a master wizard; it asks "Leave without saving?" first only
 // when the step has unsaved changes. Keep editing stays with what was typed,
-// and Leave goes to the list. Focus pages without a × keep the header.
+// and Leave goes to the list. The line page's ‹ hides the header as the ×
+// does (CD-387 (6)); focus pages without either keep the header.
 func TestE2E_WizardClose(t *testing.T) {
 	h := Start(t)
 	p := h.SignIn(priya, phone390)
@@ -127,9 +128,14 @@ func TestE2E_WizardClose(t *testing.T) {
 	p.Until("the settle", `document.activeElement && document.activeElement.id === "step-title"`)
 	id := p.DocID()
 	wantHeaderByWidth(t, p, "saved draft, items step")
-	// Focus pages without a × keep the app header at 390 px, so no page is a
-	// dead end: the draft's add-line page and a submitted document's page.
-	for _, path := range []string{fmt.Sprintf("%s/%d/lines/new", list, id), DocPath(fixture.Order, pendingPO(h))} {
+	// The draft's add-line page has the wizard head's ‹ (CD-387 (6)), so its
+	// app header hides below 64rem too.
+	p.Open(fmt.Sprintf("%s/%d/lines/new", list, id))
+	p.Until("the line page", `document.querySelector("body.focus-mode .wizard-head a.wizard-close") !== null`)
+	wantHeaderByWidth(t, p, "add-line page")
+	// Focus pages without a way out of their own keep the app header at
+	// 390 px, so no page is a dead end: a submitted document's page.
+	for _, path := range []string{DocPath(fixture.Order, pendingPO(h))} {
 		p.Open(path)
 		p.Until("the page", `document.querySelector("body.focus-mode") !== null`)
 		if Eval[bool](p, `document.querySelector(".wizard-close") !== null`) {

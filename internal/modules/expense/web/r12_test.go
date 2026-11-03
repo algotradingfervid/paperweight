@@ -177,9 +177,9 @@ func r12AdvVersion(t *testing.T, e *s2Env, id int64) string {
 	return strconv.FormatInt(e.id(t, `SELECT version FROM employee_advance WHERE id = ?`, id), 10)
 }
 
-// §5.6: the advance's line page has the claim line's sticky footer, not an
-// inline button: Save line sits in the bar and posts the form, which has no
-// button of its own. The form saves, keeps what was typed on a refusal, and
+// §5.6, CD-387 (6): the advance's line page is docscreen's general line page
+// with its sticky footer and wizard head: Save line sits in the bar and posts
+// the form, which has no button of its own. The form saves, keeps what was typed on a refusal, and
 // a change keeps the stored line.
 func TestR12_AdvanceLineFooter(t *testing.T) {
 	t.Parallel()
@@ -197,6 +197,10 @@ func TestR12_AdvanceLineFooter(t *testing.T) {
 		}
 		if n := page.Find("form#line-form button[type=submit]").Length(); n != 0 {
 			t.Errorf("%s: the form still has %d submit buttons", what, n)
+		}
+		// CD-387 (6): the general line page's wizard head ‹ goes back to Items.
+		if href := page.Find("#main .wizard-head a.wizard-close").AttrOr("href", ""); href != r12DocPath(expense.AdvanceDocType, adv.ID)+"/edit/items" {
+			t.Errorf("%s: ‹ goes to %q, want the Items step", what, href)
 		}
 	}
 	page := e.page(t, s2Deepak, path+"/new")

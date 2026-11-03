@@ -267,6 +267,23 @@ templ head(m Model) {
 	</div>
 }
 
+// LineHead is the wizard head of a page under a wizard step, such as a line
+// page (UI v2 §5.6, CD-387 (6)): the 44 px ‹ back to that step, the
+// document's kind as the meta line, and the page's one h1. On phones in focus
+// mode it is the sticky top bar, as the step's head is. The ‹ is a plain
+// link: the page's form saves nothing until its own button.
+templ LineHead(back components.Link, kind, title string) {
+	<div class="wizard-head">
+		<a class="btn btn-ghost btn-square wizard-close" href={ templ.SafeURL(back.Href) } aria-label={ "Back to " + back.Label }>
+			@icons.Icon("chevron-left")
+		</a>
+		<div class="wizard-head__text">
+			<p class="wizard-head__meta">{ metaLine(kind) }</p>
+			<h1 class="wizard-title" id="page-title" tabindex="-1">{ title }</h1>
+		</div>
+	</div>
+}
+
 // SavedAtID is the save cue's live region, which app.js fills from a step
 // save's HX-Trigger saved (Respond).
 const SavedAtID = "saved-at"

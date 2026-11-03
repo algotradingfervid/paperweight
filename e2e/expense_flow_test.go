@@ -133,7 +133,7 @@ func TestE2E_ExpenseFlow(t *testing.T) {
 	d := h.SignIn(deepak, phone360)
 	d.Open("/doc/" + expense.ClaimDocType)
 	noOverflow(d, "the Expense Claims list")
-	d.Press("New expense claim")
+	d.PressNew("New expense claim")
 	onStep(d, "Step 1 of 3")
 	noOverflow(d, "Details")
 	d.Fill("purpose", "Pune Metro site visit")
@@ -239,7 +239,7 @@ func newAdvance(s *Session, amount string) int64 {
 	s.t.Helper()
 	s.Open("/doc/" + expense.AdvanceDocType)
 	noOverflow(s, "the Employee Advances list")
-	s.Press("New employee advance")
+	s.PressNew("New employee advance")
 	onStep(s, "Step 1 of 3")
 	noOverflow(s, "advance Details")
 	s.Fill("advance_date", fixtureDate)
@@ -297,7 +297,7 @@ func markPaid(m *Session, adv int64, label string) {
 func newClaim(s *Session, adv, less string) int64 {
 	s.t.Helper()
 	s.Open("/doc/" + expense.ClaimDocType)
-	s.Press("New expense claim")
+	s.PressNew("New expense claim")
 	onStep(s, "Step 1 of 3")
 	s.Fill("purpose", "Pune Metro site visit")
 	if adv != "" {
@@ -434,7 +434,7 @@ func TestE2E_AdvanceTwoClaimsClose(t *testing.T) {
 	noOverflow(m, "the closed advance")
 
 	d.Open("/doc/" + expense.ClaimDocType)
-	d.Press("New expense claim")
+	d.PressNew("New expense claim")
 	onStep(d, "Step 1 of 3")
 	if Eval[bool](d, `document.querySelector("main").textContent.includes(`+strconv.Quote(firstAdv)+`)`) {
 		t.Errorf("a third claim's details step offers the closed %s", firstAdv)

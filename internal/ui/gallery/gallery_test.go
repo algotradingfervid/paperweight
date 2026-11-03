@@ -145,8 +145,8 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 				t.Errorf("datalist: uitest.%s not shown", name)
 			}
 		}
-		if n := d.Find(".datalist").Length(); n != 3 {
-			t.Errorf("datalist: %d lists, want 3 (with state, without state, inside a card)", n)
+		if n := d.Find(".datalist").Length(); n != 9 {
+			t.Errorf("datalist: %d lists, want 9 (with state, without state, inside a card, and a name, date and code in each of 6 orders)", n)
 		}
 		if d.Find(`.datalist ul[aria-label="Sample suppliers"] .badge`).Length() != 0 || d.Find(`ul[aria-label="Sample suppliers"]`).Length() != 1 {
 			t.Error("datalist: want one list without a state column")
@@ -197,8 +197,14 @@ var pageChecks = map[string]func(t *testing.T, d *goquery.Document){
 		}
 	},
 	"filterbar": func(t *testing.T, d *goquery.Document) {
-		if n := d.Find(".filterbar-chips a.chip").Length(); n != 6 {
+		if n := d.Find(`.filterbar-chips[aria-label="Active filters"] a.chip`).Length(); n != 6 {
 			t.Errorf("filterbar: %d chips, want 6", n)
+		}
+		if n := d.Find(`.filterbar-chips[aria-label="Quick filters"] a.chip`).Length(); n != 6 {
+			t.Errorf("filterbar: %d quick chips, want 6", n)
+		}
+		if n := d.Find(`details.filterbar-panel input[type="checkbox"]`).Length(); n != 6 {
+			t.Errorf("filterbar: %d ticks in the Filters panel, want 6", n)
 		}
 	},
 	"bare": func(t *testing.T, d *goquery.Document) {

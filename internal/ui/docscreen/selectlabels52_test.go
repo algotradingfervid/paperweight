@@ -218,11 +218,18 @@ func TestSelectLabels_ListCellsAndChips(t *testing.T) {
 		}
 	}
 	var chips []string
-	page.Find("a.chip").Each(func(_ int, s *goquery.Selection) { chips = append(chips, norm(s.Text())) })
-	for _, want := range []string{"Kind: in Very urgent, normal", "State: Sent for sign-off", "State: != archived"} {
+	page.Find(`ul[aria-label="Active filters"] a.chip`).Each(func(_ int, s *goquery.Selection) { chips = append(chips, norm(s.Text())) })
+	// R5: plain words; the single state is the current quick chip.
+	for _, want := range []string{"Kind: Very urgent, normal", "State: not archived"} {
 		if !slices.ContainsFunc(chips, func(c string) bool { return strings.HasPrefix(c, want) }) {
 			t.Errorf("chips = %q, want one starting %q", chips, want)
 		}
+	}
+	if len(chips) != 2 {
+		t.Errorf("removable chips = %q, want the two above", chips)
+	}
+	if got := norm(page.Find(`ul[aria-label="Quick filters"] a[aria-current="true"]`).Text()); got != "Sent for sign-off 3" {
+		t.Errorf("current quick chip = %q, want the state's label and count", got)
 	}
 }
 

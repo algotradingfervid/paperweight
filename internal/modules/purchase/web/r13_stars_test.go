@@ -1,7 +1,10 @@
 package purchaseweb
 
 import (
+	"slices"
 	"testing"
+
+	"github.com/PuerkitoBio/goquery"
 
 	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
@@ -127,9 +130,10 @@ func TestR13_DetailsBodyHide(t *testing.T) {
 	}
 }
 
-// R13 item 1: Check says what Submit will refuse: a tax code that didn't
-// resolve is a warning (the section's state is DOC's Required list), and a
-// Project that can't resolve is still Needs attention.
+// R13 item 1, R7b: Check says what Submit will refuse: a tax code that
+// didn't resolve is a CheckExtra problem, so the Items section is Needs
+// attention and lists it (not a top warning), and a Project that can't
+// resolve is still Needs attention. A resolved order's Items is Complete.
 func TestR13_CheckNamesMissing(t *testing.T) {
 	w := newP15aWeb(t, purchasetest.New(t), nil)
 	env := w.env
@@ -144,16 +148,34 @@ func TestR13_CheckNamesMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 	check := w.get(t, env.Arjun, p15dDoc(purchase.DocType, res.ID)+"/edit/check")
-	if got := check.find("main .banner--warning"); !r13Has(got, "Line 1: Tax code is required.") {
-		t.Errorf("check warnings = %q", got)
+	if got := check.find("main .banner--warning"); r13Has(got, "Tax code") {
+		t.Errorf("check warnings = %q, want the tax code in its section only", got)
+	}
+	items := r7bSection(check.doc, "Items")
+	if got := p15dCollapse(items.Find(".check-status").Text()); got != "Needs attention" {
+		t.Errorf("Items = %q, want Needs attention", got)
+	}
+	if got := items.Find("ul > li").Map(func(_ int, s *goquery.Selection) string { return p15dCollapse(s.Text()) }); !slices.Equal(got, []string{"Line 1: Tax code is required."}) {
+		t.Errorf("Items lists %q, want the tax code", got)
 	}
 	if !containsAll(check.text(), "Project is required.") {
 		t.Errorf("check lost the project problem: %s", check.text())
 	}
 	ok := purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
-	if got := w.get(t, env.Priya, p15dDoc(purchase.DocType, ok.ID)+"/edit/check").find("main .banner--warning"); r13Has(got, "is required.") {
+	resolved := w.get(t, env.Priya, p15dDoc(purchase.DocType, ok.ID)+"/edit/check")
+	if got := resolved.find("main .banner--warning"); r13Has(got, "is required.") {
 		t.Errorf("resolved order warnings = %q", got)
 	}
+	if got := p15dCollapse(r7bSection(resolved.doc, "Items").Find(".check-status").Text()); got != "Complete" {
+		t.Errorf("resolved order's Items = %q, want Complete", got)
+	}
+}
+
+// r7bSection is the Check page's section titled title.
+func r7bSection(page *goquery.Document, title string) *goquery.Selection {
+	return page.Find("section.card").FilterFunction(func(_ int, s *goquery.Selection) bool {
+		return p15dCollapse(s.Find(".card-title").First().Text()) == title
+	})
 }
 
 // R13 item 7: the switch's hint says turn on, not tick.

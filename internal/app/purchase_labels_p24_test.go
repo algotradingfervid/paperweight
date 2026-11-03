@@ -56,7 +56,7 @@ func TestApp_PurchaseSelectLabels(t *testing.T) {
 	}
 	chips := func(r *response) []string {
 		var out []string
-		for _, s := range r.doc.Find("a.chip").EachIter() {
+		for _, s := range r.doc.Find(`ul[aria-label="Active filters"] a.chip`).EachIter() { // not the quick chips (R5)
 			out = append(out, strings.Join(strings.Fields(s.Text()), " "))
 		}
 		return out
