@@ -10,9 +10,20 @@ import (
 // its own (CD-98: daisyUI and our utilities live only in internal/ui).
 
 templ stepPage(v view, failed bool) {
-	@layout.Page(layout.PageOpts{Title: v.M.Heading(), Error: failed, Width: layout.Form, NoHeading: true, Focus: true}) {
+	@layout.Page(stepOpts(v, failed)) {
 		@stepFrame(v)
 	}
+}
+
+func stepOpts(v view, failed bool) layout.PageOpts {
+	return layout.PageOpts{Title: v.M.Heading(), Error: failed, Width: layout.Form, NoHeading: true, Focus: true}
+}
+
+// stepAnswer is the htmx answer for a step: its <title>, so the document
+// title follows each step and refusal, then the #wizard fragment.
+templ stepAnswer(v view, failed bool) {
+	@layout.Title(stepOpts(v, failed))
+	@stepFrame(v)
 }
 
 // stepFrame is the #wizard fragment.

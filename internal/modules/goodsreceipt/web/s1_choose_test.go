@@ -430,7 +430,9 @@ func TestGRNWeb_ChoosePOSelectEcho(t *testing.T) {
 	if got := strings.TrimSpace(r.doc.Find(msg).Text()); got != "" {
 		t.Errorf("echo with nothing chosen = %q", got)
 	}
-	for attr, want := range map[string]string{"hx-get": s1New, "hx-trigger": "change", "hx-target": msg, "hx-select": msg, "hx-swap": "outerHTML"} {
+	// ignoreTitle: the answer is the whole step, whose <title> would replace a
+	// refusal's "Error: " title while only the echo is kept (R2).
+	for attr, want := range map[string]string{"hx-get": s1New, "hx-trigger": "change", "hx-target": msg, "hx-select": msg, "hx-swap": "outerHTML ignoreTitle:true"} {
 		if got := sel.AttrOr(attr, ""); got != want {
 			t.Errorf("select %s = %q, want %q", attr, got, want)
 		}

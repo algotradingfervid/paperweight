@@ -28,6 +28,10 @@ func TestSuccessBlock(t *testing.T) {
 			if block.Length() != 1 || block.AttrOr("role", "") != "status" {
 				t.Fatalf("want one .success-block with role=status, got %d %q", block.Length(), block.AttrOr("role", ""))
 			}
+			// It takes focus where it lands (R2).
+			if _, auto := block.Attr("autofocus"); !auto || block.AttrOr("tabindex", "") != "-1" {
+				t.Errorf("block autofocus %v, tabindex %q, want autofocus and -1", auto, block.AttrOr("tabindex", ""))
+			}
 			if got := squash(block.Find(".success-block__text").Text()); got != "Submitted for approval to Ravi Kulkarni (Purchase Manager)." {
 				t.Errorf("text = %q", got)
 			}

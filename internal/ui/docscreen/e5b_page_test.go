@@ -94,10 +94,17 @@ func TestDocPage_SubmitSuccessBlock(t *testing.T) {
 				if rec.Code != http.StatusOK {
 					t.Fatalf("status = %d; body %.300s", rec.Code, rec.Body)
 				}
+				// It lands at the top, on the block (R2).
+				if h := rec.Header().Get("HX-Reswap"); h != "outerHTML show:window:top" {
+					t.Errorf("HX-Reswap = %q, want outerHTML show:window:top", h)
+				}
 				page = uitest.Doc(t, rec)
 			} else {
 				rec := e.post(t, doc42+"/"+c.action, nil)
 				location(t, rec)
+				if h := rec.Header().Get("HX-Reswap"); h != "" {
+					t.Errorf("a plain POST's 303 carries HX-Reswap %q", h)
+				}
 				e.seed(result.State)
 				page = uitest.Doc(t, e.get(t, rec.Header().Get("Location")))
 			}
