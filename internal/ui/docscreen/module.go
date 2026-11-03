@@ -254,6 +254,7 @@ func applyLineCards(c Ctx, v *DocView) {
 		if card != nil {
 			lines[i].Card = card(lc, lines[i])
 		}
+		lines[i].Card.Pos = lines[i].No // the card's id is its position, whatever No it shows (R7b)
 		if v.Info.State != doctype.StateApproved && v.Info.State != doctype.StateClosed {
 			lines[i].Card.Received = "" // only approved and closed documents show receipts (CD-242)
 		}

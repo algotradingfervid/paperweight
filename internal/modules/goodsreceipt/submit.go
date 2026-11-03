@@ -40,10 +40,29 @@ func submitFields(ctx context.Context, tx *db.Tx, _ Deps, id int64) ([]doctype.F
 	return errs, nil
 }
 
-// SubmitProblems are submitFields on GRN id for its check page, which marks
-// the step that fixes each one (R7b). The caller has checked the read right.
+// submitProblems is everything BeforeSubmit refuses on GRN id beyond DOC's
+// own checks: the period lock, as a receipt_date error (CD-282 Q9), then
+// the submit-only rules (CD-264 (2)).
+func submitProblems(ctx context.Context, tx *db.Tx, d Deps, id int64) ([]doctype.FieldError, error) {
+	errs, err := checkLockFields(ctx, tx, d, id)
+	if err != nil {
+		return nil, err
+	}
+	more, err := submitFields(ctx, tx, d, id)
+	if err != nil {
+		return nil, err
+	}
+	return append(errs, more...), nil
+}
+
+// SubmitProblems is submitProblems for GRN id's check page, which marks the
+// step that fixes each one (R7b). The caller has checked the read right.
 func SubmitProblems(ctx context.Context, tx *db.Tx, id int64) ([]doctype.FieldError, error) {
-	return submitFields(ctx, tx, Deps{}, id)
+	d, err := wiring.Get(tx)
+	if err != nil {
+		return nil, err
+	}
+	return submitProblems(ctx, tx, d, id)
 }
 
 // SubmitRequired is the header fields submit requires beyond the declared

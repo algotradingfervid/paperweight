@@ -19,6 +19,20 @@ type LineCard struct {
 	ReceiptNote                                  string      // why the line has no receipt (UX-E3)
 	ReceiptWarn                                  bool        // no receipt and no reason (UX-E3)
 	Reveal                                       bool        // the first line "Show all" reveals: its link's #line-reveal target
+	Pos                                          int         // the line's position, which its id names; No is only what the card shows
+}
+
+// LineCardID is card c's id, a link's target: line-{Pos}, or line-reveal on
+// the first card Show all reveals, which Show all and a link to that line
+// share (CD-395, R7b). A card without a Pos has no id.
+func LineCardID(c LineCard) string {
+	switch {
+	case c.Reveal:
+		return "line-reveal"
+	case c.Pos > 0:
+		return "line-" + strconv.Itoa(c.Pos)
+	}
+	return ""
 }
 
 // GridCell is one input cell of a grid row; Label heads its column. Wide

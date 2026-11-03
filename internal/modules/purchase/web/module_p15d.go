@@ -68,13 +68,15 @@ func (m *module) requestLineCard(_ docscreen.Ctx, l docscreen.LineView) componen
 	return card
 }
 
-// requestCheck adds the Comments card to the check page (G2).
+// requestCheck adds the Comments card to the check page (G2), and an
+// unresolved unit as a Problem, so Items is Needs attention (R7b).
 func (m *module) requestCheck(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 	card, err := m.commentsCard(c, purchase.RequestDocType, c.View.Info.ID)
 	if err != nil {
 		return docscreen.CheckExtra{}, err
 	}
-	return docscreen.CheckExtra{Cards: []templ.Component{card}}, nil
+	problems, err := missing(c, purchase.MissingRequest)
+	return docscreen.CheckExtra{Cards: []templ.Component{card}, Problems: problems}, err
 }
 
 // requestRows is what the page and the close page read about a request's

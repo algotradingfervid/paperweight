@@ -239,6 +239,7 @@ type linePageView struct {
 	Top      templ.Component // the module's Line.Top, outside the form (UX-E1)
 	FormID   string          // the line form's id, line-form, whose Save line is in the sticky bar; "" on the remove page
 	Kind     string          // the DocType's label, the wizard head's meta line
+	Items    components.Link // the Items step, where the wizard head's ‹ goes
 }
 
 // conflict makes a stale version's Danger the ConflictBanner, whose Reload
@@ -285,7 +286,8 @@ func (d Deps) lineShell(r *http.Request, dt *doctype.DocType, v DocView, no, ver
 	errs = unhiddenAll(c, errs)
 	noun := d.modOf(dt).LineNoun
 	lv := linePageView{
-		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Focus: true, Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
+		Opts:    layout.PageOpts{Title: cmp.Or(noun.Add, components.AddItem), Width: layout.Form, Focus: true},
+		Items:   components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)},
 		Action:  docURL(dt.Name, v.Info.ID) + "/lines/new",
 		FormID:  "line-form",
 		Kind:    dt.Label,
@@ -667,7 +669,8 @@ func (d Deps) removePage(r *http.Request, dt *doctype.DocType, v DocView, no, ve
 		q = "Remove line " + n + " (" + item + ")?"
 	}
 	return linePageView{
-		Opts:     layout.PageOpts{Title: "Remove line " + n, Width: layout.Form, Focus: true, Error: danger != "", Back: &components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)}},
+		Opts:     layout.PageOpts{Title: "Remove line " + n, Width: layout.Form, Focus: true, Error: danger != ""},
+		Items:    components.Link{Label: d.itemsLabel(dt), Href: itemsURL(dt.Name, v.Info.ID)},
 		Action:   lineURL(dt.Name, v.Info.ID, no) + "/remove",
 		Kind:     dt.Label,
 		Version:  version,
@@ -813,10 +816,10 @@ func fromGrid(r *http.Request) bool {
 func linePageOpts(lp linePageView) layout.PageOpts {
 	o := lp.Opts
 	o.BannerSlot = linePageBanners(lp)
-	// The wizard head's ‹ replaces the Back link, so focus mode hides the
-	// app header below 64rem (CD-387 (6)).
-	o.BannerSlot = templ.Join(wizard.LineHead(*o.Back, lp.Kind, o.Title), o.BannerSlot)
-	o.Back, o.NoHeading = nil, true
+	// The wizard head's ‹ back to Items is the page's way out and its h1, so
+	// focus mode hides the app header below 64rem (CD-387 (6)).
+	o.BannerSlot = templ.Join(wizard.LineHead(lp.Items, lp.Kind, o.Title), o.BannerSlot)
+	o.NoHeading = true
 	if lp.FormID != "" {
 		o.BarSlot = components.ActionBar(components.ActionBarProps{Primary: &lp.Button, Form: lp.FormID})
 	}

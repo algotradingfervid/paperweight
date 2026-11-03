@@ -28,7 +28,13 @@ templ checkBody(cv checkView) {
 			if len(s.Problems) > 0 {
 				<ul>
 					for _, p := range s.Problems {
-						<li>{ p }</li>
+						<li>
+							if p.Href != "" {
+								<a href={ templ.SafeURL(p.Href) }>{ p.Text }</a>
+							} else {
+								{ p.Text }
+							}
+						</li>
 					}
 				</ul>
 			}
