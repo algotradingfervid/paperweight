@@ -10,6 +10,7 @@ import (
 
 // docDisplayJS lists what is wrong with a document page's display on the open
 // page (UI review R9): a timeline word or a figure that spans two lines, a
+// date or document number split in the text or the error summary, a
 // connector that crosses a word or leaves its dots, steps that overlap, a
 // figure past its box, a kv row whose value left the label's row, a covered
 // footer button, a footer that isn't on screen, and the 80rem Actions card's
@@ -37,7 +38,7 @@ const docDisplayJS = `(() => {
   };
   for (const e of shown(".lifecycle__label, .lifecycle__note, .lifecycle__date, .doc-head__amount, .summary dd.num, .doc-head__facts dd.num, .lines-amount, .lines-total, .linegrid-amount, .linegrid-total")) split(e);
   // Dates and document numbers: a hyphen or slash between digits.
-  for (const e of shown("h1, .summary dd:not(.code), .doc-head__facts dd:not(.code), .lines-meta, #main p:not(.banner *)")) split(e, /\d[-\/]\d/);
+  for (const e of shown("h1, .summary dd:not(.code), .doc-head__facts dd:not(.code), .lines-meta, #main p:not(.banner *), .error-summary li")) split(e, /\d[-\/]\d/);
   const whole = shown(".summary dd .whole")[0];
   if (whole) {
     const dd = whole.closest("dd"), sel = getSelection();

@@ -104,6 +104,45 @@ func TestWhole_Tokens(t *testing.T) {
 	}
 }
 
+// R9 merge trial: a field's error keeps its example date and the full stop
+// after it in one inline box (GRN bill 422 at 320 px split "31-03-2025."),
+// and the message reads the same character for character.
+func TestFieldMsg_ErrorDateWhole(t *testing.T) {
+	const msg = "x is not a valid date. Use dd-mm-yyyy, for example 31-03-2025."
+	doc := uitest.Render(t, components.TextInput(components.FieldProps{ID: "d", Name: "d", Label: "Date", Error: msg}))
+	var got []string
+	doc.Find("#d-msg .whole").Each(func(_ int, s *goquery.Selection) { got = append(got, s.Text()) })
+	if want := []string{"31-03-2025."}; !slices.Equal(got, want) {
+		t.Errorf("whole tokens = %q, want %q", got, want)
+	}
+	if got := doc.Find("#d-msg span").First().Text(); got != msg {
+		t.Errorf("message = %q, want %q exactly", got, msg)
+	}
+}
+
+// R9 merge trial, the sibling path: the error summary keeps each message's
+// dates whole as the field message does, and each link reads the same.
+func TestErrorSummary_DatesWhole(t *testing.T) {
+	const msg = "31-02-2026 is not a valid date. Use dd-mm-yyyy, for example 31-03-2025."
+	doc := uitest.Render(t, components.ErrorSummary([]components.FieldErr{{ID: "d", Message: msg}, {ID: "n", Message: "Enter the invoice number."}}))
+	var got []string
+	doc.Find(".error-summary li .whole").Each(func(_ int, s *goquery.Selection) { got = append(got, s.Text()) })
+	if want := []string{"31-02-2026", "31-03-2025."}; !slices.Equal(got, want) {
+		t.Errorf("whole tokens = %q, want %q", got, want)
+	}
+	if got := doc.Find(`.error-summary a[href="#d"]`).Text(); got != msg {
+		t.Errorf("link text = %q, want %q exactly", got, msg)
+	}
+	// The link is an inline flex box: its text sits in one child, or each run
+	// and each whole box would stand side by side as its own column.
+	if kids := doc.Find(`.error-summary a[href="#d"]`).Children(); kids.Length() != 1 || !kids.Is("span:not(.whole)") || kids.Text() != msg {
+		t.Errorf("link has %d children, want one plain span holding the message", kids.Length())
+	}
+	if got := doc.Find(`.error-summary a[href="#n"]`).Text(); got != "Enter the invoice number." {
+		t.Errorf("second link text = %q", got)
+	}
+}
+
 // R9 (GRN M8): the header amount steps down by length, each class on its own
 // length boundary, and stays a tabular figure.
 func TestDocHeader_AmountSteps(t *testing.T) {
