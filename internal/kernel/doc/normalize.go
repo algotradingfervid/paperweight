@@ -50,6 +50,11 @@ func linePrefix(line int) string {
 	return fmt.Sprintf(msgLinePrefix, line)
 }
 
+// RequiredError is DOC's error for f left blank, on line (0: the header),
+// in the text Submit refuses with ("Line 3: Type is required."), so a page
+// that lists what Submit will refuse uses the same words (RR1c).
+func RequiredError(f Field, line int) FieldError { return fieldErr(f, line, msgRequired) }
+
 func fieldErr(f Field, line int, format string, args ...any) FieldError {
 	return FieldError{Field: f.Name, Line: line, Message: linePrefix(line) + fmt.Sprintf(format, append([]any{f.Label}, args...)...)}
 }

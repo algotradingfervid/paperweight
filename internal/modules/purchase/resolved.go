@@ -2,7 +2,6 @@ package purchase
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
@@ -18,10 +17,6 @@ import (
 // text. A draft saves without them, so Validate can't refuse them. Project
 // stays Required: DOC's restricted-user check (CD-178, PO-012) reads the flag.
 
-// msgLineRequired is DOC's required text on a line: msgLinePrefix and
-// msgRequired in internal/kernel/doc/messages.go, which DOC doesn't export.
-const msgLineRequired = "Line %d: %s is required."
-
 // blankLine is the error of a blank link on line, or none, labelled as dt
 // declares field.
 func blankLine(dt *doctype.DocType, id, line int64, field string) []doctype.FieldError {
@@ -29,7 +24,7 @@ func blankLine(dt *doctype.DocType, id, line int64, field string) []doctype.Fiel
 		return nil
 	}
 	f, _ := dt.Field(field)
-	return []doctype.FieldError{{Field: field, Line: int(line), Message: fmt.Sprintf(msgLineRequired, line, f.Label)}}
+	return []doctype.FieldError{doc.RequiredError(f, int(line))}
 }
 
 // orderBlanks are what the PO's stored lines leave unresolved.
@@ -51,15 +46,23 @@ func requestBlanks(dt *doctype.DocType, rows []dbq.RequestLinesForValidateRow) [
 	return errs
 }
 
-// MissingOrder is what Submit will refuse as unresolved on PO id, for its
-// check page.
+// MissingOrder is what Submit will refuse on PO id as unresolved, and the
+// vendor's refusals from checkVendor, the rule Validate runs on Submit (a
+// supplier with no state, RR1c), for its check page. A read failure inside
+// checkVendor panics, as in Validate.
 func MissingOrder(ctx context.Context, tx *db.Tx, id int64) ([]doctype.FieldError, error) {
-	rows, err := dbq.New(tx.SQL()).OrderLinesForValidate(ctx, id)
+	q := dbq.New(tx.SQL())
+	h, err := q.OrderForValidate(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+	rows, err := q.OrderLinesForValidate(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	_, _, errs := checkVendor(ctx, tx, h, &dbq.SetOrderVendorParams{})
 	dt, _ := doc.Lookup(DocType)
-	return orderBlanks(dt, rows), nil
+	return append(errs, orderBlanks(dt, rows)...), nil
 }
 
 // MissingRequest is what Submit will refuse as unresolved on request id,

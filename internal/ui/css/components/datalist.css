@@ -8,6 +8,8 @@
   /* The figure is bold on cards and rows: a little wider than 15ch. */
   --datalist-figure-min: 16ch;
   --datalist-wide-min: 9rem;
+  /* Fits a header word of 9 to 11 capitals ("Quantities", 87px). */
+  --datalist-label-min: 6rem;
   --datalist-state-min: 6.5rem;
   --datalist-go-w: calc(var(--space-3) + var(--icon-sm) + var(--space-3));
   --datalist-inner-r: calc(var(--radius-lg) - var(--border-w));
@@ -77,6 +79,18 @@
   /* A NoWrap track is never narrower than its values (dates, codes,
      GSTINs), so they never run into the next track. Set on the container,
      outside its own container query. */
+  /* A track whose header holds a word of more than 8 letters (data-label)
+     is never narrower than that word, so a header never breaks inside a
+     word (RR1c). The NoWrap, Wide, figure and state minimums below are
+     wider and win. */
+  &[data-label~="1"] { --dl-t1: var(--datalist-label-min); }
+  &[data-label~="2"] { --dl-t2: var(--datalist-label-min); }
+  &[data-label~="3"] { --dl-t3: var(--datalist-label-min); }
+  &[data-label~="4"] { --dl-t4: var(--datalist-label-min); }
+  &[data-label~="5"] { --dl-t5: var(--datalist-label-min); }
+  &[data-label~="6"] { --dl-t6: var(--datalist-label-min); }
+  &[data-label~="7"] { --dl-t7: var(--datalist-label-min); }
+  &[data-label~="8"] { --dl-t8: var(--datalist-label-min); }
   /* The figure (track 2, a .num header) fits the largest amount,
      ₹99,99,99,999.99, so money never breaks in aligned rows. */
   &:has(> .datalist-head > .num:nth-child(2)) { --dl-t2: var(--datalist-figure-min); }
@@ -129,6 +143,9 @@
   }
   @container (min-width: 56rem) {
     &:is([data-cols="6"], [data-cols="7"], [data-cols="8"]) { @apply datalist-aligned; }
+    /* 7 and 8 tracks set closer, so their plain tracks keep room for a
+       two-line header (RR1c). */
+    &:is([data-cols="7"], [data-cols="8"]) :is(.datalist-head, .datalist-link) { column-gap: var(--space-3); }
   }
   @container (min-width: 64rem) {
     & dl[data-priority="low"] { display: block; }
@@ -167,9 +184,11 @@
   & :is(.datalist-nowrap, .datalist-cell.num) dd { overflow-wrap: normal; }
   & .datalist-title { grid-column: 1; grid-row: 1; }
   /* Below 64rem the low-priority values are hidden but keep their tracks,
-     at no width, so the shown tracks share the whole row. */
+     at no width, so the shown tracks share the whole row. At no height
+     too: their text would otherwise lay out a letter per line in the empty
+     track and stretch the row (RR1c). */
   @container (width < 64rem) {
-    & :is(.datalist-head > span, .datalist-link dl)[data-priority="low"] { display: block; visibility: hidden; overflow: hidden; }
+    & :is(.datalist-head > span, .datalist-link dl)[data-priority="low"] { display: block; block-size: 0; visibility: hidden; overflow: hidden; }
     &:has(> .datalist-head > [data-priority="low"]:nth-child(2)) :is(.datalist-head, .datalist-link) { --dl-t2: 0px; --dl-f2: 0fr; }
     &:has(> .datalist-head > [data-priority="low"]:nth-child(3)) :is(.datalist-head, .datalist-link) { --dl-t3: 0px; --dl-f3: 0fr; }
     &:has(> .datalist-head > [data-priority="low"]:nth-child(4)) :is(.datalist-head, .datalist-link) { --dl-t4: 0px; --dl-f4: 0fr; }

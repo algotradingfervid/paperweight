@@ -115,7 +115,7 @@ func checkFields(ctx context.Context, tx *db.Tx, dt *DocType, n *normalized, sub
 func checkField(ctx context.Context, tx *db.Tx, f Field, v any, line int, submit bool, n *normalized, masters masterResolver) (FieldError, string, bool) {
 	if s, isText := v.(string); v == nil || (isText && strings.TrimSpace(s) == "") {
 		if submit && f.Required && f.Type != Check {
-			return fieldErr(f, line, msgRequired), "", true
+			return RequiredError(f, line), "", true
 		}
 		if v == nil {
 			return FieldError{}, "", false

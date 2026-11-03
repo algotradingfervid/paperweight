@@ -352,8 +352,12 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if wizard.Nav(r) == "stay" {
+	switch wizard.Nav(r) {
+	case "stay":
 		d.stay(w, r, dt, steps, 0, res.ID, res.Warnings)
+		return
+	case "finish": // the new draft is saved: to the list (CD-387 (4))
+		finish(w, r, dt, res.Warnings)
 		return
 	}
 	d.advance(w, r, dt, steps, 1, res.ID, res.Warnings)
@@ -428,6 +432,16 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 
 // savedDraftText is the list's flash after Save and finish later (CD-387 (4)).
 const savedDraftText = "Saved as a draft."
+
+// finish answers Save and finish later after the save: the list, with the
+// save's warnings and savedDraftText as flashes (CD-387 (4)).
+func finish(w http.ResponseWriter, r *http.Request, dt *doctype.DocType, warnings []string) {
+	for _, msg := range warnings {
+		web.Flash(r.Context(), "warning", msg)
+	}
+	web.Flash(r.Context(), "success", savedDraftText)
+	wizard.Respond(w, r, wizard.Finish, listURL(dt.Name, ListQuery{}), nil)
+}
 
 // stepPost serves POST /doc/{doctype}/{id}/edit/{step}. It saves the step's
 // values with the posted version (CD-94) and the draft's lines as loaded,
@@ -550,12 +564,8 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case nav == "back":
 		next = max(i-1, 0)
-	case nav == "finish": // to the list, saying so (CD-387 (4))
-		for _, msg := range res.Warnings {
-			web.Flash(ctx, "warning", msg)
-		}
-		web.Flash(ctx, "success", savedDraftText)
-		wizard.Respond(w, r, wizard.Finish, listURL(dt.Name, ListQuery{}), nil)
+	case nav == "finish":
+		finish(w, r, dt, res.Warnings)
 		return
 	case nav == "stay":
 		d.stay(w, r, dt, steps, i, id, res.Warnings)
@@ -1007,9 +1017,7 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			}
 			if s.owns(p) {
 				sec.Status = wizard.Attention
-				if p.Line == 0 || slices.Contains(v.DraftProblems, p) {
-					listProblem(&sec, p, page, len(v.Lines), all)
-				}
+				listProblem(&sec, p, page, len(v.Lines), all)
 			}
 		}
 		for _, p := range extra.Problems {
