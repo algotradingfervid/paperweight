@@ -21,20 +21,31 @@ const (
 
 // companyPage is one setup step as a whole page.
 templ companyPage(v companyView) {
-	@layout.Page(layout.PageOpts{
+	@layout.Page(companyOpts(v)) {
+		@companyBody(v)
+	}
+}
+
+func companyOpts(v companyView) layout.PageOpts {
+	return layout.PageOpts{
 		Title:     v.M.Heading(),
 		NoHeading: true, // the frame's heading is the page's
 		Focus:     true,
 		Error:     len(v.M.Errors) > 0,
 		Width:     layout.Form,
-	}) {
-		@companyFrame(v)
 	}
 }
 
-// companyFrame is the #wizard fragment: CD-165's fields and the head office
-// address (CD-337 (7)), built only from internal/ui components.
+// companyFrame is the htmx answer for a step: its <title>, so the document
+// title follows each step and refusal, then the #wizard fragment.
 templ companyFrame(v companyView) {
+	@layout.Title(companyOpts(v))
+	@companyBody(v)
+}
+
+// companyBody is the #wizard element: CD-165's fields and the head office
+// address (CD-337 (7)), built only from internal/ui components.
+templ companyBody(v companyView) {
 	@wizard.Frame(v.M, v.Bar) {
 		switch v.M.Current {
 			case 0:

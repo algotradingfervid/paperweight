@@ -221,6 +221,10 @@ func TestDirectAction_HTMXLeavingPageRendersTarget(t *testing.T) {
 			if h := rec.Header().Get("HX-Redirect"); h != "" {
 				t.Errorf("HX-Redirect = %q; the target page is rendered directly", h)
 			}
+			// The page it lands on opens at its top (R2).
+			if h := rec.Header().Get("HX-Reswap"); h != "outerHTML show:window:top" {
+				t.Errorf("HX-Reswap = %q, want outerHTML show:window:top", h)
+			}
 			if got := pathOf(t, rec.Header().Get("HX-Push-Url")); got != c.to {
 				t.Errorf("HX-Push-Url = %q, want %q", got, c.to)
 			}

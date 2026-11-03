@@ -589,8 +589,10 @@ func TestWizardForm_GetIsFullPageWithoutHXRequest(t *testing.T) {
 		t.Fatalf("htmx GET: status = %d", rec.Code)
 	}
 	body := strings.TrimSpace(rec.Body.String())
-	if strings.Contains(body, "<html") || !strings.HasPrefix(body, `<div id="wizard"`) {
-		t.Errorf("htmx GET is not the #wizard fragment: %.200s", body)
+	// The step's <title> leads, for htmx to move into the head (R2).
+	title, frag, _ := strings.Cut(body, "</title>")
+	if strings.Contains(body, "<html") || !strings.HasPrefix(title, "<title>Items · ") || !strings.HasPrefix(frag, `<div id="wizard"`) {
+		t.Errorf("htmx GET is not the step's title and the #wizard fragment: %.200s", body)
 	}
 	if !slices.Contains(rec.Header().Values("Vary"), "HX-Request") {
 		t.Errorf("htmx GET: Vary = %q", rec.Header().Values("Vary"))
@@ -624,6 +626,9 @@ func TestWizardForm_InvalidKeepsPostedValues(t *testing.T) {
 		t.Fatalf("engine calls = %+v, want one save", calls)
 	}
 	page := uitest.Doc(t, rec)
+	if got := page.Find("title").Text(); !strings.HasPrefix(got, "Error: Details · ") {
+		t.Errorf("title = %q, want the step's with Error: (R2)", got)
+	}
 	link := page.Find(`.error-summary a[href="#f-order_date"]`)
 	if link.Length() != 1 || norm(link.Text()) != msg {
 		t.Errorf("error summary link to #f-order_date = %q, want %q", norm(link.Text()), msg)
@@ -716,15 +721,20 @@ func TestWizardForm_FinishLater(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %.300s", rec.Code, rec.Body)
 	}
-	if got := rec.Header().Get("HX-Redirect"); got != "/doc/docscreentest.Sample/42" {
-		t.Errorf("HX-Redirect = %q, want /doc/docscreentest.Sample/42", got)
+	// CD-387 (4): the list, with "Saved as a draft." in the flash.
+	if got := rec.Header().Get("HX-Redirect"); got != samplePath {
+		t.Errorf("HX-Redirect = %q, want %s", got, samplePath)
 	}
 	if calls := e.docs.Calls(); len(calls) != 1 || calls[0].Action != doctype.ActionSave || calls[0].Input.Version != 3 {
 		t.Errorf("engine calls = %+v, want one save at version 3", calls)
 	}
+	next := uitest.Doc(t, e.get(t, samplePath))
+	if got := bannerTexts(next.Selection, "success"); !slices.Equal(got, []string{"Saved as a draft."}) {
+		t.Errorf("the list's flash = %q, want [Saved as a draft.]", got)
+	}
 	rec = e.post(t, doc42+"/edit/details", url.Values{"nav": {"finish"}, "supplier_id": {"7"}, "order_date": {"24-10-2026"}})
-	if got := location(t, rec); got != doc42 {
-		t.Errorf("plain finish: 303 to %q, want %s", got, doc42)
+	if got := location(t, rec); got != samplePath {
+		t.Errorf("plain finish: 303 to %q, want %s", got, samplePath)
 	}
 }
 

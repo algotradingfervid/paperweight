@@ -74,6 +74,12 @@ type Model struct {
 	Action, Target                     string
 	Close                              string
 	After, Below                       templ.Component
+	// Held is a master wizard whose session holds every step (mstkit, the
+	// setup wizard): leaving loses only this step's typing. StartOver says
+	// Start over is offered to clear the rest. Unsaved marks the step form
+	// unsaved: it redraws posted values nothing saved or held, so the ×
+	// asks (CD-387 (4)).
+	Held, StartOver, Unsaved bool
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9-]+$`)

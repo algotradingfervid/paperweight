@@ -316,6 +316,7 @@ func (d Deps) newPost(w http.ResponseWriter, r *http.Request) {
 		if status == http.StatusConflict {
 			pr.onFrame(&sv.M, "/doc/"+dt.Name+"/new")
 		}
+		sv.M.Unsaved = true // the posted values, nothing saved (CD-387 (4))
 		ui.Render(w, r, status, stepFull(sv), stepFrame(sv))
 	}
 	var saved Save
@@ -425,12 +426,15 @@ func (d Deps) stepGet(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, http.StatusOK, stepFull(sv), stepFrame(sv))
 }
 
+// savedDraftText is the list's flash after Save and finish later (CD-387 (4)).
+const savedDraftText = "Saved as a draft."
+
 // stepPost serves POST /doc/{doctype}/{id}/edit/{step}. It saves the step's
 // values with the posted version (CD-94) and the draft's lines as loaded,
 // since DOC's save replaces the lines, scoped to the step, so another step's
 // problem stops nothing here (CD-205). nav=back stays on the step when a
 // value can't be parsed or DOC refuses the save (CD-178),
-// nav=finish leaves for the document page, nav=stay redraws the same step
+// nav=finish leaves for the list, nav=stay redraws the same step
 // at its bare URL, return=check goes back to the check page.
 func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	dt, id, steps, i, ok := stepTarget(w, r)
@@ -480,6 +484,7 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sv.M.Version = version // the page's, so a save made since still conflicts (CD-94)
+		sv.M.Unsaved = true    // the posted values, nothing saved (CD-387 (4))
 		o := wizard.Invalid
 		if pr.Status == http.StatusConflict {
 			o = wizard.Conflict
@@ -545,11 +550,12 @@ func (d Deps) stepPost(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case nav == "back":
 		next = max(i-1, 0)
-	case nav == "finish":
+	case nav == "finish": // to the list, saying so (CD-387 (4))
 		for _, msg := range res.Warnings {
 			web.Flash(ctx, "warning", msg)
 		}
-		wizard.Respond(w, r, wizard.Finish, docURL(dt.Name, id), nil)
+		web.Flash(ctx, "success", savedDraftText)
+		wizard.Respond(w, r, wizard.Finish, listURL(dt.Name, ListQuery{}), nil)
 		return
 	case nav == "stay":
 		d.stay(w, r, dt, steps, i, id, res.Warnings)
@@ -727,19 +733,14 @@ func (d Deps) stepViewOf(r *http.Request, dt *doctype.DocType, steps []FormStep,
 	} else {
 		m.DocLabel, m.Version = v.Info.Display, v.Version
 		m.BaseURL = docURL(dt.Name, v.Info.ID) + "/edit"
-		m.Close = docURL(dt.Name, v.Info.ID)
 		m.Furthest = 1
 		if len(v.Lines) > 0 || len(v.Inputs) > 0 {
 			m.Furthest = len(steps) - 1
 		}
 		m.Furthest = max(m.Furthest, i)
 	}
-	// The × goes back to the document page from a draft's step, and to the
-	// list from a new document and from a draft's check step, which is that
-	// page (UI v2 §5.6).
-	if v == nil || i == len(steps)-1 {
-		m.Close = listURL(dt.Name, ListQuery{})
-	}
+	// The × goes to the list in one press from every step (CD-387 (4)).
+	m.Close = listURL(dt.Name, ListQuery{})
 	if r.URL.Query().Get("return") == slugCheck || r.PostFormValue("return") == slugCheck {
 		m.ReturnTo = slugCheck
 	}
@@ -951,6 +952,14 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 		problems = append(slices.Clip(problems), doctype.FieldError{Field: "lines", Message: noLinesMessage(d.modOf(dt).LineNoun)})
 	}
 	problems = slices.Concat(problems, v.DraftProblems)
+	for _, p := range extra.Problems {
+		switch {
+		case p.Field == "" && p.Line == 0:
+			sv.M.Stored = append(sv.M.Stored, p.Message) // the document's own: the top summary
+		case !slices.ContainsFunc(steps, func(s FormStep) bool { return s.owns(p) }):
+			return fmt.Errorf("docscreen: %s Check problem on %q, which no step shows", dt.Name, p.Field)
+		}
+	}
 	for i, s := range steps[:len(steps)-1] {
 		sec := checkSection{Title: s.Label, Icon: s.TileIcon(), ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
 		for _, p := range problems {
@@ -964,8 +973,16 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 				}
 			}
 		}
+		for _, p := range extra.Problems {
+			if f, ok := dt.Field(p.Field); s.owns(p) && (!ok || !hidden(c, f)) {
+				sec.Status = wizard.Attention
+				if !slices.Contains(sec.Problems, p.Message) {
+					sec.Problems = append(sec.Problems, p.Message)
+				}
+			}
+		}
 		if s.Lines {
-			sec.Lines = d.lineList(r, dt, v)
+			sec.Lines = d.lineList(r, dt, v, sv.M.StepURL(len(steps)-1))
 		}
 		for _, name := range s.Fields {
 			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) && !slices.Contains(extra.Covers, name) {

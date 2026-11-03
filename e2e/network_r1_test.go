@@ -214,7 +214,7 @@ func TestE2E_NetworkBanner_SessionStepIsNotUnsure(t *testing.T) {
 	a.Fill("name", "Lakshmi Traders")
 	pickRadio(a, "role", "Vendor")
 	stop := abortRequests(a)
-	a.Press("Save and continue")
+	a.Press("Continue")
 	a.Until("the banner", networkText+`.includes(`+strconv.Quote(offlineText)+`)`)
 	if got := valueOf(a, "name"); got != "Lakshmi Traders" {
 		t.Errorf("name after the drop = %q", got)

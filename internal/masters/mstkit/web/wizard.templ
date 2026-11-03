@@ -8,20 +8,30 @@ import (
 
 // wizardPage is one step of a create wizard as a whole page.
 templ wizardPage(v wizardView) {
-	@layout.Page(layout.PageOpts{
+	@layout.Page(wizardOpts(v)) {
+		@wizardBody(v)
+	}
+}
+
+func wizardOpts(v wizardView) layout.PageOpts {
+	return layout.PageOpts{
 		Title:     v.M.Heading(),
 		NoHeading: true, // the frame's heading is the page's
 		Focus:     true,
 		Error:     len(v.M.Errors) > 0,
-		Width:     layout.Form,
-		Back:      &v.Back,
-	}) {
-		@wizardFrame(v)
+		Width:     layout.Form, // no Back: the wizard head's × is the one exit (UI v2 §5.6)
 	}
 }
 
-// wizardFrame is the #wizard fragment.
+// wizardFrame is the htmx answer for a step: its <title>, so the document
+// title follows each step and refusal, then the #wizard fragment.
 templ wizardFrame(v wizardView) {
+	@layout.Title(wizardOpts(v))
+	@wizardBody(v)
+}
+
+// wizardBody is the #wizard element.
+templ wizardBody(v wizardView) {
 	@wizard.Frame(v.M, v.Bar) {
 		@stepNote(v.Note)
 		@components.RequiredNote(v.Required)
@@ -41,10 +51,22 @@ templ wizardCheck(cards []sectionCard) {
 	}
 }
 
-// wizardStartOverForm goes below the action bar, as its own form.
+// startOverID is the Start over dialog's id.
+const startOverID = "start-over-wizard"
+
+// wizardStartOverForm goes below the action bar, as its own form. Start over
+// asks first (UI v2 §7, destructive actions confirm): the dialog's Start over
+// posts the form; without JavaScript the first press posts it.
 templ wizardStartOverForm(action string) {
 	@components.Form(components.FormProps{Action: action}) {
-		@components.Button(components.ButtonProps{Label: "Start over", Variant: components.Ghost})
+		@components.Button(components.ButtonProps{Label: "Start over", Variant: components.Ghost, Attrs: templ.Attributes{"data-open-dialog": startOverID, "aria-haspopup": "dialog"}})
+		@components.Dialog(startOverID, "Start over?") {
+			<p>What you typed in this wizard is cleared.</p>
+			<div class="cluster">
+				@components.Button(components.ButtonProps{Label: "Keep editing", Type: "button", Attrs: templ.Attributes{"data-close-dialog": true}})
+				@components.Button(components.ButtonProps{Label: "Start over", Variant: components.Danger})
+			</div>
+		}
 	}
 }
 

@@ -188,8 +188,10 @@ func TestDocList_HTMXGetsMainOnly(t *testing.T) {
 	e := newEnv(t, "read")
 	e.lister.Set(docscreentest.Sample, twoRows(2))
 	rec := e.get(t, "/doc/docscreentest.Sample", "HX-Request", "true")
-	if !strings.HasPrefix(rec.Body.String(), "<main") {
-		t.Errorf("body starts %.40q, want <main", rec.Body.String())
+	// The page's <title> leads (R2), then #main.
+	title, frag, _ := strings.Cut(rec.Body.String(), "</title>")
+	if !strings.HasPrefix(title, "<title>Sample Orders · ") || !strings.HasPrefix(frag, "<main") {
+		t.Errorf("body starts %.80q, want the list's <title>, then <main", rec.Body.String())
 	}
 	if !slices.Contains(rec.Header().Values("Vary"), "HX-Request") {
 		t.Errorf("Vary = %q", rec.Header().Values("Vary"))

@@ -363,10 +363,11 @@ func poEcho(list []goodsreceipt.POChoice, chosen string) string {
 
 // poEchoAttrs make the Select fetch its echo on change: the step page at
 // pageURL for the chosen order, of which htmx keeps only the echo region,
-// so nothing else on the page is redrawn and no script is needed.
+// so nothing else on the page is redrawn and no script is needed. The page's
+// <title> is ignored too, so a refusal's "Error: " title stays (R2).
 func poEchoAttrs(pageURL string) templ.Attributes {
 	msg := "#" + components.FieldID("purchase_order_id") + "-msg"
-	return templ.Attributes{"hx-get": pageURL, "hx-trigger": "change", "hx-target": msg, "hx-select": msg, "hx-swap": "outerHTML"}
+	return templ.Attributes{"hx-get": pageURL, "hx-trigger": "change", "hx-target": msg, "hx-select": msg, "hx-swap": "outerHTML ignoreTitle:true"}
 }
 
 // pickURL is this step's URL with ?all=1 or without it, keeping ?po=.

@@ -47,7 +47,8 @@ type itemsView struct {
 }
 
 // itemsBody is the line editor (design-system §8.2): the first 20 cards
-// (?all=1 for all, ?find= to filter by item name or code), the desktop grid
+// (?all=1 for all, focus on the 21st, as allLines reads it; ?find= to
+// filter by item name or code), the desktop grid
 // with every line (CD-139) or the module's display grid (CD-313), and the
 // computed totals. The module's CardsOnly, Line and NoLinePages leave the
 // editable grid out (CD-256 (6)), as does a row of other than 3 or 5 cells
@@ -63,7 +64,7 @@ func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 	iv := itemsView{
 		List: components.LineListProps{
 			AddURL:     docURL(dt.Name, v.Info.ID) + "/lines/new",
-			ShowAllURL: itemsURL(dt.Name, v.Info.ID) + "?all=1",
+			ShowAllURL: itemsURL(dt.Name, v.Info.ID) + "?all=1#line-reveal",
 			FindURL:    itemsURL(dt.Name, v.Info.ID),
 			Find:       find,
 			Total:      len(v.Lines),
@@ -96,8 +97,12 @@ func (d Deps) itemsBody(c Ctx, v DocView) templ.Component {
 	if m.LineGrid != nil {
 		iv.List.Grid, iv.List.Display = d.displayRows(c.Req, dt, v, all), true
 	}
-	if q.Get("all") != "1" && len(iv.List.Cards) > phoneCards {
-		iv.List.Cards = iv.List.Cards[:phoneCards]
+	if len(iv.List.Cards) > phoneCards {
+		if allLines(c.Req, itemsURL(dt.Name, v.Info.ID)) {
+			iv.List.Cards[phoneCards].Reveal = true
+		} else {
+			iv.List.Cards = iv.List.Cards[:phoneCards]
+		}
 	}
 	return itemsPart(iv)
 }
@@ -482,6 +487,14 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		maps.Copy(l, plain)
 		lines[no-1] = l
 	}
+	pos := no
+	if pos == 0 {
+		pos = len(lines)
+	}
+	if errs := blankLine(d.lineCtx(r, dt, &loaded, no), lines[pos-1]); len(errs) > 0 {
+		refused(Problem{Status: http.StatusUnprocessableEntity, Fields: errs})
+		return
+	}
 	res, err := d.Engine.Do(ctx, d.principal(r), dt.Name, id, doctype.ActionSave, doc.ActionInput{Version: version, Lines: lines, Only: []string{"lines"}})
 	if err != nil {
 		engineRefused(err, lines)
@@ -492,6 +505,34 @@ func (d Deps) linePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.backToItems(w, r, dt, id, res.Warnings)
+}
+
+// blankLine is line's refusal when nothing identifies it: the line's starred
+// (Required) Links (the item, the expense type) are all blank. Each starred field it
+// leaves blank then gets "{Label} is required." (CD-387 (3)). A DocType with
+// no starred Link on its lines refuses nothing; fields the module hides are
+// left out.
+func blankLine(c Ctx, line map[string]string) []doctype.FieldError {
+	var errs []doctype.FieldError
+	identified := true
+	for _, f := range c.DT.Fields {
+		if !f.OnLine || !editable(f) || hidden(c, f) || !required(f) {
+			continue
+		}
+		if f.Type == doctype.Link {
+			if line[f.Name] != "" {
+				return nil
+			}
+			identified = false
+		}
+		if line[f.Name] == "" {
+			errs = append(errs, doctype.FieldError{Field: f.Name, Message: f.Label + " is required."})
+		}
+	}
+	if identified {
+		return nil
+	}
+	return errs
 }
 
 // lineErrors keeps the errors of line pos, and those no line owns: with no

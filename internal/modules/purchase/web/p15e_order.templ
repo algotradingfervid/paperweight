@@ -7,10 +7,13 @@ import (
 )
 
 // orderOpts are the PO pages' frame: title, the form width, Back to the PO
-// and the redraw's refusal banner.
+// and the redraw's refusal banner. A redraw is always a refusal (field errors,
+// a problem, a stale version or the page's own state refusal), so its title
+// starts "Error: " (R2).
 func orderOpts(title, display string, id int64, e pageErrs) layout.PageOpts {
 	return layout.PageOpts{
 		Title: title, Width: layout.Form, Back: &components.Link{Label: display, Href: poHref(id)}, BannerSlot: e.banner(display), Focus: true,
+		Error: e.redraw,
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 
 templ stepFull(sv stepView) {
 	@layout.Page(stepOpts(sv)) {
-		@stepFrame(sv)
+		@stepWizard(sv)
 	}
 }
 
@@ -16,13 +16,20 @@ templ stepFull(sv stepView) {
 // #main and leads to a wizard page.
 templ stepMain(sv stepView) {
 	@layout.Main(stepOpts(sv)) {
-		@stepFrame(sv)
+		@stepWizard(sv)
 	}
 }
 
-// stepFrame is the #wizard fragment: the step's fields in the step form,
-// its ReadOnly fields as text, and M.After for the items and check steps.
+// stepFrame is the htmx answer for a step: the step's <title>, so the
+// document title follows each step and refusal, then the #wizard fragment.
 templ stepFrame(sv stepView) {
+	@layout.Title(stepOpts(sv))
+	@stepWizard(sv)
+}
+
+// stepWizard is the #wizard element: the step's fields in the step form,
+// its ReadOnly fields as text, and M.After for the items and check steps.
+templ stepWizard(sv stepView) {
 	@wizard.Frame(sv.M, sv.Bar) {
 		for _, c := range sv.Inputs {
 			@c

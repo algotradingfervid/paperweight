@@ -42,7 +42,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-001 · Code is required on every master
 - **Priority:** P1
 - **Level:** unit
-- **Given** a new Party with name "Shree Steel Traders" and blank code **When** saved **Then** it fails with "Code is required. Enter a short code such as SHREE." Same for Item, UoM, Tax code, Project, Site, Employee, Expense type, Payment terms, Branch (table-driven).
+- **Given** a new Party with name "Shree Steel Traders" and blank code **When** saved **Then** it fails with "Code is required. Enter a short code such as SHREE." Each master names its own example (table-driven): Party SHREE, Item MS-ANGLE-50, UoM KGS, Tax code GST18, Project PRJ-METRO, Site PUNE-WH, Employee EMP-007, Expense type TRAVEL, Payment terms NET30, Branch PUNE (UI v2 R10).
 - **Go test:** `TestMaster_CodeRequired`
 - **Sources:** `erpnext/erpnext/buying/doctype/supplier/supplier.py:154`
 
@@ -328,14 +328,14 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-041 · Party must be a vendor, a customer, or both
 - **Priority:** P1
 - **Level:** unit
-- **Given** party with `is_vendor=false`, `is_customer=false` **Then** fails with "Tick Vendor, Customer or both." **And** a party with both ticked appears in both the vendor and customer pickers.
+- **Given** party with `is_vendor=false`, `is_customer=false` **Then** fails with "Choose Vendor, Customer or Both." **And** a party with both ticked appears in both the vendor and customer pickers.
 - **Go test:** `TestParty_RoleFlags`
 - **Sources:** decision (one table, brief)
 
 ### MST-042 · Vendor picker shows only vendors
 - **Priority:** P1
 - **Level:** integration
-- **Given** fixture party `SHREE` (vendor only), and parties created in this test `C-ONLY` "Only Customer Ltd" (customer only) and `B-MIX` "Mixed Party Ltd" (both) **When** the PO vendor picker is opened **Then** it lists `SHREE` and `B-MIX` but not `C-ONLY`; saving a PO with `C-ONLY` fails with "Only Customer Ltd is not marked as a vendor. Tick Vendor on the party first."
+- **Given** fixture party `SHREE` (vendor only), and parties created in this test `C-ONLY` "Only Customer Ltd" (customer only) and `B-MIX` "Mixed Party Ltd" (both) **When** the PO vendor picker is opened **Then** it lists `SHREE` and `B-MIX` but not `C-ONLY`; saving a PO with `C-ONLY` fails with "Only Customer Ltd is not marked as a vendor. Set the party to Vendor or Both first."
 - **Go test:** `TestParty_VendorPickerFilter`
 - **Sources:** `erpnext/erpnext/accounts/party.py:904` (party-type validation on documents)
 
@@ -421,7 +421,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-054 · Address type is billing or shipping (or both)
 - **Priority:** P1
 - **Level:** unit
-- **Given** an address with neither billing nor shipping ticked **Then** fails with "Tick Billing, Shipping or both."
+- **Given** an address with neither billing nor shipping ticked **Then** fails with "Turn on Billing, Shipping or both."
 - **Go test:** `TestAddress_Type`
 - **Sources:** `frappe/frappe/contacts/doctype/address/address.py:95` (preferred billing/shipping flags)
 
@@ -477,7 +477,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-062 · Contact requires a name
 - **Priority:** P1
 - **Level:** unit
-- **Given** contact with no first name **Then** fails with "Contact name is required." Full name is built as "first middle last".
+- **Given** contact with no first name **Then** fails with "First name is required." Full name is built as "first middle last".
 - **Go test:** `TestContact_NameRequired`
 - **Sources:** `frappe/frappe/contacts/doctype/contact/test_contact.py:39` (`test_get_full_name`)
 
@@ -528,7 +528,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-069 · Item required fields
 - **Priority:** P1
 - **Level:** unit
-- **Given** item missing type (goods/service) or stock UoM **Then** fails with "Item type is required (Goods or Service)." / "Stock UoM is required."
+- **Given** item missing type (goods/service) or stock UoM **Then** fails with "Type is required (Goods or Service)." / "UoM is required."
 - **Go test:** `TestItem_RequiredFields`
 - **Sources:** `erpnext/erpnext/stock/doctype/item/item.py:480`
 
@@ -570,7 +570,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-075 · Item type can't change once used
 - **Priority:** P2
 - **Level:** integration
-- **Given** goods item `MS-ANGLE-50` used on approved GRN `GR/26-27/00001` **When** changed to Service **Then** fails with "Item type can't change after the item is used. Create a new item."
+- **Given** goods item `MS-ANGLE-50` used on approved GRN `GR/26-27/00001` **When** changed to Service **Then** fails with "Type can't change after the item is used. Create a new item."
 - **Go test:** `TestItem_TypeLocked`
 - **Sources:** `erpnext/erpnext/stock/doctype/item/test_item.py:851` (`test_maintain_stock_cannot_be_turned_on_after_an_invoice`), `:1470` (`test_update_is_stock_item`)
 
@@ -677,7 +677,7 @@ It relies on DOC for the generic "is this record referenced?" check, field-level
 ### MST-090 · Stock UoM is locked once the item is used
 - **Priority:** P1
 - **Level:** integration
-- **Given** item `MS-ANGLE-50` used on approved GRN `GR/26-27/00001` **When** stock UoM changes KGS → TON **Then** fails with "Stock UoM can't change after the item is used. Create a new item." **And** if only drafts use it, the change is allowed and the drafts are re-validated on next save.
+- **Given** item `MS-ANGLE-50` used on approved GRN `GR/26-27/00001` **When** stock UoM changes KGS → TON **Then** fails with "UoM can't change after the item is used. Create a new item." **And** if only drafts use it, the change is allowed and the drafts are re-validated on next save.
 - **Go test:** `TestItemUoM_StockUoMLocked`
 - **Sources:** `erpnext/erpnext/stock/doctype/item/test_item.py:1256` (`test_check_stock_uom_with_bin`), `:1283` (`test_stock_uom_can_change_after_stock_is_cancelled`), `erpnext/erpnext/stock/doctype/item/item.py:1636`
 

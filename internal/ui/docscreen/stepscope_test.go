@@ -277,7 +277,7 @@ func TestStepScope_MovesPastAnotherStepsProblem(t *testing.T) {
 		name     string
 		nav      string
 		ret      string
-		to       string // last path element, "" for the document page
+		to       string // last path element, "" for the list (finish later, CD-387 (4))
 		typed    bool
 		wantHead string
 	}{
@@ -305,7 +305,7 @@ func TestStepScope_MovesPastAnotherStepsProblem(t *testing.T) {
 				if c.ret != "" {
 					form.Set("return", c.ret)
 				}
-				want := e.docURL()
+				want := "/doc/" + scopeType
 				if c.to != "" {
 					want = e.stepURL(c.to)
 				}

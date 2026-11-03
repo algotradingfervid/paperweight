@@ -286,6 +286,7 @@ func (a *App) setupView(r *http.Request, i, furthest int, vals map[string]string
 		Mode: wizard.Master, Title: "Set up your company", BaseURL: companyPath,
 		Steps: setupSteps, Current: i, Furthest: furthest,
 		Close: inboxPath, // where home sends an administrator once setup is done
+		Held:  true,      // the session holds each step (CD-387 (4))
 	}
 	if i < last && r.FormValue("return") == setupCheckSlug {
 		m.ReturnTo = setupCheckSlug

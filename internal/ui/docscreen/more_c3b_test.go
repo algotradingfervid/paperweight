@@ -114,18 +114,19 @@ func TestMoreC3b_AllMoreShowsFieldsWithoutGroup(t *testing.T) {
 	}
 }
 
-// UIV2-C3b (UI v2 §5.6): a docscreen wizard step's × goes to the list from a
-// new document, asking first; from a saved draft it goes straight to the
-// document page, or to the list from the check step, which is that page.
+// UIV2-C3b (UI v2 §5.6), CD-387 (4): a docscreen wizard step's × goes to the
+// list in one press, from a new document and from every step of a saved
+// draft; it asks first only when the step form has unsaved changes, which
+// app.js tells from data-if-dirty.
 func TestWizardClose_Docscreen(t *testing.T) {
 	for _, c := range []struct {
 		name, target, close string
 		asks                bool
 	}{
 		{"new", "/doc/" + c1Type + "/new", "/doc/" + c1Type, true},
-		{"draft", c1Doc + "/edit/details", c1Doc, false},
-		{"draft, a later step", c1Doc + "/edit/items", c1Doc, false},
-		{"draft, check step", c1Doc + "/edit/check", "/doc/" + c1Type, false},
+		{"draft", c1Doc + "/edit/details", "/doc/" + c1Type, true},
+		{"draft, a later step", c1Doc + "/edit/items", "/doc/" + c1Type, true},
+		{"draft, check step", c1Doc + "/edit/check", "/doc/" + c1Type, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			e := newC1Env(t)
@@ -137,6 +138,9 @@ func TestWizardClose_Docscreen(t *testing.T) {
 			}
 			if got := page.Find("dialog#leave-wizard").Length() == 1; got != c.asks {
 				t.Errorf("leave dialog shown = %v, want %v", got, c.asks)
+			}
+			if got := x.AttrOr("data-if-dirty", ""); got != "wizard-form" {
+				t.Errorf("× data-if-dirty = %q, want wizard-form", got)
 			}
 			if got := page.Find("body.focus-mode").Length(); got != 1 {
 				t.Error("the wizard page isn't in focus mode")
