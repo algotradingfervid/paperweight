@@ -41,7 +41,7 @@ func (d Deps) search(w http.ResponseWriter, r *http.Request) {
 	q := searchText(r.URL.Query().Get("q"))
 	v := searchView{
 		Opts: layout.PageOpts{Title: "Search"},
-		Bar:  components.FilterBarProps{Action: "/search", Search: q, SearchLabel: "Search"},
+		Bar:  components.FilterBarProps{Action: "/search", Search: q, SearchLabel: "Search", Autofocus: q == ""},
 	}
 	if q == "" {
 		v.Message = "Type a name, code or number to search."

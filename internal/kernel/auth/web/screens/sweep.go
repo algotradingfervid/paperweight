@@ -35,6 +35,23 @@ const (
   v.value = String(Number(v.value) - 1);
   v.form.requestSubmit();
 })()`
+	saveRolesStale = `(() => {
+  const f = document.querySelector("form[action$='/roles']");
+  f.elements.version.value = String(Number(f.elements.version.value) - 1);
+  f.requestSubmit();
+})()`
+	addTakenEmail = `(() => {
+  const f = document.querySelector("form[action='/users']");
+  f.elements.name.value = "Taken Email";
+  f.elements.email.value = "admin@vardhan.test";
+  f.elements.password.value = "Correct-Horse-42";
+  f.requestSubmit();
+})()`
+	resetTooShort = `(() => {
+  const f = document.querySelector("input[name=password]").form;
+  f.elements.password.value = "short";
+  f.requestSubmit();
+})()`
 	copyNoSource  = `document.querySelector("input[name=version]").form.requestSubmit()`
 	refusedSignIn = `(() => {
   const f = document.querySelector("input[name=password]").form;
@@ -77,7 +94,12 @@ func Screens(ids SweepIDs, submit func(ctx context.Context, js, wait string) err
 		{Name: "password", Route: "/account/password", URL: "/account/password", As: sweepUser},
 		{Name: "sessions", Route: "/account/sessions", URL: "/account/sessions", As: sweepUser},
 		{Name: "users", Route: "/users", URL: "/users", As: sweepUser},
+		{Name: "new user", Route: "/users/new", URL: "/users/new", As: sweepUser},
+		{Name: "new user refused", Route: "/users/new", URL: "/users/new", As: sweepUser, Setup: setup(addTakenEmail, ".error-summary")},
 		{Name: "user", Route: user, URL: userPath, As: sweepUser},
+		{Name: "user 409", Route: user, URL: userPath, As: sweepUser, Setup: setup(saveRolesStale, "main .banner--warning a.btn")},
+		{Name: "reset password", Route: user + "/password", URL: userPath + "/password", As: sweepUser},
+		{Name: "reset password refused", Route: user + "/password", URL: userPath + "/password", As: sweepUser, Setup: setup(resetTooShort, ".error-summary")},
 		{Name: "user access", Route: user + "/access", URL: userPath + "/access", As: sweepUser},
 		{Name: "who can", Route: "/rights/who-can", URL: "/rights/who-can", As: sweepUser},
 		{Name: "who can results", Route: "/rights/who-can", URL: "/rights/who-can?" + url.Values{"doctype": {ids.Team}, "right": {"read"}}.Encode(), As: sweepUser},

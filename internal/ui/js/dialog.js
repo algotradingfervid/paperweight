@@ -41,6 +41,10 @@ function openDialog(id, opener) {
   if (!dlg || typeof dlg.showModal !== "function" || dlg.open) return;
   openers.set(dlg, opener || document.activeElement);
   dlg.showModal();
+  // [data-dialog-focus] takes focus on open, where autofocus would also count
+  // on the page itself (the drawer's current item).
+  const first = dlg.querySelector("[data-dialog-focus]");
+  if (first) first.focus();
 }
 
 document.addEventListener("click", function (evt) {
@@ -76,4 +80,18 @@ document.addEventListener("dialog:open", function (evt) {
   const d = evt.detail;
   const id = typeof d === "string" ? d : d && (d.value || d.id);
   if (id) openDialog(id, null);
+});
+
+// The open account <details> closes on Escape, handing focus back to its
+// summary, and on a click outside it.
+document.addEventListener("keydown", function (evt) {
+  const m = document.querySelector("details.user-menu[open]");
+  if (evt.key !== "Escape" || !m) return;
+  m.open = false;
+  m.querySelector("summary").focus();
+});
+
+document.addEventListener("click", function (evt) {
+  const m = document.querySelector("details.user-menu[open]");
+  if (m && !m.contains(evt.target)) m.open = false;
 });

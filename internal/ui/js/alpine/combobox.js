@@ -7,7 +7,10 @@
 // Closing after "Change" without a new choice shows the old summary again.
 // "Clear" empties the value and shows the closed search; focus goes to the
 // picker itself, so the phone panel doesn't open over the page. The New
-// option (data-quick) opens its quick-create sheet through dialog.js instead.
+// option (data-quick) copies its quick-create sheet into the quick slot and
+// opens it through dialog.js instead. Only that press writes the slot, so no
+// search answer can reach an open sheet; pressing the same New again keeps
+// what was typed in a sheet that was closed.
 // Every handler is bound in init(), so the markup holds no expressions.
 
 function combobox() {
@@ -19,6 +22,8 @@ function combobox() {
       const search = root.querySelector("[data-picker-search]");
       const chosen = root.querySelector("[data-picker-chosen]");
       const summary = root.querySelector("[data-picker-summary]");
+      const tile = root.querySelector("[data-picker-tile]");
+      const line = root.querySelector("[data-picker-line]");
       const value = root.querySelector("[data-picker-value]");
       const change = root.querySelector("[data-picker-change]");
       const recent = root.querySelector("template[data-picker-recent]");
@@ -31,7 +36,7 @@ function combobox() {
         const q = input.value.trim().toLowerCase(), g = recent.content.firstElementChild.cloneNode(true);
         for (const o of g.querySelectorAll("[role=option]")) {
           if (o.dataset.label.toLowerCase().includes(q)) {
-            for (const el of o.querySelectorAll("span")) {
+            for (const el of o.querySelectorAll("span:not(.picker__tile)")) {
               // The match is found in the lower-cased text; it is marked only
               // if the same span of the original text matches, so a letter
               // whose lower case is longer never shifts the mark.
@@ -134,10 +139,22 @@ function combobox() {
         }
       }
 
+      function openQuick(o) {
+        const slot = document.getElementById(list.id + "-quick"), asked = o.textContent;
+        if (slot.dataset.asked !== asked || !slot.firstElementChild) {
+          slot.dataset.asked = asked;
+          slot.replaceChildren(o.querySelector("template").content.cloneNode(true));
+          window.htmx.process(slot);
+        }
+        o.dispatchEvent(new CustomEvent("dialog:open", { bubbles: true, detail: o.dataset.quick }));
+      }
+
       function choose(o) {
-        if (o.dataset.quick) return o.dispatchEvent(new CustomEvent("dialog:open", { bubbles: true, detail: o.dataset.quick }));
+        if (o.dataset.quick) return openQuick(o);
         value.value = o.dataset.value;
         summary.textContent = o.dataset.label;
+        tile.textContent = o.querySelector(".picker__tile").textContent;
+        line.textContent = o.querySelector(".picker__line")?.textContent ?? "";
         setOpen(false);
         search.hidden = true;
         chosen.hidden = false;
@@ -197,7 +214,7 @@ function combobox() {
           // The search text goes too: its input event makes htmx fetch the
           // rows for the empty text, so no old results stay under it.
           value.value = "";
-          summary.textContent = "";
+          summary.textContent = tile.textContent = line.textContent = "";
           input.value = "";
           chosen.hidden = true;
           search.hidden = false;
@@ -216,4 +233,15 @@ function combobox() {
 
 document.addEventListener("alpine:init", function () {
   window.Alpine.data("combobox", combobox);
+});
+
+// A quick sheet's refusal goes as soon as the user answers it: the field's
+// own message, then the summary once no field's refusal is left.
+document.addEventListener("input", function (e) {
+  const t = e.target, quick = t.closest(".quick");
+  if (!quick) return;
+  t.closest(".field")?.querySelector(".field__msg--error")?.replaceChildren();
+  t.removeAttribute("aria-invalid");
+  t.classList.remove("field--error");
+  if (!quick.querySelector(".field__msg--error:not(:empty)")) quick.querySelectorAll(".error-summary, .quick__problem").forEach(function (el) { el.remove(); });
 });

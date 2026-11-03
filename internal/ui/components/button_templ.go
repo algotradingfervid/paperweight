@@ -12,10 +12,11 @@ import "github.com/vardhan/internaltools/internal/ui/icons"
 
 // daisyVariant maps a Variant to its daisyUI class (design-system §7.1).
 var daisyVariant = map[Variant]string{
-	Primary:   "btn-primary",
-	Secondary: "btn-outline",
-	Ghost:     "btn-ghost",
-	Danger:    "btn-error",
+	Primary:     "btn-primary",
+	Secondary:   "btn-outline",
+	Ghost:       "btn-ghost",
+	Danger:      "btn-error",
+	DangerQuiet: "btn-ghost ghost-danger",
 }
 
 // buttonClass is v's classes; an empty Variant is Secondary.
@@ -78,7 +79,7 @@ func buttonLink(p ButtonProps) templ.Component {
 		var templ_7745c5c3_Var3 templ.SafeURL
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(p.Href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 41, Col: 28}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 42, Col: 28}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -109,7 +110,7 @@ func buttonLink(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.AriaLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 43, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 44, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -173,7 +174,7 @@ func buttonEl(p ButtonProps) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Type)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 52, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 53, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
@@ -204,7 +205,7 @@ func buttonEl(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 54, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 55, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 			if templ_7745c5c3_Err != nil {
@@ -217,7 +218,7 @@ func buttonEl(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 54, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 55, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 			if templ_7745c5c3_Err != nil {
@@ -236,7 +237,7 @@ func buttonEl(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Busy)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 57, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 58, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 			if templ_7745c5c3_Err != nil {
@@ -255,7 +256,7 @@ func buttonEl(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.AriaLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 60, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 61, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 			if templ_7745c5c3_Err != nil {
@@ -321,7 +322,7 @@ func buttonBody(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 73, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/button.templ`, Line: 74, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {

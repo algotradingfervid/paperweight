@@ -35,7 +35,7 @@ func Routes(svc *item.Service, env mstkit.Env) func(chi.Router) {
 		DocType: item.DocType,
 		Base:    "/m/item",
 		Copy: mstweb.Copy{
-			Plural: "Items", Noun: "items", One: "item", New: "New item", Search: "Search items", Empty: "No items yet.",
+			Plural: "Items", Noun: "items", One: "item", New: "New item", Search: "Search items", Empty: "No items yet.", Icon: "package",
 			Saved: "Item saved.", Disabled: "Item disabled.", Enabled: "Item enabled.", Deleted: "Item deleted.",
 			Rows: "Unit conversions", AddRow: "Add conversion",
 		},
@@ -50,11 +50,17 @@ func Routes(svc *item.Service, env mstkit.Env) func(chi.Router) {
 		Numbers:    map[string]components.NumberKind{"factor": factor6},
 		ZeroIsNone: map[string]bool{"standard_rate": true},
 		WideLines:  map[string]bool{"factor": true},
+		Cards: []mstweb.FormCard{
+			{Title: "Item details", Icon: "package", Description: "How the item appears in pickers and on orders.", Fields: []string{"code", "name", "item_type"}},
+			{Title: "Units and stock", Icon: "ruler", Description: "The unit you count it in, and whether you keep count.", Fields: []string{"stock_uom_id", "is_stock", "purchase_uom_id"}},
+			{Title: "Tax and price", Icon: "percent", Description: "What new lines start with.", Fields: []string{"hsn_sac", "default_tax_code_id", "standard_rate"}},
+			{Title: "Unit conversions", Icon: "arrow-up-down", Description: "One row per other unit: how many stock units it holds.", Rows: true},
+		},
 		// A line's item picker adds a Goods item (UI v2 §5.8); a service
 		// item, rates and conversions are added later in Items.
 		Quick: &mstweb.Quick{
 			Fields:   quickFields(),
-			Nouns:    map[string]string{"": "item"},
+			Nouns:    map[string]components.Noun{"": {One: "item", Many: "items"}},
 			Icon:     "package",
 			Line:     "Just enough to use it here. Add rates and conversions later in Items.",
 			Defaults: map[string]string{"item_type": string(item.TypeGoods)},
@@ -62,15 +68,20 @@ func Routes(svc *item.Service, env mstkit.Env) func(chi.Router) {
 	}.Routes()
 }
 
-// quickFields is the quick-create form: code, name, UoM, HSN and tax code.
+// quickFields is the quick-create form: name, UoM, HSN and tax code, with a
+// code made from the name unless it is refused. HSN is required: the quick
+// form adds a Goods item.
 func quickFields() []doctype.Field {
 	dt, _ := doctype.Lookup(item.DocType) // registered by the item package's init
 	out := make([]doctype.Field, 0, 5)
 	for _, name := range []string{"code", "name", "stock_uom_id", "hsn_sac", "default_tax_code_id"} {
 		f, _ := dt.Field(name)
+		f.Hint, f.Tip = "", "" // the sheet stays short: the full form explains them
 		out = append(out, f)
 	}
-	out[0].Hint = "Suggested from the name. You can change it."
+	out[0].Hint = "Made from the name. You can change it."
+	out[1].Hint = "The code is made from this. You can change it later in Items."
+	out[3].Required = true
 	return out
 }
 

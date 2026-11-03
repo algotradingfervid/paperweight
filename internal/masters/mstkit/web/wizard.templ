@@ -22,6 +22,7 @@ templ wizardPage(v wizardView) {
 // wizardFrame is the #wizard fragment.
 templ wizardFrame(v wizardView) {
 	@wizard.Frame(v.M, v.Bar) {
+		@stepNote(v.Note)
 		@components.RequiredNote(v.Required)
 		for _, in := range grouped(v.Inputs) {
 			@in
@@ -34,10 +35,7 @@ templ wizardFrame(v wizardView) {
 templ wizardCheck(cards []sectionCard) {
 	for _, c := range cards {
 		@wizard.CheckSection(c.Title, c.Icon, "", c.Change.Href) {
-			@components.SummaryList(c.Pairs)
-			for _, row := range c.Rows {
-				@components.SummaryList(row)
-			}
+			@cardPairs(c)
 		}
 	}
 }
@@ -58,5 +56,13 @@ templ wizardStartOverForm(action string) {
 				@components.Button(components.ButtonProps{Label: "Start over", Variant: components.Danger})
 			</div>
 		}
+	}
+}
+
+// stepNote is a status line for what the last Continue did: the empty rows it
+// left out.
+templ stepNote(note string) {
+	if note != "" {
+		@components.Banner(components.BannerProps{Kind: components.Info, Message: note})
 	}
 }

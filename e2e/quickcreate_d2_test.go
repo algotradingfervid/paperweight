@@ -38,8 +38,8 @@ func TestE2E_QuickCreateVendor(t *testing.T) {
 	if got := Eval[string](p, `document.getElementById("f-quick_name").value`); got != "Sai Krupa" {
 		t.Errorf("Name = %q, want the search Sai Krupa", got)
 	}
-	if got := Eval[string](p, `document.getElementById("f-quick_code").value`); got != "SAIKRUPA" {
-		t.Errorf("Code = %q, want SAIKRUPA", got)
+	if Eval[bool](p, `document.getElementById("f-quick_code").checkVisibility()`) {
+		t.Error("Code shows, want it made from the name (CD-388)")
 	}
 	noOverflow(p, "the quick-create sheet")
 	p.Fill("quick_line1", "Survey 42, Hadapsar")
@@ -68,8 +68,8 @@ func TestE2E_QuickCreateVendor(t *testing.T) {
 
 // TestE2E_QuickCreateItemNestedPickers (D2 review): the item sheet's own
 // pickers (UoM, Tax code) never reach the line's item picker. Choosing and
-// clearing the Tax code inside the sheet keeps it open with the typed Code,
-// Name and HSN; then the item is saved without a tax code and chosen.
+// clearing the Tax code inside the sheet keeps it open with the typed Name
+// and HSN; then the item is saved without a tax code and chosen.
 func TestE2E_QuickCreateItemNestedPickers(t *testing.T) {
 	const list = "f-item_id-list"
 	h := startPurchase(t)
@@ -83,15 +83,17 @@ func TestE2E_QuickCreateItemNestedPickers(t *testing.T) {
 	p.Until("the New option", `document.querySelector("#`+list+` [data-quick]")?.textContent.replace(/\s+/g, " ").trim() === 'New item "TMT bar 12"'`)
 	clickOn(p, "#"+list+" [data-quick]")
 	p.Until("the sheet", `document.getElementById("`+list+`-sheet")?.open === true`)
-	p.Fill("quick_code", "TMT-12")
 	p.Fill("quick_hsn_sac", "7214")
 	p.Pick("quick_stock_uom_id", "KGS")
 	p.Pick("quick_default_tax_code_id", "GST18")
 	clickOn(p, `#`+list+`-sheet [data-picker-clear][aria-label="Clear Tax Code"]`)
 	p.Until("the tax code cleared", `document.querySelector('#`+list+`-sheet input[name="quick_default_tax_code_id"]').value === ""`)
+	if got := Eval[string](p, `(() => { const r = document.querySelector('#`+list+`-sheet input[name="quick_default_tax_code_id"]').closest(".picker"); return r.querySelector("[data-picker-summary]").textContent + r.querySelector("[data-picker-tile]").textContent + r.querySelector("[data-picker-line]").textContent; })()`); got != "" {
+		t.Errorf("after Clear the chosen box holds %q, want nothing", got)
+	}
 	settle(p)
 	p.Do("wait past a search's debounce", chromedp.Sleep(600*time.Millisecond))
-	for id, want := range map[string]string{"f-quick_code": "TMT-12", "f-quick_name": "TMT bar 12", "f-quick_hsn_sac": "7214"} {
+	for id, want := range map[string]string{"f-quick_name": "TMT bar 12", "f-quick_hsn_sac": "7214"} {
 		if got := Eval[string](p, `document.getElementById("`+id+`")?.value ?? "gone"`); got != want {
 			t.Errorf("%s = %q after the inner pickers, want %q", id, got, want)
 		}
@@ -100,8 +102,8 @@ func TestE2E_QuickCreateItemNestedPickers(t *testing.T) {
 		t.Fatal("the sheet closed while its own pickers were used")
 	}
 	p.Press("Add and choose")
-	p.Until("the item chosen", `!document.querySelector("dialog[open]") && document.querySelector("#`+list+`").closest(".picker").querySelector("[data-picker-summary]").textContent.trim() === "TMT-12 TMT bar 12"`)
-	if n := Scalar[int64](h, `SELECT count(*) FROM item WHERE code = 'TMT-12' AND hsn_sac = '7214' AND default_tax_code_id IS NULL AND stock_uom_id = (SELECT id FROM uom WHERE code = 'KGS')`); n != 1 {
-		t.Errorf("saved items TMT-12 with KGS, HSN 7214 and no tax code = %d, want 1", n)
+	p.Until("the item chosen", `!document.querySelector("dialog[open]") && document.querySelector("#`+list+`").closest(".picker").querySelector("[data-picker-summary]").textContent.trim() === "TMTBAR12 TMT bar 12"`)
+	if n := Scalar[int64](h, `SELECT count(*) FROM item WHERE code = 'TMTBAR12' AND hsn_sac = '7214' AND default_tax_code_id IS NULL AND stock_uom_id = (SELECT id FROM uom WHERE code = 'KGS')`); n != 1 {
+		t.Errorf("saved items TMTBAR12 with KGS, HSN 7214 and no tax code = %d, want 1", n)
 	}
 }

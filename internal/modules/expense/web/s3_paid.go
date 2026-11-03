@@ -22,6 +22,9 @@ import (
 // reason page and delete confirm. E9's POST handlers redraw them through
 // renderPaidPage.
 
+// paidFormID is the form the sticky bar's button posts.
+const paidFormID = "paid-form"
+
 // paidView is what E9's POST handlers pass to renderPaidPage: the advance and
 // the values typed, so a redraw keeps them.
 type paidView struct {
@@ -143,9 +146,11 @@ func paidScreenOf(r *http.Request, pg expense.PaidPage, v paidView, err error) p
 	return s
 }
 
-// paidOpts puts the danger banner and the error summary above the heading.
+// paidOpts puts the danger banner and the error summary above the heading,
+// and the button in the sticky bar, as a line page's (UI v2 §5.6).
 func paidOpts(s paidScreen) layout.PageOpts {
 	o := s.opts
 	o.BannerSlot = paidBanners(s)
+	o.BarSlot = components.ActionBar(components.ActionBarProps{Primary: &s.button, Form: paidFormID})
 	return o
 }

@@ -7,9 +7,15 @@ import (
 )
 
 // The module home's words (UI v2 §5.12; HomeCaughtUp replaces the spec's
-// "Nothing waiting for you." on the home, A-24).
+// "Nothing waiting for you." on the home, A-24). HomeWhy* say why a Waiting
+// for you row is the viewer's.
 const (
 	HomeCaughtUp     = "You're all caught up."
+	HomeCaughtUpLine = "New documents and approvals will show here."
+	HomeReceiveGoods = "Receive goods"
+	HomeWhyApproval  = "Needs your approval"
+	HomeWhyChanges   = "Needs changes"
+	HomeWhyNotSent   = "Not sent to the vendor yet"
 	homeWaitingTitle = "Waiting for you"
 	homeRecentTitle  = "Recent"
 	homeQuickTitle   = "Quick actions"

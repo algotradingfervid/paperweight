@@ -53,7 +53,7 @@ func TestP24_SentBannerWords(t *testing.T) {
 	po := purchasetest.NewOrder(t, env)
 	path := orderPath(po.ID, "/send")
 	env.SetNow(t, time.Date(2026, time.October, 24, 18, 31, 0, 0, time.UTC))
-	wantFlash(t, "mark", w.post(t, env.Priya, path, url.Values{"version": {"0"}, "sent_on": {"25-10-2026"}, "sent_via": {"by_hand"}}), poURL(po.ID), po.Number+" marked as sent.")
+	wantFlash(t, "mark", w.post(t, env.Priya, path, url.Values{"version": {"0"}, "sent_on": {"25-10-2026"}, "sent_via": {"by_hand"}}), poURL(po.ID)+"?sent=1", po.Number+" marked as sent.")
 	if page := w.get(t, env.Priya, path); page.status != http.StatusOK || !hasBanner(page, "info", "Sent to vendor on 25-10-2026 by hand (Priya Shah)") {
 		t.Errorf("banners = %d %q, want by hand", page.status, banners(page))
 	}

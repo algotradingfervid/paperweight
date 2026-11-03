@@ -26,6 +26,7 @@ import (
 // Step 1 and 2 copy (UX doc §5.2, §5.3 copy tables).
 const (
 	labelPO           = "Purchase order"
+	labelChooseOrder  = "Choose an order" // the Select's prompt (GRN review M5)
 	labelOrderCard    = "Order to receive"
 	hintPORestricted  = "Orders with items still to receive at your sites."
 	hintPOAll         = "Orders with items still to receive."
@@ -210,6 +211,8 @@ func (m *module) pick(c docscreen.Ctx, s docscreen.StepState) (poPick, error) {
 	switch {
 	case s.Posted:
 		chosen = c.Req.PostFormValue("purchase_order_id")
+	case c.Req.URL.Query().Has("purchase_order_id"):
+		chosen = c.Req.URL.Query().Get("purchase_order_id") // the Select's echo asks for its order (GRN review M5)
 	case c.View != nil:
 		chosen = c.View.Inputs["purchase_order_id"]
 	default:
@@ -246,6 +249,9 @@ func (m *module) pick(c docscreen.Ctx, s docscreen.StepState) (poPick, error) {
 	} else {
 		p.Options, p.Select = poOptions(list)
 	}
+	if p.Select {
+		p.Field.Echo, p.Field.Attrs = poEcho(list, chosen), poEchoAttrs(pickURL(c, all))
+	}
 	switch {
 	case len(list) > 0 && all:
 		p.Toggle = &components.Link{Label: labelShowPending, Href: pickURL(c, false)}
@@ -263,7 +269,7 @@ func (m *module) pick(c docscreen.Ctx, s docscreen.StepState) (poPick, error) {
 func poOptions(list []goodsreceipt.POChoice) (opts []components.Option, sel bool) {
 	sel = len(list) > maxRadios
 	if sel {
-		opts = append(opts, components.Option{})
+		opts = append(opts, components.Option{Label: labelChooseOrder})
 	}
 	for _, o := range list {
 		id := strconv.FormatInt(o.ID, 10)
@@ -341,6 +347,26 @@ func poHint(c docscreen.Ctx, all bool) (string, error) {
 		return hintPORestricted, err
 	}
 	return hintPOAll, err
+}
+
+// poEcho is what the Select's echo says of the chosen order in list: its
+// vendor, site and pending lines, which the Select's own text cuts off on a
+// phone (GRN review M5); "" with none chosen.
+func poEcho(list []goodsreceipt.POChoice, chosen string) string {
+	for _, o := range list {
+		if strconv.FormatInt(o.ID, 10) == chosen {
+			return o.VendorName + " · " + o.SiteName + " · " + pendingText(o)
+		}
+	}
+	return ""
+}
+
+// poEchoAttrs make the Select fetch its echo on change: the step page at
+// pageURL for the chosen order, of which htmx keeps only the echo region,
+// so nothing else on the page is redrawn and no script is needed.
+func poEchoAttrs(pageURL string) templ.Attributes {
+	msg := "#" + components.FieldID("purchase_order_id") + "-msg"
+	return templ.Attributes{"hx-get": pageURL, "hx-trigger": "change", "hx-target": msg, "hx-select": msg, "hx-swap": "outerHTML"}
 }
 
 // pickURL is this step's URL with ?all=1 or without it, keeping ?po=.

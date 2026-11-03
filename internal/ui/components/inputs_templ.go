@@ -40,6 +40,9 @@ const (
 	PAN     CodeKind = "pan"
 	HSN     CodeKind = "hsn"
 	Pincode CodeKind = "pincode"
+	// GSTINState is GSTIN for a field that gives a state: its echo shows only
+	// for a GSTIN that names one, so a quick sheet's State hides only then.
+	GSTINState CodeKind = "gstin-state"
 )
 
 // DateProps describes a date field; Today, Yesterday and the optional
@@ -126,7 +129,7 @@ func TextInput(p FieldProps) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 83, Col: 36}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 86, Col: 36}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -194,7 +197,7 @@ func EmailInput(p FieldProps, autocomplete string) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 89, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 92, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -207,7 +210,7 @@ func EmailInput(p FieldProps, autocomplete string) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(autocomplete)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 89, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 92, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
@@ -279,7 +282,7 @@ func PasswordInput(p FieldProps, autocomplete string) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 100, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 103, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 			if templ_7745c5c3_Err != nil {
@@ -292,7 +295,7 @@ func PasswordInput(p FieldProps, autocomplete string) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(autocomplete)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 100, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 103, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 			if templ_7745c5c3_Err != nil {
@@ -313,7 +316,7 @@ func PasswordInput(p FieldProps, autocomplete string) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 101, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 104, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 			if templ_7745c5c3_Err != nil {
@@ -391,7 +394,7 @@ func Textarea(p FieldProps, maxLen int) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(maxLen))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 118, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 121, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 			if templ_7745c5c3_Err != nil {
@@ -412,7 +415,7 @@ func Textarea(p FieldProps, maxLen int) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 118, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 121, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -425,7 +428,7 @@ func Textarea(p FieldProps, maxLen int) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 119, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 122, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 			if templ_7745c5c3_Err != nil {
@@ -438,7 +441,7 @@ func Textarea(p FieldProps, maxLen int) templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(counterText(len(utf16.Encode([]rune(p.Value))), maxLen))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 119, Col: 105}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 122, Col: 105}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -584,7 +587,7 @@ func numberInput(p FieldProps, k NumberKind, whole bool, control string) templ.C
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 162, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 165, Col: 19}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 			if templ_7745c5c3_Err != nil {
@@ -597,7 +600,7 @@ func numberInput(p FieldProps, k NumberKind, whole bool, control string) templ.C
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(scale(k, whole))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 163, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 166, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 			if templ_7745c5c3_Err != nil {
@@ -639,7 +642,7 @@ func numberInput(p FieldProps, k NumberKind, whole bool, control string) templ.C
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(p.Suffix)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 174, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 177, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -898,7 +901,7 @@ func DateInput(p DateProps) templ.Component {
 			var templ_7745c5c3_Var34 string
 			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 254, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 257, Col: 19}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 			if templ_7745c5c3_Err != nil {
@@ -923,7 +926,7 @@ func DateInput(p DateProps) templ.Component {
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 260, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 263, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35)
 			if templ_7745c5c3_Err != nil {
@@ -944,7 +947,7 @@ func DateInput(p DateProps) templ.Component {
 			var templ_7745c5c3_Var36 string
 			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 263, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 266, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var36)
 			if templ_7745c5c3_Err != nil {
@@ -975,7 +978,7 @@ func DateInput(p DateProps) templ.Component {
 					var templ_7745c5c3_Var37 string
 					templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.Day)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 268, Col: 88}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 271, Col: 88}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var37)
 					if templ_7745c5c3_Err != nil {
@@ -988,7 +991,7 @@ func DateInput(p DateProps) templ.Component {
 					var templ_7745c5c3_Var38 string
 					templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 268, Col: 111}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 271, Col: 111}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var38)
 					if templ_7745c5c3_Err != nil {
@@ -1001,7 +1004,7 @@ func DateInput(p DateProps) templ.Component {
 					var templ_7745c5c3_Var39 string
 					templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.ResolveAttributeValue(chipPressed(p.Value, c.Day))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 268, Col: 156}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 271, Col: 156}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var39)
 					if templ_7745c5c3_Err != nil {
@@ -1014,7 +1017,7 @@ func DateInput(p DateProps) templ.Component {
 					var templ_7745c5c3_Var40 string
 					templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(c.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 268, Col: 168}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 271, Col: 168}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 					if templ_7745c5c3_Err != nil {
@@ -1078,7 +1081,7 @@ func CodeInput(p FieldProps, k CodeKind) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if k == GSTIN || k == PAN {
+			if k == GSTIN || k == GSTINState || k == PAN {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " autocapitalize=\"characters\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -1096,7 +1099,7 @@ func CodeInput(p FieldProps, k CodeKind) templ.Component {
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 287, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/components/inputs.templ`, Line: 290, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var43)
 			if templ_7745c5c3_Err != nil {

@@ -229,7 +229,7 @@ func TestE2E_Doc_PurchaseLifecycle(t *testing.T) {
 
 	r.Open(path)
 	r.Press("Approve")
-	r.WaitText("Approved. " + firstNumber + " has been numbered.")
+	r.WaitText(firstNumber + " has been numbered.")
 	r.Open(path)
 	r.WaitText(firstNumber)
 	r.WaitText("Approved")
@@ -367,9 +367,9 @@ func TestE2E_NamingSettingsList(t *testing.T) {
 	a := h.SignIn(admin, desktop)
 	a.Press("Numbering")
 	for _, want := range []string{
-		"Purchase Order · PO/{FY}/{#####} · Next: PO/26-27/00008",
-		"Goods Receipt · GR/{FY}/{#####} · Next: GR/26-27/00001",
-		"Expense Claim · EX/{FY}/{#####} · Next: EX/26-27/00001",
+		"PO / financial year / 5-digit number", "PO/26-27/00008",
+		"GR / financial year / 5-digit number", "GR/26-27/00001",
+		"EX / financial year / 5-digit number", "EX/26-27/00001",
 	} {
 		a.WaitText(want)
 	}
@@ -598,7 +598,7 @@ func TestE2E_ConcurrentApproveSecondSeesMessage(t *testing.T) {
 	m.WaitText("Approve")
 
 	r.Press("Approve")
-	r.WaitText("Approved. " + firstNumber + " has been numbered.")
+	r.WaitText(firstNumber + " has been numbered.")
 	m.Press("Approve")
 	m.WaitText(firstNumber + " is no longer waiting for approval. It was approved by Ravi Kulkarni.")
 

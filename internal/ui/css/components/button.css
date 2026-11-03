@@ -1,5 +1,11 @@
 /* button.css: our parts of Button (design-system §7, §7.1); daisyUI's btn is the base (CD-98). */
 
+/* A dangerous action that isn't the page's main one (More actions). */
+@utility ghost-danger {
+  --btn-rest-fg: var(--color-danger-700);
+  --btn-fg: var(--color-danger-700);
+}
+
 /* Every target is at least 44 x 44 px; 48 px in the phone action bar. */
 @utility tap {
   min-block-size: var(--target-min);

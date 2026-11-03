@@ -8,18 +8,30 @@ import (
 
 // ErrorSummary is the box at the top of a failed step (UI v2 §5.14): a heading
 // counting the errors, a line saying the other entries are kept, and a link to
-// each field. It takes focus on render and renders nothing when errs is empty.
+// each field, its dates whole as in the field's own message. It takes focus on render and renders nothing when errs is empty.
 templ ErrorSummary(errs []FieldErr) {
+	@ErrorSummaryIn("error-summary-title", errs)
+}
+
+// ErrorSummaryIn is ErrorSummary with its heading's id, for one drawn over a
+// page that may hold its own: a sheet's.
+templ ErrorSummaryIn(titleID string, errs []FieldErr) {
 	if len(errs) > 0 {
-		<div class="alert error-summary" tabindex="-1" autofocus aria-labelledby="error-summary-title">
-			<h2 id="error-summary-title">
+		<div class="alert error-summary" tabindex="-1" autofocus aria-labelledby={ titleID }>
+			<h2 id={ titleID }>
 				@icons.Icon("alert-circle")
 				{ errorSummaryTitle(len(errs)) }
 			</h2>
 			<p>Your other entries are kept.</p>
 			<ul>
 				for _, e := range errs {
-					<li><a href={ templ.SafeURL("#" + e.ID) }>{ e.Message }</a></li>
+					<li>
+						<a href={ templ.SafeURL("#" + e.ID) }>
+							<span>
+								@Whole(e.Message)
+							</span>
+						</a>
+					</li>
 				}
 			</ul>
 		</div>

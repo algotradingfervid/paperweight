@@ -22,7 +22,7 @@ const (
 	shreeGSTIN = "27AABCS1429B1ZU"
 
 	panMsg  = "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. AAFCV2449G)."
-	roleMsg = "Tick Vendor, Customer or both."
+	roleMsg = "Choose Vendor, Customer or Both."
 )
 
 // shree is MST-040's party: SHREE, vendor only (M9), category Unregistered,

@@ -7,8 +7,8 @@ FROM users WHERE id = ?;
 SELECT id FROM users WHERE email = ?;
 
 -- name: InsertUser :one
-INSERT INTO users (email, name, mobile, password_hash, created_at, created_by, updated_at, updated_by)
-VALUES (sqlc.arg(email), sqlc.arg(name), sqlc.arg(mobile), sqlc.arg(password_hash),
+INSERT INTO users (email, name, mobile, password_hash, must_change_password, created_at, created_by, updated_at, updated_by)
+VALUES (sqlc.arg(email), sqlc.arg(name), sqlc.arg(mobile), sqlc.arg(password_hash), sqlc.arg(must_change),
         sqlc.arg(at), sqlc.narg(by), sqlc.arg(at), sqlc.narg(by))
 RETURNING id;
 

@@ -1,49 +1,76 @@
 package grnweb
 
-import "github.com/vardhan/internaltools/internal/ui/components"
+import (
+	"strconv"
+
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
 
 // itemsView is step 3 (UX doc §5.4): the order, the two fill buttons, a
 // card per PO line, and the fully received lines last, closed, when some
 // lines are pending.
 templ itemsView(f itemsForm) {
-	<p>{ f.Summary }</p>
-	@components.Warnings(f.Warnings)
-	<div class="cluster">
-		@components.Button(f.FillAll)
-		@components.Button(f.Clear)
-	</div>
-	for _, c := range f.Cards {
-		@itemCardView(c)
-	}
-	if len(f.Full) > 0 {
-		@components.Disclosure(f.FullLabel, f.FullOpen) {
-			for _, c := range f.Full {
+	<div class="stack">
+		<p>{ f.Summary }</p>
+		@components.Warnings(f.Warnings)
+		<div class="cluster">
+			@components.Button(f.FillAll)
+			@components.Button(f.Clear)
+		</div>
+		<div class="qty-lines">
+			for _, c := range f.Cards {
 				@itemCardView(c)
 			}
+		</div>
+		if len(f.Full) > 0 {
+			@components.Disclosure(f.FullLabel, f.FullOpen) {
+				<div class="qty-lines">
+					for _, c := range f.Full {
+						@itemCardView(c)
+					}
+				</div>
+			}
 		}
-	}
+	</div>
 }
 
-// itemCardView is one PO line's card: Received now at 56 px, its warning,
-// and Rejected with its reason under Some rejected; each input only when
-// Hide shows its field (CD-319).
+// itemCardView is one PO line's compact card (GRN review H5, CD-387 (7)):
+// the item and hint as one block, Received now at 56 px, its warning, and
+// Some rejected as a quiet text button in the card's corner, opening Rejected
+// and its reason under the input; each input only when Hide shows its field
+// (CD-319). The hint is the input's, so it goes with it.
 templ itemCardView(c itemCard) {
-	@components.Card(c.Title, nil) {
-		<p class="code">{ c.Code }</p>
-		if c.Show["received_qty"] {
-			@components.LargeQtyInput(c.Received, c.Whole, c.UoM)
+	<div class="qty-line">
+		@components.Card(c.Title, nil) {
+			<p class="qty-line__item">
+				<span class="code">{ c.Code }</span>
+				if c.Show["received_qty"] {
+					<span id={ c.Received.ID + "-hint" }>{ c.Hint }</span>
+				}
+			</p>
+			if c.Show["received_qty"] {
+				@components.LargeQtyInput(c.Received, c.Whole, c.UoM)
+			}
+			@components.Warnings(c.Warnings)
+			<div class="qty-line__reject">
+				@components.Disclosure(labelSomeRejected, c.Open) {
+					if c.Show["rejected_qty"] {
+						@components.QtyInput(c.Rejected, c.Whole, c.UoM)
+					}
+					if c.Show["reject_reason"] {
+						@components.TextInput(c.Reason)
+					}
+					if c.Accepted != "" {
+						<p>{ c.Accepted }</p>
+					}
+				}
+			</div>
 		}
-		@components.Warnings(c.Warnings)
-		@components.Disclosure(labelSomeRejected, c.Open) {
-			if c.Show["rejected_qty"] {
-				@components.QtyInput(c.Rejected, c.Whole, c.UoM)
-			}
-			if c.Show["reject_reason"] {
-				@components.TextInput(c.Reason)
-			}
-			if c.Accepted != "" {
-				<p>{ c.Accepted }</p>
-			}
-		}
-	}
+	</div>
+}
+
+// linesEntered is the footer's {n} of {m} lines entered; counter.js keeps it
+// live while typing, with no request.
+templ linesEntered(n, m int) {
+	<span data-lines-entered aria-live="polite">{ strconv.Itoa(n) + " of " + strconv.Itoa(m) + " lines entered" }</span>
 }

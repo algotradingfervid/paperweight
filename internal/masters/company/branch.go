@@ -49,11 +49,11 @@ func init() {
 		SearchFields: []string{"code", "name"},
 		DefaultSort:  []doctype.SortKey{{Field: "name"}},
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1},
-			{Name: "state_code", Label: "State", Column: "state_code", Type: doctype.Text, Required: true},
-			{Name: "gstin", Label: "GSTIN", Column: "gstin", Type: doctype.Text, MaxLen: 15},
-			{Name: "is_head_office", Label: "Head office", Column: "is_head_office", Type: doctype.Check},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. PUNE", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1, Placeholder: "e.g. Pune Works"},
+			{Name: "state_code", Label: "State", Column: "state_code", Type: doctype.Text, Required: true, Hint: "A GSTIN sets this for you."},
+			{Name: "gstin", Label: "GSTIN", Column: "gstin", Type: doctype.Text, MaxLen: 15, Placeholder: "e.g. 27AAFCV2449G1Z7", Tip: "Orders billed to this branch show CGST and SGST when the vendor is in the same state, otherwise IGST."},
+			{Name: "is_head_office", Label: "Head office", Column: "is_head_office", Type: doctype.Check, Hint: "One branch is the head office."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, ListPriority: 3},
 		},
 	}, mstkit.StandardLookup(Kind))
@@ -79,7 +79,7 @@ type BranchInput struct {
 // against the state, then for its PAN (panProblem).
 func ValidateBranch(in BranchInput, companyPAN string) (BranchInput, error) {
 	var es mstkit.Errors
-	code, err := mstkit.NormalizeCode(in.Code)
+	code, err := mstkit.NormalizeCodeLike(in.Code, "PUNE")
 	addErr(&es, err)
 	name, err := mstkit.NormalizeName(in.Name)
 	addErr(&es, err)

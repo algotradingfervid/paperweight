@@ -17,7 +17,7 @@ import (
 
 // MOD-GRN S3c: the GRN's line card on the check and document pages (UX doc
 // §5.5 P1, GUX-017): numbered by the PO line, titled by the item,
-// "Received {qty} · Accepted {qty}" in the snapshot UoM, the note
+// "Received {qty} Accepted {qty}" in the snapshot UoM, the note
 // "Rejected {qty}: {reason}" when anything was rejected, and the accepted
 // value as its amount. A field Hide hides stays off the card (CD-319 (9)),
 // and Hide is asked with the line's Ctx (CD-339).
@@ -94,9 +94,9 @@ func TestGRNWeb_LineCard(t *testing.T) {
 	id := w.s3cDraft(w.s3cPO())
 	want := []s3cCard{
 		{no: "3", item: s2Angle, code: "MS-ANGLE-50", amount: "₹24,375.00",
-			meta: []string{"Received 400 KGS · Accepted 390 KGS", "Rejected 10 KGS: Bent pieces"}},
+			meta: []string{"Received 400 KGS Accepted 390 KGS", "Rejected 10 KGS: Bent pieces"}},
 		{no: "1", item: s2Wire, code: "WIRE-18G", amount: "₹4,800.00",
-			meta: []string{"Received 50 KGS · Accepted 50 KGS"}},
+			meta: []string{"Received 50 KGS Accepted 50 KGS"}},
 	}
 	s3cWant(t, "check page", s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards(), want)
 	w.s3Submit(id)
@@ -113,11 +113,11 @@ func TestGRNWeb_LineCardHonoursHide(t *testing.T) {
 	cases := map[string]s3cCard{
 		"received_qty": {amount: "₹24,375.00", meta: []string{"Accepted 390 KGS", "Rejected 10 KGS: Bent pieces"}},
 		"accepted_qty": {meta: []string{"Received 400 KGS", "Rejected 10 KGS: Bent pieces"}},
-		"rejected_qty": {amount: "₹24,375.00", meta: []string{"Received 400 KGS · Accepted 390 KGS"}},
+		"rejected_qty": {amount: "₹24,375.00", meta: []string{"Received 400 KGS Accepted 390 KGS"}},
 		"reject_reason": {amount: "₹24,375.00",
-			meta: []string{"Received 400 KGS · Accepted 390 KGS", "Rejected 10 KGS"}},
-		"uom_id":         {amount: "₹24,375.00", meta: []string{"Received 400 · Accepted 390", "Rejected 10: Bent pieces"}},
-		"accepted_value": {meta: []string{"Received 400 KGS · Accepted 390 KGS", "Rejected 10 KGS: Bent pieces"}},
+			meta: []string{"Received 400 KGS Accepted 390 KGS", "Rejected 10 KGS"}},
+		"uom_id":         {amount: "₹24,375.00", meta: []string{"Received 400 Accepted 390", "Rejected 10: Bent pieces"}},
+		"accepted_value": {meta: []string{"Received 400 KGS Accepted 390 KGS", "Rejected 10 KGS: Bent pieces"}},
 	}
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -163,9 +163,9 @@ func TestGRNWeb_LineCardLineCtx(t *testing.T) {
 	got := s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards()
 	s3cWant(t, "check page", got, []s3cCard{
 		{no: "3", item: s2Angle, code: "MS-ANGLE-50", amount: "₹24,375.00",
-			meta: []string{"Received 400 KGS · Accepted 390 KGS", "Rejected 10 KGS"}},
+			meta: []string{"Received 400 KGS Accepted 390 KGS", "Rejected 10 KGS"}},
 		{no: "2", item: s2Bolt, code: "BOLT-M12", amount: "₹200.00",
-			meta: []string{"Received 10 NOS · Accepted 8 NOS", "Rejected 2 NOS: Wrong size"}},
+			meta: []string{"Received 10 NOS Accepted 8 NOS", "Rejected 2 NOS: Wrong size"}},
 	})
 }
 
@@ -179,9 +179,9 @@ func TestGRNWeb_LineCardRejects(t *testing.T) {
 		want s3cCard
 	}{
 		"no reason": {grntest.Line{Received: "410", Rejected: "10"}, s3cCard{amount: "₹25,000.00",
-			meta: []string{"Received 410 KGS · Accepted 400 KGS", "Rejected 10 KGS"}}},
+			meta: []string{"Received 410 KGS Accepted 400 KGS", "Rejected 10 KGS"}}},
 		"0.001 rejected": {grntest.Line{Received: "400", Rejected: "0.001", Reason: "Bent"}, s3cCard{amount: "₹24,999.94",
-			meta: []string{"Received 400 KGS · Accepted 399.999 KGS", "Rejected 0.001 KGS: Bent"}}},
+			meta: []string{"Received 400 KGS Accepted 399.999 KGS", "Rejected 0.001 KGS: Bent"}}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -203,11 +203,11 @@ func TestGRNWeb_LineCardEachRequest(t *testing.T) {
 	w := newS1World(t)
 	po := w.s3cPO()
 	id := w.GRN(t, w.Suresh, po.ID, []grntest.Line{{POLineID: po.Lines[2].ID, Received: "400"}}, doctype.StateDraft).ID
-	angle := s3cCard{no: "3", item: s2Angle, code: "MS-ANGLE-50", amount: "₹25,000.00", meta: []string{"Received 400 KGS · Accepted 400 KGS"}}
+	angle := s3cCard{no: "3", item: s2Angle, code: "MS-ANGLE-50", amount: "₹25,000.00", meta: []string{"Received 400 KGS Accepted 400 KGS"}}
 	s3cWant(t, "check page before", s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards(), []s3cCard{angle})
 	s2WantStep(t, w.s2Save(id, w.s2Items(id), s2Set{"received", 1, "50"}), "/edit/check", "add PO line 1")
 	s3cWant(t, "check page after", s3OK(t, w.get(w.Suresh, stepPath(id, "check")), "check page").s3cCards(), []s3cCard{
-		{no: "1", item: s2Wire, code: "WIRE-18G", amount: "₹4,800.00", meta: []string{"Received 50 KGS · Accepted 50 KGS"}},
+		{no: "1", item: s2Wire, code: "WIRE-18G", amount: "₹4,800.00", meta: []string{"Received 50 KGS Accepted 50 KGS"}},
 		angle,
 	})
 }
@@ -229,5 +229,5 @@ func TestGRNWeb_LineCardOverMaximum(t *testing.T) {
 	}
 	got := s3OK(t, w.get(w.Suresh, stepPath(g.ID, "check")), "check page").s3cCards()
 	s3cWant(t, "check page", got, []s3cCard{{no: "1", item: s2Angle, code: "MS-ANGLE-50",
-		meta: []string{"Received 8,000 KGS · Accepted 8,000 KGS"}}})
+		meta: []string{"Received 8,000 KGS Accepted 8,000 KGS"}}})
 }

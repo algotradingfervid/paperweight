@@ -25,7 +25,7 @@ func Routes(svc *taxcode.Service, env mstkit.Env) func(chi.Router) {
 		DocType: taxcode.DocType,
 		Base:    "/m/tax-code",
 		Copy: mstweb.Copy{
-			Plural: "Tax Codes", Noun: "tax codes", One: "tax code", New: "New tax code", Search: "Search tax codes", Empty: "No tax codes yet.",
+			Plural: "Tax Codes", Noun: "tax codes", One: "tax code", New: "New tax code", Search: "Search tax codes", Empty: "No tax codes yet.", Icon: "percent",
 			Saved: "Tax code saved.", Disabled: "Tax code disabled.", Enabled: "Tax code enabled.", Deleted: "Tax code deleted.",
 		},
 		Svc:      svc,
@@ -35,6 +35,9 @@ func Routes(svc *taxcode.Service, env mstkit.Env) func(chi.Router) {
 		Values:   values,
 		Head:     head,
 		Ref:      ref,
+		Cards: []mstweb.FormCard{
+			{Title: "Tax details", Icon: "percent", Description: "The GST rate an order line can carry.", Fields: []string{"code", "name", "treatment", "rate"}},
+		},
 	}.Routes()
 }
 

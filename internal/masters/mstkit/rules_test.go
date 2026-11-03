@@ -36,6 +36,9 @@ func TestMaster_CodeFormat(t *testing.T) {
 	}
 	// A blank code gets MST-001's message (Task 16's TestMaster_CodeRequired uses it per master).
 	const required = "Code is required. Enter a short code such as SHREE."
+	if _, err := mstkit.NormalizeCodeLike(" ", "KGS"); err == nil || err.Error() != "Code is required. Enter a short code such as KGS." {
+		t.Errorf("NormalizeCodeLike(blank, KGS) error = %v", err)
+	}
 	for _, blank := range []string{"", "   "} {
 		if _, err := mstkit.NormalizeCode(blank); err == nil || err.Error() != required {
 			t.Errorf("NormalizeCode(%q) error = %v; want %q", blank, err, required)

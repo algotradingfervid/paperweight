@@ -497,12 +497,29 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 			return b.Get(t, stepCheck).Text()
 		}
 
+		// leftOut takes the note the blank rows leave on Check (UI v2 R10, M14
+		// ruling) out of got, failing when a contacts step's note is missing:
+		// an addresses step's note is on the contacts page instead.
+		// Both sides are compared without spaces, which the banner's markup moves.
+		leftOut := func(t *testing.T, got, note string) string {
+			t.Helper()
+			got = strings.ReplaceAll(got, " ", "")
+			if c.next == stepCheck {
+				banner := "Information:" + strings.ReplaceAll(note, " ", "")
+				if !strings.Contains(got, banner) {
+					t.Errorf("Check lacks %q: %s", note, got)
+				}
+				got = strings.Replace(got, banner, "", 1)
+			}
+			return got
+		}
+
 		t.Run(c.name+": dropped wherever it stands", func(t *testing.T) {
 			w := newWorld(t)
 			before := w.tally(t)
 			b := w.kavya()
-			got := checkText(t, b, rows(c.blank, c.first, c.blank, c.second, c.blank))
-			if want := checkText(t, w.kavya(), rows(c.first, c.second)); got != want {
+			got := leftOut(t, checkText(t, b, rows(c.blank, c.first, c.blank, c.second, c.blank)), "Left out 3 empty "+c.name+".")
+			if want := strings.ReplaceAll(checkText(t, w.kavya(), rows(c.first, c.second)), " ", ""); got != want {
 				t.Errorf("Check differs with blank rows:\n got %s\nwant %s", got, want)
 			}
 			page := b.Get(t, c.step)
@@ -518,8 +535,8 @@ func TestScreens_PartyWizardBlankRowsDrop(t *testing.T) {
 			w := newWorld(t)
 			before := w.tally(t)
 			b := w.kavya()
-			got := checkText(t, b, rows(c.blank, c.blank))
-			if want := checkText(t, w.kavya(), url.Values{}); got != want {
+			got := leftOut(t, checkText(t, b, rows(c.blank, c.blank)), "Left out 2 empty "+c.name+".")
+			if want := strings.ReplaceAll(checkText(t, w.kavya(), url.Values{}), " ", ""); got != want {
 				t.Errorf("Check differs with blank rows:\n got %s\nwant %s", got, want)
 			}
 			webtest.WantRedirect(t, b.Post(t, stepCheck, url.Values{}), recordURL(w.get(t, "MEHTA").ID))
@@ -1236,8 +1253,8 @@ func TestScreens_PartyWizardUsersDontMix(t *testing.T) {
 }
 
 // The inputs: GSTIN and PAN are CodeInputs, the pincode is plain text (CD-229),
-// the state is a Select of the GST states, and the labels are Line 1, Line 2 and
-// Payment Terms (CD-199).
+// the state is a Select of the GST states, and the labels are Address line 1,
+// Address line 2, as the service's messages say, and Payment Terms (CD-199).
 func TestScreens_PartyWizardInputs(t *testing.T) {
 	w := newWorld(t)
 	b := w.kavya()
@@ -1271,8 +1288,8 @@ func wantAddressInputs(t *testing.T, r webtest.Response, gstinName, pincodeName,
 	if !found {
 		t.Errorf("%s options lack Maharashtra (27): %+v", stateName, r.Choices(stateName))
 	}
-	webtest.WantText(t, r, "Line 1")
-	webtest.WantText(t, r, "Line 2")
+	webtest.WantText(t, r, "Address line 1")
+	webtest.WantText(t, r, "Address line 2")
 }
 
 // Next and Save overlap other requests of the session, such as a picker's

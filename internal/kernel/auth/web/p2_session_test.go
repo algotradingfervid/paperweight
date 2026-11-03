@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
+
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/auth/authtest"
@@ -414,11 +416,12 @@ func TestSessions_UserRevokesOthers(t *testing.T) {
 	if started != "24-10-2026 10:30" {
 		t.Fatalf("types.FormatIST(T0) = %q, want 24-10-2026 10:30", started)
 	}
-	if n := strings.Count(page.Body, started); n < 2 {
+	text := t16Text(page.Body)
+	if n := strings.Count(text, started); n < 2 {
 		t.Errorf("sessions page shows %q %d times, want at least 2 (each session's start): %q", started, n, page.Body)
 	}
 	used := types.FormatIST(authtest.T0.Add(time.Hour))
-	if !strings.Contains(page.Body, used) {
+	if !strings.Contains(text, used) {
 		t.Errorf("sessions page does not show Safari's last use %q: %q", used, page.Body)
 	}
 	// Each session's own row shows its start; Safari's row shows both its
@@ -431,12 +434,12 @@ func TestSessions_UserRevokesOthers(t *testing.T) {
 			continue
 		}
 		for _, s := range want {
-			if !strings.Contains(row, s) {
+			if !strings.Contains(t16Text("<li"+row), s) {
 				t.Errorf("sessions page row for %q does not show %q: %q", ua, s, row)
 			}
 		}
 	}
-	if strings.Contains(page.Body, "24-10-2026 05:00") {
+	if strings.Contains(text, "24-10-2026 05:00") {
 		t.Errorf("sessions page shows the UTC time 24-10-2026 05:00, want IST (CD-33)")
 	}
 
@@ -558,6 +561,17 @@ func TestChangePassword_FailureEchoesNoPassword(t *testing.T) {
 			}
 		}
 	}
+}
+
+// t16Text is the text a user reads in the HTML fragment s: tags dropped and
+// white space collapsed, so a date-time split across inline elements
+// ("<span class=whole>24-10-2026</span> 10:30") reads as one string.
+func t16Text(s string) string {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(s))
+	if err != nil {
+		panic(err)
+	}
+	return p1Text(doc.Selection)
 }
 
 // t16Row returns the <li> element of body that contains ua, or "".

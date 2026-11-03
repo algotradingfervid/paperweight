@@ -159,8 +159,8 @@ func paidBanners(s paidScreen) templ.Component {
 	})
 }
 
-// paidBody is the summary, Undo paid's text, then the form: the version, the
-// Paid on date on Mark as paid, and the button.
+// paidBody is the summary, Undo paid's text, then the form: the version and
+// the Paid on date on Mark as paid. Its button is the sticky bar's (paidOpts).
 func paidBody(s paidScreen) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -276,17 +276,9 @@ func paidBody(s paidScreen) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = components.Button(s.button).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
 			return nil
 		})
-		templ_7745c5c3_Err = components.Form(components.FormProps{Action: s.action, HX: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Form(components.FormProps{ID: paidFormID, Action: s.action, HX: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

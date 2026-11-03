@@ -239,7 +239,7 @@ func TestPO_StepSaveRoleRefusedClearsVendor(t *testing.T) {
 	res, err := p2Step(t, env, env.Priya, po.ID, []string{"remarks"},
 		map[string]string{"vendor_id": masterID(t, env.DB, "party", "ACME"), "remarks": "Customer by mistake"}, nil)
 	p2WantProblems(t, "ACME posted outside Only", res, err, doctype.FieldError{Field: "vendor_id",
-		Message: "Acme Builders is not marked as a vendor. Tick Vendor on the party first."})
+		Message: "Acme Builders is not marked as a vendor. Set the party to Vendor or Both first."})
 	p2AllCleared(t, "ACME, role refused", p2Snap(t, env, po.ID, p2VendorCols...), p2VendorCols...)
 	p2HeaderIsSum(t, "ACME, role refused", env, po.ID)
 }
@@ -502,7 +502,7 @@ func TestPO_StepSaveRefusedVendorKeepsTerms(t *testing.T) {
 	res, err := p2Step(t, env, env.Priya, po.ID, []string{"remarks"},
 		map[string]string{"vendor_id": masterID(t, env.DB, "party", "ACME"), "remarks": "Customer by mistake"}, nil)
 	p2WantProblems(t, "ACME posted outside Only", res, err, doctype.FieldError{Field: "vendor_id",
-		Message: "Acme Builders is not marked as a vendor. Tick Vendor on the party first."})
+		Message: "Acme Builders is not marked as a vendor. Set the party to Vendor or Both first."})
 	if got := p2Snap(t, env, po.ID, "payment_terms_id", "snap_terms_name"); !mapsEqual(got, want) {
 		t.Errorf("terms after the vendor refusal = %v, want %v (the user's terms and their name kept)", got, want)
 	}

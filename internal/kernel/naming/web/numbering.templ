@@ -11,19 +11,11 @@ const (
 	listEmpty  = "No numbering series yet. Each document type, such as Purchase Order, adds its own here."
 )
 
-// listPage is one row per series, by label, each linking to its edit page.
-// internal/ui has no row component yet, so each row is a plain link whose
-// text is the whole row (NAM-051).
-templ listPage(rows []listRow) {
+// listPage is one row per series, by label, each linking to its edit page
+// (NAM-051): the series in words and the next number.
+templ listPage(list components.DataListProps) {
 	@layout.Page(layout.PageOpts{Title: "Numbering"}) {
-		if len(rows) == 0 {
-			@components.EmptyState(listEmpty, nil)
-		}
-		<ul>
-			for _, row := range rows {
-				<li><a href={ templ.SafeURL(row.Href) }>{ row.Text }</a></li>
-			}
-		</ul>
+		@components.DataList(list)
 	}
 }
 

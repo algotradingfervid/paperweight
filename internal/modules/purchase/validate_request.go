@@ -109,8 +109,9 @@ func checkRequestQty(ctx context.Context, tx *db.Tx, l *dbq.RequestLinesForValid
 
 // beforeSubmitRequest sets the hidden request date to the submit's business
 // date, so the number takes that date's FY (CD-330 (1)), and checks needed-by
-// against it (§20.2). The kernel has run Validate already (D-APR-15); submit
-// then moves a request straight to approved (§20.3).
+// against it (§20.2) and that the units resolved (CD-387 (2)).
+// The kernel has run Validate already (D-APR-15); submit then moves a request
+// straight to approved (§20.3).
 func beforeSubmitRequest(ctx context.Context, tx *db.Tx, id int64) error {
 	deps, err := wiring.Get(tx)
 	must(err)
@@ -120,7 +121,10 @@ func beforeSubmitRequest(ctx context.Context, tx *db.Tx, id int64) error {
 	today := types.Today(deps.Clock)
 	h.RequestDate = today.ISO()
 	must(q.SetRequestDate(ctx, dbq.SetRequestDateParams{ID: id, RequestDate: sql.NullString{String: h.RequestDate, Valid: true}}))
-	if errs := checkRequestDates(h, today); len(errs) > 0 {
+	rows, err := q.RequestLinesForValidate(ctx, id)
+	must(err)
+	dt, _ := doc.Lookup(RequestDocType)
+	if errs := append(checkRequestDates(h, today), requestBlanks(dt, rows)...); len(errs) > 0 {
 		return doc.Invalid(errs)
 	}
 	return nil

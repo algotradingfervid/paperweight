@@ -132,9 +132,11 @@ func linkInput(f doctype.Field, p components.FieldProps, d Deps) templ.Component
 						return err
 					}
 					mi, found, err := dt.Master.Lookup(ctx, tx, id)
-					if found {
-						row.Code, row.Name = mi.Code, mi.Name
+					if err != nil || !found {
+						return err
 					}
+					row.Code, row.Name = mi.Code, mi.Name
+					row.Line, err = d.linkLine(ctx, tx, dt, id)
 					return err
 				})
 				if err != nil {
@@ -145,6 +147,15 @@ func linkInput(f doctype.Field, p components.FieldProps, d Deps) templ.Component
 		}
 		return components.Picker(pp).Render(ctx, w)
 	})
+}
+
+// linkLine is the line of master id of target for the request's user.
+func (d Deps) linkLine(ctx context.Context, tx *db.Tx, target *doctype.DocType, id int64) (string, error) {
+	if d.LinkLine == nil {
+		return "", nil
+	}
+	user, _ := auth.PrincipalFrom(ctx)
+	return d.LinkLine(ctx, tx, user, target, id)
 }
 
 // showsLabel reports whether the link in p may show its target's label.

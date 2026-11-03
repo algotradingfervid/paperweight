@@ -110,7 +110,7 @@ func TestSetup_BlankBranchNameIsHeadOffice(t *testing.T) { // CD-165
 
 func TestSetup_BranchCodeRules(t *testing.T) { // CD-165
 	cases := []struct{ name, code, msg string }{
-		{"blank", "", "Code is required. Enter a short code such as SHREE."},
+		{"blank", "", "Code is required. Enter a short code such as PUNE."},
 		{"format", "PUNE WORKS", "Code can use letters, digits and . _ / - only, must start with a letter or digit, and be at most 20 characters."},
 	}
 	for _, tc := range cases {

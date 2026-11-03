@@ -191,6 +191,16 @@ func TestActions_ApproveBlockedShowsNote(t *testing.T) {
 		t.Errorf("ApproveBlocked = %q, want APR's text %q", v.ApproveBlocked, blocked)
 	}
 	bar, more := docscreen.Actions(v, true, docscreen.Rights(ctx, e.az, ravi, docscreentest.Sample, &v.Record))
+	if _, s := barLabels(bar); s != "" {
+		t.Errorf("a blocked approver without submit has %q in the bar", s)
+	}
+	// R9 (PO): an administrator who raised it holds submit too: the bar
+	// has Withdraw under the note, where a Purchase User has it.
+	withSubmit := docscreen.Rights(ctx, e.az, ravi, docscreentest.Sample, &v.Record)
+	withSubmit["submit"] = true
+	if b, m := docscreen.Actions(v, true, withSubmit); b.Note != blocked || b.Secondary == nil || b.Secondary.Label != "Withdraw" || slices.Contains(moreLabels(m), "Withdraw") {
+		t.Errorf("owner blocked from approving: note %q, secondary %+v, more %q", b.Note, b.Secondary, moreLabels(m))
+	}
 	if bar.Note != blocked {
 		t.Errorf("Note = %q, want %q", bar.Note, blocked)
 	}

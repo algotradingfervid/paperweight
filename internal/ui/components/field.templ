@@ -144,14 +144,16 @@ templ fieldHint(p FieldProps) {
 	}
 }
 
-// fieldMsg is the message region: the error with its icon, else the echo, with
-// a check icon when check. ValidateHandler renders the same element for htmx
-// to swap.
+// fieldMsg is the message region: the error with its icon and its dates
+// whole, else the echo, with a check icon when check. ValidateHandler renders
+// the same element for htmx to swap.
 templ fieldMsg(id, errText, echo string, check bool) {
 	if errText != "" {
 		<p id={ id + "-msg" } class="field__msg field__msg--error">
 			@icons.Icon("circle-alert")
-			<span>{ errText }</span>
+			<span>
+				@Whole(errText)
+			</span>
 		</p>
 	} else if check && echo != "" {
 		<p id={ id + "-msg" } class="field__msg field__msg--echo">

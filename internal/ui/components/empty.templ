@@ -19,12 +19,26 @@ templ EmptyState(message string, action *Link) {
 // icon, the heading and the plain line, with no action inside; New is in the
 // page head and the bottom nav.
 templ EmptyList(heading, line string) {
+	@ObjectEmpty("inbox", heading, line)
+}
+
+// AllDone is a page with nothing left to do (UI v2 §5.12): EmptyList with
+// the circle-check icon.
+templ AllDone(heading, line string) {
+	@ObjectEmpty("circle-check", heading, line)
+}
+
+// ObjectEmpty is EmptyList with the icon of what the place holds (UI v2
+// §5.14); line "" draws none.
+templ ObjectEmpty(icon, heading, line string) {
 	<div class="empty-state">
 		<span class="empty-state-icon" aria-hidden="true">
-			@icons.Icon("inbox")
+			@icons.Icon(icon)
 		</span>
 		<p class="empty-state-text">{ heading }</p>
-		<p class="empty-state-line">{ line }</p>
+		if line != "" {
+			<p class="empty-state-line">{ line }</p>
+		}
 	</div>
 }
 

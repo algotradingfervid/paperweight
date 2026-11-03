@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"strings"
@@ -153,6 +154,16 @@ func TestE2E_DisclosedPickerOnTop_ExpenseLine(t *testing.T) {
 func TestE2E_DisclosedPickerOnTop_Party(t *testing.T) {
 	h := startPurchase(t)
 	p := h.SignIn(admin, phone360)
+	// At 768 px the carded form (UI v2 R10) puts the card's padding between
+	// the field and the bar, so a one-option dropdown ends at the bar's edge:
+	// two more terms make it long enough to reach over the bar.
+	at := "2026-10-24T05:00:00.000Z"
+	for _, code := range []string{"NET45", "NET60"} {
+		if _, err := h.App.DB().SQL().ExecContext(context.Background(),
+			`INSERT INTO payment_terms (code, name, created_at, updated_at) VALUES (?, ?, ?, ?)`, code, code+" days", at, at); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for width, over := range map[int64][]string{phone320: {"top bar", "sticky bar"}, phone360: {"top bar", "sticky bar"}, tablet768: {"sticky bar"}} {
 		p.width = width
 		p.Open("/m/party/new")

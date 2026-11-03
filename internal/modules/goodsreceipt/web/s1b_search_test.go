@@ -87,8 +87,8 @@ func TestGRNWeb_POSearchFields(t *testing.T) {
 			t.Errorf("%s q=%q: rows =\n%+v\nwant\n%+v", c.field, c.q, got, c.want)
 		}
 	}
-	if got, text := w.search(w.Suresh, "?q=nothing"); len(got) != 0 || !strings.Contains(text, "No matches") {
-		t.Errorf("q=nothing: rows %+v, text %q, want No matches", got, text)
+	if got, text := w.search(w.Suresh, "?q=nothing"); len(got) != 0 || !strings.Contains(text, `No order matches "nothing"`) {
+		t.Errorf("q=nothing: rows %+v, text %q, want the empty text naming orders", got, text)
 	}
 }
 
@@ -214,7 +214,7 @@ func TestGRNWeb_POSearchReadFails(t *testing.T) {
 	grnweb.Routes(grnweb.Deps{Service: goodsreceipt.New(deps)})(r)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequestWithContext(auth.WithPrincipal(t.Context(), w.Suresh), http.MethodGet, s1bSearch+"?q=shree", nil))
-	if rec.Code != http.StatusInternalServerError || strings.Contains(rec.Body.String(), "No matches") {
+	if rec.Code != http.StatusInternalServerError || strings.Contains(rec.Body.String(), "No order") {
 		t.Errorf("search on a failed read = %d %q, want the 500 page", rec.Code, rec.Body.String())
 	}
 }

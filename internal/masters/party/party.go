@@ -37,7 +37,7 @@ var owned = []mstkit.Child{
 const MsgTermsNotFound = "Payment Terms not found. Pick one from the list."
 
 const (
-	msgRole     = "Tick Vendor, Customer or both."
+	msgRole     = "Choose Vendor, Customer or Both."
 	msgCategory = "GST category must be Registered Regular, Registered Composition, Unregistered, SEZ or Overseas."
 	// MST-047, as the address package words it (CD-177).
 	msgOverseas = "Addresses outside India must have GST category Overseas."
@@ -55,13 +55,13 @@ func init() {
 		Table:       Kind.Table,
 		Importable:  true,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. SHREE", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1, Placeholder: "e.g. Shree Steel Traders"},
 			{Name: "is_vendor", Label: "Vendor", Column: "is_vendor", Type: doctype.Check, Importable: true, Filterable: true},
 			{Name: "is_customer", Label: "Customer", Column: "is_customer", Type: doctype.Check, Importable: true, Filterable: true},
-			{Name: "pan", Label: "PAN", Column: "pan", Type: doctype.Text, Importable: true, MaxLen: 10},
-			{Name: "gst_category", Label: "GST category", Column: "gst_category", Type: doctype.Select, Importable: true, ListPriority: 5, Options: categories},
-			{Name: "default_payment_terms_id", Label: "Payment terms", Column: "default_payment_terms_id", Type: doctype.Link, Importable: true, Link: paymentterms.DocType, More: true},
+			{Name: "pan", Label: "PAN", Column: "pan", Type: doctype.Text, Importable: true, MaxLen: 10, Placeholder: "e.g. AABCS1429B", Hint: "Each address has its own GSTIN."},
+			{Name: "gst_category", Label: "GST category", Column: "gst_category", Type: doctype.Select, Importable: true, ListPriority: 5, Options: categories, Tip: "Decides how GST applies to this party. Registered parties need a billing address with a GSTIN."},
+			{Name: "default_payment_terms_id", Label: "Payment terms", Column: "default_payment_terms_id", Type: doctype.Link, Importable: true, Link: paymentterms.DocType, More: true, Hint: "Filled in on new orders for this vendor. You can change it per order."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, Filterable: true, ListPriority: 3, More: true},
 		},
 		SearchFields: []string{"code", "name"},
@@ -356,7 +356,7 @@ func (s *Service) CheckRole(ctx context.Context, tx *db.Tx, partyID int64, r Rol
 	var es mstkit.Errors
 	switch {
 	case r == Vendor && !pt.IsVendor:
-		es.Add("", pt.Name+" is not marked as a vendor. Tick Vendor on the party first.")
+		es.Add("", pt.Name+" is not marked as a vendor. Set the party to Vendor or Both first.")
 	case r == Customer && !pt.IsCustomer:
 		es.Add("", pt.Name+" is not marked as a customer.")
 	}

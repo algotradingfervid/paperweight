@@ -107,7 +107,7 @@ func TestExp_StaleEmployeeSnapshot(t *testing.T) {
 		t.Run(k.dt, func(t *testing.T) {
 			// Blank employee, nothing to default to: no snapshot.
 			c := k.draft(office, expensetest.Values{"employee_id": e2ID(emp7)})
-			e2bKept(t, "clear the employee", msgNoEmployee)(e2bStep(t, e, office, k.dt, c.ID,
+			e2bKept(t, "clear the employee", msgNoEmployeeAdmin)(e2bStep(t, e, office, k.dt, c.ID,
 				expensetest.Values{"employee_id": "", "purpose": "Pune Metro site visit, day 2"}, nil, 0, "purpose"))
 			if id, name, code := k.read(c.ID); id != 0 || name != "" || code != "" {
 				t.Errorf("blank employee kept: employee %d, snapshot %q %q; want none, \"\" \"\"", id, name, code)

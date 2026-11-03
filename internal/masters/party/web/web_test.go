@@ -54,7 +54,7 @@ const (
 	msgCodeReq    = "Code is required. Enter a short code such as SHREE."                                                                                          // MST-001
 	msgCodeForm   = "Code can use letters, digits and . _ / - only, must start with a letter or digit, and be at most 20 characters."                              // MST-004
 	msgNameReq    = "Name is required."                                                                                                                            // MST-017
-	msgRole       = "Tick Vendor, Customer or both."                                                                                                               // MST-041
+	msgRole       = "Choose Vendor, Customer or Both."                                                                                                             // MST-041
 	msgPAN        = "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. AAFCV2449G)."                                                                  // MST-020
 	msgCategory   = "GST category must be Registered Regular, Registered Composition, Unregistered, SEZ or Overseas."                                              // CD-166
 	msgNoTerms    = "Payment Terms not found. Pick one from the list."                                                                                             // CD-216
@@ -62,7 +62,7 @@ const (
 	msgLine1      = "Address line 1 is required."                                                                                                                  // MST-053
 	msgCity       = "City is required."                                                                                                                            // MST-053
 	msgState      = "State is required for an Indian address."                                                                                                     // MST-053
-	msgType       = "Tick Billing, Shipping or both."                                                                                                              // MST-054
+	msgType       = "Turn on Billing, Shipping or both."                                                                                                           // MST-054
 	msgPincode    = "Pincode must be 6 digits and can't start with 0."                                                                                             // MST-055
 	msgOverseas   = "Addresses outside India must have GST category Overseas."                                                                                     // MST-047
 	msgOwner      = "An address must belong to one party or one branch."                                                                                           // MST-067
@@ -71,9 +71,9 @@ const (
 	msgNeedBill   = "A registered party needs a primary billing address with a GSTIN. Add the billing address first."                                              // CD-180 D1
 	msgKeepBill   = "This is the party's primary billing address. Make another billing address primary first."                                                     // CD-177
 	msgEnableAddr = "Enable this address before making it primary."                                                                                                // CD-177
-	msgTickBill   = "Tick Billing on this address before making it the primary billing address."                                                                   // CD-176
-	msgTickShip   = "Tick Shipping on this address before making it the primary shipping address."                                                                 // CD-176
-	msgName       = "Contact name is required."                                                                                                                    // MST-062
+	msgTickBill   = "Turn on Billing on this address before making it the primary billing address."                                                                // CD-176
+	msgTickShip   = "Turn on Shipping on this address before making it the primary shipping address."                                                              // CD-176
+	msgName       = "First name is required."                                                                                                                      // MST-062
 	msgEmail      = "Enter a valid email address, e.g. accounts@shreesteel.test."                                                                                  // MST-063
 	msgMobile     = "Enter a 10-digit Indian mobile number starting 6–9, optionally with +91."                                                                     // MST-064
 	msgOneEmail   = "Only one email can be primary."                                                                                                               // MST-065

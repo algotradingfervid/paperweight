@@ -364,6 +364,9 @@ func sampleRows(first, last int) []components.RowsRow {
 // searchURL is the picker search for the listbox with id list.
 func searchURL(list string) string { return "/_gallery/items?list=" + list }
 
+// vendorNoun names the quick-create page's master.
+var vendorNoun = components.Noun{One: "vendor", Many: "vendors"}
+
 // quickList is the listbox of the quick-create page's picker, whose search
 // offers New vendor (UI v2 §5.8).
 const quickList = "f-new-vendor-list"
@@ -397,3 +400,47 @@ const (
 	codeTip     = "A short name you can type to find this party fast, up to 20 letters or digits."
 	deliveryTip = "Goods sent to the site need a gate pass; goods to the office don't."
 )
+
+// docDisplayStep is one lifecycle step with a date (dd-mm).
+func docDisplayStep(word string, m components.LifeMark) components.LifeStep {
+	s := components.LifeStep{Label: word, Mark: m}
+	if m != components.LifeTodo {
+		s.Date = "28-10"
+	}
+	return s
+}
+
+// docDisplaySteps are the real lifecycles, the six-step ones the longest row
+// (UI v2 §5.13 item 4), each word of every state in it.
+var docDisplaySteps = [][]components.LifeStep{
+	{docDisplayStep("Draft", components.LifeCurrent), docDisplayStep("Pending approval", components.LifeTodo), docDisplayStep("Approved", components.LifeTodo), docDisplayStep("Sent", components.LifeTodo), docDisplayStep("Received", components.LifeTodo)},
+	{docDisplayStep("Draft", components.LifeDone), docDisplayStep("Rejected", components.LifeRejected), docDisplayStep("Approved", components.LifeTodo), docDisplayStep("Sent", components.LifeTodo), docDisplayStep("Received", components.LifeTodo)},
+	{docDisplayStep("Draft", components.LifeDone), docDisplayStep("Pending approval", components.LifeDone), docDisplayStep("Approved", components.LifeDone), docDisplayStep("Sent", components.LifeDone), {Label: "Received", Mark: components.LifeCurrent, Note: "Part"}},
+	{docDisplayStep("Draft", components.LifeDone), docDisplayStep("Pending approval", components.LifeDone), docDisplayStep("Approved", components.LifeDone), docDisplayStep("Sent", components.LifeDone), {Label: "Received", Mark: components.LifeDone, Note: "Part"}, docDisplayStep("Cancelled", components.LifeEnded)},
+	{docDisplayStep("Draft", components.LifeDone), docDisplayStep("Pending approval", components.LifeDone), docDisplayStep("Approved", components.LifeDone), docDisplayStep("Sent", components.LifeDone), docDisplayStep("Received", components.LifeDone), docDisplayStep("Closed", components.LifeEnded)},
+	{docDisplayStep("Draft", components.LifeDone), docDisplayStep("Pending approval", components.LifeDone), docDisplayStep("Approved", components.LifeDone), docDisplayStep("Paid", components.LifeCurrent)},
+	{docDisplayStep("Draft", components.LifeDone), docDisplayStep("Approved", components.LifeCurrent)},
+	{docDisplayStep("Draft", components.LifeDone), docDisplayStep("Submitted", components.LifeDone), docDisplayStep("Closed", components.LifeEnded)},
+}
+
+// docDisplayAmounts are amounts of every length around amountClass's steps,
+// up to 500 lines of the largest line amount.
+var docDisplayAmounts = []string{
+	"₹0.00", "₹1,250.00", "₹5,00,000.00", "₹99,99,999.00", "₹1,00,00,000.00", uitest.MaxMoney, "₹90,32,30,910.00",
+	"₹1,24,43,14,336.88", "₹10,00,00,00,000.00", "₹99,99,99,99,999.99", "₹5,00,00,00,00,000.00", "₹50,00,00,00,00,000.00",
+}
+
+// docDisplayPairs are totals and detail rows, money and text mixed.
+var docDisplayPairs = []components.Pair{
+	{Label: "Vendor", Value: "Shree Steel Traders"},
+	{Label: "Taxable value", Value: uitest.MaxMoney, Num: true},
+	{Label: "CGST", Value: "₹1,250.00", Num: true},
+	{Label: "Place of supply", Value: "Maharashtra (27)"},
+	{Label: "Total", Value: uitest.MaxMoney, Num: true},
+	{Label: "Less advance", Value: "₹0.00", Num: true},
+	{Label: "To pay", Value: uitest.MaxMoney, Num: true},
+	{Label: "Note", Value: uitest.LongName100},
+	{Label: "Period", Value: "24-10-2026 to 30-10-2026"},
+	{Label: "Against", Value: "PO/26-27/00001 dated 24-10-2026"},
+	{Label: "Sent", Value: "Sent to vendor on 24-10-2026 by WhatsApp (Priya Shah) and again on 25-10-2026 by courier"},
+}

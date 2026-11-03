@@ -82,6 +82,18 @@ func lineAria(verb string, no int) string {
 	return verb + " line " + strconv.Itoa(no)
 }
 
+// removeButton is a line's Remove link: the trash in the danger colour
+// (UI v2 §5.11).
+func removeButton(no int, href string) ButtonProps {
+	return ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", no), Href: href, Icon: "trash-2", Variant: DangerQuiet}
+}
+
+// moveButton is a line's icon-only move button, its verb the name screen
+// readers hear (UI v2 §5.1).
+func moveButton(verb, icon string, no int) ButtonProps {
+	return ButtonProps{AriaLabel: lineAria(verb, no), Icon: icon, Variant: Ghost, Attrs: templ.Attributes{"data-move": true}}
+}
+
 func lineGridID(no int) string {
 	return "grid-row-" + strconv.Itoa(no)
 }

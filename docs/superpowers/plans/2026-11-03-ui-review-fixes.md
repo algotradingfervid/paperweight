@@ -22,6 +22,7 @@ Every blocker and high is fixed. Mediums go in the task that owns their code. Lo
 - **R11 GRN.** `Add bill details`; compact Quantities with `{n} of {m} lines entered`. Sources: GRN H4, H5, M2, M11. Owner: head worker (AD-12's session has ended).
 - **R12 Expense.** Receipt types match the hint; KeyFacts; line card icons; advance line footer. Sources: EXP Ms. Owner: AD-11.
 - **R13 Purchase.** Items empty state, Check and page totals repeat, 109-line `Show all`, rejection reason kept on revise. Sources: PO Ms. Owner: AD-13.
+- **R7b Wizard flow, rest (head).** Line page in focus mode with the general sticky footer (CD-387 (6)), replacing R12's advance-line copy; Check links reach the line (line cards get ids); purchase reports an unresolved tax code and GRN its submit-only checks through `CheckExtra.Problems`. After R7 merges. Owner: head worker.
 - **R14 Show all (head).** docscreen Check and document pages show a long line list in pages with `Show all`, left out of R13. Sources: PO M. Owner: head worker.
 
 ## Each task

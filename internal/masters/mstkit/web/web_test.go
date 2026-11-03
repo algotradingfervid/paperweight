@@ -97,7 +97,7 @@ func harness(t *testing.T, svc stubService, opts ...func(*screen)) *webtest.Harn
 			Base:    base,
 			Copy: mstweb.Copy{
 				Plural: "Stubs", Noun: "stubs", One: "stub", New: "New stub", Search: "Search stubs",
-				Empty: "No stubs yet.", Saved: "Stub saved.", Rows: "Conversions", AddRow: "Add conversion",
+				Empty: "No stubs yet.", Icon: "package", Saved: "Stub saved.", Rows: "Conversions", AddRow: "Add conversion",
 			},
 			Svc:     svc,
 			Env:     k,
