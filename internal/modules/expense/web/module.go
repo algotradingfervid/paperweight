@@ -52,7 +52,6 @@ func AdvanceModule(d Deps) docscreen.Module {
 		TodayDates: []string{"advance_date"},
 		KeyFacts:   advanceKeyFacts, // UI v2 §5.13 item 3
 		Steps:      advanceSteps(),  // R12
-		Line:       advanceLine(),   // R12
 		// The line under the stepper (UI v2 §5.6).
 		StepIntros: map[string]string{"details": introAdvance},
 	}

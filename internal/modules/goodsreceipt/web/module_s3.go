@@ -8,6 +8,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/modules/purchase"
+	"github.com/vardhan/internaltools/internal/platform/db"
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 )
@@ -36,13 +37,20 @@ func (m *module) receiptPage(c docscreen.Ctx) (goodsreceipt.ReceiptPage, error) 
 }
 
 // check adds G5's notes and warnings, then G11's, to the check page (UX doc
-// §5.5). The big figure is docscreen's grand figure, accepted_value.
+// §5.5), and the submit-only refusals as Problems, so the step that fixes
+// each is Needs attention (R7b, GRN M1). The big figure is docscreen's grand
+// figure, accepted_value.
 func (m *module) check(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 	rp, err := m.receiptPage(c)
 	if err != nil {
 		return docscreen.CheckExtra{}, err
 	}
-	return docscreen.CheckExtra{Notes: rp.Notes, Warnings: withChallan(c, rp)}, nil
+	x := docscreen.CheckExtra{Notes: rp.Notes, Warnings: withChallan(c, rp)}
+	err = c.Deps.DB.Read(c.Req.Context(), func(tx *db.Tx) (err error) {
+		x.Problems, err = goodsreceipt.SubmitProblems(c.Req.Context(), tx, c.View.Info.ID)
+		return err
+	})
+	return x, err
 }
 
 // page adds to the document page (UX doc §5.6): Site and Project from the

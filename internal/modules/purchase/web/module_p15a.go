@@ -172,15 +172,13 @@ func rejection(c docscreen.Ctx) (string, error) {
 	return fmt.Sprintf(rejectedFormat, reason), nil
 }
 
-// missingTexts are the messages of what read leaves unresolved on c's record.
-func missingTexts(c docscreen.Ctx, read func(context.Context, *db.Tx, int64) ([]doctype.FieldError, error)) ([]string, error) {
+// missing is what read leaves unresolved on c's record, each on its line's
+// field, for CheckExtra.Problems.
+func missing(c docscreen.Ctx, read func(context.Context, *db.Tx, int64) ([]doctype.FieldError, error)) ([]doctype.FieldError, error) {
 	ctx := c.Req.Context()
-	var out []string
-	err := c.Deps.DB.Read(ctx, func(tx *db.Tx) error {
-		errs, err := read(ctx, tx, c.View.Info.ID)
-		for _, e := range errs {
-			out = append(out, e.Message)
-		}
+	var out []doctype.FieldError
+	err := c.Deps.DB.Read(ctx, func(tx *db.Tx) (err error) {
+		out, err = read(ctx, tx, c.View.Info.ID)
 		return err
 	})
 	return out, err
@@ -399,7 +397,7 @@ func orderTotals(c docscreen.Ctx) []components.Pair {
 
 // orderCheck adds to the check page (UX §5.8): the copy notes, the place
 // reason and the reverse-charge note; the rejection a revised draft came
-// from; OrderWarnings and what Submit will refuse as unresolved; the Owner
+// from; OrderWarnings; what Submit will refuse as unresolved, as Problems; the Owner
 // card (to the owner only), the Comments card and the totals in their own
 // list.
 func (m *module) orderCheck(c docscreen.Ctx) (docscreen.CheckExtra, error) {
@@ -436,11 +434,10 @@ func (m *module) orderCheck(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 	if reason != "" {
 		x.Warnings = slices.Insert(x.Warnings, 0, reason)
 	}
-	missing, err := missingTexts(c, purchase.MissingOrder)
-	if err != nil {
+	// An unresolved UoM or tax code marks Items Needs attention (R7b).
+	if x.Problems, err = missing(c, purchase.MissingOrder); err != nil {
 		return docscreen.CheckExtra{}, err
 	}
-	x.Warnings = append(x.Warnings, missing...)
 	if owner := ownerCard(c, id); owner != nil {
 		x.Cards = append(x.Cards, owner)
 	}

@@ -46,15 +46,11 @@ func (receiptHooks) BeforeSubmit(ctx context.Context, tx *db.Tx, id int64) error
 	if err != nil {
 		return err
 	}
-	errs, err := checkLockFields(ctx, tx, d, id)
+	errs, err := submitProblems(ctx, tx, d, id)
 	if err != nil {
 		return err
 	}
-	more, err := submitFields(ctx, tx, d, id)
-	if err != nil {
-		return err
-	}
-	if errs = append(errs, more...); len(errs) > 0 {
+	if len(errs) > 0 {
 		return doc.Invalid(errs)
 	}
 	return nil

@@ -274,13 +274,13 @@ func TestModule_LineTop(t *testing.T) {
 		}
 	})
 
-	t.Run("no Line, no form id", func(t *testing.T) {
+	t.Run("no Line, the same form id", func(t *testing.T) {
 		e, id := m20Env(t, 2, docscreen.Module{Hide: m01bHide(), LineNoun: m20Noun})
 		base := m01bURL(id)
 		for _, path := range []string{"/lines/new", "/lines/1"} {
 			page := m01bOK(t, e.get(t, base+path), "GET "+path+" without Module.Line")
-			if n := page.Find("#line-form").Length(); n != 0 {
-				t.Errorf("GET %s without Module.Line: %d #line-form, want none (CD-275: only with Module.Line)", path, n)
+			if n := page.Find("form#line-form").Length(); n != 1 {
+				t.Errorf("GET %s without Module.Line: %d form#line-form, want 1 (CD-387 (6): every line page has the sticky footer)", path, n)
 			}
 			if n := page.Find(`form[action="` + base + path + `"] [name="qty"]`).Length(); n != 1 {
 				t.Errorf("GET %s without Module.Line: %d generic qty inputs in the line form, want 1", path, n)

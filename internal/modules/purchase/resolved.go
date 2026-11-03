@@ -62,6 +62,17 @@ func MissingOrder(ctx context.Context, tx *db.Tx, id int64) ([]doctype.FieldErro
 	return orderBlanks(dt, rows), nil
 }
 
+// MissingRequest is what Submit will refuse as unresolved on request id,
+// for its check page.
+func MissingRequest(ctx context.Context, tx *db.Tx, id int64) ([]doctype.FieldError, error) {
+	rows, err := dbq.New(tx.SQL()).RequestLinesForValidate(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	dt, _ := doc.Lookup(RequestDocType)
+	return requestBlanks(dt, rows), nil
+}
+
 // RejectedReason is the reason of the rejection PO id's latest submit ended
 // in, "" when that submit wasn't rejected or there was none. Revise clears
 // state_reason, so the audit trail holds it. The caller has checked the read

@@ -4,7 +4,9 @@
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   /* daisyUI paints :root with --root-bg (base-100, white); the canvas grey goes on html so it never stops. */
   html { --root-bg: var(--color-canvas); }
-  html { scroll-padding-block: calc(var(--header-h) + var(--space-2)) calc(var(--actionbar-h) + var(--actionbar-rows, 0rem) + var(--space-2)); }
+  html { scroll-padding-block: calc(var(--header-h) + var(--space-2)) calc(var(--actionbar-h) + var(--actionbar-rows, 0rem) + var(--actionbar-lift, 0rem) + var(--space-2)); }
+  /* From 64rem the footer card sits var(--space-4) above the bottom (actionbar.css). */
+  @media (min-width: 64rem) { html { --actionbar-lift: var(--space-4); } }
   /* The wizard footer's summary row (actionbar.css): one 24 px line and the footer's gap. */
   html:has(#wizard .actionbar-summary) { --actionbar-rows: calc(var(--space-6) + var(--space-2)); }
   body { margin: 0; overflow-wrap: anywhere; }

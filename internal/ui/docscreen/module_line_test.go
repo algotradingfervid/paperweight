@@ -205,12 +205,12 @@ func m03InForm(t *testing.T, page *goquery.Document, action, version string) str
 // m03Back fails unless the page's Back link reads label and goes to href.
 func m03Back(t *testing.T, page *goquery.Document, label, href string) {
 	t.Helper()
-	back := page.Find("main a.back-link")
+	back := page.Find("main .wizard-head a.wizard-close")
 	if back.Length() != 1 {
-		t.Fatalf("found %d Back links, want 1", back.Length())
+		t.Fatalf("found %d ‹ in the wizard head, want 1", back.Length())
 	}
-	if got := norm(back.Text()); got != label {
-		t.Errorf("Back link reads %q, want %q", got, label)
+	if got := back.AttrOr("aria-label", ""); got != "Back to "+label {
+		t.Errorf("‹ is labelled %q, want %q", got, "Back to "+label)
 	}
 	if got, _ := back.Attr("href"); got != href {
 		t.Errorf("Back link goes to %q, want %q", got, href)
@@ -464,7 +464,7 @@ func TestModule_LinePage(t *testing.T) {
 		for _, path := range []string{"/lines/1", "/lines/new"} {
 			page := m01bOK(t, e.get(t, base+path), "GET "+path)
 			m03Back(t, page, "Items", base+"/edit/items")
-			href, _ := page.Find("main a.back-link").Attr("href")
+			href, _ := page.Find("main .wizard-head a.wizard-close").Attr("href")
 			items := m01bOK(t, e.get(t, href), "GET the Back link")
 			if items.Find(`[href="`+base+`/lines/new"]`).Length() == 0 {
 				t.Errorf("%s: the Back link's page has no Add an item link: not the Items step", path)

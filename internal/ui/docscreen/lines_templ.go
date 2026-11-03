@@ -444,8 +444,8 @@ func linePageBanners(lp linePageView) templ.Component {
 }
 
 // linePageBody is the line form ("Save line") or the remove question; the
-// module's Top sits before the form, never inside it (UX-E1). With the
-// module's Line the button is the sticky bar's primary after the form.
+// module's Top sits before the form, never inside it (UX-E1). A line form's
+// button is the sticky bar's primary after the form (CD-387 (6)).
 func linePageBody(lp linePageView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

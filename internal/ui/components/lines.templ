@@ -30,8 +30,8 @@ templ LineList(p LineListProps) {
 			for _, c := range p.Cards {
 				<li
 					class="lines-card"
-					if c.Reveal {
-						id="line-reveal"
+					if id := LineCardID(c); id != "" {
+						id={ id }
 						tabindex="-1"
 					}
 				>

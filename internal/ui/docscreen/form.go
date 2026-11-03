@@ -909,9 +909,32 @@ type checkView struct {
 type checkSection struct {
 	Title, Icon, ChangeURL string
 	Status                 wizard.StepStatus
-	Problems               []string // what submit will refuse on this step (CD-178)
+	Problems               []checkProblem // what submit will refuse on this step (CD-178)
 	Pairs                  []components.Pair
 	Lines                  *components.LineListProps
+}
+
+// checkProblem is one problem a Check section lists; Href, when set, is
+// the card of the line it is on (R7b).
+type checkProblem struct{ Text, Href string }
+
+// listProblem adds p's message to sec once, linked to its line's card on
+// page: the bare fragment when the card is drawn, or page?all=1 with it on a
+// collapsed list (CD-395).
+func listProblem(sec *checkSection, p doctype.FieldError, page string, n int, all bool) {
+	if slices.ContainsFunc(sec.Problems, func(cp checkProblem) bool { return cp.Text == p.Message }) {
+		return
+	}
+	cp := checkProblem{Text: p.Message}
+	if p.Line > 0 && p.Line <= n {
+		// p.Line <= n, so a line past phoneCards means a collapsible list.
+		card := components.LineCard{Pos: p.Line, Reveal: p.Line == phoneCards+1}
+		cp.Href = "#" + components.LineCardID(card)
+		if p.Line > phoneCards && !all {
+			cp.Href = page + "?all=1" + cp.Href
+		}
+	}
+	sec.Problems = append(sec.Problems, cp)
 }
 
 // checkStep fills the check page (design-system §8.3): a section per step
@@ -960,6 +983,8 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			return fmt.Errorf("docscreen: %s Check problem on %q, which no step shows", dt.Name, p.Field)
 		}
 	}
+	page := sv.M.StepURL(len(steps) - 1)
+	all := allLines(r, page)
 	for i, s := range steps[:len(steps)-1] {
 		sec := checkSection{Title: s.Label, Icon: s.TileIcon(), ChangeURL: sv.M.StepURL(i) + "?return=check", Status: wizard.Complete}
 		for _, p := range problems {
@@ -969,20 +994,18 @@ func (d Deps) checkStep(c Ctx, steps []FormStep, v DocView, sv *stepView) error 
 			if s.owns(p) {
 				sec.Status = wizard.Attention
 				if p.Line == 0 || slices.Contains(v.DraftProblems, p) {
-					sec.Problems = append(sec.Problems, p.Message)
+					listProblem(&sec, p, page, len(v.Lines), all)
 				}
 			}
 		}
 		for _, p := range extra.Problems {
 			if f, ok := dt.Field(p.Field); s.owns(p) && (!ok || !hidden(c, f)) {
 				sec.Status = wizard.Attention
-				if !slices.Contains(sec.Problems, p.Message) {
-					sec.Problems = append(sec.Problems, p.Message)
-				}
+				listProblem(&sec, p, page, len(v.Lines), all)
 			}
 		}
 		if s.Lines {
-			sec.Lines = d.lineList(r, dt, v, sv.M.StepURL(len(steps)-1))
+			sec.Lines = d.lineList(r, dt, v, page)
 		}
 		for _, name := range s.Fields {
 			if f, ok := dt.Field(name); ok && v.Display[name] != "" && !hidden(c, f) && !slices.Contains(extra.Covers, name) {
