@@ -224,7 +224,7 @@ func TestListColumns_FromListPriority(t *testing.T) {
 	want := []components.Column{
 		{Key: "amount", Label: "Amount", Priority: components.PFigure, Num: true},
 		{Key: "state", Label: "State", Priority: components.PState},
-		{Key: "order_date", Label: "Order date", Priority: components.PMeta},
+		{Key: "order_date", Label: "Order date", Priority: components.PMeta, NoWrap: true}, // R5: dates never break
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("ListColumns = %+v, want %+v", got, want)

@@ -7,6 +7,7 @@ package partyweb
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strconv"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	"github.com/vardhan/internaltools/internal/kernel/list"
 	"github.com/vardhan/internaltools/internal/masters/address"
 	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
@@ -74,6 +76,13 @@ func Routes(svc *party.Service, addresses *address.Service, env mstkit.Env, sm *
 			{Value: roleVendor, Label: "Vendor"}, {Value: roleCustomer, Label: "Customer"}, {Value: roleBoth, Label: "Both"},
 		}}},
 		Renames: map[string]string{"is_vendor": roleField, "is_customer": roleField},
+		// Rows say which party it is at a glance (shell M6, DS rule 10).
+		ListExtra: []components.Column{
+			{Key: "city", Label: "City", Priority: components.PMeta},
+			{Key: "gstin", Label: "GSTIN", Priority: components.PMeta, NoWrap: true},
+			{Key: roleField, Label: "Role", Priority: components.PMeta},
+		},
+		ListValues: rec.listValues,
 		// A vendor or customer picker adds a party and its billing address
 		// (UI v2 §5.8, CD-375).
 		Quick: &mstweb.Quick{
@@ -252,4 +261,41 @@ func addressInput(v map[string]string) address.Input {
 		IsBilling: v["is_billing"] == "1", IsShipping: v["is_shipping"] == "1",
 		PrimaryBilling: v["is_primary_billing"] == "1", PrimaryShipping: v["is_primary_shipping"] == "1",
 	}
+}
+
+// listValues is a party list row's city and GSTIN, from its primary billing
+// address when p may read addresses, and its role.
+func (s records) listValues(ctx context.Context, tx *db.Tx, p auth.Principal, row list.Row) (map[string]string, error) {
+	vendor, _ := row.Values["is_vendor"].(bool)
+	customer, _ := row.Values["is_customer"].(bool)
+	out := map[string]string{roleField: roleLabel(vendor, customer)}
+	if err := s.env.Auth.CanTx(ctx, tx, p, address.DocType, auth.RightRead, nil); err != nil {
+		if errors.Is(err, auth.ErrForbidden) {
+			return out, nil
+		}
+		return nil, err
+	}
+	addrs, err := s.addresses.ForParty(ctx, tx, row.ID, false)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range addrs {
+		if a.PrimaryBilling {
+			out["city"], out["gstin"] = a.City, a.GSTIN
+		}
+	}
+	return out, nil
+}
+
+// roleLabel is a party's role as its list row shows it.
+func roleLabel(vendor, customer bool) string {
+	switch {
+	case vendor && customer:
+		return "Vendor and customer"
+	case vendor:
+		return "Vendor"
+	case customer:
+		return "Customer"
+	}
+	return ""
 }

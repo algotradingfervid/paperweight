@@ -865,7 +865,17 @@ func datalistBody() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<h2>Inside a card</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<h2>A name, a date and a code in every order</h2>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, l := range orderLists() {
+			templ_7745c5c3_Err = components.DataList(l).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<h2>Inside a card</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -891,7 +901,7 @@ func datalistBody() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<h2>An empty list</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<h2>An empty list</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -899,7 +909,7 @@ func datalistBody() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<h2>Nothing matches</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<h2>Nothing matches</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -932,7 +942,7 @@ func linesBody() templ.Component {
 			templ_7745c5c3_Var29 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<input type=\"hidden\" id=\"doc-version\" name=\"version\" value=\"1\"><h2>Editable, 500 lines</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<input type=\"hidden\" id=\"doc-version\" name=\"version\" value=\"1\"><h2>Editable, 500 lines</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -943,7 +953,7 @@ func linesBody() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<h2>Read only, the first 20 of 500</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<h2>Read only, the first 20 of 500</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -981,7 +991,7 @@ func rowsBody() templ.Component {
 			templ_7745c5c3_Var30 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<h2>Refused, in a plain form</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<h2>Refused, in a plain form</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1018,7 +1028,7 @@ func rowsBody() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<h2>In an htmx form</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<h2>In an htmx form</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1048,7 +1058,7 @@ func rowsBody() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<h2>No rows yet</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<h2>No rows yet</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1100,20 +1110,20 @@ func gridText(v string) templ.Component {
 			templ_7745c5c3_Var34 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(v)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 210, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/gallery/pages.templ`, Line: 214, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1739,7 +1749,25 @@ func filterbarBody() templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = components.FilterBar(components.FilterBarProps{
-			Action: "/_gallery/filterbar", Search: uitest.LongName100, SearchLabel: "Search sample orders",
+			Action: "/_gallery/filterbar", Search: uitest.LongName100, SearchLabel: "Search sample orders", Placeholder: "Number, supplier or remarks",
+			Quick: []components.QuickChip{
+				{Label: "All", Href: "/_gallery/filterbar"},
+				{Label: "Draft", Href: "/_gallery/filterbar", Count: "3"},
+				{Label: "Pending approval", Href: "/_gallery/filterbar", Count: "12,34,567", Current: true},
+				{Label: "Approved", Href: "/_gallery/filterbar", Count: "99,99,999"},
+				{Label: "Rejected", Href: "/_gallery/filterbar", Count: "1"},
+				{Label: "Cancelled", Href: "/_gallery/filterbar", Count: "2"},
+			},
+			Active: 6,
+			Panel: []components.FilterGroup{
+				{Label: "State", Name: "f", Options: []components.Option{
+					{Value: "state:in:draft", Label: "Draft"}, {Value: "state:in:pending_approval", Label: "Pending approval"},
+					{Value: "state:in:approved", Label: "Approved"}, {Value: "state:in:closed", Label: "Closed"},
+				}, Checked: []string{"state:in:approved"}},
+				{Label: "Receipt", Name: "f", Options: []components.Option{
+					{Value: "receipt_status:in:none", Label: "Not received"}, {Value: "receipt_status:in:part", Label: "Part received " + uitest.LongName100},
+				}},
+			},
 			Sort: "amount.desc", Sorts: []components.Option{{Value: "amount.desc", Label: "Amount high to low"}, {Value: "amount.asc", Label: "Amount low to high"}},
 			Chips: []components.Chip{
 				{Label: "State: Approved, Pending approval", RemoveURL: "/_gallery/filterbar"},
@@ -1749,7 +1777,7 @@ func filterbarBody() templ.Component {
 				{Label: "Order date: 01-04-2026, 31-03-2027", RemoveURL: "/_gallery/filterbar"},
 				{Label: "Name: " + uitest.LongDevanagari, RemoveURL: "/_gallery/filterbar"},
 			},
-			FilterURL: "/_gallery/filterbar", ClearURL: "/_gallery/filterbar", Count: "12,34,567 sample orders",
+			ClearURL: "/_gallery/filterbar", Count: "12,34,567 sample orders",
 			New:    &components.Link{Label: "New sample order", Href: "/_gallery/wizard-1"},
 			Export: &components.Link{Label: "Export", Href: "/_gallery/filterbar"},
 		}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1838,7 +1866,7 @@ func bareBody() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"stack\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"stack\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1854,7 +1882,7 @@ func bareBody() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

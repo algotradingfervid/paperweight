@@ -26,6 +26,9 @@ templ dataList(p DataListProps, l listLayout) {
 		if l.nowrapTracks() != "" {
 			data-nowrap={ l.nowrapTracks() }
 		}
+		if l.wideTracks() != "" {
+			data-wide={ l.wideTracks() }
+		}
 	>
 		<div class="datalist-head" aria-hidden="true">
 			if l.title != nil {
@@ -76,6 +79,9 @@ templ listCard(l listLayout, r Row) {
 		<div class="datalist-r1">
 			if l.title != nil {
 				@listCell(cardCell{Column: *l.title, title: true}) {
+					if r.Code != "" {
+						<span class="datalist-code">{ r.Code }</span>{ " " }
+					}
 					{ l.titleText(r) }
 				}
 			} else {
@@ -121,7 +127,7 @@ templ listCard(l listLayout, r Row) {
 // low-priority values.
 templ listCell(c cardCell) {
 	<dl
-		class={ listCellClass(c.Column, c.title), templ.KV("datalist-nowrap", c.NoWrap), templ.KV("datalist-blank", c.blank) }
+		class={ listCellClass(c.Column, c.title), templ.KV("datalist-nowrap", c.NoWrap), templ.KV("datalist-wide", c.Wide), templ.KV("datalist-blank", c.blank) }
 		if c.Priority >= PLow {
 			data-priority="low"
 		}

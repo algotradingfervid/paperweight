@@ -187,6 +187,11 @@ type Screen[R, In any] struct {
 	// Quick is optional and lets a picker add a record without leaving its
 	// page (quick.go): POST Base/quick.
 	Quick *Quick
+	// ListExtra is optional and adds list columns the DocType doesn't
+	// declare; ListValues gives a row's text for them, in the list's read
+	// transaction, as p may see it: Party's city, GSTIN and role (R5).
+	ListExtra  []components.Column
+	ListValues func(ctx context.Context, tx *db.Tx, p auth.Principal, row list.Row) (map[string]string, error)
 }
 
 // Choice is a form-only field: its label and its options. Required only
@@ -278,6 +283,10 @@ func (s Screen[R, In]) handlers() *handlers[R, In] {
 	}
 	if s.Wizard != nil {
 		h.wiz = s.Wizard.core()
+	}
+	// The list with disabled records has the most columns, ListExtra's too.
+	if err := (components.DataListProps{Columns: h.listColumns(true)}).Validate(); err != nil {
+		panic("mstweb: " + s.DocType + ": list: " + err.Error())
 	}
 	for _, st := range slices.Concat(s.Sections, h.wiz.steps) {
 		for _, name := range st.Fields {
@@ -383,8 +392,16 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 			if err != nil {
 				return err
 			}
+			if h.ListValues != nil {
+				extra, err := h.ListValues(ctx, tx, p, lr)
+				if err != nil {
+					return err
+				}
+				maps.Copy(vals, extra)
+			}
 			off, _ := lr.Values["disabled"].(bool)
-			rows[i] = components.Row{Href: h.recordPath(lr.ID), Values: vals, State: stateOf(off)}
+			code, _ := lr.Values["code"].(string)
+			rows[i] = components.Row{Href: h.recordPath(lr.ID), Code: code, Values: vals, State: stateOf(off)}
 		}
 		return nil
 	})
@@ -399,7 +416,8 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 		Title: h.Copy.Plural,
 		Bar: components.FilterBarProps{
 			Action: h.Base, Search: q.Get("q"), SearchLabel: h.Copy.Search, New: newLink,
-			Sort: selectedSort(h.dt, q), Sorts: sortOptions(h.dt), Count: h.count(res.Total),
+			Placeholder: docscreen.SearchPlaceholder(h.dt, func(string) bool { return false }),
+			Sort:        selectedSort(h.dt, q), Sorts: sortOptions(h.dt), Count: h.count(res.Total),
 		},
 		List:  components.DataListProps{Label: h.Copy.Plural, Columns: cols, Rows: rows},
 		Pages: h.pageInfo(q, page, res.Total),
@@ -414,17 +432,30 @@ func (h *handlers[R, In]) listPage(w http.ResponseWriter, r *http.Request, p aut
 		v.Bar.Export = &components.Link{Label: "Export", Href: h.exportURL(q)}
 	}
 	if all {
-		v.Bar.Keep = []components.Param{{Name: "include_disabled", Value: "true"}}
 		v.Bar.Chips = []components.Chip{{Label: "Disabled included", RemoveURL: h.listURL(q, false)}}
 		v.Bar.ClearURL = h.Base
+		v.Bar.Active = 1
 	} else if !h.NoDisable {
 		v.ShowDisabled = &components.Link{Label: "Show disabled " + h.Copy.Noun, Href: h.listURL(q, true)}
+	}
+	if !h.NoDisable {
+		// The Filters panel holds the disabled tick, which also carries it
+		// through a search or sort, and on phones Export (UI v2 §5.12).
+		v.Bar.Panel = []components.FilterGroup{{Label: "Show", Name: "include_disabled",
+			Options: []components.Option{{Value: "true", Label: "Disabled " + h.Copy.Noun + " too"}}}}
+		if all {
+			v.Bar.Panel[0].Checked = []string{"true"}
+		}
+	} else if all {
+		v.Bar.Keep = []components.Param{{Name: "include_disabled", Value: "true"}}
 	}
 	ui.Render(w, r, http.StatusOK, listPage(v), listMain(v))
 	return nil
 }
 
-// listColumns is the list's columns. The code is in the title. The state
+// listColumns is the list's columns. The code is in the title, drawn apart
+// from the name (Row.Code, shell M6); ListExtra follows the DocType's
+// columns. The state
 // column, Enabled or Disabled, only shows when disabled records are listed
 // (all). A field of the master's own at the state's priority (Project's and
 // Employee's status, M13) is a plain column: DataList's state column would
@@ -434,6 +465,7 @@ func (h *handlers[R, In]) listColumns(all bool) []components.Column {
 	cols := slices.DeleteFunc(docscreen.ListColumns(h.dt), func(c components.Column) bool {
 		return c.Key == "code" || isDisabled(c) && !all
 	})
+	cols = append(cols, h.ListExtra...)
 	for i := range cols {
 		switch {
 		case isDisabled(cols[i]):
@@ -468,18 +500,21 @@ func (h *handlers[R, In]) query(q url.Values) (list.Query, error) {
 func (h *handlers[R, In]) cells(ctx context.Context, tx *db.Tx, lr list.Row, cols []components.Column) (map[string]string, error) {
 	vals := make(map[string]string, len(cols))
 	for _, c := range cols {
-		i := slices.IndexFunc(h.dt.Fields, func(f doctype.Field) bool { return f.Name == c.Key })
+		fd, ok := h.dt.Field(c.Key)
+		// A ListExtra column: ListValues gives it.
+		if !ok { // mutate:ok without the guard its zero Field displays "" and ListValues overwrites it
+			continue
+		}
 		v := lr.Values[c.Key]
 		if h.ZeroIsNone[c.Key] && v != nil && reflect.ValueOf(v).IsZero() {
 			v = nil
 		}
-		s, err := h.display(ctx, tx, h.dt.Fields[i], plain(v))
+		s, err := h.display(ctx, tx, fd, plain(v))
 		if err != nil {
 			return nil, err
 		}
 		vals[c.Key] = s
 	}
-	vals["name"] = title(lr)
 	return vals, nil
 }
 
@@ -644,14 +679,6 @@ func (h *handlers[R, In]) export(w http.ResponseWriter, r *http.Request, p auth.
 	w.Header().Set("Content-Disposition", `attachment; filename="`+path.Base(h.Base)+`.csv"`)
 	_, _ = w.Write(buf.Bytes()) // the client is gone; nothing can tell it
 	return nil
-}
-
-// title is a list row's "{Code} {Name}" (CD-68), or the name alone for a
-// master without a code.
-func title(lr list.Row) string {
-	code, _ := lr.Values["code"].(string)
-	name, _ := lr.Values["name"].(string)
-	return strings.TrimSpace(code + " " + name)
 }
 
 // pick is the picker search, GET /pick/{DocType}?q= (the URL

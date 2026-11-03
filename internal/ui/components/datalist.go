@@ -25,11 +25,12 @@ const (
 
 // Column is one list field. Num values are right-aligned figures; Code
 // values may break anywhere. NoWrap values (dates, codes, GSTINs) keep
-// whole tokens in aligned rows.
+// whole tokens in aligned rows. A Wide column (names) gets twice a plain
+// column's share of the row.
 type Column struct {
-	Key, Label        string
-	Priority          Priority
-	Num, Code, NoWrap bool
+	Key, Label              string
+	Priority                Priority
+	Num, Code, NoWrap, Wide bool
 }
 
 // Row is one list entry. Values are keyed by Column.Key; the PState column
@@ -38,6 +39,7 @@ type Column struct {
 // the Key of the column it comes from, which cards skip (CD-371).
 type Row struct {
 	Href, Title, Party string
+	Code               string // a master's code, drawn before the title in its own style (shell M6)
 	PartyKey           string
 	Values             map[string]string
 	State              doctype.State
@@ -139,6 +141,18 @@ func (l listLayout) tracks() int {
 // nowrapTracks is the 1-based grid tracks of the NoWrap columns, space
 // separated; the CSS gives each a minimum width that fits its value.
 func (l listLayout) nowrapTracks() string {
+	return l.tracksWhere(func(c *Column) bool { return c.NoWrap })
+}
+
+// wideTracks is the 1-based grid tracks of the Wide columns, space
+// separated; the CSS gives each 2fr.
+func (l listLayout) wideTracks() string {
+	return l.tracksWhere(func(c *Column) bool { return c.Wide })
+}
+
+// tracksWhere is the 1-based grid tracks, space separated, of the columns
+// keep reports; a missing title column still takes track 1.
+func (l listLayout) tracksWhere(keep func(*Column) bool) string {
 	cols := []*Column{l.title, l.figure}
 	for i := range l.meta {
 		cols = append(cols, &l.meta[i])
@@ -151,7 +165,7 @@ func (l listLayout) nowrapTracks() string {
 			continue
 		}
 		n++
-		if c != nil && c.NoWrap {
+		if c != nil && keep(c) {
 			tracks = append(tracks, strconv.Itoa(n))
 		}
 	}

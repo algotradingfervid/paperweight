@@ -26,7 +26,7 @@ func fields() []doctype.Field {
 		{Name: "vendor_id", Label: "Vendor", Type: doctype.Link, Link: party.DocType, System: true, ReadOnly: true, ListPriority: 4},
 		{Name: "site_id", Label: "Site", Type: doctype.Int},
 		{Name: "project_id", Label: "Project", Type: doctype.Int},
-		{Name: "receipt_date", Label: "Receipt date", Type: doctype.Date, Required: true, ListPriority: 4},
+		{Name: "receipt_date", Label: "Receipt date", Type: doctype.Date, Required: true, Sortable: true, ListPriority: 4}, // the list's sort (UX §5.1, R5)
 		{Name: "challan_kind", Label: "Document with the goods", Type: doctype.Select, Step: stepDelivery,
 			Options: []string{"Delivery challan", "Tax invoice"}},
 		{Name: "challan_no", Label: "Challan or invoice no.", Type: doctype.Text, MaxLen: 40, Step: stepDelivery, Placeholder: "e.g. DC-1042"},
