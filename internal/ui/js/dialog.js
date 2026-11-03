@@ -9,6 +9,10 @@ function openDialog(id, opener) {
   if (!dlg || typeof dlg.showModal !== "function" || dlg.open) return;
   openers.set(dlg, opener || document.activeElement);
   dlg.showModal();
+  // [data-dialog-focus] takes focus on open, where autofocus would also count
+  // on the page itself (the drawer's current item).
+  const first = dlg.querySelector("[data-dialog-focus]");
+  if (first) first.focus();
 }
 
 document.addEventListener("click", function (evt) {

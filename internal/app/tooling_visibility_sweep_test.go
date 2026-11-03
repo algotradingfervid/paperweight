@@ -171,7 +171,6 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 	const ok, see, forbidden, missing = http.StatusOK, http.StatusSeeOther, http.StatusForbidden, http.StatusNotFound
 	type st = struct{ Control, Hidden []int }
 	out := map[string]st{
-		"/": {Control: []int{see}}, // to the inbox
 		// A document page: 303 is a writer's draft going to its check step,
 		// 404 a TestOnly DocType's missing sample; a hidden record is 404.
 		"/doc/{doctype}/new":                                   {Control: []int{ok, forbidden}}, // 200: goods receipts, the only create the viewer holds
@@ -187,6 +186,7 @@ var sweepStatuses = func() map[string]struct{ Control, Hidden []int } {
 		"/m/party/{id:[1-9][0-9]*}/contacts/{row:[1-9][0-9]*}": {Control: []int{missing}},     // no contact rows
 		"/m/payment-terms/{id:[1-9][0-9]*}":                    {Control: []int{missing}},     // no rows
 		"/m/project/{id:[1-9][0-9]*}":                          {Control: []int{ok, missing}}, // 404: project B
+		"/m/import":                                            {Control: []int{see}},         // to Choose
 		"/m/import/check":                                      {Control: []int{see}},         // back to Choose
 		"/m/import/errors.csv":                                 {Control: []int{see}},
 		"/m/import/import":                                     {Control: []int{see}},
@@ -767,6 +767,14 @@ type controlExpectation struct{ url, want string }
 func (s *sweepSeed) controlExpectations() []controlExpectation {
 	var out []controlExpectation
 	add := func(u, want string) { out = append(out, controlExpectation{u, want}) }
+	inbox := 0
+	for _, r := range s.records {
+		if r.eligible {
+			inbox++
+		}
+	}
+	// Home's To approve counts only what the inbox shows the viewer.
+	add("/", strconv.Itoa(inbox)+" waiting for your approval")
 	for _, r := range s.records {
 		if r.hidden || r.buyer {
 			continue

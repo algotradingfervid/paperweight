@@ -123,6 +123,9 @@ func (a *App) routes(sm *scs.SessionManager, namer *naming.Namer) chi.Router {
 			Service: a.purchase, Approvals: a.approvals, Comments: a.comments, Sessions: sm,
 			CSRF:        func(r *http.Request) string { return authweb.CSRFToken(r.Context()) },
 			ReceiveLink: gw.ReceiveLink, // CD-283: purchase never imports goodsreceipt
+			ReceiveGoods: func(ctx context.Context, p auth.Principal) (string, bool) {
+				return listURL(goodsreceipt.DocType) + "/new", a.auth.Can(ctx, p, goodsreceipt.DocType, auth.RightCreate, nil) == nil
+			},
 			// The home asks the registered modules' Hide (CD-368 (3)); docDeps
 			// is read per call, since the Modules are set below.
 			ListHidden: func(r *http.Request, dt *doctype.DocType) func(string) bool { return a.docDeps().ListHidden(r, dt) },
@@ -381,8 +384,7 @@ func (a *App) healthz(w http.ResponseWriter, r *http.Request) {
 
 // home is the signed-in `/`: SafeNext and the header brand link land here. An
 // Administrator with no company finishes setup first; everyone else, and
-// everyone after that, goes to the inbox, which opens for every signed-in user
-// (CD-231).
+// everyone after that, gets Home (CD-231, CD-387 (1)).
 func (a *App) home(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	if slices.Contains(p.Roles, auth.RoleAdministrator) {
@@ -396,7 +398,12 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	http.Redirect(w, r, inboxPath, http.StatusSeeOther)
+	props, err := a.homeProps(r, p)
+	if err != nil {
+		a.srv.WriteError(w, r, err)
+		return
+	}
+	ui.Render(w, r, http.StatusOK, layout.ModuleHome(props), nil)
 }
 
 // exportCSV serves GET /doc/{doctype}/export.csv: no read is the read message,
@@ -444,6 +451,7 @@ func (a *App) shell(r *http.Request) ui.Shell {
 		return s
 	}
 	s.SignedIn, s.User, s.CSRF = true, p.Name, authweb.CSRFToken(ctx)
+	s.Greeting = greeting(a.cfg.Clock.Now(), p.Name)
 	nav, err := a.nav(r, p)
 	if err != nil {
 		a.logger.ErrorContext(ctx, "shell: navigation", "user", p.ID, "err", err)
@@ -513,27 +521,47 @@ var docNav = []navPlace{
 	{uom.DocType, groupMasters, "ruler", "Units", "", true},
 }
 
+// reportItems are a DocType's report pages, each guarded by read on it
+// (expenseweb's guards; the GRN entry is on read alone, CD-282 Q8), so they
+// show after it in the sidebar.
+var reportItems = map[string][]ui.NavItem{
+	goodsreceipt.DocType: {{Label: "Goods receipt reports", Href: grnReportsPath, Icon: "chart-column", Group: groupGRN}},
+	expense.ClaimDocType: {
+		{Label: "Open claims", Href: "/reports/expense/open", Icon: "indian-rupee", Group: groupExpenses},
+		{Label: "Expense lines", Href: "/reports/expense/lines", Icon: "list-filter", Group: groupExpenses},
+	},
+	expense.AdvanceDocType: {{Label: "Open advances", Href: "/reports/expense/advances", Icon: "history", Group: groupExpenses}},
+}
+
 // docNavIndex is name's index in docNav, or -1.
 func docNavIndex(name string) int {
 	return slices.IndexFunc(docNav, func(p navPlace) bool { return p.name == name })
 }
 
-// nav is p's navigation: the two approval pages, the Purchase home, one item
-// per DocType p may read in docNav's order (the GRN reports after Goods
-// Receipts; any other DocType after them, in Documents or Masters), then the
-// administrator's pages. The rights are read in one transaction, through
-// CanTx.
+// nav is p's navigation: Home, the two approval pages, the Purchase home, one
+// item per DocType p may read in docNav's order (each DocType's reports after
+// it; any other DocType after them, in Documents or Masters), then the
+// administrator's pages, with Import for anyone who may import a master. The
+// rights are read in one transaction, through CanTx.
 func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 	ctx := r.Context()
 	items := []ui.NavItem{
+		{Label: "Home", Href: homePath, Icon: "house", Group: groupWork},
 		{Label: "Approvals", Href: inboxPath, Icon: "inbox", Group: groupWork},
 		{Label: "My requests", Href: inboxPath + "/mine", Icon: "file-clock", Group: groupWork},
 	}
 	placed := make([]*ui.NavItem, len(docNav))
 	var docs, masters []ui.NavItem
-	purchases := false
+	purchases, imports := false, false
 	err := a.db.Read(ctx, func(tx *db.Tx) error {
 		for _, dt := range doctype.All() {
+			if dt.Importable && !imports {
+				err := a.auth.CanTx(ctx, tx, p, dt.Name, auth.RightImport, nil)
+				if err != nil && !errors.Is(err, auth.ErrForbidden) {
+					return err
+				}
+				imports = err == nil
+			}
 			href := listURL(dt.Name)
 			if dt.IsMaster() && !a.screens[href] {
 				continue // its screens aren't built yet
@@ -567,10 +595,7 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 	for i, it := range placed {
 		if it != nil && docNav[i].group != groupMasters {
 			items = append(items, *it)
-			if docNav[i].name == goodsreceipt.DocType {
-				// One entry for the GRN reports, on read alone (CD-282 Q8).
-				items = append(items, ui.NavItem{Label: "Goods receipt reports", Href: grnReportsPath, Icon: "chart-column", Group: groupGRN})
-			}
+			items = append(items, reportItems[docNav[i].name]...)
 		}
 	}
 	items = append(items, docs...)
@@ -580,13 +605,23 @@ func (a *App) nav(r *http.Request, p auth.Principal) ([]ui.NavItem, error) {
 		}
 	}
 	items = append(items, masters...)
-	if slices.Contains(p.Roles, auth.RoleAdministrator) {
+	admin := slices.Contains(p.Roles, auth.RoleAdministrator)
+	if admin {
 		items = append(items,
 			ui.NavItem{Label: "Users", Href: "/users", Icon: "users", Group: groupAdmin},
 			ui.NavItem{Label: "Roles", Href: "/roles", Icon: "shield", Group: groupAdmin},
 			ui.NavItem{Label: "Approval rules", Href: "/admin/approval-rules", Icon: "list-checks", Group: groupAdmin},
 			ui.NavItem{Label: "Numbering", Href: "/settings/numbering", Icon: "hash", Group: groupAdmin},
 			ui.NavItem{Label: "Business settings", Href: "/settings/business", Icon: "settings", Group: groupAdmin},
+		)
+	}
+	if imports {
+		items = append(items, ui.NavItem{Label: "Import", Href: masterPrefix + "import/choose", Icon: "file-spreadsheet", Group: groupAdmin})
+	}
+	if admin {
+		items = append(items,
+			ui.NavItem{Label: "Stuck approvals", Href: "/admin/approvals/stuck", Icon: "hourglass", Group: groupAdmin},
+			ui.NavItem{Label: "Overdue approvals", Href: "/admin/approvals/overdue", Icon: "clock", Group: groupAdmin},
 		)
 	}
 	return items, err

@@ -9,6 +9,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/ui"
 	"github.com/vardhan/internaltools/internal/ui/components"
+	"github.com/vardhan/internaltools/internal/ui/icons"
 	"github.com/vardhan/internaltools/internal/ui/layout"
 	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
@@ -29,6 +30,16 @@ func homeRows(titles ...string) components.DataListProps {
 		p.Rows = append(p.Rows, components.Row{Href: "/doc/x/" + s, Values: map[string]string{"title": s}, State: "draft"})
 	}
 	return p
+}
+
+// renderIcon is an icon's markup as goquery gives it back.
+func renderIcon(t *testing.T, name string) string {
+	t.Helper()
+	got, err := uitest.Render(t, icons.Icon(name)).Find("body").Html()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(got)
 }
 
 // h2s are the page's section headings in order.
@@ -100,8 +111,16 @@ func TestModuleHome_CaughtUp(t *testing.T) {
 	if layout.HomeCaughtUp != "You're all caught up." {
 		t.Errorf("HomeCaughtUp = %q", layout.HomeCaughtUp)
 	}
-	if got := strings.TrimSpace(d.Find("main .empty-state").Text()); got != layout.HomeCaughtUp {
+	if got := strings.TrimSpace(d.Find("main .empty-state-text").Text()); got != layout.HomeCaughtUp {
 		t.Errorf("empty state = %q, want %q", got, layout.HomeCaughtUp)
+	}
+	if got := strings.TrimSpace(d.Find("main .empty-state-line").Text()); got != "New documents and approvals will show here." {
+		t.Errorf("second line = %q", got)
+	}
+	// M11: circle-check, not the inbox the wording test passed with.
+	want := renderIcon(t, "circle-check")
+	if got, _ := d.Find("main .empty-state-icon").Html(); strings.TrimSpace(got) != want {
+		t.Errorf("icon = %q, want circle-check %q", got, want)
 	}
 	if d.Find("main a.newtile").Length() != 1 {
 		t.Error("the caught-up home has no quick action")
@@ -137,5 +156,24 @@ func TestModuleHome_CountsOrRowsAreWork(t *testing.T) {
 	d = renderHome(t, layout.HomeProps{Title: "Purchase", Waiting: homeRows("PO-1")})
 	if strings.Contains(d.Text(), layout.HomeCaughtUp) {
 		t.Error("waiting rows but the caught-up state shows")
+	}
+}
+
+// §5.12 item 1: the shell's greeting is the eyebrow right above the h1; a
+// shell without one draws none.
+func TestModuleHome_Greeting(t *testing.T) {
+	s := shell()
+	s.Greeting = "Good morning, Priya"
+	d := uitest.RenderCtx(t, ui.WithShell(context.Background(), s), layout.ModuleHome(layout.HomeProps{Title: "Purchase"}))
+	if got := strings.TrimSpace(d.Find("main h1").Prev().Filter("p.eyebrow").Text()); got != s.Greeting {
+		t.Errorf("eyebrow above the h1 = %q", got)
+	}
+	if n := renderHome(t, layout.HomeProps{Title: "Purchase"}).Find("p.eyebrow").Length(); n != 0 {
+		t.Errorf("%d eyebrows with no greeting", n)
+	}
+	// A problem page has no eyebrow.
+	d = render(t, s, layout.PageOpts{Title: "T", Eyebrow: "E"})
+	if got := strings.TrimSpace(d.Find("main p.eyebrow").Text()); got != "E" {
+		t.Errorf("PageOpts.Eyebrow = %q", got)
 	}
 }

@@ -24,10 +24,7 @@ templ header(o PageOpts, s ui.Shell) {
 				@icons.Icon("menu")
 			</button>
 		}
-		<a class="brand" href="/">
-			<img class="brand-logo" src={ brand.AppLogoURL } width={ strconv.Itoa(brand.AppLogoWidth) } height={ strconv.Itoa(brand.AppLogoHeight) } alt=""/>
-			<span class="brand-name truncate">{ s.AppName }</span>
-		</a>
+		@brandLink(s)
 		if s.SignedIn && !o.Bare {
 			<form class="header-search" role="search" method="get" action="/search">
 				@icons.Icon("search")
@@ -72,4 +69,12 @@ templ header(o PageOpts, s ui.Shell) {
 			}
 		</div>
 	</header>
+}
+
+// brandLink is the logo and the app name, linking Home.
+templ brandLink(s ui.Shell) {
+	<a class="brand" href="/">
+		<img class="brand-logo" src={ brand.AppLogoURL } width={ strconv.Itoa(brand.AppLogoWidth) } height={ strconv.Itoa(brand.AppLogoHeight) } alt=""/>
+		<span class="brand-name truncate">{ s.AppName }</span>
+	</a>
 }

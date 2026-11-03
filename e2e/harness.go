@@ -354,7 +354,7 @@ func (h *Harness) SignIn(email string, width int64) *Session {
 	s.Fill("email", email)
 	s.Fill("password", password)
 	s.Press("Sign in")
-	s.Until("the signed-in landing page", `location.pathname === "/approvals"`)
+	s.Until("the signed-in landing page", `location.pathname === "/"`)
 	return s
 }
 
