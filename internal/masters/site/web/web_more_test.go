@@ -24,7 +24,7 @@ const (
 	msgNoProject = "Project not found. Pick one from the list."
 	// The service's refusal of a restricted user's create (CD-172).
 	msgRestricted = "You can only work with your assigned sites. Ask your administrator to add this site."
-	msgNoCode     = "Code is required. Enter a short code such as SHREE."
+	msgNoCode     = "Code is required. Enter a short code such as PUNE-WH."
 )
 
 // restrictPriya gives Priya rights on Site and restricts her to site id, on

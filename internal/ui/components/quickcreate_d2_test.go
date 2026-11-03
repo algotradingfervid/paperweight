@@ -14,8 +14,8 @@ import (
 
 // No case ID: UI v2 D2 (§5.8, N10, CD-375). A picker search that may add a
 // record ends with one more option, "New vendor "{q}"", which opens the
-// quick-create sheet; the sheet arrives out of band in the picker's own slot,
-// outside the search, so it stays visible when the search hides.
+// quick-create sheet; the sheet travels inert in that option, so no answer
+// touches the picker's slot, which combobox.js writes only when New is pressed.
 
 func quickSheet() templ.Component {
 	return components.QuickCreate(components.QuickCreateProps{
@@ -28,13 +28,13 @@ func quickSheet() templ.Component {
 
 func TestPickerResultsNew_CreateOption(t *testing.T) {
 	rows := []components.PickRow{{ID: 7, Code: "SAI", Name: "Sai Steel"}}
-	doc := uitest.Render(t, components.PickerResultsNew("f-vendor_id-list", rows, "sai", components.PickNew{Noun: "vendor", Sheet: quickSheet()}))
+	doc := uitest.Render(t, components.PickerResultsNew("f-vendor_id-list", rows, "sai", components.PickNew{Noun: components.Noun{One: "vendor", Many: "vendors"}, Sheet: quickSheet()}))
 	opts := doc.Find(`[role="option"]`)
 	if opts.Length() != 2 {
 		t.Fatalf("%d options, want the row and the create option", opts.Length())
 	}
 	last := opts.Last()
-	if got := text(last); got != `New vendor "sai"` {
+	if got := text(last.ChildrenFiltered("span")); got != `New vendor "sai"` {
 		t.Errorf("create option text = %q, want %q", got, `New vendor "sai"`)
 	}
 	if got := last.AttrOr("data-quick", ""); got != "f-vendor_id-list-sheet" {
@@ -46,25 +46,20 @@ func TestPickerResultsNew_CreateOption(t *testing.T) {
 	if _, ok := last.Attr("data-value"); ok {
 		t.Error("the create option carries data-value, so choosing it would post a value")
 	}
-	if last.Find(`svg.icon`).Length() != 1 {
+	if !last.Children().First().Is(`svg.icon`) {
 		t.Error("the create option has no plus icon")
 	}
-	slot := doc.Find(`#f-vendor_id-list-quick`)
-	if got := slot.AttrOr("hx-swap-oob", ""); got != "innerHTML" {
-		t.Errorf("sheet slot hx-swap-oob = %q, want innerHTML (the slot keeps its hx-vals)", got)
+	if doc.Find(`[hx-swap-oob]:not(#f-vendor_id-list-count)`).Length() != 0 || doc.Find(`#f-vendor_id-list-quick`).Length() != 0 {
+		t.Error("the answer reaches the quick slot, so a late one can close an open sheet")
 	}
-	if slot.Find(`dialog#f-vendor_id-list-sheet`).Length() != 1 {
-		t.Error("the sheet isn't in the out-of-band slot")
-	}
-	if slot.Closest(`[role="listbox"], ul`).Length() != 0 {
-		t.Error("the sheet slot sits inside the listbox")
+	if last.Find(`template dialog#f-vendor_id-list-sheet`).Length() != 1 {
+		t.Error("the sheet isn't inert in the New option")
 	}
 }
 
-// No match with create: §5.8's empty state and the create option; without
-// create the search keeps "No matches".
+// No match with create: §5.8's empty state and the create option.
 func TestPickerResultsNew_EmptyState(t *testing.T) {
-	doc := uitest.Render(t, components.PickerResultsNew("f-vendor_id-list", nil, "Sai Krupa Sand Suppliers", components.PickNew{Noun: "vendor", Sheet: quickSheet()}))
+	doc := uitest.Render(t, components.PickerResultsNew("f-vendor_id-list", nil, "Sai Krupa Sand Suppliers", components.PickNew{Noun: components.Noun{One: "vendor", Many: "vendors"}, Sheet: quickSheet()}))
 	empty := doc.Find(`.picker__empty`)
 	if got := empty.AttrOr("aria-disabled", ""); got != "true" {
 		t.Errorf("empty state aria-disabled = %q, want true", got)
@@ -78,18 +73,21 @@ func TestPickerResultsNew_EmptyState(t *testing.T) {
 	if empty.Find(`.picker__empty-icon svg.icon`).Length() != 1 {
 		t.Error("the empty state has no search icon")
 	}
-	if got := text(doc.Find(`[data-quick]`)); got != `New vendor "Sai Krupa Sand Suppliers"` {
+	if got := text(doc.Find(`[data-quick] > span`)); got != `New vendor "Sai Krupa Sand Suppliers"` {
 		t.Errorf("create option = %q", got)
 	}
-	if doc.Find(`:contains("No matches for")`).Length() != 0 {
-		t.Error("the plain No matches row shows beside the empty state")
+	if n := doc.Find(`[role="option"][aria-disabled="true"]`).Length(); n != 1 {
+		t.Errorf("%d disabled options, want only the empty state", n)
 	}
-	blank := uitest.Render(t, components.PickerResultsNew("f-vendor_id-list", nil, "  ", components.PickNew{Noun: "vendor", Sheet: quickSheet()}))
-	if got := text(blank.Find(`[data-quick]`)); got != "New vendor" {
+	blank := uitest.Render(t, components.PickerResultsNew("f-vendor_id-list", nil, "  ", components.PickNew{Noun: components.Noun{One: "vendor", Many: "vendors"}, Sheet: quickSheet()}))
+	if got := text(blank.Find(`[data-quick] > span`)); got != "New vendor" {
 		t.Errorf("create option for a blank search = %q, want New vendor", got)
 	}
-	if got := text(blank.Find(`.picker__empty-text`)); got != "No vendor matches" {
-		t.Errorf("empty heading for a blank search = %q, want No vendor matches", got)
+	if got := text(blank.Find(`.picker__empty-text`)); got != "No vendor to choose from yet." {
+		t.Errorf("empty heading for a blank search = %q", got)
+	}
+	if got := text(blank.Find(`.picker__empty-line`)); got != "Add one now. You'll come straight back here." {
+		t.Errorf("empty line for a blank search = %q", got)
 	}
 }
 

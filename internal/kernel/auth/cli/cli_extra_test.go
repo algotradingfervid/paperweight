@@ -74,3 +74,18 @@ func TestUserDisable(t *testing.T) {
 		t.Errorf("UserDisable unknown email = %v, want auth.ErrNotFound", err)
 	}
 }
+
+// A blank --name is refused with the name's text and creates nobody.
+func TestAdminCreate_BlankName(t *testing.T) {
+	ctx := context.Background()
+	d := testkit.NewDB(t)
+	a := auth.New(auth.Deps{DB: d, Clock: clock.NewFixed(authtest.T0), Directory: authfake.NewDirectory(), Audit: auditfake.New()})
+	var out bytes.Buffer
+	err := cli.AdminCreate(ctx, a, []string{"--email", "admin@vardhan.test", "--name", " "}, strings.NewReader("Correct-Horse-42\nCorrect-Horse-42\n"), &out)
+	if !errors.Is(err, auth.ErrNameRequired) || err.Error() != "Name is required." {
+		t.Fatalf("AdminCreate with a blank name = %v", err)
+	}
+	if done, err := a.SetupDone(ctx); err != nil || done {
+		t.Errorf("SetupDone = %v, %v; want no user", done, err)
+	}
+}

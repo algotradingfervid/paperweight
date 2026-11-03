@@ -1,12 +1,15 @@
 package layout
 
-import "github.com/vardhan/internaltools/internal/ui/components"
+import (
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
 
-// ModuleHome is the page: the counts, then work (waiting, recent) beside the
-// quick actions and Side from 64rem. With nothing waiting, Waiting for you
-// shows HomeCaughtUp and the quick actions stay.
+// ModuleHome is the page: the greeting, the counts, then work (waiting,
+// recent) beside the quick actions and Side from 64rem. With nothing waiting,
+// Waiting for you shows HomeCaughtUp and the quick actions stay.
 templ ModuleHome(p HomeProps) {
-	@Page(PageOpts{Title: p.Title}) {
+	@Page(PageOpts{Title: p.Title, Eyebrow: ui.ShellFrom(ctx).Greeting}) {
 		@HomeBody(p)
 	}
 }
@@ -27,7 +30,7 @@ templ HomeBody(p HomeProps) {
 		<div class="homegrid-col">
 			if p.caughtUp() {
 				@homeSection(homeWaitingTitle, nil) {
-					@components.EmptyState(HomeCaughtUp, nil)
+					@components.AllDone(HomeCaughtUp, HomeCaughtUpLine)
 				}
 			} else if len(p.Waiting.Rows) > 0 {
 				@homeSection(homeWaitingTitle, p.WaitingAll) {

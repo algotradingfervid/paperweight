@@ -38,8 +38,8 @@ func init() {
 		SearchFields: []string{"name"},
 		DefaultSort:  []doctype.SortKey{{Field: "name"}},
 		Fields: []doctype.Field{
-			{Name: "name", Label: "Legal name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1},
-			{Name: "pan", Label: "PAN", Column: "pan", Type: doctype.Text, Required: true, MaxLen: 10},
+			{Name: "name", Label: "Legal name", Column: "name", Type: doctype.Text, Required: true, ListPriority: 1, Placeholder: "e.g. Vardhan Infra Projects Pvt Ltd", Hint: "Exactly as on your GST certificate. Vendors see it on orders."},
+			{Name: "pan", Label: "PAN", Column: "pan", Type: doctype.Text, Required: true, MaxLen: 10, Placeholder: "e.g. AAFCV2449G", Hint: "Every branch GSTIN must carry this PAN."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, ListPriority: 3},
 		},
 	}, mstkit.StandardLookup(CompanyKind))

@@ -1,5 +1,7 @@
 package purchaseweb
 
+import "github.com/vardhan/internaltools/internal/ui/layout"
+
 // The module pages' words (UX §5.1, §5.2, §5.12, §5.13, §5.19, §5.20,
 // approved in CD-258).
 const (
@@ -16,9 +18,9 @@ const (
 	newOrderLabel   = "New purchase order"
 	newReqLabel     = "New purchase request"
 	waitingLabel    = "Waiting for you"
-	waitingWhy      = "Needs your approval"
-	metaChanges     = "Needs changes"
-	metaNotSent     = "Not sent to the vendor yet"
+	waitingWhy      = layout.HomeWhyApproval
+	metaChanges     = layout.HomeWhyChanges
+	metaNotSent     = layout.HomeWhyNotSent
 	seeAllLabel     = "See all %d"
 	recentDocsLabel = "Your recent documents"
 	allOrdersLabel  = "All purchase orders"

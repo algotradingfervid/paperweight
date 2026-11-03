@@ -24,7 +24,7 @@ const (
 	addrLine1Msg = "Address line 1 is required."
 	addrCityMsg  = "City is required."
 	addrStateMsg = "State is required for an Indian address."
-	addrTypeMsg  = "Tick Billing, Shipping or both."
+	addrTypeMsg  = "Turn on Billing, Shipping or both."
 	addrPinMsg   = "Pincode must be 6 digits and can't start with 0."
 	addrOwnerMsg = "An address must belong to one party or one branch."
 )

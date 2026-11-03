@@ -27,7 +27,7 @@ func Routes(svc *project.Service, env mstkit.Env) func(chi.Router) {
 		Base:    "/m/project",
 		Copy: mstweb.Copy{
 			Plural: "Projects", Noun: "projects", One: "project", New: "New project",
-			Search: "Search projects", Empty: "No projects yet.",
+			Search: "Search projects", Empty: "No projects yet.", Icon: "folder-kanban",
 			Saved: "Project saved.", Disabled: "Project disabled.", Enabled: "Project enabled.", Deleted: "Project deleted.",
 		},
 		Svc:       svc,
@@ -39,6 +39,11 @@ func Routes(svc *project.Service, env mstkit.Env) func(chi.Router) {
 		Ref:       ref,
 		CanCreate: svc.CheckUnrestricted,
 		Defaults:  map[string]string{"status": string(project.Open)}, // MST-101
+		Cards: []mstweb.FormCard{
+			{Title: "Project details", Icon: "folder-kanban", Description: "How the project appears in pickers and on orders.", Fields: []string{"code", "name", "status"}},
+			{Title: "Branch and customer", Icon: "handshake", Description: "Who runs the work and who it is for.", Fields: []string{"branch_id", "customer_id"}},
+			{Title: "Dates", Icon: "calendar", Description: "When the work starts and ends.", Fields: []string{"start_date", "end_date"}},
+		},
 	}.Routes()
 }
 

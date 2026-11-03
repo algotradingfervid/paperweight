@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,7 +32,7 @@ type Saved struct {
 var codePattern = regexp.MustCompile(`^[A-Z0-9][A-Z0-9._/-]{0,19}$`)
 
 const (
-	msgCodeRequired    = "Code is required. Enter a short code such as SHREE."
+	msgCodeRequired    = "Code is required. Enter a short code such as %s."
 	msgCodeFormat      = "Code can use letters, digits and . _ / - only, must start with a letter or digit, and be at most 20 characters."
 	msgNameRequired    = "Name is required."
 	msgCodeChange      = "Only a Masters Manager can change a code."
@@ -45,9 +46,15 @@ const (
 // NormalizeCode trims and upper-cases raw and checks its format (MST-001,
 // MST-002, MST-004).
 func NormalizeCode(raw string) (string, error) {
+	return NormalizeCodeLike(raw, "SHREE")
+}
+
+// NormalizeCodeLike is NormalizeCode for a master whose codes look like
+// example, which the refusal of a blank code names.
+func NormalizeCodeLike(raw, example string) (string, error) {
 	code := strings.ToUpper(strings.TrimSpace(raw))
 	if code == "" {
-		return "", fieldError("code", msgCodeRequired)
+		return "", fieldError("code", fmt.Sprintf(msgCodeRequired, example))
 	}
 	if !codePattern.MatchString(code) {
 		return "", fieldError("code", msgCodeFormat)

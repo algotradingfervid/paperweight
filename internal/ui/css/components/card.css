@@ -44,3 +44,68 @@
   border: var(--border-w) solid var(--color-border-subtle);
   box-shadow: var(--shadow-card);
 }
+
+/* GRN Quantities (CD-387 (7), review H5): compact cards, at least three on a
+   360 x 664 phone. The cards sit close but never touch. */
+@utility qty-lines {
+  display: grid;
+  gap: var(--space-2);
+  & > * { min-inline-size: 0; }
+}
+
+@utility qty-line {
+  position: relative;
+  & .card-body { gap: 0; padding: var(--space-2) var(--space-3); }
+  /* The title stops short of the corner's Some rejected (qty-line__reject),
+     its text at 14 px and the arrow's room. */
+  & .card-head { padding-inline-end: calc(8.25rem - var(--space-3)); }
+  & .card-title { font-size: var(--text-base); line-height: var(--space-6); }
+  & .fieldset { padding-block: 0; gap: 0; }
+  & .field__label { padding-block: 0; line-height: var(--space-6); }
+  /* The ruling above drops the reserved line here: no room until an error needs it. */
+  & .field:has([hx-post^="/ui/validate/"]) > .field__msg:empty { display: none; }
+}
+
+/* The code and the hint, one block; they share a line when both fit. */
+@utility qty-line__item {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-3);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--space-5);
+}
+
+/* The Disclosure with its summary a quiet text button in the card's corner:
+   the summary leaves the flow, and the open fields stay under the input. */
+@utility qty-line__reject {
+  & > .disclosure {
+    display: block;
+    position: static;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  & > .disclosure > summary {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    display: flex;
+    align-items: center;
+    inline-size: max-content;
+    min-block-size: var(--target-min);
+    padding-block: 0;
+    padding-inline: var(--space-1) 1.75rem; /* the room daisyUI's arrow takes */
+    color: var(--color-primary-700);
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+  /* daisyUI rings the details, now a box 0 px tall: ring the summary instead,
+     inside its own box, as the card's corner leaves no room outside it. */
+  & > .disclosure:has(> summary:focus-visible) { outline: none; }
+  & > .disclosure > summary:focus-visible { outline: var(--focus-ring); outline-offset: calc(-1 * var(--focus-ring-w)); }
+  & > .disclosure > .collapse-content { padding: var(--space-2) 0 0; }
+  & > .disclosure:not([open]) > .collapse-content { display: none; }
+}

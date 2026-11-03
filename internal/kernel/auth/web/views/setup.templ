@@ -10,15 +10,31 @@ func (Default) Setup(p authweb.SetupPage) templ.Component {
 	return setup(p)
 }
 
+// setupNameError is the Name field's error, when Error is about the name.
+func setupNameError(p authweb.SetupPage) string {
+	if p.NameError {
+		return p.Error
+	}
+	return ""
+}
+
+// setupErrorField is the field the summary links to.
+func setupErrorField(p authweb.SetupPage) string {
+	if p.NameError {
+		return components.FieldID("name")
+	}
+	return components.FieldID("email")
+}
+
 // setup is the first-administrator form; the password rules come before the
 // fields.
 templ setup(p authweb.SetupPage) {
-	@page(uilayout.PageOpts{Title: "Set up", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, components.FieldID("email"), p.Warnings) {
+	@page(uilayout.PageOpts{Title: "Set up", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, setupErrorField(p), p.Warnings) {
 		@components.Form(components.FormProps{Action: "/setup", CSRF: p.CSRF}) {
 			<div class="stack">
 				@passwordRules(false)
 				@components.EmailInput(components.FieldProps{ID: components.FieldID("email"), Name: "email", Label: "Email", Value: p.Email, Attrs: required}, "username")
-				@components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "Name", Value: p.Name, Attrs: required})
+				@components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "Name", Value: p.Name, Error: setupNameError(p), Attrs: required})
 				@components.PasswordInput(components.FieldProps{ID: components.FieldID("password"), Name: "password", Label: "Password", Attrs: required}, "new-password")
 				@components.Button(components.ButtonProps{Label: "Create administrator", Busy: "Creating…", Variant: components.Primary})
 			</div>

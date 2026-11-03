@@ -17,16 +17,40 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-surface);
+    border: var(--border-w) solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  /* The 36 px monogram of a chosen value and of a row. */
+  & .picker__tile {
+    display: grid;
+    flex: none;
+    place-items: center;
+    inline-size: calc(var(--space-6) + var(--space-3));
+    block-size: calc(var(--space-6) + var(--space-3));
+    border-radius: var(--radius-md);
+    background: var(--color-primary-50);
+    color: var(--color-primary-800);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    &:empty { display: none; }
+  }
+  /* Beside the tile; in a narrow cell it keeps the row, and Change wraps. */
+  & .picker__picked {
+    flex: 1 1 min(10rem, calc(100% - var(--space-6) - var(--space-3) - var(--space-2)));
+    min-inline-size: 0;
   }
   & .picker__summary {
-    flex: 1 1 0;
-    min-inline-size: 0;
     margin: 0;
     font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
     overflow-wrap: anywhere;
   }
+  & .picker__picked .picker__line { margin: 0; overflow-wrap: anywhere; }
+  & .picker__picked .picker__line:empty { display: none; }
   /* Two buttons leave a phone's summary too narrow, so they go under it. */
-  & .picker__chosen:has([data-picker-clear]) .picker__summary { flex-basis: 100%; }
+  & .picker__chosen:has([data-picker-clear]) .picker__picked { flex-basis: calc(100% - var(--space-6) - var(--space-3) - var(--space-2)); }
   & .picker__search {
     position: relative;
     display: grid;
@@ -85,6 +109,26 @@
     overflow-wrap: anywhere;
     cursor: pointer;
   }
+  /* A row: the tile beside the name, the code and line under the name. */
+  & .picker__option:has(> .picker__tile) {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--space-3);
+    min-block-size: calc(var(--space-12) + var(--space-3)); /* 60 px */
+  }
+  & .picker__text { min-inline-size: 0; }
+  & .picker__name { font-weight: var(--weight-semibold); }
+  & .picker__sub { display: flex; flex-wrap: wrap; column-gap: var(--space-1); }
+  & .picker__sub .picker__line::before { content: "· "; }
+  /* The count's live region sits between the box and the list; empty, it
+     takes no room. Only the phone sheet shows it: from 48rem the list drops
+     down over the page, so the count is read out but not drawn. */
+  & .picker__count {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+  }
+  & .picker__search:not([data-open]) .picker__count { display: none; }
   & .picker__option + .picker__option { border-block-start: var(--border-w) solid var(--color-border-subtle); }
   & .picker__options {
     margin: 0;
@@ -165,7 +209,7 @@
     position: fixed;
     inset: 0;
     z-index: var(--z-overlay);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     align-content: start;
     padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right)) calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
     background: var(--color-surface);
@@ -173,7 +217,7 @@
   }
   & .picker__search[data-open] [data-picker-close] { display: inline-flex; }
   @media (min-width: 48rem) {
-    & .picker__chosen:has([data-picker-clear]) .picker__summary { flex-basis: 0; }
+    & .picker__chosen:has([data-picker-clear]) .picker__picked { flex-basis: min(10rem, calc(100% - var(--space-6) - var(--space-3) - var(--space-2))); }
     & .picker__search[data-open] {
       position: relative;
       inset: auto;
@@ -184,6 +228,7 @@
       box-shadow: none;
     }
     & .picker__search[data-open] [data-picker-close] { display: none; }
+    & .picker__count { @apply visually-hidden; }
     & .picker__list {
       position: absolute;
       inset-inline: 0;

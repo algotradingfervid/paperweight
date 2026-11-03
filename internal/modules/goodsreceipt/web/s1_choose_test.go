@@ -11,6 +11,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
+	"github.com/vardhan/internaltools/internal/kernel/doc"
 	"github.com/vardhan/internaltools/internal/modules/goodsreceipt"
 	"github.com/vardhan/internaltools/internal/types"
 )
@@ -77,8 +78,9 @@ func TestGRNWeb_ChoosePOHintUnrestricted(t *testing.T) {
 	}
 }
 
-// GUX-002 (GRN-001): up to 6 POs are radios; 7 are a select named
-// purchase_order_id, a blank first option (no guessed default), then each
+// GUX-002 (GRN-001, GRN review M5): up to 6 POs are radios; 7 are a select
+// named purchase_order_id, a "Choose an order" prompt posting nothing (no
+// guessed default), then each
 // PO in vendor-name then PO-number order, labelled with PO, vendor, site and
 // pending lines. Vendors cycle, so that order differs from id order.
 func TestGRNWeb_ChoosePOSelect(t *testing.T) {
@@ -91,6 +93,9 @@ func TestGRNWeb_ChoosePOSelect(t *testing.T) {
 	if got := r.radios("purchase_order_id"); len(got) != 6 || r.doc.Find("select").Length() != 0 {
 		t.Fatalf("6 POs: %d radios and %d selects, want 6 radios", len(got), r.doc.Find("select").Length())
 	}
+	if n := r.doc.Find(`[name="purchase_order_id"][hx-get]`).Length(); n != 0 || strings.TrimSpace(r.doc.Find("#f-purchase_order_id-msg").Text()) != "" {
+		t.Errorf("6 POs: %d radios fetch an echo, echo %q; want neither", n, r.doc.Find("#f-purchase_order_id-msg").Text())
+	}
 
 	w.po("SHREE", "10")
 	r = w.get(w.Suresh, s1New)
@@ -101,7 +106,7 @@ func TestGRNWeb_ChoosePOSelect(t *testing.T) {
 	r.doc.Find(`select[name="purchase_order_id"] option`).Each(func(_ int, s *goquery.Selection) {
 		got = append(got, s.Text())
 	})
-	want := []string{""}
+	want := []string{"Choose an order"}
 	for _, v := range []struct{ name, nos string }{
 		{"Bharat Tools", "2 5"}, {"Rajkot Castings", "3 6"}, {"Shree Steel Traders", "1 4 7"},
 	} {
@@ -395,5 +400,69 @@ func TestGRNWeb_ChoosePODraftWithoutLines(t *testing.T) {
 	g := w.Load(t, goodsreceipt.DocType, id)
 	if g.Header["purchase_order_id"] != next.ID || len(g.Lines) != 2 {
 		t.Errorf("after choosing: PO %v with %d lines, want %d with 2", g.Header["purchase_order_id"], len(g.Lines), next.ID)
+	}
+}
+
+// GRN review M5: the Select's echo under it says the chosen order's vendor,
+// site and pending lines, which the Select's own text cuts on a phone. With
+// nothing chosen (no ?po=) nothing is selected and the echo is empty. On
+// change the Select asks the step page for its order and keeps only the echo
+// region; an id the list doesn't hold echoes nothing.
+func TestGRNWeb_ChoosePOSelectEcho(t *testing.T) {
+	w := newS1World(t)
+	vendors := []string{"SHREE", "BHARAT", "RAJKOT"}
+	var pos []doc.Doc
+	for i := range 12 {
+		pos = append(pos, w.po(vendors[i%3], "10"))
+	}
+	msg := "#f-purchase_order_id-msg"
+	r := w.get(w.Suresh, s1New)
+	sel := r.doc.Find(`select[name="purchase_order_id"]`)
+	if sel.Length() != 1 {
+		t.Fatalf("12 POs: %d selects", sel.Length())
+	}
+	if got := sel.Find("option[selected]"); got.Length() > 1 || got.AttrOr("value", "") != "" {
+		t.Errorf("selected with nothing chosen = %q, want only the prompt", got.AttrOr("value", ""))
+	}
+	if got := sel.Find("option").First().AttrOr("value", "x"); got != "" {
+		t.Errorf("prompt value = %q, want blank", got)
+	}
+	if got := strings.TrimSpace(r.doc.Find(msg).Text()); got != "" {
+		t.Errorf("echo with nothing chosen = %q", got)
+	}
+	for attr, want := range map[string]string{"hx-get": s1New, "hx-trigger": "change", "hx-target": msg, "hx-select": msg, "hx-swap": "outerHTML"} {
+		if got := sel.AttrOr(attr, ""); got != want {
+			t.Errorf("select %s = %q, want %q", attr, got, want)
+		}
+	}
+	if got := sel.AttrOr("aria-describedby", ""); !strings.Contains(got, "f-purchase_order_id-msg") {
+		t.Errorf("aria-describedby = %q, want the echo named", got)
+	}
+
+	chosen := pos[11] // RAJKOT; an id of two digits, so no prefix of it matches another
+	if chosen.ID < 11 {
+		t.Fatalf("chosen order id %d, want 11 or more", chosen.ID)
+	}
+	id := strconv.FormatInt(chosen.ID, 10)
+	r = w.get(w.Suresh, s1New+"?purchase_order_id="+id)
+	if got := strings.Join(strings.Fields(r.doc.Find(msg).Text()), " "); got != "Rajkot Castings · METRO-SITE · 1 of 1 line pending" {
+		t.Errorf("echo = %q", got)
+	}
+	if got := r.doc.Find(`select[name="purchase_order_id"] option[selected]`).AttrOr("value", ""); got != id {
+		t.Errorf("selected = %q, want %s", got, id)
+	}
+	r = w.get(w.Suresh, s1New+"?purchase_order_id=999999")
+	if got := strings.TrimSpace(r.doc.Find(msg).Text()); got != "" {
+		t.Errorf("echo for an order not listed = %q", got)
+	}
+
+	// ?po= preselects with its echo; widened lists keep all=1 in the fetch.
+	r = w.get(w.Suresh, s1New+"?po="+id)
+	if got := strings.Join(strings.Fields(r.doc.Find(msg).Text()), " "); got != "Rajkot Castings · METRO-SITE · 1 of 1 line pending" {
+		t.Errorf("?po= echo = %q", got)
+	}
+	r = w.get(w.Suresh, s1New+"?all=1")
+	if got := r.doc.Find(`select[name="purchase_order_id"]`).AttrOr("hx-get", ""); got != s1New+"?all=1" {
+		t.Errorf("widened hx-get = %q", got)
 	}
 }

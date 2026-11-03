@@ -1270,7 +1270,7 @@ func pickerQuickResults(q string) templ.Component {
 			templ_7745c5c3_Var39 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = components.PickerResultsNew(quickList, search(q), q, components.PickNew{Noun: "vendor", Sheet: quickSheet(q, "")}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.PickerResultsNew(quickList, search(q), q, components.PickNew{Noun: vendorNoun, Sheet: quickSheet(q, "")}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1334,7 +1334,6 @@ func quickSheet(name, line1Err string) templ.Component {
 			ListboxID: quickList, Title: "New vendor", Icon: "user-plus", Action: "/_gallery/upload", Role: "vendor",
 			Line: "Just enough to raise this order. Add contacts and more addresses later in Parties.",
 			Inputs: []templ.Component{
-				components.TextInput(components.FieldProps{ID: "f-quick_code", Name: "quick_code", Label: "Code", Required: true, Value: "SAIKRUPA", Hint: "Suggested from the name. You can change it."}),
 				components.TextInput(components.FieldProps{ID: "f-quick_name", Name: "quick_name", Label: "Name", Required: true, Value: name}),
 				components.TextInput(components.FieldProps{ID: "f-quick_line1", Name: "quick_line1", Label: "Address line 1", Required: true, Hint: "Saved as their billing address.", Error: line1Err}),
 				components.TextInput(components.FieldProps{ID: "f-quick_city", Name: "quick_city", Label: "City", Required: true}),
@@ -1368,7 +1367,7 @@ func pickerResults(listboxID, q string) templ.Component {
 			templ_7745c5c3_Var42 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = components.PickerResults(listboxID, search(q), q).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.PickerResults(listboxID, search(q), q, components.Noun{One: "item", Many: "items"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

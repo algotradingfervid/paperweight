@@ -23,7 +23,8 @@
   & > .btn { flex: 0 0 auto; min-block-size: var(--target-primary); }
   & > .btn--primary { flex: 1 1 auto; }
   & > .btn:not(.btn--primary) { order: -1; }
-  & .actionbar-note { margin: 0; flex: 1 1 100%; color: var(--color-text-secondary); }
+  & > [data-open-dialog]:only-child { flex: 1 1 auto; }
+  & .actionbar-note { order: -2; margin: 0; flex: 1 1 100%; color: var(--color-text-secondary); }
   /* Static while uibrowser.Axe runs (data-axe on html, CD-344 (3)). */
   :root[data-axe] & { position: static; }
   @media (min-width: 64rem) {
@@ -36,6 +37,7 @@
     box-shadow: var(--shadow-card), var(--shadow-raised);
     & > .btn--primary { flex: 0 0 auto; min-inline-size: min(100%, 14rem); }
     & > .btn:not(.btn--primary) { margin-inline-end: auto; }
+    & > [data-open-dialog]:not(.btn--primary) { margin-inline-end: 0; }
   }
 }
 /* The footer's summary row (A-22, CD-378 (2)): one line at every width
@@ -67,7 +69,16 @@
   display: grid;
   gap: var(--space-2);
   & h2 { margin: 0; font-size: var(--h3); }
-  & .more-actions-items { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+}
+@utility more-actions-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  .dialog & { flex-direction: column; margin-block-start: var(--space-3); }
+  .dialog & :is(.btn, form) { inline-size: 100%; }
 }
 @utility enter-submit {
   inline-size: 0;

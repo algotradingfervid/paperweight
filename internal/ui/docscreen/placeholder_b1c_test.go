@@ -42,7 +42,7 @@ func b1cPlaceholders(t *testing.T, f doctype.Field) []string {
 }
 
 // Field.Placeholder reaches the input of every control kind but Date, and a Link's
-// Picker search box in place of "Type to search" (CD-370, UI v2 §5.5 item 5,
+// Picker search box in place of "Name or code" (CD-370, UI v2 §5.5 item 5,
 // §5.8).
 func TestFieldInput_Placeholder(t *testing.T) {
 	for _, f := range b1cFields {
@@ -80,12 +80,12 @@ func TestFieldInput_PlaceholderChosenLink(t *testing.T) {
 
 // Without a Placeholder each control keeps what it showed before: none on
 // the text and number controls (no empty attribute), dd-mm-yyyy on a Date, and
-// "Type to search" on a Link; a Money shows 0.00 (UI v2 §5.5 item 5, B1d).
+// "Name or code" on a Link; a Money shows 0.00 (UI v2 §5.5 item 5, B1d).
 func TestFieldInput_NoPlaceholder(t *testing.T) {
 	want := map[doctype.FieldType][]string{
 		doctype.Money: {"0.00"},
 		doctype.Date:  {"dd-mm-yyyy"},
-		doctype.Link:  {"Type to search"},
+		doctype.Link:  {"Name or code"},
 	}
 	for _, f := range b1cFields {
 		got := b1cPlaceholders(t, f)

@@ -35,10 +35,10 @@ func init() {
 		Table:       Kind.Table,
 		Importable:  true,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
-			{Name: "default_hsn_sac", Label: "Default HSN/SAC", Column: "default_hsn_sac", Type: doctype.Text, Importable: true, MaxLen: 8},
-			{Name: "default_tax_code_id", Label: "Default tax code", Column: "default_tax_code_id", Type: doctype.Link, Link: taxcode.DocType, Importable: true},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. TRAVEL", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1, Placeholder: "e.g. Travel"},
+			{Name: "default_hsn_sac", Label: "Default HSN/SAC", Column: "default_hsn_sac", Type: doctype.Text, Importable: true, MaxLen: 8, Placeholder: "e.g. 9964", Hint: "Filled in on new expense lines."},
+			{Name: "default_tax_code_id", Label: "Default tax code", Column: "default_tax_code_id", Type: doctype.Link, Link: taxcode.DocType, Importable: true, Hint: "Filled in on new expense lines."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, Filterable: true, ListPriority: 3},
 		},
 		SearchFields: []string{"code", "name"},
@@ -75,7 +75,7 @@ func Validate(in Input) (Input, error) {
 			fields = append(fields, ve.Fields...)
 		}
 	}
-	code, err := mstkit.NormalizeCode(in.Code)
+	code, err := mstkit.NormalizeCodeLike(in.Code, "TRAVEL")
 	add(err)
 	name, err := mstkit.NormalizeName(in.Name)
 	add(err)

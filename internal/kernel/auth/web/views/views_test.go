@@ -202,3 +202,71 @@ func TestViews_PasswordRulesDifferent(t *testing.T) {
 		t.Errorf("setup rules contain %q: %q", rule, body)
 	}
 }
+
+// M8: a session's card names the browser and system, never the raw user agent.
+func TestViews_SessionsDeviceName(t *testing.T) {
+	const (
+		webkit = "AppleWebKit/537.36 (KHTML, like Gecko)"
+		mac    = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+		win    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+		linux  = "Mozilla/5.0 (X11; Linux x86_64) "
+		phone  = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+		pad    = "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) "
+		droid  = "Mozilla/5.0 (Linux; Android 14; Pixel 8) "
+		chrome = webkit + " Chrome/130.0.0.0 Safari/537.36"
+	)
+	for ua, want := range map[string]string{
+		mac + chrome:   "Chrome on macOS",
+		win + chrome:   "Chrome on Windows",
+		linux + chrome: "Chrome on Linux",
+		droid + chrome: "Chrome on Android",
+		"Mozilla/5.0 (X11; CrOS x86_64) " + chrome:                                "Chrome on ChromeOS",
+		mac + webkit + " Version/17.0 Safari/605.1.15":                            "Safari on macOS",
+		phone + webkit + " Version/17.0 Mobile Safari/604.1":                      "Safari on iPhone",
+		pad + webkit + " Version/17.0 Mobile Safari/604.1":                        "Safari on iPad",
+		phone + webkit + " CriOS/130.0 Mobile Safari/604.1":                       "Chrome on iPhone",
+		phone + webkit + " FxiOS/130.0 Mobile Safari/604.1":                       "Firefox on iPhone",
+		win + chrome + " Edg/130.0.0.0":                                           "Edge on Windows",
+		mac + chrome + " OPR/115.0.0.0":                                           "Opera on macOS",
+		droid + webkit + " SamsungBrowser/25.0 Chrome/121.0 Mobile Safari/537.36": "Samsung Internet on Android",
+		"Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0":    "Firefox on Windows",
+		"Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101":                          "Linux",
+		"Firefox/131.0": "Firefox",
+		"curl/8.7.1":    "Unknown device",
+		"":              "Unknown device",
+	} {
+		body := render(t, views.Default{}.Sessions(authweb.SessionsPage{CSRF: "tok", Sessions: []auth.SessionInfo{{ID: 1, UserAgent: ua}}}))
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.TrimSpace(doc.Find(".card-title").Text()); got != want {
+			t.Errorf("%q: title = %q, want %q", ua, got, want)
+		}
+		if ua != "" && strings.Contains(body, ua) {
+			t.Errorf("%q: the page shows the raw user agent", ua)
+		}
+	}
+}
+
+// Only the session in use is marked, and it can't be ended from its own card.
+func TestViews_SessionsMarksCurrent(t *testing.T) {
+	body := render(t, views.Default{}.Sessions(authweb.SessionsPage{CSRF: "tok", Sessions: []auth.SessionInfo{
+		{ID: 1, UserAgent: "Chrome/130 Windows", Current: true},
+		{ID: 2, UserAgent: "Firefox/131 Linux"},
+	}}))
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cards := doc.Find(".card")
+	if got := strings.TrimSpace(cards.Eq(0).Find(".badge").Text()); got != "This session" {
+		t.Errorf("current card's mark = %q", got)
+	}
+	if n := cards.Eq(1).Find(".badge").Length(); n != 0 {
+		t.Errorf("the other card has %d marks", n)
+	}
+	if got := doc.Find("h1").Text(); !strings.Contains(got, "My sessions") {
+		t.Errorf("h1 = %q, want the link's words", got)
+	}
+}

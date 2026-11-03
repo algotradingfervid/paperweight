@@ -26,7 +26,7 @@ func Routes(svc *paymentterms.Service, env mstkit.Env) func(chi.Router) {
 		DocType: paymentterms.DocType,
 		Base:    "/m/payment-terms",
 		Copy: mstweb.Copy{
-			Plural: "Payment Terms", Noun: "payment terms", One: "payment term", New: "New payment term", Search: "Search payment terms", Empty: "No payment terms yet.",
+			Plural: "Payment Terms", Noun: "payment terms", One: "payment term", New: "New payment term", Search: "Search payment terms", Empty: "No payment terms yet.", Icon: "calendar-clock",
 			Saved: "Payment term saved.", Disabled: "Payment term disabled.", Enabled: "Payment term enabled.", Deleted: "Payment term deleted.",
 			Rows: "Payment portions", AddRow: "Add portion",
 		},
@@ -39,6 +39,10 @@ func Routes(svc *paymentterms.Service, env mstkit.Env) func(chi.Router) {
 		Ref:      ref,
 		// Terms need a row to total 100%, so the new form starts with one.
 		StartRows: 1,
+		Cards: []mstweb.FormCard{
+			{Title: "Term details", Icon: "calendar-clock", Description: "How the term appears in pickers and on orders.", Fields: []string{"code", "name"}},
+			{Title: "Payment portions", Icon: "percent", Description: "Each part of the amount and the days until it is due. They total 100%.", Rows: true},
+		},
 	}.Routes()
 }
 

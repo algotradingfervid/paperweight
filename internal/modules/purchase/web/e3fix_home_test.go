@@ -206,3 +206,26 @@ func TestPurchaseWeb_RoutesNeedListHidden(t *testing.T) {
 	}()
 	Routes(Deps{})
 }
+
+// CD-368 (3) ruling (R4 review): with the PO state hidden, an approved order
+// leaves Waiting for you: "Not sent to the vendor yet" would name its state.
+func TestPurchaseWeb_HomeToSendStateHidden(t *testing.T) {
+	env := p15eRuleEnv(t)
+	hideState := false
+	w := newE3Web(t, env, func(r *http.Request, d *doctype.DocType) func(string) bool {
+		return func(name string) bool { return hideState && d.Name == purchase.DocType && name == "state" }
+	})
+	approved := purchasetest.NewOrder(t, env, purchasetest.StopAtApproved())
+	href := docHref(purchase.DocType, approved.ID)
+	if got := e3RowText(w.get(t, env.Priya, homePath), "Waiting for you", href); !strings.Contains(got, "Not sent to the vendor yet") {
+		t.Fatalf("control: to-send row = %q", got)
+	}
+	hideState = true
+	page := w.get(t, env.Priya, homePath)
+	if got := e3RowText(page, "Waiting for you", href); got != "" {
+		t.Errorf("state hidden: to-send row = %q, want none", got)
+	}
+	if strings.Contains(page.text, "Not sent to the vendor yet") {
+		t.Error("state hidden: the home still says Not sent to the vendor yet")
+	}
+}

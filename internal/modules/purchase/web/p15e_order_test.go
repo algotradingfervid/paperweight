@@ -264,7 +264,7 @@ func TestPurchaseWeb_SendPage(t *testing.T) {
 		}
 	})
 	t.Run("mark, then undo", func(t *testing.T) {
-		wantFlash(t, "mark", send("25-10-2026", "whatsapp", "To Mr Rao", 0), poURL(po.ID), po.Number+" marked as sent.")
+		wantFlash(t, "mark", send("25-10-2026", "whatsapp", "To Mr Rao", 0), poURL(po.ID)+"?sent=1", po.Number+" marked as sent.")
 		page := w.get(t, env.Ravi, path)
 		if !hasBanner(page, "info", "Sent to vendor on 25-10-2026 by WhatsApp (Priya Shah)") {
 			t.Errorf("banners = %q, want the sent banner", banners(page))

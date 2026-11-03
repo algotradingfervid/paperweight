@@ -166,6 +166,9 @@ func homeProps(v homeView) layout.HomeProps {
 		hp.Waiting.Rows = append(hp.Waiting.Rows, homeRow(r, meta, hide))
 	}
 	for _, r := range v.toSend {
+		if hide(purchase.DocType, "state") {
+			break // Not sent to the vendor yet would name the state (CD-368 (3))
+		}
 		hp.Waiting.Rows = append(hp.Waiting.Rows, homeRow(r, metaNotSent, hide))
 	}
 	hp.Waiting.Rows = hp.Waiting.Rows[:min(len(hp.Waiting.Rows), homeWaitingSize)]
@@ -263,7 +266,8 @@ func (h *handlers) hidden(r *http.Request) func(dt, field string) bool {
 
 // quickActions are the home's quick actions p's rights allow (UI v2 §5.12):
 // New purchase order with create on Order, New purchase request with create
-// on Request, Pending items with read on Order.
+// on Request, Receive goods when Deps.ReceiveGoods allows it, Pending items
+// with read on Order.
 func (h *handlers) quickActions(ctx context.Context, p auth.Principal, readOrders bool) ([]components.QuickActionProps, error) {
 	var out []components.QuickActionProps
 	for _, a := range []struct {
@@ -279,6 +283,11 @@ func (h *handlers) quickActions(ctx context.Context, p auth.Principal, readOrder
 		}
 		if ok {
 			out = append(out, a.item)
+		}
+	}
+	if h.d.ReceiveGoods != nil {
+		if href, ok := h.d.ReceiveGoods(ctx, p); ok {
+			out = append(out, components.QuickActionProps{Icon: "truck", Label: layout.HomeReceiveGoods, Href: href})
 		}
 	}
 	if readOrders {

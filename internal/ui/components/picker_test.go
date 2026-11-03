@@ -95,8 +95,8 @@ func TestPicker_ChosenSummaryWithChange(t *testing.T) {
 	if !found {
 		t.Error(`no "Change" button`)
 	}
-	if doc.Find(`button.btn--secondary[type="button"][data-picker-change]`).Length() != 1 {
-		t.Error("Change is not a Secondary Button")
+	if doc.Find(`button.btn--ghost[type="button"][data-picker-change]`).Length() != 1 {
+		t.Error("Change is not a Ghost Button (UI v2 §5.8)")
 	}
 	if doc.Find(`button.btn--ghost[type="button"][data-picker-close]`).Length() != 1 {
 		t.Error("Close is not a Ghost Button")
@@ -244,7 +244,7 @@ func TestPickerResults_Max20AndEmpty(t *testing.T) {
 	for i := range 25 {
 		rows = append(rows, components.PickRow{ID: int64(i + 1), Code: "IT-" + strconv.Itoa(i), Name: "Item " + strconv.Itoa(i), Line: "kg"})
 	}
-	doc := uitest.Render(t, components.PickerResults("item-lb", rows, "it"))
+	doc := uitest.Render(t, components.PickerResults("item-lb", rows, "it", components.Noun{One: "item", Many: "items"}))
 	opts := doc.Find(`li[role="option"]`)
 	if opts.Length() != 20 {
 		t.Fatalf("want 20 options, got %d", opts.Length())
@@ -262,7 +262,7 @@ func TestPickerResults_Max20AndEmpty(t *testing.T) {
 		}
 	}
 
-	empty := uitest.Render(t, components.PickerResults("item-lb", nil, "steel"))
+	empty := uitest.Render(t, components.PickerResults("item-lb", nil, "steel", components.Noun{One: "item", Many: "items"}))
 	li := empty.Find(`li[role="option"]`)
 	if li.Length() != 1 {
 		t.Fatalf("zero rows: want one option, got %d", li.Length())
@@ -270,7 +270,7 @@ func TestPickerResults_Max20AndEmpty(t *testing.T) {
 	if got, _ := li.Attr("aria-disabled"); got != "true" {
 		t.Errorf("aria-disabled = %q", got)
 	}
-	if got := strings.TrimSpace(li.Text()); got != "No matches for “steel”." {
+	if got := strings.TrimSpace(li.Text()); got != `No item matches "steel"` {
 		t.Errorf("empty text = %q", got)
 	}
 }

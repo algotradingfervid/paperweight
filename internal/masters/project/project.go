@@ -61,10 +61,10 @@ func init() {
 		Table:       Kind.Table,
 		Importable:  true,
 		Fields: []doctype.Field{
-			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20},
-			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1},
+			{Name: "code", Label: "Code", Column: "code", Type: doctype.Text, Required: true, Importable: true, ListPriority: 4, MaxLen: 20, Placeholder: "e.g. PRJ-METRO", Tip: "A short name for pickers and lists. Only a Masters Manager can change it later."},
+			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, Required: true, Importable: true, ListPriority: 1, Placeholder: "e.g. Metro Line 3"},
 			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType, Required: true, Importable: true, ListPriority: 5},
-			{Name: "customer_id", Label: "Customer", Column: "customer_id", Type: doctype.Link, Link: party.DocType, LinkRole: "customer", Importable: true},
+			{Name: "customer_id", Label: "Customer", Column: "customer_id", Type: doctype.Link, Link: party.DocType, LinkRole: "customer", Importable: true, Hint: "Who the work is for."},
 			{Name: "start_date", Label: "Start date", Column: "start_date", Type: doctype.Date, Importable: true},
 			{Name: "end_date", Label: "End date", Column: "end_date", Type: doctype.Date, Importable: true},
 			{Name: "status", Label: "Status", Column: "status", Type: doctype.Select, Importable: true, Filterable: true, ListPriority: 3, Options: options},
@@ -128,7 +128,7 @@ func Validate(in Input) (Input, error) {
 			}
 		}
 	}
-	code, err := mstkit.NormalizeCode(in.Code)
+	code, err := mstkit.NormalizeCodeLike(in.Code, "PRJ-METRO")
 	add(err)
 	name, err := mstkit.NormalizeName(in.Name)
 	add(err)

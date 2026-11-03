@@ -28,7 +28,7 @@ const ContactDocType = "Contact"
 var ContactKind = mstkit.Kind{DocType: ContactDocType, Label: "Contact", Table: "contact"}
 
 const (
-	msgContactName   = "Contact name is required."                                                 // MST-062
+	msgContactName   = "First name is required."                                                   // MST-062
 	msgEmail         = "Enter a valid email address, e.g. accounts@shreesteel.test."               // MST-063
 	msgMobile        = "Enter a 10-digit Indian mobile number starting 6–9, optionally with +91."  // MST-064
 	msgOneEmail      = "Only one email can be primary."                                            // MST-065
@@ -58,12 +58,12 @@ func init() {
 			{Name: "party_id", Label: "Party", Column: "party_id", Type: doctype.Link, Link: party.DocType, Importable: true},
 			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType},
 			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, ReadOnly: true, ListPriority: 1}, // full name
-			{Name: "first_name", Label: "First name", Column: "first_name", Type: doctype.Text, Required: true, Importable: true},
+			{Name: "first_name", Label: "First name", Column: "first_name", Type: doctype.Text, Required: true, Importable: true, Placeholder: "e.g. Ramesh"},
 			{Name: "middle_name", Label: "Middle name", Column: "middle_name", Type: doctype.Text, Importable: true},
-			{Name: "last_name", Label: "Last name", Column: "last_name", Type: doctype.Text, Importable: true},
-			{Name: "email", Label: "Email", Type: doctype.Text, Importable: true, ImportOnly: true},
-			{Name: "mobile", Label: "Mobile", Type: doctype.Text, Importable: true, ImportOnly: true},
-			{Name: "is_primary", Label: "Primary", Column: "is_primary", Type: doctype.Check, Importable: true},
+			{Name: "last_name", Label: "Last name", Column: "last_name", Type: doctype.Text, Importable: true, Placeholder: "e.g. Shah"},
+			{Name: "email", Label: "Email", Type: doctype.Text, Importable: true, ImportOnly: true, Placeholder: "e.g. ramesh@shreesteel.example"},
+			{Name: "mobile", Label: "Mobile", Type: doctype.Text, Importable: true, ImportOnly: true, Placeholder: "e.g. 98200 12345"},
+			{Name: "is_primary", Label: "Primary", Column: "is_primary", Type: doctype.Check, Importable: true, Hint: "The first person to call at this party."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Filterable: true, ListPriority: 3},
 		},
 		SearchFields: []string{"name"},

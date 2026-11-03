@@ -27,12 +27,14 @@ import (
 func Routes(svc *employee.Service, env mstkit.Env, sm *scs.SessionManager) func(chi.Router) {
 	steps := mstweb.Steps(employee.DocType)
 	steps[0].Icon, steps[1].Icon = "id-card", "users" // details, reporting (UI v2 C4c)
+	steps[0].Intro = "Who this person is and when they joined. Nothing is saved until the last step."
+	steps[1].Intro = "Where they work and who they report to."
 	return mstweb.Screen[employee.Employee, employee.Input]{
 		DocType: employee.DocType,
 		Base:    "/m/employee",
 		Copy: mstweb.Copy{
 			Plural: "Employees", Noun: "employees", One: "employee", New: "New employee",
-			Search: "Search employees", Empty: "No employees yet.",
+			Search: "Search employees", Empty: "No employees yet.", Icon: "id-card",
 			Saved: "Employee saved.", Disabled: "Employee disabled.", Enabled: "Employee enabled.", Deleted: "Employee deleted.",
 		},
 		Svc:      svc,
@@ -46,6 +48,11 @@ func Routes(svc *employee.Service, env mstkit.Env, sm *scs.SessionManager) func(
 		Sections: steps,
 		Wizard:   mstweb.CreateWizard[employee.Input]{Sessions: sm, Steps: steps, ToInput: toInput, Validate: employee.Validate, Save: svc.Create},
 		Lookups:  map[string]mstweb.Lookup{"user_id": userLookup(env.Auth)},
+		Cards: []mstweb.FormCard{
+			{Title: "Who they are", Icon: "id-card", Description: "How the employee appears in pickers and on expense claims.", Fields: []string{"code", "name", "status"}},
+			{Title: "Dates", Icon: "calendar", Description: "When they joined and, if they have, left.", Fields: []string{"joining_date", "birth_date", "relieving_date"}},
+			{Title: "Reporting", Icon: "users", Description: "Who approves their expenses, and their sign-in.", Fields: []string{"branch_id", "manager_id", "user_id"}},
+		},
 	}.Routes()
 }
 

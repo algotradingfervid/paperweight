@@ -17,6 +17,10 @@ import (
 // billTitle is the Bill details card's title (spec §3.3).
 const billTitle = "Bill details"
 
+// billBarSelector is what a first save removes from the document page: the
+// action bar, and the Actions card when it holds nothing else.
+const billBarSelector = ".doc-actions .actionbar, .doc-actions:not(:has(.more-actions))"
+
 // saveBill is POST /modules/goodsreceipt/receipts/{id}/bill (plan G7 Do 4,
 // UX §5.7): the posted version (missing or not a number is AUTH's bad form,
 // CD-183) and the three fields, as typed, go to SaveBill. htmx gets the
@@ -69,5 +73,6 @@ func (h *handlers) saveBill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, _ := billViewOf(id, b, kept, false, kept == nil) // always a card: after a save or with kept
+	v.DropBar = kept == nil && version == 0
 	ui.Render(w, r, status, nil, billCard(v))
 }

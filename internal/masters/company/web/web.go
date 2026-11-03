@@ -13,6 +13,7 @@ import (
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
 	"github.com/vardhan/internaltools/internal/masters/company"
+	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/platform/db"
@@ -29,7 +30,7 @@ func Routes(svc *company.Service, env mstkit.Env) func(chi.Router) {
 		DocType: company.CompanyDocType,
 		Base:    "/m/company",
 		Copy: mstweb.Copy{
-			Plural: "Company", Noun: "companies", One: "company", Search: "Search companies", Empty: "No company yet.",
+			Plural: "Company", Noun: "companies", One: "company", Search: "Search companies", Empty: "No company yet.", Icon: "store",
 			Saved: "Company saved.",
 		},
 		Svc:      companyService{svc: svc},
@@ -42,12 +43,15 @@ func Routes(svc *company.Service, env mstkit.Env) func(chi.Router) {
 		Codes:    map[string]components.CodeKind{"pan": components.PAN},
 		NoNew:    true, NoDisable: true, NoDelete: true,
 		Extra: logoLink(env),
+		Cards: []mstweb.FormCard{
+			{Title: "Your company", Icon: "store", Description: "These details print on every purchase order.", Fields: []string{"name", "pan"}},
+		},
 	}.Routes()
 	branches := mstweb.Screen[company.Branch, company.BranchInput]{
 		DocType: company.DocType,
 		Base:    "/m/branch",
 		Copy: mstweb.Copy{
-			Plural: "Branches", Noun: "branches", One: "branch", New: "New branch", Search: "Search branches", Empty: "No branches yet.",
+			Plural: "Branches", Noun: "branches", One: "branch", New: "New branch", Search: "Search branches", Empty: "No branches yet.", Icon: "map-pin",
 			Saved: "Branch saved.", Disabled: "Branch disabled.", Enabled: "Branch enabled.", Deleted: "Branch deleted.",
 		},
 		Svc:     svc,
@@ -57,6 +61,12 @@ func Routes(svc *company.Service, env mstkit.Env) func(chi.Router) {
 		Head:    branchHead,
 		Ref:     branchRef,
 		Codes:   map[string]components.CodeKind{"gstin": components.GSTIN},
+		Selects: map[string][]components.Option{"state_code": gstinweb.IndianStateOptions()},
+		Fills:   map[string]string{"gstin": "state_code"},
+		Cards: []mstweb.FormCard{
+			{Title: "Branch details", Icon: "map-pin", Description: "Orders are billed to a branch.", Fields: []string{"code", "name", "is_head_office"}},
+			{Title: "GST", Icon: "percent", Description: "Decides whether orders show CGST and SGST or IGST.", Fields: []string{"gstin", "state_code"}},
+		},
 	}.Routes()
 	return func(r chi.Router) {
 		companies(r)

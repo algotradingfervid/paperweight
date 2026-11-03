@@ -629,7 +629,7 @@ func TestScreens_PartyWizardCheckSkipsBlankFields(t *testing.T) {
 		return b.Get(t, stepCheck)
 	}
 	full := filled(t, mumbaiRow, sunilRow)
-	webtest.WantText(t, full, "Line 2Andheri East")
+	webtest.WantText(t, full, "Address line 2Andheri East")
 	webtest.WantText(t, full, "Middle nameK")
 
 	blank := filled(t, row(mumbaiRow, "line2", ""), row(sunilRow, "middle_name", ""))

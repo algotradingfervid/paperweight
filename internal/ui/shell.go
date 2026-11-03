@@ -9,8 +9,10 @@ import (
 
 // Shell is what the app shell shows around every page. New lists what the
 // user may create, for the "Create new" sheet and /new (UI v2 §5.2, N2).
+// Greeting is the home pages' eyebrow (UI v2 §5.12 item 1), on the app's clock.
 type Shell struct {
 	AppName, User, CSRF, Path string
+	Greeting                  string
 	Nav, New                  []NavItem
 	InboxCount                int
 	SignedIn                  bool

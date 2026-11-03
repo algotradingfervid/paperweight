@@ -21,8 +21,15 @@ import (
 
 type handlers struct{ d Deps }
 
-// listRow is one series on the Numbering page.
-type listRow struct{ Href, Text string }
+// seriesWords is a template in words: "PO/{FY}/{#####}" is "PO / financial
+// year / 5-digit number". The number part is the template's last.
+func seriesWords(template string) string {
+	s := strings.NewReplacer("/", " / ", "{FY}", "financial year", "{YYYY}", "year", "{YY}", "year", "{MM}", "month").Replace(template)
+	if i := strings.IndexByte(s, '{'); i >= 0 {
+		s = s[:i] + strconv.Itoa(strings.Count(s[i:], "#")) + "-digit number"
+	}
+	return s
+}
 
 func (h *handlers) list(w http.ResponseWriter, r *http.Request) {
 	all, err := h.d.Admin.List(r.Context())
@@ -31,16 +38,26 @@ func (h *handlers) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	today := types.Today(h.d.Clock)
-	rows := make([]listRow, 0, len(all))
+	list := components.DataListProps{
+		Label: "Numbering series",
+		Columns: []components.Column{
+			{Key: "name", Label: "Document", Priority: components.PTitle},
+			{Key: "series", Label: "Series", Priority: components.PMeta},
+			{Key: "next", Label: "Next number", Priority: components.PMeta},
+		},
+		Empty: components.ObjectEmpty("hash", listEmpty, ""),
+	}
 	for _, s := range all {
 		next, err := h.next(r.Context(), s.DocType, today)
 		if err != nil {
 			web.ErrorFrom(w, r, err)
 			return
 		}
-		rows = append(rows, listRow{Href: editPath(s.DocType), Text: s.Label + " · " + s.Template + " · Next: " + next})
+		list.Rows = append(list.Rows, components.Row{Href: editPath(s.DocType), Values: map[string]string{
+			"name": s.Label, "series": seriesWords(s.Template), "next": next,
+		}})
 	}
-	ui.Render(w, r, http.StatusOK, listPage(rows), nil)
+	ui.Render(w, r, http.StatusOK, listPage(list), nil)
 }
 
 // next is the number the next document dated today gets, or naming's

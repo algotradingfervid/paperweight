@@ -18,6 +18,22 @@ func (Default) Setup(p authweb.SetupPage) templ.Component {
 	return setup(p)
 }
 
+// setupNameError is the Name field's error, when Error is about the name.
+func setupNameError(p authweb.SetupPage) string {
+	if p.NameError {
+		return p.Error
+	}
+	return ""
+}
+
+// setupErrorField is the field the summary links to.
+func setupErrorField(p authweb.SetupPage) string {
+	if p.NameError {
+		return components.FieldID("name")
+	}
+	return components.FieldID("email")
+}
+
 // setup is the first-administrator form; the password rules come before the
 // fields.
 func setup(p authweb.SetupPage) templ.Component {
@@ -77,7 +93,7 @@ func setup(p authweb.SetupPage) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "Name", Value: p.Name, Attrs: required}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.TextInput(components.FieldProps{ID: components.FieldID("name"), Name: "name", Label: "Name", Value: p.Name, Error: setupNameError(p), Attrs: required}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -101,7 +117,7 @@ func setup(p authweb.SetupPage) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = page(uilayout.PageOpts{Title: "Set up", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, components.FieldID("email"), p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = page(uilayout.PageOpts{Title: "Set up", Bare: true, Width: uilayout.Form}, p.CSRF, p.Error, setupErrorField(p), p.Warnings).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

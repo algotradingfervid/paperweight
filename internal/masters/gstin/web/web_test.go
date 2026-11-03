@@ -57,6 +57,13 @@ func TestParsers(t *testing.T) {
 		{"gstin other countries", "gstin", "96AABCS1429B1ZP", result{"96AABCS1429B1ZP", "Other Countries (96) · PAN AABCS1429B", false}},
 		{"gstin unknown state", "gstin", "99AABCS1429B1ZJ", result{"99AABCS1429B1ZJ", "PAN AABCS1429B", false}},
 		{"gstin neither", "gstin", "9917SGP29001OST", result{"9917SGP29001OST", "", false}},
+		// gstin-state echoes only a GSTIN that names a state (R8, a quick
+		// sheet's State hides on that echo).
+		{"gstin-state valid", "gstin-state", "27AAFCV2449G1Z7", result{"27AAFCV2449G1Z7", "Maharashtra (27) · PAN AAFCV2449G", false}},
+		{"gstin-state other countries", "gstin-state", "96AABCS1429B1ZP", result{"96AABCS1429B1ZP", "Other Countries (96) · PAN AABCS1429B", false}},
+		{"gstin-state unknown state", "gstin-state", "99AABCS1429B1ZJ", result{"99AABCS1429B1ZJ", "", false}},
+		{"gstin-state neither", "gstin-state", "9917SGP29001OST", result{"9917SGP29001OST", "", false}},
+		{"gstin-state bad check digit", "gstin-state", "27AABCS1429B1Z5", result{"27AABCS1429B1Z5", "GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes.", true}},
 		{"gstin bad check digit", "gstin", "27AABCS1429B1Z5", result{"27AABCS1429B1Z5", "GSTIN 27AABCS1429B1Z5 is not valid: the last character doesn't match. Check for typing mistakes.", true}},
 		{"gstin short", "gstin", "27aabcs1429b1z", result{"27aabcs1429b1z", "GSTIN 27AABCS1429B1Z must have 15 characters.", true}},
 

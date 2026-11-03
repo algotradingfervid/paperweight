@@ -12,6 +12,7 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
+	gstinweb "github.com/vardhan/internaltools/internal/masters/gstin/web"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/masters/site"
@@ -25,21 +26,24 @@ func Routes(svc *site.Service, env mstkit.Env) func(chi.Router) {
 		DocType: site.DocType,
 		Base:    "/m/site",
 		Copy: mstweb.Copy{
-			Plural: "Sites", Noun: "sites", One: "site", New: "New site", Search: "Search sites", Empty: "No sites yet.",
+			Plural: "Sites", Noun: "sites", One: "site", New: "New site", Search: "Search sites", Empty: "No sites yet.", Icon: "map",
 			Saved: "Site saved.", Disabled: "Site disabled.", Enabled: "Site enabled.", Deleted: "Site deleted.",
 		},
-		Svc:          svc,
-		Env:          env,
-		ToInput:      toInput,
-		Validate:     site.Validate,
-		Values:       values,
-		Head:         head,
-		Ref:          ref,
-		CanCreate:    svc.CheckUnrestricted,
-		OptionLabels: map[string]map[string]string{"type": {string(site.Warehouse): "Warehouse", string(site.SiteKind): "Site"}},
-		Selects:      map[string][]components.Option{"delivery_state_code": stateOptions()},
-		Extra:        d.card,
-		Mount:        d.routes,
+		Svc:       svc,
+		Env:       env,
+		ToInput:   toInput,
+		Validate:  site.Validate,
+		Values:    values,
+		Head:      head,
+		Ref:       ref,
+		CanCreate: svc.CheckUnrestricted,
+		Selects:   map[string][]components.Option{"delivery_state_code": gstinweb.StateOptions()},
+		Extra:     d.card,
+		Mount:     d.routes,
+		Cards: []mstweb.FormCard{
+			{Title: "Site details", Icon: "map", Description: "Where goods are delivered and kept.", Fields: []string{"code", "name", "type"}},
+			{Title: "Branch and project", Icon: "store", Description: "Who the site belongs to.", Fields: []string{"branch_id", "project_id"}},
+		},
 	}.Routes()
 }
 

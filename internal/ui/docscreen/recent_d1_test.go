@@ -22,6 +22,7 @@ import (
 	"github.com/vardhan/internaltools/internal/ui/components"
 	"github.com/vardhan/internaltools/internal/ui/docscreen"
 	"github.com/vardhan/internaltools/internal/ui/docscreen/docscreentest"
+	"github.com/vardhan/internaltools/internal/ui/uitest"
 )
 
 // Recent picks (UI v2 §5.8, A-17) on the real auth.Service over one
@@ -252,4 +253,62 @@ func TestRecentPicks_HeaderFieldsOnly(t *testing.T) {
 	doc := e.newPage(t)
 	wantRecent(t, doc, "site_id", "PUNE-WH PUNE-WH")
 	wantRecent(t, doc, "line_site_id")
+}
+
+// R8 (UI v2 §5.8): recent picks and a chosen link carry Deps.LinkLine's line,
+// for the row's own id; a link whose label is hidden asks for none, and a nil
+// hook shows none.
+func TestLinkLine_RecentAndChosen(t *testing.T) {
+	e := newRecentEnv(t)
+	e.order(t, rpSuresh, "PUNE-WH", "PRJ-METRO", "10-20 10")
+	metro := e.w.Projects["PRJ-METRO"]
+	asked := map[int64]bool{}
+	e.d.LinkLine = func(_ context.Context, _ *db.Tx, _ auth.Principal, target *doctype.DocType, id int64) (string, error) {
+		asked[id] = true
+		return target.Name + fmt.Sprint(" line ", id), nil
+	}
+	want := authtest.DTProject + fmt.Sprint(" line ", metro)
+
+	picker := e.newPage(t).Find(`.picker:has(input[type="hidden"][name="project_id"])`)
+	h, err := picker.Find("template[data-picker-recent]").Html()
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner, err := goquery.NewDocumentFromReader(strings.NewReader(h))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := inner.Find(`[role="option"] .picker__line`).Text(); got != want {
+		t.Errorf("recent line = %q, want %q", got, want)
+	}
+
+	f := doctype.Field{Name: "project_id", Label: "Project", Type: doctype.Link, Link: authtest.DTProject}
+	value := fmt.Sprint(metro)
+	stored := map[string]string{"project_id": value}
+	doc := uitest.Render(t, docscreen.FieldInput(f, "f-project_id", value, "", e.d.WithStored(stored)))
+	if got := doc.Find("[data-picker-line]").Text(); got != want {
+		t.Errorf("chosen line = %q, want %q", got, want)
+	}
+
+	hidden := e.d
+	hidden.LinkRead = func(context.Context, *db.Tx, auth.Principal, *doctype.DocType, int64) error { return auth.ErrForbidden }
+	clear(asked)
+	doc = uitest.Render(t, docscreen.FieldInput(f, "f-project_id", value, "", hidden))
+	if got := doc.Find("[data-picker-line]").Text(); got != "" || asked[metro] {
+		t.Errorf("hidden link: line %q, asked %v, want no line", got, asked)
+	}
+
+	// An id with no record shows no line.
+	clear(asked)
+	uitest.Render(t, docscreen.FieldInput(f, "f-project_id", "999999", "", e.d.WithStored(map[string]string{"project_id": "999999"})))
+	if len(asked) != 0 {
+		t.Errorf("no record: asked %v, want no line asked for", asked)
+	}
+
+	none := e.d
+	none.LinkLine = nil
+	doc = uitest.Render(t, docscreen.FieldInput(f, "f-project_id", value, "", none.WithStored(stored)))
+	if got := doc.Find("[data-picker-line]").Text(); got != "" {
+		t.Errorf("nil hook: line %q", got)
+	}
 }

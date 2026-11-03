@@ -24,6 +24,7 @@ const (
 	labelStillPending  = "Still pending"
 	pendingNothing     = "Nothing"
 	pendingOf          = "%d of %d lines"
+	labelAddBill       = "Add bill details"
 	noteCancelClosed   = "%s is closed. After this cancel, only an amendment of this receipt can receive against it again."
 	noteCancelBill     = "This receipt has bill details (%s). Correct your accounts too."
 	hintCancel         = "Say what was wrong. Stores can then amend the receipt to correct it."
@@ -46,7 +47,8 @@ func (m *module) check(c docscreen.Ctx) (docscreen.CheckExtra, error) {
 
 // page adds to the document page (UX doc §5.6): Site and Project from the
 // GRN's snapshot, G5's and G11's warnings and the e-way hint while it isn't
-// cancelled, then the Bill details card (S3b) and the Purchase order card.
+// cancelled, then the Bill details card (S3b) and the Purchase order card,
+// and the bar's Add bill details while the card still asks for them.
 // docscreen shows no Close action (CloseNone, CD-277 (1)).
 func (m *module) page(c docscreen.Ctx) (docscreen.PageExtra, error) {
 	rp, err := m.receiptPage(c)
@@ -60,12 +62,15 @@ func (m *module) page(c docscreen.Ctx) (docscreen.PageExtra, error) {
 			x.Notice = &components.BannerProps{Kind: components.Info, Message: rp.EWay}
 		}
 	}
-	bill, err := m.billPanel(c)
+	bill, add, err := m.billPanel(c)
 	if err != nil {
 		return docscreen.PageExtra{}, err
 	}
 	if bill != nil {
 		x.Cards = append(x.Cards, bill)
+	}
+	if add {
+		x.Primary = &components.ButtonProps{Label: labelAddBill, Href: "#bill"} // G5
 	}
 	if rp.PO != nil {
 		x.Cards = append(x.Cards, poCard(poRows(rp.PO)))

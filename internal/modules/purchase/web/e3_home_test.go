@@ -327,8 +327,12 @@ func TestPurchaseWeb_HomeNewUser(t *testing.T) {
 	purchasetest.NewOrder(t, env, purchasetest.StopAtDraft())
 	nu := p15eUser(t, env, "Neha Rao", map[string][]auth.Right{purchase.RequestDocType: {auth.RightRead, auth.RightCreate}})
 	page := w.get(t, nu, homePath)
-	if got := squash(page.doc.Find("main .empty-state").Text()); got != "You're all caught up." {
+	if got := squash(page.doc.Find("main .empty-state-text").Text()); got != "You're all caught up." {
 		t.Errorf("empty state = %q, want You're all caught up.", got)
+	}
+	// M11 (§5.12): the second line under it.
+	if got := squash(page.doc.Find("main .empty-state-line").Text()); got != "New documents and approvals will show here." {
+		t.Errorf("second line = %q", got)
 	}
 	if page.doc.Find("a.statcard").Length() != 0 || len(e3Rows(page, "Recent")) != 0 {
 		t.Errorf("new user: counts %d, Recent %q; want none", page.doc.Find("a.statcard").Length(), e3Rows(page, "Recent"))

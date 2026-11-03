@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 
 	"github.com/vardhan/internaltools/internal/kernel/audit"
 	"github.com/vardhan/internaltools/internal/kernel/auth/dbq"
@@ -27,6 +28,9 @@ func (a *Auth) CreateFirstAdmin(ctx context.Context, email, name, password strin
 		return 0, err
 	} else if done {
 		return 0, ErrUsersExist
+	}
+	if name = strings.TrimSpace(name); name == "" {
+		return 0, ErrNameRequired
 	}
 	email = NormalizeEmail(email)
 	if err := ValidateEmail(email); err != nil {

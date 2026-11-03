@@ -191,7 +191,7 @@ func TestPurchaseWeb_SendPost(t *testing.T) {
 
 	t.Run("mark, change and undo redirect to the PO", func(t *testing.T) {
 		a := w.post(t, env.Priya, sendPath(po.ID), sendForm("0", "31-10-2026", "whatsapp", "To Mr Shah"))
-		if a.status != http.StatusSeeOther || a.location != p11POPage(po.ID) {
+		if a.status != http.StatusSeeOther || a.location != p11POPage(po.ID)+"?sent=1" {
 			t.Errorf("mark = %d Location %q (%q), want 303 to %s", a.status, a.location, a.text, p11POPage(po.ID))
 		}
 		if on, via, v, ok := w.row(t, po.ID); !ok || on != "2026-10-31" || via != "whatsapp" || v != 1 {
@@ -202,7 +202,7 @@ func TestPurchaseWeb_SendPost(t *testing.T) {
 		}
 
 		a = w.post(t, env.Ravi, sendPath(po.ID), sendForm("1", "24-10-2026", "courier", ""))
-		if a.status != http.StatusSeeOther || a.location != p11POPage(po.ID) {
+		if a.status != http.StatusSeeOther || a.location != p11POPage(po.ID)+"?sent=1" {
 			t.Errorf("change = %d Location %q (%q), want 303 to %s", a.status, a.location, a.text, p11POPage(po.ID))
 		}
 		if on, via, v, ok := w.row(t, po.ID); !ok || on != "2026-10-24" || via != "courier" || v != 2 {

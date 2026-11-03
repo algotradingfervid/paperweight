@@ -8,11 +8,14 @@ package layout
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/vardhan/internaltools/internal/ui/components"
+import (
+	"github.com/vardhan/internaltools/internal/ui"
+	"github.com/vardhan/internaltools/internal/ui/components"
+)
 
-// ModuleHome is the page: the counts, then work (waiting, recent) beside the
-// quick actions and Side from 64rem. With nothing waiting, Waiting for you
-// shows HomeCaughtUp and the quick actions stay.
+// ModuleHome is the page: the greeting, the counts, then work (waiting,
+// recent) beside the quick actions and Side from 64rem. With nothing waiting,
+// Waiting for you shows HomeCaughtUp and the quick actions stay.
 func ModuleHome(p HomeProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -52,7 +55,7 @@ func ModuleHome(p HomeProps) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Page(PageOpts{Title: p.Title}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Page(PageOpts{Title: p.Title, Eyebrow: ui.ShellFrom(ctx).Greeting}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -91,7 +94,7 @@ func HomeBody(p HomeProps) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(homeCountsLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 18, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 21, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -137,7 +140,7 @@ func HomeBody(p HomeProps) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = components.EmptyState(HomeCaughtUp, nil).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.AllDone(HomeCaughtUp, HomeCaughtUpLine).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -277,7 +280,7 @@ func homeSection(title string, all *components.Link) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 65, Col: 14}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 68, Col: 14}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -295,7 +298,7 @@ func homeSection(title string, all *components.Link) templ.Component {
 			var templ_7745c5c3_Var11 templ.SafeURL
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(all.Href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 67, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 70, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -308,7 +311,7 @@ func homeSection(title string, all *components.Link) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(all.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 67, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layout/modulehome.templ`, Line: 70, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
