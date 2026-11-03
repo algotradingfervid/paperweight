@@ -23,6 +23,7 @@ func ClaimModule(d Deps) docscreen.Module {
 		CardsOnly: true,
 		// Check card tiles (UI v2 C4c).
 		StepIcons: map[string]string{"details": "receipt-indian-rupee"},
+		KeyFacts:  claimKeyFacts, // UI v2 §5.13 item 3
 		// The line under the stepper on each step (UI v2 C2).
 		StepIntros: map[string]string{
 			"details": "What the spending was for, the claim date and any advance to settle.",
@@ -46,5 +47,10 @@ func AdvanceModule(d Deps) docscreen.Module {
 		CardsOnly: true,
 		// Check card tiles (UI v2 C4c).
 		StepIcons: map[string]string{"details": "hand-coins"},
+		KeyFacts:  advanceKeyFacts, // UI v2 §5.13 item 3
+		Steps:     advanceSteps(),  // R12
+		Line:      advanceLine(),   // R12
+		// The line under the stepper (UI v2 §5.6).
+		StepIntros: map[string]string{"details": introAdvance},
 	}
 }

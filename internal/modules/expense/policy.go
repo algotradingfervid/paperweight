@@ -2,12 +2,14 @@ package expense
 
 import "github.com/vardhan/internaltools/internal/kernel/files"
 
-// ClaimPolicy is the attachment policy of expense.Claim: the default types,
-// with room for a receipt per line (spec §3.3). internal/app passes it to
-// files.New.
+// ClaimPolicy is the attachment policy of expense.Claim: the photo and PDF
+// types the receipt hint promises (UX §5.5), with room for a receipt per
+// line (spec §3.3). internal/app passes it to files.New.
 var ClaimPolicy = func() files.Policy {
 	p := files.DefaultPolicy
 	p.MaxCount = 100
+	p.Exts = []string{".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+	p.TypeMessage = msgReceiptType
 	return p
 }()
 

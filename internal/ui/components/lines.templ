@@ -170,18 +170,18 @@ templ LineGrid(rows []LineGridRow, total string) {
 					@LineGridRowForm(r)
 					<div class="linegrid-actions">
 						if r.RemoveURL != "" {
-							@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", r.No), Href: r.RemoveURL, Variant: Ghost})
+							@Button(removeButton(r.No, r.RemoveURL))
 						}
 						if r.MoveUpURL != "" {
 							@Form(FormProps{Action: r.MoveUpURL}) {
 								@versionInput(r.Version, moveVersionID(r.No, "up"))
-								@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", r.No), Icon: "arrow-up", Variant: Ghost})
+								@Button(moveButton("Move up", "arrow-up", r.No))
 							}
 						}
 						if r.MoveDownURL != "" {
 							@Form(FormProps{Action: r.MoveDownURL}) {
 								@versionInput(r.Version, moveVersionID(r.No, "down"))
-								@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", r.No), Icon: "arrow-down", Variant: Ghost})
+								@Button(moveButton("Move down", "arrow-down", r.No))
 							}
 						}
 						if r.Note != "" {
@@ -269,22 +269,26 @@ type lineActionsProps struct {
 templ lineActions(class string, a lineActionsProps) {
 	<div class={ class }>
 		if a.ChangeURL != "" {
-			@Button(ButtonProps{Label: "Change", AriaLabel: lineAria("Change", a.No), Href: a.ChangeURL, Variant: Ghost})
+			@Button(ButtonProps{Label: "Change", AriaLabel: lineAria("Change", a.No), Href: a.ChangeURL, Icon: "pencil", Variant: Ghost})
 		}
 		if a.RemoveURL != "" {
-			@Button(ButtonProps{Label: "Remove", AriaLabel: lineAria("Remove", a.No), Href: a.RemoveURL, Variant: Ghost})
+			@Button(removeButton(a.No, a.RemoveURL))
 		}
-		if a.MoveUpURL != "" {
-			@Form(FormProps{Action: a.MoveUpURL}) {
-				@versionInput(a.Version, "")
-				@Button(ButtonProps{Label: "Move up", AriaLabel: lineAria("Move up", a.No), Icon: "arrow-up", Variant: Ghost})
-			}
-		}
-		if a.MoveDownURL != "" {
-			@Form(FormProps{Action: a.MoveDownURL}) {
-				@versionInput(a.Version, "")
-				@Button(ButtonProps{Label: "Move down", AriaLabel: lineAria("Move down", a.No), Icon: "arrow-down", Variant: Ghost})
-			}
+		if a.MoveUpURL != "" || a.MoveDownURL != "" {
+			<div class="lines-moves">
+				if a.MoveUpURL != "" {
+					@Form(FormProps{Action: a.MoveUpURL}) {
+						@versionInput(a.Version, "")
+						@Button(moveButton("Move up", "arrow-up", a.No))
+					}
+				}
+				if a.MoveDownURL != "" {
+					@Form(FormProps{Action: a.MoveDownURL}) {
+						@versionInput(a.Version, "")
+						@Button(moveButton("Move down", "arrow-down", a.No))
+					}
+				}
+			</div>
 		}
 	</div>
 }

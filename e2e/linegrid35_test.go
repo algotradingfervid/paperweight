@@ -77,7 +77,13 @@ const lineFitJS = `(() => {
     if (el.tagName !== "INPUT") wraps(el, "amount", "gridWraps");
   }
   for (const el of document.querySelectorAll(".lines-amount")) if (el.checkVisibility()) wraps(el, "line card amount", "cardAmounts");
-  for (const el of document.querySelectorAll(".linegrid-actions .btn")) if (el.checkVisibility()) wraps(el, "action", "actions");
+  // Every action counts; the move buttons are icon-only (§5.11), so only a
+  // labelled one has a word that could wrap.
+  for (const el of document.querySelectorAll(".linegrid-actions .btn")) {
+    if (!el.checkVisibility()) continue;
+    n.actions++;
+    if (oneLine(el) === false) out.push("action wraps: " + name(el) + " " + JSON.stringify(el.textContent.trim()));
+  }
   // The head and each row fill the grid's columns once, and each head label
   // starts where its column's cells do, in every row.
   for (const head of document.querySelectorAll(".linegrid-head")) {

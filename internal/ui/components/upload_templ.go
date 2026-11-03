@@ -31,7 +31,7 @@ type UploadProps struct {
 	Files                          []Attachment
 	AlsoDisable                    string // more elements to disable while uploading (UX-E5)
 	CardNamed                      bool   // the card around it says Label and Hint: both for screen readers only (UI v2 §5.9)
-	Done                           string // said in the status line after a successful upload; needs a Target outside the upload, which a swap would replace
+	Done                           string // for screen readers only, in the status line after a successful upload (the file shown below says it on screen, CD-383); needs a Target outside the upload, which a swap would replace
 }
 
 // UploadInputID is the id of the Choose file input of the FileUpload with id
