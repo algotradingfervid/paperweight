@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	msgCodeRequired = "Code is required. Enter a short code such as SHREE." // MST-001
+	msgCodeRequired = "Code is required. Enter a short code such as %s." // MST-001, each master's own example
 	msgCodeUsedItem = "Code MS-ANGLE-50 is already used by Item MS Angle 50x50x5. Choose another code."
 	orderQty        = types.Qty(1200_000) // 1,200.000 KGS
 	orderRate       = types.Rate(62_5000)
@@ -154,42 +154,43 @@ func wantRefused(t *testing.T, err error, msg string) {
 func TestMaster_CodeRequired(t *testing.T) {
 	const name, pan = "Shree Steel Traders", "AAFCV2449G"
 	for _, c := range []struct {
-		master   string
-		validate func() error
+		master, example string
+		validate        func() error
 	}{
-		{"Party", func() error { _, err := party.Validate(party.Input{Name: name, IsVendor: true}); return err }},
-		{"Item", func() error {
+		{"Party", "SHREE", func() error { _, err := party.Validate(party.Input{Name: name, IsVendor: true}); return err }},
+		{"Item", "MS-ANGLE-50", func() error {
 			_, err := item.Validate(item.Input{Name: name, Type: item.TypeGoods, HSNSAC: "7216", StockUoMID: 1})
 			return err
 		}},
-		{"UoM", func() error { _, err := uom.Validate(uom.Input{Name: name, UQC: "NOS"}); return err }},
-		{"Tax Code", func() error {
+		{"UoM", "KGS", func() error { _, err := uom.Validate(uom.Input{Name: name, UQC: "NOS"}); return err }},
+		{"Tax Code", "GST18", func() error {
 			_, err := taxcode.Validate(taxcode.Input{Name: name, Treatment: taxcode.Taxable, Rate: gst12})
 			return err
 		}},
-		{"Project", func() error { _, err := project.Validate(project.Input{Name: name, BranchID: 1}); return err }},
-		{"Site", func() error {
+		{"Project", "PRJ-METRO", func() error { _, err := project.Validate(project.Input{Name: name, BranchID: 1}); return err }},
+		{"Site", "PUNE-WH", func() error {
 			_, err := site.Validate(site.Input{Name: name, BranchID: 1, Type: site.Warehouse})
 			return err
 		}},
-		{"Employee", func() error {
+		{"Employee", "EMP-007", func() error {
 			_, err := employee.Validate(employee.Input{Name: name, BranchID: 1, Joining: orderDate, Status: employee.Active})
 			return err
 		}},
-		{"Expense Type", func() error { _, err := expensetype.Validate(expensetype.Input{Name: name}); return err }},
-		{"Payment Terms", func() error {
+		{"Expense Type", "TRAVEL", func() error { _, err := expensetype.Validate(expensetype.Input{Name: name}); return err }},
+		{"Payment Terms", "NET30", func() error {
 			_, err := paymentterms.Validate(paymentterms.Input{Name: name, Rows: []paymentterms.Row{{Portion: 100_000, Days: 30}}})
 			return err
 		}},
-		{"Branch", func() error {
+		{"Branch", "PUNE", func() error {
 			_, err := company.ValidateBranch(company.BranchInput{Name: name, StateCode: "27"}, pan)
 			return err
 		}},
 	} {
 		t.Run(c.master, func(t *testing.T) {
 			err := c.validate()
-			if !hasFieldError(err, doctype.FieldError{Field: "code", Message: msgCodeRequired}) {
-				t.Errorf("Validate(blank code) = %v; want code error %q", err, msgCodeRequired)
+			want := fmt.Sprintf(msgCodeRequired, c.example)
+			if !hasFieldError(err, doctype.FieldError{Field: "code", Message: want}) {
+				t.Errorf("Validate(blank code) = %v; want code error %q", err, want)
 			}
 		})
 	}

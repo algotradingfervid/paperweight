@@ -67,8 +67,8 @@ templ recordPageCancelTo(v recordView, cancel string) {
 			}
 		} else if len(v.Cards) > 0 {
 			for _, c := range v.Cards {
-				@components.Card(c.Title, c.Change) {
-					@components.SummaryList(c.Pairs)
+				@components.CardWith(components.CardProps{Title: c.Title, Icon: c.Icon, Change: c.Change}) {
+					@cardPairs(c)
 				}
 			}
 		} else if v.CanWrite {
@@ -80,7 +80,7 @@ templ recordPageCancelTo(v recordView, cancel string) {
 				for _, in := range grouped(v.Inputs) {
 					@in
 				}
-				@formRows(v.Rows)
+				@formRows(v.Rows, v.RowsCard)
 				@components.ActionBar(components.ActionBarProps{
 					Primary: &components.ButtonProps{Label: "Save", Variant: components.Primary, Busy: "Saving…"},
 				})
@@ -98,10 +98,43 @@ templ recordPageCancelTo(v recordView, cancel string) {
 	}
 }
 
-// formRows is the rows editor inside the form, for a master with rows.
-templ formRows(rows *components.RowsProps) {
-	if rows != nil {
+// formRows is the rows editor inside the form, for a master with rows, in
+// card when it has one.
+templ formRows(rows *components.RowsProps, card *FormCard) {
+	if rows != nil && card != nil {
+		@cardOf(*card) {
+			@components.RowsEditor(*rows)
+		}
+	} else if rows != nil {
 		@components.RowsEditor(*rows)
+	}
+}
+
+// cardOf is c around its children.
+templ cardOf(c FormCard) {
+	@components.CardWith(components.CardProps{Title: c.Title, Icon: c.Icon, Description: c.Description}) {
+		{ children... }
+	}
+}
+
+// formCardInputs is c around inputs.
+templ formCardInputs(c FormCard, inputs []templ.Component) {
+	@cardOf(c) {
+		for _, in := range inputs {
+			@in
+		}
+	}
+}
+
+// cardPairs is a summary card's values, or Not set for a section left empty.
+templ cardPairs(c sectionCard) {
+	if len(c.Pairs) == 0 && len(c.Rows) == 0 {
+		<p>Not set</p>
+	} else if len(c.Pairs) > 0 {
+		@components.SummaryList(c.Pairs)
+	}
+	for _, row := range c.Rows {
+		@components.SummaryList(row)
 	}
 }
 

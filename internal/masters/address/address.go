@@ -35,7 +35,7 @@ const (
 	msgLine1    = "Address line 1 is required."
 	msgCity     = "City is required."
 	msgState    = "State is required for an Indian address."
-	msgType     = "Tick Billing, Shipping or both."
+	msgType     = "Turn on Billing, Shipping or both."
 	msgOverseas = "Addresses outside India must have GST category Overseas."
 	msgMoved    = "The owner of an address can't be changed."
 	// CD-170.
@@ -58,18 +58,18 @@ func init() {
 			{Name: "party_id", Label: "Party", Column: "party_id", Type: doctype.Link, Link: party.DocType, Importable: true},
 			{Name: "branch_id", Label: "Branch", Column: "branch_id", Type: doctype.Link, Link: company.DocType},
 			{Name: "name", Label: "Name", Column: "name", Type: doctype.Text, ReadOnly: true, ListPriority: 1}, // title, else city (CD-79)
-			{Name: "title", Label: "Title", Column: "title", Type: doctype.Text, Importable: true},
-			{Name: "line1", Label: "Line 1", Column: "line1", Type: doctype.Text, Required: true, Importable: true},
-			{Name: "line2", Label: "Line 2", Column: "line2", Type: doctype.Text, Importable: true},
-			{Name: "city", Label: "City", Column: "city", Type: doctype.Text, Required: true, Importable: true, ListPriority: 5},
-			{Name: "state_code", Label: "State", Column: "state_code", Type: doctype.Text, Importable: true},
-			{Name: "country", Label: "Country", Column: "country", Type: doctype.Text, Importable: true},
-			{Name: "pincode", Label: "Pincode", Column: "pincode", Type: doctype.Text, Importable: true},
-			{Name: "gstin", Label: "GSTIN", Column: "gstin", Type: doctype.Text, Importable: true, MaxLen: 15},
-			{Name: "is_billing", Label: "Billing", Column: "is_billing", Type: doctype.Check, Importable: true},
-			{Name: "is_shipping", Label: "Shipping", Column: "is_shipping", Type: doctype.Check, Importable: true},
-			{Name: "is_primary_billing", Label: "Primary billing", Column: "is_primary_billing", Type: doctype.Check},
-			{Name: "is_primary_shipping", Label: "Primary shipping", Column: "is_primary_shipping", Type: doctype.Check},
+			{Name: "title", Label: "Title", Column: "title", Type: doctype.Text, Importable: true, Placeholder: "e.g. Mumbai office"},
+			{Name: "line1", Label: "Line 1", Column: "line1", Type: doctype.Text, Required: true, Importable: true, Placeholder: "e.g. 12 MG Road"},
+			{Name: "line2", Label: "Line 2", Column: "line2", Type: doctype.Text, Importable: true, Placeholder: "e.g. Near Metro Station"},
+			{Name: "city", Label: "City", Column: "city", Type: doctype.Text, Required: true, Importable: true, ListPriority: 5, Placeholder: "e.g. Mumbai"},
+			{Name: "state_code", Label: "State", Column: "state_code", Type: doctype.Text, Importable: true, Hint: "Required for an Indian address. A GSTIN gives it when left blank."},
+			{Name: "country", Label: "Country", Column: "country", Type: doctype.Text, Importable: true, Placeholder: "e.g. India"},
+			{Name: "pincode", Label: "Pincode", Column: "pincode", Type: doctype.Text, Importable: true, Placeholder: "e.g. 400001"},
+			{Name: "gstin", Label: "GSTIN", Column: "gstin", Type: doctype.Text, Importable: true, MaxLen: 15, Placeholder: "e.g. 27AABCS1429B1ZU"},
+			{Name: "is_billing", Label: "Billing", Column: "is_billing", Type: doctype.Check, Importable: true, Hint: "Orders can bill to this address."},
+			{Name: "is_shipping", Label: "Shipping", Column: "is_shipping", Type: doctype.Check, Importable: true, Hint: "Goods can be delivered to this address."},
+			{Name: "is_primary_billing", Label: "Primary billing", Column: "is_primary_billing", Type: doctype.Check, Hint: "Orders use this billing address unless you pick another."},
+			{Name: "is_primary_shipping", Label: "Primary shipping", Column: "is_primary_shipping", Type: doctype.Check, Hint: "Orders use this delivery address unless you pick another."},
 			{Name: "disabled", Label: "Disabled", Column: "disabled", Type: doctype.Check, Importable: true, Filterable: true, ListPriority: 3},
 		},
 		SearchFields: []string{"title", "city"},
@@ -494,10 +494,10 @@ func (s *Service) SetPrimaryTx(ctx context.Context, tx *db.Tx, p auth.Principal,
 		es.Add("disabled", party.MsgEnableFirst)
 		return es.Err()
 	case billing && !a.IsBilling:
-		es.Add("is_billing", "Tick Billing on this address before making it the primary billing address.")
+		es.Add("is_billing", "Turn on Billing on this address before making it the primary billing address.")
 		return es.Err()
 	case !billing && !a.IsShipping:
-		es.Add("is_shipping", "Tick Shipping on this address before making it the primary shipping address.")
+		es.Add("is_shipping", "Turn on Shipping on this address before making it the primary shipping address.")
 		return es.Err()
 	case billing && a.PrimaryBilling, !billing && a.PrimaryShipping:
 		return nil

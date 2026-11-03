@@ -16,7 +16,7 @@ import (
 // Messages copied verbatim from 06-masters.md MST-062, MST-063, MST-064 and
 // MST-051. Unit tests keep 06's literal values (M7).
 const (
-	contactNameMsg    = "Contact name is required."
+	contactNameMsg    = "First name is required."
 	contactEmailMsg   = "Enter a valid email address, e.g. accounts@shreesteel.test."
 	contactMobileMsg  = "Enter a 10-digit Indian mobile number starting 6–9, optionally with +91."
 	contactBelongsMsg = "That contact belongs to another party. Pick one of this party's contacts."

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/a-h/templ"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/vardhan/internaltools/internal/kernel/auth"
 	"github.com/vardhan/internaltools/internal/kernel/doctype"
-	"github.com/vardhan/internaltools/internal/masters/gstin"
 	"github.com/vardhan/internaltools/internal/masters/mstkit"
 	mstweb "github.com/vardhan/internaltools/internal/masters/mstkit/web"
 	"github.com/vardhan/internaltools/internal/masters/site"
@@ -22,22 +22,22 @@ import (
 // The delivery form's fields (M0-58, CD-337 (1)), named as the service's
 // field errors.
 var deliveryFields = []doctype.Field{
-	{Name: "delivery_line1", Label: "Address line 1", Type: doctype.Text, Hint: "Leave every field blank to remove the address and contact."},
+	{Name: "delivery_line1", Label: "Address line 1", Type: doctype.Text, Placeholder: "e.g. Plot 14, MIDC Bhosari", Hint: "Leave every field blank to remove the address and contact."},
 	{Name: "delivery_line2", Label: "Address line 2", Type: doctype.Text},
-	{Name: "delivery_city", Label: "City", Type: doctype.Text},
+	{Name: "delivery_city", Label: "City", Type: doctype.Text, Placeholder: "e.g. Pune"},
 	{Name: "delivery_state_code", Label: "State", Type: doctype.Text, Hint: "The branch's state."},
-	{Name: "delivery_pincode", Label: "Pincode", Type: doctype.Text},
-	{Name: "contact_name", Label: "Contact name", Type: doctype.Text},
-	{Name: "contact_mobile", Label: "Contact mobile", Type: doctype.Text},
+	{Name: "delivery_pincode", Label: "Pincode", Type: doctype.Text, Placeholder: "e.g. 411026"},
+	{Name: "contact_name", Label: "Contact name", Type: doctype.Text, Placeholder: "e.g. Suresh Patil"},
+	{Name: "contact_mobile", Label: "Contact mobile", Type: doctype.Text, Placeholder: "e.g. 98200 12345"},
 }
 
-// stateOptions is the delivery state select: GST states by name.
-func stateOptions() []components.Option {
-	opts := []components.Option{{Label: "Choose a state"}}
-	for _, s := range gstin.States() {
-		opts = append(opts, components.Option{Value: s.Code, Label: s.Name + " (" + s.Code + ")"})
-	}
-	return opts
+// deliveryCards is the delivery form's sections, by field name; routes checks
+// them against deliveryFields.
+var deliveryCards = []mstweb.FormCard{
+	{Title: "Where to deliver", Icon: "map-pin", Description: "As it should print on orders for this site.", Fields: []string{
+		"delivery_line1", "delivery_line2", "delivery_city", "delivery_state_code", "delivery_pincode",
+	}},
+	{Title: "Who receives it", Icon: "contact", Description: "The person the driver calls.", Fields: []string{"contact_name", "contact_mobile"}},
 }
 
 func recordPath(id int64) string { return "/m/site/" + strconv.FormatInt(id, 10) }
@@ -75,6 +75,11 @@ func (d delivery) card(s site.Site) templ.Component {
 
 // routes mounts the delivery form at /m/site/{id}/delivery.
 func (d delivery) routes(pages mstweb.Pages) func(chi.Router) {
+	names := make([]string, len(deliveryFields))
+	for i, fd := range deliveryFields {
+		names[i] = fd.Name
+	}
+	mstweb.CheckCards("site delivery", deliveryCards, names)
 	return func(r chi.Router) {
 		r.Get("/m/site/{id:[1-9][0-9]*}/delivery", pages.Handle(d.page(pages)))
 		r.Post("/m/site/{id:[1-9][0-9]*}/delivery", pages.Handle(d.save(pages)))
@@ -104,9 +109,11 @@ func (d delivery) show(w http.ResponseWriter, r *http.Request, pages mstweb.Page
 		Back: components.Link{Label: s.Code + " " + s.Name, Href: recordPath(s.ID)},
 	}
 	for _, fd := range deliveryFields {
-		sub.Inputs = append(sub.Inputs, pages.Input(fd, fd.Name, f))
 		sub.Required = sub.Required || fd.Required
 	}
+	sub.Inputs = mstweb.Cards(deliveryCards, func(name string) templ.Component {
+		return pages.Input(deliveryFields[slices.IndexFunc(deliveryFields, func(fd doctype.Field) bool { return fd.Name == name })], name, f)
+	})
 	mstweb.RenderSubForm(w, r, status, sub)
 	return nil
 }
